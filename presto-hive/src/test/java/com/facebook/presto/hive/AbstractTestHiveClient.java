@@ -356,6 +356,7 @@ public abstract class AbstractTestHiveClient
                 true,
                 true,
                 true,
+                true,
                 new TypeRegistry());
         splitManager = new HiveSplitManager(
                 connectorId,
