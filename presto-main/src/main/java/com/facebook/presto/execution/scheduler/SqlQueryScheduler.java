@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.SetThreadName;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -53,6 +54,8 @@ import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
 import static com.facebook.presto.execution.StageState.FAILED;
 import static com.facebook.presto.execution.StageState.FINISHED;
+import static com.facebook.presto.execution.StageState.RUNNING;
+import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -279,6 +282,7 @@ public class SqlQueryScheduler
     private void schedule()
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
+            Set<StageId> completedStages = new HashSet<>();
             ExecutionSchedule executionSchedule = executionPolicy.createExecutionSchedule(stages.values());
             while (!executionSchedule.isFinished()) {
                 List<CompletableFuture<?>> blockedStages = new ArrayList<>();
@@ -298,6 +302,15 @@ public class SqlQueryScheduler
                     }
                     stageLinkages.get(stage.getStageId())
                             .processScheduleResults(stage.getState(), result.getNewTasks());
+                }
+
+                // make sure to update stage linkage at least once per loop to catch async state changes (e.g., partial cancel)
+                for (SqlStageExecution stage : stages.values()) {
+                    if (!completedStages.contains(stage.getStageId()) && stage.getState().isDone()) {
+                        stageLinkages.get(stage.getStageId())
+                                .processScheduleResults(stage.getState(), ImmutableSet.of());
+                        completedStages.add(stage.getStageId());
+                    }
                 }
 
                 // wait for a state change and then schedule again
