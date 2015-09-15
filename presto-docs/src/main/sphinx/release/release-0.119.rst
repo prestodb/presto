@@ -30,6 +30,7 @@ Hive Changes
 ------------
 
 * Add ``ALTER TABLE ADD COLUMN``
+* Add ``ALTER TABLE RENAME COLUMN``
 * Automatically configure the S3 region when running in EC2.
 * Allow configuring multiple Hive metastores for high availability.
 
