@@ -68,6 +68,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSourceProvider
@@ -331,10 +332,10 @@ public class InformationSchemaPageSourceProvider
             return Optional.empty();
         }
         if (Slice.class.isAssignableFrom(value.getType())) {
-            return Optional.ofNullable(((Slice) value.getValue()).toStringUtf8());
+            return Optional.of((((Slice) value.getValue()).toStringUtf8()).toLowerCase(ENGLISH));
         }
         if (String.class.isAssignableFrom(value.getType())) {
-            return Optional.ofNullable((String) value.getValue());
+            return Optional.of(((String) value.getValue()).toLowerCase(ENGLISH));
         }
         return Optional.empty();
     }
