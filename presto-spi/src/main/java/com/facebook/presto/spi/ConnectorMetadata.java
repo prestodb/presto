@@ -21,7 +21,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 
 public interface ConnectorMetadata
 {
@@ -71,12 +74,18 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if the table handle is no longer valid
      */
-    ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle);
+    default ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return null;
+    }
 
     /**
      * Returns true if this catalog supports creation of sampled tables
      */
-    boolean canCreateSampledTables(ConnectorSession session);
+    default boolean canCreateSampledTables(ConnectorSession session)
+    {
+        return false;
+    }
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
@@ -100,19 +109,28 @@ public interface ConnectorMetadata
     /**
      * Creates a table using the specified table metadata.
      */
-    void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
+    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
+    }
 
     /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
-    void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle);
+    default void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+    }
 
     /**
      * Rename the specified table
      */
-    void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName);
+    default void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+    }
 
     /**
      * Rename the specified column
@@ -125,36 +143,44 @@ public interface ConnectorMetadata
     /**
      * Begin the atomic creation of a table with data.
      */
-    ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
+    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
+    }
 
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments);
+    default void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new PrestoException(INTERNAL_ERROR, "ConnectorMetadata beginCreateTable() is implemented without commitCreateTable()");
+    }
 
     /**
      * Rollback a table creation
      */
-    default void rollbackCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
-    {
-    }
+    default void rollbackCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle) {}
 
     /**
      * Begin insert query
      */
-    ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle);
+    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
+    }
 
     /**
      * Commit insert query
      */
-    void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments);
+    default void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    {
+        throw new PrestoException(INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without commitInsert()");
+    }
 
     /**
      * Rollback insert query
      */
-    default void rollbackInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle)
-    {
-    }
+    default void rollbackInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle) {}
 
     /**
      * Get the column handle that will generate row IDs for the delete operation.
@@ -192,20 +218,32 @@ public interface ConnectorMetadata
     /**
      * Create the specified view. The data for the view is opaque to the connector.
      */
-    void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace);
+    default void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
+    }
 
     /**
      * Drop the specified view.
      */
-    void dropView(ConnectorSession session, SchemaTableName viewName);
+    default void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
+    }
 
     /**
      * List view names, possibly filtered by schema. An empty list is returned if none match.
      */
-    List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull);
+    default List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    {
+        return emptyList();
+    }
 
     /**
      * Gets the view data for views that match the specified table prefix.
      */
-    Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix);
+    default Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return emptyMap();
+    }
 }

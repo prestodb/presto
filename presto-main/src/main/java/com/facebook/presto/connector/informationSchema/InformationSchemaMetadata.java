@@ -15,10 +15,10 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +43,7 @@ import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaMetadata
-        extends ReadOnlyConnectorMetadata
+        implements ConnectorMetadata
 {
     public static final String INFORMATION_SCHEMA = "information_schema";
 
@@ -147,12 +147,6 @@ public class InformationSchemaMetadata
         }
 
         return ImmutableList.copyOf(filter(TABLES.keySet(), compose(equalTo(schemaNameOrNull), SchemaTableName::getSchemaName)));
-    }
-
-    @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return null;
     }
 
     @Override
