@@ -76,6 +76,7 @@ public final class HiveQueryRunner
                     .put("hive.metastore.uri", "thrift://localhost:8080")
                     .put("hive.allow-drop-table", "true")
                     .put("hive.allow-rename-table", "true")
+                    .put("hive.allow-rename-column", "true")
                     .put("hive.time-zone", TIME_ZONE.getID())
                     .put("hive.security", "sql-standard")
                     .build();

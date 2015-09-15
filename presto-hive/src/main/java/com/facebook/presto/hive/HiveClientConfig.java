@@ -59,6 +59,7 @@ public class HiveClientConfig
     private boolean recursiveDirWalkerEnabled;
     private boolean allowDropTable;
     private boolean allowRenameTable;
+    private boolean allowRenameColumn;
 
     private boolean allowCorruptWritesForTesting;
 
@@ -234,6 +235,19 @@ public class HiveClientConfig
     public HiveClientConfig setAllowRenameTable(boolean allowRenameTable)
     {
         this.allowRenameTable = allowRenameTable;
+        return this;
+    }
+
+    public boolean getAllowRenameColumn()
+    {
+        return this.allowRenameColumn;
+    }
+
+    @Config("hive.allow-rename-column")
+    @ConfigDescription("Allow hive connector to rename column")
+    public HiveClientConfig setAllowRenameColumn(boolean allowRenameColumn)
+    {
+        this.allowRenameColumn = allowRenameColumn;
         return this;
     }
 
