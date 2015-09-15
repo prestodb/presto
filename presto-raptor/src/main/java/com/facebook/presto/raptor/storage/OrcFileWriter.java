@@ -27,9 +27,11 @@ import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.orc.NullMemoryManager;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
+import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
@@ -180,9 +182,11 @@ public class OrcFileWriter
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
                 FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION)) {
-            OrcFile.WriterOptions options = OrcFile.writerOptions(conf)
+            OrcFile.WriterOptions options = new OrcWriterOptions(conf)
+                    .memory(new NullMemoryManager(conf))
                     .fileSystem(fileSystem)
                     .compress(SNAPPY);
+
             return WRITER_CONSTRUCTOR.newInstance(target, options);
         }
         catch (ReflectiveOperationException | IOException e) {
