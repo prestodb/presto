@@ -339,7 +339,10 @@ public class StatementResource
                     (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
                 Iterator<List<Object>> iterator = data.iterator();
                 if (iterator.hasNext()) {
-                    updateCount = ((Number) iterator.next().get(0)).longValue();
+                    Number number = (Number) iterator.next().get(0);
+                    if (number != null) {
+                        updateCount = number.longValue();
+                    }
                 }
             }
 
