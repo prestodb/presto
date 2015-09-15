@@ -48,8 +48,6 @@ import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -314,29 +312,5 @@ public class CassandraMetadata
     public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "CREATE VIEW not yet supported for Cassandra");
-    }
-
-    @Override
-    public void dropView(ConnectorSession session, SchemaTableName viewName)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "DROP VIEW not yet supported for Cassandra");
-    }
-
-    @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
-    {
-        return emptyList();
-    }
-
-    @Override
-    public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        return emptyMap();
     }
 }

@@ -26,13 +26,11 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -45,7 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.facebook.presto.plugin.blackhole.BlackHoleInsertTableHandle.BLACK_HOLE_INSERT_TABLE_HANDLE;
 import static com.facebook.presto.plugin.blackhole.BlackHoleTableLayoutHandle.BLACK_HOLE_TABLE_LAYOUT_HANDLE;
 import static com.facebook.presto.plugin.blackhole.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -90,20 +87,6 @@ public class BlackHoleMetadata
         return tables.values().stream()
                 .map(BlackHoleTableHandle::toSchemaTableName)
                 .collect(toList());
-    }
-
-    @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        //  returns null as the table does not contain sampled data
-        // (see {@link com.facebook.presto.spi.ConnectorMetadata.getSampleWeightColumnHandle()}
-        return null;
-    }
-
-    @Override
-    public boolean canCreateSampledTables(ConnectorSession session)
-    {
-        return false;
     }
 
     @Override
@@ -181,35 +164,6 @@ public class BlackHoleMetadata
     @Override
     public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
-    }
-
-    @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
-    {
-        throw viewsAreNotSupportedException();
-    }
-
-    @Override
-    public void dropView(ConnectorSession session, SchemaTableName viewName)
-    {
-        throw viewsAreNotSupportedException();
-    }
-
-    private PrestoException viewsAreNotSupportedException()
-    {
-        return new PrestoException(NOT_SUPPORTED, "This connector does not support views");
-    }
-
-    @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public Map<SchemaTableName, String> getViews(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        return ImmutableMap.of();
     }
 
     @Override

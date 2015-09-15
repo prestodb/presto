@@ -15,9 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -28,9 +26,7 @@ import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,18 +90,6 @@ public class TestingMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return null;
-    }
-
-    @Override
-    public boolean canCreateSampledTables(ConnectorSession session)
-    {
-        return false;
-    }
-
-    @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
@@ -163,30 +147,6 @@ public class TestingMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         tables.remove(getTableName(tableHandle));
-    }
-
-    @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

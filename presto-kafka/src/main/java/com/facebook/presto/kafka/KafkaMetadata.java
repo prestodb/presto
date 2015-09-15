@@ -16,10 +16,10 @@ package com.facebook.presto.kafka;
 import com.facebook.presto.kafka.decoder.dummy.DummyKafkaRowDecoder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNull;
  * of per-topic additional columns.
  */
 public class KafkaMetadata
-        extends ReadOnlyConnectorMetadata
+        implements ConnectorMetadata
 {
     private final String connectorId;
     private final KafkaHandleResolver handleResolver;
@@ -118,12 +118,6 @@ public class KafkaMetadata
         }
 
         return builder.build();
-    }
-
-    @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return null;
     }
 
     @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
