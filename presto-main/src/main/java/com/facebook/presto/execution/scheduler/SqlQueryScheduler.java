@@ -321,6 +321,13 @@ public class SqlQueryScheduler
                     }
                 }
             }
+
+            for (SqlStageExecution stage : stages.values()) {
+                StageState state = stage.getState();
+                if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
+                    throw new PrestoException(INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
+                }
+            }
         }
         catch (Throwable t) {
             queryStateMachine.transitionToFailed(t);
