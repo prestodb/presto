@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
 {
-    private final String coordinatorNodeId;
+    private final List<String> coordinatorNodeIds;
     private final NodeManager nodeManager;
     private final AtomicLong scheduleLocal = new AtomicLong();
     private final AtomicLong scheduleRack = new AtomicLong();
@@ -67,7 +67,7 @@ public class NodeScheduler
     public NodeScheduler(NodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
         this.nodeManager = nodeManager;
-        this.coordinatorNodeId = nodeManager.getCurrentNode().getNodeIdentifier();
+        this.coordinatorNodeIds = getCoordinatorNodeIds();
         this.minCandidates = config.getMinCandidates();
         this.locationAwareScheduling = config.isLocationAwareSchedulingEnabled();
         this.includeCoordinator = config.isIncludeCoordinator();
@@ -139,6 +139,13 @@ public class NodeScheduler
         }, 5, TimeUnit.SECONDS);
 
         return new NodeSelector(nodeMap);
+    }
+
+    private List<String> getCoordinatorNodeIds()
+    {
+        return nodeManager.getCoordinators().stream()
+                    .map(node -> node.getNodeIdentifier())
+                    .collect(toImmutableList());
     }
 
     public class NodeSelector
@@ -275,7 +282,7 @@ public class NodeScheduler
         private ResettableRandomizedIterator<Node> randomizedNodes()
         {
             ImmutableList<Node> nodes = nodeMap.get().get().getNodesByHostAndPort().values().stream()
-                    .filter(node -> includeCoordinator || !coordinatorNodeId.equals(node.getNodeIdentifier()))
+                    .filter(node -> includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))
                     .collect(toImmutableList());
             return new ResettableRandomizedIterator<>(nodes);
         }
@@ -283,12 +290,12 @@ public class NodeScheduler
         private List<Node> selectCandidateNodes(NodeMap nodeMap, Split split, ResettableRandomizedIterator<Node> randomizedIterator)
         {
             Set<Node> chosen = new LinkedHashSet<>(minCandidates);
-            String coordinatorIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
+            List<String> coordinatorIds = getCoordinatorNodeIds();
 
             // first look for nodes that match the hint
             for (HostAddress hint : split.getAddresses()) {
                 nodeMap.getNodesByHostAndPort().get(hint).stream()
-                        .filter(node -> includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier()))
+                        .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                         .filter(chosen::add)
                         .forEach(node -> scheduleLocal.incrementAndGet());
 
@@ -305,7 +312,7 @@ public class NodeScheduler
                 // by all nodes in that host
                 if (!hint.hasPort() || split.isRemotelyAccessible()) {
                     nodeMap.getNodesByHost().get(address).stream()
-                            .filter(node -> includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier()))
+                            .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                             .filter(chosen::add)
                             .forEach(node -> scheduleLocal.incrementAndGet());
                 }
@@ -323,7 +330,7 @@ public class NodeScheduler
                         continue;
                     }
                     for (Node node : nodeMap.getNodesByRack().get(Rack.of(address))) {
-                        if (includeCoordinator || !coordinatorIdentifier.equals(node.getNodeIdentifier())) {
+                        if (includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier())) {
                             if (chosen.add(node)) {
                                 scheduleRack.incrementAndGet();
                             }
