@@ -52,7 +52,8 @@ public class Verifier
         this.threadCount = config.getThreadCount();
     }
 
-    public void run(List<QueryPair> queries)
+    // Returns number of failed queries
+    public int run(List<QueryPair> queries)
             throws InterruptedException
     {
         ExecutorService executor = newFixedThreadPool(threadCount);
@@ -128,6 +129,7 @@ public class Verifier
         }
 
         log.info("Results: %s / %s (%s skipped)", valid, failed, skipped);
+        return failed;
     }
 
     private VerifierQueryEvent buildEvent(Validator validator)
