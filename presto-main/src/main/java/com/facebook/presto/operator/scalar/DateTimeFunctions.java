@@ -162,6 +162,20 @@ public final class DateTimeFunctions
         return unpackMillisUtc(timestampWithTimeZone) / 1000.0;
     }
 
+    @ScalarFunction("to_unixtime_second")
+    @SqlType(StandardTypes.BIGINT)
+    public static long toUnixTimeSecond(@SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    {
+        return timestamp / 1000;
+    }
+
+    @ScalarFunction("to_unixtime_second")
+    @SqlType(StandardTypes.BIGINT)
+    public static long toUnixTimeFromTimestampWithTimeZoneMillis(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
+    {
+        return unpackMillisUtc(timestampWithTimeZone) / 1000;
+    }
+
     @ScalarFunction("to_iso8601")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toISO8601FromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)

@@ -91,6 +91,10 @@ Date and Time Functions
 
     Returns ``timestamp`` as a UNIX timestamp.
 
+.. function:: to_unixtime_second(timestamp) -> bigint
+
+    Returns ``timestamp`` as a UNIX Epoch time in seconds.
+
 .. note:: The following SQL-standard functions do not use parenthesis:
 
     - ``current_date``
