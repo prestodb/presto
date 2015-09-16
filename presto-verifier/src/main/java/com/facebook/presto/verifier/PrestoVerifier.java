@@ -51,10 +51,11 @@ public class PrestoVerifier
     public static void main(String[] args)
             throws Exception
     {
-        new PrestoVerifier().run(args);
+        int failed = new PrestoVerifier().run(args);
+        System.exit((failed > 0) ? 1 : 0);
     }
 
-    public void run(String[] args)
+    public int run(String[] args)
             throws Exception
     {
         if (args.length > 0) {
@@ -103,7 +104,7 @@ public class PrestoVerifier
 
             // TODO: construct this with Guice
             Verifier verifier = new Verifier(System.out, config, eventClients);
-            verifier.run(queries);
+            return verifier.run(queries);
         }
         finally {
             injector.getInstance(LifeCycleManager.class).stop();
