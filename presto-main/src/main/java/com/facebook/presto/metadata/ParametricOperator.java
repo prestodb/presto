@@ -79,12 +79,6 @@ public abstract class ParametricOperator
     }
 
     @Override
-    public final boolean isUnbound()
-    {
-        return true;
-    }
-
-    @Override
     public final String getDescription()
     {
         // Operators are internal, and don't need a description

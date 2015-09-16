@@ -82,12 +82,6 @@ public class ParametricWindowFunction
     }
 
     @Override
-    public boolean isUnbound()
-    {
-        return true;
-    }
-
-    @Override
     public String getDescription()
     {
         return supplier.getDescription();

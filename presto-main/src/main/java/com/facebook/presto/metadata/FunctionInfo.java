@@ -153,12 +153,6 @@ public final class FunctionInfo
     }
 
     @Override
-    public boolean isUnbound()
-    {
-        return false;
-    }
-
-    @Override
     public boolean isApproximate()
     {
         return isApproximate;

@@ -39,10 +39,4 @@ public abstract class ParametricScalar
     {
         return false;
     }
-
-    @Override
-    public final boolean isUnbound()
-    {
-        return true;
-    }
 }

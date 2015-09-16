@@ -34,8 +34,6 @@ public interface ParametricFunction
 
     boolean isDeterministic();
 
-    boolean isUnbound();
-
     String getDescription();
 
     // TODO: This should really return an object with just the MethodHandle/InternalAggregation...etc. However, due to the magic literal hack this is not possible
