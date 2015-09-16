@@ -213,19 +213,22 @@ public class SliceDictionaryStreamReader
             throws IOException
     {
         // read the dictionary
-        if (!dictionaryOpen && dictionarySize > 0) {
-            int[] dictionaryLength = new int[dictionarySize];
+        if (!dictionaryOpen) {
+            // We must always create a new dictionary array because we need the last slot to be null
             dictionary = new Slice[dictionarySize + 1];
+            if (dictionarySize > 0) {
+                int[] dictionaryLength = new int[dictionarySize];
 
-            // read the lengths
-            LongStream lengthStream = dictionaryLengthStreamSource.openStream();
-            if (lengthStream == null) {
-                throw new OrcCorruptionException("Dictionary is not empty but dictionary length stream is not present");
+                // read the lengths
+                LongStream lengthStream = dictionaryLengthStreamSource.openStream();
+                if (lengthStream == null) {
+                    throw new OrcCorruptionException("Dictionary is not empty but dictionary length stream is not present");
+                }
+                lengthStream.nextIntVector(dictionarySize, dictionaryLength);
+
+                ByteArrayStream dictionaryDataStream = dictionaryDataStreamSource.openStream();
+                readDictionary(dictionaryDataStream, dictionarySize, dictionaryLength, dictionary);
             }
-            lengthStream.nextIntVector(dictionarySize, dictionaryLength);
-
-            ByteArrayStream dictionaryDataStream = dictionaryDataStreamSource.openStream();
-            readDictionary(dictionaryDataStream, dictionarySize, dictionaryLength, dictionary);
         }
         dictionaryOpen = true;
 
