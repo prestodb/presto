@@ -46,6 +46,7 @@ public class StatusPrinter
 {
     private static final Logger log = Logger.get(StatusPrinter.class);
 
+    private static final int CTRL_C = 3;
     private static final int CTRL_P = 16;
 
     private final long start = System.nanoTime();
@@ -98,6 +99,9 @@ Parallelism: 2.5
                     int key = readKey();
                     if (key == CTRL_P) {
                         partialCancel();
+                    }
+                    else if (key == CTRL_C) {
+                        client.close();
                     }
                     else if (toUpperCase(key) == 'D') {
                         debug = !debug;
