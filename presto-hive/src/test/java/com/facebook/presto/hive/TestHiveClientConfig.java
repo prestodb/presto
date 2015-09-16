@@ -61,7 +61,7 @@ public class TestHiveClientConfig
                 .setVerifyChecksum(true)
                 .setDomainSocketPath(null)
                 .setResourceConfigFiles((String) null)
-                .setHiveStorageFormat(HiveStorageFormat.RCBINARY)
+                .setHiveStorageFormat(HiveStorageFormat.ORC)
                 .setUseParquetColumnNames(false)
                 .setS3AwsAccessKey(null)
                 .setS3AwsSecretKey(null)
