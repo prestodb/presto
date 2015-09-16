@@ -233,7 +233,7 @@ public class Validator
         }
 
         // test result agrees with control result 3 times in a row although the first test result didn't agree
-        return resultsMatch(controlResult, testResult);
+        return true;
     }
 
     public QueryPair getQueryPair()
