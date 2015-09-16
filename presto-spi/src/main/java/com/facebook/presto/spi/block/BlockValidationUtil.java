@@ -31,4 +31,11 @@ final class BlockValidationUtil
             throw new IllegalArgumentException("Invalid positions " + invalidPositions + " in block with " + positionCount + " positions");
         }
     }
+
+    static void checkReadablePosition(int position, int positionCount)
+    {
+        if (position < 0 || position >= positionCount) {
+            throw new IllegalArgumentException("position is not valid");
+        }
+    }
 }

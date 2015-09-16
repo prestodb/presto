@@ -18,6 +18,8 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.block.BlockValidationUtil.checkReadablePosition;
+
 public abstract class AbstractArrayBlock
         implements Block
 {
@@ -120,7 +122,7 @@ public abstract class AbstractArrayBlock
         if (clazz != Block.class) {
             throw new IllegalArgumentException("clazz must be Block.class");
         }
-        checkReadablePosition(position);
+        checkReadablePosition(position, getPositionCount());
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
@@ -214,7 +216,7 @@ public abstract class AbstractArrayBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(position, getPositionCount());
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
@@ -232,14 +234,7 @@ public abstract class AbstractArrayBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(position, getPositionCount());
         return getValueIsNull().getByte(position) != 0;
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 }
