@@ -51,10 +51,4 @@ public abstract class ParametricAggregation
     {
         return true;
     }
-
-    @Override
-    public final boolean isUnbound()
-    {
-        return true;
-    }
 }
