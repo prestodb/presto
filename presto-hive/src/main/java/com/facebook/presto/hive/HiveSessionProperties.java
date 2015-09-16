@@ -32,6 +32,8 @@ public final class HiveSessionProperties
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
+    public static final String MAX_SPLIT_SIZE = "max_split_size";
+    public static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -106,5 +108,35 @@ public final class HiveSessionProperties
                 defaultValue,
                 hidden,
                 value -> DataSize.valueOf((String) value));
+    }
+
+    public static DataSize getMaxSplitSize(ConnectorSession session, DataSize defaultValue)
+    {
+        String maxSplitSize = session.getProperties().get(MAX_SPLIT_SIZE);
+        if (maxSplitSize == null) {
+            return defaultValue;
+        }
+
+        try {
+            return DataSize.valueOf(maxSplitSize);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, MAX_SPLIT_SIZE + " is invalid: " + maxSplitSize);
+        }
+    }
+
+    public static DataSize getMaxInitialSplitSize(ConnectorSession session, DataSize defaultValue)
+    {
+        String maxInitialSplitSize = session.getProperties().get(MAX_INITIAL_SPLIT_SIZE);
+        if (maxInitialSplitSize == null) {
+            return defaultValue;
+        }
+
+        try {
+            return DataSize.valueOf(maxInitialSplitSize);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, MAX_INITIAL_SPLIT_SIZE + " is invalid: " + maxInitialSplitSize);
+        }
     }
 }
