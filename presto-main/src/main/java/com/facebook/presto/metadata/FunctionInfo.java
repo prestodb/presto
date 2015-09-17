@@ -20,7 +20,6 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -106,11 +105,6 @@ public final class FunctionInfo
     public Signature getSignature()
     {
         return signature;
-    }
-
-    public QualifiedName getName()
-    {
-        return QualifiedName.of(signature.getName());
     }
 
     @Override

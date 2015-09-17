@@ -31,7 +31,7 @@ public class WindowFunctionValidator
 
         FunctionInfo functionInfo = analysis.getFunctionInfo(functionCall);
         if (functionInfo != null && functionInfo.getSignature().getType() == WINDOW && !functionCall.getWindow().isPresent()) {
-            throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", functionInfo.getName());
+            throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", functionInfo.getSignature().getName());
         }
         return super.visitFunctionCall(functionCall, analysis);
     }
