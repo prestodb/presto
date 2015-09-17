@@ -28,6 +28,7 @@ import com.google.common.collect.Lists;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
@@ -52,7 +53,7 @@ public final class Signatures
     // **************** sql operators ****************
     public static Signature notSignature()
     {
-        return new Signature("not", StandardTypes.BOOLEAN, ImmutableList.of(StandardTypes.BOOLEAN));
+        return new Signature("not", SCALAR, StandardTypes.BOOLEAN, ImmutableList.of(StandardTypes.BOOLEAN));
     }
 
     public static Signature betweenSignature(Type valueType, Type minType, Type maxType)
@@ -124,22 +125,22 @@ public final class Signatures
     // **************** special forms (lazy evaluation, etc) ****************
     public static Signature ifSignature(Type returnType)
     {
-        return new Signature(IF, returnType.getTypeSignature());
+        return new Signature(IF, SCALAR, returnType.getTypeSignature());
     }
 
     public static Signature nullIfSignature(Type returnType, Type firstType, Type secondType)
     {
-        return new Signature(NULL_IF, returnType.getTypeSignature(), firstType.getTypeSignature(), secondType.getTypeSignature());
+        return new Signature(NULL_IF, SCALAR, returnType.getTypeSignature(), firstType.getTypeSignature(), secondType.getTypeSignature());
     }
 
     public static Signature switchSignature(Type returnType)
     {
-        return new Signature(SWITCH, returnType.getTypeSignature());
+        return new Signature(SWITCH, SCALAR, returnType.getTypeSignature());
     }
 
     public static Signature whenSignature(Type returnType)
     {
-        return new Signature("WHEN", returnType.getTypeSignature());
+        return new Signature("WHEN", SCALAR, returnType.getTypeSignature());
     }
 
     // **************** functions that require varargs and/or complex types (e.g., lists) ****************

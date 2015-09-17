@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static java.util.Objects.requireNonNull;
 
 public abstract class ParametricOperator
@@ -39,37 +40,13 @@ public abstract class ParametricOperator
     @Override
     public Signature getSignature()
     {
-        return new Signature(mangleOperatorName(operatorType), typeParameters, returnType, argumentTypes, false, true);
-    }
-
-    @Override
-    public final boolean isScalar()
-    {
-        return true;
-    }
-
-    @Override
-    public final boolean isAggregate()
-    {
-        return false;
+        return new Signature(mangleOperatorName(operatorType), SCALAR, typeParameters, returnType, argumentTypes, false, true);
     }
 
     @Override
     public final boolean isHidden()
     {
         return true;
-    }
-
-    @Override
-    public final boolean isApproximate()
-    {
-        return false;
-    }
-
-    @Override
-    public final boolean isWindow()
-    {
-        return false;
     }
 
     @Override

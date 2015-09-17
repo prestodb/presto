@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -52,6 +53,7 @@ public class TestInCodeGenerator
         values.add(new CallExpression(
                 new Signature(
                         CAST,
+                        SCALAR,
                         BIGINT.getDisplayName(),
                         DOUBLE.getDisplayName()
                 ),

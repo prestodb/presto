@@ -117,6 +117,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregation.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ArrayAggregation.ARRAY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregation.CHECKSUM_AGGREGATION;
@@ -348,13 +351,13 @@ public class FunctionRegistry
 
     public boolean isAggregationFunction(QualifiedName name)
     {
-        return Iterables.any(functions.get(name), ParametricFunction::isAggregate);
+        return Iterables.any(functions.get(name), function -> function.getSignature().getType() == AGGREGATE || function.getSignature().getType() == APPROXIMATE_AGGREGATE);
     }
 
     public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
     {
         List<ParametricFunction> candidates = functions.get(name).stream()
-                .filter(function -> function.isScalar() || function.isApproximate() == approximate)
+                .filter(function -> function.getSignature().getType() == SCALAR || (function.getSignature().getType() == APPROXIMATE_AGGREGATE) == approximate)
                 .collect(toImmutableList());
 
         List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
@@ -689,6 +692,7 @@ public class FunctionRegistry
         TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
 
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
+                SCALAR,
                 type.getTypeSignature(),
                 argumentType);
     }
@@ -742,8 +746,11 @@ public class FunctionRegistry
             // Make sure all functions with the same name are aggregations or none of them are
             for (Map.Entry<QualifiedName, Collection<ParametricFunction>> entry : this.functions.asMap().entrySet()) {
                 Collection<ParametricFunction> values = entry.getValue();
-                checkState(Iterables.all(values, ParametricFunction::isAggregate) || !Iterables.any(values, ParametricFunction::isAggregate),
-                        "'%s' is both an aggregation and a scalar function", entry.getKey());
+                long aggregations = values.stream()
+                        .map(function -> function.getSignature().getType())
+                        .filter(type -> type == AGGREGATE || type == APPROXIMATE_AGGREGATE)
+                        .count();
+                checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());
             }
         }
 

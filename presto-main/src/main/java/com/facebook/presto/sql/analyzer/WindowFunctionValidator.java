@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 
+import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static java.util.Objects.requireNonNull;
 
@@ -29,7 +30,7 @@ public class WindowFunctionValidator
         requireNonNull(analysis, "analysis is null");
 
         FunctionInfo functionInfo = analysis.getFunctionInfo(functionCall);
-        if (functionInfo != null && functionInfo.isWindow() && !functionInfo.isAggregate() && !functionCall.getWindow().isPresent()) {
+        if (functionInfo != null && functionInfo.getSignature().getType() == WINDOW && !functionCall.getWindow().isPresent()) {
             throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", functionInfo.getName());
         }
         return super.visitFunctionCall(functionCall, analysis);

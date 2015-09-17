@@ -16,7 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -31,6 +31,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -38,12 +39,12 @@ import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayContains
-        extends ParametricScalar
+        implements ParametricFunction
 {
     public static final ArrayContains ARRAY_CONTAINS = new ArrayContains();
     private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
     private static final String FUNCTION_NAME = "contains";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array<T>", "T"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array<T>", "T"), false, false);
 
     @Override
     public Signature getSignature()
@@ -77,7 +78,7 @@ public final class ArrayContains
         TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, valueType);
         MethodHandle methodHandle = methodHandle(ArrayContains.class, "contains", Type.class, MethodHandle.class, Block.class, type.getJavaType());
         MethodHandle equalsHandle = functionRegistry.resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type)).getMethodHandle();
-        Signature signature = new Signature(FUNCTION_NAME, RETURN_TYPE, arrayType, valueType);
+        Signature signature = new Signature(FUNCTION_NAME, SCALAR, RETURN_TYPE, arrayType, valueType);
 
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle.bindTo(type).bindTo(equalsHandle), isDeterministic(), true, ImmutableList.of(false, false));
     }

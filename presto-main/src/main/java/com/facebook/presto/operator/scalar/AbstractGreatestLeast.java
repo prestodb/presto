@@ -24,7 +24,7 @@ import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -47,6 +47,7 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -60,7 +61,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public abstract class AbstractGreatestLeast
-        extends ParametricScalar
+        implements ParametricFunction
 {
     private static final MethodHandle CHECK_NOT_NAN = methodHandle(AbstractGreatestLeast.class, "checkNotNaN", String.class, double.class);
 
@@ -69,7 +70,7 @@ public abstract class AbstractGreatestLeast
 
     protected AbstractGreatestLeast(String name, OperatorType operatorType)
     {
-        this.signature = new Signature(name, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), true, false);
+        this.signature = new Signature(name, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), true, false);
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
     }
 

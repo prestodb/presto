@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -25,6 +25,7 @@ import com.google.common.primitives.Primitives;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -34,11 +35,11 @@ import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodType.methodType;
 
 public class TryCastFunction
-        extends ParametricScalar
+        implements ParametricFunction
 {
     public static final TryCastFunction TRY_CAST = new TryCastFunction();
 
-    private static final Signature SIGNATURE = new Signature("TRY_CAST", ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"), false, false);
+    private static final Signature SIGNATURE = new Signature("TRY_CAST", SCALAR, ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"), false, false);
 
     @Override
     public Signature getSignature()

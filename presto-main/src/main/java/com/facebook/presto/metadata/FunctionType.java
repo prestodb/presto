@@ -13,30 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
-public abstract class ParametricScalar
-        implements ParametricFunction
+public enum FunctionType
 {
-    @Override
-    public final boolean isScalar()
-    {
-        return true;
-    }
-
-    @Override
-    public final boolean isAggregate()
-    {
-        return false;
-    }
-
-    @Override
-    public final boolean isApproximate()
-    {
-        return false;
-    }
-
-    @Override
-    public final boolean isWindow()
-    {
-        return false;
-    }
+    SCALAR,
+    AGGREGATE,
+    WINDOW,
+    APPROXIMATE_AGGREGATE
 }

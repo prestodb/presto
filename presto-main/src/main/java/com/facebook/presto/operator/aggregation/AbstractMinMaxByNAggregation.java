@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -65,7 +66,7 @@ public abstract class AbstractMinMaxByNAggregation
     {
         this.name = requireNonNull(name, "name is null");
         this.typeToComparator = requireNonNull(typeToComparator, "typeToComparator is null");
-        this.signature = new Signature(name, ImmutableList.of(typeParameter("V"), orderableTypeParameter("K")), "array<V>", ImmutableList.of("V", "K", StandardTypes.BIGINT), false, false);
+        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(typeParameter("V"), orderableTypeParameter("K")), "array<V>", ImmutableList.of("V", "K", StandardTypes.BIGINT), false, false);
     }
 
     @Override
@@ -79,7 +80,7 @@ public abstract class AbstractMinMaxByNAggregation
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        Signature signature = new Signature(name, new ArrayType(valueType).getTypeSignature(), valueType.getTypeSignature(), keyType.getTypeSignature(), BIGINT.getTypeSignature());
+        Signature signature = new Signature(name, AGGREGATE, new ArrayType(valueType).getTypeSignature(), valueType.getTypeSignature(), keyType.getTypeSignature(), BIGINT.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(valueType, keyType);
         return new FunctionInfo(signature, getDescription(), aggregation);
     }

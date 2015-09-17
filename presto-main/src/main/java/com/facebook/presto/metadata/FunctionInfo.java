@@ -29,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -44,15 +47,12 @@ public final class FunctionInfo
     private final boolean nullable;
     private final List<Boolean> nullableArguments;
 
-    private final boolean isAggregate;
     private final TypeSignature intermediateType;
     private final InternalAggregationFunction aggregationFunction;
-    private final boolean isApproximate;
 
     private final MethodHandle methodHandle;
     private final boolean deterministic;
 
-    private final boolean isWindow;
     private final WindowFunctionSupplier windowFunctionSupplier;
 
     public FunctionInfo(Signature signature, String description, WindowFunctionSupplier windowFunctionSupplier)
@@ -64,13 +64,10 @@ public final class FunctionInfo
         this.nullable = false;
         this.nullableArguments = ImmutableList.copyOf(Collections.nCopies(signature.getArgumentTypes().size(), false));
 
-        this.isAggregate = false;
         this.intermediateType = null;
         this.aggregationFunction = null;
-        this.isApproximate = false;
         this.methodHandle = null;
 
-        this.isWindow = true;
         this.windowFunctionSupplier = requireNonNull(windowFunctionSupplier, "windowFunction is null");
     }
 
@@ -78,16 +75,13 @@ public final class FunctionInfo
     {
         this.signature = signature;
         this.description = description;
-        this.isApproximate = function.isApproximate();
         this.hidden = false;
         this.intermediateType = function.getIntermediateType().getTypeSignature();
         this.aggregationFunction = function;
-        this.isAggregate = true;
         this.methodHandle = null;
         this.deterministic = true;
         this.nullable = false;
         this.nullableArguments = ImmutableList.copyOf(Collections.nCopies(signature.getArgumentTypes().size(), false));
-        this.isWindow = true;
         this.windowFunctionSupplier = AggregateWindowFunction.supplier(signature, function);
     }
 
@@ -101,12 +95,9 @@ public final class FunctionInfo
         this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
         checkArgument(nullableArguments.size() == signature.getArgumentTypes().size(), String.format("nullableArguments size (%d) does not match signature %s", nullableArguments.size(), signature));
 
-        this.isAggregate = false;
         this.intermediateType = null;
         this.aggregationFunction = null;
-        this.isApproximate = false;
 
-        this.isWindow = false;
         this.windowFunctionSupplier = null;
         this.methodHandle = requireNonNull(function, "function is null");
     }
@@ -134,30 +125,6 @@ public final class FunctionInfo
         return hidden;
     }
 
-    @Override
-    public boolean isAggregate()
-    {
-        return isAggregate;
-    }
-
-    @Override
-    public boolean isWindow()
-    {
-        return isWindow;
-    }
-
-    @Override
-    public boolean isScalar()
-    {
-        return !isWindow && !isAggregate;
-    }
-
-    @Override
-    public boolean isApproximate()
-    {
-        return isApproximate;
-    }
-
     public TypeSignature getReturnType()
     {
         return signature.getReturnType();
@@ -181,7 +148,8 @@ public final class FunctionInfo
 
     public WindowFunctionDefinition bindWindowFunction(Type type, List<Integer> inputs)
     {
-        checkState(isWindow, "not a window function");
+        FunctionType functionType = signature.getType();
+        checkState(functionType == AGGREGATE || functionType == APPROXIMATE_AGGREGATE || functionType == WINDOW, "not a window function");
         return window(windowFunctionSupplier, type, inputs);
     }
 
@@ -223,15 +191,13 @@ public final class FunctionInfo
             return false;
         }
         FunctionInfo other = (FunctionInfo) obj;
-        return Objects.equals(this.signature, other.signature) &&
-                Objects.equals(this.isAggregate, other.isAggregate) &&
-                Objects.equals(this.isWindow, other.isWindow);
+        return Objects.equals(this.signature, other.signature);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, isAggregate, isWindow);
+        return Objects.hash(signature);
     }
 
     @Override
@@ -239,8 +205,6 @@ public final class FunctionInfo
     {
         return toStringHelper(this)
                 .add("signature", signature)
-                .add("isAggregate", isAggregate)
-                .add("isWindow", isWindow)
                 .toString();
     }
 }
