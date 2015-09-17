@@ -40,7 +40,7 @@ public abstract class ParametricOperator
     @Override
     public Signature getSignature()
     {
-        return new Signature(mangleOperatorName(operatorType), SCALAR, typeParameters, returnType, argumentTypes, false, true);
+        return new Signature(mangleOperatorName(operatorType), SCALAR, typeParameters, returnType, argumentTypes, false);
     }
 
     @Override

@@ -69,7 +69,7 @@ public final class ArrayConstructor
         implements ParametricFunction
 {
     public static final ArrayConstructor ARRAY_CONSTRUCTOR = new ArrayConstructor();
-    private static final Signature SIGNATURE = new Signature("array_constructor", SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "E"), true, true);
+    private static final Signature SIGNATURE = new Signature("array_constructor", SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "E"), true);
 
     @Override
     public Signature getSignature()

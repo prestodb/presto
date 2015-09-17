@@ -41,7 +41,7 @@ public final class ArrayPositionFunction
         implements ParametricFunction
 {
     public static final ArrayPositionFunction ARRAY_POSITION = new ArrayPositionFunction();
-    private static final Signature SIGNATURE = new Signature("array_position", SCALAR, ImmutableList.of(comparableTypeParameter("E")), "bigint", ImmutableList.of("array<E>", "E"), false, false);
+    private static final Signature SIGNATURE = new Signature("array_position", SCALAR, ImmutableList.of(comparableTypeParameter("E")), "bigint", ImmutableList.of("array<E>", "E"), false);
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, boolean.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, double.class);

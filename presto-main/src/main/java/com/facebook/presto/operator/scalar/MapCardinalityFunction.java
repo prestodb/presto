@@ -37,7 +37,7 @@ public final class MapCardinalityFunction
         implements ParametricFunction
 {
     public static final MapCardinalityFunction MAP_CARDINALITY = new MapCardinalityFunction();
-    private static final Signature SIGNATURE = new Signature("cardinality", SCALAR, ImmutableList.of(typeParameter("K"), typeParameter("V")), "bigint", ImmutableList.of("map<K,V>"), false, false);
+    private static final Signature SIGNATURE = new Signature("cardinality", SCALAR, ImmutableList.of(typeParameter("K"), typeParameter("V")), "bigint", ImmutableList.of("map<K,V>"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapCardinalityFunction.class, "mapCardinality", Block.class);
 
     @Override

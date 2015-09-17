@@ -63,8 +63,8 @@ public class MultimapAggregation
             ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")),
             "map<K,array<V>>",
             ImmutableList.of("K", "V"),
-            false,
-            false);
+            false
+    );
 
     @Override
     public Signature getSignature()

@@ -52,7 +52,7 @@ public class ArbitraryAggregation
 {
     public static final ArbitraryAggregation ARBITRARY_AGGREGATION = new ArbitraryAggregation();
     private static final String NAME = "arbitrary";
-    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false, false);
+    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false);
 
     private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, NullableDoubleState.class, Block.class, int.class);

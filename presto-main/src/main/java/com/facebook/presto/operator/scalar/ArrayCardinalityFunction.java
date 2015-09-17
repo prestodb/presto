@@ -37,7 +37,7 @@ public final class ArrayCardinalityFunction
         implements ParametricFunction
 {
     public static final ArrayCardinalityFunction ARRAY_CARDINALITY = new ArrayCardinalityFunction();
-    private static final Signature SIGNATURE = new Signature("cardinality", SCALAR, ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array<E>"), false, false);
+    private static final Signature SIGNATURE = new Signature("cardinality", SCALAR, ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array<E>"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayCardinalityFunction.class, "arrayLength", Block.class);
 
     @Override

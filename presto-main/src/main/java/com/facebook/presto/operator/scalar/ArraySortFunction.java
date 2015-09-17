@@ -43,7 +43,7 @@ public final class ArraySortFunction
 {
     public static final ArraySortFunction ARRAY_SORT_FUNCTION = new ArraySortFunction();
     private static final String FUNCTION_NAME = "array_sort";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySortFunction.class, "sort", Type.class, Block.class);
 
     @Override

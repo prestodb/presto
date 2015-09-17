@@ -39,7 +39,7 @@ public class TryCastFunction
 {
     public static final TryCastFunction TRY_CAST = new TryCastFunction();
 
-    private static final Signature SIGNATURE = new Signature("TRY_CAST", SCALAR, ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"), false, false);
+    private static final Signature SIGNATURE = new Signature("TRY_CAST", SCALAR, ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"), false);
 
     @Override
     public Signature getSignature()

@@ -70,7 +70,7 @@ public abstract class AbstractGreatestLeast
 
     protected AbstractGreatestLeast(String name, OperatorType operatorType)
     {
-        this.signature = new Signature(name, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), true, false);
+        this.signature = new Signature(name, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), true);
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
     }
 

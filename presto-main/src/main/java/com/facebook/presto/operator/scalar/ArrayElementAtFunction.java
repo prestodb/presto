@@ -43,7 +43,7 @@ public class ArrayElementAtFunction
 {
     public static final ArrayElementAtFunction ARRAY_ELEMENT_AT_FUNCTION = new ArrayElementAtFunction();
     private static final String FUNCTION_NAME = "element_at";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array<E>", "bigint"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array<E>", "bigint"), false);
     private static final Map<Class<?>, MethodHandle> METHOD_HANDLES = ImmutableMap.<Class<?>, MethodHandle>builder()
             .put(boolean.class, methodHandle(ArrayElementAtFunction.class, "booleanElementAt", Type.class, Block.class, long.class))
             .put(long.class, methodHandle(ArrayElementAtFunction.class, "longElementAt", Type.class, Block.class, long.class))

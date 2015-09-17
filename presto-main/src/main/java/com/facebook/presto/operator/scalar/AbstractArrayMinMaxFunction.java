@@ -59,7 +59,7 @@ public abstract class AbstractArrayMinMaxFunction
     {
         this.operatorType = operatorType;
         this.functionName = functionName;
-        this.signature = new Signature(functionName, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("array<E>"), false, false);
+        this.signature = new Signature(functionName, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("array<E>"), false);
         this.description = description;
     }
 

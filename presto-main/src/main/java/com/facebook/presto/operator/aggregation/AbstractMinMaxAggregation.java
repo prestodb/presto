@@ -79,7 +79,7 @@ public abstract class AbstractMinMaxAggregation
         requireNonNull(operatorType);
         this.name = name;
         this.operatorType = operatorType;
-        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), false, false);
+        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), false);
     }
 
     @Override

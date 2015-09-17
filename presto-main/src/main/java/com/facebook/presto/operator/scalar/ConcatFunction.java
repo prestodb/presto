@@ -65,7 +65,7 @@ public final class ConcatFunction
 {
     public static final ConcatFunction CONCAT = new ConcatFunction();
 
-    private static final Signature SIGNATURE = new Signature("concat", SCALAR, ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of(StandardTypes.VARCHAR), true, false);
+    private static final Signature SIGNATURE = new Signature("concat", SCALAR, ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of(StandardTypes.VARCHAR), true);
 
     @Override
     public Signature getSignature()

@@ -37,7 +37,7 @@ public class MapValues
         implements ParametricFunction
 {
     public static final MapValues MAP_VALUES = new MapValues();
-    private static final Signature SIGNATURE = new Signature("map_values", SCALAR, ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<V>", ImmutableList.of("map<K,V>"), false, false);
+    private static final Signature SIGNATURE = new Signature("map_values", SCALAR, ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<V>", ImmutableList.of("map<K,V>"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapValues.class, "getValues", Type.class, Block.class);
 
     @Override

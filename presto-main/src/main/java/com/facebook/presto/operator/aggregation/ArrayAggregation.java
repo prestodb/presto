@@ -54,7 +54,7 @@ public class ArrayAggregation
     private static final MethodHandle INPUT_FUNCTION = methodHandle(ArrayAggregation.class, "input", Type.class, ArrayAggregationState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArrayAggregation.class, "combine", Type.class, ArrayAggregationState.class, ArrayAggregationState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregation.class, "output", Type.class, ArrayAggregationState.class, BlockBuilder.class);
-    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("T"), false, false);
+    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("T"), false);
 
     @Override
     public Signature getSignature()

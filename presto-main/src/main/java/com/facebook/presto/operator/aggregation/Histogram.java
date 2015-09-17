@@ -56,7 +56,7 @@ public class Histogram
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(Histogram.class, "combine", HistogramState.class, HistogramState.class);
 
     private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(comparableTypeParameter("K")),
-            "map<K,bigint>", ImmutableList.of("K"), false, false);
+            "map<K,bigint>", ImmutableList.of("K"), false);
 
     public static final int EXPECTED_SIZE_FOR_HASHING = 10;
 
