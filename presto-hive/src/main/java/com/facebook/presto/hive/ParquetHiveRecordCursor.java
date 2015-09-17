@@ -116,7 +116,6 @@ class ParquetHiveRecordCursor
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(columns, "columns is null");
 
-
         this.totalBytes = length;
 
         int size = columns.size();
