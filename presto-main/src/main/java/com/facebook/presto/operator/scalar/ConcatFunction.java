@@ -51,7 +51,7 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.add;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
-import static com.facebook.presto.metadata.Signature.internalFunction;
+import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
@@ -101,7 +101,7 @@ public final class ConcatFunction
         MethodHandle methodHandle = methodHandle(clazz, "concat", Collections.nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(arity, false));
 
-        Signature specializedSignature = internalFunction(SIGNATURE.getName(), VARCHAR.getTypeSignature(), Collections.nCopies(arity, VARCHAR.getTypeSignature()));
+        Signature specializedSignature = internalScalarFunction(SIGNATURE.getName(), VARCHAR.getTypeSignature(), Collections.nCopies(arity, VARCHAR.getTypeSignature()));
         return new FunctionInfo(specializedSignature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, nullableParameters);
     }
 
