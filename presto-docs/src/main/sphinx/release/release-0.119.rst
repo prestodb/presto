@@ -7,8 +7,6 @@ General Changes
 
 * Add :func:`geometric_mean` function.
 * Fix restoring interrupt status in ``StatementClient``.
-* Fix bug in ORC reader where ``VARCHAR`` or ``VARBINARY`` value may be
-  incorrectly read as null.
 * Execute views with the permissions of the view owner.
 * Add owner to view metadata.
 
