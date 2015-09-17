@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -65,7 +66,7 @@ public class TestExpressionOptimizer
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)
     {
-        Signature signature = new Signature("IF", BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
+        Signature signature = new Signature("IF", SCALAR, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
         return new CallExpression(signature, BIGINT, ImmutableList.of(condition, new ConstantExpression(trueValue, BIGINT), new ConstantExpression(falseValue, BIGINT)));
     }
 }

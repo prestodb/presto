@@ -17,31 +17,7 @@ public abstract class ParametricAggregation
         implements ParametricFunction
 {
     @Override
-    public final boolean isScalar()
-    {
-        return false;
-    }
-
-    @Override
-    public final boolean isAggregate()
-    {
-        return true;
-    }
-
-    @Override
     public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isApproximate()
-    {
-        return false;
-    }
-
-    @Override
-    public final boolean isWindow()
     {
         return false;
     }

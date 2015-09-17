@@ -81,6 +81,7 @@ import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createNormalSplit;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createRecordSetSplit;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -583,7 +584,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Expression projection, IdentityHashMap<Expression, Type> expressionTypes)
     {
-        return SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
+        return SqlToRowExpressionTranslator.translate(projection, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)

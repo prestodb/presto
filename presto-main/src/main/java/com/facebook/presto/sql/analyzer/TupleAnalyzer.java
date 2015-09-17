@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -94,6 +94,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -696,8 +699,8 @@ public class TupleAnalyzer
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
-            FunctionInfo info = metadata.resolveFunction(windowFunction.getName(), argumentTypes, false);
-            if (!info.isWindow()) {
+            FunctionType type = metadata.resolveFunction(windowFunction.getName(), argumentTypes, false).getSignature().getType();
+            if (type != AGGREGATE && type != APPROXIMATE_AGGREGATE && type != WINDOW) {
                 throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }
         }

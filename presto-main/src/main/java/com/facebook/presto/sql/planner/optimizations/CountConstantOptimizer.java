@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static java.util.Objects.requireNonNull;
 
 public class CountConstantOptimizer
@@ -71,7 +72,7 @@ public class CountConstantOptimizer
                     Signature signature = node.getFunctions().get(symbol);
                     if (isCountConstant(projectNode, functionCall, signature)) {
                         aggregations.put(symbol, new FunctionCall(functionCall.getName(), null, functionCall.isDistinct(), ImmutableList.<Expression>of()));
-                        functions.put(symbol, new Signature("count", StandardTypes.BIGINT));
+                        functions.put(symbol, new Signature("count", AGGREGATE, StandardTypes.BIGINT));
                     }
                 }
             }

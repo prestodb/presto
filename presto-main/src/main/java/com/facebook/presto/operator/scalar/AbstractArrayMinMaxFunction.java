@@ -16,7 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -30,6 +30,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
@@ -38,7 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 
 public abstract class AbstractArrayMinMaxFunction
-        extends ParametricScalar
+        implements ParametricFunction
 {
     private final OperatorType operatorType;
     private final String functionName;
@@ -58,7 +59,7 @@ public abstract class AbstractArrayMinMaxFunction
     {
         this.operatorType = operatorType;
         this.functionName = functionName;
-        this.signature = new Signature(functionName, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("array<E>"), false, false);
+        this.signature = new Signature(functionName, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("array<E>"), false, false);
         this.description = description;
     }
 
@@ -101,7 +102,7 @@ public abstract class AbstractArrayMinMaxFunction
         }
         methodHandle = methodHandle.bindTo(compareMethodHandle).bindTo(elementType);
 
-        Signature signature = new Signature(functionName, elementType.getTypeSignature(), parameterizedTypeName(StandardTypes.ARRAY, elementType.getTypeSignature()));
+        Signature signature = new Signature(functionName, SCALAR, elementType.getTypeSignature(), parameterizedTypeName(StandardTypes.ARRAY, elementType.getTypeSignature()));
 
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
     }

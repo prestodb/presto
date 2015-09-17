@@ -48,6 +48,7 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -219,7 +220,7 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                FunctionInfo operator = metadata.getFunctionRegistry().getExactFunction(new Signature("json_parse", JSON.getTypeSignature(), VARCHAR.getTypeSignature()));
+                FunctionInfo operator = metadata.getFunctionRegistry().getExactFunction(new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature()));
                 try {
                     return ExpressionInterpreter.invoke(session, operator.getMethodHandle(), ImmutableList.<Object>of(utf8Slice(node.getValue())));
                 }
