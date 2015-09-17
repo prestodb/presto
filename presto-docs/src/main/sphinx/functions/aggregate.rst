@@ -25,6 +25,10 @@ General Aggregate Functions
 
     Returns the average (arithmetic mean) of all input values.
 
+.. function:: gavg(x) -> double
+
+    Returns the geometric average (geometric mean) of all input values.
+
 .. function:: bool_and(boolean) -> boolean
 
     Returns ``TRUE`` if every input value is ``TRUE``, otherwise ``FALSE``.
