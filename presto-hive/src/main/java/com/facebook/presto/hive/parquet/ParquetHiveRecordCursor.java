@@ -83,6 +83,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
 import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 
 public class ParquetHiveRecordCursor
@@ -348,7 +349,7 @@ public class ParquetHiveRecordCursor
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         try {
-            ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path);
+            ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path, NO_FILTER);
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
