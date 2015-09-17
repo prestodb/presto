@@ -11,8 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveRecordCursor;
+import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -76,7 +80,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 
-class ParquetHiveRecordCursor
+public class ParquetHiveRecordCursor
         extends HiveRecordCursor
 {
     private final ParquetRecordReader<FakeParquetRecord> recordReader;
