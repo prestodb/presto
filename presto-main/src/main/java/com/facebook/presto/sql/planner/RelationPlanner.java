@@ -49,6 +49,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -229,6 +230,9 @@ class RelationPlanner
             List<Expression> rightExpressions = new ArrayList<>();
             List<ComparisonExpression.Type> comparisonTypes = new ArrayList<>();
             for (Expression conjunct : ExpressionUtils.extractConjuncts(criteria)) {
+                if (conjunct instanceof NotExpression) {
+                    conjunct = ExpressionUtils.convertNotExpression((NotExpression) conjunct);
+                }
                 if (!(conjunct instanceof ComparisonExpression)) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Unsupported non-equi join form: %s", conjunct);
                 }
@@ -250,7 +254,7 @@ class RelationPlanner
                 else if (Iterables.all(firstDependencies, right.canResolvePredicate()) && Iterables.all(secondDependencies, left.canResolvePredicate())) {
                     leftExpression = comparison.getRight();
                     rightExpression = comparison.getLeft();
-                    comparisonType = flipComparison(comparisonType);
+                    comparisonType = ExpressionUtils.flipComparison(comparisonType);
                 }
                 else {
                     // must have a complex expression that involves both tuples on one side of the comparison expression (e.g., coalesce(left.x, right.x) = 1)

@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -227,5 +228,58 @@ public final class ExpressionUtils
         Iterable<Expression> deterministicDisjuncts = ImmutableSet.copyOf(Iterables.filter(expressions, DeterminismEvaluator::isDeterministic));
 
         return Iterables.concat(nonDeterministicDisjuncts, deterministicDisjuncts);
+    }
+
+    public static ComparisonExpression.Type flipComparison(ComparisonExpression.Type type)
+    {
+        switch (type) {
+            case EQUAL:
+                return EQUAL;
+            case NOT_EQUAL:
+                return NOT_EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN_OR_EQUAL;
+            case GREATER_THAN:
+                return LESS_THAN;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM:
+                return IS_DISTINCT_FROM;
+            default:
+                throw new IllegalArgumentException("Unsupported comparison: " + type);
+        }
+    }
+
+    private static ComparisonExpression.Type notComparison(ComparisonExpression.Type type)
+    {
+        switch (type) {
+            case EQUAL:
+                return NOT_EQUAL;
+            case NOT_EQUAL:
+                return EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN_OR_EQUAL;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN;
+            case GREATER_THAN:
+                return LESS_THAN_OR_EQUAL;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN;
+            default:
+                throw new IllegalArgumentException("Unsupported comparison: " + type);
+        }
+    }
+
+    public static Expression convertNotExpression(NotExpression expression)
+    {
+        if (expression.getValue() instanceof ComparisonExpression) {
+            ComparisonExpression comparisonExpression = (ComparisonExpression) expression.getValue();
+            return new ComparisonExpression(notComparison(comparisonExpression.getType()),
+                                            comparisonExpression.getLeft(),
+                                            comparisonExpression.getRight());
+        }
+        return expression;
     }
 }
