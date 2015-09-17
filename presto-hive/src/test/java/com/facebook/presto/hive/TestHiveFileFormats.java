@@ -17,6 +17,7 @@ import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
+import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -46,6 +47,7 @@ import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -81,6 +83,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
@@ -251,6 +254,38 @@ public class TestHiveFileFormats
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
             HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false);
             testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns, NUM_ROWS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test(enabled = false)
+    public void testParquetPageSource()
+            throws Exception
+    {
+        List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
+        testColumns = testColumns.stream()
+                .filter(column -> column.getObjectInspector().getCategory() == Category.PRIMITIVE)
+                .collect(toList());
+
+        HiveOutputFormat<?, ?> outputFormat = new MapredParquetOutputFormat();
+        InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new ParquetHiveSerDe();
+        File file = File.createTempFile("presto_test", "parquet");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
+            TestingConnectorSession session = new TestingConnectorSession(
+                    SESSION.getUser(),
+                    SESSION.getTimeZoneKey(),
+                    SESSION.getLocale(),
+                    SESSION.getStartTime(),
+                    new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true)).getSessionProperties(),
+                    ImmutableMap.of());
+            testPageSourceFactory(new ParquetPageSourceFactory(TYPE_MANAGER, false), split, inputFormat, serde, testColumns, session);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -446,7 +481,22 @@ public class TestHiveFileFormats
         checkCursor(cursor, testColumns, numRows);
     }
 
-    private void testPageSourceFactory(HivePageSourceFactory sourceFactory, FileSplit split, InputFormat<?, ?> inputFormat, SerDe serde, List<TestColumn> testColumns)
+    private void testPageSourceFactory(HivePageSourceFactory sourceFactory,
+            FileSplit split,
+            InputFormat<?, ?> inputFormat,
+            SerDe serde,
+            List<TestColumn> testColumns)
+            throws IOException
+    {
+        testPageSourceFactory(sourceFactory, split, inputFormat, serde, testColumns, SESSION);
+    }
+
+    private void testPageSourceFactory(HivePageSourceFactory sourceFactory,
+            FileSplit split,
+            InputFormat<?, ?> inputFormat,
+            SerDe serde,
+            List<TestColumn> testColumns,
+            ConnectorSession session)
             throws IOException
     {
         Properties splitProperties = new Properties();
@@ -462,9 +512,9 @@ public class TestHiveFileFormats
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
 
-        ConnectorPageSource pageSource = sourceFactory.createPageSource(
+        Optional<? extends ConnectorPageSource> pageSource = sourceFactory.createPageSource(
                 new Configuration(),
-                SESSION,
+                session,
                 split.getPath(),
                 split.getStart(),
                 split.getLength(),
@@ -472,10 +522,11 @@ public class TestHiveFileFormats
                 columnHandles,
                 partitionKeys,
                 TupleDomain.<HiveColumnHandle>all(),
-                DateTimeZone.getDefault()
-        ).get();
+                DateTimeZone.getDefault());
 
-        checkPageSource(pageSource, testColumns, getTypes(columnHandles));
+        assertTrue(pageSource.isPresent());
+
+        checkPageSource(pageSource.get(), testColumns, getTypes(columnHandles));
     }
 
     public static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
