@@ -25,7 +25,7 @@ import com.google.common.primitives.Primitives;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.internalFunction;
+import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -86,7 +86,7 @@ public class TryCastFunction
         }
 
         return new FunctionInfo(
-                internalFunction(SIGNATURE.getName(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())),
+                internalScalarFunction(SIGNATURE.getName(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())),
                 getDescription(),
                 isHidden(),
                 tryCastHandle,

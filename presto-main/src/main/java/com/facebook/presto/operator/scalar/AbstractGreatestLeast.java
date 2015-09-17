@@ -47,6 +47,7 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
@@ -106,7 +107,7 @@ public abstract class AbstractGreatestLeast
         MethodHandle methodHandle = methodHandle(clazz, signature.getName(), javaTypes.toArray(new Class<?>[javaTypes.size()]));
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(javaTypes.size(), false));
 
-        Signature specializedSignature = Signature.internalFunction(signature.getName(), type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature()));
+        Signature specializedSignature = internalScalarFunction(signature.getName(), type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature()));
         return new FunctionInfo(specializedSignature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, nullableParameters);
     }
 
