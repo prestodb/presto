@@ -56,7 +56,7 @@ public abstract class AbstractMinMaxBy
     protected AbstractMinMaxBy(boolean min)
     {
         this.name = (min ? "min" : "max") + "_by";
-        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"), false, false);
+        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"), false);
         this.min = min;
     }
 

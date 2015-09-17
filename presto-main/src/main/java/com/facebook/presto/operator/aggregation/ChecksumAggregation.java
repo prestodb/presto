@@ -54,7 +54,7 @@ public class ChecksumAggregation
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ChecksumAggregation.class, "output", NullableLongState.class, BlockBuilder.class);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(ChecksumAggregation.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ChecksumAggregation.class, "combine", NullableLongState.class, NullableLongState.class);
-    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.VARBINARY, ImmutableList.of("T"), false, false);
+    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.VARBINARY, ImmutableList.of("T"), false);
 
     @Override
     public Signature getSignature()

@@ -57,7 +57,7 @@ public class MapAggregation
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MapAggregation.class, "output", KeyValuePairsState.class, BlockBuilder.class);
 
     private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")),
-                                                                   "map<K,V>", ImmutableList.of("K", "V"), false, false);
+                                                                   "map<K,V>", ImmutableList.of("K", "V"), false);
 
     @Override
     public Signature getSignature()

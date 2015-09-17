@@ -39,7 +39,7 @@ public final class ArraySliceFunction
 {
     public static final ArraySliceFunction ARRAY_SLICE_FUNCTION = new ArraySliceFunction();
     private static final String FUNCTION_NAME = "slice";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "bigint", "bigint"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "bigint", "bigint"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySliceFunction.class, "slice", Type.class, Block.class, long.class, long.class);
 
     @Override

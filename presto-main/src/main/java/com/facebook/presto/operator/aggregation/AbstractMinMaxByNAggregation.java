@@ -66,7 +66,7 @@ public abstract class AbstractMinMaxByNAggregation
     {
         this.name = requireNonNull(name, "name is null");
         this.typeToComparator = requireNonNull(typeToComparator, "typeToComparator is null");
-        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(typeParameter("V"), orderableTypeParameter("K")), "array<V>", ImmutableList.of("V", "K", StandardTypes.BIGINT), false, false);
+        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(typeParameter("V"), orderableTypeParameter("K")), "array<V>", ImmutableList.of("V", "K", StandardTypes.BIGINT), false);
     }
 
     @Override

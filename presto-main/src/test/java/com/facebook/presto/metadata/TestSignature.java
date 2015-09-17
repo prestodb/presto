@@ -67,7 +67,7 @@ public class TestSignature
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false, true);
+        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false);
         assertNotNull(signature.bindTypeParameters(ImmutableList.<Type>of(BIGINT), true, typeManager));
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(VARCHAR), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(VARCHAR, BIGINT), true, typeManager));
@@ -79,7 +79,7 @@ public class TestSignature
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        Signature signature = new Signature("foo", SCALAR, ImmutableList.<TypeParameter>of(), "boolean", ImmutableList.of("bigint"), false, true);
+        Signature signature = new Signature("foo", SCALAR, ImmutableList.<TypeParameter>of(), "boolean", ImmutableList.of("bigint"), false);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(BIGINT), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(VARCHAR), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(VARCHAR, BIGINT), true, typeManager));
@@ -91,16 +91,16 @@ public class TestSignature
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        Signature signature = new Signature("get", SCALAR, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("array<T>"), false, true);
+        Signature signature = new Signature("get", SCALAR, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("array<T>"), false);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("array<bigint>"))), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(BIGINT), true, typeManager));
 
-        signature = new Signature("contains", SCALAR, ImmutableList.of(comparableTypeParameter("T")), "T", ImmutableList.of("array<T>", "T"), false, true);
+        signature = new Signature("contains", SCALAR, ImmutableList.of(comparableTypeParameter("T")), "T", ImmutableList.of("array<T>", "T"), false);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("array<bigint>")), BIGINT), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("array<bigint>")), VARCHAR), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("array<HyperLogLog>")), HYPER_LOG_LOG), true, typeManager));
 
-        signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("array<T>", "array<T>"), false, true);
+        signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("array<T>", "array<T>"), false);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("array<bigint>")), typeManager.getType(parseTypeSignature("array<bigint>"))), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("array<bigint>")), typeManager.getType(parseTypeSignature("array<varchar>"))), true, typeManager));
     }
@@ -110,7 +110,7 @@ public class TestSignature
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        Signature signature = new Signature("get", SCALAR, ImmutableList.of(typeParameter("K"), typeParameter("V")), "V", ImmutableList.of("map<K,V>", "K"), false, true);
+        Signature signature = new Signature("get", SCALAR, ImmutableList.of(typeParameter("K"), typeParameter("V")), "V", ImmutableList.of("map<K,V>", "K"), false);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("map<bigint,varchar>")), BIGINT), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(typeManager.getType(parseTypeSignature("map<bigint,varchar>")), VARCHAR), true, typeManager));
     }
@@ -122,7 +122,7 @@ public class TestSignature
         TypeManager typeManager = new TypeRegistry();
         Type mapType = typeManager.getType(parseTypeSignature("map<bigint,bigint>"));
         Type arrayType = typeManager.getType(parseTypeSignature("array<bigint>"));
-        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(withVariadicBound("T", "map")), "bigint", ImmutableList.of("T"), true, true);
+        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(withVariadicBound("T", "map")), "bigint", ImmutableList.of("T"), true);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(mapType), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(arrayType), true, typeManager));
     }
@@ -132,7 +132,7 @@ public class TestSignature
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "boolean", ImmutableList.of("T"), true, true);
+        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "boolean", ImmutableList.of("T"), true);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(BIGINT), true, typeManager));
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(VARCHAR), true, typeManager));
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(BIGINT, BIGINT), true, typeManager));
@@ -144,7 +144,7 @@ public class TestSignature
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "boolean", ImmutableList.of("T", "double"), true, true);
+        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "boolean", ImmutableList.of("T", "double"), true);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(DOUBLE, DOUBLE), true, typeManager));
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(BIGINT, BIGINT), true, typeManager));
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(VARCHAR, BIGINT), true, typeManager));
@@ -156,12 +156,12 @@ public class TestSignature
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "boolean", ImmutableList.of("T", "T"), false, true);
+        Signature signature = new Signature("foo", SCALAR, ImmutableList.of(typeParameter("T")), "boolean", ImmutableList.of("T", "T"), false);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(UNKNOWN, UNKNOWN), true, typeManager));
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(UNKNOWN, BIGINT), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(BIGINT, VARCHAR), true, typeManager));
 
-        signature = new Signature("foo", SCALAR, ImmutableList.of(comparableTypeParameter("T")), "boolean", ImmutableList.of("T", "T"), false, true);
+        signature = new Signature("foo", SCALAR, ImmutableList.of(comparableTypeParameter("T")), "boolean", ImmutableList.of("T", "T"), false);
         Map<String, Type> boundParameters = signature.bindTypeParameters(ImmutableList.of(UNKNOWN, BIGINT), true, typeManager);
         assertNotNull(boundParameters);
         assertEquals(boundParameters.get("T"), BIGINT);

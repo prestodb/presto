@@ -49,7 +49,7 @@ public class CountColumn
 {
     public static final CountColumn COUNT_COLUMN = new CountColumn();
     private static final String NAME = "count";
-    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(typeParameter("T")), StandardTypes.BIGINT, ImmutableList.of("T"), false, false);
+    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(typeParameter("T")), StandardTypes.BIGINT, ImmutableList.of("T"), false);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(CountColumn.class, "input", LongState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(CountColumn.class, "combine", LongState.class, LongState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(CountColumn.class, "output", LongState.class, BlockBuilder.class);
