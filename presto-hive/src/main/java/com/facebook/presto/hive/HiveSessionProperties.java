@@ -32,6 +32,7 @@ public final class HiveSessionProperties
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
+    private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -49,6 +50,11 @@ public final class HiveSessionProperties
                         "Enable optimized readers",
                         config.isOptimizedReaderEnabled(),
                         true),
+                booleanSessionProperty(
+                        PARQUET_OPTIMIZED_READER_ENABLED,
+                        "Enable optimized parquet reader",
+                        config.isParquetOptimizedReaderEnabled(),
+                        false),
                 dataSizeSessionProperty(
                         ORC_MAX_MERGE_DISTANCE,
                         "ORC: Maximum size of gap between to reads to merge into a single read",
@@ -79,6 +85,11 @@ public final class HiveSessionProperties
     public static boolean isOptimizedReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZED_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
     public static DataSize getOrcMaxMergeDistance(ConnectorSession session)
