@@ -75,7 +75,7 @@ public class AccessDeniedException
 
     public static void denyAddColumn(String tableName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot add column to table %s%s", tableName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot add a column to table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyRenameColumn(String tableName)

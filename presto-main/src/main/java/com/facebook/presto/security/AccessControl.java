@@ -27,7 +27,7 @@ public interface AccessControl
     void checkCanSetUser(Principal principal, String userName);
 
     /**
-     * Check if identity is allowed to add column to  the specified table.
+     * Check if identity is allowed to add columns to the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanAddColumn(Identity identity, QualifiedTableName tableName);

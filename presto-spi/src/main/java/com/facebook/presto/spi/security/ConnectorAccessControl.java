@@ -36,7 +36,7 @@ public interface ConnectorAccessControl
     void checkCanRenameTable(Identity identity, SchemaTableName tableName, SchemaTableName newTableName);
 
     /**
-     * Check if identity is allowed to add column to the specified table in this catalog.
+     * Check if identity is allowed to add columns to the specified table in this catalog.
      * @throws AccessDeniedException if not allowed
      */
     void checkCanAddColumn(Identity identity, SchemaTableName tableName);
