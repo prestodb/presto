@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
-import com.google.common.net.InetAddresses;
 import io.airlift.log.Logger;
 import org.weakref.jmx.Managed;
 
@@ -103,7 +102,6 @@ public class NodeScheduler
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(() -> {
             ImmutableSetMultimap.Builder<HostAddress, Node> byHostAndPort = ImmutableSetMultimap.builder();
             ImmutableSetMultimap.Builder<InetAddress, Node> byHost = ImmutableSetMultimap.builder();
-            ImmutableSetMultimap.Builder<Rack, Node> byRack = ImmutableSetMultimap.builder();
 
             Set<Node> nodes;
             if (dataSourceName != null) {
@@ -119,8 +117,6 @@ public class NodeScheduler
 
                     InetAddress host = InetAddress.getByName(node.getHttpUri().getHost());
                     byHost.put(host, node);
-
-                    byRack.put(Rack.of(host), node);
                 }
                 catch (UnknownHostException e) {
                     // ignore
@@ -131,7 +127,7 @@ public class NodeScheduler
                     .map(Node::getNodeIdentifier)
                     .collect(toImmutableSet());
 
-            return new NodeMap(byHostAndPort.build(), byHost.build(), byRack.build(), coordinatorNodeIds);
+            return new NodeMap(byHostAndPort.build(), byHost.build(), coordinatorNodeIds);
         }, 5, TimeUnit.SECONDS);
 
         return new NodeSelector(nodeMap);
@@ -318,17 +314,14 @@ public class NodeScheduler
     {
         private final SetMultimap<HostAddress, Node> nodesByHostAndPort;
         private final SetMultimap<InetAddress, Node> nodesByHost;
-        private final SetMultimap<Rack, Node> nodesByRack;
         private final Set<String> coordinatorNodeIds;
 
         public NodeMap(SetMultimap<HostAddress, Node> nodesByHostAndPort,
                 SetMultimap<InetAddress, Node> nodesByHost,
-                SetMultimap<Rack, Node> nodesByRack,
                 Set<String> coordinatorNodeIds)
         {
             this.nodesByHostAndPort = nodesByHostAndPort;
             this.nodesByHost = nodesByHost;
-            this.nodesByRack = nodesByRack;
             this.coordinatorNodeIds = coordinatorNodeIds;
         }
 
@@ -342,56 +335,9 @@ public class NodeScheduler
             return nodesByHost;
         }
 
-        public SetMultimap<Rack, Node> getNodesByRack()
-        {
-            return nodesByRack;
-        }
-
         public Set<String> getCoordinatorNodeIds()
         {
             return coordinatorNodeIds;
-        }
-    }
-
-    private static class Rack
-    {
-        private final int id;
-
-        public static Rack of(InetAddress address)
-        {
-            // TODO: we need a plugin for this
-            int id = InetAddresses.coerceToInteger(address) & 0xFF_FF_FF_00;
-            return new Rack(id);
-        }
-
-        private Rack(int id)
-        {
-            this.id = id;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            Rack rack = (Rack) o;
-
-            if (id != rack.id) {
-                return false;
-            }
-
-            return true;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return id;
         }
     }
 }

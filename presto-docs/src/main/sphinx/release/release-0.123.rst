@@ -2,6 +2,11 @@
 Release 0.123
 =============
 
+General Changes
+---------------
+
+* Remove ``node-scheduler.location-aware-scheduling-enabled`` config.
+
 Table Properties
 ----------------
 
