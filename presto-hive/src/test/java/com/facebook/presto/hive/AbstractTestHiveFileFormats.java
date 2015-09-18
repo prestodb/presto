@@ -302,7 +302,7 @@ public abstract class AbstractTestHiveFileFormats
         return columns;
     }
 
-    public FileSplit createTestFile(String filePath,
+    public static FileSplit createTestFile(String filePath,
             HiveOutputFormat<?, ?> outputFormat,
             @SuppressWarnings("deprecation") SerDe serDe,
             String compressionCodec,

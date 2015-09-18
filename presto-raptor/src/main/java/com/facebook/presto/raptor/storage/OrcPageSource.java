@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -71,6 +72,8 @@ public class OrcPageSource
     private final Block[] constantBlocks;
     private final int[] columnIndexes;
 
+    private final AggregatedMemoryContext systemMemoryContext;
+
     private long completedBytes;
 
     private int batchId;
@@ -83,7 +86,8 @@ public class OrcPageSource
             List<Long> columnIds,
             List<Type> columnTypes,
             List<Integer> columnIndexes,
-            UUID shardUuid)
+            UUID shardUuid,
+            AggregatedMemoryContext systemMemoryContext)
     {
         this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
@@ -112,6 +116,8 @@ public class OrcPageSource
                 constantBlocks[i] = buildSingleValueBlock(Slices.utf8Slice(shardUuid.toString()));
             }
         }
+
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -213,6 +219,12 @@ public class OrcPageSource
     {
         checkState(shardRewriter.isPresent(), "shardRewriter is missing");
         return shardRewriter.get().rewrite(rowsToDelete);
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return systemMemoryContext.getBytes();
     }
 
     private void closeWithSuppression(Throwable throwable)

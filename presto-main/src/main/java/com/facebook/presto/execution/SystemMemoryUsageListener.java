@@ -15,5 +15,7 @@ package com.facebook.presto.execution;
 
 public interface SystemMemoryUsageListener
 {
+    // TODO: Remove this class and migrate to use AbstractAggregatedMemoryContext
+
     void updateSystemMemoryUsage(long deltaMemoryInBytes);
 }

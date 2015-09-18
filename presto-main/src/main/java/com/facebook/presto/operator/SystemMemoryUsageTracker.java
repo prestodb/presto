@@ -14,27 +14,30 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.memory.LocalMemoryContext;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class SystemMemoryUsageTracker
         implements SystemMemoryUsageListener
 {
-    private final OperatorContext operatorContext;
+    // This implementation is a hack.
+    // DO NOT use MemoryContext in a way similar to how it is used here.
+
+    private final LocalMemoryContext memoryContext;
+    private long bytes;
 
     public SystemMemoryUsageTracker(OperatorContext operatorContext)
     {
-        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.memoryContext = requireNonNull(operatorContext, "operatorContext is null").getSystemMemoryContext().newLocalMemoryContext();
     }
 
     @Override
     public void updateSystemMemoryUsage(long deltaMemoryInBytes)
     {
-        if (deltaMemoryInBytes > 0) {
-            operatorContext.reserveSystemMemory(deltaMemoryInBytes);
-        }
-        else {
-            operatorContext.freeSystemMemory(-deltaMemoryInBytes);
-        }
+        checkArgument(bytes + deltaMemoryInBytes >= 0, "tried to free more memory than is reserved");
+        bytes += deltaMemoryInBytes;
+        memoryContext.setBytes(bytes);
     }
 }

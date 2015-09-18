@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -51,6 +52,8 @@ public class ScanFilterAndProjectOperator
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
     private final PageProcessor pageProcessor;
+    private final LocalMemoryContext pageSourceMemoryContext;
+    private final LocalMemoryContext pageBuilderMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
 
     private RecordCursor cursor;
@@ -81,6 +84,8 @@ public class ScanFilterAndProjectOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.pageSourceMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
+        this.pageBuilderMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
 
         this.pageBuilder = new PageBuilder(getTypes());
     }
@@ -202,6 +207,9 @@ public class ScanFilterAndProjectOperator
 
             if (cursor != null) {
                 int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
+
+                pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
+
                 long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
                 long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
                 operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
@@ -235,16 +243,21 @@ public class ScanFilterAndProjectOperator
                         currentPosition = 0;
                     }
                 }
+
+                pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
             }
         }
 
         // only return a full page if buffer is full or we are finishing
         if (pageBuilder.isEmpty() || (!finishing && !pageBuilder.isFull())) {
+            pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
             return null;
         }
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
+
+        pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
         return page;
     }
 

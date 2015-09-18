@@ -23,6 +23,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -113,6 +114,42 @@ public class TestMemoryManager
 
             for (Future<?> query : queryFutures) {
                 query.get();
+            }
+        }
+    }
+
+    @Test(timeOut = 240_000)
+    public void testNoLeak()
+            throws Exception
+    {
+        testNoLeak("SELECT clerk FROM orders"); // TableScan operator
+        testNoLeak("SELECT COUNT(*), clerk FROM orders WHERE orderstatus='O' GROUP BY clerk"); // ScanFilterProjectOperator, AggregationOperator
+    }
+
+    private void testNoLeak(@Language("SQL") String query)
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("task.verbose-stats", "true")
+                .put("task.operator-pre-allocated-memory", "0B")
+                .build();
+
+        try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
+            executor.submit(() -> queryRunner.execute(query)).get();
+
+            List<QueryInfo> queryInfos = queryRunner.getCoordinator().getQueryManager().getAllQueryInfo();
+            for (QueryInfo info : queryInfos) {
+                assertEquals(info.getState(), FINISHED);
+            }
+
+            // Make sure we didn't leak any memory on the workers
+            for (TestingPrestoServer worker : queryRunner.getServers()) {
+                MemoryPool reserved = worker.getLocalMemoryManager().getPool(RESERVED_POOL);
+                assertEquals(reserved.getMaxBytes(), reserved.getFreeBytes());
+                MemoryPool general = worker.getLocalMemoryManager().getPool(GENERAL_POOL);
+                assertEquals(general.getMaxBytes(), general.getFreeBytes());
+                MemoryPool system = worker.getLocalMemoryManager().getPool(SYSTEM_POOL);
+                assertEquals(system.getMaxBytes(), system.getFreeBytes());
             }
         }
     }
