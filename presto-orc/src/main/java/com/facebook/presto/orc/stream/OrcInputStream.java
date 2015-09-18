@@ -14,6 +14,8 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
+import com.facebook.presto.orc.memory.LocalMemoryContext;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.google.common.base.MoreObjects;
 import com.google.common.primitives.Ints;
@@ -52,8 +54,16 @@ public final class OrcInputStream
     private FixedLengthSliceInput current;
 
     private byte[] buffer;
+    private final LocalMemoryContext bufferMemoryUsage;
 
-    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize)
+    // When uncompressed,
+    // * This tracks the memory usage of `current`.
+    // When compressed,
+    // * This tracks the memory usage of compressedSliceInput.
+    // * Memory pointed to by `current` is always part of `buffer`. It shouldn't be counted again.
+    private final LocalMemoryContext fixedMemoryUsage;
+
+    public OrcInputStream(String source, FixedLengthSliceInput sliceInput, CompressionKind compressionKind, int bufferSize, AbstractAggregatedMemoryContext systemMemoryContext)
     {
         this.source = requireNonNull(source, "source is null");
 
@@ -62,13 +72,18 @@ public final class OrcInputStream
         this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
         this.maxBufferSize = bufferSize;
 
+        requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext();
+        this.fixedMemoryUsage = systemMemoryContext.newLocalMemoryContext();
+        this.fixedMemoryUsage.setBytes(sliceInput.length());
+
         if (compressionKind == UNCOMPRESSED) {
             this.current = sliceInput;
             this.compressedSliceInput = EMPTY_SLICE.getInput();
         }
         else {
             checkArgument(compressionKind == SNAPPY || compressionKind == ZLIB, "%s compression not supported", compressionKind);
-            this.compressedSliceInput = requireNonNull(sliceInput, "compressedSliceInput is null");
+            this.compressedSliceInput = sliceInput;
             this.current = EMPTY_SLICE.getInput();
         }
     }
@@ -78,6 +93,10 @@ public final class OrcInputStream
             throws IOException
     {
         current = null;
+        fixedMemoryUsage.setBytes(compressedSliceInput.length()); // see comments above for fixedMemoryUsage
+
+        buffer = null;
+        bufferMemoryUsage.setBytes(0);
     }
 
     @Override
@@ -295,5 +314,6 @@ public final class OrcInputStream
                 buffer = new byte[Math.min(size, maxBufferSize)];
             }
         }
+        bufferMemoryUsage.setBytes(buffer.length);
     }
 }

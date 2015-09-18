@@ -37,6 +37,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 import parquet.column.ColumnDescriptor;
 import parquet.schema.MessageType;
@@ -64,6 +65,7 @@ class ParquetPageSource
         implements ConnectorPageSource
 {
     private static final int MAX_VECTOR_LENGTH = 1024;
+    private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
 
     private final ParquetReader parquetReader;
     private final MessageType requestedSchema;
@@ -198,6 +200,12 @@ class ParquetPageSource
     public boolean isFinished()
     {
         return closed;
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return GUESSED_MEMORY_USAGE;
     }
 
     @Override
