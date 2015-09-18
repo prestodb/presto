@@ -127,4 +127,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/localfile">
+        <artifact id="${project.groupId}:presto-local-file:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
