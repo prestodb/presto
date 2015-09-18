@@ -24,6 +24,9 @@ import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.internal.StaticCredentialsProvider;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.regions.ServiceAbbreviations;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -548,18 +551,26 @@ public class PrestoS3FileSystem
 
     private AmazonS3Client createAmazonS3Client(URI uri, Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
+        AmazonS3Client client = null;
         // first try credentials from URI or static properties
         try {
-            return new AmazonS3Client(new StaticCredentialsProvider(getAwsCredentials(uri, hadoopConfig)), clientConfig, METRIC_COLLECTOR);
+            client = new AmazonS3Client(new StaticCredentialsProvider(getAwsCredentials(uri, hadoopConfig)), clientConfig, METRIC_COLLECTOR);
         }
         catch (IllegalArgumentException ignored) {
         }
 
         if (useInstanceCredentials) {
-            return new AmazonS3Client(new InstanceProfileCredentialsProvider(), clientConfig, METRIC_COLLECTOR);
+            client = new AmazonS3Client(new InstanceProfileCredentialsProvider(), clientConfig, METRIC_COLLECTOR);
         }
-
-        throw new RuntimeException("S3 credentials not configured");
+        if (client == null) {
+            throw new RuntimeException("S3 credentials not configured");
+        }
+        // only for AWS cn-north-1. if not set in cn-north-1, s3 will fail
+        // in other regions, it also works
+        Region region = Regions.getCurrentRegion();
+        client.setRegion(region);
+        client.setEndpoint(region.getServiceEndpoint(ServiceAbbreviations.S3));
+        return client;
     }
 
     private static AWSCredentials getAwsCredentials(URI uri, Configuration conf)
