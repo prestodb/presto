@@ -53,7 +53,7 @@ public class TestMapAggAggregation
             throws Exception
     {
         MapType mapType = new MapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR)).getAggregationFunction();
+        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR));
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -62,7 +62,7 @@ public class TestMapAggAggregation
                 createStringsBlock("a", "b", "c"));
 
         mapType = new MapType(DOUBLE, BIGINT);
-        aggFunc = metadata.getExactFunction(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT)).getAggregationFunction();
+        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT));
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -76,7 +76,7 @@ public class TestMapAggAggregation
             throws Exception
     {
         MapType mapType = new MapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR)).getAggregationFunction();
+        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR));
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -85,7 +85,7 @@ public class TestMapAggAggregation
                 createStringsBlock("a", "b", "c"));
 
         mapType = new MapType(DOUBLE, BIGINT);
-        aggFunc = metadata.getExactFunction(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT)).getAggregationFunction();
+        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT));
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -94,7 +94,7 @@ public class TestMapAggAggregation
                 createLongsBlock(3L, 2L, 1L));
 
         mapType = new MapType(DOUBLE, BOOLEAN);
-        aggFunc = metadata.getExactFunction(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BOOLEAN)).getAggregationFunction();
+        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BOOLEAN));
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -107,7 +107,7 @@ public class TestMapAggAggregation
     public void testNull()
             throws Exception
     {
-        InternalAggregationFunction doubleDouble = metadata.getExactFunction(new Signature(NAME, AGGREGATE, new MapType(DOUBLE, DOUBLE).getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.DOUBLE)).getAggregationFunction();
+        InternalAggregationFunction doubleDouble = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, new MapType(DOUBLE, DOUBLE).getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.DOUBLE));
         assertAggregation(
                 doubleDouble,
                 1.0,
@@ -140,11 +140,11 @@ public class TestMapAggAggregation
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = new MapType(DOUBLE, arrayType);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME,
+        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
                                                                                     AGGREGATE,
                                                                                     mapType.getTypeSignature().toString(),
                                                                                     StandardTypes.DOUBLE,
-                                                                                    arrayType.getTypeSignature().toString())).getAggregationFunction();
+                                                                                    arrayType.getTypeSignature().toString()));
 
         assertAggregation(
                 aggFunc,
@@ -162,11 +162,11 @@ public class TestMapAggAggregation
     {
         MapType innerMapType = new MapType(VARCHAR, VARCHAR);
         MapType mapType = new MapType(DOUBLE, innerMapType);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME,
+        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
                 AGGREGATE,
                 mapType.getTypeSignature().toString(),
                 StandardTypes.DOUBLE,
-                innerMapType.getTypeSignature().toString())).getAggregationFunction();
+                innerMapType.getTypeSignature().toString()));
 
         BlockBuilder builder = innerMapType.createBlockBuilder(new BlockBuilderStatus(), 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
@@ -189,11 +189,11 @@ public class TestMapAggAggregation
     {
         RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
         MapType mapType = new MapType(DOUBLE, innerRowType);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME,
+        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
                 AGGREGATE,
                 mapType.getTypeSignature().toString(),
                 StandardTypes.DOUBLE,
-                innerRowType.getTypeSignature().toString())).getAggregationFunction();
+                innerRowType.getTypeSignature().toString()));
 
         BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
         innerRowType.writeObject(builder, testRowBigintBigint(1L, 1.0));
@@ -216,13 +216,13 @@ public class TestMapAggAggregation
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = new MapType(arrayType, DOUBLE);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(
+        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(
                 NAME,
                 AGGREGATE,
                 mapType.getTypeSignature().toString(),
                 arrayType.getTypeSignature().toString(),
                 StandardTypes.DOUBLE
-        )).getAggregationFunction();
+        ));
 
         assertAggregation(
                 aggFunc,

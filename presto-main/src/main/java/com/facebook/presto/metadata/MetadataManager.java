@@ -252,12 +252,6 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo getExactFunction(Signature handle)
-    {
-        return functions.getExactFunction(handle);
-    }
-
-    @Override
     public boolean isAggregationFunction(QualifiedName name)
     {
         return functions.isAggregationFunction(name);
