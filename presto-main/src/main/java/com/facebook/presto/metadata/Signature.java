@@ -37,6 +37,7 @@ import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -93,6 +94,11 @@ public final class Signature
     public Signature(String name, FunctionType type, TypeSignature returnType, TypeSignature... argumentTypes)
     {
         this(name, type, returnType, ImmutableList.copyOf(argumentTypes));
+    }
+
+    public static Signature internalOperator(OperatorType operator, Type returnType, List<Type> argumentTypes)
+    {
+        return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }
 
     public static Signature internalOperator(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)

@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
@@ -561,8 +562,8 @@ public class ExpressionInterpreter
                     return value;
                 case MINUS:
                     FunctionInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+                    MethodHandle handle = metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorInfo.getSignature()).getMethodHandle();
 
-                    MethodHandle handle = operatorInfo.getMethodHandle();
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                         handle = handle.bindTo(session);
                     }
@@ -681,14 +682,16 @@ public class ExpressionInterpreter
 
             FunctionInfo firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
             FunctionInfo secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
+            MethodHandle firstCastHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(firstCast.getSignature()).getMethodHandle();
+            MethodHandle secondCastHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(secondCast.getSignature()).getMethodHandle();
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = (Boolean) invokeOperator(
                     OperatorType.EQUAL,
                     ImmutableList.of(commonType, commonType),
                     ImmutableList.of(
-                            invoke(session, firstCast.getMethodHandle(), ImmutableList.of(first)),
-                            invoke(session, secondCast.getMethodHandle(), ImmutableList.of(second))));
+                            invoke(session, firstCastHandle, ImmutableList.of(first)),
+                            invoke(session, secondCastHandle, ImmutableList.of(second))));
 
             if (equal) {
                 return null;
@@ -770,7 +773,8 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo function = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
+            FunctionInfo functionInfo = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
+            ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionInfo.getSignature());
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && !function.getNullableArguments().get(i)) {
@@ -899,7 +903,7 @@ public class ExpressionInterpreter
             FunctionInfo operatorInfo = metadata.getFunctionRegistry().getCoercion(expressionTypes.get(node.getExpression()), type);
 
             try {
-                return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
+                return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorInfo.getSignature()).getMethodHandle(), ImmutableList.of(value));
             }
             catch (RuntimeException e) {
                 if (node.isSafe()) {
@@ -973,7 +977,7 @@ public class ExpressionInterpreter
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
             FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
-            return invoke(session, operatorInfo.getMethodHandle(), argumentValues);
+            return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorInfo.getSignature()).getMethodHandle(), argumentValues);
         }
     }
 

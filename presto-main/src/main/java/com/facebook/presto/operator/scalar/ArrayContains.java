@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -33,6 +34,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
@@ -77,7 +79,7 @@ public final class ArrayContains
         TypeSignature valueType = type.getTypeSignature();
         TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, valueType);
         MethodHandle methodHandle = methodHandle(ArrayContains.class, "contains", Type.class, MethodHandle.class, Block.class, type.getJavaType());
-        MethodHandle equalsHandle = functionRegistry.resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type)).getMethodHandle();
+        MethodHandle equalsHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
         Signature signature = new Signature(FUNCTION_NAME, SCALAR, RETURN_TYPE, arrayType, valueType);
 
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle.bindTo(type).bindTo(equalsHandle), isDeterministic(), true, ImmutableList.of(false, false));

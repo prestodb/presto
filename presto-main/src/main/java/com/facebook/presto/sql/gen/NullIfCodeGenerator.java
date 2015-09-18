@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
@@ -57,8 +58,10 @@ public class NullIfCodeGenerator
         Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        FunctionInfo equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
+        FunctionInfo operatorInfo = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
+        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(operatorInfo.getSignature());
         ByteCodeNode equalsCall = generatorContext.generateCall(
+                operatorInfo.getSignature().getName(),
                 equalsFunction,
                 ImmutableList.of(
                         cast(generatorContext, new ByteCodeBlock().dup(firstType.getJavaType()), firstType, commonType),
@@ -90,6 +93,6 @@ public class NullIfCodeGenerator
             .getCoercion(fromType, toType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(function, ImmutableList.of(argument));
+        return generatorContext.generateCall(function.getSignature().getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function.getSignature()), ImmutableList.of(argument));
     }
 }

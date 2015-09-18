@@ -37,7 +37,9 @@ import java.util.Map;
 import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.TypeUtils.castValue;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -89,7 +91,7 @@ public final class ArrayRemoveFunction
         TypeSignature valueType = type.getTypeSignature();
         TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, valueType);
 
-        MethodHandle equalsFunction = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type)).getMethodHandle();
+        MethodHandle equalsFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
         MethodHandle baseMethodHandle;
         if (type.getJavaType() == long.class) {
             baseMethodHandle = METHOD_HANDLE_LONG;

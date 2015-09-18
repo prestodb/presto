@@ -79,7 +79,8 @@ public class TryCastFunction
         }
         else {
             // the resulting method needs to return a boxed type
-            MethodHandle coercion = functionRegistry.getCoercion(fromType, toType).getMethodHandle();
+            FunctionInfo functionInfo = functionRegistry.getCoercion(fromType, toType);
+            MethodHandle coercion = functionRegistry.getScalarFunctionImplementation(functionInfo.getSignature()).getMethodHandle();
             coercion = coercion.asType(methodType(returnType, coercion.type()));
 
             MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
