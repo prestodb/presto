@@ -16,8 +16,8 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.sql.relational.RowExpression;
 
 import java.util.List;
@@ -74,10 +74,10 @@ public class ByteCodeGeneratorContext
     /**
      * Generates a function call with null handling, automatic binding of session parameter, etc.
      */
-    public ByteCodeNode generateCall(FunctionInfo function, List<ByteCodeNode> arguments)
+    public ByteCodeNode generateCall(String name, ScalarFunctionImplementation function, List<ByteCodeNode> arguments)
     {
         Binding binding = callSiteBinder.bind(function.getMethodHandle());
-        return generateInvocation(scope, function, arguments, binding);
+        return generateInvocation(scope, name, function, arguments, binding);
     }
 
     public Variable wasNull()

@@ -257,7 +257,7 @@ public class InformationSchemaPageSourceProvider
                             ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
                             try {
                                 FunctionInfo operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
-                                value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
+                                value = ((Slice) metadata.getFunctionRegistry().getScalarFunctionImplementation(operator.getSignature()).getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
                             }
                             catch (OperatorNotFoundException e) {
                                 value = "<UNREPRESENTABLE VALUE>";

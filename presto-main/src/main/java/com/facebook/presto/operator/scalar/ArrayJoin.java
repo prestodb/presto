@@ -41,7 +41,6 @@ import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -55,13 +54,13 @@ public final class ArrayJoin
     private static final String FUNCTION_NAME = "array_join";
     private static final String DESCRIPTION = "Concatenates the elements of the given array using a delimiter and an optional string to replace nulls";
     private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR), false);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", FunctionInfo.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", MethodHandle.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
 
     public static class ArrayJoinWithNullReplacement
             implements ParametricFunction
     {
         private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR, StandardTypes.VARCHAR), false);
-        private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", FunctionInfo.class, Type.class, ConnectorSession.class, Block.class, Slice.class, Slice.class);
+        private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", MethodHandle.class, Type.class, ConnectorSession.class, Block.class, Slice.class, Slice.class);
 
         @Override
         public Signature getSignature()
@@ -133,21 +132,26 @@ public final class ArrayJoin
     private static FunctionInfo specializeArrayJoin(Map<String, Type> types, FunctionRegistry functionRegistry, List<Boolean> nullableArguments, Signature signature, MethodHandle methodHandle)
     {
         Type type = types.get("T");
-        FunctionInfo castFunction = functionRegistry.getExactFunction(internalOperator(CAST.name(), VARCHAR_TYPE_SIGNATURE, ImmutableList.of(type.getTypeSignature())));
-
-        if (!(type instanceof UnknownType)) {
-            checkCondition(castFunction != null, INVALID_FUNCTION_ARGUMENT, "Input type %s not supported", type);
+        if (type instanceof UnknownType) {
+            return new FunctionInfo(signature, DESCRIPTION, false, methodHandle.bindTo(null).bindTo(type), true, false, nullableArguments);
         }
-
-        return new FunctionInfo(signature, DESCRIPTION, false, methodHandle.bindTo(castFunction).bindTo(type), true, false, nullableArguments);
+        else {
+            try {
+                ScalarFunctionImplementation castFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(CAST.name(), VARCHAR_TYPE_SIGNATURE, ImmutableList.of(type.getTypeSignature())));
+                return new FunctionInfo(signature, DESCRIPTION, false, methodHandle.bindTo(castFunction.getMethodHandle()).bindTo(type), true, false, nullableArguments);
+            }
+            catch (PrestoException e) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);
+            }
+        }
     }
 
-    public static Slice arrayJoin(FunctionInfo castFunction, Type elementType, ConnectorSession session, Block arrayBlock, Slice delimiter)
+    public static Slice arrayJoin(MethodHandle castFunction, Type elementType, ConnectorSession session, Block arrayBlock, Slice delimiter)
     {
         return arrayJoin(castFunction, elementType, session, arrayBlock, delimiter, null);
     }
 
-    public static Slice arrayJoin(FunctionInfo castFunction, Type elementType, ConnectorSession session, Block arrayBlock, Slice delimiter, Slice nullReplacement)
+    public static Slice arrayJoin(MethodHandle castFunction, Type elementType, ConnectorSession session, Block arrayBlock, Slice delimiter, Slice nullReplacement)
     {
         int numElements = arrayBlock.getPositionCount();
 
@@ -155,11 +159,9 @@ public final class ArrayJoin
         Class<?> javaType = elementType.getJavaType();
 
         Class<?>[] parameters = null;
-        MethodHandle castFunctionHandle = null;
         // can be null for the unknown type
         if (castFunction != null) {
-            parameters = castFunction.getMethodHandle().type().parameterArray();
-            castFunctionHandle = castFunction.getMethodHandle();
+            parameters = castFunction.type().parameterArray();
         }
 
         for (int i = 0; i < numElements; i++) {
@@ -173,16 +175,16 @@ public final class ArrayJoin
             }
             else {
                 if (javaType == boolean.class) {
-                    sliceOutput.appendBytes(invokeCast(parameters, castFunctionHandle, session, elementType.getBoolean(arrayBlock, i)));
+                    sliceOutput.appendBytes(invokeCast(parameters, castFunction, session, elementType.getBoolean(arrayBlock, i)));
                 }
                 else if (javaType == double.class) {
-                    sliceOutput.appendBytes(invokeCast(parameters, castFunctionHandle, session, elementType.getDouble(arrayBlock, i)));
+                    sliceOutput.appendBytes(invokeCast(parameters, castFunction, session, elementType.getDouble(arrayBlock, i)));
                 }
                 else if (javaType == long.class) {
-                    sliceOutput.appendBytes(invokeCast(parameters, castFunctionHandle, session, elementType.getLong(arrayBlock, i)));
+                    sliceOutput.appendBytes(invokeCast(parameters, castFunction, session, elementType.getLong(arrayBlock, i)));
                 }
                 else if (javaType == Slice.class) {
-                    sliceOutput.appendBytes(invokeCast(parameters, castFunctionHandle, session, elementType.getSlice(arrayBlock, i)));
+                    sliceOutput.appendBytes(invokeCast(parameters, castFunction, session, elementType.getSlice(arrayBlock, i)));
                 }
                 else {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unexpected type %s", javaType.getName()));

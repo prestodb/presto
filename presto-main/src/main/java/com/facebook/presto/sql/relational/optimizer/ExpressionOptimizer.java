@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -24,7 +25,6 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.Iterables;
 
@@ -84,14 +84,15 @@ public class ExpressionOptimizer
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
-            FunctionInfo function;
+            ScalarFunctionImplementation function;
             Signature signature = call.getSignature();
 
             if (signature.getName().equals(CAST)) {
                 if (call.getArguments().get(0).getType().equals(UnknownType.UNKNOWN)) {
                     return constantNull(call.getType());
                 }
-                function = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
+                FunctionInfo functionInfo = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
+                function = registry.getScalarFunctionImplementation(functionInfo.getSignature());
             }
             else {
                 switch (signature.getName()) {
@@ -125,11 +126,7 @@ public class ExpressionOptimizer
                                 .collect(toImmutableList());
                         return call(signature, call.getType(), arguments);
                     default:
-                        function = registry.getExactFunction(signature);
-                        if (function == null) {
-                            // TODO: temporary hack to deal with magic timestamp literal functions which don't have an "exact" form and need to be "resolved"
-                            function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
-                        }
+                        function = registry.getScalarFunctionImplementation(signature);
                 }
             }
 

@@ -46,6 +46,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionType.SCALAR;
@@ -220,24 +221,25 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                FunctionInfo operator = metadata.getFunctionRegistry().getExactFunction(new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature()));
+                MethodHandle operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature())).getMethodHandle();
                 try {
-                    return ExpressionInterpreter.invoke(session, operator.getMethodHandle(), ImmutableList.<Object>of(utf8Slice(node.getValue())));
+                    return ExpressionInterpreter.invoke(session, operator, ImmutableList.<Object>of(utf8Slice(node.getValue())));
                 }
                 catch (Throwable throwable) {
                     throw Throwables.propagate(throwable);
                 }
             }
 
-            FunctionInfo operator;
+            MethodHandle operator;
             try {
-                operator = metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
+                FunctionInfo functionInfo = metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
+                operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionInfo.getSignature()).getMethodHandle();
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
             }
             try {
-                return ExpressionInterpreter.invoke(session, operator.getMethodHandle(), ImmutableList.<Object>of(utf8Slice(node.getValue())));
+                return ExpressionInterpreter.invoke(session, operator, ImmutableList.<Object>of(utf8Slice(node.getValue())));
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);

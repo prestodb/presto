@@ -47,6 +47,7 @@ import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonOperators;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
@@ -414,46 +415,22 @@ public class FunctionRegistry
         }
 
         if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
-            // extract type from function name
-            String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
-
-            // lookup the type
-            Type type = typeManager.getType(parseTypeSignature(typeName));
-            requireNonNull(type, format("Type %s not registered", typeName));
-
-            // verify we have one parameter of the proper type
-            checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parameterTypes.get(0));
-            requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
-
-            MethodHandle methodHandle = null;
-            if (parameterType.getJavaType() == type.getJavaType()) {
-                methodHandle = MethodHandles.identity(parameterType.getJavaType());
-            }
-
-            if (parameterType.getJavaType() == Slice.class) {
-                if (type.getJavaType() == Block.class) {
-                    methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
-                }
-            }
-
-            checkArgument(methodHandle != null,
-                    "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
-                    type,
-                    parameterType.getJavaType(),
-                    type.getJavaType());
-
-            return new FunctionInfo(
-                    getMagicLiteralFunctionSignature(type),
-                    null,
-                    true,
-                    methodHandle,
-                    true,
-                    false,
-                    ImmutableList.of(false));
+            return getMagicLiteralFunctionInfo(name, parameterTypes);
         }
 
         // TODO this should be made to work for any parametric type
+        match = getRowFieldReferenceFunctionInfo(name, parameterTypes);
+        if (match != null) {
+            return match;
+        }
+
+        throw new PrestoException(FUNCTION_NOT_FOUND, message);
+    }
+
+    private FunctionInfo getRowFieldReferenceFunctionInfo(QualifiedName name, List<TypeSignature> parameterTypes)
+    {
+        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
+        FunctionInfo match = null;
         for (TypeSignature typeSignature : parameterTypes) {
             if (typeSignature.getBase().equals(StandardTypes.ROW)) {
                 RowType rowType = RowParametricType.ROW.createType(resolveTypes(typeSignature.getParameters(), typeManager), typeSignature.getLiteralParameters());
@@ -479,8 +456,48 @@ public class FunctionRegistry
                 }
             }
         }
+        return null;
+    }
 
-        throw new PrestoException(FUNCTION_NOT_FOUND, message);
+    private FunctionInfo getMagicLiteralFunctionInfo(QualifiedName name, List<TypeSignature> parameterTypes)
+    {
+        // extract type from function name
+        String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+
+        // lookup the type
+        Type type = typeManager.getType(parseTypeSignature(typeName));
+        requireNonNull(type, format("Type %s not registered", typeName));
+
+        // verify we have one parameter of the proper type
+        checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
+        Type parameterType = typeManager.getType(parameterTypes.get(0));
+        requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
+
+        MethodHandle methodHandle = null;
+        if (parameterType.getJavaType() == type.getJavaType()) {
+            methodHandle = MethodHandles.identity(parameterType.getJavaType());
+        }
+
+        if (parameterType.getJavaType() == Slice.class) {
+            if (type.getJavaType() == Block.class) {
+                methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
+            }
+        }
+
+        checkArgument(methodHandle != null,
+                "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
+                type,
+                parameterType.getJavaType(),
+                type.getJavaType());
+
+        return new FunctionInfo(
+                getMagicLiteralFunctionSignature(type),
+                null,
+                true,
+                methodHandle,
+                true,
+                false,
+                ImmutableList.of(false));
     }
 
     public FunctionInfo getExactFunction(Signature signature)
@@ -519,6 +536,23 @@ public class FunctionRegistry
         FunctionInfo function = getExactFunction(signature);
         checkCondition(function != null, FUNCTION_IMPLEMENTATION_MISSING, "%s not found", signature);
         return function.getAggregationFunction();
+    }
+
+    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
+    {
+        checkArgument(signature.getType() == SCALAR, "%s is not a scalar function", signature);
+        checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
+        FunctionInfo function = getExactFunction(signature);
+        // TODO: this is a hack and should be removed
+        if (function == null && signature.getName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+            function = getMagicLiteralFunctionInfo(QualifiedName.of(signature.getName()), signature.getArgumentTypes());
+        }
+        // TODO: this is a hack and should be removed
+        if (function == null) {
+            function = getRowFieldReferenceFunctionInfo(QualifiedName.of(signature.getName()), signature.getArgumentTypes());
+        }
+        checkCondition(function != null, FUNCTION_IMPLEMENTATION_MISSING, "%s not found", signature);
+        return new ScalarFunctionImplementation(function.isNullable(), function.getNullableArguments(), function.getMethodHandle(), function.isDeterministic());
     }
 
     @VisibleForTesting

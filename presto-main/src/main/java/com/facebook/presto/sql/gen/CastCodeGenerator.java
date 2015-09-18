@@ -44,6 +44,6 @@ public class CastCodeGenerator
                 .getRegistry()
                 .getCoercion(argument.getType(), returnType);
 
-        return generatorContext.generateCall(function, ImmutableList.of(generatorContext.generate(argument)));
+        return generatorContext.generateCall(signature.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function.getSignature()), ImmutableList.of(generatorContext.generate(argument)));
     }
 }

@@ -149,6 +149,7 @@ public final class FunctionInfo
         return aggregationFunction;
     }
 
+    @Deprecated
     public MethodHandle getMethodHandle()
     {
         checkState(methodHandle != null, "not a scalar function or operator");

@@ -22,8 +22,8 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -51,11 +51,9 @@ import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 public class ArrayToArrayCast
         extends ParametricOperator
@@ -77,24 +75,21 @@ public class ArrayToArrayCast
         ArrayType fromArrayType = (ArrayType) typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(fromType.getTypeSignature()), ImmutableList.of());
         ArrayType toArrayType = (ArrayType) typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(toType.getTypeSignature()), ImmutableList.of());
 
-        FunctionInfo functionInfo = functionRegistry.getExactFunction(internalOperator(CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
-        if (functionInfo == null) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, format("Can not cast %s to %s", fromArrayType, toArrayType));
-        }
-
-        Class<?> castOperatorClass = generateArrayCast(typeManager, functionInfo);
+        Signature signature = internalOperator(CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
+        ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
+        Class<?> castOperatorClass = generateArrayCast(typeManager, signature, function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
 
         return operatorInfo(CAST, toArrayType.getTypeSignature(), ImmutableList.of(fromArrayType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
     }
 
-    private static Class<?> generateArrayCast(TypeManager typeManager, FunctionInfo elementCast)
+    private static Class<?> generateArrayCast(TypeManager typeManager, Signature elementCastSignature, ScalarFunctionImplementation elementCast)
     {
         CallSiteBinder binder = new CallSiteBinder();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeClassName(Joiner.on("$").join("ArrayCast", elementCast.getArgumentTypes().get(0), elementCast.getReturnType())),
+                CompilerUtils.makeClassName(Joiner.on("$").join("ArrayCast", elementCastSignature.getArgumentTypes().get(0), elementCastSignature.getReturnType())),
                 type(Object.class));
 
         definition.declareDefaultConstructor(a(PRIVATE));
@@ -116,7 +111,9 @@ public class ArrayToArrayCast
         body.append(wasNull.set(constantBoolean(false)));
 
         // cast map elements
-        ArrayMapByteCodeExpression newArray = ArrayGeneratorUtils.map(scope, binder, typeManager, value, elementCast);
+        Type fromElementType = typeManager.getType(elementCastSignature.getArgumentTypes().get(0));
+        Type toElementType = typeManager.getType(elementCastSignature.getReturnType());
+        ArrayMapByteCodeExpression newArray = ArrayGeneratorUtils.map(scope, binder, fromElementType, toElementType, value, elementCastSignature.getName(), elementCast);
 
         // return the block
         body.append(newArray.ret());

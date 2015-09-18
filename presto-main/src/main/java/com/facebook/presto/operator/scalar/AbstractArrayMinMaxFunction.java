@@ -31,8 +31,10 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -94,7 +96,7 @@ public abstract class AbstractArrayMinMaxFunction
         Type elementType = types.get("E");
         checkArgument(elementType.isOrderable(), "Type must be orderable");
 
-        MethodHandle compareMethodHandle = functionRegistry.resolveOperator(operatorType, ImmutableList.of(elementType, elementType)).getMethodHandle();
+        MethodHandle compareMethodHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(operatorType, BOOLEAN, ImmutableList.of(elementType, elementType))).getMethodHandle();
         MethodHandle methodHandle = METHOD_HANDLES.get(elementType.getJavaType());
         if (methodHandle == null) {
             methodHandle = METHOD_HANDLE_OBJECT;
