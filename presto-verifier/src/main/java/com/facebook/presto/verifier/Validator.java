@@ -74,6 +74,7 @@ public class Validator
     private final QueryPair queryPair;
     private final boolean explainOnly;
     private final Map<String, String> sessionProperties;
+    private final int precision;
 
     private Boolean valid;
 
@@ -95,6 +96,7 @@ public class Validator
         this.testTimeout = config.getTestTimeout();
         this.maxRowCount = config.getMaxRowCount();
         this.explainOnly = config.isExplainOnly();
+        this.precision = config.getDoublePrecision();
         // Check if either the control query or the test query matches the regex
         if (Pattern.matches(config.getSkipCorrectnessRegex(), queryPair.getTest().getQuery()) ||
                 Pattern.matches(config.getSkipCorrectnessRegex(), queryPair.getControl().getQuery())) {
@@ -203,7 +205,7 @@ public class Validator
             return true;
         }
 
-        if (resultsMatch(controlResult, testResult)) {
+        if (resultsMatch(controlResult, testResult, precision)) {
             return true;
         }
 
@@ -214,7 +216,7 @@ public class Validator
                 return false;
             }
 
-            if (!resultsMatch(controlResult, results)) {
+            if (!resultsMatch(controlResult, results, precision)) {
                 deterministic = false;
                 return false;
             }
@@ -227,7 +229,7 @@ public class Validator
             if (testResult.getState() != State.SUCCESS) {
                 return false;
             }
-            if (!resultsMatch(controlResult, testResult)) {
+            if (!resultsMatch(controlResult, testResult, precision)) {
                 return false;
             }
         }
@@ -383,10 +385,10 @@ public class Validator
         return rows.build();
     }
 
-    private static boolean resultsMatch(QueryResult controlResult, QueryResult testResult)
+    private static boolean resultsMatch(QueryResult controlResult, QueryResult testResult, int precision)
     {
-        SortedMultiset<List<Object>> control = ImmutableSortedMultiset.copyOf(rowComparator(), controlResult.getResults());
-        SortedMultiset<List<Object>> test = ImmutableSortedMultiset.copyOf(rowComparator(), testResult.getResults());
+        SortedMultiset<List<Object>> control = ImmutableSortedMultiset.copyOf(rowComparator(precision), controlResult.getResults());
+        SortedMultiset<List<Object>> test = ImmutableSortedMultiset.copyOf(rowComparator(precision), testResult.getResults());
         try {
             return control.equals(test);
         }
@@ -395,7 +397,7 @@ public class Validator
         }
     }
 
-    public String getResultsComparison()
+    public String getResultsComparison(int precision)
     {
         List<List<Object>> controlResults = controlResult.getResults();
         List<List<Object>> testResults = testResult.getResults();
@@ -404,13 +406,13 @@ public class Validator
             return "";
         }
 
-        Multiset<List<Object>> control = ImmutableSortedMultiset.copyOf(rowComparator(), controlResults);
-        Multiset<List<Object>> test = ImmutableSortedMultiset.copyOf(rowComparator(), testResults);
+        Multiset<List<Object>> control = ImmutableSortedMultiset.copyOf(rowComparator(precision), controlResults);
+        Multiset<List<Object>> test = ImmutableSortedMultiset.copyOf(rowComparator(precision), testResults);
 
         try {
             Iterable<ChangedRow> diff = ImmutableSortedMultiset.<ChangedRow>naturalOrder()
-                    .addAll(Iterables.transform(Multisets.difference(control, test), row -> new ChangedRow(Changed.REMOVED, row)))
-                    .addAll(Iterables.transform(Multisets.difference(test, control), row -> new ChangedRow(Changed.ADDED, row)))
+                    .addAll(Iterables.transform(Multisets.difference(control, test), row -> new ChangedRow(Changed.REMOVED, row, precision)))
+                    .addAll(Iterables.transform(Multisets.difference(test, control), row -> new ChangedRow(Changed.ADDED, row, precision)))
                     .build();
             diff = Iterables.limit(diff, 100);
 
@@ -431,9 +433,9 @@ public class Validator
         }
     }
 
-    private static Comparator<List<Object>> rowComparator()
+    private static Comparator<List<Object>> rowComparator(int precision)
     {
-        final Comparator<Object> comparator = Ordering.from(columnComparator()).nullsFirst();
+        final Comparator<Object> comparator = Ordering.from(columnComparator(precision)).nullsFirst();
         return new Comparator<List<Object>>()
         {
             @Override
@@ -453,7 +455,7 @@ public class Validator
         };
     }
 
-    private static Comparator<Object> columnComparator()
+    private static Comparator<Object> columnComparator(int precision)
     {
         return new Comparator<Object>()
         {
@@ -472,7 +474,7 @@ public class Validator
                     if (isIntegral(x)) {
                         return Long.compare(x.longValue(), y.longValue());
                     }
-                    return precisionCompare(x.doubleValue(), y.doubleValue());
+                    return precisionCompare(x.doubleValue(), y.doubleValue(), precision);
                 }
                 if (a.getClass() != b.getClass()) {
                     throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
@@ -505,13 +507,13 @@ public class Validator
         return x instanceof Byte || x instanceof Short || x instanceof Integer || x instanceof Long;
     }
 
-    private static int precisionCompare(double a, double b)
+    private static int precisionCompare(double a, double b, int precision)
     {
         if (!isFinite(a) || !isFinite(b)) {
             return Double.compare(a, b);
         }
 
-        MathContext context = new MathContext(5);
+        MathContext context = new MathContext(precision);
         BigDecimal x = new BigDecimal(a).round(context);
         BigDecimal y = new BigDecimal(b).round(context);
         return x.compareTo(y);
@@ -527,11 +529,13 @@ public class Validator
 
         private final Changed changed;
         private final List<Object> row;
+        private final int precision;
 
-        private ChangedRow(Changed changed, List<Object> row)
+        private ChangedRow(Changed changed, List<Object> row, int precision)
         {
             this.changed = changed;
             this.row = row;
+            this.precision = precision;
         }
 
         @Override
@@ -549,7 +553,7 @@ public class Validator
         public int compareTo(ChangedRow that)
         {
             return ComparisonChain.start()
-                    .compare(this.row, that.row, rowComparator())
+                    .compare(this.row, that.row, rowComparator(precision))
                     .compareFalseFirst(this.changed == Changed.ADDED, that.changed == Changed.ADDED)
                     .result();
         }

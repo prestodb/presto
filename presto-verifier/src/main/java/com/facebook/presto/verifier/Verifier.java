@@ -41,6 +41,7 @@ public class Verifier
     private final int threadCount;
     private final Set<String> whitelist;
     private final Set<String> blacklist;
+    private final int precision;
 
     public Verifier(PrintStream out, VerifierConfig config, Set<EventClient> eventClients)
     {
@@ -50,6 +51,7 @@ public class Verifier
         this.whitelist = requireNonNull(config.getWhitelist(), "whitelist is null");
         this.blacklist = requireNonNull(config.getBlacklist(), "blacklist is null");
         this.threadCount = config.getThreadCount();
+        this.precision = config.getDoublePrecision();
     }
 
     // Returns number of failed queries
@@ -145,7 +147,7 @@ public class Verifier
                 errorMessage += getStackTraceAsString(test.getException());
             }
             else {
-                errorMessage += validator.getResultsComparison().trim();
+                errorMessage += validator.getResultsComparison(precision).trim();
             }
         }
 

@@ -62,7 +62,8 @@ public class TestVerifierConfig
                 .setEventLogFile(null)
                 .setAdditionalJdbcDriverPath(null)
                 .setTestJdbcDriverName(null)
-                .setControlJdbcDriverName(null));
+                .setControlJdbcDriverName(null)
+                .setDoublePrecision(3));
     }
 
     @Test
@@ -104,6 +105,7 @@ public class TestVerifierConfig
                 .put("additional-jdbc-driver-path", "/test/path")
                 .put("test.jdbc-driver-class", "com.facebook.exampleclass")
                 .put("control.jdbc-driver-class", "com.facebook.exampleclass")
+                .put("expected-double-precision", "5")
                 .build();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
@@ -141,7 +143,8 @@ public class TestVerifierConfig
                 .setControlSchemaOverride("my_schema")
                 .setAdditionalJdbcDriverPath("/test/path")
                 .setTestJdbcDriverName("com.facebook.exampleclass")
-                .setControlJdbcDriverName("com.facebook.exampleclass");
+                .setControlJdbcDriverName("com.facebook.exampleclass")
+                .setDoublePrecision(5);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
