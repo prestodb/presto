@@ -27,7 +27,6 @@ import com.amazonaws.event.ProgressListener;
 import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.regions.ServiceAbbreviations;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -558,9 +557,7 @@ public class PrestoS3FileSystem
         // use local region when running inside of EC2
         Region region = Regions.getCurrentRegion();
         if (region != null) {
-            // TODO: are both of these calls necessary?
             client.setRegion(region);
-            client.setEndpoint(region.getServiceEndpoint(ServiceAbbreviations.S3));
         }
         return client;
     }
