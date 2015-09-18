@@ -56,10 +56,8 @@ public class NodeScheduler
 
     private final NodeManager nodeManager;
     private final AtomicLong scheduleLocal = new AtomicLong();
-    private final AtomicLong scheduleRack = new AtomicLong();
     private final AtomicLong scheduleRandom = new AtomicLong();
     private final int minCandidates;
-    private final boolean locationAwareScheduling;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
     private final int maxSplitsPerNodePerTaskWhenFull;
@@ -71,7 +69,6 @@ public class NodeScheduler
     {
         this.nodeManager = nodeManager;
         this.minCandidates = config.getMinCandidates();
-        this.locationAwareScheduling = config.isLocationAwareSchedulingEnabled();
         this.includeCoordinator = config.isIncludeCoordinator();
         this.doubleScheduling = config.isMultipleTasksPerNodeEnabled();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
@@ -87,12 +84,6 @@ public class NodeScheduler
     }
 
     @Managed
-    public long getScheduleRack()
-    {
-        return scheduleRack.get();
-    }
-
-    @Managed
     public long getScheduleRandom()
     {
         return scheduleRandom.get();
@@ -102,7 +93,6 @@ public class NodeScheduler
     public void reset()
     {
         scheduleLocal.set(0);
-        scheduleRack.set(0);
         scheduleRandom.set(0);
     }
 
@@ -233,8 +223,8 @@ public class NodeScheduler
 
                 List<Node> candidateNodes;
                 NodeMap nodeMap = this.nodeMap.get().get();
-                if (locationAwareScheduling || !split.isRemotelyAccessible()) {
-                    candidateNodes = selectCandidateNodes(nodeMap, split, randomCandidates);
+                if (!split.isRemotelyAccessible()) {
+                    candidateNodes = selectNodesBasedOnHint(nodeMap, split.getAddresses());
                 }
                 else {
                     candidateNodes = selectNodes(minCandidates, randomCandidates);
@@ -291,13 +281,12 @@ public class NodeScheduler
             return new ResettableRandomizedIterator<>(nodes);
         }
 
-        private List<Node> selectCandidateNodes(NodeMap nodeMap, Split split, ResettableRandomizedIterator<Node> randomizedIterator)
+        private List<Node> selectNodesBasedOnHint(NodeMap nodeMap, List<HostAddress> addresses)
         {
             Set<Node> chosen = new LinkedHashSet<>(minCandidates);
             Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
 
-            // first look for nodes that match the hint
-            for (HostAddress hint : split.getAddresses()) {
+            for (HostAddress hint : addresses) {
                 nodeMap.getNodesByHostAndPort().get(hint).stream()
                         .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                         .filter(chosen::add)
@@ -312,9 +301,8 @@ public class NodeScheduler
                     continue;
                 }
 
-                // consider a split with a host hint without a port as being accessible
-                // by all nodes in that host
-                if (!hint.hasPort() || split.isRemotelyAccessible()) {
+                // consider a split with a host hint without a port as being accessible by all nodes in that host
+                if (!hint.hasPort()) {
                     nodeMap.getNodesByHost().get(address).stream()
                             .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                             .filter(chosen::add)
@@ -322,71 +310,7 @@ public class NodeScheduler
                 }
             }
 
-            // add nodes in same rack, if below the minimum count
-            if (split.isRemotelyAccessible() && chosen.size() < minCandidates) {
-                for (HostAddress hint : split.getAddresses()) {
-                    InetAddress address;
-                    try {
-                        address = hint.toInetAddress();
-                    }
-                    catch (UnknownHostException e) {
-                        // skip addresses that don't resolve
-                        continue;
-                    }
-                    for (Node node : nodeMap.getNodesByRack().get(Rack.of(address))) {
-                        if (includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier())) {
-                            if (chosen.add(node)) {
-                                scheduleRack.incrementAndGet();
-                            }
-                            if (chosen.size() == minCandidates) {
-                                break;
-                            }
-                        }
-                    }
-                    if (chosen.size() == minCandidates) {
-                        break;
-                    }
-                }
-            }
-
-            // add some random nodes if below the minimum count
-            if (split.isRemotelyAccessible()) {
-                if (chosen.size() < minCandidates) {
-                    while (randomizedIterator.hasNext()) {
-                        Node node = randomizedIterator.next();
-                        if (chosen.add(node)) {
-                            scheduleRandom.incrementAndGet();
-                        }
-
-                        if (chosen.size() == minCandidates) {
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // if the chosen set is empty and the hint includes the coordinator,
-            // force pick the coordinator
-            if (chosen.isEmpty() && !includeCoordinator) {
-                HostAddress coordinatorHostAddress = nodeManager.getCurrentNode().getHostAndPort();
-                if (split.getAddresses().stream().anyMatch(host -> canSplitRunOnHost(split, coordinatorHostAddress, host))) {
-                    chosen.add(nodeManager.getCurrentNode());
-                }
-            }
-
             return ImmutableList.copyOf(chosen);
-        }
-
-        private boolean canSplitRunOnHost(Split split, HostAddress coordinatorHost, HostAddress host)
-        {
-            // Exact match of the coordinator
-            if (host.equals(coordinatorHost)) {
-                return true;
-            }
-            // If the split is remotely accessible or the split location doesn't specify a port,
-            // we can ignore the coordinator's port and match just the ip address
-            return (!host.hasPort() || split.isRemotelyAccessible()) &&
-                    host.getHostText().equals(coordinatorHost.getHostText());
         }
     }
 

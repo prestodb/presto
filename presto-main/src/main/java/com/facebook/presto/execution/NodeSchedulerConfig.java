@@ -15,13 +15,14 @@ package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.Min;
 
+@DefunctConfig("node-scheduler.location-aware-scheduling-enabled")
 public class NodeSchedulerConfig
 {
     private int minCandidates = 10;
-    private boolean locationAwareScheduling = true;
     private boolean includeCoordinator = true;
     private boolean multipleTasksPerNode;
     private int maxSplitsPerNode = 100;
@@ -50,18 +51,6 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMinCandidates(int candidates)
     {
         this.minCandidates = candidates;
-        return this;
-    }
-
-    public boolean isLocationAwareSchedulingEnabled()
-    {
-        return locationAwareScheduling;
-    }
-
-    @Config("node-scheduler.location-aware-scheduling-enabled")
-    public NodeSchedulerConfig setLocationAwareSchedulingEnabled(boolean locationAwareScheduling)
-    {
-        this.locationAwareScheduling = locationAwareScheduling;
         return this;
     }
 

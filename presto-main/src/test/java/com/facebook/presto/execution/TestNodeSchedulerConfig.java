@@ -29,7 +29,6 @@ public class TestNodeSchedulerConfig
                 .setMaxSplitsPerNode(100)
                 .setMaxPendingSplitsPerNodePerTask(10)
                 .setIncludeCoordinator(true)
-                .setLocationAwareSchedulingEnabled(true)
                 .setMultipleTasksPerNodeEnabled(false));
     }
 
@@ -38,7 +37,6 @@ public class TestNodeSchedulerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("node-scheduler.min-candidates", "11")
-                .put("node-scheduler.location-aware-scheduling-enabled", "false")
                 .put("node-scheduler.include-coordinator", "false")
                 .put("node-scheduler.max-pending-splits-per-node-per-task", "11")
                 .put("node-scheduler.max-splits-per-node", "101")
@@ -47,7 +45,6 @@ public class TestNodeSchedulerConfig
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
                 .setIncludeCoordinator(false)
-                .setLocationAwareSchedulingEnabled(false)
                 .setMultipleTasksPerNodeEnabled(true)
                 .setMaxSplitsPerNode(101)
                 .setMaxPendingSplitsPerNodePerTask(11)
