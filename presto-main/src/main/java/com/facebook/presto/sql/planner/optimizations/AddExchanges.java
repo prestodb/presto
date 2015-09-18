@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableLayoutResult;
@@ -233,10 +233,10 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitAggregation(AggregationNode node, Context context)
         {
+            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
             boolean decomposable = node.getFunctions()
                     .values().stream()
-                    .map(metadata::getExactFunction)
-                    .map(FunctionInfo::getAggregationFunction)
+                    .map(functionRegistry::getAggregateFunctionImplementation)
                     .allMatch(InternalAggregationFunction::isDecomposable);
 
             PreferredProperties preferredProperties = node.getGroupBy().isEmpty()
@@ -292,9 +292,9 @@ public class AddExchanges
             Map<Symbol, Symbol> intermediateMask = new HashMap<>();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Signature signature = node.getFunctions().get(entry.getKey());
-                FunctionInfo function = metadata.getExactFunction(signature);
+                InternalAggregationFunction function = metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
 
-                Symbol intermediateSymbol = allocator.newSymbol(function.getSignature().getName(), metadata.getType(function.getIntermediateType()));
+                Symbol intermediateSymbol = allocator.newSymbol(signature.getName(), function.getIntermediateType());
                 intermediateCalls.put(intermediateSymbol, entry.getValue());
                 intermediateFunctions.put(intermediateSymbol, signature);
                 if (masks.containsKey(entry.getKey())) {
@@ -302,7 +302,7 @@ public class AddExchanges
                 }
 
                 // rewrite final aggregation in terms of intermediate function
-                finalCalls.put(entry.getKey(), new FunctionCall(QualifiedName.of(function.getSignature().getName()), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
+                finalCalls.put(entry.getKey(), new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
             }
 
             PlanWithProperties partial = withDerivedProperties(

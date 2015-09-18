@@ -54,7 +54,7 @@ public class TestEvaluateClassifierPredictions
         typeRegistry.addType(RegressorType.REGRESSOR);
         typeRegistry.addType(ModelType.MODEL);
         metadata.addFunctions(new MLFunctionFactory(typeRegistry).listFunctions());
-        InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", AGGREGATE, StandardTypes.VARCHAR, StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
+        InternalAggregationFunction aggregation = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("evaluate_classifier_predictions", AGGREGATE, StandardTypes.VARCHAR, StandardTypes.BIGINT, StandardTypes.BIGINT));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);

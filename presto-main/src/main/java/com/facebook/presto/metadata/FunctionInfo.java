@@ -142,6 +142,7 @@ public final class FunctionInfo
         return windowFunctionSupplier;
     }
 
+    @Deprecated
     public InternalAggregationFunction getAggregationFunction()
     {
         checkState(aggregationFunction != null, "not an aggregation function");

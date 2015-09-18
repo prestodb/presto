@@ -15,11 +15,12 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +31,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -46,7 +48,7 @@ public class TestNumericHistogramAggregation
     {
         TypeRegistry typeRegistry = new TypeRegistry();
         FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), true);
-        InternalAggregationFunction function = functionRegistry.resolveFunction(QualifiedName.of("numeric_histogram"), ImmutableList.of(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()), false).getAggregationFunction();
+        InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(new Signature("numeric_histogram", AGGREGATE, "map<double,double>", StandardTypes.BIGINT, StandardTypes.DOUBLE, StandardTypes.DOUBLE));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0);
 
         input = makeInput(10);

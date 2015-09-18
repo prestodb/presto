@@ -40,9 +40,6 @@ public interface Metadata
 
     FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate);
 
-    @NotNull
-    FunctionInfo getExactFunction(Signature handle);
-
     boolean isAggregationFunction(QualifiedName name);
 
     @NotNull

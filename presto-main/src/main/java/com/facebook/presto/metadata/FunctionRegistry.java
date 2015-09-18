@@ -31,6 +31,7 @@ import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.CovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.NumericHistogramAggregation;
@@ -509,6 +510,15 @@ public class FunctionRegistry
         FunctionInfo function = getExactFunction(signature);
         checkCondition(function != null, FUNCTION_IMPLEMENTATION_MISSING, "%s not found", signature);
         return function.getWindowFunction();
+    }
+
+    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    {
+        checkArgument(signature.getType() == AGGREGATE || signature.getType() == APPROXIMATE_AGGREGATE, "%s is not an aggregate function", signature);
+        checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
+        FunctionInfo function = getExactFunction(signature);
+        checkCondition(function != null, FUNCTION_IMPLEMENTATION_MISSING, "%s not found", signature);
+        return function.getAggregationFunction();
     }
 
     @VisibleForTesting
