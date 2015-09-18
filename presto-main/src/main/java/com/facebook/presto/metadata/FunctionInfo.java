@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.AggregateWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
@@ -28,10 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
-import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
-import static com.facebook.presto.metadata.FunctionType.WINDOW;
-import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -140,11 +135,11 @@ public final class FunctionInfo
         return this;
     }
 
-    public WindowFunctionDefinition bindWindowFunction(Type type, List<Integer> inputs)
+    @Deprecated
+    public WindowFunctionSupplier getWindowFunction()
     {
-        FunctionType functionType = signature.getType();
-        checkState(functionType == AGGREGATE || functionType == APPROXIMATE_AGGREGATE || functionType == WINDOW, "not a window function");
-        return window(windowFunctionSupplier, type, inputs);
+        checkState(windowFunctionSupplier != null, "not a window function");
+        return windowFunctionSupplier;
     }
 
     public InternalAggregationFunction getAggregationFunction()

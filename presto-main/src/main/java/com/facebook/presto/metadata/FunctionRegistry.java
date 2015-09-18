@@ -60,6 +60,7 @@ import com.facebook.presto.operator.window.NthValueFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
+import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -120,6 +121,7 @@ import java.util.Set;
 import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregation.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ArrayAggregation.ARRAY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregation.CHECKSUM_AGGREGATION;
@@ -182,6 +184,7 @@ import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_C
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -199,6 +202,7 @@ import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -496,6 +500,15 @@ public class FunctionRegistry
             }
         }
         return null;
+    }
+
+    public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
+    {
+        checkArgument(signature.getType() == WINDOW || signature.getType() == AGGREGATE, "%s is not a window function", signature);
+        checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
+        FunctionInfo function = getExactFunction(signature);
+        checkCondition(function != null, FUNCTION_IMPLEMENTATION_MISSING, "%s not found", signature);
+        return function.getWindowFunction();
     }
 
     @VisibleForTesting
