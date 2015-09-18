@@ -69,6 +69,7 @@ public class VerifierConfig
     private String additionalJdbcDriverPath;
     private String testJdbcDriverName;
     private String controlJdbcDriverName;
+    private int doublePrecision = 3;
 
     @NotNull
     public String getSkipCorrectnessRegex()
@@ -571,6 +572,19 @@ public class VerifierConfig
     public VerifierConfig setControlJdbcDriverName(String controlJdbcDriverName)
     {
         this.controlJdbcDriverName = controlJdbcDriverName;
+        return this;
+    }
+
+    public int getDoublePrecision()
+    {
+        return doublePrecision;
+    }
+
+    @ConfigDescription("The expected precision when comparing test and control results")
+    @Config("expected-double-precision")
+    public VerifierConfig setDoublePrecision(int doublePrecision)
+    {
+        this.doublePrecision = doublePrecision;
         return this;
     }
 }
