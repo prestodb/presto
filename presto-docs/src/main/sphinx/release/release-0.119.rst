@@ -8,7 +8,6 @@ General Changes
 * Add :doc:`/connector/redis`.
 * Add :func:`geometric_mean` function.
 * Fix restoring interrupt status in ``StatementClient``.
-* Remove ``node-scheduler.location-aware-scheduling-enabled`` config.
 * Support getting server version in JDBC driver.
 * Improve correctness and compliance of JDBC ``DatabaseMetaData``.
 * Catalog and schema are now optional on the server. This allows connecting
