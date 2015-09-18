@@ -72,6 +72,7 @@ import static java.util.Objects.requireNonNull;
 public class BaseJdbcClient
         implements JdbcClient
 {
+    public static final int FETCHSIZE = 1000;
     private static final Logger log = Logger.get(BaseJdbcClient.class);
 
     private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
@@ -381,6 +382,16 @@ public class BaseJdbcClient
         return driver.connect(handle.getConnectionUrl(), toProperties(handle.getConnectionProperties()));
     }
 
+    @Override
+    public Statement getStatement(Connection connection)
+            throws SQLException
+    {
+        Statement statement = connection.createStatement();
+        statement.setFetchSize(FETCHSIZE);
+
+        return statement;
+    }
+
     protected ResultSet getTables(Connection connection, String schemaName, String tableName)
             throws SQLException
     {
@@ -448,7 +459,7 @@ public class BaseJdbcClient
         if (sqlType != null) {
             return sqlType;
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsuported column type: " + type.getTypeSignature());
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getTypeSignature());
     }
 
     protected String quoted(String name)

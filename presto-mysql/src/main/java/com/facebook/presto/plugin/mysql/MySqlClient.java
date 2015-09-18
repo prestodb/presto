@@ -23,10 +23,11 @@ import com.google.common.collect.ImmutableSet;
 import com.mysql.jdbc.Driver;
 
 import javax.inject.Inject;
-
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Wrapper;
+import java.sql.Statement;
 import java.util.Set;
 
 import static java.util.Locale.ENGLISH;
@@ -67,6 +68,27 @@ public class MySqlClient
         }
         catch (SQLException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
+    public Statement getStatement(Connection connection)
+            throws SQLException
+    {
+        Statement statement = connection.createStatement();
+        if (isWrapperFor(statement, com.mysql.jdbc.Statement.class)) {
+            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
+        }
+        return statement;
+    }
+
+    private static boolean isWrapperFor(Wrapper wrapper, Class<?> clazz)
+    {
+        try {
+            return wrapper.isWrapperFor(clazz);
+        }
+        catch (SQLException ignored) {
+            return false;
         }
     }
 

@@ -22,9 +22,9 @@ import com.facebook.presto.spi.TupleDomain;
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
-
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -59,4 +59,7 @@ public interface JdbcClient
 
     Connection getConnection(JdbcOutputTableHandle handle)
             throws SQLException;
+
+    Statement getStatement(Connection connection)
+        throws  SQLException;
 }
