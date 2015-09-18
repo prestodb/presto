@@ -3,58 +3,12 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 
 <head>
+    <script src="https://online.tableau.com/javascripts/api/tableauwdc-1.1.0.js" type="text/javascript"></script>
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript"></script>
     <script src="presto-client.js" type="text/javascript"></script>
+
     <script type="text/javascript">
-        var headersPushed = false;
-        var statementClient = null;
-        var getTableDataCalled = false;
-        var buffer = [];
-
-        //to store schema information
-        var schema = null;
-
-        function init() {
-            //init the connector and let Tableau know when we are done
-            tableau.initCallback();
-        }
-
-        function shutdown() {
-            tableau.shutdownCallback();
-        }
-
-        /**
-            Tableau calls this function to get the metadata.
-            This function has to call Tableau with headers before returning.
-        */
-        function getColumnHeaders() {
-           statementClient = new StatementClient(JSON.parse(tableau.connectionData), pushHeadersToTableau, pushDataToTableau, errorHandler);
-           //Tableau waits for the headers before calling getTableData()
-           while(!headersPushed) {
-                statementClient.advance(0);
-           }
-        }
-
-        function getTableData(lastRecordNumber) {
-            getTableDataCalled = true;
-            var data = [];
-
-            //we have some buffered data due to advance() calls in getColumnHeaders()
-            if(buffer.length > 0) {
-                for (var i = 0; i < buffer.length; i++) {
-                    //exhaust the buffer first
-                    pushDataToTableau(buffer.splice(i, 1)[0], schema, lastRecordNumber);
-                    return;
-                }
-            }
-
-            statementClient.advance(lastRecordNumber);
-
-            if (!statementClient.valid) {
-                tableau.dataCallback([], lastRecordNumber);
-                return;
-            }
-        }
+    (function() {
 
         function pushHeadersToTableau(columns) {
             if (columns && !headersPushed) {
@@ -96,10 +50,59 @@
                         tableauData.push(row);
                     }
                     lastRecordNumber = lastRecordNumber + tableauData.length;
-                    tableau.dataCallback(tableauData, lastRecordNumber);
+                    tableau.dataCallback(tableauData, lastRecordNumber, false);
                 }
             }
         }
+
+        function errorHandler(statusText, errorStr) {
+            var message = "Error: [" + statusText + "]: " + errorStr;
+            tableau.log(message);
+            alert(message);
+        }
+
+        var headersPushed = false;
+        var statementClient = null;
+        var getTableDataCalled = false;
+        var buffer = [];
+
+        //to store schema information
+        var schema = null;
+
+        var myConnector = tableau.makeConnector();
+
+        myConnector.getColumnHeaders = function() {
+            statementClient = new StatementClient(JSON.parse(tableau.connectionData), pushHeadersToTableau, pushDataToTableau, errorHandler);
+            //Tableau waits for the headers before calling getTableData()
+            while(!headersPushed) {
+                statementClient.advance(0);
+            }
+        }
+
+        myConnector.getTableData = function(lastRecordNumber) {
+            getTableDataCalled = true;
+            var data = [];
+
+            //we have some buffered data due to advance() calls in getColumnHeaders()
+            if(buffer.length > 0) {
+                for (var i = 0; i < buffer.length; i++) {
+                    //exhaust the buffer first
+                    pushDataToTableau(buffer.splice(i, 1)[0], schema, lastRecordNumber);
+                    return;
+                }
+            }
+
+            statementClient.advance(lastRecordNumber);
+
+            if (!statementClient.valid) {
+                tableau.dataCallback([], lastRecordNumber, false);
+                return;
+            }
+        }
+        tableau.registerConnector(myConnector);
+    })();
+
+    $(document).ready(function() {
 
         function errorHandler(statusText, errorStr) {
             var message = "Error: [" + statusText + "]: " + errorStr;
@@ -164,65 +167,64 @@
             }
         }
 
-        $(document).ready(function() {
-            populateCatalogs();
-            //initially load the schemas of the hive catalog
-            populateSchemas('hive');
+        populateCatalogs();
+        //initially load the schemas of the hive catalog
+        populateSchemas('hive');
 
-            document.getElementById("catalog").addEventListener('change',
-                function() {
-                    populateSchemas(this.value);
-                }
-            , false);
+        document.getElementById("catalog").addEventListener('change',
+            function() {
+                populateSchemas(this.value);
+            }
+        , false);
 
-            if(tableau.connectionData) {
-                var existingConnectionData = JSON.parse(tableau.connectionData);
-                $('textarea#query').val(existingConnectionData.query);
-                $('input#user_name').val(existingConnectionData.userName);
+        if (tableau.connectionData) {
+            var existingConnectionData = JSON.parse(tableau.connectionData);
+            $('textarea#query').val(existingConnectionData.query);
+            $('input#user_name').val(existingConnectionData.userName);
+        }
+
+        if (tableau.connectionName) {
+            $('input#dsname').val(tableau.connectionName);
+        }
+
+        $("#inputForm").submit(function() {
+            //start with a new client
+            statementClient = null;
+
+            //clear global state
+            headersPushed = false;
+            tableau.connectionData = null;
+
+            var query = $('textarea#query').val();
+            var schema = $('select#schema').val();
+            var catalog = $('select#catalog').val();
+            var userName = $('input#user_name').val();
+            var dataSourceName = $('input#dsname').val();
+
+            var connectionData = {
+                'catalog': catalog,
+                'schema': schema,
+                'query': query,
+                'userName': userName
+            };
+
+            //set these before validation, because if validation fails
+            //the form state is recovered from these variables
+            tableau.connectionData = JSON.stringify(connectionData);
+            tableau.connectionName = dataSourceName;
+
+            if (!query || query.length == 0 ||
+                !schema || schema.length == 0 ||
+                !catalog || catalog.length == 0 ||
+                !userName || userName.length == 0 ||
+                !dataSourceName || dataSourceName.length == 0) {
+                alert('Please fill in all the fields');
+                return;
             }
 
-            if(tableau.connectionName) {
-                $('input#dsname').val(tableau.connectionName);
-            }
-
-            $("#inputForm").submit(function() {
-                //start with a new client
-                statementClient = null;
-
-                //clear global state
-                headersPushed = false;
-                tableau.connectionData = null;
-
-                var query = $('textarea#query').val();
-                var schema = $('select#schema').val();
-                var catalog = $('select#catalog').val();
-                var userName = $('input#user_name').val();
-                var dataSourceName = $('input#dsname').val();
-
-                var connectionData = {
-                    'catalog': catalog,
-                    'schema': schema,
-                    'query': query,
-                    'userName': userName
-                };
-
-                //set these before validation, because if validation fails
-                //the form state is recovered from these variables
-                tableau.connectionData = JSON.stringify(connectionData);
-                tableau.connectionName = dataSourceName;
-
-                if (!query || query.length == 0 ||
-                    !schema || schema.length == 0 ||
-                    !catalog || catalog.length == 0 ||
-                    !userName || userName.length == 0 ||
-                    !dataSourceName || dataSourceName.length == 0) {
-                    alert('Please fill in all the fields');
-                    return;
-                }
-
-                tableau.submit();
-            });
+            tableau.submit();
         });
+    });
     </script>
 </head>
 
