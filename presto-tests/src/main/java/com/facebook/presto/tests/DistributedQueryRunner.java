@@ -131,7 +131,7 @@ public class DistributedQueryRunner
                 .put("datasources", "system")
                 .put("distributed-index-joins-enabled", "true");
         if (coordinator) {
-            propertiesBuilder.put("node-scheduler.include-coordinator", "false");
+            propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("distributed-joins-enabled", "true");
             propertiesBuilder.put("node-scheduler.multiple-tasks-per-node-enabled", "true");
         }

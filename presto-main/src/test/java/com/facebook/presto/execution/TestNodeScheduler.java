@@ -86,26 +86,6 @@ public class TestNodeScheduler
     }
 
     @Test
-    public void testLocationAwareSchedulingDisabledScheduleLocal()
-            throws Exception
-    {
-        NodeSchedulerConfig config = new NodeSchedulerConfig()
-                .setMaxSplitsPerNode(20)
-                .setIncludeCoordinator(false)
-                .setLocationAwareSchedulingEnabled(false)
-                .setMaxPendingSplitsPerNodePerTask(10);
-
-        NodeScheduler scheduler = new NodeScheduler(this.nodeManager, config, this.nodeTaskMap);
-        NodeScheduler.NodeSelector selector = scheduler.createNodeSelector("foo");
-        Split split = new Split("foo", new TestSplitLocal());
-        Set<Split> splits = ImmutableSet.of(split);
-
-        Map.Entry<Node, Split> assignment = Iterables.getOnlyElement(selector.computeAssignments(splits, taskMap.values()).entries());
-        assertEquals(assignment.getKey().getHostAndPort(), split.getAddresses().get(0));
-        assertEquals(assignment.getValue(), split);
-    }
-
-    @Test
     public void testScheduleLocal()
             throws Exception
     {
