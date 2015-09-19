@@ -16,6 +16,7 @@ General Changes
   The ``Statement`` interface supports all variants of the ``execute`` methods.
   It also supports the ``getUpdateCount`` and ``getLargeUpdateCount`` methods.
 * Fix :doc:`/sql/show-session` to not show hidden session properties.
+* Add :func:`map_concat` function.
 
 CLI Changes
 -----------
