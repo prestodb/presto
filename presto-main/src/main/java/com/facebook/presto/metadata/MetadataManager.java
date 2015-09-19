@@ -506,6 +506,13 @@ public class MetadataManager
     }
 
     @Override
+    public void addColumn(Session session, TableHandle tableHandle, List<ColumnMetadata> columns)
+    {
+        ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);
+        entry.getMetadata().addColumn(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle(), columns);
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle)
     {
         ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);

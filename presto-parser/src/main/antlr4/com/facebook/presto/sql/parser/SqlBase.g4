@@ -40,6 +40,8 @@ statement
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
     | ALTER TABLE tableName=qualifiedName
         RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
+    | ALTER TABLE tableName=qualifiedName ADD COLUMN
+        '(' tableElement (',' tableElement)* ')'                       #addColumn
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
@@ -354,6 +356,7 @@ normalForm
 
 SELECT: 'SELECT';
 FROM: 'FROM';
+ADD: 'ADD';
 AS: 'AS';
 ALL: 'ALL';
 SOME: 'SOME';

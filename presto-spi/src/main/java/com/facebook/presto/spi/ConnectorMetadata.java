@@ -141,6 +141,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Add the specified columns
+     */
+    default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnMetadata> columnMetadataList)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns");
+    }
+
+    /**
      * Begin the atomic creation of a table with data.
      */
     default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)

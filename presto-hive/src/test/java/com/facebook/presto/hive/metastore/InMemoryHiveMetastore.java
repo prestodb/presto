@@ -151,7 +151,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public void alterTable(String databaseName, String tableName, Table newTable)
     {
         // TODO: use locking to do this properly
         SchemaTableName oldTable = new SchemaTableName(databaseName, tableName);
@@ -160,9 +160,9 @@ public class InMemoryHiveMetastore
             throw new TableNotFoundException(oldTable);
         }
 
-        SchemaTableName newTable = new SchemaTableName(newDatabaseName, newTableName);
-        if (relations.putIfAbsent(newTable, table) != null) {
-            throw new TableAlreadyExistsException(newTable);
+        SchemaTableName schemaTableName = new SchemaTableName(newTable.getDbName(), newTable.getTableName());
+        if (relations.putIfAbsent(schemaTableName, newTable) != null) {
+            throw new TableAlreadyExistsException(schemaTableName);
         }
         relations.remove(oldTable);
     }

@@ -135,6 +135,12 @@ public interface Metadata
     void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
 
     /**
+     * Add specified columns.
+     */
+    @NotNull
+    void addColumn(Session session, TableHandle tableHandle, List<ColumnMetadata> columns);
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid

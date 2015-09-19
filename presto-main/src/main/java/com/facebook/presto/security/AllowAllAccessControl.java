@@ -42,6 +42,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanAddColumn(Identity identity, QualifiedTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanRenameColumn(Identity identity, QualifiedTableName tableName)
     {
     }
