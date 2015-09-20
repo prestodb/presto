@@ -100,9 +100,9 @@ public class HiveMetadata
     private static final Logger log = Logger.get(HiveMetadata.class);
 
     private final String connectorId;
-    private final boolean allowAddColumn;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
+    private final boolean allowAddColumn;
     private final boolean allowRenameColumn;
     private final boolean allowCorruptWritesForTesting;
     private final HiveMetastore metastore;
@@ -127,9 +127,9 @@ public class HiveMetadata
                 hdfsEnvironment,
                 partitionManager,
                 hiveClientConfig.getDateTimeZone(),
-                hiveClientConfig.getAllowAddColumn(),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
+                hiveClientConfig.getAllowAddColumn(),
                 hiveClientConfig.getAllowRenameColumn(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 typeManager);
@@ -141,18 +141,18 @@ public class HiveMetadata
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager patitionManager,
             DateTimeZone timeZone,
-            boolean allowAddColumn,
             boolean allowDropTable,
             boolean allowRenameTable,
+            boolean allowAddColumn,
             boolean allowRenameColumn,
             boolean allowCorruptWritesForTesting,
             TypeManager typeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
-        this.allowAddColumn = allowAddColumn;
         this.allowDropTable = allowDropTable;
         this.allowRenameTable = allowRenameTable;
+        this.allowAddColumn = allowAddColumn;
         this.allowRenameColumn = allowRenameColumn;
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
