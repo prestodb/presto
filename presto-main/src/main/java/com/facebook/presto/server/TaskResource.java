@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -49,6 +50,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
@@ -75,16 +77,19 @@ public class TaskResource
 
     private final TaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
-    private final ScheduledExecutorService executor;
+    private final Executor responseExecutor;
+    private final ScheduledExecutorService timeoutExecutor;
 
     @Inject
     public TaskResource(TaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
-            @ForAsyncHttpResponse ScheduledExecutorService executor)
+            @ForAsyncHttp BoundedExecutor responseExecutor,
+            @ForAsyncHttp ScheduledExecutorService timeoutExecutor)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
+        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
     }
 
     @GET
@@ -144,7 +149,7 @@ public class TaskResource
                 taskManager.getTaskInfo(taskId, currentState),
                 () -> taskManager.getTaskInfo(taskId),
                 maxWait,
-                executor);
+                timeoutExecutor);
 
         if (shouldSummarize(uriInfo)) {
             futureTaskInfo = futureTaskInfo.thenApply(TaskInfo::summarize);
@@ -152,7 +157,7 @@ public class TaskResource
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(maxWait.toMillis() + 5000, MILLISECONDS);
-        bindAsyncResponse(asyncResponse, futureTaskInfo, executor)
+        bindAsyncResponse(asyncResponse, futureTaskInfo, responseExecutor)
                 .withTimeout(timeout);
     }
 
@@ -196,7 +201,7 @@ public class TaskResource
                 bufferResultFuture,
                 () -> BufferResult.emptyResults(token, false),
                 DEFAULT_MAX_WAIT_TIME,
-                executor);
+                timeoutExecutor);
 
         CompletableFuture<Response> responseFuture = bufferResultFuture.thenApply(result -> {
             List<Page> pages = result.getPages();
@@ -221,7 +226,7 @@ public class TaskResource
 
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(DEFAULT_MAX_WAIT_TIME.toMillis() + 5000, MILLISECONDS);
-        bindAsyncResponse(asyncResponse, responseFuture, executor)
+        bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
                 .withTimeout(timeout,
                         Response.status(Status.NO_CONTENT)
                                 .header(PRESTO_PAGE_TOKEN, token)

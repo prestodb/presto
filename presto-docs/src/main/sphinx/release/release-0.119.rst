@@ -16,6 +16,8 @@ General Changes
   ``default`` if they were not specified.
 * Fix scheduler handling of partially canceled queries.
 * Execute views with the permissions of the view owner.
+* Deprecated ``task.http-notification-threads`` config option in favor of two
+  independent options: ``task.http-response-threads`` and ``task.http-timeout-threads``.
 
 
 SPI Changes

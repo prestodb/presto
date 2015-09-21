@@ -28,7 +28,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-@DefunctConfig({"experimental.big-query-max-task-memory", "task.max-memory"})
+@DefunctConfig({"experimental.big-query-max-task-memory", "task.max-memory", "task.http-notification-threads"})
 public class TaskManagerConfig
 {
     private boolean verboseStats;
@@ -46,7 +46,8 @@ public class TaskManagerConfig
     private Duration infoRefreshMaxWait = new Duration(200, TimeUnit.MILLISECONDS);
     private int writerCount = 1;
     private int taskDefaultConcurrency = 1;
-    private int httpNotificationThreads = 25;
+    private int httpResponseThreads = 100;
+    private int httpTimeoutThreads = 1;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -225,15 +226,28 @@ public class TaskManagerConfig
     }
 
     @Min(1)
-    public int getHttpNotificationThreads()
+    public int getHttpResponseThreads()
     {
-        return httpNotificationThreads;
+        return httpResponseThreads;
     }
 
-    @Config("task.http-notification-threads")
-    public TaskManagerConfig setHttpNotificationThreads(int httpNotificationThreads)
+    @Config("task.http-response-threads")
+    public TaskManagerConfig setHttpResponseThreads(int httpResponseThreads)
     {
-        this.httpNotificationThreads = httpNotificationThreads;
+        this.httpResponseThreads = httpResponseThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getHttpTimeoutThreads()
+    {
+        return httpTimeoutThreads;
+    }
+
+    @Config("task.http-timeout-threads")
+    public TaskManagerConfig setHttpTimeoutThreads(int httpTimeoutThreads)
+    {
+        this.httpTimeoutThreads = httpTimeoutThreads;
         return this;
     }
 }
