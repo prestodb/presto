@@ -45,9 +45,6 @@ public interface Metadata
 
     void addFunctions(List<? extends ParametricFunction> functions);
 
-    FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-            throws OperatorNotFoundException;
-
     @NotNull
     List<String> listSchemaNames(Session session, String catalogName);
 

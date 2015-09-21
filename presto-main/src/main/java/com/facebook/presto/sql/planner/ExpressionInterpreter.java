@@ -561,7 +561,7 @@ public class ExpressionInterpreter
                 case PLUS:
                     return value;
                 case MINUS:
-                    FunctionInfo operatorInfo = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+                    FunctionInfo operatorInfo = metadata.getFunctionRegistry().resolveOperator(OperatorType.NEGATION, types(node.getValue()));
                     MethodHandle handle = metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorInfo.getSignature()).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
@@ -976,7 +976,7 @@ public class ExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
+            FunctionInfo operatorInfo = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
             return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorInfo.getSignature()).getMethodHandle(), argumentValues);
         }
     }

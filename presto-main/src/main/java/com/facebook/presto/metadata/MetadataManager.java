@@ -264,13 +264,6 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-            throws OperatorNotFoundException
-    {
-        return functions.resolveOperator(operatorType, argumentTypes);
-    }
-
-    @Override
     public List<String> listSchemaNames(Session session, String catalogName)
     {
         checkCatalogName(catalogName);
