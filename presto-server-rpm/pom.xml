@@ -95,6 +95,12 @@
                                             <name>python</name>
                                             <version>[2.4,)</version>
                                         </dependency>
+                                        <dependency>
+                                            <name>/usr/sbin/useradd</name>
+                                        </dependency>
+                                        <dependency>
+                                            <name>/usr/sbin/groupadd</name>
+                                        </dependency>
                                     </dependencies>
 
                                     <rules>
