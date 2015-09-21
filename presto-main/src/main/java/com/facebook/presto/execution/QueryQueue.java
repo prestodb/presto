@@ -28,7 +28,6 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryQueue
 {
-    private final int maxQueuedQueries;
     private final AtomicInteger queryQueueSize = new AtomicInteger();
     private final AtomicInteger queuePermits;
     private final AsyncSemaphore<QueueEntry> asyncSemaphore;
@@ -39,7 +38,6 @@ public class QueryQueue
         checkArgument(maxQueuedQueries > 0, "maxQueuedQueries must be greater than zero");
         checkArgument(maxConcurrentQueries > 0, "maxConcurrentQueries must be greater than zero");
 
-        this.maxQueuedQueries = maxQueuedQueries;
         this.queuePermits = new AtomicInteger(maxQueuedQueries + maxConcurrentQueries);
         this.asyncSemaphore = new AsyncSemaphore<>(maxConcurrentQueries,
                 queryExecutor,
@@ -70,12 +68,9 @@ public class QueryQueue
         return true;
     }
 
-    public boolean enqueue(QueuedExecution queuedExecution)
+    public void enqueue(QueuedExecution queuedExecution)
     {
-        if (queryQueueSize.incrementAndGet() > maxQueuedQueries) {
-            queryQueueSize.decrementAndGet();
-            return false;
-        }
+        queryQueueSize.incrementAndGet();
 
         // Add a callback to dequeue the entry if it is ever completed.
         // This enables us to remove the entry sooner if is cancelled before starting,
@@ -84,7 +79,6 @@ public class QueryQueue
         queuedExecution.getCompletionFuture().addListener(entry::dequeue, MoreExecutors.directExecutor());
 
         asyncSemaphore.submit(entry);
-        return true;
     }
 
     private static class QueueEntry

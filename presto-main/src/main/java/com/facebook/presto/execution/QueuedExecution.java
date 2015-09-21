@@ -70,9 +70,7 @@ public class QueuedExecution
             });
         }
         else {
-            if (!nextQueues.get(0).enqueue(new QueuedExecution(queryExecution, nextQueues.subList(1, nextQueues.size()), executor, stats, listenableFuture))) {
-                queryExecution.fail(new IllegalStateException("Entering secondary queue failed"));
-            }
+            nextQueues.get(0).enqueue(new QueuedExecution(queryExecution, nextQueues.subList(1, nextQueues.size()), executor, stats, listenableFuture));
         }
     }
 }
