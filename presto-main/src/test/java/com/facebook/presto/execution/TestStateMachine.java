@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -309,6 +310,10 @@ public class TestStateMachine
         futureChange.cancel(true);
         assertEquals(listenerChange.isDone(), isTerminalState);
         listenerChange.cancel(true);
+        if (isTerminalState) {
+            // in low CPU test environments it can take longer than 50ms for the waitChange future to complete
+            tryGetFutureValue(waitChange, 1, SECONDS);
+        }
         assertEquals(waitChange.isDone(), isTerminalState);
         waitChange.cancel(true);
     }
