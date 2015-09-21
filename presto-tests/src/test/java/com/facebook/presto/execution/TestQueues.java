@@ -17,9 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -40,6 +42,8 @@ public class TestQueues
             .setSource("dashboard")
             .build();
 
+    private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
+
     @Test(timeOut = 240_000)
     public void testSqlQueryQueueManager()
             throws Exception
@@ -50,25 +54,25 @@ public class TestQueues
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
             // submit first "dashboard" query
-            QueryId firstDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, "SELECT COUNT(*) FROM lineitem");
+            QueryId firstDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
 
             // wait for the first "dashboard" query to start
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
 
             // submit second "dashboard" query
-            QueryId secondDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, "SELECT COUNT(*) FROM lineitem");
+            QueryId secondDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
 
             // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
             // submit first non "dashboard" query
-            QueryId firstNonDashboardQuery = createQuery(queryRunner, SESSION, "SELECT COUNT(*) FROM lineitem");
+            QueryId firstNonDashboardQuery = createQuery(queryRunner, SESSION, LONG_LASTING_QUERY);
 
             // wait for the first non "dashboard" query to start
             waitForQueryState(queryRunner, firstNonDashboardQuery, RUNNING);
 
             // submit second non "dashboard" query
-            QueryId secondNonDashboardQuery = createQuery(queryRunner, SESSION, "SELECT COUNT(*) FROM lineitem");
+            QueryId secondNonDashboardQuery = createQuery(queryRunner, SESSION, LONG_LASTING_QUERY);
 
             // wait for the second non "dashboard" query to be queued ("user.${USER}" queue strategy only allows three user queries to be accepted for execution,
             // two "dashboard" and one non "dashboard" queries are already accepted by "user.${USER}" queue)
@@ -82,6 +86,44 @@ public class TestQueues
         }
     }
 
+    @Test(timeOut = 240_000)
+    public void testSqlQueryQueueManagerWithTwoDashboardQueriesRequestedAtTheSameTime()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"))
+                .build();
+
+        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+            QueryId firstDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+
+            ImmutableSet<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
+            waitForQueryState(queryRunner, firstDashboardQuery, queuedOrRunning);
+            waitForQueryState(queryRunner, secondDashboardQuery, queuedOrRunning);
+        }
+    }
+
+    @Test(timeOut = 240_000)
+    public void testSqlQueryQueueManagerWithTooManyQueriesScheduled()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("query.queue-config-file", getResourceFilePath("queue_config_dashboard.json"))
+                .build();
+
+        try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
+            QueryId firstDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
+
+            QueryId secondDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
+
+            QueryId thirdDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
+        }
+    }
+
     private static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
         return queryRunner.getCoordinator().getQueryManager().createQuery(session, sql).getQueryId();
@@ -92,13 +134,20 @@ public class TestQueues
         queryRunner.getCoordinator().getQueryManager().cancelQuery(queryId);
     }
 
-    private static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, QueryState queryState)
+    private static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, QueryState expectedQueryState)
             throws InterruptedException
     {
+        waitForQueryState(queryRunner, queryId, ImmutableSet.of(expectedQueryState));
+    }
+
+    private static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, Set<QueryState> expectedQueryStates)
+            throws InterruptedException
+    {
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         do {
             MILLISECONDS.sleep(500);
         }
-        while (queryRunner.getCoordinator().getQueryManager().getQueryInfo(queryId).getState() != queryState);
+        while (!expectedQueryStates.contains(queryManager.getQueryInfo(queryId).getState()));
     }
 
     private String getResourceFilePath(String fileName)
