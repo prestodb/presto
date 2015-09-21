@@ -19,6 +19,7 @@
 SCRIPT_NAME=$0
 ACTION_NAME=$1
 SERVICE_NAME='presto'
+SERVICE_USER='presto'
 
 # Launcher Config.
 # Use data-dir from node.properties file (assumes it to be at /etc/presto). For other args use defaults from rpm install
@@ -33,28 +34,28 @@ start () {
     if [ -z "$JAVA8_HOME" ]
     then
         echo "Warning: No value found for JAVA8_HOME. Default Java will be used."
-        /usr/lib/presto/bin/launcher start ${CONFIGURATION}
+        sudo -u $SERVICE_USER /usr/lib/presto/bin/launcher start ${CONFIGURATION}
     else
-        PATH=${JAVA8_HOME}/bin:$PATH /usr/lib/presto/bin/launcher start "${CONFIGURATION[@]}"
+        sudo -u $SERVICE_USER PATH=${JAVA8_HOME}/bin:$PATH /usr/lib/presto/bin/launcher start "${CONFIGURATION[@]}"
     fi
     return $?
 }
 
 stop () {
     echo "Stopping ${SERVICE_NAME} "
-    /usr/lib/presto/bin/launcher stop "${CONFIGURATION[@]}"
+    sudo -u $SERVICE_USER /usr/lib/presto/bin/launcher stop "${CONFIGURATION[@]}"
     return $?
 }
 
 status () {
     echo "Getting status for ${SERVICE_NAME} "
-    /usr/lib/presto/bin/launcher status "${CONFIGURATION[@]}"
+    sudo -u $SERVICE_USER /usr/lib/presto/bin/launcher status "${CONFIGURATION[@]}"
     return $?
 }
 
 
 restart () {
-    /usr/lib/presto/bin/launcher restart "${CONFIGURATION[@]}"
+    sudo -u $SERVICE_USER /usr/lib/presto/bin/launcher restart "${CONFIGURATION[@]}"
     return $?
 }
 
