@@ -3127,7 +3127,8 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1.5, 2.3)");
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1.5, 2.3)", "SELECT orderkey FROM orders LIMIT 0"); // H2 incorrectly matches rows
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2.0, 3)");
         assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
     }
 
