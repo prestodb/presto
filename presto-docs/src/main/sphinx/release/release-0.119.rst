@@ -38,6 +38,12 @@ CLI Changes
 * Allow performing a partial query cancel using ``ctrl-P``.
 * Allow toggling debug mode during query by pressing ``D``.
 
+Verifier Changes
+----------------
+* Add ``expected-double-precision`` config to specify the expected level of
+  precision when comparing double values.
+* Return non-zero exit code when there are failures.
+
 Hive Changes
 ------------
 
