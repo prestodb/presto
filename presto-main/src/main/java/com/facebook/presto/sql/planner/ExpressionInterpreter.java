@@ -773,7 +773,7 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo functionInfo = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
+            FunctionInfo functionInfo = metadata.getFunctionRegistry().resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
             ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionInfo.getSignature());
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
