@@ -38,8 +38,6 @@ public interface Metadata
 
     Type getType(TypeSignature signature);
 
-    FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate);
-
     boolean isAggregationFunction(QualifiedName name);
 
     @NotNull
