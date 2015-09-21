@@ -19,6 +19,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -27,19 +28,29 @@ import static java.util.Objects.requireNonNull;
 
 public class AsyncHttpExecutionMBean
 {
-    private final ThreadPoolExecutorMBean executorMBean;
+    private final ThreadPoolExecutorMBean responseExecutor;
+    private final ThreadPoolExecutorMBean timeoutExecutor;
 
     @Inject
-    public AsyncHttpExecutionMBean(@ForAsyncHttpResponse ScheduledExecutorService executor)
+    public AsyncHttpExecutionMBean(@ForAsyncHttp ExecutorService responseExecutor, @ForAsyncHttp ScheduledExecutorService timeoutExecutor)
     {
-        requireNonNull(executor, "executor is null");
-        this.executorMBean = new ThreadPoolExecutorMBean(checkType(executor, ThreadPoolExecutor.class, "executor"));
+        requireNonNull(responseExecutor, "responseExecutor is null");
+        requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.responseExecutor = new ThreadPoolExecutorMBean(checkType(responseExecutor, ThreadPoolExecutor.class, "response-executor"));
+        this.timeoutExecutor = new ThreadPoolExecutorMBean(checkType(timeoutExecutor, ThreadPoolExecutor.class, "timeout-executor"));
     }
 
     @Managed
     @Nested
-    public ThreadPoolExecutorMBean getExecutor()
+    public ThreadPoolExecutorMBean getResponseExecutor()
     {
-        return executorMBean;
+        return responseExecutor;
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getTimeoutExecutor()
+    {
+        return timeoutExecutor;
     }
 }

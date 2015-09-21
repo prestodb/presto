@@ -45,7 +45,8 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setWriterCount(1)
                 .setTaskDefaultConcurrency(1)
-                .setHttpNotificationThreads(25));
+                .setHttpResponseThreads(100)
+                .setHttpTimeoutThreads(1));
     }
 
     @Test
@@ -65,7 +66,8 @@ public class TestTaskManagerConfig
                 .put("sink.max-buffer-size", "42MB")
                 .put("task.writer-count", "3")
                 .put("task.default-concurrency", "7")
-                .put("task.http-notification-threads", "4")
+                .put("task.http-response-threads", "4")
+                .put("task.http-timeout-threads", "10")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -82,7 +84,8 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
                 .setWriterCount(3)
                 .setTaskDefaultConcurrency(7)
-                .setHttpNotificationThreads(4);
+                .setHttpResponseThreads(4)
+                .setHttpTimeoutThreads(10);
 
         assertFullMapping(properties, expected);
     }
