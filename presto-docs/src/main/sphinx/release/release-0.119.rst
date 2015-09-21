@@ -14,13 +14,20 @@ General Changes
   and executing metadata commands or queries that use fully qualified names.
   Previously, the CLI and JDBC driver would use a catalog and schema named
   ``default`` if they were not specified.
+* Fix scheduler handling of partially canceled queries.
 * Execute views with the permissions of the view owner.
+
+
+SPI Changes
+-----------
+
+* Add more system table distribution modes.
 * Add owner to view metadata.
 
 .. note::
-    This is a backwards incompatible change with the previous connector SPI.
-    If you have written a connector that supports views, you will need to
-    update your code to the new APIs.
+    These are backwards incompatible changes with the previous connector SPI.
+    If you have written a connector, you may need to update your code to the
+    new APIs.
 
 
 CLI Changes
@@ -38,6 +45,7 @@ Hive Changes
 * Add ``ALTER TABLE RENAME COLUMN``
 * Automatically configure the S3 region when running in EC2.
 * Allow configuring multiple Hive metastores for high availability.
+* Add support for ``TIMESTAMP`` and ``VARBINARY`` in Parquet
 
 MySQL and PostgreSQL Changes
 ----------------------------
