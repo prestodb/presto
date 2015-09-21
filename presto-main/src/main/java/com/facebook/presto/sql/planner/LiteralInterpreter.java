@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockSerdeUtil;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
@@ -232,8 +231,8 @@ public final class LiteralInterpreter
 
             MethodHandle operator;
             try {
-                FunctionInfo functionInfo = metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
-                operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionInfo.getSignature()).getMethodHandle();
+                Signature signature = metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
+                operator = metadata.getFunctionRegistry().getScalarFunctionImplementation(signature).getMethodHandle();
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);

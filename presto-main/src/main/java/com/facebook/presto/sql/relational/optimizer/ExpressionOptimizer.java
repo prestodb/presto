@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.relational.optimizer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
@@ -91,8 +90,8 @@ public class ExpressionOptimizer
                 if (call.getArguments().get(0).getType().equals(UnknownType.UNKNOWN)) {
                     return constantNull(call.getType());
                 }
-                FunctionInfo functionInfo = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
-                function = registry.getScalarFunctionImplementation(functionInfo.getSignature());
+                Signature functionSignature = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
+                function = registry.getScalarFunctionImplementation(functionSignature);
             }
             else {
                 switch (signature.getName()) {
