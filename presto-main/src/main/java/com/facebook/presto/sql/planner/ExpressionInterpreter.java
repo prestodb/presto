@@ -15,10 +15,10 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
@@ -561,8 +561,8 @@ public class ExpressionInterpreter
                 case PLUS:
                     return value;
                 case MINUS:
-                    FunctionInfo operatorInfo = metadata.getFunctionRegistry().resolveOperator(OperatorType.NEGATION, types(node.getValue()));
-                    MethodHandle handle = metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorInfo.getSignature()).getMethodHandle();
+                    Signature operatorSignature = metadata.getFunctionRegistry().resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+                    MethodHandle handle = metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorSignature).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                         handle = handle.bindTo(session);
@@ -680,10 +680,10 @@ public class ExpressionInterpreter
 
             Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
 
-            FunctionInfo firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
-            FunctionInfo secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
-            MethodHandle firstCastHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(firstCast.getSignature()).getMethodHandle();
-            MethodHandle secondCastHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(secondCast.getSignature()).getMethodHandle();
+            Signature firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
+            Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
+            MethodHandle firstCastHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(firstCast).getMethodHandle();
+            MethodHandle secondCastHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(secondCast).getMethodHandle();
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = (Boolean) invokeOperator(
@@ -773,8 +773,8 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo functionInfo = metadata.getFunctionRegistry().resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
-            ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionInfo.getSignature());
+            Signature functionSignature = metadata.getFunctionRegistry().resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
+            ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionSignature);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && !function.getNullableArguments().get(i)) {
@@ -900,10 +900,10 @@ public class ExpressionInterpreter
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            FunctionInfo operatorInfo = metadata.getFunctionRegistry().getCoercion(expressionTypes.get(node.getExpression()), type);
+            Signature operator = metadata.getFunctionRegistry().getCoercion(expressionTypes.get(node.getExpression()), type);
 
             try {
-                return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorInfo.getSignature()).getMethodHandle(), ImmutableList.of(value));
+                return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operator).getMethodHandle(), ImmutableList.of(value));
             }
             catch (RuntimeException e) {
                 if (node.isSafe()) {
@@ -976,8 +976,8 @@ public class ExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            FunctionInfo operatorInfo = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
-            return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorInfo.getSignature()).getMethodHandle(), argumentValues);
+            Signature operatorSignature = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
+            return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorSignature).getMethodHandle(), argumentValues);
         }
     }
 

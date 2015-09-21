@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.DenyAllAccessControl;
 import com.facebook.presto.spi.type.Type;
@@ -130,7 +130,7 @@ public class ExpressionAnalyzer
     private final TypeManager typeManager;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final Map<QualifiedName, Integer> resolvedNames = new HashMap<>();
-    private final IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = new IdentityHashMap<>();
+    private final IdentityHashMap<FunctionCall, Signature> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Boolean> rowFieldReferences = new IdentityHashMap<>();
@@ -150,7 +150,7 @@ public class ExpressionAnalyzer
         return resolvedNames;
     }
 
-    public IdentityHashMap<FunctionCall, FunctionInfo> getResolvedFunctions()
+    public IdentityHashMap<FunctionCall, Signature> getResolvedFunctions()
     {
         return resolvedFunctions;
     }
@@ -687,7 +687,7 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context).getTypeSignature());
             }
 
-            FunctionInfo function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
+            Signature function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type type = typeManager.getType(function.getArgumentTypes().get(i));
@@ -695,7 +695,7 @@ public class ExpressionAnalyzer
                 if (node.isDistinct() && !type.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", type);
                 }
-                coerceType(context, expression, type, String.format("Function %s argument %d", function.getSignature(), i));
+                coerceType(context, expression, type, String.format("Function %s argument %d", function, i));
             }
             resolvedFunctions.put(node, function);
 
@@ -839,9 +839,9 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context));
             }
 
-            FunctionInfo operatorInfo;
+            Signature operatorSignature;
             try {
-                operatorInfo = functionRegistry.resolveOperator(operatorType, argumentTypes.build());
+                operatorSignature = functionRegistry.resolveOperator(operatorType, argumentTypes.build());
             }
             catch (OperatorNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, e.getMessage());
@@ -849,11 +849,11 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
-                Type type = typeManager.getType(operatorInfo.getArgumentTypes().get(i));
-                coerceType(context, expression, type, String.format("Operator %s argument %d", operatorInfo, i));
+                Type type = typeManager.getType(operatorSignature.getArgumentTypes().get(i));
+                coerceType(context, expression, type, String.format("Operator %s argument %d", operatorSignature, i));
             }
 
-            Type type = typeManager.getType(operatorInfo.getReturnType());
+            Type type = typeManager.getType(operatorSignature.getReturnType());
             expressionTypes.put(node, type);
 
             return type;
@@ -1040,11 +1040,11 @@ public class ExpressionAnalyzer
 
         IdentityHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();
         IdentityHashMap<Expression, Type> expressionCoercions = analyzer.getExpressionCoercions();
-        IdentityHashMap<FunctionCall, FunctionInfo> resolvedFunctions = analyzer.getResolvedFunctions();
+        IdentityHashMap<FunctionCall, Signature> resolvedFunctions = analyzer.getResolvedFunctions();
 
         analysis.addTypes(expressionTypes);
         analysis.addCoercions(expressionCoercions);
-        analysis.addFunctionInfos(resolvedFunctions);
+        analysis.addFunctionSignatures(resolvedFunctions);
         analysis.addRowFieldReferences(analyzer.getRowFieldReferences());
 
         for (Expression subExpression : expressionTypes.keySet()) {

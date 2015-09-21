@@ -699,7 +699,7 @@ public class TupleAnalyzer
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
-            FunctionType type = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes, false).getSignature().getType();
+            FunctionType type = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes, false).getType();
             if (type != AGGREGATE && type != APPROXIMATE_AGGREGATE && type != WINDOW) {
                 throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }

@@ -47,7 +47,7 @@ public class IsDistinctFromCodeGenerator
         Type leftType = left.getType();
         Type rightType = right.getType();
 
-        Signature equalsSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(leftType, rightType)).getSignature();
+        Signature equalsSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(leftType, rightType));
         MethodHandle methodHandle = generatorContext
                 .getRegistry()
                 .getScalarFunctionImplementation(equalsSignature)

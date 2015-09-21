@@ -96,7 +96,7 @@ public final class Signature
         this(name, type, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public static Signature internalOperator(OperatorType operator, Type returnType, List<Type> argumentTypes)
+    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends  Type> argumentTypes)
     {
         return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }

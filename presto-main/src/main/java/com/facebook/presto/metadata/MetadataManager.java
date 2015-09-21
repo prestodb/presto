@@ -60,7 +60,6 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -83,7 +82,6 @@ import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
-import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
@@ -199,23 +197,23 @@ public class MetadataManager
         Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
         for (Type type : typeManager.getTypes()) {
             if (type.isComparable()) {
-                if (!operatorRegistered(HASH_CODE, BIGINT, type, 1)) {
+                if (!functions.canResolveOperator(HASH_CODE, BIGINT, ImmutableList.of(type))) {
                     missingOperators.put(type, HASH_CODE);
                 }
-                if (!operatorRegistered(EQUAL, BOOLEAN, type, 2)) {
+                if (!functions.canResolveOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))) {
                     missingOperators.put(type, EQUAL);
                 }
-                if (!operatorRegistered(NOT_EQUAL, BOOLEAN, type, 2)) {
+                if (!functions.canResolveOperator(NOT_EQUAL, BOOLEAN, ImmutableList.of(type, type))) {
                     missingOperators.put(type, NOT_EQUAL);
                 }
             }
             if (type.isOrderable()) {
                 for (OperatorType operator : ImmutableList.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL)) {
-                    if (!operatorRegistered(operator, BOOLEAN, type, 2)) {
+                    if (!functions.canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
                         missingOperators.put(type, operator);
                     }
                 }
-                if (!operatorRegistered(BETWEEN, BOOLEAN, type, 3)) {
+                if (!functions.canResolveOperator(BETWEEN, BOOLEAN, ImmutableList.of(type, type, type))) {
                     missingOperators.put(type, BETWEEN);
                 }
             }
@@ -228,15 +226,6 @@ public class MetadataManager
             }
             throw new IllegalStateException(Joiner.on(", ").join(messages));
         }
-    }
-
-    private boolean operatorRegistered(OperatorType operator, Type returnType, Type argumentType, int arity)
-    {
-        ImmutableList<TypeSignature> argumentsTypes = Collections.nCopies(arity, argumentType).stream()
-                .map(Type::getTypeSignature)
-                .collect(toImmutableList());
-        Signature signature = internalOperator(operator.name(), returnType.getTypeSignature(), argumentsTypes);
-        return functions.getExactFunction(signature) != null;
     }
 
     @Override

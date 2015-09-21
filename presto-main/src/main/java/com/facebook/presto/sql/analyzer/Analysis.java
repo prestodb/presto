@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
@@ -75,7 +75,7 @@ public class Analysis
     private final IdentityHashMap<Expression, Type> types = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
     private final IdentityHashMap<Relation, Type[]> relationCoercions = new IdentityHashMap<>();
-    private final IdentityHashMap<FunctionCall, FunctionInfo> functionInfo = new IdentityHashMap<>();
+    private final IdentityHashMap<FunctionCall, Signature> functionSignature = new IdentityHashMap<>();
 
     private final IdentityHashMap<Field, ColumnHandle> columns = new IdentityHashMap<>();
 
@@ -288,14 +288,14 @@ public class Analysis
         tables.put(table, handle);
     }
 
-    public FunctionInfo getFunctionInfo(FunctionCall function)
+    public Signature getFunctionSignature(FunctionCall function)
     {
-        return functionInfo.get(function);
+        return functionSignature.get(function);
     }
 
-    public void addFunctionInfos(IdentityHashMap<FunctionCall, FunctionInfo> infos)
+    public void addFunctionSignatures(IdentityHashMap<FunctionCall, Signature> infos)
     {
-        functionInfo.putAll(infos);
+        functionSignature.putAll(infos);
     }
 
     public void addTypes(IdentityHashMap<Expression, Type> types)

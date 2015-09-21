@@ -14,12 +14,12 @@
 package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
@@ -256,8 +256,8 @@ public class InformationSchemaPageSourceProvider
                         if (entry.getValue().getValue() != null) {
                             ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
                             try {
-                                FunctionInfo operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
-                                value = ((Slice) metadata.getFunctionRegistry().getScalarFunctionImplementation(operator.getSignature()).getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
+                                Signature operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
+                                value = ((Slice) metadata.getFunctionRegistry().getScalarFunctionImplementation(operator).getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
                             }
                             catch (OperatorNotFoundException e) {
                                 value = "<UNREPRESENTABLE VALUE>";
