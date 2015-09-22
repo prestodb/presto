@@ -1251,13 +1251,14 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitJoin(JoinNode node, LocalExecutionPlanContext context)
         {
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
+            if (clauses.isEmpty()) {
+                return createNestedLoopJoin(node.getLeft(), node.getRight(), context);
+            }
 
             List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
             List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 
             switch (node.getType()) {
-                case CROSS:
-                    return createNestedLoopJoin(node.getLeft(), node.getRight(), context);
                 case INNER:
                 case LEFT:
                 case RIGHT:

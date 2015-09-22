@@ -165,7 +165,6 @@ public class IndexJoinOptimizer
                         break;
 
                     case FULL:
-                    case CROSS:
                         break;
 
                     default:

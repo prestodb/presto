@@ -67,7 +67,6 @@ public class JoinNode
         INNER("InnerJoin"),
         LEFT("LeftJoin"),
         RIGHT("RightJoin"),
-        CROSS("CrossJoin"),
         FULL("FullJoin");
 
         private final String joinLabel;
@@ -86,6 +85,8 @@ public class JoinNode
         {
             // Omit SEMI join types because they must be inferred by the planner and not part of the SQL parse tree
             switch (joinType) {
+                case CROSS:
+                case IMPLICIT:
                 case INNER:
                     return Type.INNER;
                 case LEFT:
@@ -94,9 +95,6 @@ public class JoinNode
                     return Type.RIGHT;
                 case FULL:
                     return Type.FULL;
-                case CROSS:
-                case IMPLICIT:
-                    return Type.CROSS;
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + joinType);
             }
