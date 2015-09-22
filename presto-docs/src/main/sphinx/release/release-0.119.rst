@@ -20,6 +20,10 @@ General Changes
   independent options: ``task.http-response-threads`` and ``task.http-timeout-threads``.
 * Improve handling of negated expressions in join criteria.
 * Add support for Cassandra BLOB types.
+* Fix :func:`arbitrary`, :func:`max_by` and :func:`min_by` functions when used
+  with an array, map or row type.
+* Fix union coercion when the same constant or column appears more than once on
+  the same side.
 
 SPI Changes
 -----------
@@ -40,6 +44,8 @@ CLI Changes
 * Skip printing query URL if terminal is too narrow.
 * Allow performing a partial query cancel using ``ctrl-P``.
 * Allow toggling debug mode during query by pressing ``D``.
+* Fix handling of query abortion after result has been partially received.
+* Fix handling of ``ctrl-C`` when displaying results without a pager.
 
 Verifier Changes
 ----------------
