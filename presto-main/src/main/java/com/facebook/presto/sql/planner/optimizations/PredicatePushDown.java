@@ -256,7 +256,7 @@ public class PredicatePushDown
             Expression inheritedPredicate = context.get();
 
             // See if we can rewrite outer joins in terms of a plain inner join
-            node = tryNormalizeToInnerJoin(node, inheritedPredicate);
+            node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
 
             Expression leftEffectivePredicate = EffectivePredicateExtractor.extract(node.getLeft(), symbolAllocator.getTypes());
             Expression rightEffectivePredicate = EffectivePredicateExtractor.extract(node.getRight(), symbolAllocator.getTypes());
@@ -611,7 +611,7 @@ public class PredicatePushDown
             return getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression).get(expression);
         }
 
-        private JoinNode tryNormalizeToInnerJoin(JoinNode node, Expression inheritedPredicate)
+        private JoinNode tryNormalizeToOuterToInnerJoin(JoinNode node, Expression inheritedPredicate)
         {
             Preconditions.checkArgument(EnumSet.of(INNER, RIGHT, LEFT, FULL).contains(node.getType()), "Unsupported join type: %s", node.getType());
 
