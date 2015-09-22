@@ -30,6 +30,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
 public class NestedLoopJoinOperator
@@ -223,6 +224,7 @@ public class NestedLoopJoinOperator
         private final int maxRowIndex; // number of rows - 1
 
         private int rowIndex; // Iterator on the rows in the page with less rows.
+        private final int noColumnShortcutResult; // Only used if select count(*) from cross join.
 
         NestedLoopPageBuilder(Page probePage, Page buildPage)
         {
@@ -239,6 +241,26 @@ public class NestedLoopJoinOperator
             this.maxRowIndex = Math.min(buildPage.getPositionCount(), probePage.getPositionCount()) - 1;
             this.largePage = buildPageLarger ? buildPage : probePage;
             this.smallPage = buildPageLarger ? probePage : buildPage;
+
+            this.noColumnShortcutResult = calculateUseNoColumnShortcut(numberOfProbeColumns, numberOfBuildColumns, probePage.getPositionCount(), buildPage.getPositionCount());
+        }
+
+        private static int calculateUseNoColumnShortcut(
+                int numberOfProbeColumns,
+                int numberOfBuildColumns,
+                int positionCountProbe,
+                int positionCountBuild)
+        {
+            if (numberOfProbeColumns == 0 && numberOfBuildColumns == 0) {
+                try {
+                    // positionCount is an int. Make sure the product can still fit in an int.
+                    return multiplyExact(positionCountProbe, positionCountBuild);
+                }
+                catch (ArithmeticException exception) {
+                    // return -1 to disable the shortcut if overflows.
+                }
+            }
+            return -1;
         }
 
         public boolean hasNext()
@@ -250,6 +272,11 @@ public class NestedLoopJoinOperator
         {
             if (!hasNext()) {
                 throw new NoSuchElementException();
+            }
+
+            if (noColumnShortcutResult >= 0) {
+                rowIndex = maxRowIndex;
+                return new Page(noColumnShortcutResult);
             }
 
             rowIndex++;
