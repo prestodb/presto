@@ -16,7 +16,7 @@ General Changes
   ``default`` if they were not specified.
 * Fix scheduler handling of partially canceled queries.
 * Execute views with the permissions of the view owner.
-* Deprecated ``task.http-notification-threads`` config option in favor of two
+* Replaced the ``task.http-notification-threads`` config option with two
   independent options: ``task.http-response-threads`` and ``task.http-timeout-threads``.
 * Improve handling of negated expressions in join criteria.
 * Fix :func:`arbitrary`, :func:`max_by` and :func:`min_by` functions when used
