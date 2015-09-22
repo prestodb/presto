@@ -376,7 +376,7 @@ public class RaptorMetadata
 
         long newTableId = dbi.inTransaction((dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
-            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName());
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true);
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
 
             for (int i = 0; i < table.getColumnTypes().size(); i++) {
