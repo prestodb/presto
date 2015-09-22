@@ -18,7 +18,8 @@ General Changes
 * Execute views with the permissions of the view owner.
 * Deprecated ``task.http-notification-threads`` config option in favor of two
   independent options: ``task.http-response-threads`` and ``task.http-timeout-threads``.
-
+* Improve handling of negated expressions in join criteria.
+* Add support for Cassandra BLOB types.
 
 SPI Changes
 -----------
