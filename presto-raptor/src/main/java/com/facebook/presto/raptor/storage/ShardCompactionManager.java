@@ -218,6 +218,9 @@ public class ShardCompactionManager
 
         for (Entry<Long, List<ShardMetadata>> entry : Multimaps.asMap(tableShards).entrySet()) {
             long tableId = entry.getKey();
+            if (!metadataDao.isCompactionEnabled(tableId)) {
+                continue;
+            }
             List<ShardMetadata> shardMetadata = entry.getValue();
 
             Set<ShardMetadata> shards = shardMetadata.stream()
