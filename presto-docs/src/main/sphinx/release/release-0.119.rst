@@ -19,11 +19,11 @@ General Changes
 * Deprecated ``task.http-notification-threads`` config option in favor of two
   independent options: ``task.http-response-threads`` and ``task.http-timeout-threads``.
 * Improve handling of negated expressions in join criteria.
-* Add support for Cassandra BLOB types.
 * Fix :func:`arbitrary`, :func:`max_by` and :func:`min_by` functions when used
   with an array, map or row type.
 * Fix union coercion when the same constant or column appears more than once on
   the same side.
+* Support ``RENAME COLUMN`` in :doc:`/sql/alter-table`.
 
 SPI Changes
 -----------
@@ -49,18 +49,23 @@ CLI Changes
 
 Verifier Changes
 ----------------
+
 * Add ``expected-double-precision`` config to specify the expected level of
   precision when comparing double values.
 * Return non-zero exit code when there are failures.
 
+Cassandra Changes
+-----------------
+
+* Add support for Cassandra blob types.
+
 Hive Changes
 ------------
 
-* Add ``ALTER TABLE ADD COLUMN``
-* Add ``ALTER TABLE RENAME COLUMN``
+* Support adding and renaming columns using :doc:`/sql/alter-table`.
 * Automatically configure the S3 region when running in EC2.
 * Allow configuring multiple Hive metastores for high availability.
-* Add support for ``TIMESTAMP`` and ``VARBINARY`` in Parquet
+* Add support for ``TIMESTAMP`` and ``VARBINARY`` in Parquet.
 
 MySQL and PostgreSQL Changes
 ----------------------------
