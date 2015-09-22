@@ -71,7 +71,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning.NONE;
 import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.CROSS;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
@@ -398,7 +398,7 @@ public class TestSourcePartitionedScheduler
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId("plan_id"),
                 new JoinNode(new PlanNodeId("join_id"),
-                        CROSS,
+                        INNER,
                         new TableScanNode(
                                 tableScanNodeId,
                                 new TableHandle(CONNECTOR_ID, new TestingTableHandle()),
