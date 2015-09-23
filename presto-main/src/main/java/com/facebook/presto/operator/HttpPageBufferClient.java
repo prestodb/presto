@@ -314,8 +314,8 @@ public final class HttpPageBufferClient
                     lastUpdate = DateTime.now();
 
                 }
-                clientCallback.requestComplete(HttpPageBufferClient.this);
                 requestsCompleted.incrementAndGet();
+                clientCallback.requestComplete(HttpPageBufferClient.this);
             }
 
             @Override
@@ -351,8 +351,8 @@ public final class HttpPageBufferClient
                     future = null;
                     lastUpdate = DateTime.now();
                 }
-                clientCallback.clientFinished(HttpPageBufferClient.this);
                 requestsCompleted.incrementAndGet();
+                clientCallback.clientFinished(HttpPageBufferClient.this);
             }
 
             @Override
