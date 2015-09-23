@@ -927,6 +927,16 @@ public class TestSqlParser
                                 Optional.empty())));
     }
 
+    @Test
+    public void testNonReserved()
+            throws Exception
+    {
+        assertStatement("SELECT zone FROM t",
+                simpleQuery(
+                        selectList(new QualifiedNameReference(QualifiedName.of("zone"))),
+                        table(QualifiedName.of("t"))));
+    }
+
     private static void assertCast(String type)
     {
         assertCast(type, type);
