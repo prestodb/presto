@@ -13,21 +13,23 @@
  */
 package com.facebook.presto.raptor.util;
 
+import org.skife.jdbi.v2.ResultIterator;
+
 import javax.annotation.concurrent.GuardedBy;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class SynchronizedCloseableIterator<T>
-        implements CloseableIterator<T>
+public class SynchronizedResultIterator<T>
+        implements ResultIterator<T>
 {
     @GuardedBy("this")
-    private final CloseableIterator<T> iterator;
+    private final ResultIterator<T> iterator;
 
     @GuardedBy("this")
     private boolean closed;
 
-    public SynchronizedCloseableIterator(CloseableIterator<T> iterator)
+    public SynchronizedResultIterator(ResultIterator<T> iterator)
     {
         this.iterator = requireNonNull(iterator, "iterator is null");
     }

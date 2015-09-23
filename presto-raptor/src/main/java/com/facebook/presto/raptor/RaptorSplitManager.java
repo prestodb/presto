@@ -16,8 +16,7 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.raptor.backup.BackupService;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
-import com.facebook.presto.raptor.util.CloseableIterator;
-import com.facebook.presto.raptor.util.SynchronizedCloseableIterator;
+import com.facebook.presto.raptor.util.SynchronizedResultIterator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
@@ -32,6 +31,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import org.skife.jdbi.v2.ResultIterator;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -140,7 +140,7 @@ public class RaptorSplitManager
         private final Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node::getNodeIdentifier);
         private final long tableId;
         private final TupleDomain<RaptorColumnHandle> effectivePredicate;
-        private final CloseableIterator<ShardNodes> iterator;
+        private final ResultIterator<ShardNodes> iterator;
 
         @GuardedBy("this")
         private CompletableFuture<List<ConnectorSplit>> future;
@@ -149,7 +149,7 @@ public class RaptorSplitManager
         {
             this.tableId = tableId;
             this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
-            this.iterator = new SynchronizedCloseableIterator<>(shardManager.getShardNodes(tableId, effectivePredicate));
+            this.iterator = new SynchronizedResultIterator<>(shardManager.getShardNodes(tableId, effectivePredicate));
         }
 
         @Override

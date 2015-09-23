@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
@@ -31,6 +30,7 @@ import io.airlift.testing.FileUtils;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.ResultIterator;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -521,7 +521,7 @@ public class TestDatabaseShardManager
 
     private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
     {
-        try (CloseableIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, predicate)) {
+        try (ResultIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, predicate)) {
             return ImmutableSet.copyOf(iterator);
         }
     }
