@@ -14,12 +14,12 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.log.Logger;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.ResultIterator;
 import org.skife.jdbi.v2.exceptions.DBIException;
 
 import java.sql.Connection;
@@ -44,7 +44,7 @@ import static java.util.stream.Collectors.toSet;
 
 final class ShardIterator
         extends AbstractIterator<ShardNodes>
-        implements CloseableIterator<ShardNodes>
+        implements ResultIterator<ShardNodes>
 {
     private static final Logger log = Logger.get(ShardIterator.class);
     private final Map<Integer, String> nodeMap = new HashMap<>();
