@@ -314,8 +314,8 @@ public final class HttpPageBufferClient
                     lastUpdate = DateTime.now();
 
                 }
-                clientCallback.requestComplete(HttpPageBufferClient.this);
                 requestsCompleted.incrementAndGet();
+                clientCallback.requestComplete(HttpPageBufferClient.this);
             }
 
             @Override
@@ -351,8 +351,8 @@ public final class HttpPageBufferClient
                     future = null;
                     lastUpdate = DateTime.now();
                 }
-                clientCallback.clientFinished(HttpPageBufferClient.this);
                 requestsCompleted.incrementAndGet();
+                clientCallback.clientFinished(HttpPageBufferClient.this);
             }
 
             @Override
@@ -380,14 +380,14 @@ public final class HttpPageBufferClient
 
     private void handleFailure(Throwable t)
     {
+        requestsFailed.incrementAndGet();
+        requestsCompleted.incrementAndGet();
+
         if (t instanceof PrestoException) {
             clientCallback.clientFailed(HttpPageBufferClient.this, t);
         }
 
         increaseErrorDelay();
-
-        requestsFailed.incrementAndGet();
-        requestsCompleted.incrementAndGet();
         synchronized (HttpPageBufferClient.this) {
             future = null;
             lastUpdate = DateTime.now();
