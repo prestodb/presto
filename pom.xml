@@ -522,7 +522,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi</artifactId>
-                <version>2.55</version>
+                <version>2.63.1</version>
             </dependency>
 
             <dependency>
