@@ -25,6 +25,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.DateTimeZoneIndex;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -73,6 +74,7 @@ import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.tableNameGetter;
 import static java.lang.String.format;
+import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -3135,6 +3137,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1.5, 2.3)", "SELECT orderkey FROM orders LIMIT 0"); // H2 incorrectly matches rows
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2.0, 3)");
         assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
+
+        String list =  Joiner.on(',').join(range(0, 20_000).boxed().iterator());
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + list + ")");
     }
 
     @Test
