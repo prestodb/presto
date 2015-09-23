@@ -1149,6 +1149,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT custkey, sum(t) FROM (SELECT custkey, count(*) t FROM orders GROUP BY custkey) GROUP BY custkey");
     }
+
     @Test
     public void testGroupByWithNulls()
             throws Exception
@@ -2485,7 +2486,8 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testRowNumberUnpartitionedFilterLimit() throws Exception
+    public void testRowNumberUnpartitionedFilterLimit()
+            throws Exception
     {
         assertQuery("" +
                 "SELECT row_number() OVER ()\n" +
