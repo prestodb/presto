@@ -219,6 +219,16 @@ public final class ExpressionUtils
         };
     }
 
+    public static boolean isIdenticalComparison(Expression expression)
+    {
+        if (expression instanceof ComparisonExpression) {
+            ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
+            return comparisonExpression.getType() == ComparisonExpression.Type.EQUAL &&
+                    comparisonExpression.getLeft().equals(comparisonExpression.getRight());
+        }
+        return false;
+    }
+
     private static Iterable<Expression> removeDuplicates(Iterable<Expression> expressions)
     {
         // Capture all non-deterministic predicates
