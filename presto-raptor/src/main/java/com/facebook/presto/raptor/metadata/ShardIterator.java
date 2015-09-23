@@ -36,6 +36,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
+import static com.facebook.presto.raptor.metadata.JdbcUtil.enableStreamingResults;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static java.lang.String.format;
