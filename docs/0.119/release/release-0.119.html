@@ -1,0 +1,152 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.1. Release 0.119 &mdash; Presto 0.119 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.119',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.119 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.2. Release 0.118" href="release-0.118.html" />
+    <link rel="prev" title="10. Release Notes" href="../release.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.119 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.1. Release 0.119</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.118.html">10.2. Release 0.118</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-119">
+<h1>10.1. Release 0.119</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Add <a class="reference internal" href="../connector/redis.html"><em>Redis Connector</em></a>.</li>
+<li>Add <a class="reference internal" href="../functions/aggregate.html#geometric_mean" title="geometric_mean"><tt class="xref py py-func docutils literal"><span class="pre">geometric_mean()</span></tt></a> function.</li>
+<li>Fix restoring interrupt status in <tt class="docutils literal"><span class="pre">StatementClient</span></tt>.</li>
+<li>Support getting server version in JDBC driver.</li>
+<li>Improve correctness and compliance of JDBC <tt class="docutils literal"><span class="pre">DatabaseMetaData</span></tt>.</li>
+<li>Catalog and schema are now optional on the server. This allows connecting
+and executing metadata commands or queries that use fully qualified names.
+Previously, the CLI and JDBC driver would use a catalog and schema named
+<tt class="docutils literal"><span class="pre">default</span></tt> if they were not specified.</li>
+<li>Fix scheduler handling of partially canceled queries.</li>
+<li>Execute views with the permissions of the view owner.</li>
+<li>Replaced the <tt class="docutils literal"><span class="pre">task.http-notification-threads</span></tt> config option with two
+independent options: <tt class="docutils literal"><span class="pre">task.http-response-threads</span></tt> and <tt class="docutils literal"><span class="pre">task.http-timeout-threads</span></tt>.</li>
+<li>Improve handling of negated expressions in join criteria.</li>
+<li>Fix <a class="reference internal" href="../functions/aggregate.html#arbitrary" title="arbitrary"><tt class="xref py py-func docutils literal"><span class="pre">arbitrary()</span></tt></a>, <a class="reference internal" href="../functions/aggregate.html#max_by" title="max_by"><tt class="xref py py-func docutils literal"><span class="pre">max_by()</span></tt></a> and <a class="reference internal" href="../functions/aggregate.html#min_by" title="min_by"><tt class="xref py py-func docutils literal"><span class="pre">min_by()</span></tt></a> functions when used
+with an array, map or row type.</li>
+<li>Fix union coercion when the same constant or column appears more than once on
+the same side.</li>
+<li>Support <tt class="docutils literal"><span class="pre">RENAME</span> <span class="pre">COLUMN</span></tt> in <a class="reference internal" href="../sql/alter-table.html"><em>ALTER TABLE</em></a>.</li>
+</ul>
+</div>
+<div class="section" id="spi-changes">
+<h2>SPI Changes</h2>
+<ul class="simple">
+<li>Add more system table distribution modes.</li>
+<li>Add owner to view metadata.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">These are backwards incompatible changes with the previous connector SPI.
+If you have written a connector, you may need to update your code to the
+new APIs.</p>
+</div>
+</div>
+<div class="section" id="cli-changes">
+<h2>CLI Changes</h2>
+<ul class="simple">
+<li>Fix handling of full width characters.</li>
+<li>Skip printing query URL if terminal is too narrow.</li>
+<li>Allow performing a partial query cancel using <tt class="docutils literal"><span class="pre">ctrl-P</span></tt>.</li>
+<li>Allow toggling debug mode during query by pressing <tt class="docutils literal"><span class="pre">D</span></tt>.</li>
+<li>Fix handling of query abortion after result has been partially received.</li>
+<li>Fix handling of <tt class="docutils literal"><span class="pre">ctrl-C</span></tt> when displaying results without a pager.</li>
+</ul>
+</div>
+<div class="section" id="verifier-changes">
+<h2>Verifier Changes</h2>
+<ul class="simple">
+<li>Add <tt class="docutils literal"><span class="pre">expected-double-precision</span></tt> config to specify the expected level of
+precision when comparing double values.</li>
+<li>Return non-zero exit code when there are failures.</li>
+</ul>
+</div>
+<div class="section" id="cassandra-changes">
+<h2>Cassandra Changes</h2>
+<ul class="simple">
+<li>Add support for Cassandra blob types.</li>
+</ul>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Support adding and renaming columns using <a class="reference internal" href="../sql/alter-table.html"><em>ALTER TABLE</em></a>.</li>
+<li>Automatically configure the S3 region when running in EC2.</li>
+<li>Allow configuring multiple Hive metastores for high availability.</li>
+<li>Add support for <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt> and <tt class="docutils literal"><span class="pre">VARBINARY</span></tt> in Parquet.</li>
+</ul>
+</div>
+<div class="section" id="mysql-and-postgresql-changes">
+<h2>MySQL and PostgreSQL Changes</h2>
+<ul class="simple">
+<li>Enable streaming results instead of buffering everything in memory.</li>
+<li>Fix handling of pattern characters when matching table or column names.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.118.html">10.2. Release 0.118</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

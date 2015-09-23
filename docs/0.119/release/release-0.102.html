@@ -1,0 +1,123 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.18. Release 0.102 &mdash; Presto 0.119 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.119',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.119 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.19. Release 0.101" href="release-0.101.html" />
+    <link rel="prev" title="10.17. Release 0.103" href="release-0.103.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.119 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.18. Release 0.102</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.103.html">10.17. Release 0.103</a>
+    </span>
+    <span class="right">
+        <a href="release-0.101.html">10.19. Release 0.101</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-102">
+<h1>10.18. Release 0.102</h1>
+<div class="section" id="unicode-support">
+<h2>Unicode Support</h2>
+<p>All string functions have been updated to support Unicode. The functions assume
+that the string contains valid UTF-8 encoded code points. There are no explicit
+checks for valid UTF-8, and the functions may return incorrect results on
+invalid UTF-8.  Invalid UTF-8 data can be corrected with <a class="reference internal" href="../functions/string.html#from_utf8" title="from_utf8"><tt class="xref py py-func docutils literal"><span class="pre">from_utf8()</span></tt></a>.</p>
+<p>Additionally, the functions operate on Unicode code points and not user visible
+<em>characters</em> (or <em>grapheme clusters</em>).  Some languages combine multiple code points
+into a single user-perceived <em>character</em>, the basic unit of a writing system for a
+language, but the functions will treat each code point as a separate unit.</p>
+</div>
+<div class="section" id="regular-expression-functions">
+<h2>Regular Expression Functions</h2>
+<p>All <a class="reference internal" href="../functions/regexp.html"><em>Regular Expression Functions</em></a> have been rewritten to improve performance.
+The new versions are often twice as fast and in some cases can be many
+orders of magnitude faster (due to removal of quadratic behavior).
+This change introduced some minor incompatibilities that are explained
+in the documentation for the functions.</p>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Add support for partitioned right outer joins, which allows for larger tables to
+be joined on the inner side.</li>
+<li>Add support for full outer joins.</li>
+<li>Support returning booleans as numbers in JDBC driver</li>
+<li>Fix <a class="reference internal" href="../functions/array.html#contains" title="contains"><tt class="xref py py-func docutils literal"><span class="pre">contains()</span></tt></a> to return <tt class="docutils literal"><span class="pre">NULL</span></tt> if the value was not found, but a <tt class="docutils literal"><span class="pre">NULL</span></tt> was.</li>
+<li>Fix nested <a class="reference internal" href="../language/types.html#row-type"><em>ROW</em></a> rendering in <tt class="docutils literal"><span class="pre">DESCRIBE</span></tt>.</li>
+<li>Add <a class="reference internal" href="../functions/array.html#array_join" title="array_join"><tt class="xref py py-func docutils literal"><span class="pre">array_join()</span></tt></a>.</li>
+<li>Optimize map subscript operator.</li>
+<li>Add <a class="reference internal" href="../functions/string.html#from_utf8" title="from_utf8"><tt class="xref py py-func docutils literal"><span class="pre">from_utf8()</span></tt></a> and <a class="reference internal" href="../functions/string.html#to_utf8" title="to_utf8"><tt class="xref py py-func docutils literal"><span class="pre">to_utf8()</span></tt></a> functions.</li>
+<li>Add <tt class="docutils literal"><span class="pre">task_writer_count</span></tt> session property to set <tt class="docutils literal"><span class="pre">task.writer-count</span></tt>.</li>
+<li>Add cast from <tt class="docutils literal"><span class="pre">ARRAY&lt;F&gt;</span></tt> to <tt class="docutils literal"><span class="pre">ARRAY&lt;T&gt;</span></tt>.</li>
+<li>Extend implicit coercions to <tt class="docutils literal"><span class="pre">ARRAY</span></tt> element types.</li>
+<li>Implement implicit coercions in <tt class="docutils literal"><span class="pre">VALUES</span></tt> expressions.</li>
+<li>Fix potential deadlock in scheduler.</li>
+</ul>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Collect more metrics from <tt class="docutils literal"><span class="pre">PrestoS3FileSystem</span></tt>.</li>
+<li>Retry when seeking in <tt class="docutils literal"><span class="pre">PrestoS3FileSystem</span></tt>.</li>
+<li>Ignore <tt class="docutils literal"><span class="pre">InvalidRange</span></tt> error in <tt class="docutils literal"><span class="pre">PrestoS3FileSystem</span></tt>.</li>
+<li>Implement rename and delete in <tt class="docutils literal"><span class="pre">PrestoS3FileSystem</span></tt>.</li>
+<li>Fix assertion failure when running <tt class="docutils literal"><span class="pre">SHOW</span> <span class="pre">TABLES</span> <span class="pre">FROM</span> <span class="pre">schema</span></tt>.</li>
+<li>Fix S3 socket leak when reading ORC files.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.103.html">10.17. Release 0.103</a>
+    </span>
+    <span class="right">
+        <a href="release-0.101.html">10.19. Release 0.101</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

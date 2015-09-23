@@ -1,0 +1,92 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>7.13. SET SESSION &mdash; Presto 0.119 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.119',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.119 Documentation" href="../index.html" />
+    <link rel="up" title="7. SQL Statement Syntax" href="../sql.html" />
+    <link rel="next" title="7.14. SHOW CATALOGS" href="show-catalogs.html" />
+    <link rel="prev" title="7.12. SELECT" href="select.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.119 Documentation</span></a></h1>
+    <h2 class="heading"><span>7.13. SET SESSION</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="select.html">7.12. SELECT</a>
+    </span>
+    <span class="right">
+        <a href="show-catalogs.html">7.14. SHOW CATALOGS</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="set-session">
+<h1>7.13. SET SESSION</h1>
+<div class="section" id="synopsis">
+<h2>Synopsis</h2>
+<div class="highlight-none"><div class="highlight"><pre>SET SESSION name = expression
+SET SESSION catalog.name = expression
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description</h2>
+<p>Set a session property value.</p>
+</div>
+<div class="section" id="examples">
+<h2>Examples</h2>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SET</span> <span class="k">SESSION</span> <span class="n">optimize_hash_generation</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+<span class="k">SET</span> <span class="k">SESSION</span> <span class="n">hive</span><span class="p">.</span><span class="n">optimized_reader_enabled</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="select.html">7.12. SELECT</a>
+    </span>
+    <span class="right">
+        <a href="show-catalogs.html">7.14. SHOW CATALOGS</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

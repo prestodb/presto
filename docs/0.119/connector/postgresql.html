@@ -1,0 +1,137 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.8. PostgreSQL Connector &mdash; Presto 0.119 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.119',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.119 Documentation" href="../index.html" />
+    <link rel="up" title="4. Connectors" href="../connector.html" />
+    <link rel="next" title="4.9. Redis Connector" href="redis.html" />
+    <link rel="prev" title="4.7. MySQL Connector" href="mysql.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.119 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.8. PostgreSQL Connector</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="mysql.html">4.7. MySQL Connector</a>
+    </span>
+    <span class="right">
+        <a href="redis.html">4.9. Redis Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="postgresql-connector">
+<h1>4.8. PostgreSQL Connector</h1>
+<p>The PostgreSQL connector allows querying and creating tables in an
+external PostgreSQL database. This can be used to join data between
+different systems like PostgreSQL and Hive, or between two different
+PostgreSQL instances.</p>
+<div class="section" id="configuration">
+<h2>Configuration</h2>
+<p>To configure the PostgreSQL connector, create a catalog properties file
+in <tt class="docutils literal"><span class="pre">etc/catalog</span></tt> named, for example, <tt class="docutils literal"><span class="pre">postgresql.properties</span></tt>, to
+mount the PostgreSQL connector as the <tt class="docutils literal"><span class="pre">postgresql</span></tt> catalog.
+Create the file with the following contents, replacing the
+connection properties as appropriate for your setup:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=postgresql
+connection-url=jdbc:postgresql://example.net:5432/database
+connection-user=root
+connection-password=secret
+</pre></div>
+</div>
+<div class="section" id="multiple-postgresql-databases-or-servers">
+<h3>Multiple PostgreSQL Databases or Servers</h3>
+<p>The PostgreSQL connector can only access a single database within
+a PostgreSQL server. Thus, if you have multiple PostgreSQL databases,
+or want to connect to multiple PostgreSQL servers, you must configure
+multiple instances of the PostgreSQL connector.</p>
+<p>To add another catalog, simply add another properties file to <tt class="docutils literal"><span class="pre">etc/catalog</span></tt>
+with a different name (making sure it ends in <tt class="docutils literal"><span class="pre">.properties</span></tt>). For example,
+if you name the property file <tt class="docutils literal"><span class="pre">sales.properties</span></tt>, Presto will create a
+catalog named <tt class="docutils literal"><span class="pre">sales</span></tt> using the configured connector.</p>
+</div>
+</div>
+<div class="section" id="querying-postgresql">
+<h2>Querying PostgreSQL</h2>
+<p>The PostgreSQL connector provides a schema for every PostgreSQL schema.
+You can see the available PostgreSQL schemas by running <tt class="docutils literal"><span class="pre">SHOW</span> <span class="pre">SCHEMAS</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">SCHEMAS</span> <span class="k">FROM</span> <span class="n">postgresql</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>If you have a PostgreSQL schema named <tt class="docutils literal"><span class="pre">web</span></tt>, you can view the tables
+in this schema by running <tt class="docutils literal"><span class="pre">SHOW</span> <span class="pre">TABLES</span></tt>:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">TABLES</span> <span class="k">FROM</span> <span class="n">postgresql</span><span class="p">.</span><span class="n">web</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>You can see a list of the columns in the <tt class="docutils literal"><span class="pre">clicks</span></tt> table in the <tt class="docutils literal"><span class="pre">web</span></tt> database
+using either of the following:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">DESCRIBE</span> <span class="n">postgresql</span><span class="p">.</span><span class="n">web</span><span class="p">.</span><span class="n">clicks</span><span class="p">;</span>
+<span class="k">SHOW</span> <span class="n">COLUMNS</span> <span class="k">FROM</span> <span class="n">postgresql</span><span class="p">.</span><span class="n">web</span><span class="p">.</span><span class="n">clicks</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Finally, you can access the <tt class="docutils literal"><span class="pre">clicks</span></tt> table in the <tt class="docutils literal"><span class="pre">web</span></tt> schema:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">postgresql</span><span class="p">.</span><span class="n">web</span><span class="p">.</span><span class="n">clicks</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>If you used a different name for your catalog properties file, use
+that catalog name instead of <tt class="docutils literal"><span class="pre">postgresql</span></tt> in the above examples.</p>
+</div>
+<div class="section" id="postgresql-connector-limitations">
+<h2>PostgreSQL Connector Limitations</h2>
+<p>The following SQL statements are not yet supported:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../sql/insert.html"><em>INSERT</em></a></li>
+<li><a class="reference internal" href="../sql/alter-table.html"><em>ALTER TABLE</em></a></li>
+<li><a class="reference internal" href="../sql/create-table.html"><em>CREATE TABLE</em></a> (<a class="reference internal" href="../sql/create-table-as.html"><em>CREATE TABLE AS</em></a> is supported)</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="mysql.html">4.7. MySQL Connector</a>
+    </span>
+    <span class="right">
+        <a href="redis.html">4.9. Redis Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
