@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.TestingSplit;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.spi.ColumnHandle;
@@ -27,6 +26,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingSplit;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
