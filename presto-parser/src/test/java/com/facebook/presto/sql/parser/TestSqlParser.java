@@ -612,7 +612,7 @@ public class TestSqlParser
 
         assertStatement("SET SESSION foo.bar = 'ban' || 'ana'", new SetSession(
                 QualifiedName.of("foo", "bar"),
-                new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
+                new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
                         new StringLiteral("ban"),
                         new StringLiteral("ana")))));
     }
@@ -726,7 +726,7 @@ public class TestSqlParser
         ImmutableMap<String, Expression> properties = ImmutableMap.<String, Expression>builder()
                 .put("string", new StringLiteral("bar"))
                 .put("long", new LongLiteral("42"))
-                .put("computed", new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
+                .put("computed", new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
                         new StringLiteral("ban"),
                         new StringLiteral("ana"))))
                 .put("a", new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2"))))
