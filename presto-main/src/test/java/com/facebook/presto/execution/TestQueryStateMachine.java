@@ -28,7 +28,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -52,7 +51,7 @@ public class TestQueryStateMachine
     private static final String QUERY = "sql";
     private static final URI LOCATION = URI.create("fake://fake-query");
     private static final SQLException FAILED_CAUSE = new SQLException("FAILED");
-    private static final List<Input> INPUTS = ImmutableList.of(new Input("connector", "schema", "table", ImmutableList.of(new Column("a", "varchar", Optional.empty()))));
+    private static final List<Input> INPUTS = ImmutableList.of(new Input("connector", "schema", "table", ImmutableList.of(new Column("a", "varchar"))));
     private static final List<String> OUTPUT_FIELD_NAMES = ImmutableList.of("a", "b", "c");
     private static final String UPDATE_TYPE = "update type";
     private static final VersionedMemoryPoolId MEMORY_POOL = new VersionedMemoryPoolId(new MemoryPoolId("pool"), 42);
