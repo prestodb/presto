@@ -63,7 +63,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.facebook.presto.util.ImmutableCollectors;
-import com.facebook.presto.util.JsonPlanPrinter;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
@@ -125,11 +124,6 @@ public class PlanPrinter
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session, int indent)
     {
         return new PlanPrinter(plan, types, metadata, session, indent).toString();
-    }
-
-    public static String getJsonPlanSource(PlanNode plan, Metadata metadata, Session session)
-    {
-        return JsonPlanPrinter.getPlan(plan, metadata, session);
     }
 
     public static String textDistributedPlan(SubPlan plan, Metadata metadata, Session session)

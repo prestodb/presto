@@ -585,9 +585,6 @@ class StatementAnalyzer
                 return queryExplainer.get().getGraphvizPlan(session, node.getStatement(), planType);
             case TEXT:
                 return queryExplainer.get().getPlan(session, node.getStatement(), planType);
-            case JSON:
-                // ignore planType if planFormat is JSON
-                return queryExplainer.get().getJsonPlan(session, node.getStatement());
         }
         throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
     }

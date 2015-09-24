@@ -63,7 +63,7 @@ public class InputExtractor
 
     private static Column createColumnEntry(ColumnMetadata columnMetadata)
     {
-        return new Column(columnMetadata.getName(), columnMetadata.getType().toString(), Optional.empty());
+        return new Column(columnMetadata.getName(), columnMetadata.getType().toString());
     }
 
     private static TableEntry createTableEntry(TableMetadata table)
