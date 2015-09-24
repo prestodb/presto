@@ -141,6 +141,7 @@ public class HttpRemoteTask
 
     private final HttpClient httpClient;
     private final Executor executor;
+    private final ScheduledExecutorService errorScheduledExecutor;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
 
@@ -183,6 +184,7 @@ public class HttpRemoteTask
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
             this.executor = executor;
+            this.errorScheduledExecutor = errorScheduledExecutor;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor, "updating task");
@@ -467,11 +469,10 @@ public class HttpRemoteTask
             }
 
             // send cancel to task and ignore response
-            long start = System.nanoTime();
             Request request = prepareDelete()
                     .setUri(uriBuilderFrom(uri).addParameter("abort", "false").addParameter("summarize").build())
                     .build();
-            scheduleAsyncCleanupRequest(start, request, "cancel");
+            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "cancel");
         }
     }
 
@@ -506,15 +507,14 @@ public class HttpRemoteTask
                     ImmutableList.<ExecutionFailureInfo>of()));
 
             // send abort to task and ignore response
-            long start = System.nanoTime();
             Request request = prepareDelete()
                     .setUri(uriBuilderFrom(uri).addParameter("summarize").build())
                     .build();
-            scheduleAsyncCleanupRequest(start, request, "abort");
+            scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "abort");
         }
     }
 
-    private void scheduleAsyncCleanupRequest(long start, Request request, String action)
+    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
         Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
         {
@@ -532,13 +532,19 @@ public class HttpRemoteTask
                     return;
                 }
 
+                // record failure
+                if (cleanupBackoff.failure()) {
+                    logError(t, "Unable to %s task at %s", action, request.getUri());
+                    return;
+                }
+
                 // reschedule
-                // todo this need a retry rate limit
-                if (Duration.nanosSince(start).compareTo(MAX_CLEANUP_RETRY_TIME) < 0) {
-                    Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this, executor);
+                long delayNanos = cleanupBackoff.getBackoffDelayNanos();
+                if (delayNanos == 0) {
+                    scheduleAsyncCleanupRequest(cleanupBackoff, request, action);
                 }
                 else {
-                    logError(t, "Unable to %s task at %s", action, request.getUri());
+                    errorScheduledExecutor.schedule(() -> scheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
                 }
             }
         }, executor);
