@@ -4,11 +4,12 @@ Aggregate Functions
 
 Aggregate functions operate on a set of values to compute a single result.
 
-Except for :func:`count`, :func:`count_if`, :func:`max_by` and :func:`approx_distinct`, all
-of these aggregate functions ignore null values and return null for no input
-rows or when all values are null. For example, :func:`sum` returns null
-rather than zero and :func:`avg` does not include null values in the count.
-The ``coalesce`` function can be used to convert null into zero.
+Except for :func:`count`, :func:`count_if`, :func:`max_by`, :func:`min_by` and
+:func:`approx_distinct`, all of these aggregate functions ignore null values
+and return null for no input rows or when all values are null. For example,
+:func:`sum` returns null rather than zero and :func:`avg` does not include null
+values in the count. The ``coalesce`` function can be used to convert null into
+zero.
 
 General Aggregate Functions
 ---------------------------
@@ -62,9 +63,17 @@ General Aggregate Functions
 
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
 
+.. function:: max_by(x, y, n) -> array<[same as x]>
+
+    Returns ``n`` values of ``x`` associated with the ``n`` largest of all input values of ``y``.
+
 .. function:: min_by(x, y) -> [same as x]
 
     Returns the value of ``x`` associated with the minimum value of ``y`` over all input values.
+
+.. function:: min_by(x, y, n) -> array<[same as x]>
+
+    Returns ``n`` values of ``x`` associated with the ``n`` smallest of all input values of ``y``.
 
 .. function:: max(x) -> [same as input]
 
