@@ -697,12 +697,21 @@ public class HttpRemoteTask
                 return;
             }
 
+            // if throttled due to error, asynchronously wait for timeout and try again
+            ListenableFuture<?> errorRateLimit = getErrorTracker.acquireRequestPermit();
+            if (!errorRateLimit.isDone()) {
+                errorRateLimit.addListener(this::scheduleNextRequest, executor);
+                return;
+            }
+
             Request request = prepareGet()
                     .setUri(uriBuilderFrom(taskInfo.getSelf()).addParameter("summarize").build())
                     .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                     .setHeader(PrestoHeaders.PRESTO_CURRENT_STATE, taskInfo.getState().toString())
                     .setHeader(PrestoHeaders.PRESTO_MAX_WAIT, refreshMaxWait.toString())
                     .build();
+
+            getErrorTracker.startRequest();
 
             future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
             Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri()), executor);
