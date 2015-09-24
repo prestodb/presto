@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.net.InetAddresses;
+import io.airlift.log.Logger;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
@@ -43,7 +45,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,6 +52,8 @@ import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
 {
+    private static final Logger log = Logger.get(NodeScheduler.class);
+
     private final NodeManager nodeManager;
     private final AtomicLong scheduleLocal = new AtomicLong();
     private final AtomicLong scheduleRack = new AtomicLong();
@@ -229,13 +232,17 @@ public class NodeScheduler
                 randomCandidates.reset();
 
                 List<Node> candidateNodes;
+                NodeMap nodeMap = this.nodeMap.get().get();
                 if (locationAwareScheduling || !split.isRemotelyAccessible()) {
-                    candidateNodes = selectCandidateNodes(nodeMap.get().get(), split, randomCandidates);
+                    candidateNodes = selectCandidateNodes(nodeMap, split, randomCandidates);
                 }
                 else {
                     candidateNodes = selectNodes(minCandidates, randomCandidates);
                 }
-                checkCondition(!candidateNodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
+                if (candidateNodes.isEmpty()) {
+                    log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
+                    throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+                }
 
                 // compute and cache number of splits currently assigned to each node
                 // NOTE: This does not use the Stream API for performance reasons.
