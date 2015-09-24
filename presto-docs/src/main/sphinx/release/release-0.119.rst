@@ -16,9 +16,14 @@ General Changes
   ``default`` if they were not specified.
 * Fix scheduler handling of partially canceled queries.
 * Execute views with the permissions of the view owner.
-* Deprecated ``task.http-notification-threads`` config option in favor of two
+* Replaced the ``task.http-notification-threads`` config option with two
   independent options: ``task.http-response-threads`` and ``task.http-timeout-threads``.
-
+* Improve handling of negated expressions in join criteria.
+* Fix :func:`arbitrary`, :func:`max_by` and :func:`min_by` functions when used
+  with an array, map or row type.
+* Fix union coercion when the same constant or column appears more than once on
+  the same side.
+* Support ``RENAME COLUMN`` in :doc:`/sql/alter-table`.
 
 SPI Changes
 -----------
@@ -39,21 +44,28 @@ CLI Changes
 * Skip printing query URL if terminal is too narrow.
 * Allow performing a partial query cancel using ``ctrl-P``.
 * Allow toggling debug mode during query by pressing ``D``.
+* Fix handling of query abortion after result has been partially received.
+* Fix handling of ``ctrl-C`` when displaying results without a pager.
 
 Verifier Changes
 ----------------
+
 * Add ``expected-double-precision`` config to specify the expected level of
   precision when comparing double values.
 * Return non-zero exit code when there are failures.
 
+Cassandra Changes
+-----------------
+
+* Add support for Cassandra blob types.
+
 Hive Changes
 ------------
 
-* Add ``ALTER TABLE ADD COLUMN``
-* Add ``ALTER TABLE RENAME COLUMN``
+* Support adding and renaming columns using :doc:`/sql/alter-table`.
 * Automatically configure the S3 region when running in EC2.
 * Allow configuring multiple Hive metastores for high availability.
-* Add support for ``TIMESTAMP`` and ``VARBINARY`` in Parquet
+* Add support for ``TIMESTAMP`` and ``VARBINARY`` in Parquet.
 
 MySQL and PostgreSQL Changes
 ----------------------------

@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.raptor.util.UuidUtil.UuidArgument;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
@@ -34,6 +33,7 @@ import org.h2.jdbc.JdbcConnection;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.Query;
+import org.skife.jdbi.v2.ResultIterator;
 import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.exceptions.DBIException;
 import org.skife.jdbi.v2.util.ByteArrayMapper;
@@ -277,7 +277,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public CloseableIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ResultIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
         return new ShardIterator(tableId, effectivePredicate, dbi);
     }

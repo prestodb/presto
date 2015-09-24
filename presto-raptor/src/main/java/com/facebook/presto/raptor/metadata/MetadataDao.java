@@ -30,6 +30,7 @@ public interface MetadataDao
             "  schema_name VARCHAR(255) NOT NULL,\n" +
             "  table_name VARCHAR(255) NOT NULL,\n" +
             "  temporal_column_id BIGINT DEFAULT NULL,\n" +
+            "  compaction_enabled BOOLEAN NOT NULL,\n" +
             "  UNIQUE (schema_name, table_name)\n" +
             ")")
     void createTableTables();
@@ -64,6 +65,11 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
+    @SqlQuery("SELECT table_id FROM tables\n" +
+            "WHERE table_name = :tableName")
+    @Mapper(TableMapper.class)
+    List<Table> getTableInformation(@Bind("tableName") String tableName);
+
     @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
             "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
             "FROM tables t\n" +
@@ -92,6 +98,9 @@ public interface MetadataDao
 
     @SqlQuery("SELECT DISTINCT schema_name FROM tables")
     List<String> listSchemaNames();
+
+    @SqlQuery("SELECT table_id FROM tables")
+    List<Long> listTableIds();
 
     @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
             "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
@@ -138,12 +147,13 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlUpdate("INSERT INTO tables (schema_name, table_name)\n" +
-            "VALUES (:schemaName, :tableName)")
+    @SqlUpdate("INSERT INTO tables (schema_name, table_name, compaction_enabled)\n" +
+            "VALUES (:schemaName, :tableName, :compactionEnabled)")
     @GetGeneratedKeys
     long insertTable(
             @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName);
+            @Bind("tableName") String tableName,
+            @Bind("compactionEnabled") boolean compactionEnabled);
 
     @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type, sort_ordinal_position)\n" +
             "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType, :sortOrdinalPosition)")
@@ -206,4 +216,7 @@ public interface MetadataDao
     void updateTemporalColumnId(
             @Bind("tableId") long tableId,
             @Bind("columnId") long columnId);
+
+    @SqlQuery("SELECT compaction_enabled FROM tables WHERE table_id = :tableId")
+    boolean isCompactionEnabled(@Bind("tableId") long tableId);
 }

@@ -11,14 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.util;
+package com.facebook.presto.raptor.metadata;
 
-import java.io.Closeable;
-import java.util.Iterator;
+import java.sql.SQLException;
+import java.sql.Statement;
 
-public interface CloseableIterator<T>
-        extends Iterator<T>, Closeable
+public final class JdbcUtil
 {
-    @Override
-    void close();
+    private JdbcUtil() {}
+
+    public static void enableStreamingResults(Statement statement)
+            throws SQLException
+    {
+        if (statement.isWrapperFor(com.mysql.jdbc.Statement.class)) {
+            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
+        }
+    }
 }
