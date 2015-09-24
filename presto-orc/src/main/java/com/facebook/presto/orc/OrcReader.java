@@ -61,7 +61,8 @@ public class OrcReader
     public OrcReader(OrcDataSource orcDataSource, MetadataReader metadataReader, DataSize maxMergeDistance, DataSize maxReadSize)
             throws IOException
     {
-        this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
+        orcDataSource = wrapWithCacheIfTiny(requireNonNull(orcDataSource, "orcDataSource is null"), maxMergeDistance);
+        this.orcDataSource = orcDataSource;
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxReadSize = requireNonNull(maxReadSize, "maxReadSize is null");
@@ -193,6 +194,18 @@ public class OrcReader
                 metadataReader,
                 maxMergeDistance,
                 maxReadSize);
+    }
+
+    private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
+    {
+        if (dataSource instanceof CachingOrcDataSource) {
+            return dataSource;
+        }
+        if (dataSource.getSize() > maxCacheSize.toBytes()) {
+            return dataSource;
+        }
+        DiskRange diskRange = new DiskRange(0, Ints.checkedCast(dataSource.getSize()));
+        return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
     }
 
     /**

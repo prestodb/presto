@@ -26,6 +26,7 @@ import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,10 +39,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
@@ -114,9 +117,6 @@ public class OrcRecordReader
         }
         this.presentColumns = presentColumns.build();
 
-        this.orcDataSource = orcDataSource;
-        this.splitLength = splitLength;
-
         // it is possible that old versions of orc use 0 to mean there are no row groups
         checkArgument(rowsInRowGroup > 0, "rowsInRowGroup must be greater than zero");
 
@@ -151,6 +151,10 @@ public class OrcRecordReader
         this.totalRowCount = totalRowCount;
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
+
+        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, maxReadSize);
+        this.orcDataSource = orcDataSource;
+        this.splitLength = splitLength;
 
         this.fileRowCount = stripeInfos.stream()
                 .map(StripeInfo::getStripe)
@@ -187,6 +191,20 @@ public class OrcRecordReader
             return true;
         }
         return predicate.matches(stripe.getNumberOfRows(), getStatisticsByColumnOrdinal(rootStructType, stripeStats.get().getColumnStatistics()));
+    }
+
+    @VisibleForTesting
+    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize maxReadSize)
+    {
+        if (dataSource instanceof CachingOrcDataSource) {
+            return dataSource;
+        }
+        for (StripeInformation stripe : stripes) {
+            if (stripe.getTotalLength() > maxReadSize.toBytes()) {
+                return dataSource;
+            }
+        }
+        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, maxReadSize));
     }
 
     /**
@@ -428,6 +446,44 @@ public class OrcRecordReader
         public Optional<StripeStatistics> getStats()
         {
             return stats;
+        }
+    }
+
+    @VisibleForTesting
+    static class LinearProbeRangeFinder
+            implements CachingOrcDataSource.RegionFinder
+    {
+        private final ListIterator<DiskRange> diskRangeIterator;
+
+        public LinearProbeRangeFinder(ListIterator<DiskRange> diskRangeIterator)
+        {
+            this.diskRangeIterator = diskRangeIterator;
+        }
+
+        @Override
+        public DiskRange getRangeFor(long desiredOffset)
+        {
+            // Assumption: range are always read in order
+            // Assumption: bytes that are not part of any range are never read
+            while (diskRangeIterator.hasNext()) {
+                DiskRange range = diskRangeIterator.next();
+                if (range.getEnd() > desiredOffset) {
+                    checkArgument(range.getOffset() <= desiredOffset);
+                    return diskRangeIterator.previous();
+                }
+            }
+            throw new IllegalArgumentException("Invalid desiredOffset " + desiredOffset);
+        }
+
+        public static LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize maxReadSize)
+        {
+            List<DiskRange> scratchDiskRanges = new ArrayList<>(stripes.size());
+            for (StripeInformation stripe : stripes) {
+                scratchDiskRanges.add(new DiskRange(stripe.getOffset(), Ints.checkedCast(stripe.getTotalLength())));
+            }
+            List<DiskRange> diskRanges = OrcDataSourceUtils.mergeAdjacentDiskRanges(scratchDiskRanges, maxMergeDistance, maxReadSize);
+
+            return new LinearProbeRangeFinder(diskRanges.listIterator());
         }
     }
 }

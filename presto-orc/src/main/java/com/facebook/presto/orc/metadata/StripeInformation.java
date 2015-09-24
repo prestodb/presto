@@ -57,6 +57,11 @@ public class StripeInformation
         return footerLength;
     }
 
+    public long getTotalLength()
+    {
+        return indexLength + dataLength + footerLength;
+    }
+
     @Override
     public String toString()
     {
