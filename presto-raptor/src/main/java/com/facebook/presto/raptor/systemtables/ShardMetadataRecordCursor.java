@@ -130,8 +130,8 @@ public class ShardMetadataRecordCursor
     private static List<String> createQualifiedColumnName()
     {
         return ImmutableList.<String>builder()
-                .add("tables" + "." + COLUMNS.get(0).getName())
-                .add("tables" + "." + COLUMNS.get(1).getName())
+                .add("tables.schema_name")
+                .add("tables.table_name")
                 .add("shards" + "." + COLUMNS.get(2).getName())
                 .add("shards" + "." + COLUMNS.get(3).getName())
                 .add("shards" + "." + COLUMNS.get(4).getName())
