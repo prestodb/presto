@@ -62,6 +62,8 @@ public class CassandraClientConfig
     private Duration clientConnectTimeout = new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS);
     private Integer clientSoLinger;
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
+    private int noHostAvailableRetryCount = 2;
+    private boolean useLocalNodeFirstBalancingPolicy = true;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -350,6 +352,31 @@ public class CassandraClientConfig
     public CassandraClientConfig setRetryPolicy(RetryPolicyType retryPolicy)
     {
         this.retryPolicy = retryPolicy;
+        return this;
+    }
+
+    @Min(0)
+    public int getNoHostAvailableRetryCount()
+    {
+        return noHostAvailableRetryCount;
+    }
+
+    @Config("cassandra.no-host-available-retry-count")
+    public CassandraClientConfig setNoHostAvailableRetryCount(int noHostAvailableRetryCount)
+    {
+        this.noHostAvailableRetryCount = noHostAvailableRetryCount;
+        return this;
+    }
+
+    public boolean getUseLocalNodeFirstBalancingPolicy()
+    {
+        return useLocalNodeFirstBalancingPolicy;
+    }
+
+    @Config("cassandra.load-balancing.use-local-node-first")
+    public CassandraClientConfig setUseLocalNodeFirstBalancingPolicy(boolean useLocalNodeFirstBalancingPolicy)
+    {
+        this.useLocalNodeFirstBalancingPolicy = useLocalNodeFirstBalancingPolicy;
         return this;
     }
 }
