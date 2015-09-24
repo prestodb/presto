@@ -393,7 +393,7 @@ public class OrcTester
         return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE);
     }
 
-    private static DataSize writeOrcColumn(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector, Iterator<?> values)
+    static DataSize writeOrcColumn(File outputFile, Format format, Compression compression, ObjectInspector columnObjectInspector, Iterator<?> values)
             throws Exception
     {
         RecordWriter recordWriter;
@@ -403,7 +403,12 @@ public class OrcTester
         else {
             recordWriter = createOrcRecordWriter(outputFile, format, compression, columnObjectInspector);
         }
+        return writeOrcColumn(outputFile, format, recordWriter, columnObjectInspector, values);
+    }
 
+    static DataSize writeOrcColumn(File outputFile, Format format, RecordWriter recordWriter, ObjectInspector columnObjectInspector, Iterator<?> values)
+            throws Exception
+    {
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", columnObjectInspector);
         Object row = objectInspector.create();
 
