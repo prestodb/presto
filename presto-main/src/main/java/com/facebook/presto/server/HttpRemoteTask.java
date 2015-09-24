@@ -103,9 +103,9 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.Objects.requireNonNull;
 
 public class HttpRemoteTask
         implements RemoteTask
@@ -418,6 +418,8 @@ public class HttpRemoteTask
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(taskUpdateRequestCodec, updateRequest))
                 .build();
+
+        updateErrorTracker.startRequest();
 
         ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
         currentRequest = future;
@@ -853,6 +855,15 @@ public class HttpRemoteTask
             ListenableFutureTask<Object> futureTask = ListenableFutureTask.create(() -> null);
             scheduledExecutor.schedule(futureTask, delayNanos, NANOSECONDS);
             return futureTask;
+        }
+
+        public void startRequest()
+        {
+            // before scheduling a new request clear the error timer
+            // we consider a request to be "new" if there are no current failures
+            if (backoff.getFailureCount() == 0) {
+                requestSucceeded();
+            }
         }
 
         public void requestSucceeded()
