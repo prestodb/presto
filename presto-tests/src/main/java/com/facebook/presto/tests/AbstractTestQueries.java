@@ -2071,10 +2071,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMaxByN()
+            throws Exception
+    {
+        assertQuery("SELECT y FROM (SELECT MAX_BY(orderkey, totalprice, 2) mx FROM orders) CROSS JOIN UNNEST(mx) u(y)",
+                "SELECT orderkey FROM orders ORDER BY totalprice DESC LIMIT 2");
+    }
+
+    @Test
     public void testMinBy()
             throws Exception
     {
         assertQuery("SELECT MIN_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice ASC LIMIT 1");
+    }
+
+    @Test
+    public void testMinByN()
+            throws Exception
+    {
+        assertQuery("SELECT y FROM (SELECT MIN_BY(orderkey, totalprice, 2) mx FROM orders) CROSS JOIN UNNEST(mx) u(y)",
+                "SELECT orderkey FROM orders ORDER BY totalprice ASC LIMIT 2");
     }
 
     @Test
