@@ -185,8 +185,8 @@ public class HttpRemoteTask
             this.executor = executor;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-            this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor);
-            this.getErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor);
+            this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor, "updating task");
+            this.getErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor, "getting info for task");
 
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getValue());
@@ -841,16 +841,18 @@ public class HttpRemoteTask
         private final TaskId taskId;
         private final URI taskUri;
         private final ScheduledExecutorService scheduledExecutor;
+        private final String jobDescription;
         private final Backoff backoff;
 
         private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
-        public RequestErrorTracker(TaskId taskId, URI taskUri, Duration minErrorDuration, ScheduledExecutorService scheduledExecutor)
+        public RequestErrorTracker(TaskId taskId, URI taskUri, Duration minErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
         {
             this.taskId = taskId;
             this.taskUri = taskUri;
             this.scheduledExecutor = scheduledExecutor;
             this.backoff = new Backoff(minErrorDuration);
+            this.jobDescription = jobDescription;
         }
 
         public ListenableFuture<?> acquireRequestPermit()
@@ -896,10 +898,10 @@ public class HttpRemoteTask
             // log failure message
             if (isExpectedError(reason)) {
                 // don't print a stack for a known errors
-                log.warn("Error updating task %s: %s: %s", taskId, reason.getMessage(), taskUri);
+                log.warn("Error " + jobDescription + " %s: %s: %s", taskId, reason.getMessage(), taskUri);
             }
             else {
-                log.warn(reason, "Error updating task %s: %s", taskId, taskUri);
+                log.warn(reason, "Error " + jobDescription + " %s: %s", taskId, taskUri);
             }
 
             // remember the first 10 errors
