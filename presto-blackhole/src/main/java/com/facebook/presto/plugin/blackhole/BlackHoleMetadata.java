@@ -128,10 +128,8 @@ public class BlackHoleMetadata
                 newTableName.getTableName(),
                 oldTableHandle.getColumnHandles()
         );
-        synchronized (tables) {
-            tables.remove(oldTableHandle.getTableName());
-            tables.put(newTableName.getTableName(), newTableHandle);
-        }
+        tables.remove(oldTableHandle.getTableName());
+        tables.put(newTableName.getTableName(), newTableHandle);
     }
 
     @Override
