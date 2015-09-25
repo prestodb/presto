@@ -100,12 +100,7 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
-        try {
-            assertPositionValue(block.copyPositions(Ints.asList(position)), 0, expectedValue);
-        }
-        catch (UnsupportedOperationException e) {
-            // ignore blocks that do not support this operation
-        }
+        assertPositionValue(block.copyPositions(Ints.asList(position)), 0, expectedValue);
     }
 
     protected static <T> void assertPositionValue(Block block, int position, T expectedValue)
