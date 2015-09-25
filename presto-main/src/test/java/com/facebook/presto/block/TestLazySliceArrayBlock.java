@@ -111,7 +111,7 @@ public class TestLazySliceArrayBlock
         assertEquals(dictionaryBlock.getIds(), Slices.wrappedIntArray(0, 1, 2));
     }
 
-    private static void assertVariableWithValues(Slice[] expectedValues)
+    private void assertVariableWithValues(Slice[] expectedValues)
     {
         LazySliceArrayBlock block = new LazySliceArrayBlock(expectedValues.length, new TestDirectLazySliceArrayBlockLoader(expectedValues));
         assertBlock(block, expectedValues);

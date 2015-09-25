@@ -38,7 +38,7 @@ public class TestSliceArrayBlock
         assertBlockFilteredPositions(expectedValues, block, Ints.asList(0, 2, 4, 6, 7, 9, 10, 16));
     }
 
-    private static void assertVariableWithValues(Slice[] expectedValues)
+    private void assertVariableWithValues(Slice[] expectedValues)
     {
         SliceArrayBlock block = new SliceArrayBlock(expectedValues.length, expectedValues);
         assertBlock(block, expectedValues);

@@ -32,7 +32,7 @@ public class TestRunLengthEncodedBlock
         }
     }
 
-    private static void assertRleBlock(int positionCount)
+    private void assertRleBlock(int positionCount)
     {
         Slice expectedValue = createExpectedValue(0);
         Block block = new RunLengthEncodedBlock(createSingleValueBlock(expectedValue), positionCount);

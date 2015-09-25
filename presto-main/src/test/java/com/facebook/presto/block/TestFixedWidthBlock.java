@@ -43,7 +43,7 @@ public class TestFixedWidthBlock
         }
     }
 
-    private static void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
+    private void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
         assertBlock(blockBuilder, expectedValues);
