@@ -53,7 +53,7 @@ public class AccessControlManager
     @Override
     public void checkCanSetUser(Principal principal, String userName)
     {
-        requireNonNull(userName, "tableName is null");
+        requireNonNull(userName, "userName is null");
 
         for (SystemAccessControl accessControl : systemAccessControllers) {
             accessControl.checkCanSetUser(principal, userName);
