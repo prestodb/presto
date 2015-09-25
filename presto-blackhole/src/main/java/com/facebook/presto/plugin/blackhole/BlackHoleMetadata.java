@@ -131,10 +131,8 @@ public class BlackHoleMetadata
                 oldTableHandle.getPagesPerSplit(),
                 oldTableHandle.getRowsPerPage()
         );
-        synchronized (tables) {
-            tables.remove(oldTableHandle.getTableName());
-            tables.put(newTableName.getTableName(), newTableHandle);
-        }
+        tables.remove(oldTableHandle.getTableName());
+        tables.put(newTableName.getTableName(), newTableHandle);
     }
 
     @Override
