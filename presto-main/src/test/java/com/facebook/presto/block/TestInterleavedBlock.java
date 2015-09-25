@@ -40,7 +40,7 @@ public class TestInterleavedBlock
         assertValues((Slice[]) alternatingNullValues(expectedValues));
     }
 
-    private static void assertValues(Slice[] expectedValues)
+    private void assertValues(Slice[] expectedValues)
     {
         InterleavedBlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(VARCHAR, BIGINT), new BlockBuilderStatus(), 10);
 
