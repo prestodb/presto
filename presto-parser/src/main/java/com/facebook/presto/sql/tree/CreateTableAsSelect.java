@@ -27,12 +27,14 @@ public class CreateTableAsSelect
     private final QualifiedName name;
     private final Query query;
     private final Map<String, Expression> properties;
+    private final boolean withData;
 
-    public CreateTableAsSelect(QualifiedName name, Query query, Map<String, Expression> properties)
+    public CreateTableAsSelect(QualifiedName name, Query query, Map<String, Expression> properties, boolean withData)
     {
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.withData = withData;
     }
 
     public QualifiedName getName()
@@ -48,6 +50,11 @@ public class CreateTableAsSelect
     public Map<String, Expression> getProperties()
     {
         return properties;
+    }
+
+    public boolean getWithData()
+    {
+        return withData;
     }
 
     @Override
@@ -84,6 +91,7 @@ public class CreateTableAsSelect
                 .add("name", name)
                 .add("query", query)
                 .add("properties", properties)
+                .add("withData", withData)
                 .toString();
     }
 }

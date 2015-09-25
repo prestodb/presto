@@ -26,6 +26,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
@@ -140,9 +141,15 @@ public class LogicalPlanner
                 symbolAllocator.newSymbol("partialrows", BIGINT),
                 symbolAllocator.newSymbol("fragment", VARBINARY));
 
-        TableWriterNode writerNode = new TableWriterNode(
+        PlanNode source = plan.getRoot();
+
+        if (!analysis.isCreateTableAsSelectWithData()) {
+            source = new LimitNode(idAllocator.getNextId(), source, 0L);
+        }
+
+        PlanNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),
-                plan.getRoot(),
+                source,
                 target,
                 plan.getOutputSymbols(),
                 columnNames,
@@ -150,7 +157,6 @@ public class LogicalPlanner
                 plan.getSampleWeight());
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
-
         TableCommitNode commitNode = new TableCommitNode(
                 idAllocator.getNextId(),
                 writerNode,

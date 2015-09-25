@@ -711,26 +711,39 @@ public class TestSqlParser
     public void testCreateTableAsSelect()
             throws Exception
     {
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
+        QualifiedName table = QualifiedName.of("foo");
+
         assertStatement("CREATE TABLE foo AS SELECT * FROM t",
-                new CreateTableAsSelect(QualifiedName.of("foo"),
-                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        ImmutableMap.of()));
+                new CreateTableAsSelect(table, query, ImmutableMap.of(), true));
+
+        assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH DATA",
+                new CreateTableAsSelect(table, query, ImmutableMap.of(), true));
+
+        assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH NO DATA",
+                new CreateTableAsSelect(table, query, ImmutableMap.of(), false));
+
+        ImmutableMap<String, Expression> properties = ImmutableMap.<String, Expression>builder()
+                .put("string", new StringLiteral("bar"))
+                .put("long", new LongLiteral("42"))
+                .put("computed", new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
+                        new StringLiteral("ban"),
+                        new StringLiteral("ana"))))
+                .put("a", new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2"))))
+                .build();
 
         assertStatement("CREATE TABLE foo " +
                         "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                         "AS " +
-                        "SELECT * " +
-                        "FROM t",
-                new CreateTableAsSelect(QualifiedName.of("foo"),
-                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        ImmutableMap.<String, Expression>builder()
-                                .put("string", new StringLiteral("bar"))
-                                .put("long", new LongLiteral("42"))
-                                .put("computed", new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
-                                        new StringLiteral("ban"),
-                                        new StringLiteral("ana"))))
-                                .put("a", new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2"))))
-                                .build()));
+                        "SELECT * FROM t",
+                new CreateTableAsSelect(table, query, properties, true));
+
+        assertStatement("CREATE TABLE foo " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT * FROM t " +
+                        "WITH NO DATA",
+                new CreateTableAsSelect(table, query, properties, false));
     }
 
     @Test

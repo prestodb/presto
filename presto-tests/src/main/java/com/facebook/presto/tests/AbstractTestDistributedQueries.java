@@ -55,22 +55,6 @@ public abstract class AbstractTestDistributedQueries
         super(queryRunner, sampledSession);
     }
 
-    private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
-            throws Exception
-    {
-        assertCreateTable(table, query, query, rowCountQuery);
-    }
-
-    private void assertCreateTable(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-            throws Exception
-    {
-        assertQuery("CREATE TABLE " + table + " AS " + query, rowCountQuery);
-        assertQuery("SELECT * FROM " + table, expectedQuery);
-        assertQueryTrue("DROP TABLE " + table);
-
-        assertFalse(queryRunner.tableExists(getSession(), table));
-    }
-
     @Test
     public void testSetSession()
             throws Exception
@@ -148,41 +132,69 @@ public abstract class AbstractTestDistributedQueries
     public void testCreateTableAsSelect()
             throws Exception
     {
-        assertCreateTable(
+        assertCreateTableAsSelect(
                 "test_select",
                 "SELECT orderdate, orderkey, totalprice FROM orders",
                 "SELECT count(*) FROM orders");
 
-        assertCreateTable(
+        assertCreateTableAsSelect(
                 "test_group",
                 "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
                 "SELECT count(DISTINCT orderstatus) FROM orders");
 
-        assertCreateTable(
+        assertCreateTableAsSelect(
                 "test_join",
                 "SELECT count(*) x FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
                 "SELECT 1");
 
-        assertCreateTable(
+        assertCreateTableAsSelect(
                 "test_limit",
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
 
-        assertCreateTable(
+        assertCreateTableAsSelect(
                 "test_unicode",
                 "SELECT '\u2603' unicode",
                 "SELECT 1");
+
+        assertCreateTableAsSelect(
+                "test_with_data",
+                "SELECT * FROM orders WITH DATA",
+                "SELECT * FROM orders",
+                "SELECT count(*) FROM orders");
+
+        assertCreateTableAsSelect(
+                "test_with_no_data",
+                "SELECT * FROM orders WITH NO DATA",
+                "SELECT * FROM orders LIMIT 0",
+                "SELECT 0");
     }
 
     @Test
     public void testCreateTableAsSelectSampled()
             throws Exception
     {
-        assertCreateTable(
+        assertCreateTableAsSelect(
                 "test_sampled",
                 "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
+    }
+
+    private void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+            throws Exception
+    {
+        assertCreateTableAsSelect(table, query, query, rowCountQuery);
+    }
+
+    private void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+            throws Exception
+    {
+        assertQuery("CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertQuery("SELECT * FROM " + table, expectedQuery);
+        assertQueryTrue("DROP TABLE " + table);
+
+        assertFalse(queryRunner.tableExists(getSession(), table));
     }
 
     @Test
