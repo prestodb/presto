@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public abstract class AbstractInterleavedBlock
@@ -210,7 +211,28 @@ public abstract class AbstractInterleavedBlock
     @Override
     public Block copyPositions(List<Integer> positions)
     {
-        throw new UnsupportedOperationException();
+        if (positions.size() % columns != 0) {
+            throw new IllegalArgumentException("Positions.size (" + positions.size() + ") is not evenly dividable by columns (" + columns + ")");
+        }
+        int positionsPerColumn = positions.size() / columns;
+
+        List<List<Integer>> valuePositions = new ArrayList<>(columns);
+        for (int i = 0; i < columns; i++) {
+            valuePositions.add(new ArrayList<>(positionsPerColumn));
+        }
+        int ordinal = 0;
+        for (int position : positions) {
+            if (ordinal % columns != position % columns) {
+                throw new IllegalArgumentException("Position (" + position + ") is not congruent to ordinal (" + ordinal + ") modulo columns (" + columns + ")");
+            }
+            valuePositions.get(position % columns).add(position / columns);
+            ordinal++;
+        }
+        Block[] blocks = new Block[columns];
+        for (int i = 0; i < columns; i++) {
+            blocks[i] = getBlock(i).copyPositions(valuePositions.get(i));
+        }
+        return new InterleavedBlock(blocks);
     }
 
     @Override
