@@ -64,6 +64,7 @@ public class CassandraClientConfig
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
     private int noHostAvailableRetryCount = 2;
     private boolean useLocalNodeFirstBalancingPolicy = true;
+    private boolean forceLocalScheduling = false;
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -377,6 +378,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setUseLocalNodeFirstBalancingPolicy(boolean useLocalNodeFirstBalancingPolicy)
     {
         this.useLocalNodeFirstBalancingPolicy = useLocalNodeFirstBalancingPolicy;
+        return this;
+    }
+
+    public boolean isForceLocalScheduling()
+    {
+        return forceLocalScheduling;
+    }
+
+    @Config("cassandra.force-local-scheduling")
+    public CassandraClientConfig setForceLocalScheduling(boolean forceLocalScheduling)
+    {
+        this.forceLocalScheduling = forceLocalScheduling;
         return this;
     }
 }

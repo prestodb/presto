@@ -54,7 +54,8 @@ public class TestCassandraClientConfig
                 .setClientSoLinger(null)
                 .setRetryPolicy(RetryPolicyType.DEFAULT)
                 .setNoHostAvailableRetryCount(2)
-                .setUseLocalNodeFirstBalancingPolicy(true));
+                .setUseLocalNodeFirstBalancingPolicy(true)
+                .setForceLocalScheduling(false));
     }
 
     @Test
@@ -85,9 +86,10 @@ public class TestCassandraClientConfig
                 .put("cassandra.retry-policy", "BACKOFF")
                 .put("cassandra.no-host-available-retry-count", "10")
                 .put("cassandra.load-balancing.use-local-node-first", "false")
+                .put("cassandra.force-local-scheduling", "true")
                 .build();
 
-        CassandraClientConfig expected = new CassandraClientConfig()
+            CassandraClientConfig expected = new CassandraClientConfig()
                 .setLimitForPartitionKeySelect(100)
                 .setFetchSizeForPartitionKeySelect(500)
                 .setMaxSchemaRefreshThreads(2)
@@ -111,7 +113,8 @@ public class TestCassandraClientConfig
                 .setClientSoLinger(33)
                 .setRetryPolicy(RetryPolicyType.BACKOFF)
                 .setNoHostAvailableRetryCount(10)
-                .setUseLocalNodeFirstBalancingPolicy(false);
+                .setUseLocalNodeFirstBalancingPolicy(false)
+                .setForceLocalScheduling(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
