@@ -84,6 +84,7 @@ public class Analysis
     // for create table
     private Optional<QualifiedTableName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
+    private boolean createTableAsSelectWithData = true;
 
     // for insert
     private Optional<TableHandle> insertTarget = Optional.empty();
@@ -109,6 +110,16 @@ public class Analysis
     public void setUpdateType(String updateType)
     {
         this.updateType = updateType;
+    }
+
+    public boolean isCreateTableAsSelectWithData()
+    {
+        return createTableAsSelectWithData;
+    }
+
+    public void setCreateTableAsSelectWithData(boolean createTableAsSelectWithData)
+    {
+        this.createTableAsSelectWithData = createTableAsSelectWithData;
     }
 
     public void addResolvedNames(Expression expression, Map<QualifiedName, Integer> mappings)

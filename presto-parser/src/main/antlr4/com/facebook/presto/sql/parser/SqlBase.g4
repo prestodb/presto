@@ -30,7 +30,9 @@ statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
-    | CREATE TABLE qualifiedName (WITH tableProperties)? AS query      #createTableAsSelect
+    | CREATE TABLE qualifiedName
+        (WITH tableProperties)? AS query
+        (WITH (NO)? DATA)?                                             #createTableAsSelect
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         '(' tableElement (',' tableElement)* ')'
         (WITH tableProperties)?                                        #createTable
@@ -349,6 +351,7 @@ nonReserved
     | IF | NULLIF | COALESCE
     | normalForm
     | POSITION
+    | NO | DATA
     ;
 
 normalForm
@@ -376,6 +379,7 @@ OR: 'OR';
 AND: 'AND';
 IN: 'IN';
 NOT: 'NOT';
+NO: 'NO';
 EXISTS: 'EXISTS';
 BETWEEN: 'BETWEEN';
 LIKE: 'LIKE';
@@ -483,6 +487,7 @@ MAP: 'MAP';
 SET: 'SET';
 RESET: 'RESET';
 SESSION: 'SESSION';
+DATA: 'DATA';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';
