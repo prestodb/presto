@@ -10,6 +10,7 @@ Synopsis
     CREATE TABLE table_name
     [ WITH ( property_name = expression [, ...] ) ]
     AS query
+    [ WITH [ NO ] DATA ]
 
 Description
 -----------
@@ -34,3 +35,10 @@ Create a new table ``orders_by_date`` that summarizes ``orders``::
     SELECT orderdate, sum(totalprice) AS price
     FROM orders
     GROUP BY orderdate
+
+Create a new ``empty_nation`` table with the same schema as ``nation`` and no data::
+
+    CREATE TABLE empty_nation AS
+    SELECT * 
+    FROM nation 
+    WITH NO DATA

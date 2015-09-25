@@ -500,6 +500,8 @@ class StatementAnalyzer
         }
         accessControl.checkCanCreateTable(session.getIdentity(), targetTable);
 
+        analysis.setCreateTableAsSelectWithData(node.getWithData());
+
         // analyze the query that creates the table
         TupleDescriptor descriptor = process(node.getQuery(), context);
 
