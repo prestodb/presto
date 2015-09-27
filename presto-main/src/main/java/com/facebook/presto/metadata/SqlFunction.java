@@ -13,18 +13,13 @@
  */
 package com.facebook.presto.metadata;
 
-public abstract class ParametricAggregation
-        implements ParametricFunction
+public interface SqlFunction
 {
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
+    Signature getSignature();
 
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
+    boolean isHidden();
+
+    boolean isDeterministic();
+
+    String getDescription();
 }

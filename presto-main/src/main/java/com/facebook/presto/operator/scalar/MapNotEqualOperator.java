@@ -13,20 +13,17 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
@@ -34,14 +31,12 @@ import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapNotEqualOperator
-        extends ParametricOperator
+        extends SqlOperator
 {
     public static final MapNotEqualOperator MAP_NOT_EQUAL = new MapNotEqualOperator();
-    private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapNotEqualOperator.class, "notEqual", MethodHandle.class, MethodHandle.class, MethodHandle.class, Type.class, Type.class, Block.class, Block.class);
 
     private MapNotEqualOperator()
@@ -50,20 +45,17 @@ public class MapNotEqualOperator
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-
-        Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
-        TypeSignature typeSignature = type.getTypeSignature();
 
         MethodHandle keyEqualsFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(keyType, keyType))).getMethodHandle();
         MethodHandle keyHashcodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(keyType))).getMethodHandle();
         MethodHandle valueEqualsFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(valueType, valueType))).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyEqualsFunction).bindTo(keyHashcodeFunction).bindTo(valueEqualsFunction).bindTo(keyType).bindTo(valueType);
-        return operatorInfo(NOT_EQUAL, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, true, ImmutableList.of(false, false));
+        return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), method, isDeterministic());
     }
 
     public static Boolean notEqual(MethodHandle keyEqualsFunction, MethodHandle keyHashcodeFunction, MethodHandle valueEqualsFunction, Type keyType, Type valueType, Block left, Block right)

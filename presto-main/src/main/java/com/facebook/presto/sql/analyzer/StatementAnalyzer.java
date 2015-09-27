@@ -16,9 +16,9 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionType;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
+import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
@@ -329,7 +329,7 @@ class StatementAnalyzer
     protected TupleDescriptor visitShowFunctions(ShowFunctions node, AnalysisContext context)
     {
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-        for (ParametricFunction function : metadata.listFunctions()) {
+        for (SqlFunction function : metadata.listFunctions()) {
             if (function.getSignature().getType() == APPROXIMATE_AGGREGATE) {
                 continue;
             }
@@ -365,7 +365,7 @@ class StatementAnalyzer
         return process(query, context);
     }
 
-    private static String getFunctionType(ParametricFunction function)
+    private static String getFunctionType(SqlFunction function)
     {
         FunctionType type = function.getSignature().getType();
         switch (type) {

@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.metadata.ParametricFunction;
+import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
@@ -84,7 +84,7 @@ public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
     // We can just use the default type registry, since we don't use any parametric types
-    protected static final List<ParametricFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder(new TypeRegistry())
+    protected static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder(new TypeRegistry())
             .aggregate(CustomSum.class)
             .window("custom_rank", BIGINT, ImmutableList.<Type>of(), CustomRank.class)
             .scalar(CustomAdd.class)

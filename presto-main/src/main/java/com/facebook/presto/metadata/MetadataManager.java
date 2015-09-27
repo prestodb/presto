@@ -245,13 +245,13 @@ public class MetadataManager
     }
 
     @Override
-    public List<ParametricFunction> listFunctions()
+    public List<SqlFunction> listFunctions()
     {
         return functions.list();
     }
 
     @Override
-    public void addFunctions(List<? extends ParametricFunction> functionInfos)
+    public void addFunctions(List<? extends SqlFunction> functionInfos)
     {
         functions.addFunctions(functionInfos);
     }

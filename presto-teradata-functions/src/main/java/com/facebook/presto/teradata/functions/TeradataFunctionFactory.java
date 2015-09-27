@@ -15,7 +15,7 @@ package com.facebook.presto.teradata.functions;
 
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.metadata.ParametricFunction;
+import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.List;
@@ -31,7 +31,7 @@ public class TeradataFunctionFactory
     }
 
     @Override
-    public List<ParametricFunction> listFunctions()
+    public List<SqlFunction> listFunctions()
     {
         return new FunctionListBuilder(typeManager)
                 .scalar(TeradataStringFunctions.class)

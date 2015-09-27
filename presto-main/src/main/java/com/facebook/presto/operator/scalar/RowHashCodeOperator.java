@@ -13,32 +13,27 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricOperator;
+import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class RowHashCodeOperator
-        extends ParametricOperator
+        extends SqlOperator
 {
     public static final RowHashCodeOperator ROW_HASH_CODE = new RowHashCodeOperator();
-    private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BIGINT);
     private static final MethodHandle METHOD_HANDLE = methodHandle(RowHashCodeOperator.class, "hash", Type.class, Block.class);
 
     private RowHashCodeOperator()
@@ -47,11 +42,10 @@ public class RowHashCodeOperator
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("T");
-        TypeSignature typeSignature = type.getTypeSignature();
-        return operatorInfo(HASH_CODE, RETURN_TYPE, ImmutableList.of(typeSignature), METHOD_HANDLE.bindTo(type), false, ImmutableList.of(false));
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false), METHOD_HANDLE.bindTo(type), isDeterministic());
     }
 
     public static long hash(Type rowType, Block block)
