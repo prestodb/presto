@@ -18,5 +18,5 @@ import java.util.List;
 
 public interface FunctionFactory
 {
-    List<ParametricFunction> listFunctions();
+    List<SqlFunction> listFunctions();
 }

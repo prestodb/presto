@@ -16,8 +16,8 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -189,7 +189,7 @@ public final class FunctionAssertions
         return metadata;
     }
 
-    public FunctionAssertions addFunctions(List<ParametricFunction> functionInfos)
+    public FunctionAssertions addFunctions(List<SqlFunction> functionInfos)
     {
         metadata.addFunctions(functionInfos);
         return this;

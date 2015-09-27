@@ -14,10 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricAggregation;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlAggregation;
 import com.facebook.presto.operator.aggregation.state.MinMaxByNState;
 import com.facebook.presto.operator.aggregation.state.MinMaxByNStateFactory;
 import com.facebook.presto.operator.aggregation.state.MinMaxByNStateSerializer;
@@ -37,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -52,7 +49,7 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMinMaxByNAggregation
-        extends ParametricAggregation
+        extends SqlAggregation
 {
     private static final MethodHandle INPUT_FUNCTION = methodHandle(AbstractMinMaxByNAggregation.class, "input", BlockComparator.class, Type.class, Type.class, MinMaxByNState.class, Block.class, Block.class, int.class, long.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(AbstractMinMaxByNAggregation.class, "combine", MinMaxByNState.class, MinMaxByNState.class);
@@ -60,29 +57,20 @@ public abstract class AbstractMinMaxByNAggregation
 
     private final String name;
     private final Function<Type, BlockComparator> typeToComparator;
-    private final Signature signature;
 
     protected AbstractMinMaxByNAggregation(String name, Function<Type, BlockComparator> typeToComparator)
     {
+        super(name, ImmutableList.of(typeParameter("V"), orderableTypeParameter("K")), "array<V>", ImmutableList.of("V", "K", StandardTypes.BIGINT));
         this.name = requireNonNull(name, "name is null");
         this.typeToComparator = requireNonNull(typeToComparator, "typeToComparator is null");
-        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(typeParameter("V"), orderableTypeParameter("K")), "array<V>", ImmutableList.of("V", "K", StandardTypes.BIGINT), false);
     }
 
     @Override
-    public Signature getSignature()
-    {
-        return signature;
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        Signature signature = new Signature(name, AGGREGATE, new ArrayType(valueType).getTypeSignature(), valueType.getTypeSignature(), keyType.getTypeSignature(), BIGINT.getTypeSignature());
-        InternalAggregationFunction aggregation = generateAggregation(valueType, keyType);
-        return new FunctionInfo(signature, getDescription(), aggregation);
+        return generateAggregation(valueType, keyType);
     }
 
     public static void input(BlockComparator comparator, Type valueType, Type keyType, MinMaxByNState state, Block value, Block key, int blockIndex, long n)

@@ -14,10 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricAggregation;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlAggregation;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.BlockState;
@@ -38,7 +36,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -48,11 +45,10 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.generate
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArbitraryAggregation
-        extends ParametricAggregation
+        extends SqlAggregation
 {
     public static final ArbitraryAggregation ARBITRARY_AGGREGATION = new ArbitraryAggregation();
     private static final String NAME = "arbitrary";
-    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false);
 
     private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, NullableDoubleState.class, Block.class, int.class);
@@ -68,10 +64,9 @@ public class ArbitraryAggregation
 
     private static final StateCompiler compiler = new StateCompiler();
 
-    @Override
-    public Signature getSignature()
+    protected ArbitraryAggregation()
     {
-        return SIGNATURE;
+        super(NAME, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"));
     }
 
     @Override
@@ -81,12 +76,10 @@ public class ArbitraryAggregation
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type valueType = types.get("T");
-        Signature signature = new Signature(NAME, AGGREGATE, valueType.getTypeSignature(), valueType.getTypeSignature());
-        InternalAggregationFunction aggregation = generateAggregation(valueType);
-        return new FunctionInfo(signature, getDescription(), aggregation);
+        return generateAggregation(valueType);
     }
 
     private static InternalAggregationFunction generateAggregation(Type type)

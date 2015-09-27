@@ -19,20 +19,17 @@ import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricOperator;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.ArrayGeneratorUtils;
 import com.facebook.presto.sql.gen.ArrayMapByteCodeExpression;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerUtils;
-import com.facebook.presto.type.ArrayType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -47,7 +44,6 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantBoolean;
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeParameter;
@@ -56,7 +52,7 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class ArrayToArrayCast
-        extends ParametricOperator
+        extends SqlOperator
 {
     public static final ArrayToArrayCast ARRAY_TO_ARRAY_CAST = new ArrayToArrayCast();
 
@@ -66,21 +62,17 @@ public class ArrayToArrayCast
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromType = types.get("F");
         Type toType = types.get("T");
 
-        ArrayType fromArrayType = (ArrayType) typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(fromType.getTypeSignature()), ImmutableList.of());
-        ArrayType toArrayType = (ArrayType) typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(toType.getTypeSignature()), ImmutableList.of());
-
         Signature signature = internalOperator(CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
         ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
         Class<?> castOperatorClass = generateArrayCast(typeManager, signature, function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
-
-        return operatorInfo(CAST, toArrayType.getTypeSignature(), ImmutableList.of(fromArrayType.getTypeSignature()), methodHandle, false, ImmutableList.of(false));
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, isDeterministic());
     }
 
     private static Class<?> generateArrayCast(TypeManager typeManager, Signature elementCastSignature, ScalarFunctionImplementation elementCast)

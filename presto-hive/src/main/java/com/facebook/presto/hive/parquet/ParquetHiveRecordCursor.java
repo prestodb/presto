@@ -38,7 +38,6 @@ import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.ParquetInputSplit;
 import parquet.hadoop.ParquetRecordReader;
 import parquet.hadoop.api.ReadSupport;
-import parquet.hadoop.api.ReadSupport.ReadContext;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.FileMetaData;
 import parquet.hadoop.metadata.ParquetMetadata;

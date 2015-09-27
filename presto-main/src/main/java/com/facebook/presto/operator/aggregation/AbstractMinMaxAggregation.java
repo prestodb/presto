@@ -14,11 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.ParametricAggregation;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlAggregation;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
@@ -42,7 +40,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -55,7 +52,7 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMinMaxAggregation
-        extends ParametricAggregation
+        extends SqlAggregation
 {
     private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregation.class, "input", MethodHandle.class, NullableLongState.class, long.class);
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(AbstractMinMaxAggregation.class, "input", MethodHandle.class, NullableDoubleState.class, double.class);
@@ -69,35 +66,23 @@ public abstract class AbstractMinMaxAggregation
     private static final MethodHandle BOOLEAN_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
     private static final MethodHandle BLOCK_OUTPUT_FUNCTION = methodHandle(BlockState.class, "write", Type.class, BlockState.class, BlockBuilder.class);
 
-    private final String name;
     private final OperatorType operatorType;
-    private final Signature signature;
 
     private final StateCompiler compiler = new StateCompiler();
 
     protected AbstractMinMaxAggregation(String name, OperatorType operatorType)
     {
-        requireNonNull(name);
+        super(name, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"));
         requireNonNull(operatorType);
-        this.name = name;
         this.operatorType = operatorType;
-        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), false);
     }
 
     @Override
-    public Signature getSignature()
-    {
-        return signature;
-    }
-
-    @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("E");
         MethodHandle compareMethodHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(operatorType, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
-        Signature signature = new Signature(name, AGGREGATE, type.getTypeSignature(), type.getTypeSignature());
-        InternalAggregationFunction aggregation = generateAggregation(type, compareMethodHandle);
-        return new FunctionInfo(signature, getDescription(), aggregation);
+        return generateAggregation(type, compareMethodHandle);
     }
 
     protected InternalAggregationFunction generateAggregation(Type type, MethodHandle compareMethodHandle)
@@ -150,7 +135,7 @@ public abstract class AbstractMinMaxAggregation
         Type intermediateType = stateSerializer.getSerializedType();
         List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(name, type, inputTypes),
+                generateAggregationName(getSignature().getName(), type, inputTypes),
                 inputParameterMetadata,
                 inputFunction,
                 inputParameterMetadata,
@@ -164,7 +149,7 @@ public abstract class AbstractMinMaxAggregation
                 false);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(name, inputTypes, intermediateType, type, true, false, factory);
+        return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, type, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

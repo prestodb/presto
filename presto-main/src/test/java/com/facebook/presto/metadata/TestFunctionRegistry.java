@@ -58,7 +58,7 @@ public class TestFunctionRegistry
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), true);
         boolean foundOperator = false;
-        for (ParametricFunction function : registry.listOperators()) {
+        for (SqlFunction function : registry.listOperators()) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
             if (operatorType == OperatorType.CAST) {
                 continue;
@@ -91,7 +91,7 @@ public class TestFunctionRegistry
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")
     public void testDuplicateFunctions()
     {
-        List<ParametricFunction> functions = new FunctionListBuilder(new TypeRegistry())
+        List<SqlFunction> functions = new FunctionListBuilder(new TypeRegistry())
                 .scalar(CustomFunctions.class)
                 .getFunctions()
                 .stream()
@@ -108,7 +108,7 @@ public class TestFunctionRegistry
     public void testConflictingScalarAggregation()
             throws Exception
     {
-        List<ParametricFunction> functions = new FunctionListBuilder(new TypeRegistry())
+        List<SqlFunction> functions = new FunctionListBuilder(new TypeRegistry())
                 .scalar(ScalarSum.class)
                 .getFunctions();
 
@@ -123,7 +123,7 @@ public class TestFunctionRegistry
     {
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), true);
-        List<ParametricFunction> functions = registry.list();
+        List<SqlFunction> functions = registry.list();
         List<String> names = transform(functions, input -> input.getSignature().getName());
 
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
