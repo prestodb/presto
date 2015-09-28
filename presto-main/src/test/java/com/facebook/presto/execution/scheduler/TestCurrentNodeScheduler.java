@@ -46,7 +46,8 @@ public class TestCurrentNodeScheduler
         MockRemoteTaskFactory taskFactory = new MockRemoteTaskFactory(executor);
 
         CurrentNodeScheduler nodeScheduler = new CurrentNodeScheduler(
-                node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of()),
+                node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of(), (delta) -> {
+                }),
                 () -> new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
 
         ScheduleResult result = nodeScheduler.schedule();

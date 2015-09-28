@@ -20,6 +20,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.execution.NodeTaskMap.SplitCountChangeListener;
 import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
@@ -150,6 +151,8 @@ public class HttpRemoteTask
 
     private final AtomicBoolean needsUpdate = new AtomicBoolean(true);
 
+    private final SplitCountChangeListener splitCountChangeListener;
+
     public HttpRemoteTask(Session session,
             TaskId taskId,
             String nodeId,
@@ -163,7 +166,8 @@ public class HttpRemoteTask
             Duration minErrorDuration,
             Duration refreshMaxWait,
             JsonCodec<TaskInfo> taskInfoCodec,
-            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            SplitCountChangeListener splitCountChangeListener)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -175,6 +179,7 @@ public class HttpRemoteTask
         requireNonNull(executor, "executor is null");
         requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
+        requireNonNull(splitCountChangeListener, "splitCountChangeListener is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -189,6 +194,7 @@ public class HttpRemoteTask
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor, "updating task");
             this.getErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor, "getting info for task");
+            this.splitCountChangeListener = splitCountChangeListener;
 
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getValue());
@@ -196,6 +202,7 @@ public class HttpRemoteTask
             }
             if (initialSplits.containsKey(planFragment.getPartitionedSource())) {
                 pendingSourceSplitCount = initialSplits.get(planFragment.getPartitionedSource()).size();
+                fireSplitCountChanged(pendingSourceSplitCount);
             }
 
             List<BufferInfo> bufferStates = outputBuffers.getBuffers()
@@ -269,6 +276,7 @@ public class HttpRemoteTask
                 }
                 if (sourceId.equals(planFragment.getPartitionedSource())) {
                     pendingSourceSplitCount += added;
+                    fireSplitCountChanged(added);
                 }
                 needsUpdate.set(true);
             }
@@ -303,15 +311,13 @@ public class HttpRemoteTask
     @Override
     public int getPartitionedSplitCount()
     {
-        int splitCount = pendingSourceSplitCount;
-        return splitCount + taskInfo.get().getStats().getQueuedPartitionedDrivers() + taskInfo.get().getStats().getRunningPartitionedDrivers();
+        return pendingSourceSplitCount + taskInfo.get().getStats().getQueuedPartitionedDrivers() + taskInfo.get().getStats().getRunningPartitionedDrivers();
     }
 
     @Override
     public int getQueuedPartitionedSplitCount()
     {
-        int splitCount = pendingSourceSplitCount;
-        return splitCount + taskInfo.get().getStats().getQueuedPartitionedDrivers();
+        return pendingSourceSplitCount + taskInfo.get().getStats().getQueuedPartitionedDrivers();
     }
 
     @Override
@@ -338,12 +344,15 @@ public class HttpRemoteTask
         if (newValue.getState().isDone()) {
             // splits can be huge so clear the list
             pendingSplits.clear();
+            fireSplitCountChanged(-pendingSourceSplitCount);
             pendingSourceSplitCount = 0;
         }
 
+        int oldPartitionedSplitCount = getPartitionedSplitCount();
+
         // change to new value if old value is not changed and new value has a newer version
         AtomicBoolean workerRestarted = new AtomicBoolean();
-        taskInfo.setIf(newValue, oldValue -> {
+        boolean updated = taskInfo.setIf(newValue, oldValue -> {
             // did the worker restart
             if (oldValue.getNodeInstanceId().isPresent() && !oldValue.getNodeInstanceId().equals(newValue.getNodeInstanceId())) {
                 workerRestarted.set(true);
@@ -379,6 +388,22 @@ public class HttpRemoteTask
             if (planNodeId.equals(planFragment.getPartitionedSource())) {
                 pendingSourceSplitCount -= removed;
             }
+        }
+
+        if (updated) {
+            if (getTaskInfo().getState().isDone()) {
+                fireSplitCountChanged(-oldPartitionedSplitCount);
+            }
+            else {
+                fireSplitCountChanged(getPartitionedSplitCount() - oldPartitionedSplitCount);
+            }
+        }
+    }
+
+    private void fireSplitCountChanged(int delta)
+    {
+        if (delta != 0) {
+            splitCountChangeListener.splitCountChanged(delta);
         }
     }
 
@@ -481,6 +506,7 @@ public class HttpRemoteTask
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // clear pending splits to free memory
+            fireSplitCountChanged(-pendingSourceSplitCount);
             pendingSplits.clear();
             pendingSourceSplitCount = 0;
 
