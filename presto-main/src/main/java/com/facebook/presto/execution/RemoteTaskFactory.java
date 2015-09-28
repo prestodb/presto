@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.NodeTaskMap.SplitCountChangeListener;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -28,5 +29,6 @@ public interface RemoteTaskFactory
             Node node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
-            OutputBuffers outputBuffers);
+            OutputBuffers outputBuffers,
+            SplitCountChangeListener splitCountChangeListener);
 }
