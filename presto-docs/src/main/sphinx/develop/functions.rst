@@ -38,6 +38,76 @@ for its native container type.
   native container type when using ``@Nullable``. The method must be annotated with
   ``@Nullable`` if it can return ``NULL`` when the arguments are non-null.
 
+Parametric Scalar Functions
+---------------------------
+
+Scalar functions that have type parameters have some additional complexity.
+To make our previous example work with any type we need the following:
+
+.. code-block:: java
+
+    @ScalarFunction(name = "is_null")
+    @Description("Returns TRUE if the argument is NULL")
+    public final class IsNullFunction
+    {
+        @TypeParameter("T")
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isNullSlice(@Nullable @SqlType("T") Slice value)
+        {
+            return (value == null);
+        }
+
+        @TypeParameter("T")
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isNullLong(@Nullable @SqlType("T") Long value)
+        {
+            return (value == null);
+        }
+
+        @TypeParameter("T")
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isNullDouble(@Nullable @SqlType("T") Double value)
+        {
+            return (value == null);
+        }
+
+        // ...and so on for each native container type
+    }
+
+* ``@TypeParameter``:
+
+  The ``@TypeParameter`` annotation is used to declare a type parameter which can
+  be used in the argument types ``@SqlType`` annotation, or return type of the function.
+  It can also be used to annotate a parameter of type ``Type``. At runtime, the engine
+  will bind the concrete type to this parameter. ``@OperatorDependency`` may be used
+  to declare that an additional function for operating on the given type parameter is needed.
+  For example, the following function will only bind to types which have an equals function
+  defined:
+
+.. code-block:: java
+
+    @ScalarFunction(name = "is_equal_or_null")
+    @Description("Returns TRUE if arguments are equal or both NULL")
+    public final class IsEqualOrNullFunction
+    {
+        @TypeParameter("T")
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isEqualOrNullSlice(
+                @OperatorDependency(operator = OperatorType.EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+                @Nullable @SqlType("T") Slice value1,
+                @Nullable @SqlType("T") Slice value2)
+        {
+            if (value1 == null && value2 == null) {
+                return true;
+            }
+            if (value1 == null || value2 == null) {
+                return false;
+            }
+            return (boolean) equals.invokeExact(value1, value2);
+        }
+
+        // ...and so on for each native container type
+    }
 
 Aggregation Functions
 ---------------------
