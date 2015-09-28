@@ -377,14 +377,11 @@ public class FunctionRegistry
         addFunctions(builder.getFunctions());
     }
 
-    @Nullable
-    private static Signature bindSignature(Signature signature, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    public static Signature bindSignature(Signature signature, Map<String, Type> boundParameters, int arity)
     {
+        checkArgument((signature.isVariableArity() && arity >= signature.getArgumentTypes().size() - 1) || arity == signature.getArgumentTypes().size(),
+                "Illegal arity %d for function %s", arity, signature);
         List<TypeSignature> argumentTypes = signature.getArgumentTypes();
-        Map<String, Type> boundParameters = signature.bindTypeParameters(types, allowCoercion, typeManager);
-        if (boundParameters == null) {
-            return null;
-        }
         ImmutableList.Builder<TypeSignature> boundArguments = ImmutableList.builder();
         for (int i = 0; i < argumentTypes.size() - 1; i++) {
             boundArguments.add(argumentTypes.get(i).bindParameters(boundParameters));
@@ -392,7 +389,7 @@ public class FunctionRegistry
         if (!argumentTypes.isEmpty()) {
             TypeSignature lastArgument = argumentTypes.get(argumentTypes.size() - 1).bindParameters(boundParameters);
             if (signature.isVariableArity()) {
-                for (int i = 0; i < types.size() - (argumentTypes.size() - 1); i++) {
+                for (int i = 0; i < arity - (argumentTypes.size() - 1); i++) {
                     boundArguments.add(lastArgument);
                 }
             }
@@ -435,7 +432,11 @@ public class FunctionRegistry
         // search for exact match
         Signature match = null;
         for (SqlFunction function : candidates) {
-            Signature signature = bindSignature(function.getSignature(), resolvedTypes, false, typeManager);
+            Map<String, Type> boundParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
+            if (boundParameters == null) {
+                continue;
+            }
+            Signature signature = bindSignature(function.getSignature(), boundParameters, resolvedTypes.size());
             if (signature != null) {
                 checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
                 match = signature;
@@ -448,7 +449,11 @@ public class FunctionRegistry
 
         // search for coerced match
         for (SqlFunction function : candidates) {
-            Signature signature = bindSignature(function.getSignature(), resolvedTypes, true, typeManager);
+            Map<String, Type> boundParameters = function.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
+            if (boundParameters == null) {
+                continue;
+            }
+            Signature signature = bindSignature(function.getSignature(), boundParameters, resolvedTypes.size());
             if (signature != null) {
                 // TODO: This should also check for ambiguities
                 match = signature;
@@ -494,7 +499,10 @@ public class FunctionRegistry
         if (parameterTypes.size() == 1 && parameterTypes.get(0).getBase().equals(StandardTypes.ROW)) {
             SqlFunction fieldReference = getRowFieldReference(name.getSuffix(), parameterTypes.get(0));
             if (fieldReference != null) {
-                return bindSignature(fieldReference.getSignature(), resolvedTypes, true, typeManager);
+                Map<String, Type> boundParameters = fieldReference.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
+                if (boundParameters != null) {
+                    return bindSignature(fieldReference.getSignature(), boundParameters, resolvedTypes.size());
+                }
             }
         }
 

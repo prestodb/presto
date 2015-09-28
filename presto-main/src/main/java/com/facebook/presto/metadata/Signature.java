@@ -135,6 +135,11 @@ public final class Signature
         return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }
 
+    public static Signature internalOperator(OperatorType operator, String returnType, List<String> argumentTypes)
+    {
+        return internalScalarFunction(mangleOperatorName(operator.name()), returnType, argumentTypes);
+    }
+
     public static Signature internalOperator(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         return internalScalarFunction(mangleOperatorName(name), returnType, argumentTypes);
