@@ -13,50 +13,33 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.SqlType;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.util.Reflection.methodHandle;
 
-public class ArrayGreaterThanOperator
-        extends SqlOperator
+@ScalarOperator(GREATER_THAN)
+public final class ArrayGreaterThanOperator
 {
-    public static final ArrayGreaterThanOperator ARRAY_GREATER_THAN = new ArrayGreaterThanOperator();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayGreaterThanOperator.class, "greaterThan", MethodHandle.class, Type.class, Block.class, Block.class);
+    private ArrayGreaterThanOperator() {}
 
-    private ArrayGreaterThanOperator()
-    {
-        super(GREATER_THAN, ImmutableList.of(orderableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Type elementType = types.get("T");
-        MethodHandle greaterThanFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(GREATER_THAN, BOOLEAN, ImmutableList.of(elementType, elementType))).getMethodHandle();
-        MethodHandle method = METHOD_HANDLE.bindTo(greaterThanFunction).bindTo(elementType);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), method, isDeterministic());
-    }
-
-    public static boolean greaterThan(MethodHandle greaterThanFunction, Type type, Block leftArray, Block rightArray)
+    @TypeParameter("T")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean greaterThan(
+            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
+            @TypeParameter("T") Type type,
+            @SqlType("array(T)") Block leftArray,
+            @SqlType("array(T)") Block rightArray)
     {
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         int index = 0;
