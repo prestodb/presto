@@ -40,6 +40,7 @@ import com.facebook.presto.operator.aggregation.NumericHistogramAggregation;
 import com.facebook.presto.operator.aggregation.RegressionAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
+import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
 import com.facebook.presto.operator.scalar.BitwiseFunctions;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
@@ -162,7 +163,6 @@ import static com.facebook.presto.operator.scalar.ArrayMaxFunction.ARRAY_MAX;
 import static com.facebook.presto.operator.scalar.ArrayMinFunction.ARRAY_MIN;
 import static com.facebook.presto.operator.scalar.ArrayNotEqualOperator.ARRAY_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayPositionFunction.ARRAY_POSITION;
-import static com.facebook.presto.operator.scalar.ArrayRemoveFunction.ARRAY_REMOVE_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArraySliceFunction.ARRAY_SLICE_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArraySortFunction.ARRAY_SORT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
@@ -345,12 +345,13 @@ public class FunctionRegistry
                 .scalar(JsonOperators.class)
                 .scalar(FailureFunction.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
+                .scalar(ArrayRemoveFunction.class)
                 .functions(ARRAY_CONTAINS, ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
                 .functions(ARRAY_MIN, ARRAY_MAX)
                 .functions(ARRAY_TO_ARRAY_CAST, ARRAY_HASH_CODE, ARRAY_EQUAL, ARRAY_NOT_EQUAL, ARRAY_LESS_THAN, ARRAY_LESS_THAN_OR_EQUAL, ARRAY_GREATER_THAN, ARRAY_GREATER_THAN_OR_EQUAL)
                 .functions(ARRAY_CONCAT_FUNCTION, ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .functions(MAP_EQUAL, MAP_NOT_EQUAL, MAP_HASH_CODE)
-                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_ELEMENT_AT_FUNCTION, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION, ARRAY_REMOVE_FUNCTION, ARRAY_SLICE_FUNCTION)
+                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_ELEMENT_AT_FUNCTION, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION, ARRAY_SLICE_FUNCTION)
                 .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES, MAP_CONCAT_FUNCTION)
                 .functions(MAP_AGG, MULTIMAP_AGG)
                 .function(HISTOGRAM)
