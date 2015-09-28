@@ -271,6 +271,5 @@ public class MockRemoteTaskFactory
             }
             return splits.size();
         }
-
     }
 }
