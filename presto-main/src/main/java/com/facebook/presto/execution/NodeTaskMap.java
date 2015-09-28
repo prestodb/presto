@@ -29,11 +29,21 @@ public class NodeTaskMap
 
     public void addTask(Node node, RemoteTask task)
     {
+        createOrGetNodeTasks(node).addTask(task);
+    }
+
+    public int getPartitionedSplitsOnNode(Node node)
+    {
+        return createOrGetNodeTasks(node).getPartitionedSplitCount();
+    }
+
+    private NodeTasks createOrGetNodeTasks(Node node)
+    {
         NodeTasks nodeTasks = nodeTasksMap.get(node);
         if (nodeTasks == null) {
             nodeTasks = addNodeTask(node);
         }
-        nodeTasks.addTask(task);
+        return nodeTasks;
     }
 
     private NodeTasks addNodeTask(Node node)
@@ -41,18 +51,9 @@ public class NodeTaskMap
         NodeTasks newNodeTasks = new NodeTasks();
         NodeTasks nodeTasks = nodeTasksMap.putIfAbsent(node, newNodeTasks);
         if (nodeTasks == null) {
-           return newNodeTasks;
+            return newNodeTasks;
         }
         return nodeTasks;
-    }
-
-    public int getPartitionedSplitsOnNode(Node node)
-    {
-        NodeTasks nodeTasks = nodeTasksMap.get(node);
-        if (nodeTasks == null) {
-            nodeTasks = addNodeTask(node);
-        }
-        return nodeTasks.getPartitionedSplitCount();
     }
 
     private static class NodeTasks
