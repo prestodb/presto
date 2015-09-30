@@ -73,6 +73,9 @@
         <dt>User</dt>
         <dd id="sessionUser"></dd>
 
+        <dt>Principal</dt>
+        <dd id="sessionPrincipal"></dd>
+
         <dt>Source</dt>
         <dd id="sessionSource"></dd>
 
@@ -173,6 +176,7 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
         d3.select('#queryState').text(query.state);
     }
     d3.select('#sessionUser').text(query.session.user);
+    d3.select('#sessionPrincipal').text(query.session.principal);
     d3.select('#sessionSource').text(query.session.source);
     d3.select('#sessionCatalog').text(query.session.catalog);
     d3.select('#sessionSchema').text(query.session.schema);
