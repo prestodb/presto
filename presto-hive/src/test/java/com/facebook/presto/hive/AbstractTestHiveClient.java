@@ -305,11 +305,11 @@ public abstract class AbstractTestHiveClient
                 ImmutableList.of(new HivePartition(invalidTable, TupleDomain.<HiveColumnHandle>all(), "unknown", ImmutableMap.of(), Optional.empty())));
         emptyTableLayoutHandle = new HiveTableLayoutHandle(invalidClientId, ImmutableList.of());
 
-        dsColumn = new HiveColumnHandle(connectorId, "ds", 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
-        fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", 1, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
-        dummyColumn = new HiveColumnHandle(connectorId, "dummy", 2, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
-        intColumn = new HiveColumnHandle(connectorId, "t_int", 0, HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
-        invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, 0, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 0, false);
+        dsColumn = new HiveColumnHandle(connectorId, "ds", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
+        fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
+        dummyColumn = new HiveColumnHandle(connectorId, "dummy", HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
+        intColumn = new HiveColumnHandle(connectorId, "t_int", HIVE_INT, parseTypeSignature(StandardTypes.BIGINT), -1, true);
+        invalidColumnHandle = new HiveColumnHandle(connectorId, INVALID_COLUMN, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 0, false);
 
         insertTableDestination = new SchemaTableName(database, "presto_insert_destination");
         insertTablePartitionedDestination = new SchemaTableName(database, "presto_insert_destination_partitioned");

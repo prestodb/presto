@@ -34,7 +34,6 @@ public class HiveColumnHandle
 
     private final String clientId;
     private final String name;
-    private final int ordinalPosition;
     private final HiveType hiveType;
     private final TypeSignature typeName;
     private final int hiveColumnIndex;
@@ -44,7 +43,6 @@ public class HiveColumnHandle
     public HiveColumnHandle(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("name") String name,
-            @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("hiveType") HiveType hiveType,
             @JsonProperty("typeSignature") TypeSignature typeSignature,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
@@ -52,8 +50,6 @@ public class HiveColumnHandle
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.name = requireNonNull(name, "name is null");
-        checkArgument(ordinalPosition >= 0, "ordinalPosition is negative");
-        this.ordinalPosition = ordinalPosition;
         checkArgument(hiveColumnIndex >= 0 || partitionKey, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
         this.hiveType = requireNonNull(hiveType, "hiveType is null");
@@ -71,12 +67,6 @@ public class HiveColumnHandle
     public String getName()
     {
         return name;
-    }
-
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
     }
 
     @JsonProperty
@@ -137,7 +127,6 @@ public class HiveColumnHandle
         return toStringHelper(this)
                 .add("clientId", clientId)
                 .add("name", name)
-                .add("ordinalPosition", ordinalPosition)
                 .add("hiveType", hiveType)
                 .add("hiveColumnIndex", hiveColumnIndex)
                 .add("partitionKey", partitionKey)

@@ -519,27 +519,25 @@ public final class HiveUtil
             TypeInfo typeInfo = getTypeInfoFromTypeString(field.getType());
             if (HiveType.isSupportedType(typeInfo)) {
                 HiveType hiveType = toHiveType(typeInfo);
-                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveColumnIndex, hiveType, hiveType.getTypeSignature(), hiveColumnIndex, false));
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, false));
             }
             hiveColumnIndex++;
         }
 
         // add the partition keys last (like Hive does)
-        columns.addAll(getPartitionKeyColumnHandles(connectorId, table, hiveColumnIndex));
+        columns.addAll(getPartitionKeyColumnHandles(connectorId, table));
 
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table, int startOrdinal)
+    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         List<FieldSchema> partitionKeys = table.getPartitionKeys();
-        for (int i = 0; i < partitionKeys.size(); i++) {
-            FieldSchema field = partitionKeys.get(i);
-
+        for (FieldSchema field : partitionKeys) {
             HiveType hiveType = HiveType.valueOf(field.getType());
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), startOrdinal + i, hiveType, HiveType.valueOf(field.getType()).getTypeSignature(), -1, true));
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, HiveType.valueOf(field.getType()).getTypeSignature(), -1, true));
         }
 
         return columns.build();
