@@ -273,7 +273,7 @@ public abstract class AbstractTestHiveFileFormats
             int columnIndex = testColumn.isPartitionKey() ? -1 : nextHiveColumnIndex++;
 
             HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
-            columns.add(new HiveColumnHandle("client_id", testColumn.getName(), i, hiveType, hiveType.getTypeSignature(), columnIndex, testColumn.isPartitionKey()));
+            columns.add(new HiveColumnHandle("client_id", testColumn.getName(), hiveType, hiveType.getTypeSignature(), columnIndex, testColumn.isPartitionKey()));
         }
         return columns;
     }

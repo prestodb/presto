@@ -109,7 +109,7 @@ public class HivePartitionManager
             return new HivePartitionResult(ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, bucket)), effectivePredicate);
         }
 
-        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table, 0);
+        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table);
         List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate);
 
         // do a final pass to filter based on fields that could not be used to filter the partitions

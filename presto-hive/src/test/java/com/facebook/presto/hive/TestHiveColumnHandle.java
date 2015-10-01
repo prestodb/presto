@@ -27,14 +27,13 @@ public class TestHiveColumnHandle
     @Test
     public void testRoundTrip()
     {
-        HiveColumnHandle expected = new HiveColumnHandle("client", "name", 42, HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, true);
+        HiveColumnHandle expected = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, true);
 
         String json = codec.toJson(expected);
         HiveColumnHandle actual = codec.fromJson(json);
 
         assertEquals(actual.getClientId(), expected.getClientId());
         assertEquals(actual.getName(), expected.getName());
-        assertEquals(actual.getOrdinalPosition(), expected.getOrdinalPosition());
         assertEquals(actual.getHiveType(), expected.getHiveType());
         assertEquals(actual.getHiveColumnIndex(), expected.getHiveColumnIndex());
         assertEquals(actual.isPartitionKey(), expected.isPartitionKey());

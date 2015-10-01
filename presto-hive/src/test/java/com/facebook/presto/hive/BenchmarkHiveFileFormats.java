@@ -1687,7 +1687,6 @@ public final class BenchmarkHiveFileFormats
             HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
             columns.add(new HiveColumnHandle("test",
                     column.getColumnName(),
-                    ordinal,
                     hiveType,
                     hiveType.getTypeSignature(),
                     ordinal,

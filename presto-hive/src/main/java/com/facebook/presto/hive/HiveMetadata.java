@@ -1278,7 +1278,6 @@ public class HiveMetadata
             columnHandles.add(new HiveColumnHandle(
                     connectorId,
                     column.getName(),
-                    ordinal,
                     toHiveType(column.getType()),
                     column.getType().getTypeSignature(),
                     ordinal,
@@ -1289,7 +1288,6 @@ public class HiveMetadata
             columnHandles.add(new HiveColumnHandle(
                     connectorId,
                     SAMPLE_WEIGHT_COLUMN_NAME,
-                    ordinal,
                     toHiveType(BIGINT),
                     BIGINT.getTypeSignature(),
                     ordinal,

@@ -39,7 +39,6 @@ public class TestJsonHiveHandles
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("clientId", "hive")
             .put("name", "column")
-            .put("ordinalPosition", 42)
             .put("hiveType", "float")
             .put("typeSignature", "double")
             .put("hiveColumnIndex", -1)
@@ -77,7 +76,7 @@ public class TestJsonHiveHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("hive", "column", 42, HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), -1, true);
+        HiveColumnHandle columnHandle = new HiveColumnHandle("hive", "column", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), -1, true);
 
         assertTrue(objectMapper.canSerialize(HiveColumnHandle.class));
         String json = objectMapper.writeValueAsString(columnHandle);
@@ -93,7 +92,6 @@ public class TestJsonHiveHandles
         HiveColumnHandle columnHandle = objectMapper.readValue(json, HiveColumnHandle.class);
 
         assertEquals(columnHandle.getName(), "column");
-        assertEquals(columnHandle.getOrdinalPosition(), 42);
         assertEquals(columnHandle.getHiveType(), HiveType.HIVE_FLOAT);
         assertEquals(columnHandle.getHiveColumnIndex(), -1);
         assertEquals(columnHandle.isPartitionKey(), true);
