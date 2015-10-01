@@ -1,0 +1,142 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.9. Release 0.113 &mdash; Presto 0.121 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.121',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.121 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.10. Release 0.112" href="release-0.112.html" />
+    <link rel="prev" title="10.8. Release 0.114" href="release-0.114.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.121 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.9. Release 0.113</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.114.html">10.8. Release 0.114</a>
+    </span>
+    <span class="right">
+        <a href="release-0.112.html">10.10. Release 0.112</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-113">
+<h1>10.9. Release 0.113</h1>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">The ORC reader in the Hive connector is broken in this release.</p>
+</div>
+<div class="section" id="cluster-resource-management">
+<h2>Cluster Resource Management</h2>
+<p>The cluster resource manager announced in <a class="reference internal" href="release-0.103.html"><em>Release 0.103</em></a> is now enabled by default.
+You can disable it with the <tt class="docutils literal"><span class="pre">experimental.cluster-memory-manager-enabled</span></tt> flag.
+Memory limits can now be configured via <tt class="docutils literal"><span class="pre">query.max-memory</span></tt> which controls the total distributed
+memory a query may use and <tt class="docutils literal"><span class="pre">query.max-memory-per-node</span></tt> which limits the amount
+of memory a query may use on any one node. On each worker, the
+<tt class="docutils literal"><span class="pre">resources.reserved-system-memory</span></tt> config property controls how much memory is reserved
+for internal Presto data structures and temporary allocations.</p>
+</div>
+<div class="section" id="session-properties">
+<h2>Session Properties</h2>
+<p>All session properties now have a SQL type, default value and description.  The
+value for <a class="reference internal" href="../sql/set-session.html"><em>SET SESSION</em></a> can now be any constant expression, and the
+<a class="reference internal" href="../sql/show-session.html"><em>SHOW SESSION</em></a> command prints the current effective value and default
+value for all session properties.</p>
+<p>This type safety extends to the <a class="reference internal" href="../develop/spi-overview.html"><em>SPI</em></a> where properties
+can be validated and converted to any Java type using
+<tt class="docutils literal"><span class="pre">SessionPropertyMetadata</span></tt>. For an example, see <tt class="docutils literal"><span class="pre">HiveSessionProperties</span></tt>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change with the previous connector SPI.
+If you have written a connector that uses session properties, you will need
+to update your code to declare the properties in the <tt class="docutils literal"><span class="pre">Connector</span></tt>
+implementation and callers of <tt class="docutils literal"><span class="pre">ConnectorSession.getProperty()</span></tt> will now
+need the expected Java type of the property.</p>
+</div>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Allow using any type with value window functions <a class="reference internal" href="../functions/window.html#first_value" title="first_value"><tt class="xref py py-func docutils literal"><span class="pre">first_value()</span></tt></a>,
+<a class="reference internal" href="../functions/window.html#last_value" title="last_value"><tt class="xref py py-func docutils literal"><span class="pre">last_value()</span></tt></a>, <a class="reference internal" href="../functions/window.html#nth_value" title="nth_value"><tt class="xref py py-func docutils literal"><span class="pre">nth_value()</span></tt></a>, <a class="reference internal" href="../functions/window.html#lead" title="lead"><tt class="xref py py-func docutils literal"><span class="pre">lead()</span></tt></a> and <a class="reference internal" href="../functions/window.html#lag" title="lag"><tt class="xref py py-func docutils literal"><span class="pre">lag()</span></tt></a>.</li>
+<li>Add <a class="reference internal" href="../functions/array.html#element_at" title="element_at"><tt class="xref py py-func docutils literal"><span class="pre">element_at()</span></tt></a> function.</li>
+<li>Add <a class="reference internal" href="../functions/url.html#url_encode" title="url_encode"><tt class="xref py py-func docutils literal"><span class="pre">url_encode()</span></tt></a> and <a class="reference internal" href="../functions/url.html#url_decode" title="url_decode"><tt class="xref py py-func docutils literal"><span class="pre">url_decode()</span></tt></a> functions.</li>
+<li><a class="reference internal" href="../functions/string.html#concat" title="concat"><tt class="xref py py-func docutils literal"><span class="pre">concat()</span></tt></a> now allows arbitrary number of arguments.</li>
+<li>Fix JMX connector. In the previous release it always returned zero rows.</li>
+<li>Fix handling of literal <tt class="docutils literal"><span class="pre">NULL</span></tt> in <tt class="docutils literal"><span class="pre">IS</span> <span class="pre">DISTINCT</span> <span class="pre">FROM</span></tt>.</li>
+<li>Fix an issue that caused some specific queries to fail in planning.</li>
+</ul>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Fix the Hive metadata cache to properly handle negative responses.
+This makes the background refresh work properly by clearing the cached
+metadata entries when an object is dropped outside of Presto.
+In particular, this fixes the common case where a table is dropped using
+Hive but Presto thinks it still exists.</li>
+<li>Fix metastore socket leak when SOCKS connect fails.</li>
+</ul>
+</div>
+<div class="section" id="spi-changes">
+<h2>SPI Changes</h2>
+<ul class="simple">
+<li>Changed the internal representation of structural types.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is a backwards incompatible change with the previous connector SPI.
+If you have written a connector that uses structural types, you will need
+to update your code to the new APIs.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.114.html">10.8. Release 0.114</a>
+    </span>
+    <span class="right">
+        <a href="release-0.112.html">10.10. Release 0.112</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
