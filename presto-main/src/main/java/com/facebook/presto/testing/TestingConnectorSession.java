@@ -117,7 +117,7 @@ public class TestingConnectorSession
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("startTime", startTime)
-                .add("properties", properties)
+                .add("properties", propertyValues)
                 .toString();
     }
 }
