@@ -3629,6 +3629,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExchangeWithProjectionPushDown()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM \n" +
+                "  (SELECT orderkey + 1 orderkey FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 100)) o \n" +
+                "JOIN \n" +
+                "  (SELECT orderkey + 1 orderkey FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 100)) o1 \n" +
+                "ON (o.orderkey = o1.orderkey)");
+    }
+
+    @Test
     public void testUnionWithProjectionPushDown()
             throws Exception
     {
