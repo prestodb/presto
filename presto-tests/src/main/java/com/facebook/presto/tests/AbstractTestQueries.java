@@ -3156,6 +3156,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testInSubqueryWithCrossJoin()
+            throws Exception
+    {
+        assertQuery("SELECT a FROM (VALUES (1),(2)) t(a) WHERE a IN " +
+                    "(SELECT b FROM (VALUES (ARRAY[2])) AS t1 (a) CROSS JOIN UNNEST(a) as t2(b))", "SELECT 2");
+    }
+
+    @Test
     public void testGroupByIf()
             throws Exception
     {
