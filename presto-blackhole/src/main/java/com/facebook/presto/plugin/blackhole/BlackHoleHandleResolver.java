@@ -40,7 +40,7 @@ public final class BlackHoleHandleResolver
     @Override
     public boolean canHandle(ConnectorSplit split)
     {
-        return false;
+        return split instanceof BlackHoleSplit;
     }
 
     @Override
@@ -76,7 +76,7 @@ public final class BlackHoleHandleResolver
     @Override
     public Class<? extends ConnectorSplit> getSplitClass()
     {
-        throw new UnsupportedOperationException();
+        return BlackHoleSplit.class;
     }
 
     @Override
