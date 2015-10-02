@@ -62,7 +62,7 @@ public class InCodeGenerator
     static SwitchGenerationCase checkSwitchGenerationCase(Type type, List<RowExpression> values)
     {
         if (values.size() <= 1000) {
-            if (type instanceof BigintType || type instanceof DateType) {
+            if (!(type instanceof BigintType || type instanceof DateType)) {
                 return SwitchGenerationCase.HASH_SWITCH;
             }
             boolean areSmallPrimitives = true;
