@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 import java.util.List;
 import java.util.Locale;
@@ -62,12 +63,7 @@ public class TestingConnectorSession
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
-
-        ImmutableMap.Builder<String, PropertyMetadata<?>> builder = ImmutableMap.builder();
-        for (PropertyMetadata<?> propertyMetadata : propertyMetadatas) {
-            builder.put(propertyMetadata.getName(), propertyMetadata);
-        }
-        this.properties = builder.build();
+        this.properties = Maps.uniqueIndex(propertyMetadatas, PropertyMetadata::getName);
         this.propertyValues = ImmutableMap.copyOf(propertyValues);
     }
 
