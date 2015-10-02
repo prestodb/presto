@@ -36,13 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class TestingConnectorSession
         implements ConnectorSession
 {
-    public static final ConnectorSession SESSION = new TestingConnectorSession(
-            "user",
-            UTC_KEY,
-            ENGLISH,
-            System.currentTimeMillis(),
-            ImmutableList.of(),
-            ImmutableMap.of());
+    public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
 
     private final Identity identity;
     private final TimeZoneKey timeZoneKey;
@@ -50,6 +44,11 @@ public class TestingConnectorSession
     private final long startTime;
     private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
+
+    public TestingConnectorSession(List<PropertyMetadata<?>> properties)
+    {
+        this("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of());
+    }
 
     public TestingConnectorSession(
             String user,
