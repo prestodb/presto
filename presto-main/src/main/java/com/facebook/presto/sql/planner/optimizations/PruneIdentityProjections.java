@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Removes pure identity projections (e.g., Project $0 := $0, $1 := $1, ...)
  */
-public class PruneRedundantProjections
+public class PruneIdentityProjections
         extends PlanOptimizer
 {
     @Override
