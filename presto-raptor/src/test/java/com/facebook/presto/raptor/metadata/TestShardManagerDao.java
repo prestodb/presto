@@ -15,16 +15,13 @@ package com.facebook.presto.raptor.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.dbpool.H2EmbeddedDataSource;
-import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
+import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import javax.sql.DataSource;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -43,25 +40,23 @@ import static org.testng.Assert.fail;
 public class TestShardManagerDao
 {
     private ShardManagerDao dao;
-    private Handle handle;
+    private IDBI dbi;
+    private Handle dummyHandle;
 
     @BeforeMethod
     public void setup()
             throws Exception
     {
-        H2EmbeddedDataSourceConfig dataSourceConfig = new H2EmbeddedDataSourceConfig().setFilename("mem:");
-        DataSource dataSource = new H2EmbeddedDataSource(dataSourceConfig);
-        DBI h2Dbi = new DBI(dataSource);
-        handle = h2Dbi.open();
-        dao = handle.attach(ShardManagerDao.class);
-
-        createShardTablesWithRetry(dao);
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dummyHandle = dbi.open();
+        dao = dbi.onDemand(ShardManagerDao.class);
+        createShardTablesWithRetry(dbi);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void teardown()
     {
-        handle.close();
+        dummyHandle.close();
     }
 
     @Test
@@ -109,9 +104,9 @@ public class TestShardManagerDao
     {
         long shardId = dao.insertShard(UUID.randomUUID(), 5, 13, 42, 84);
 
-        List<Map<String, Object>> shards = handle.select(
-                "SELECT table_id , row_count, compressed_size, uncompressed_size FROM shards WHERE shard_id = ?",
-                shardId);
+        String sql = "SELECT table_id, row_count, compressed_size, uncompressed_size " +
+                "FROM shards WHERE shard_id = ?";
+        List<Map<String, Object>> shards = dbi.withHandle(handle -> handle.select(sql, shardId));
 
         assertEquals(shards.size(), 1);
         Map<String, Object> shard = shards.get(0);
