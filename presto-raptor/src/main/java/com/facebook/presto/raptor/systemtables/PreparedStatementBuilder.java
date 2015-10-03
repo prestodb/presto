@@ -122,14 +122,13 @@ public class PreparedStatementBuilder
         List<Comparable<?>> singleValues = new ArrayList<>();
         for (Range range : domain.getRanges()) {
             checkState(!range.isAll()); // Already checked
-            Comparable<?> lowValue = range.getLow().getValue();
             if (range.isSingleValue()) {
-                singleValues.add(lowValue);
+                singleValues.add(range.getLow().getValue());
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.getLow().isLowerUnbounded()) {
-                    Object bindValue = getBindValue(columnIndex, lowValue);
+                    Object bindValue = getBindValue(columnIndex, range.getLow().getValue());
                     switch (range.getLow().getBound()) {
                         case ABOVE:
                             rangeConjuncts.add(toBindPredicate(columnName, ">"));
@@ -146,8 +145,7 @@ public class PreparedStatementBuilder
                     }
                 }
                 if (!range.getHigh().isUpperUnbounded()) {
-                    Comparable<?> highValue = range.getHigh().getValue();
-                    Object bindValue = getBindValue(columnIndex, highValue);
+                    Object bindValue = getBindValue(columnIndex, range.getHigh().getValue());
                     switch (range.getHigh().getBound()) {
                         case ABOVE:
                             throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
