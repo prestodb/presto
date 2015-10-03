@@ -18,12 +18,10 @@ import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -37,10 +35,11 @@ import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
+import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
+import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -93,7 +92,7 @@ public class ShardMetadataRecordCursor
         requireNonNull(tupleDomain, "tupleDomain is null");
 
         this.dbi = dbi;
-        this.metadataDao = dbi.onDemand(MetadataDao.class);
+        this.metadataDao = onDemandDao(dbi, MetadataDao.class);
 
         this.tableIds = getTableIds(metadataDao, tupleDomain);
 
@@ -189,7 +188,7 @@ public class ShardMetadataRecordCursor
             return true;
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            throw metadataError(e);
         }
     }
 
@@ -276,7 +275,7 @@ public class ShardMetadataRecordCursor
         }
         catch (SQLException e) {
             close();
-            throw new PrestoException(RAPTOR_ERROR, e);
+            throw metadataError(e);
         }
     }
 

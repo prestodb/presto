@@ -49,7 +49,6 @@ import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.exceptions.DBIException;
-import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -72,6 +71,8 @@ import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
+import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
+import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -112,12 +113,12 @@ public class RaptorMetadata
 
         this.connectorId = connectorId.toString();
         this.dbi = requireNonNull(dbi, "dbi is null");
-        this.dao = dbi.onDemand(MetadataDao.class);
+        this.dao = onDemandDao(dbi, MetadataDao.class);
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
 
-        createMetadataTablesWithRetry(dao);
+        createMetadataTablesWithRetry(dbi);
     }
 
     @Override
@@ -257,7 +258,7 @@ public class RaptorMetadata
     {
         RaptorTableHandle raptorHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         long tableId = raptorHandle.getTableId();
-        dbi.inTransaction((handle, status) -> {
+        runTransaction(dbi, (handle, status) -> {
             ShardManagerDao shardManagerDao = handle.attach(ShardManagerDao.class);
             shardManagerDao.dropShardNodes(tableId);
             shardManagerDao.dropShards(tableId);
@@ -282,7 +283,7 @@ public class RaptorMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-        dbi.inTransaction((handle, status) -> {
+        runTransaction(dbi, (handle, status) -> {
             MetadataDao dao = handle.attach(MetadataDao.class);
             dao.renameTable(table.getTableId(), newTableName.getSchemaName(), newTableName.getTableName());
             return null;
@@ -374,7 +375,7 @@ public class RaptorMetadata
             }
         }
 
-        long newTableId = dbi.inTransaction((dbiHandle, status) -> {
+        long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
             long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true);
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
@@ -486,7 +487,7 @@ public class RaptorMetadata
         String tableName = viewName.getTableName();
 
         if (replace) {
-            dbi.inTransaction((handle, status) -> {
+            runTransaction(dbi, (handle, status) -> {
                 MetadataDao dao = handle.attach(MetadataDao.class);
                 dao.dropView(schemaName, tableName);
                 dao.insertView(schemaName, tableName, viewData);
@@ -498,7 +499,7 @@ public class RaptorMetadata
         try {
             dao.insertView(schemaName, tableName, viewData);
         }
-        catch (UnableToExecuteStatementException e) {
+        catch (PrestoException e) {
             if (viewExists(session, viewName)) {
                 throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
             }
