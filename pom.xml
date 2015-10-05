@@ -862,7 +862,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>2.15</version>
+                <version>2.16</version>
                 <executions>
                     <execution>
                         <phase>validate</phase>
@@ -880,14 +880,10 @@
                     </execution>
                 </executions>
                 <dependencies>
-                    <!-- The version of checkstyle the plugin depends on doesn't support Java 8,
-                         so override it manually until a new version of the plugin is released.
-                         This is copied verbatim from the dependency declaration in the checkstyle
-                         plugin -->
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
                         <artifactId>checkstyle</artifactId>
-                        <version>6.6</version>
+                        <version>6.11.1</version>
                     </dependency>
                 </dependencies>
             </plugin>
