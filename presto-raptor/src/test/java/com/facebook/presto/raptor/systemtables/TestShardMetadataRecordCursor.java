@@ -17,11 +17,11 @@ import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
+import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -77,6 +78,12 @@ public class TestShardMetadataRecordCursor
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         this.dummyHandle = dbi.open();
         this.metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, new DatabaseShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        // Create table
+        metadata.createTable(SESSION, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                .column("orderkey", BIGINT)
+                .column("orderdate", DATE)
+                .property("temporal_column", "orderdate")
+                .build());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -89,17 +96,6 @@ public class TestShardMetadataRecordCursor
     public void testSimple()
             throws Exception
     {
-        // Create table
-        ConnectorTableMetadata tableMetadata = tableMetadataBuilder(DEFAULT_TEST_ORDERS)
-                .column("orderkey", BIGINT)
-                .column("custkey", BIGINT)
-                .column("totalprice", DOUBLE)
-                .column("orderdate", DATE)
-                .column("orderstate", VARCHAR)
-                .property("temporal_column", "orderdate")
-                .build();
-        metadata.createTable(SESSION, tableMetadata);
-
         DatabaseShardManager shardManager = new DatabaseShardManager(dbi);
 
         // Add shards to the table
@@ -143,6 +139,33 @@ public class TestShardMetadataRecordCursor
                 new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid2.toString()), 200, 20, 2),
                 new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid3.toString()), 300, 30, 3));
 
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testNoSchemaFilter()
+            throws Exception
+    {
+        // Create "orders" table in a different schema
+        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("other", "orders"))
+                .column("orderkey", BIGINT)
+                .build());
+
+        // Create another table that should not be selected
+        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
+                .column("orderkey", BIGINT)
+                .build());
+
+        TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.<Integer, Domain>builder()
+                        .put(1, Domain.singleValue(utf8Slice("orders")))
+                        .build());
+
+        MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
+        Set<Long> actual = ImmutableSet.copyOf(ShardMetadataRecordCursor.getTableIds(metadataDao, tupleDomain));
+        Set<Long> expected = ImmutableSet.of(
+                metadataDao.getTableInformation("other", "orders").getTableId(),
+                metadataDao.getTableInformation("test", "orders").getTableId());
         assertEquals(actual, expected);
     }
 
