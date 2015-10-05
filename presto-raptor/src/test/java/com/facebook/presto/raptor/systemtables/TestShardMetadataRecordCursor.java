@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import org.joda.time.DateTime;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -49,6 +50,7 @@ import java.util.UUID;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
+import static com.facebook.presto.spi.Range.greaterThan;
 import static com.facebook.presto.spi.Range.lessThanOrEqual;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -117,10 +119,14 @@ public class TestShardMetadataRecordCursor
         Slice schema = utf8Slice(DEFAULT_TEST_ORDERS.getSchemaName());
         Slice table = utf8Slice(DEFAULT_TEST_ORDERS.getTableName());
 
+        DateTime date1 = DateTime.parse("2015-01-01T00:00");
+        DateTime date2 = DateTime.parse("2015-01-02T00:00");
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<Integer, Domain>builder()
                         .put(0, Domain.singleValue(schema))
                         .put(1, Domain.create(SortedRangeSet.of(lessThanOrEqual(table)), true))
+                        .put(6, Domain.create(SortedRangeSet.of(lessThanOrEqual(date1.getMillis()), greaterThan(date2.getMillis())), true))
+                        .put(7, Domain.create(SortedRangeSet.of(lessThanOrEqual(date1.getMillis()), greaterThan(date2.getMillis())), true))
                         .build());
 
         List<MaterializedRow> actual;
