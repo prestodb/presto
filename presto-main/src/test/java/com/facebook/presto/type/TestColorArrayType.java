@@ -20,8 +20,8 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestColorArrayType
