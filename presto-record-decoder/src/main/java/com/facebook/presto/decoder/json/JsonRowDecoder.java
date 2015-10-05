@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.decoder.json;
 
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 import com.fasterxml.jackson.databind.JsonNode;
