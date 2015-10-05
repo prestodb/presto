@@ -30,9 +30,9 @@ import org.testng.annotations.Test;
 import java.sql.SQLException;
 import java.util.List;
 
-import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLITS_COUNT_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
+import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLITS_COUNT_PROPERTY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.lang.String.format;

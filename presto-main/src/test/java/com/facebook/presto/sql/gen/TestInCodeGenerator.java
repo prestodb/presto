@@ -28,10 +28,10 @@ import java.util.List;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
 import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.DIRECT_SWITCH;
 import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
 import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
+import static com.facebook.presto.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 
 public class TestInCodeGenerator
