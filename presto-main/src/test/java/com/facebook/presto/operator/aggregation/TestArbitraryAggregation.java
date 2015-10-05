@@ -48,7 +48,7 @@ public class TestArbitraryAggregation
 
     @Test
     public void testNullBoolean()
-        throws Exception
+            throws Exception
     {
         InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.BOOLEAN, StandardTypes.BOOLEAN)).getAggregationFunction();
         assertAggregation(
@@ -91,7 +91,7 @@ public class TestArbitraryAggregation
                 longAgg,
                 1.0,
                 1L,
-                createLongsBlock(1L , null));
+                createLongsBlock(1L, null));
     }
 
     @Test
