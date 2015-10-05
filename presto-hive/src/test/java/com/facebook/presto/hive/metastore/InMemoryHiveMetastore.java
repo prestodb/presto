@@ -44,9 +44,9 @@ import static com.facebook.presto.hive.metastore.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.FileUtils.deleteRecursively;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
-import static java.util.Objects.requireNonNull;
 
 public class InMemoryHiveMetastore
         implements HiveMetastore

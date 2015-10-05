@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;

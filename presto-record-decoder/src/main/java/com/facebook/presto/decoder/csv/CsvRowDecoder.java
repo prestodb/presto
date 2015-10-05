@@ -14,10 +14,10 @@
 package com.facebook.presto.decoder.csv;
 
 import au.com.bytecode.opencsv.CSVParser;
-import com.facebook.presto.decoder.FieldDecoder;
-import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
+import com.facebook.presto.decoder.RowDecoder;
 
 import javax.inject.Inject;
 

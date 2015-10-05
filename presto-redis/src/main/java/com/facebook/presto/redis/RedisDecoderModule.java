@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.presto.redis.decoder.hash.HashRedisDecoderModule;
-import com.facebook.presto.redis.decoder.zset.ZsetRedisDecoderModule;
 import com.facebook.presto.decoder.DecoderModule;
 import com.facebook.presto.decoder.DecoderRegistry;
 import com.facebook.presto.decoder.csv.CsvDecoderModule;
 import com.facebook.presto.decoder.dummy.DummyDecoderModule;
 import com.facebook.presto.decoder.json.JsonDecoderModule;
 import com.facebook.presto.decoder.raw.RawDecoderModule;
+import com.facebook.presto.redis.decoder.hash.HashRedisDecoderModule;
+import com.facebook.presto.redis.decoder.zset.ZsetRedisDecoderModule;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 

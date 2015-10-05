@@ -20,8 +20,8 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 
-import static com.facebook.presto.cli.AlignedTablePrinter.formatValue;
 import static com.facebook.presto.cli.AlignedTablePrinter.consoleWidth;
+import static com.facebook.presto.cli.AlignedTablePrinter.formatValue;
 import static com.facebook.presto.cli.AlignedTablePrinter.maxLineLength;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.Math.max;
