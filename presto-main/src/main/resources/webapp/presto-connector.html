@@ -16,8 +16,19 @@
                 var fieldTypes = []
                 var fieldNames = []
                 for (var i = 0; i < columns.length; i++) {
+                    var columnType = columns[i].type;
+                    switch (columnType) {
+                        case 'boolean':
+                            columnType = 'bool';
+                            break;
+                        case 'bigint':
+                            columnType = 'int';
+                            break;
+                        default:
+                            columnType = 'string';
+                    }
                     fieldNames.push(columns[i].name);
-                    fieldTypes.push(columns[i].type);
+                    fieldTypes.push(columnType);
                 }
                 tableau.headersCallback(fieldNames, fieldTypes);
                 headersPushed = true;
