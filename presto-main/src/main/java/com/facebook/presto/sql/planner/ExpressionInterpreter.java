@@ -69,6 +69,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.util.Failures;
+import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
@@ -82,7 +83,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
@@ -117,7 +117,7 @@ public class ExpressionInterpreter
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
     private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
-    private final IdentityHashMap<InListExpression, Set<Object>> inListCache = new IdentityHashMap<>();
+    private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
     {
@@ -478,7 +478,7 @@ public class ExpressionInterpreter
             }
             InListExpression valueList = (InListExpression) valueListExpression;
 
-            Set<Object> set = inListCache.get(valueList);
+            Set<?> set = inListCache.get(valueList);
 
             // We use the presence of the node in the map to indicate that we've already done
             // the analysis below. If the value is null, it means that we can't apply the HashSet
@@ -486,10 +486,8 @@ public class ExpressionInterpreter
             if (!inListCache.containsKey(valueList)) {
                 if (Iterables.all(valueList.getValues(), ExpressionInterpreter::isNullLiteral)) {
                     // if all elements are constant, create a set with them
-                    set = new HashSet<>();
-                    for (Expression expression : valueList.getValues()) {
-                        set.add(process(expression, context));
-                    }
+                    Set objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
+                    set = FastutilSetHelper.toFastutilHashSet(objectSet, expressionTypes.get(node.getValue()), metadata.getFunctionRegistry());
                 }
                 inListCache.put(valueList, set);
             }

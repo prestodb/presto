@@ -18,7 +18,6 @@ import com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -34,6 +33,7 @@ import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.H
 import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
 import static com.facebook.presto.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
+import static org.testng.Assert.assertEquals;
 
 public class TestInCodeGenerator
 {
@@ -44,12 +44,10 @@ public class TestInCodeGenerator
         values.add(new ConstantExpression(1L, BIGINT));
         values.add(new ConstantExpression(2L, BIGINT));
         values.add(new ConstantExpression(3L, BIGINT));
-        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(BIGINT, values);
-        Assert.assertEquals(switchGenerationCase, DIRECT_SWITCH);
+        assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
 
         values.add(new ConstantExpression(null, BIGINT));
-        switchGenerationCase = checkSwitchGenerationCase(BIGINT, values);
-        Assert.assertEquals(switchGenerationCase, DIRECT_SWITCH);
+        assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
         values.add(new CallExpression(
                 new Signature(
                         CAST,
@@ -60,14 +58,12 @@ public class TestInCodeGenerator
                 BIGINT,
                 Collections.singletonList(new ConstantExpression(5.0D, DOUBLE))
         ));
-        switchGenerationCase = checkSwitchGenerationCase(BIGINT, values);
-        Assert.assertEquals(switchGenerationCase, DIRECT_SWITCH);
+        assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
 
         for  (int i = 6; i <= 1000; ++i) {
             values.add(new ConstantExpression(Long.valueOf(i), BIGINT));
         }
-        switchGenerationCase = checkSwitchGenerationCase(BIGINT, values);
-        Assert.assertEquals(switchGenerationCase, DIRECT_SWITCH);
+        assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
     }
 
     @Test
@@ -77,8 +73,7 @@ public class TestInCodeGenerator
         values.add(new ConstantExpression(1L, DATE));
         values.add(new ConstantExpression(2L, DATE));
         values.add(new ConstantExpression(3L, DATE));
-        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(DATE, values);
-        Assert.assertEquals(switchGenerationCase, DIRECT_SWITCH);
+        assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
     }
 
     @Test
@@ -88,18 +83,15 @@ public class TestInCodeGenerator
         values.add(new ConstantExpression(1.5D, DOUBLE));
         values.add(new ConstantExpression(2.5D, DOUBLE));
         values.add(new ConstantExpression(3.5D, DOUBLE));
-        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(DOUBLE, values);
-        Assert.assertEquals(switchGenerationCase, HASH_SWITCH);
+        assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
 
         values.add(new ConstantExpression(null, DOUBLE));
-        switchGenerationCase = checkSwitchGenerationCase(DOUBLE, values);
-        Assert.assertEquals(switchGenerationCase, HASH_SWITCH);
+        assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
 
         for  (int i = 5; i <= 1000; ++i) {
             values.add(new ConstantExpression(Double.valueOf(i + 0.5D), DOUBLE));
         }
-        switchGenerationCase = checkSwitchGenerationCase(DOUBLE, values);
-        Assert.assertEquals(switchGenerationCase, HASH_SWITCH);
+        assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
     }
 
     @Test
@@ -110,12 +102,11 @@ public class TestInCodeGenerator
             values.add(new ConstantExpression(Long.valueOf(i), BIGINT));
         }
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(BIGINT, values);
-        Assert.assertEquals(switchGenerationCase, SET_CONTAINS);
+        assertEquals(switchGenerationCase, SET_CONTAINS);
 
         for  (int i = 1; i <= 1001; ++i) {
             values.set(i - 1, new ConstantExpression(Double.valueOf(i + 0.5D), DOUBLE));
         }
-        switchGenerationCase = checkSwitchGenerationCase(BIGINT, values);
-        Assert.assertEquals(switchGenerationCase, SET_CONTAINS);
+        assertEquals(checkSwitchGenerationCase(BIGINT, values), SET_CONTAINS);
     }
 }

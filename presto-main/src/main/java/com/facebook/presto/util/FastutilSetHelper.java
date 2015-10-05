@@ -13,51 +13,52 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
+import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
-import it.unimi.dsi.fastutil.bytes.ByteOpenHashSet;
-import it.unimi.dsi.fastutil.chars.CharOpenHashSet;
-import it.unimi.dsi.fastutil.doubles.DoubleOpenHashSet;
-import it.unimi.dsi.fastutil.floats.FloatOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import it.unimi.dsi.fastutil.shorts.ShortOpenHashSet;
+import it.unimi.dsi.fastutil.doubles.DoubleHash;
+import it.unimi.dsi.fastutil.doubles.DoubleOpenCustomHashSet;
+import it.unimi.dsi.fastutil.longs.LongHash;
+import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.Collection;
 import java.util.Set;
+
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
+import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 
 public final class FastutilSetHelper
 {
     private FastutilSetHelper() {}
 
     @SuppressWarnings({"unchecked"})
-    public static Set<?> toFastutilHashSet(Set<?> set, Class<?> javaElementType)
+    public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionRegistry registry)
     {
+        Class<?> javaElementType = type.getJavaType();
+        if (javaElementType == long.class) {
+            return new LongOpenCustomHashSet((Collection<Long>) set, new LongStrategy(registry, type));
+        }
+        if (javaElementType == double.class) {
+            return new DoubleOpenCustomHashSet((Collection<Double>) set, new DoubleStrategy(registry, type));
+        }
         if (javaElementType == boolean.class) {
             return new BooleanOpenHashSet((Collection<Boolean>) set);
         }
-        if (javaElementType == byte.class) {
-            return new ByteOpenHashSet((Collection<Byte>) set);
+        else if (!type.getJavaType().isPrimitive()) {
+            return new ObjectOpenCustomHashSet(set, new ObjectStrategy(registry, type));
         }
-        if (javaElementType == char.class) {
-            return new CharOpenHashSet((Collection<Character>) set);
+        else {
+            throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
         }
-        if (javaElementType == double.class) {
-            return new DoubleOpenHashSet((Collection<Double>) set);
-        }
-        if (javaElementType == float.class) {
-            return new FloatOpenHashSet((Collection<Float>) set);
-        }
-        if (javaElementType == int.class) {
-            return new IntOpenHashSet((Collection<Integer>) set);
-        }
-        if (javaElementType == long.class) {
-            return new LongOpenHashSet((Collection<Long>) set);
-        }
-        if (javaElementType == short.class) {
-            return new ShortOpenHashSet((Collection<Short>) set);
-        }
-        return new ObjectOpenHashSet(set);
     }
 
     public static boolean in(boolean booleanValue, BooleanOpenHashSet set)
@@ -65,43 +66,139 @@ public final class FastutilSetHelper
         return set.contains(booleanValue);
     }
 
-    public static boolean in(byte byteValue, ByteOpenHashSet set)
-    {
-        return set.contains(byteValue);
-    }
-
-    public static boolean in(char charValue, CharOpenHashSet set)
-    {
-        return set.contains(charValue);
-    }
-
-    public static boolean in(double doubleValue, DoubleOpenHashSet set)
+    public static boolean in(double doubleValue, DoubleOpenCustomHashSet set)
     {
         return set.contains(doubleValue);
     }
 
-    public static boolean in(float floatValue, FloatOpenHashSet set)
-    {
-        return set.contains(floatValue);
-    }
-
-    public static boolean in(int intValue, IntOpenHashSet set)
-    {
-        return set.contains(intValue);
-    }
-
-    public static boolean in(long longValue, LongOpenHashSet set)
+    public static boolean in(long longValue, LongOpenCustomHashSet set)
     {
         return set.contains(longValue);
     }
 
-    public static boolean in(short shortValue, ShortOpenHashSet set)
-    {
-        return set.contains(shortValue);
-    }
-
-    public static boolean in(Object objectValue, ObjectOpenHashSet<?> set)
+    public static boolean in(Object objectValue, ObjectOpenCustomHashSet<?> set)
     {
         return set.contains(objectValue);
+    }
+
+    private static final class LongStrategy
+            implements LongHash.Strategy
+    {
+        private final MethodHandle hashCodeHandle;
+        private final MethodHandle equalsHandle;
+
+        private LongStrategy(FunctionRegistry registry, Type type)
+        {
+            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
+            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+        }
+
+        @Override
+        public int hashCode(long value)
+        {
+            try {
+                return Ints.checkedCast((long) hashCodeHandle.invokeExact(value));
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
+
+        @Override
+        public boolean equals(long a, long b)
+        {
+            try {
+                return (boolean) equalsHandle.invokeExact(a, b);
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
+    }
+
+    private static final class DoubleStrategy
+            implements DoubleHash.Strategy
+    {
+        private final MethodHandle hashCodeHandle;
+        private final MethodHandle equalsHandle;
+
+        private DoubleStrategy(FunctionRegistry registry, Type type)
+        {
+            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
+            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+        }
+
+        @Override
+        public int hashCode(double value)
+        {
+            try {
+                return Ints.checkedCast((long) hashCodeHandle.invokeExact(value));
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
+
+        @Override
+        public boolean equals(double a, double b)
+        {
+            try {
+                return (boolean) equalsHandle.invokeExact(a, b);
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
+    }
+
+    private static final class ObjectStrategy
+            implements Hash.Strategy
+    {
+        private final MethodHandle hashCodeHandle;
+        private final MethodHandle equalsHandle;
+
+        private ObjectStrategy(FunctionRegistry registry, Type type)
+        {
+            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type)))
+                    .getMethodHandle()
+                    .asType(MethodType.methodType(long.class, Object.class));
+            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type)))
+                    .getMethodHandle()
+                    .asType(MethodType.methodType(boolean.class, Object.class, Object.class));
+        }
+
+        @Override
+        public int hashCode(Object value)
+        {
+            try {
+                return Ints.checkedCast((long) hashCodeHandle.invokeExact(value));
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
+
+        @Override
+        public boolean equals(Object a, Object b)
+        {
+            try {
+                return (boolean) equalsHandle.invokeExact(a, b);
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+        }
     }
 }
