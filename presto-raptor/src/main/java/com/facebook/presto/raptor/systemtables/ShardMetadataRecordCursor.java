@@ -75,37 +75,30 @@ public class ShardMetadataRecordCursor
     private static final List<ColumnMetadata> COLUMNS = SHARD_METADATA.getColumns();
     private static final List<Type> TYPES = COLUMNS.stream().map(ColumnMetadata::getType).collect(toList());
 
-    private final MetadataDao metadataDao;
-    private final Iterator<Long> tableIds;
     private final IDBI dbi;
-    private final PreparedStatementBuilder preparedStatementBuilder;
+    private final MetadataDao metadataDao;
+
+    private final Iterator<Long> tableIds;
+    private final List<String> columnNames;
+    private final TupleDomain<Integer> tupleDomain;
+
+    private ResultSet resultSet;
+    private Connection connection;
+    private PreparedStatement statement;
     private final ResultSetValues resultSetValues;
 
     private boolean closed;
-    private Connection connection;
-    private PreparedStatement statement;
-    private ResultSet resultSet;
     private long completedBytes;
 
     public ShardMetadataRecordCursor(IDBI dbi, TupleDomain<Integer> tupleDomain)
     {
         requireNonNull(dbi, "dbi is null");
-        requireNonNull(tupleDomain, "tupleDomain is null");
-
         this.dbi = dbi;
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
-
+        this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.tableIds = getTableIds(metadataDao, tupleDomain);
-
-        List<String> columnNames = createQualifiedColumnName();
-        this.preparedStatementBuilder = new PreparedStatementBuilder(
-                constructSqlTemplate(columnNames),
-                columnNames,
-                TYPES,
-                ImmutableList.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
-                tupleDomain);
+        this.columnNames = createQualifiedColumnNames();
         this.resultSetValues = new ResultSetValues(TYPES);
-
         this.resultSet = getNextResultSet();
     }
 
@@ -127,7 +120,7 @@ public class ShardMetadataRecordCursor
         return sql.toString();
     }
 
-    private static List<String> createQualifiedColumnName()
+    private static List<String> createQualifiedColumnNames()
     {
         return ImmutableList.<String>builder()
                 .add("tables.schema_name")
@@ -271,7 +264,13 @@ public class ShardMetadataRecordCursor
 
         try {
             connection = dbi.open().getConnection();
-            statement = preparedStatementBuilder.create(connection, minColumn, maxColumn, shardIndexTable(tableId));
+            statement = PreparedStatementBuilder.create(
+                    connection,
+                    constructSqlTemplate(columnNames, shardIndexTable(tableId)),
+                    columnNames,
+                    TYPES,
+                    ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
+                    tupleDomain);
             return statement.executeQuery();
         }
         catch (SQLException e) {
