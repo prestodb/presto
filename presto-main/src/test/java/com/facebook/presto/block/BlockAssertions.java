@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.util.Objects.requireNonNull;
@@ -209,6 +210,15 @@ public final class BlockAssertions
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(length);
         for (int i = 0; i < length; i++) {
             BIGINT.writeLong(builder, value);
+        }
+        return builder.build();
+    }
+
+    public static Block createTimestampsWithTimezoneBlock(Long... values)
+    {
+        BlockBuilder builder = TIMESTAMP_WITH_TIME_ZONE.createFixedSizeBlockBuilder(values.length);
+        for (long value : values) {
+            TIMESTAMP_WITH_TIME_ZONE.writeLong(builder, value);
         }
         return builder.build();
     }

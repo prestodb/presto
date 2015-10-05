@@ -88,7 +88,7 @@ public class ByteCodeExpressionVisitor
                     break;
                 // functions that require varargs and/or complex types (e.g., lists)
                 case IN:
-                    generator = new InCodeGenerator();
+                    generator = new InCodeGenerator(registry);
                     break;
                 // optimized implementations (shortcircuiting behavior)
                 case "AND":

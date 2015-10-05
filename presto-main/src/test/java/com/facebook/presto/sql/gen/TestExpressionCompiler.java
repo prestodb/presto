@@ -23,17 +23,14 @@ import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.Extract.Field;
 import com.facebook.presto.type.LikeFunctions;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ContiguousSet;
-import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -45,6 +42,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeMethod;
@@ -69,15 +67,17 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertTrue;
 
@@ -181,6 +181,7 @@ public class TestExpressionCompiler
         assertExecute("bound_timestamp", BIGINT, new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
         assertExecute("bound_pattern", VARCHAR, "%el%");
         assertExecute("bound_null_string", VARCHAR, null);
+        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")));
 
         // todo enable when null output type is supported
         // assertExecute("null", null);
@@ -851,17 +852,29 @@ public class TestExpressionCompiler
     public void testHugeIn()
             throws Exception
     {
-        ContiguousSet<Integer> longValues = ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers());
-        assertExecute("bound_long in (1234, " + Joiner.on(", ").join(longValues) + ")", BOOLEAN, true);
-        assertExecute("bound_long in (" + Joiner.on(", ").join(longValues) + ")", BOOLEAN, false);
+        String longValues = range(2000, 7000).asLongStream()
+                .mapToObj(Long::toString)
+                .collect(joining(", "));
+        assertExecute("bound_long in (1234, " + longValues + ")", BOOLEAN, true);
+        assertExecute("bound_long in (" + longValues + ")", BOOLEAN, false);
 
-        Iterable<Object> doubleValues = transform(ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers()), i -> (double) i);
-        assertExecute("bound_double in (12.34, " + Joiner.on(", ").join(doubleValues) + ")", BOOLEAN, true);
-        assertExecute("bound_double in (" + Joiner.on(", ").join(doubleValues) + ")", BOOLEAN, false);
+        String doubleValues = range(2000, 7000).asDoubleStream()
+                .mapToObj(Double::toString)
+                .collect(joining(", "));
+        assertExecute("bound_double in (12.34, " + doubleValues + ")", BOOLEAN, true);
+        assertExecute("bound_double in (" + doubleValues + ")", BOOLEAN, false);
 
-        Iterable<Object> stringValues = transform(ContiguousSet.create(Range.openClosed(2000, 7000), DiscreteDomain.integers()), i -> "'" + i + "'");
-        assertExecute("bound_string in ('hello', " + Joiner.on(", ").join(stringValues) + ")", BOOLEAN, true);
-        assertExecute("bound_string in (" + Joiner.on(", ").join(stringValues) + ")", BOOLEAN, false);
+        String stringValues = range(2000, 7000).asLongStream()
+                .mapToObj(i -> format("'%s'", i))
+                .collect(joining(", "));
+        assertExecute("bound_string in ('hello', " + stringValues + ")", BOOLEAN, true);
+        assertExecute("bound_string in (" + stringValues + ")", BOOLEAN, false);
+
+        String timestampValues = range(0, 2_000).asLongStream()
+                .mapToObj(i -> format("TIMESTAMP '1970-01-01 01:01:0%s.%s+01:00'", i / 1000, i % 1000))
+                .collect(joining(", "));
+        assertExecute("bound_timestamp_with_timezone in (" + timestampValues + ")", BOOLEAN, true);
+        assertExecute("bound_timestamp_with_timezone in (TIMESTAMP '1970-01-01 01:01:00.0+02:00')", BOOLEAN, false);
 
         Futures.allAsList(futures).get();
     }
@@ -1230,7 +1243,7 @@ public class TestExpressionCompiler
         ImmutableList.Builder<String> expressions = ImmutableList.builder();
         Set<List<String>> valueLists = Sets.cartesianProduct(unrolledValues);
         for (List<String> valueList : valueLists) {
-            expressions.add(String.format(expressionPattern, valueList.toArray(new Object[valueList.size()])));
+            expressions.add(format(expressionPattern, valueList.toArray(new Object[valueList.size()])));
         }
         return expressions.build();
     }

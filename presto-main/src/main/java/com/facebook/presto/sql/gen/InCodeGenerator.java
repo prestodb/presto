@@ -20,6 +20,7 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
 import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.BigintType;
@@ -52,10 +53,18 @@ import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
 import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
+import static java.util.Objects.requireNonNull;
 
 public class InCodeGenerator
         implements ByteCodeGenerator
 {
+    private final FunctionRegistry registry;
+
+    public InCodeGenerator(FunctionRegistry registry)
+    {
+        this.registry = requireNonNull(registry, "registry is null");
+    }
+
     enum SwitchGenerationCase
     {
         DIRECT_SWITCH,
@@ -198,7 +207,7 @@ public class InCodeGenerator
                         .append(switchCaseBlocks);
                 break;
             case SET_CONTAINS:
-                Set<?> constantValuesSet = toFastutilHashSet(constantValues, javaType);
+                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, registry);
                 Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
                 switchBlock = new ByteCodeBlock()
