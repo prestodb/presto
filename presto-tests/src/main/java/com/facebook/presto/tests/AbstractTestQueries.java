@@ -933,6 +933,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByComplexMap()
+            throws Exception
+    {
+        assertQuery("SELECT MAP_KEYS(x)[1] FROM (VALUES MAP(ARRAY['a'], ARRAY[ARRAY[1]]), MAP(ARRAY['b'], ARRAY[ARRAY[2]])) t(x) GROUP BY x", "SELECT * FROM (VALUES 'a', 'b')");
+    }
+
+    @Test
     public void testGroupByRow()
             throws Exception
     {

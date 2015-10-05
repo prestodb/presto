@@ -81,6 +81,9 @@ public final class TypeUtils
             else if (type.getJavaType() == Slice.class) {
                 return (long) methodHandle.invoke(type.getSlice(block, position));
             }
+            else if (!type.getJavaType().isPrimitive()) {
+                return (long) methodHandle.invoke(type.getObject(block, position));
+            }
             else {
                 throw new UnsupportedOperationException("Unsupported native container type: " + type.getJavaType() + " with type " + type.getTypeSignature());
             }
