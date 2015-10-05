@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.systemtables;
 
 import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
@@ -33,6 +32,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -96,7 +96,7 @@ public class ShardMetadataRecordCursor
         this.dbi = dbi;
         this.metadataDao = onDemandDao(dbi, MetadataDao.class);
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-        this.tableIds = getTableIds(metadataDao, tupleDomain);
+        this.tableIds = getTableIds(dbi, tupleDomain);
         this.columnNames = createQualifiedColumnNames();
         this.resultSetValues = new ResultSetValues(TYPES);
         this.resultSet = getNextResultSet();
@@ -280,36 +280,37 @@ public class ShardMetadataRecordCursor
     }
 
     @VisibleForTesting
-    static Iterator<Long> getTableIds(MetadataDao metadataDao, TupleDomain<Integer> tupleDomain)
+    static Iterator<Long> getTableIds(IDBI dbi, TupleDomain<Integer> tupleDomain)
     {
-        List<Long> tableIds = metadataDao.listTableIds();
-        if (tupleDomain.isNone()) {
-            return tableIds.iterator();
-        }
-
         Domain schemaNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, SCHEMA_NAME));
         Domain tableNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, TABLE_NAME));
 
-        if (tableNameDomain != null && tableNameDomain.isSingleValue()) {
-            String tableName = getStringValue(tableNameDomain.getSingleValue());
-
-            if (schemaNameDomain == null) {
-                List<Table> tables = metadataDao.getTableInformation(tableName);
-                if (tables == null) {
-                    return ImmutableList.<Long>of().iterator();
-                }
-                tableIds = tables.stream().map(Table::getTableId).collect(toList());
+        StringBuilder sql = new StringBuilder("SELECT table_id FROM tables ");
+        if (schemaNameDomain != null || tableNameDomain != null) {
+            sql.append("WHERE ");
+            List<String> predicates = new ArrayList<>();
+            if (tableNameDomain != null && tableNameDomain.isSingleValue()) {
+                predicates.add(format("table_name = '%s'", getStringValue(tableNameDomain.getSingleValue())));
             }
-            else if (schemaNameDomain.isSingleValue()) {
-                String schemaName = getStringValue(schemaNameDomain.getSingleValue());
-                Table table = metadataDao.getTableInformation(schemaName, tableName);
-                if (table == null) {
-                    return ImmutableList.<Long>of().iterator();
-                }
-                tableIds = ImmutableList.of(table.getTableId());
+            if (schemaNameDomain != null && schemaNameDomain.isSingleValue()) {
+                predicates.add(format("schema_name = '%s'", getStringValue(schemaNameDomain.getSingleValue())));
+            }
+            sql.append(Joiner.on(" AND ").join(predicates));
+        }
+
+        System.out.println(sql.toString());
+        ImmutableList.Builder<Long> tableIds = ImmutableList.builder();
+        try (Connection connection = dbi.open().getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql.toString())) {
+            while (resultSet.next()) {
+                tableIds.add(resultSet.getLong("table_id"));
             }
         }
-        return tableIds.iterator();
+        catch (SQLException e) {
+            throw metadataError(e);
+        }
+        return tableIds.build().iterator();
     }
 
     private static int getColumnIndex(ConnectorTableMetadata tableMetadata, String columnName)
