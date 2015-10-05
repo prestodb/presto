@@ -52,6 +52,7 @@
                                     <goal>unpack</goal>
                                 </goals>
                                 <configuration>
+                                    <skip>false</skip>
                                     <artifactItems>
                                         <artifactItem>
                                             <groupId>com.facebook.presto</groupId>
