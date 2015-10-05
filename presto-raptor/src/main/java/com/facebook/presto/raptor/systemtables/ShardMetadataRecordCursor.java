@@ -22,6 +22,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -279,14 +280,15 @@ public class ShardMetadataRecordCursor
         }
     }
 
-    private static Iterator<Long> getTableIds(MetadataDao metadataDao, TupleDomain<Integer> tupleDomain)
+    @VisibleForTesting
+    static Iterator<Long> getTableIds(MetadataDao metadataDao, TupleDomain<Integer> tupleDomain)
     {
         List<Long> tableIds = metadataDao.listTableIds();
         if (tupleDomain.isNone()) {
             return tableIds.iterator();
         }
 
-        Domain schemaNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, SHARD_UUID));
+        Domain schemaNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, SCHEMA_NAME));
         Domain tableNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, TABLE_NAME));
 
         if (tableNameDomain != null && tableNameDomain.isSingleValue()) {
