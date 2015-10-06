@@ -38,6 +38,7 @@ import com.google.common.collect.Maps;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
+import static com.facebook.presto.sql.ExpressionUtils.isIdenticalComparison;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -99,6 +100,9 @@ public class SimplifyExpressions
             PlanNode source = context.rewrite(node.getSource());
             Expression simplified = simplifyExpression(node.getPredicate());
             if (simplified.equals(TRUE_LITERAL)) {
+                return source;
+            }
+            else if (isIdenticalComparison(simplified)) {
                 return source;
             }
             // TODO: this needs to check whether the boolean expression coerces to false in a more general way.
