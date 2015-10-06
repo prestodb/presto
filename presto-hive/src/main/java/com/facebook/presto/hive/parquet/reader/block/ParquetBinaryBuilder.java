@@ -36,10 +36,13 @@ public class ParquetBinaryBuilder
         for (int i = 0; i < valueNumber; i++) {
             if (definitionReader.readLevel() == descriptor.getMaxDefinitionLevel()) {
                 Binary binary = valuesReader.readBytes();
-                if (binary.length() != 0) {
-                    VARCHAR.writeSlice(blockBuilder, Slices.wrappedBuffer(binary.getBytes()));
-                    continue;
+                if (binary.length() == 0) {
+                    VARCHAR.writeSlice(blockBuilder, Slices.EMPTY_SLICE);
                 }
+                else {
+                    VARCHAR.writeSlice(blockBuilder, Slices.wrappedBuffer(binary.getBytes()));
+                }
+                continue;
             }
             blockBuilder.appendNull();
         }
