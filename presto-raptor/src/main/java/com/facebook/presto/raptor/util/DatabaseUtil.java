@@ -36,8 +36,11 @@ public final class DatabaseUtil
                 T dao = handle.attach(daoType);
                 return method.invoke(dao, args);
             }
-            catch (DBIException | InvocationTargetException e) {
+            catch (DBIException e) {
                 throw metadataError(e);
+            }
+            catch (InvocationTargetException e) {
+                throw metadataError(e.getCause());
             }
         });
     }
