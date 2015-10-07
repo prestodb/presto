@@ -159,18 +159,6 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void replaceShardIds(long tableId, List<ColumnInfo> columns, Set<Long> oldShardIds, Collection<ShardInfo> newShards)
-    {
-        Map<String, Integer> nodeIds = toNodeIdMap(newShards);
-
-        runTransaction(dbi, (handle, status) -> {
-            insertShardsAndIndex(tableId, columns, newShards, nodeIds, handle);
-            deleteShardsAndIndex(tableId, oldShardIds, handle);
-            return null;
-        });
-    }
-
-    @Override
     public void replaceShardUuids(long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards)
     {
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
