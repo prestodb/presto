@@ -78,8 +78,9 @@ public class BlackHoleMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
-        checkArgument(schemaNameOrNull == null || schemaNameOrNull.equals(SCHEMA_NAME),
-                "Only '%s' schema is supported", SCHEMA_NAME);
+        if (schemaNameOrNull != null && !schemaNameOrNull.equals(SCHEMA_NAME)) {
+            return ImmutableList.of();
+        }
         return tables.values().stream()
                 .map(BlackHoleTableHandle::toSchemaTableName)
                 .collect(toList());
