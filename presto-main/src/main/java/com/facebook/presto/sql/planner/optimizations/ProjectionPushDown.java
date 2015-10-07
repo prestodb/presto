@@ -125,10 +125,22 @@ public class ProjectionPushDown
                     projections.put(exchange.getHashSymbol().get(), exchange.getHashSymbol().get().toQualifiedNameReference());
                 }
                 for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
-                    projections.put(projection.getKey(), translateExpression(projection.getValue(), outputToInputMap));
+                    Expression translatedExpression = translateExpression(projection.getValue(), outputToInputMap);
+                    Type type = symbolAllocator.getTypes().get(projection.getKey());
+                    projections.put(symbolAllocator.newSymbol(translatedExpression, type), translatedExpression);
                 }
                 newSourceBuilder.add(new ProjectNode(idAllocator.getNextId(), exchange.getSources().get(i), projections));
             }
+
+            // Construct the output symbols in the same order as the sources
+            ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
+            if (exchange.getHashSymbol().isPresent()) {
+                outputBuilder.add(exchange.getHashSymbol().get());
+            }
+            for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
+                outputBuilder.add(projection.getKey());
+            }
+
             List<PlanNode> newSources = newSourceBuilder.build();
             return new ExchangeNode(
                     exchange.getId(),
@@ -136,7 +148,7 @@ public class ProjectionPushDown
                     exchange.getPartitionKeys(),
                     exchange.getHashSymbol(),
                     newSources,
-                    newSources.get(0).getOutputSymbols(), // All sources will have same output symbols
+                    outputBuilder.build(),
                     newSources.stream()
                             .map(PlanNode::getOutputSymbols)
                             .collect(ImmutableCollectors.toImmutableList()));
