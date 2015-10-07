@@ -31,13 +31,13 @@ public final class BlackHoleTableHandle
     private final String schemaName;
     private final String tableName;
     private final List<BlackHoleColumnHandle> columnHandles;
-    private final int splitsCount;
+    private final int splitCount;
     private final int pagesPerSplit;
     private final int rowsPerPage;
 
     public BlackHoleTableHandle(
             ConnectorTableMetadata tableMetadata,
-            int splitsCount,
+            int splitCount,
             int pagesPerSplit,
             int rowsPerPage)
     {
@@ -46,7 +46,7 @@ public final class BlackHoleTableHandle
                 tableMetadata.getColumns().stream()
                         .map(BlackHoleColumnHandle::new)
                         .collect(toList()),
-                splitsCount,
+                splitCount,
                 pagesPerSplit,
                 rowsPerPage);
     }
@@ -56,14 +56,14 @@ public final class BlackHoleTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<BlackHoleColumnHandle> columnHandles,
-            @JsonProperty("splitsCount") int splitsCount,
+            @JsonProperty("splitCount") int splitCount,
             @JsonProperty("pagesPerSplit") int pagesPerSplit,
             @JsonProperty("rowsPerPage") int rowsPerPage)
     {
         this.schemaName = schemaName;
         this.tableName = tableName;
         this.columnHandles = columnHandles;
-        this.splitsCount = splitsCount;
+        this.splitCount = splitCount;
         this.pagesPerSplit = pagesPerSplit;
         this.rowsPerPage = rowsPerPage;
     }
@@ -87,9 +87,9 @@ public final class BlackHoleTableHandle
     }
 
     @JsonProperty
-    public int getSplitsCount()
+    public int getSplitCount()
     {
-        return splitsCount;
+        return splitCount;
     }
 
     @JsonProperty
