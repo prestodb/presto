@@ -22,6 +22,7 @@ import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -48,7 +49,7 @@ final class OrcTestingUtil
     public static OrcRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, new OrcMetadataReader());
+        OrcReader orcReader = new OrcReader(dataSource, new OrcMetadataReader(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
@@ -67,7 +68,7 @@ final class OrcTestingUtil
     public static OrcRecordReader createReaderNoRows(OrcDataSource dataSource)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, new OrcMetadataReader());
+        OrcReader orcReader = new OrcReader(dataSource, new OrcMetadataReader(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
 
         assertEquals(orcReader.getColumnNames().size(), 0);
 
