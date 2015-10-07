@@ -51,7 +51,7 @@ The above query will always return ``0``.
 Create a table with constant number of rows::
 
     CREATE TABLE blackhole.test.nation WITH
-        (splits_count = 500,
+        (split_count = 500,
          pages_per_split = 1000,
          rows_per_page = 2000)
     AS SELECT * from tpch.tiny.nation;

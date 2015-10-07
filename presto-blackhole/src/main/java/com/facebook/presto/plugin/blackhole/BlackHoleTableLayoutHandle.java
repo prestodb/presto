@@ -23,25 +23,25 @@ import java.util.Objects;
 public final class BlackHoleTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
-    private final int splitsCount;
+    private final int splitCount;
     private final int pagesPerSplit;
     private final int rowsPerPage;
 
     @JsonCreator
     public BlackHoleTableLayoutHandle(
-            @JsonProperty("splitsCount") int splitsCount,
+            @JsonProperty("splitCount") int splitCount,
             @JsonProperty("pagesPerSplit") int pagesPerSplit,
             @JsonProperty("rowsPerPage") int rowsPerPage)
     {
-        this.splitsCount = splitsCount;
+        this.splitCount = splitCount;
         this.pagesPerSplit = pagesPerSplit;
         this.rowsPerPage = rowsPerPage;
     }
 
     @JsonProperty
-    public int getSplitsCount()
+    public int getSplitCount()
     {
-        return splitsCount;
+        return splitCount;
     }
 
     @JsonProperty
@@ -59,7 +59,7 @@ public final class BlackHoleTableLayoutHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSplitsCount(), getPagesPerSplit(), getRowsPerPage());
+        return Objects.hash(getSplitCount(), getPagesPerSplit(), getRowsPerPage());
     }
 
     @Override
@@ -72,7 +72,7 @@ public final class BlackHoleTableLayoutHandle
             return false;
         }
         BlackHoleTableLayoutHandle other = (BlackHoleTableLayoutHandle) obj;
-        return Objects.equals(this.getSplitsCount(), other.getSplitsCount()) &&
+        return Objects.equals(this.getSplitCount(), other.getSplitCount()) &&
                 Objects.equals(this.getPagesPerSplit(), other.getPagesPerSplit()) &&
                 Objects.equals(this.getRowsPerPage(), other.getRowsPerPage());
     }

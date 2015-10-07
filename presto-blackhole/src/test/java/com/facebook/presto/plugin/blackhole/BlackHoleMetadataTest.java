@@ -31,7 +31,7 @@ public class BlackHoleMetadataTest
 {
     private final BlackHoleMetadata metadata = new BlackHoleMetadata();
     private final Map<String, Object> tableProperties = ImmutableMap.of(
-            BlackHoleConnector.SPLITS_COUNT_PROPERTY, 0,
+            BlackHoleConnector.SPLIT_COUNT_PROPERTY, 0,
             BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY, 0,
             BlackHoleConnector.ROWS_PER_PAGE_PROPERTY, 0);
 

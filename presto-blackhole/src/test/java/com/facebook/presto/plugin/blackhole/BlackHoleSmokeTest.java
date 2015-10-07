@@ -32,7 +32,7 @@ import java.util.List;
 
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
-import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLITS_COUNT_PROPERTY;
+import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.lang.String.format;
@@ -129,7 +129,7 @@ public class BlackHoleSmokeTest
             assertThatQueryReturnsValue(
                     format("CREATE TABLE nation WITH ( %s = 3, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
                             ROWS_PER_PAGE_PROPERTY,
-                            SPLITS_COUNT_PROPERTY),
+                            SPLIT_COUNT_PROPERTY),
                     25L,
                     session);
             fail("Expected exception to be thrown here!");
@@ -151,7 +151,7 @@ public class BlackHoleSmokeTest
                 format("CREATE TABLE nation WITH ( %s = 3, %s = 2, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,
-                        SPLITS_COUNT_PROPERTY),
+                        SPLIT_COUNT_PROPERTY),
                 25L,
                 session);
         assertThatQueryReturnsValue("SELECT count(*) FROM nation", 6L, session);
