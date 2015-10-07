@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TupleDomain;
@@ -44,7 +45,9 @@ import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_P
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleInsertTableHandle.BLACK_HOLE_INSERT_TABLE_HANDLE;
 import static com.facebook.presto.plugin.blackhole.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.text.MessageFormat.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -148,13 +151,21 @@ public class BlackHoleMetadata
         int pagesPerSplit = (Integer) tableMetadata.getProperties().get(PAGES_PER_SPLIT_PROPERTY);
         int rowsPerPage = (Integer) tableMetadata.getProperties().get(ROWS_PER_PAGE_PROPERTY);
 
-        checkArgument(
-                (splitCount > 0 && pagesPerSplit > 0 && rowsPerPage > 0) ||
-                        (splitCount == 0 && pagesPerSplit == 0 && rowsPerPage == 0),
-                "You have to set all of the properties [%s, %s and %s] or none",
-                SPLIT_COUNT_PROPERTY,
-                PAGES_PER_SPLIT_PROPERTY,
-                ROWS_PER_PAGE_PROPERTY);
+        if (splitCount < 0) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, SPLIT_COUNT_PROPERTY + " property is negative");
+        }
+        if (pagesPerSplit < 0) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, PAGES_PER_SPLIT_PROPERTY + " property is negative");
+        }
+        if (rowsPerPage < 0) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, ROWS_PER_PAGE_PROPERTY + " property is negative");
+        }
+
+        if (((splitCount > 0) || (pagesPerSplit > 0) || (rowsPerPage > 0)) &&
+                ((splitCount == 0) || (pagesPerSplit == 0) || (rowsPerPage == 0))) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("All properties [%s, %s, %s] must be set if any are set",
+                    SPLIT_COUNT_PROPERTY, PAGES_PER_SPLIT_PROPERTY, ROWS_PER_PAGE_PROPERTY));
+        }
 
         return new BlackHoleOutputTableHandle(new BlackHoleTableHandle(
                 tableMetadata,
