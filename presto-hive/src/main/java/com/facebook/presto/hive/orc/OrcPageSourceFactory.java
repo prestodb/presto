@@ -149,7 +149,7 @@ public class OrcPageSourceFactory
         OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
 
         try {
-            OrcReader reader = new OrcReader(orcDataSource, metadataReader);
+            OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize);
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
                     predicate,
