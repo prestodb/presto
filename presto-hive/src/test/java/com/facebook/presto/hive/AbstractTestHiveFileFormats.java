@@ -234,6 +234,28 @@ public abstract class AbstractTestHiveFileFormats
                     ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)), Arrays.asList(null, null), rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), null, null)))
             .add(new TestColumn("t_struct_non_nulls_after_nulls", getStandardStructObjectInspector(ImmutableList.of("struct_field1", "struct_field2"),
                     ImmutableList.of(javaIntObjectInspector, javaStringObjectInspector)), Arrays.asList(null, "some string"), rowBlockOf(ImmutableList.of(BIGINT, VARCHAR), null, "some string")))
+            .add(new TestColumn("t_nested_struct_non_nulls_after_nulls",
+                    getStandardStructObjectInspector(
+                            ImmutableList.of("struct_field1", "struct_field2", "strict_field3"),
+                            ImmutableList.of(
+                                    javaIntObjectInspector,
+                                    javaStringObjectInspector,
+                                    getStandardStructObjectInspector(
+                                            ImmutableList.of("nested_struct_field1", "nested_struct_field2"),
+                                            ImmutableList.of(javaIntObjectInspector, javaStringObjectInspector)
+                                    )
+                            )
+                    ),
+                    Arrays.asList(null, "some string", Arrays.asList(null, "nested_string2")),
+                    rowBlockOf(
+                            ImmutableList.of(
+                                    BIGINT,
+                                    VARCHAR,
+                                    new RowType(ImmutableList.of(BIGINT, VARCHAR), Optional.empty())
+                            ),
+                            null, "some string", rowBlockOf(ImmutableList.of(BIGINT, VARCHAR), null, "nested_string2")
+                    )
+            ))
             .build();
 
     private static Map<Integer, Integer> mapWithNullKey()
