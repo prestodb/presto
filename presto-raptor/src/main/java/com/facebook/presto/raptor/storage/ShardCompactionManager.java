@@ -95,7 +95,7 @@ public class ShardCompactionManager
     private final AtomicBoolean shutdown = new AtomicBoolean();
 
     // Tracks shards that are scheduled for compaction so that we do not schedule them more than once
-    private final Set<Long> shardsInProgress = newConcurrentHashSet();
+    private final Set<UUID> shardsInProgress = newConcurrentHashSet();
     private final BlockingQueue<CompactionSet> compactionQueue = new LinkedBlockingQueue<>();
 
     private final MetadataDao metadataDao;
@@ -225,7 +225,7 @@ public class ShardCompactionManager
 
             Set<ShardMetadata> shards = shardMetadata.stream()
                     .filter(this::needsCompaction)
-                    .filter(shard -> !shardsInProgress.contains(shard.getShardId()))
+                    .filter(shard -> !shardsInProgress.contains(shard.getShardUuid()))
                     .collect(toSet());
 
             if (shards.size() <= 1) {
@@ -310,7 +310,7 @@ public class ShardCompactionManager
             }
 
             compactionSet.getShardsToCompact().stream()
-                    .map(ShardMetadata::getShardId)
+                    .map(ShardMetadata::getShardUuid)
                     .forEach(shardsInProgress::add);
 
             compactionQueue.add(compactionSet);
@@ -370,7 +370,6 @@ public class ShardCompactionManager
         public void run()
         {
             Set<UUID> shardUuids = compactionSet.getShardsToCompact().stream().map(ShardMetadata::getShardUuid).collect(toSet());
-            Set<Long> shardIds = compactionSet.getShardsToCompact().stream().map(ShardMetadata::getShardId).collect(toSet());
 
             try {
                 TableMetadata tableMetadata = getTableMetadata(compactionSet.getTableId());
@@ -381,7 +380,7 @@ public class ShardCompactionManager
                 throw Throwables.propagate(e);
             }
             finally {
-                shardsInProgress.removeAll(shardIds);
+                shardsInProgress.removeAll(shardUuids);
             }
         }
 
