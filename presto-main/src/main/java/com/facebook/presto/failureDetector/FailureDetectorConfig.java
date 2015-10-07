@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 public class FailureDetectorConfig
 {
     private boolean enabled = true;
-    private double failureRatioThreshold = 0.01; // 1% failure rate
+    private double failureRatioThreshold = 0.1; // ~6secs of failures, given default setting of heartbeatInterval = 500ms
     private Duration heartbeatInterval = new Duration(500, TimeUnit.MILLISECONDS);
     private Duration warmupInterval = new Duration(5, TimeUnit.SECONDS);
     private Duration expirationGraceInterval = new Duration(10, TimeUnit.MINUTES);
