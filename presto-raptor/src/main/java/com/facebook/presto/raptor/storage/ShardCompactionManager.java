@@ -375,7 +375,7 @@ public class ShardCompactionManager
             try {
                 TableMetadata tableMetadata = getTableMetadata(compactionSet.getTableId());
                 List<ShardInfo> newShards = performCompaction(shardUuids, tableMetadata);
-                shardManager.replaceShardIds(tableMetadata.getTableId(), tableMetadata.getColumns(), shardIds, newShards);
+                shardManager.replaceShardUuids(tableMetadata.getTableId(), tableMetadata.getColumns(), shardUuids, newShards);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);

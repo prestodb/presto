@@ -37,11 +37,6 @@ public interface ShardManager
     void commitShards(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId);
 
     /**
-     * Replace oldShardsIds with newShards.
-     */
-    void replaceShardIds(long tableId, List<ColumnInfo> columns, Set<Long> oldShardIds, Collection<ShardInfo> newShards);
-
-    /**
      * Replace oldShardsUuids with newShards.
      */
     void replaceShardUuids(long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards);
