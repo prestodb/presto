@@ -102,7 +102,7 @@ public class QueryExecutionResource
                     }
                 }
 
-                long last = System.currentTimeMillis();
+                long last = TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
                 if (task.getStats().getEndTime() != null) {
                     last = task.getStats().getEndTime().getMillis();
                 }
