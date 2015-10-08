@@ -507,8 +507,8 @@ public class ExpressionInterpreter
             // the analysis below. If the value is null, it means that we can't apply the HashSet
             // optimization
             if (!inListCache.containsKey(valueList)) {
-                if (Iterables.all(valueList.getValues(), ExpressionInterpreter::isNullLiteral)) {
-                    // if all elements are constant, create a set with them
+                if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
+                        valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
                     Set objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
                     set = FastutilSetHelper.toFastutilHashSet(objectSet, expressionTypes.get(node.getValue()), metadata.getFunctionRegistry());
                 }
@@ -1051,11 +1051,6 @@ public class ExpressionInterpreter
         FunctionCall failureFunction = new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(jsonParse));
 
         return new Cast(failureFunction, type.getTypeSignature().toString());
-    }
-
-    private static boolean isNullLiteral(Expression entry)
-    {
-        return entry instanceof Literal && !(entry instanceof NullLiteral);
     }
 
     private static boolean isArray(Type type)
