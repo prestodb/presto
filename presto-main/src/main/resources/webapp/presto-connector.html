@@ -8,129 +8,119 @@
     <script src="presto-client.js" type="text/javascript"></script>
 
     <script type="text/javascript">
-    (function() {
+    var headersPushed = false;
+    var statementClient = null;
+    var getTableDataCalled = false;
+    var buffer = [];
+    var schema = null;
+    var prestoWebConnector = tableau.makeConnector();
 
-        function pushHeadersToTableau(columns) {
-            tableau.log('pushHeadersToTableau called');
-            if (columns && !headersPushed) {
-                schema = columns;
-                var fieldTypes = []
-                var fieldNames = []
-                for (var i = 0; i < columns.length; i++) {
-                    var columnType = columns[i].type;
-                    switch (columnType) {
-                        case 'boolean':
-                            columnType = 'bool';
-                            break;
-                        case 'bigint':
-                            columnType = 'int';
-                            break;
-                        default:
-                            columnType = 'string';
-                    }
-                    fieldNames.push(columns[i].name);
-                    fieldTypes.push(columnType);
+    function pushHeadersToTableau(columns) {
+        tableau.log('pushHeadersToTableau called');
+        if (columns && !headersPushed) {
+            schema = columns;
+            var fieldTypes = []
+            var fieldNames = []
+            for (var i = 0; i < columns.length; i++) {
+                var columnType = columns[i].type;
+                switch (columnType) {
+                    case 'boolean':
+                        columnType = 'bool';
+                        break;
+                    case 'bigint':
+                        columnType = 'int';
+                        break;
+                    default:
+                        columnType = 'string';
                 }
-                tableau.headersCallback(fieldNames, fieldTypes);
-                headersPushed = true;
-                tableau.log('pushHeadersToTableau done');
+                fieldNames.push(columns[i].name);
+                fieldTypes.push(columnType);
             }
+            tableau.headersCallback(fieldNames, fieldTypes);
+            headersPushed = true;
+            tableau.log('pushHeadersToTableau done');
         }
+    }
 
-        function isComplexType(typeName) {
-            return (typeName.indexOf('map') === 0) || (typeName.indexOf('array') === 0) || (typeName.indexOf('row') === 0);
-        }
+    function isComplexType(typeName) {
+        return (typeName.indexOf('map') === 0) ||
+               (typeName.indexOf('array') === 0) ||
+               (typeName.indexOf('row') === 0);
+    }
 
-        function pushDataToTableau(data, columns, lastRecordNumber) {
-            tableau.log('pushDataToTableau called ' + data.length);
-            if(data.length > 0) {
-                if(!getTableDataCalled) {
-                    buffer.push(data);
-                    return;
-                } else {
-                    var tableauData = [];
-                    for (var i = 0; i < data.length; i++) {
-                        var dataArray = data[i];
-                        var row = new Object();
-                        for (var j = 0; j < columns.length; j++) {
-                            //since Tableau doesn't support complex types convert them to json strings
-                            //so at least they get rendered
-                            if (isComplexType(columns[j].type)) {
-                                row[columns[j].name] = JSON.stringify(dataArray[j]);
-                            } else {
-                                row[columns[j].name] = dataArray[j];
-                            }
+    function pushDataToTableau(data, columns, lastRecordNumber) {
+        tableau.log('pushDataToTableau called ' + data.length);
+        if(data.length > 0) {
+            if(!getTableDataCalled) {
+                buffer.push(data);
+                return;
+            } else {
+                var tableauData = [];
+                for (var i = 0; i < data.length; i++) {
+                    var dataArray = data[i];
+                    var row = new Object();
+                    for (var j = 0; j < columns.length; j++) {
+                        //since Tableau doesn't support complex types convert them to json strings
+                        //so at least they get rendered
+                        if (isComplexType(columns[j].type)) {
+                            row[columns[j].name] = JSON.stringify(dataArray[j]);
+                        } else {
+                            row[columns[j].name] = dataArray[j];
                         }
-                        tableauData.push(row);
                     }
-                    tableau.dataCallback(tableauData, lastRecordNumber, true);
+                    tableauData.push(row);
                 }
+                tableau.dataCallback(tableauData, lastRecordNumber, true);
             }
         }
+    }
 
-        function errorHandler(statusText, errorStr) {
-            var message = "Error: [" + statusText + "]: " + errorStr;
-            tableau.log(message);
-            tableau.abortWithError(message);
+    function errorHandler(statusText, errorStr) {
+        var message = "Error: [" + statusText + "]: " + errorStr;
+        tableau.log(message);
+        tableau.abortWithError(message);
+    }
+
+    prestoWebConnector.getColumnHeaders = function() {
+        tableau.log('getColumnHeaders called');
+        statementClient = new StatementClient(JSON.parse(tableau.connectionData), pushHeadersToTableau, pushDataToTableau, errorHandler);
+        //Tableau waits for the headers before calling getTableData()
+        while(!headersPushed) {
+            statementClient.advance(0);
         }
+        tableau.log('getColumnHeaders done');
+    }
 
-        var headersPushed = false;
-        var statementClient = null;
-        var getTableDataCalled = false;
-        var buffer = [];
+    prestoWebConnector.getTableData = function(lastRecordNumber) {
+        tableau.log('getTableData called');
+        getTableDataCalled = true;
+        var data = [];
 
-        //to store schema information
-        var schema = null;
-
-        var myConnector = tableau.makeConnector();
-
-        myConnector.getColumnHeaders = function() {
-            tableau.log('getColumnHeaders called');
-            statementClient = new StatementClient(JSON.parse(tableau.connectionData), pushHeadersToTableau, pushDataToTableau, errorHandler);
-            //Tableau waits for the headers before calling getTableData()
-            while(!headersPushed) {
-                statementClient.advance(0);
-            }
-            tableau.log('getColumnHeaders done');
-        }
-
-        myConnector.getTableData = function(lastRecordNumber) {
-            tableau.log('getTableData called');
-            getTableDataCalled = true;
-            var data = [];
-
-            //we have some buffered data due to advance() calls in getColumnHeaders()
-            tableau.log('buffer.length ' + buffer.length);
-            if(buffer.length > 0) {
-                for (var i = 0; i < buffer.length; i++) {
-                    //exhaust the buffer first
-                    tableau.log('exhausting the buffer first');
-                    pushDataToTableau(buffer.splice(i, 1)[0], schema, lastRecordNumber);
-                    return;
-                }
-            }
-
-            tableau.log('getting next result page from presto');
-            statementClient.advance(lastRecordNumber);
-
-            if (!statementClient.valid) {
-                tableau.log('done pulling the result set');
-                tableau.dataCallback([], lastRecordNumber, false);
+        //we have some buffered data due to advance() calls in getColumnHeaders()
+        tableau.log('buffer.length ' + buffer.length);
+        if(buffer.length > 0) {
+            for (var i = 0; i < buffer.length; i++) {
+                //exhaust the buffer first
+                tableau.log('exhausting the buffer first');
+                pushDataToTableau(buffer.splice(i, 1)[0], schema, lastRecordNumber);
                 return;
             }
-            tableau.log('getTableData done');
         }
-        tableau.registerConnector(myConnector);
-    })();
+
+        tableau.log('getting next result page from presto');
+        statementClient.advance(lastRecordNumber);
+
+        if (!statementClient.valid) {
+            tableau.log('done pulling the result set');
+            tableau.dataCallback([], lastRecordNumber, false);
+            return;
+        }
+        tableau.log('getTableData done');
+    }
+
+    tableau.registerConnector(prestoWebConnector);
 
     $(document).ready(function() {
-
-        function errorHandler(statusText, errorStr) {
-            var message = "Error: [" + statusText + "]: " + errorStr;
-            tableau.log(message);
-            alert(message);
-        }
-
         function populateCatalogs() {
             var catalogClient = new StatementClient({
                     'catalog': 'hive',
@@ -250,7 +240,7 @@
 </head>
 
 <body>
-<h2>Presto Tableau Web Connector (Beta)</h2>
+<h2>Presto Tableau Web Connector</h2>
 <br>
 <form id="inputForm" action="">
     User Name:
