@@ -44,17 +44,24 @@ Insert data into a table in the blackhole connector::
 
 Select from the blackhole connector::
 
-    SELECT COUNT(*) FROM blackhole.test.nation;
+    SELECT count(*) FROM blackhole.test.nation;
 
-The above query will always return ``0``.
+The above query will always return zero.
 
-Create a table with constant number of rows::
+Create a table with constant number of rows (500 * 1000 * 2000)::
 
-    CREATE TABLE blackhole.test.nation WITH
-        (split_count = 500,
-         pages_per_split = 1000,
-         rows_per_page = 2000)
-    AS SELECT * from tpch.tiny.nation;
-    SELECT COUNT(*) FROM blackhole.test.nation;
+    CREATE TABLE blackhole.test.nation (
+      nationkey bigint,
+      name varchar
+    )
+    WITH (
+      split_count = 500,
+      pages_per_split = 1000,
+      rows_per_page = 2000
+    );
 
-The above query will return value ``1 000 000 000`` (500 * 1000 * 2000).
+Now query it::
+
+    SELECT count(*) FROM blackhole.test.nation;
+
+The above query will return 1,000,000,000.
