@@ -11,6 +11,7 @@
     (function() {
 
         function pushHeadersToTableau(columns) {
+            tableau.log('pushHeadersToTableau called');
             if (columns && !headersPushed) {
                 schema = columns;
                 var fieldTypes = []
@@ -32,6 +33,7 @@
                 }
                 tableau.headersCallback(fieldNames, fieldTypes);
                 headersPushed = true;
+                tableau.log('pushHeadersToTableau done');
             }
         }
 
@@ -40,6 +42,7 @@
         }
 
         function pushDataToTableau(data, columns, lastRecordNumber) {
+            tableau.log('pushDataToTableau called ' + data.length);
             if(data.length > 0) {
                 if(!getTableDataCalled) {
                     buffer.push(data);
@@ -69,7 +72,7 @@
         function errorHandler(statusText, errorStr) {
             var message = "Error: [" + statusText + "]: " + errorStr;
             tableau.log(message);
-            alert(message);
+            tableau.abortWithError(message);
         }
 
         var headersPushed = false;
@@ -83,32 +86,40 @@
         var myConnector = tableau.makeConnector();
 
         myConnector.getColumnHeaders = function() {
+            tableau.log('getColumnHeaders called');
             statementClient = new StatementClient(JSON.parse(tableau.connectionData), pushHeadersToTableau, pushDataToTableau, errorHandler);
             //Tableau waits for the headers before calling getTableData()
             while(!headersPushed) {
                 statementClient.advance(0);
             }
+            tableau.log('getColumnHeaders done');
         }
 
         myConnector.getTableData = function(lastRecordNumber) {
+            tableau.log('getTableData called');
             getTableDataCalled = true;
             var data = [];
 
             //we have some buffered data due to advance() calls in getColumnHeaders()
+            tableau.log('buffer.length ' + buffer.length);
             if(buffer.length > 0) {
                 for (var i = 0; i < buffer.length; i++) {
                     //exhaust the buffer first
+                    tableau.log('exhausting the buffer first');
                     pushDataToTableau(buffer.splice(i, 1)[0], schema, lastRecordNumber);
                     return;
                 }
             }
 
+            tableau.log('getting next result page from presto');
             statementClient.advance(lastRecordNumber);
 
             if (!statementClient.valid) {
+                tableau.log('done pulling the result set');
                 tableau.dataCallback([], lastRecordNumber, false);
                 return;
             }
+            tableau.log('getTableData done');
         }
         tableau.registerConnector(myConnector);
     })();
