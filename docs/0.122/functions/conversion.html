@@ -1,0 +1,96 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>5.4. Conversion Functions &mdash; Presto 0.122 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.122',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.122 Documentation" href="../index.html" />
+    <link rel="up" title="5. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="5.5. Mathematical Functions and Operators" href="math.html" />
+    <link rel="prev" title="5.3. Conditional Expressions" href="conditional.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.122 Documentation</span></a></h1>
+    <h2 class="heading"><span>5.4. Conversion Functions</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="conditional.html">5.3. Conditional Expressions</a>
+    </span>
+    <span class="right">
+        <a href="math.html">5.5. Mathematical Functions and Operators</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="conversion-functions">
+<h1>5.4. Conversion Functions</h1>
+<p>Presto will implicity convert numeric and character values to the
+correct type if such a conversion is possible. Presto will not convert
+between character and numeric types. For example, a query that expects
+a varchar will not automatically convert a bigint value to an
+equivalent varchar.</p>
+<p>When necessary, values can be explicitly cast to a particular type.</p>
+<div class="section" id="id1">
+<h2>Conversion Functions</h2>
+<dl class="function">
+<dt id="cast">
+<tt class="descname">cast</tt><big>(</big><em>value AS type</em><big>)</big> &rarr; type</dt>
+<dd><p>Explicitly cast a value as a type. This can be used to cast a
+varchar to a numeric value type and vice versa.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="try_cast">
+<tt class="descname">try_cast</tt><big>(</big><em>value AS type</em><big>)</big> &rarr; type</dt>
+<dd><p>Like <a class="reference internal" href="#cast" title="cast"><tt class="xref py py-func docutils literal"><span class="pre">cast()</span></tt></a>, but returns null if the cast fails.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="conditional.html">5.3. Conditional Expressions</a>
+    </span>
+    <span class="right">
+        <a href="math.html">5.5. Mathematical Functions and Operators</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

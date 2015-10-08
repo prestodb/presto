@@ -1,0 +1,95 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.5. Release 0.118 &mdash; Presto 0.122 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.122',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.122 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.6. Release 0.117" href="release-0.117.html" />
+    <link rel="prev" title="10.4. Release 0.119" href="release-0.119.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.122 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.5. Release 0.118</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.119.html">10.4. Release 0.119</a>
+    </span>
+    <span class="right">
+        <a href="release-0.117.html">10.6. Release 0.117</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-118">
+<h1>10.5. Release 0.118</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix planning error for <tt class="docutils literal"><span class="pre">UNION</span></tt> queries that require implicit coercions.</li>
+<li>Fix null pointer exception when using <a class="reference internal" href="../functions/aggregate.html#checksum" title="checksum"><tt class="xref py py-func docutils literal"><span class="pre">checksum()</span></tt></a>.</li>
+<li>Fix completion condition for <tt class="docutils literal"><span class="pre">SqlTask</span></tt> that can cause queries to be blocked.</li>
+</ul>
+</div>
+<div class="section" id="authorization">
+<h2>Authorization</h2>
+<p>We&#8217;ve added experimental support for authorization of SQL queries in Presto.
+This is currently only supported by the Hive connector. You can enable Hive
+checks by setting the <tt class="docutils literal"><span class="pre">hive.security</span></tt> property to <tt class="docutils literal"><span class="pre">none</span></tt>, <tt class="docutils literal"><span class="pre">read-only</span></tt>,
+or <tt class="docutils literal"><span class="pre">sql-standard</span></tt>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The authentication support is experimental and only lightly tested. We are
+actively working on this feature, so expect backwards incompatible changes.
+See the <tt class="docutils literal"><span class="pre">ConnectorAccessControl</span></tt> interface the SPI for details.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.119.html">10.4. Release 0.119</a>
+    </span>
+    <span class="right">
+        <a href="release-0.117.html">10.6. Release 0.117</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

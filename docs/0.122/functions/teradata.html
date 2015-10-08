@@ -1,0 +1,158 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>5.17. Teradata Functions &mdash; Presto 0.122 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.122',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.122 Documentation" href="../index.html" />
+    <link rel="up" title="5. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="6. SQL Language" href="../language.html" />
+    <link rel="prev" title="5.16. Map Functions and Operators" href="map.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.122 Documentation</span></a></h1>
+    <h2 class="heading"><span>5.17. Teradata Functions</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="map.html">5.16. Map Functions and Operators</a>
+    </span>
+    <span class="right">
+        <a href="../language.html">6. SQL Language</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="teradata-functions">
+<h1>5.17. Teradata Functions</h1>
+<p>These functions provide compatibility with Teradata SQL.</p>
+<div class="section" id="string-functions">
+<h2>String Functions</h2>
+<dl class="function">
+<dt id="index">
+<tt class="descname">index</tt><big>(</big><em>string</em>, <em>substring</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Alias for <a class="reference internal" href="string.html#strpos" title="strpos"><tt class="xref py py-func docutils literal"><span class="pre">strpos()</span></tt></a> function.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="char2hexint">
+<tt class="descname">char2hexint</tt><big>(</big><em>string</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the hexadecimal representation of the UTF-16BE encoding of the string.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="date-functions">
+<h2>Date Functions</h2>
+<p>The functions in this section use a format string that is compatible with
+the Teradata datetime functions. The following table, based on the
+Teradata reference manual, describes the supported format specifiers:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="31%" />
+<col width="69%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Specifier</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">-</span> <span class="pre">/</span> <span class="pre">,</span> <span class="pre">.</span> <span class="pre">;</span> <span class="pre">:</span></tt></td>
+<td>Punctuation characters are ignored</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">dd</span></tt></td>
+<td>Day of month (1-31)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">hh</span></tt></td>
+<td>Hour of day (1-12)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">hh24</span></tt></td>
+<td>Hour of the day (0-23)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">mi</span></tt></td>
+<td>Minute (0-59)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">mm</span></tt></td>
+<td>Month (01-12)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">ss</span></tt></td>
+<td>Second (0-59)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">yyyy</span></tt></td>
+<td>4-digit year</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">yy</span></tt></td>
+<td>2-digit year</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Case insensitivity is not currently supported. All specifiers must be lowercase.</p>
+</div>
+<dl class="function">
+<dt id="to_char">
+<tt class="descname">to_char</tt><big>(</big><em>timestamp</em>, <em>format</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Formats <tt class="docutils literal"><span class="pre">timestamp</span></tt> as a string using <tt class="docutils literal"><span class="pre">format</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="to_timestamp">
+<tt class="descname">to_timestamp</tt><big>(</big><em>string</em>, <em>format</em><big>)</big> &rarr; timestamp</dt>
+<dd><p>Parses <tt class="docutils literal"><span class="pre">string</span></tt> into a <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt> using <tt class="docutils literal"><span class="pre">format</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="to_date">
+<tt class="descname">to_date</tt><big>(</big><em>string</em>, <em>format</em><big>)</big> &rarr; date</dt>
+<dd><p>Parses <tt class="docutils literal"><span class="pre">string</span></tt> into a <tt class="docutils literal"><span class="pre">DATE</span></tt> using <tt class="docutils literal"><span class="pre">format</span></tt>.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="map.html">5.16. Map Functions and Operators</a>
+    </span>
+    <span class="right">
+        <a href="../language.html">6. SQL Language</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
