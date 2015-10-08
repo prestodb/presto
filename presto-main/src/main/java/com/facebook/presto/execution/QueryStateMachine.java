@@ -54,7 +54,6 @@ import static com.facebook.presto.util.Failures.toFailure;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -64,6 +63,7 @@ public class QueryStateMachine
 
     private final DateTime createTime = DateTime.now();
     private final long createNanos = System.nanoTime();
+    private final AtomicLong endNanos = new AtomicLong();
 
     private final QueryId queryId;
     private final String query;
@@ -145,8 +145,8 @@ public class QueryStateMachine
         QueryState state = queryState.get();
 
         Duration elapsedTime;
-        if (endTime.get() != null) {
-            elapsedTime = new Duration(endTime.get().getMillis() - createTime.getMillis(), MILLISECONDS);
+        if (endNanos.get() != 0) {
+            elapsedTime = new Duration(endNanos.get() - createNanos, NANOSECONDS);
         }
         else {
             elapsedTime = nanosSince(createNanos);
@@ -376,8 +376,9 @@ public class QueryStateMachine
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
         endTime.compareAndSet(null, now);
+        endNanos.compareAndSet(0, System.nanoTime());
 
-        return queryState.setIf(FINISHED, currentState ->!currentState.isDone());
+        return queryState.setIf(FINISHED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToFailed(Throwable throwable)
@@ -390,6 +391,7 @@ public class QueryStateMachine
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
         endTime.compareAndSet(null, now);
+        endNanos.compareAndSet(0, System.nanoTime());
 
         failureCause.compareAndSet(null, toFailure(throwable));
         boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());

@@ -82,7 +82,7 @@ public class TestCompactionSetCreator
     {
         CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), MAX_SHARD_ROWS, TIMESTAMP);
         long tableId = 1L;
-        long day1 = Duration.ofDays(Duration.ofMillis(System.currentTimeMillis()).toDays()).toMillis();
+        long day1 = Duration.ofDays(Duration.ofNanos(System.nanoTime()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
 
         // compact into two shards
@@ -105,7 +105,7 @@ public class TestCompactionSetCreator
     {
         CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), MAX_SHARD_ROWS, TIMESTAMP);
         long tableId = 1L;
-        long day1 = Duration.ofDays(Duration.ofMillis(System.currentTimeMillis()).toDays()).toMillis();
+        long day1 = Duration.ofDays(Duration.ofNanos(System.nanoTime()).toDays()).toMillis();
         long day2 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 1).toMillis();
         long day3 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 2).toMillis();
         long day4 = Duration.ofDays(Duration.ofMillis(day1).toDays() + 3).toMillis();
@@ -134,7 +134,7 @@ public class TestCompactionSetCreator
     {
         CompactionSetCreator compactionSetCreator = new TemporalCompactionSetCreator(new DataSize(100, BYTE), MAX_SHARD_ROWS, DATE);
         long tableId = 1L;
-        long day1 = Duration.ofMillis(System.currentTimeMillis()).toDays();
+        long day1 = Duration.ofNanos(System.nanoTime()).toDays();
         long day2 = day1 + 1;
         long day3 = day1 + 2;
 
