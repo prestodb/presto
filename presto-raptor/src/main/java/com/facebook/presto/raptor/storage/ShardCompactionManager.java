@@ -372,9 +372,7 @@ public class ShardCompactionManager
             Set<UUID> shardUuids = compactionSet.getShardsToCompact().stream().map(ShardMetadata::getShardUuid).collect(toSet());
 
             try {
-                TableMetadata tableMetadata = getTableMetadata(compactionSet.getTableId());
-                List<ShardInfo> newShards = performCompaction(shardUuids, tableMetadata);
-                shardManager.replaceShardUuids(tableMetadata.getTableId(), tableMetadata.getColumns(), shardUuids, newShards);
+                compactShards(compactionSet.getTableId(), shardUuids);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -382,6 +380,14 @@ public class ShardCompactionManager
             finally {
                 shardsInProgress.removeAll(shardUuids);
             }
+        }
+
+        private void compactShards(long tableId, Set<UUID> shardUuids)
+                throws IOException
+        {
+            TableMetadata metadata = getTableMetadata(tableId);
+            List<ShardInfo> newShards = performCompaction(shardUuids, metadata);
+            shardManager.replaceShardUuids(tableId, metadata.getColumns(), shardUuids, newShards);
         }
 
         private List<ShardInfo> performCompaction(Set<UUID> shardUuids, TableMetadata tableMetadata)
