@@ -80,6 +80,24 @@ public class TestShardManagerDao
     }
 
     @Test
+    public void testInsertDeletedShards()
+            throws Exception
+    {
+        dao.insertDeletedShards(ImmutableList.of(UUID.randomUUID(), UUID.randomUUID()));
+        dao.insertDeletedShards(0);
+    }
+
+    @Test
+    public void testInsertDeletedShardNode()
+            throws Exception
+    {
+        List<UUID> shardUuids = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID());
+        List<Integer> nodeIds = ImmutableList.of(dao.insertNode("node1"), dao.insertNode("node2"));
+        dao.insertDeletedShardNodes(shardUuids, nodeIds);
+        dao.insertDeletedShardNodes(0);
+    }
+
+    @Test
     public void testNodeInsert()
             throws Exception
     {

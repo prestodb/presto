@@ -91,4 +91,22 @@ public interface SchemaDao
             "  end_time DATETIME\n" +
             ")")
     void createTableTransactions();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS deleted_shards (\n" +
+            "  shard_uuid BINARY(16) NOT NULL,\n" +
+            "  delete_time DATETIME NOT NULL,\n" +
+            "  clean_time DATETIME,\n" +
+            "  purge_time DATETIME\n" +
+            ")")
+    void createTableDeletedShards();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS deleted_shard_nodes (\n" +
+            "  shard_uuid BINARY(16) NOT NULL,\n" +
+            "  node_id INT,\n" +
+            "  delete_time DATETIME NOT NULL,\n" +
+            "  clean_time DATETIME,\n" +
+            "  purge_time DATETIME,\n" +
+            "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
+            ")")
+    void createTableDeletedShardNodes();
 }
