@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -59,6 +58,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -364,8 +364,8 @@ public final class HttpPageBufferClient
                 log.error("Request to delete %s failed %s", location, t);
                 Duration errorDuration = elapsedErrorDuration();
                 if (!(t instanceof PrestoException) && errorDuration.compareTo(minErrorDuration) > 0) {
-                    String message = format("%s (%s - requests failed for %s)", WORKER_NODE_ERROR, location, errorDuration);
-                    t = new PrestoException(StandardErrorCode.TOO_MANY_REQUESTS_FAILED, message, t);
+                    String message = format("Error closing remote buffer (%s - requests failed for %s)", location, errorDuration);
+                    t = new PrestoException(REMOTE_BUFFER_CLOSE_FAILED, message, t);
                 }
                 handleFailure(t);
             }
