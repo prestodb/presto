@@ -388,8 +388,8 @@ public final class HttpPageBufferClient
             clientCallback.clientFailed(HttpPageBufferClient.this, t);
         }
 
-        increaseErrorDelay();
         synchronized (HttpPageBufferClient.this) {
+            increaseErrorDelay();
             future = null;
             lastUpdate = DateTime.now();
         }
