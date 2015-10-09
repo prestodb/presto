@@ -31,12 +31,12 @@ import javax.annotation.Nullable;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.block.BlockAssertions.assertPrestoTypeEquals;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
 
 public class TestInterpretedProjectionFunction
 {
@@ -186,9 +186,8 @@ public class TestInterpretedProjectionFunction
         // project
         projectionFunction.project(position, blocks, builder);
 
-        // extract single value
-        Object actualValue = BlockAssertions.getOnlyValue(type, builder.build());
-        assertEquals(actualValue, expectedValue);
+        // extract single value and compare
+        assertPrestoTypeEquals(BlockAssertions.getSingleBlock(type, builder.build()), expectedValue);
     }
 
     private static Block createBlock(Type type, Object value)

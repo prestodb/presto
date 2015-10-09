@@ -16,8 +16,11 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -37,6 +40,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.spi.type.JsonSerde.isValidJsonObjectKeyType;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -203,15 +208,6 @@ public final class TypeJsonUtils
         return false;
     }
 
-    private static boolean isValidJsonObjectKeyType(Type type)
-    {
-        String baseType = type.getTypeSignature().getBase();
-        return baseType.equals(StandardTypes.BOOLEAN) ||
-                baseType.equals(StandardTypes.BIGINT) ||
-                baseType.equals(StandardTypes.DOUBLE) ||
-                baseType.equals(StandardTypes.VARCHAR);
-    }
-
     @VisibleForTesting
     public static void appendToBlockBuilder(Type type, Object element, BlockBuilder blockBuilder)
     {
@@ -220,35 +216,48 @@ public final class TypeJsonUtils
             blockBuilder.appendNull();
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = ((ArrayType) type).getElementType().createBlockBuilder(new BlockBuilderStatus(), TypeUtils.EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
             }
-            type.writeObject(blockBuilder, subBlockBuilder);
+            blockBuilder.closeEntry();
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), TypeUtils.EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             int field = 0;
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
                 field++;
             }
-            type.writeObject(blockBuilder, subBlockBuilder);
+            blockBuilder.closeEntry();
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP) && element instanceof Map<?, ?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), TypeUtils.EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
                 appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
             }
-            type.writeObject(blockBuilder, subBlockBuilder);
+            blockBuilder.closeEntry();
         }
 
         else if (javaType == boolean.class) {
             type.writeBoolean(blockBuilder, (Boolean) element);
         }
         else if (javaType == long.class) {
-            type.writeLong(blockBuilder, ((Number) element).longValue());
+            if (element instanceof SqlDate) {
+                type.writeLong(blockBuilder, ((SqlDate) element).getDays());
+            }
+            else if (element instanceof SqlTimestamp) {
+                SqlTimestamp sqlTimestamp = (SqlTimestamp) element;
+                type.writeLong(blockBuilder, sqlTimestamp.getMillisUtc());
+            }
+            else if (element instanceof SqlTimestampWithTimeZone) {
+                SqlTimestampWithTimeZone sqlTimestampWithTimeZone = (SqlTimestampWithTimeZone) element;
+                type.writeLong(blockBuilder, packDateTimeWithZone(sqlTimestampWithTimeZone.getMillisUtc(), sqlTimestampWithTimeZone.getTimeZoneKey()));
+            }
+            else {
+                type.writeLong(blockBuilder, ((Number) element).longValue());
+            }
         }
         else if (javaType == double.class) {
             type.writeDouble(blockBuilder, ((Number) element).doubleValue());
@@ -259,6 +268,9 @@ public final class TypeJsonUtils
             }
             else if (element instanceof byte[]) {
                 type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) element));
+            }
+            else if (element instanceof SqlVarbinary) {
+                type.writeSlice(blockBuilder, Slices.wrappedBuffer(((SqlVarbinary) element).getBytes()));
             }
             else {
                 type.writeSlice(blockBuilder, (Slice) element);
