@@ -312,7 +312,7 @@ public final class HttpPageBufferClient
                     }
                     future = null;
                     lastUpdate = DateTime.now();
-
+                    errorDelayMillis = 0;
                 }
                 requestsCompleted.incrementAndGet();
                 clientCallback.requestComplete(HttpPageBufferClient.this);
@@ -350,6 +350,7 @@ public final class HttpPageBufferClient
                     closed = true;
                     future = null;
                     lastUpdate = DateTime.now();
+                    errorDelayMillis = 0;
                 }
                 requestsCompleted.incrementAndGet();
                 clientCallback.clientFinished(HttpPageBufferClient.this);
