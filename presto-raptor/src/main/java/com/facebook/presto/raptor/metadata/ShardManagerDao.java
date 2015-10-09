@@ -18,6 +18,7 @@ import com.facebook.presto.raptor.util.UuidUtil.UuidMapperFactory;
 import com.google.common.annotations.VisibleForTesting;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
+import org.skife.jdbi.v2.sqlobject.SqlBatch;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
@@ -122,4 +123,27 @@ public interface ShardManagerDao
     int finalizeTransaction(
             @Bind("transactionId") long transactionId,
             @Bind("successful") boolean successful);
+
+    @SqlBatch("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
+            "VALUES (:shardUuid, CURRENT_TIMESTAMP)")
+    void insertDeletedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
+
+    @SqlBatch("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time)\n" +
+            "VALUES (:shardUuid, :nodeId, CURRENT_TIMESTAMP)")
+    void insertDeletedShardNodes(
+            @Bind("shardUuid") List<UUID> shardUuids,
+            @Bind("nodeId") List<Integer> nodeIds);
+
+    @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
+            "SELECT shard_uuid, CURRENT_TIMESTAMP\n" +
+            "FROM shards\n" +
+            "WHERE table_id = :tableId")
+    void insertDeletedShards(@Bind("tableId") long tableId);
+
+    @SqlUpdate("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time)\n" +
+            "SELECT s.shard_uuid, sn.node_id, CURRENT_TIMESTAMP\n" +
+            "FROM shards s\n" +
+            "JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
+            "WHERE s.table_id = :tableId")
+    void insertDeletedShardNodes(@Bind("tableId") long tableId);
 }
