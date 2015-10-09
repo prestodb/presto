@@ -220,7 +220,7 @@ public class OrcStorageManager
 
             OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC);
 
-            ShardRewriter shardRewriter = rowsToDelete -> supplyAsync(() -> rewriteShard(shardUuid, rowsToDelete), deletionExecutor);
+            ShardRewriter shardRewriter = createShardRewriter(shardUuid);
 
             return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid);
         }
@@ -239,6 +239,11 @@ public class OrcStorageManager
     public StoragePageSink createStoragePageSink(List<Long> columnIds, List<Type> columnTypes)
     {
         return new OrcStoragePageSink(columnIds, columnTypes);
+    }
+
+    private ShardRewriter createShardRewriter(UUID shardUuid)
+    {
+        return rowsToDelete -> supplyAsync(() -> rewriteShard(shardUuid, rowsToDelete), deletionExecutor);
     }
 
     private void writeShard(UUID shardUuid)
