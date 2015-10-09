@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.block.BlockSerdeUtil.TypeAndBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.RunLengthEncodedBlock;
 import com.facebook.presto.type.ArrayType;
+import org.testng.internal.EclipseInterface;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,19 +34,72 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestEquality.equalToForTests;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public final class BlockAssertions
 {
-    private BlockAssertions()
+    private BlockAssertions() {}
+
+    public static void assertPrestoTypeEquals(TypeAndBlock actual, TypeAndBlock expected, String message)
     {
+        for (int i = 0; i < actual.getBlock().getPositionCount(); i++) {
+            if (!equalToForTests(actual.getType(), actual.getBlock(), i, expected.getBlock(), i)) {
+                String formatted = "";
+
+                if (message != null) {
+                    formatted = message + " ";
+                }
+
+                Object actualObjectValue = actual.getType().getObjectValue(SESSION, actual.getBlock(), i);
+                Object expectedObjectValue = expected.getType().getObjectValue(SESSION, expected.getBlock(), i);
+
+                fail(formatted + EclipseInterface.ASSERT_LEFT + actualObjectValue + EclipseInterface.ASSERT_MIDDLE + expectedObjectValue + EclipseInterface.ASSERT_RIGHT);
+            }
+        }
     }
 
-    public static Object getOnlyValue(Type type, Block block)
+    public static void assertPrestoTypeEquals(TypeAndBlock actual, Object expected)
+    {
+        assertPrestoTypeEquals(actual, expected, "");
+    }
+
+    public static void assertPrestoTypeEquals(TypeAndBlock actual, Object expected, String message)
+    {
+        Type expectedType = actual.getType();
+
+        BlockBuilder builder = expectedType.createBlockBuilder(new BlockBuilderStatus(), 1000);
+        appendToBlockBuilder(expectedType, expected, builder);
+        Block expectedBlock = builder.build();
+        for (int i = 0; i < actual.getBlock().getPositionCount(); i++) {
+            if (!equalToForTests(actual.getType(), actual.getBlock(), i, expectedBlock, i)) {
+                String formatted = message + " ";
+
+                Object actualObjectValue = actual.getType().getObjectValue(SESSION, actual.getBlock(), i);
+                Object expectedObjectValue = expectedType.getObjectValue(SESSION, expectedBlock, i);
+
+                fail(formatted + EclipseInterface.ASSERT_LEFT + actualObjectValue + EclipseInterface.ASSERT_MIDDLE + expectedObjectValue + EclipseInterface.ASSERT_RIGHT);
+            }
+        }
+    }
+
+    public static TypeAndBlock getSingleBlock(Type type, Block block)
     {
         assertEquals(block.getPositionCount(), 1, "Block positions");
+        return new TypeAndBlock(type, block);
+    }
+
+    public static Object getJsonCompatibleObject(TypeAndBlock typeAndBlock)
+    {
+        return getJsonCompatibleObject(typeAndBlock.getType(), typeAndBlock.getBlock());
+    }
+
+    public static Object getJsonCompatibleObject(Type type, Block block)
+    {
         return type.getObjectValue(SESSION, block, 0);
     }
 

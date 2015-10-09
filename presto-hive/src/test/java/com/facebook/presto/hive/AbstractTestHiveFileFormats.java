@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -35,9 +34,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -75,6 +72,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.block.BlockSerdeUtil.blockToSlice;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
@@ -472,14 +470,6 @@ public abstract class AbstractTestHiveFileFormats
     private static void assertBlockEquals(Block actual, Block expected, String message)
     {
         assertEquals(blockToSlice(actual), blockToSlice(expected), message);
-    }
-
-    private static Slice blockToSlice(Block block)
-    {
-        // This function is strictly for testing use only
-        SliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        BlockSerdeUtil.writeBlock(sliceOutput, block.copyRegion(0, block.getPositionCount()));
-        return sliceOutput.slice();
     }
 
     public static final class TestColumn

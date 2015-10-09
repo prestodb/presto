@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.correlation.Covariance;
-import org.testng.Assert;
 
 import java.util.List;
 
@@ -46,27 +45,12 @@ public class TestCovarianceSampAggregation
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    public Number getExpectedValue(int start, int length)
     {
         if (length <= 1) {
             return null;
         }
         Covariance covariance = new Covariance();
-        final double expected = covariance.covariance(constructDoublePrimitiveArray(start + 5, length), constructDoublePrimitiveArray(start, length), true);
-        return new Object() {
-            @Override
-            public boolean equals(Object obj)
-            {
-                Assert.assertEquals(expected, (Double) obj, 1e-10);
-                return true;
-            }
-
-            @Override
-            public int hashCode()
-            {
-                // required by checkstyle
-                return super.hashCode();
-            }
-        };
+        return covariance.covariance(constructDoublePrimitiveArray(start + 5, length), constructDoublePrimitiveArray(start, length), true);
     }
 }

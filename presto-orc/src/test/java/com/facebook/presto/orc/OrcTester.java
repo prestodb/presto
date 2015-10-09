@@ -18,9 +18,12 @@ import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.testing.TestEquality;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
@@ -54,16 +57,15 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
+import org.testng.internal.EclipseInterface;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -78,6 +80,7 @@ import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Functions.constant;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
@@ -88,6 +91,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class OrcTester
 {
@@ -365,9 +369,21 @@ public class OrcTester
                     assertTrue(iterator.hasNext());
                     Object expected = iterator.next();
 
-                    Object actual = decodeObject(type, block, i);
+                    BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 1000);
+                    appendToBlockBuilder(type, expected, builder);
+                    Block expectedBlock = builder.build();
 
-                    assertEquals(actual, expected);
+                    if (expected == null) {
+                        assertTrue(type.getObjectValue(SESSION, block, i) == null);
+                    }
+                    else {
+                        if (!TestEquality.equalToForTests(type, block, i, expectedBlock, 0)) {
+                            Object actualObjectValue = type.getObjectValue(SESSION, block, i);
+                            Object expectedObjectValue = type.getObjectValue(SESSION, expectedBlock, 0);
+
+                            fail(EclipseInterface.ASSERT_LEFT + actualObjectValue + EclipseInterface.ASSERT_MIDDLE + expectedObjectValue + EclipseInterface.ASSERT_RIGHT);
+                        }
+                    }
                 }
             }
             assertEquals(recordReader.getReaderPosition(), rowsProcessed);
@@ -615,58 +631,6 @@ public class OrcTester
     private static List<Object> toHiveList(Object input)
     {
         return asList(input, input, input, input);
-    }
-
-    private static Object decodeObject(Type type, Block block, int position)
-    {
-        if (block.isNull(position)) {
-            return null;
-        }
-
-        String base = type.getTypeSignature().getBase();
-        if (base.equals(ARRAY)) {
-            Block arrayBlock = (Block) type.getObject(block, position);
-
-            Type elementType = type.getTypeParameters().get(0);
-
-            List<Object> array = new ArrayList<>();
-            for (int entry = 0; entry < arrayBlock.getPositionCount(); entry++) {
-                array.add(decodeObject(elementType, arrayBlock, entry));
-            }
-            return array;
-        }
-        if (base.equals(ROW)) {
-            Block rowBlock = (Block) type.getObject(block, position);
-
-            List<Type> fieldTypes = type.getTypeParameters();
-
-            List<Object> row = new ArrayList<>();
-            for (int field = 0; field < fieldTypes.size(); field++) {
-                row.add(decodeObject(fieldTypes.get(field), rowBlock, field));
-            }
-            return row;
-        }
-        if (base.equals(MAP)) {
-            Block mapBlock = (Block) type.getObject(block, position);
-
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
-
-            Map<Object, Object> map = new LinkedHashMap<>();
-            int entryCount = mapBlock.getPositionCount() / 2;
-            for (int entry = 0; entry < entryCount; entry++) {
-                int blockPosition = entry * 2;
-                Object key = decodeObject(keyType, mapBlock, blockPosition);
-                // null keys are not allowed
-                if (key != null) {
-                    Object value = decodeObject(valueType, mapBlock, blockPosition + 1);
-                    map.put(key, value);
-                }
-            }
-            return map;
-        }
-
-        return type.getObjectValue(SESSION, block, position);
     }
 
     private static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)

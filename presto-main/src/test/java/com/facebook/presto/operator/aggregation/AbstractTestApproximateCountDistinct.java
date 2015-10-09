@@ -34,6 +34,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.block.BlockAssertions.getJsonCompatibleObject;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static org.testng.Assert.assertEquals;
@@ -136,19 +137,19 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private long estimateGroupByCount(List<Object> values, double maxStandardError)
     {
-        Object result = AggregationTestUtils.groupedAggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError));
+        Object result = getJsonCompatibleObject(AggregationTestUtils.groupedAggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError)));
         return (long) result;
     }
 
     private long estimateCount(List<Object> values, double maxStandardError)
     {
-        Object result = AggregationTestUtils.aggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError));
+        Object result = getJsonCompatibleObject(AggregationTestUtils.aggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError)));
         return (long) result;
     }
 
     private long estimateCountPartial(List<Object> values, double maxStandardError)
     {
-        Object result = AggregationTestUtils.partialAggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError));
+        Object result = getJsonCompatibleObject(AggregationTestUtils.partialAggregation(getAggregationFunction(), 1.0, createPage(values, maxStandardError)));
         return (long) result;
     }
 
