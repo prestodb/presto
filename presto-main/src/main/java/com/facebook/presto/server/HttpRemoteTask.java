@@ -105,6 +105,7 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -138,6 +139,7 @@ public class HttpRemoteTask
     @GuardedBy("this")
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
+    private final Duration requestTimeout;
     private final ContinuousTaskInfoFetcher continuousTaskInfoFetcher;
 
     private final HttpClient httpClient;
@@ -224,6 +226,8 @@ public class HttpRemoteTask
                     taskStats,
                     ImmutableList.<ExecutionFailureInfo>of()));
 
+            // wait at least 2 seconds for a response
+            requestTimeout = new Duration(2000 + refreshMaxWait.toMillis(), MILLISECONDS);
             continuousTaskInfoFetcher = new ContinuousTaskInfoFetcher(refreshMaxWait);
         }
     }
@@ -415,7 +419,7 @@ public class HttpRemoteTask
         }
 
         // if we have an old request outstanding, cancel it
-        if (currentRequest != null && Duration.nanosSince(currentRequestStartNanos).compareTo(new Duration(2, SECONDS)) >= 0) {
+        if (currentRequest != null && Duration.nanosSince(currentRequestStartNanos).compareTo(requestTimeout) >= 0) {
             needsUpdate.set(true);
             currentRequest.cancel(true);
             currentRequest = null;
