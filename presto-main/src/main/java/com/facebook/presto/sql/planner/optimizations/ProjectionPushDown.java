@@ -120,6 +120,12 @@ public class ProjectionPushDown
                 Map<Symbol, QualifiedNameReference> outputToInputMap = extractExchangeOutputToInput(exchange, i);
 
                 Map<Symbol, Expression> projections = new LinkedHashMap<>(); // Use LinkedHashMap to make output symbol order deterministic
+                if (exchange.getPartitionKeys().isPresent()) {
+                    // Need to retain the partition keys for the exchange
+                    exchange.getPartitionKeys().get().stream()
+                            .map(outputToInputMap::get)
+                            .forEach(nameReference -> projections.put(Symbol.fromQualifiedName(nameReference.getName()), nameReference));
+                }
                 if (exchange.getHashSymbol().isPresent()) {
                     // Need to retain the hash symbol for the exchange
                     projections.put(exchange.getHashSymbol().get(), exchange.getHashSymbol().get().toQualifiedNameReference());
@@ -134,6 +140,10 @@ public class ProjectionPushDown
 
             // Construct the output symbols in the same order as the sources
             ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
+            if (exchange.getPartitionKeys().isPresent()) {
+                exchange.getPartitionKeys().get().stream()
+                        .forEach(outputBuilder::add);
+            }
             if (exchange.getHashSymbol().isPresent()) {
                 outputBuilder.add(exchange.getHashSymbol().get());
             }
