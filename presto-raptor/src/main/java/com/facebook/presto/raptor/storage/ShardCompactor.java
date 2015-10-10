@@ -60,14 +60,14 @@ public final class ShardCompactor
         this.readerAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
     }
 
-    public List<ShardInfo> compact(Set<UUID> uuids, List<ColumnInfo> columns)
+    public List<ShardInfo> compact(long transactionId, Set<UUID> uuids, List<ColumnInfo> columns)
             throws IOException
     {
         long start = System.nanoTime();
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
-        StoragePageSink storagePageSink = storageManager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink storagePageSink = storageManager.createStoragePageSink(transactionId, columnIds, columnTypes);
         for (UUID uuid : uuids) {
             try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
                 while (!pageSource.isFinished()) {
@@ -91,7 +91,7 @@ public final class ShardCompactor
         return shardInfos;
     }
 
-    public List<ShardInfo> compactSorted(Set<UUID> uuids, List<ColumnInfo> columns, List<Long> sortColumnIds, List<SortOrder> sortOrders)
+    public List<ShardInfo> compactSorted(long transactionId, Set<UUID> uuids, List<ColumnInfo> columns, List<Long> sortColumnIds, List<SortOrder> sortOrders)
             throws IOException
     {
         checkArgument(sortColumnIds.size() == sortOrders.size(), "sortColumnIds and sortOrders must be of the same size");
@@ -104,7 +104,7 @@ public final class ShardCompactor
         List<Integer> sortIndexes = ImmutableList.copyOf(sortColumnIds.stream().map(sortColumnIds::indexOf).collect(toList()));
 
         Queue<SortedRowSource> rowSources = new PriorityQueue<>();
-        StoragePageSink outputPageSink = storageManager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, columnIds, columnTypes);
         try {
             for (UUID uuid : uuids) {
                 ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), readerAttributes);

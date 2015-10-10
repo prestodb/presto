@@ -124,6 +124,25 @@ public interface ShardManagerDao
             @Bind("transactionId") long transactionId,
             @Bind("successful") boolean successful);
 
+    @SqlUpdate("INSERT INTO created_shards (shard_uuid, transaction_id)\n" +
+            "VALUES (:shardUuid, :transactionId)")
+    void insertCreatedShard(
+            @Bind("shardUuid") UUID shardUuid,
+            @Bind("transactionId") long transactionId);
+
+    @SqlUpdate("INSERT INTO created_shard_nodes (shard_uuid, node_id, transaction_id)\n" +
+            "VALUES (:shardUuid, :nodeId, :transactionId)")
+    void insertCreatedShardNode(
+            @Bind("shardUuid") UUID shardUuid,
+            @Bind("nodeId") int nodeId,
+            @Bind("transactionId") long transactionId);
+
+    @SqlUpdate("DELETE FROM created_shards WHERE transaction_id = :transactionId")
+    void deleteCreatedShards(@Bind("transactionId") long transactionId);
+
+    @SqlUpdate("DELETE FROM created_shard_nodes WHERE transaction_id = :transactionId")
+    void deleteCreatedShardNodes(@Bind("transactionId") long transactionId);
+
     @SqlBatch("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
             "VALUES (:shardUuid, CURRENT_TIMESTAMP)")
     void insertDeletedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);

@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -42,6 +43,8 @@ public class StorageModule
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
+        binder.bind(ShardRecorder.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
+        binder.bind(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardRecoveryManager.class).in(Scopes.SINGLETON);
         binder.bind(BackupManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardCompactionManager.class).in(Scopes.SINGLETON);
