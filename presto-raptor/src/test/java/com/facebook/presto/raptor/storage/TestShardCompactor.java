@@ -213,7 +213,7 @@ public class TestShardCompactor
 
     private static List<ShardInfo> createShardsSorted(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int count, int length)
     {
-        StoragePageSink sink = storageManager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink sink = createStoragePageSink(storageManager, columnIds, columnTypes);
         for (int numShards = 0; numShards < count; numShards++) {
             List<Page> pages = createPages(columnTypes, 1, length);
             long[] orderedAddresses = PAGE_SORTER.sort(columnTypes, pages, sortChannels, sortOrders, 10_000);
@@ -232,12 +232,17 @@ public class TestShardCompactor
     private static List<ShardInfo> createShards(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, int count, int length)
     {
         List<Page> pages = createPages(columnTypes, count, length);
-        StoragePageSink sink = storageManager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink sink = createStoragePageSink(storageManager, columnIds, columnTypes);
         for (Page page : pages) {
             sink.appendPages(ImmutableList.of(page));
             sink.flush();
         }
         return sink.commit();
+    }
+
+    private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
+    {
+        return manager.createStoragePageSink(columnIds, columnTypes);
     }
 
     private static List<Page> createPages(List<Type> columnTypes, int count, int length)
