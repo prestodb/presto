@@ -93,6 +93,7 @@ public class TestShardCompactor
     {
         ShardCompactor compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
 
+        long transactionId = 1;
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, DATE, TIMESTAMP);
 
@@ -101,7 +102,7 @@ public class TestShardCompactor
         Set<UUID> inputUuids = ImmutableSet.copyOf(inputShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
         assertEquals(inputShards.size(), 3);
 
-        List<ShardInfo> outputShards = compactor.compact(inputUuids, getColumnInfo(columnIds, columnTypes));
+        List<ShardInfo> outputShards = compactor.compact(transactionId, inputUuids, getColumnInfo(columnIds, columnTypes));
         Set<UUID> outputUuids = ImmutableSet.copyOf(outputShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
         assertEquals(outputShards.size(), 2);
 
@@ -114,6 +115,7 @@ public class TestShardCompactor
     {
         ShardCompactor compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
 
+        long transactionId = 1;
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, DATE, TIMESTAMP);
 
@@ -130,7 +132,7 @@ public class TestShardCompactor
                 .collect(toList()));
         assertEquals(inputShards.size(), 10);
 
-        List<ShardInfo> outputShards = compactor.compactSorted(inputUuids, getColumnInfo(columnIds, columnTypes), sortColumnIds, sortOrders);
+        List<ShardInfo> outputShards = compactor.compactSorted(transactionId, inputUuids, getColumnInfo(columnIds, columnTypes), sortColumnIds, sortOrders);
         Set<UUID> outputUuids = ImmutableSet.copyOf(outputShards.stream()
                 .map(ShardInfo::getShardUuid)
                 .collect(toList()));
@@ -242,7 +244,8 @@ public class TestShardCompactor
 
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
     {
-        return manager.createStoragePageSink(columnIds, columnTypes);
+        long transactionId = 1;
+        return manager.createStoragePageSink(transactionId, columnIds, columnTypes);
     }
 
     private static List<Page> createPages(List<Type> columnTypes, int count, int length)

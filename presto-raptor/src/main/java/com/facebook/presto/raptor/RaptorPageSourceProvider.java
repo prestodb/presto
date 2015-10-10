@@ -53,7 +53,13 @@ public class RaptorPageSourceProvider
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(shardUuid, columnIds, columnTypes, raptorSplit.getEffectivePredicate(), ReaderAttributes.from(session));
+        return storageManager.getPageSource(
+                shardUuid,
+                columnIds,
+                columnTypes,
+                raptorSplit.getEffectivePredicate(),
+                ReaderAttributes.from(session),
+                raptorSplit.getTransactionId());
     }
 
     private static Function<ColumnHandle, RaptorColumnHandle> toRaptorColumnHandle()

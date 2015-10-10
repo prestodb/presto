@@ -80,6 +80,25 @@ public class TestShardManagerDao
     }
 
     @Test
+    public void testInsertCreatedShard()
+            throws Exception
+    {
+        long transactionId = dao.insertTransaction();
+        dao.insertCreatedShard(UUID.randomUUID(), transactionId);
+        dao.deleteCreatedShards(transactionId);
+    }
+
+    @Test
+    public void testInsertCreatedShardNode()
+            throws Exception
+    {
+        int nodeId = dao.insertNode("node");
+        long transactionId = dao.insertTransaction();
+        dao.insertCreatedShardNode(UUID.randomUUID(), nodeId, transactionId);
+        dao.deleteCreatedShardNodes(transactionId);
+    }
+
+    @Test
     public void testInsertDeletedShards()
             throws Exception
     {

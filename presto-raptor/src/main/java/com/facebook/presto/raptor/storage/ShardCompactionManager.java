@@ -399,17 +399,18 @@ public class ShardCompactionManager
                 throws IOException
         {
             TableMetadata metadata = getTableMetadata(tableId);
-            List<ShardInfo> newShards = performCompaction(shardUuids, metadata);
+            List<ShardInfo> newShards = performCompaction(transactionId, shardUuids, metadata);
             shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
         }
 
-        private List<ShardInfo> performCompaction(Set<UUID> shardUuids, TableMetadata tableMetadata)
+        private List<ShardInfo> performCompaction(long transactionId, Set<UUID> shardUuids, TableMetadata tableMetadata)
                 throws IOException
         {
             if (tableMetadata.getSortColumnIds().isEmpty()) {
-                return compactor.compact(shardUuids, tableMetadata.getColumns());
+                return compactor.compact(transactionId, shardUuids, tableMetadata.getColumns());
             }
             return compactor.compactSorted(
+                    transactionId,
                     shardUuids,
                     tableMetadata.getColumns(),
                     tableMetadata.getSortColumnIds(),

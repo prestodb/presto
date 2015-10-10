@@ -77,7 +77,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 public class DatabaseShardManager
-        implements ShardManager
+        implements ShardManager, ShardRecorder
 {
     private static final Logger log = Logger.get(DatabaseShardManager.class);
 
@@ -426,6 +426,20 @@ public class DatabaseShardManager
         if (dao.finalizeTransaction(transactionId, true) != 1) {
             throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
         }
+        dao.deleteCreatedShards(transactionId);
+        dao.deleteCreatedShardNodes(transactionId);
+    }
+
+    @Override
+    public void recordCreatedShard(long transactionId, UUID shardUuid, String nodeIdentifier)
+    {
+        int nodeId = getOrCreateNodeId(nodeIdentifier);
+        runTransaction(dbi, (handle, status) -> {
+            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            dao.insertCreatedShard(shardUuid, transactionId);
+            dao.insertCreatedShardNode(shardUuid, nodeId, transactionId);
+            return null;
+        });
     }
 
     private int getOrCreateNodeId(String nodeIdentifier)

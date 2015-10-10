@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -57,7 +58,7 @@ public class OrcPageSource
     public static final int ROWID_COLUMN = -2;
     public static final int SHARD_UUID_COLUMN = -3;
 
-    private final ShardRewriter shardRewriter;
+    private final Optional<ShardRewriter> shardRewriter;
 
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
@@ -76,7 +77,7 @@ public class OrcPageSource
     private boolean closed;
 
     public OrcPageSource(
-            ShardRewriter shardRewriter,
+            Optional<ShardRewriter> shardRewriter,
             OrcRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<Long> columnIds,
@@ -210,7 +211,8 @@ public class OrcPageSource
     @Override
     public CompletableFuture<Collection<Slice>> commit()
     {
-        return shardRewriter.rewrite(rowsToDelete);
+        checkState(shardRewriter.isPresent(), "shardRewriter is missing");
+        return shardRewriter.get().rewrite(rowsToDelete);
     }
 
     private void closeWithSuppression(Throwable throwable)
