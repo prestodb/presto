@@ -55,7 +55,7 @@
         <!-- use a fractional hour timezone offset for tests -->
         <air.test.timezone>Asia/Katmandu</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
-        <air.test.thread-count>4</air.test.thread-count>
+        <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>1792m</air.test.jvmsize>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
