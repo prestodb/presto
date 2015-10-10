@@ -177,7 +177,7 @@ public class TestOrcStorageManager
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
-        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
                 .row(123, "hello")
                 .row(456, "bye")
@@ -239,7 +239,7 @@ public class TestOrcStorageManager
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
-        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
 
         Object[][] doubles = {
                 {881, "-inf", null, null, null, Double.NEGATIVE_INFINITY},
@@ -311,7 +311,7 @@ public class TestOrcStorageManager
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
         // create file with 2 rows
-        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
                 .row(123, "hello")
                 .row(456, "bye")
@@ -450,7 +450,7 @@ public class TestOrcStorageManager
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
-        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
                 .row(123, "hello")
                 .row(456, "bye")
@@ -473,9 +473,14 @@ public class TestOrcStorageManager
 
         // Set maxFileSize to 1 byte, so adding any page makes the StoragePageSink full
         OrcStorageManager manager = createOrcStorageManager(storageService, backupStore, recoveryManager, 20, new DataSize(1, BYTE));
-        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         sink.appendPages(pages);
         assertTrue(sink.isFull());
+    }
+
+    private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
+    {
+        return manager.createStoragePageSink(columnIds, columnTypes);
     }
 
     private OrcStorageManager createOrcStorageManager()
@@ -581,7 +586,7 @@ public class TestOrcStorageManager
         List<Long> columnIds = list.build();
 
         OrcStorageManager manager = createOrcStorageManager();
-        StoragePageSink sink = manager.createStoragePageSink(columnIds, columnTypes);
+        StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         sink.appendPages(rowPagesBuilder(columnTypes).rows(rows).build());
         List<ShardInfo> shards = sink.commit();
 
