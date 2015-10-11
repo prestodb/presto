@@ -54,6 +54,7 @@ public final class SyncingFileSystem
             extends OutputStream
     {
         private final FileOutputStream out;
+        private boolean closed;
 
         private LocalFileOutputStream(File file)
                 throws IOException
@@ -65,6 +66,11 @@ public final class SyncingFileSystem
         public void close()
                 throws IOException
         {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
             flush();
             out.getFD().sync();
             out.close();
