@@ -32,6 +32,11 @@ public interface ShardManager
     void createTable(long tableId, List<ColumnInfo> columns);
 
     /**
+     * Add a column to the end of the table.
+     */
+    void addColumn(long tableId, ColumnInfo column);
+
+    /**
      * Commit data for a table.
      */
     void commitShards(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId);

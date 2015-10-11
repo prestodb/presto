@@ -287,6 +287,22 @@ public class RaptorMetadata
     }
 
     @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+
+        // Always add new columns to the end.
+        // TODO: This needs to be updated when we support dropping columns.
+        List<TableColumn> existingColumns = dao.listTableColumns(table.getSchemaName(), table.getTableName());
+        TableColumn lastColumn = existingColumns.get(existingColumns.size() - 1);
+        long columnId = lastColumn.getColumnId() + 1;
+        int ordinalPosition = existingColumns.size();
+
+        dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, column.getType().getTypeSignature().toString(), null);
+        shardManager.addColumn(table.getTableId(), new ColumnInfo(columnId, column.getType()));
+    }
+
+    @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");

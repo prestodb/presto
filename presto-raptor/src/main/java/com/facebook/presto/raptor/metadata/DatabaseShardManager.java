@@ -137,6 +137,27 @@ public class DatabaseShardManager
     }
 
     @Override
+    public void addColumn(long tableId, ColumnInfo column)
+    {
+        String columnType = sqlColumnType(column.getType());
+        if (columnType == null) {
+            return;
+        }
+
+        String sql = format("ALTER TABLE %s ADD COLUMN (%s %s, %s %s)",
+                shardIndexTable(tableId),
+                minColumn(column.getColumnId()), columnType,
+                maxColumn(column.getColumnId()), columnType);
+
+        try (Handle handle = dbi.open()) {
+            handle.execute(sql);
+        }
+        catch (DBIException e) {
+            throw metadataError(e);
+        }
+    }
+
+    @Override
     public void commitShards(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId)
     {
         // attempt to fail up front with a proper exception
