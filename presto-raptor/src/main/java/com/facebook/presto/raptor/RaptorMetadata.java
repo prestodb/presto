@@ -143,14 +143,10 @@ public class RaptorMetadata
         List<TableColumn> tableColumns = dao.getTableColumns(table.getTableId());
         checkArgument(!tableColumns.isEmpty(), "Table %s does not have any columns", tableName);
 
-        RaptorColumnHandle countColumnHandle = null;
         RaptorColumnHandle sampleWeightColumnHandle = null;
         for (TableColumn tableColumn : tableColumns) {
             if (SAMPLE_WEIGHT_COLUMN_NAME.equals(tableColumn.getColumnName())) {
                 sampleWeightColumnHandle = getRaptorColumnHandle(tableColumn);
-            }
-            if (countColumnHandle == null && tableColumn.getDataType().getJavaType().isPrimitive()) {
-                countColumnHandle = getRaptorColumnHandle(tableColumn);
             }
         }
 
