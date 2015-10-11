@@ -81,13 +81,6 @@ public class TestShardManagerDao
     }
 
     @Test
-    public void testTableCreation()
-            throws Exception
-    {
-        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
-    }
-
-    @Test
     public void testNodeInsert()
             throws Exception
     {
