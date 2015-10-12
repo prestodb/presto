@@ -68,7 +68,8 @@ public interface ShardManagerDao
     void createTableExternalBatches();
 
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
-    void insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
+    @GetGeneratedKeys
+    int insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
 
     @SqlUpdate("INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size)\n" +
             "VALUES (:shardUuid, :tableId, CURRENT_TIMESTAMP, :rowCount, :compressedSize, :uncompressedSize)")
