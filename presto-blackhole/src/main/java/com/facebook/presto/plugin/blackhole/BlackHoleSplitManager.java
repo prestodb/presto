@@ -37,7 +37,11 @@ public final class BlackHoleSplitManager
         ImmutableList.Builder<BlackHoleSplit> builder = ImmutableList.<BlackHoleSplit>builder();
 
         for (int i = 0; i < layout.getSplitCount(); i++) {
-            builder.add(new BlackHoleSplit(layout.getPagesPerSplit(), layout.getRowsPerPage()));
+            builder.add(
+                    new BlackHoleSplit(
+                            layout.getPagesPerSplit(),
+                            layout.getRowsPerPage(),
+                            layout.getFieldsLength()));
         }
         return new FixedSplitSource("blackhole", builder.build());
     }
