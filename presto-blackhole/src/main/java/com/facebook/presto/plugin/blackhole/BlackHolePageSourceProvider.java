@@ -32,6 +32,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -48,8 +49,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 public final class BlackHolePageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private static final byte[] CONSTANT_BYTES = new byte[] {42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42};
-    private static final Slice CONSTANT_SLICE = Slices.wrappedBuffer(CONSTANT_BYTES);
     private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(BIGINT, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARCHAR, VARBINARY);
 
     @Override
@@ -65,21 +64,25 @@ public final class BlackHolePageSourceProvider
         List<Type> types = builder.build();
 
         return new FixedPageSource(Iterables.limit(
-                Iterables.cycle(generateZeroPage(types, blackHoleSplit.getRowsPerPage())),
+                Iterables.cycle(generateZeroPage(types, blackHoleSplit.getRowsPerPage(), blackHoleSplit.getFieldsLength())),
                 blackHoleSplit.getPagesCount()));
     }
 
-    private Page generateZeroPage(List<Type> types, int rowsCount)
+    private Page generateZeroPage(List<Type> types, int rowsCount, int fieldsLength)
     {
+        byte[] constantBytes = new byte[fieldsLength];
+        Arrays.fill(constantBytes, (byte) 42);
+        Slice constantSlice = Slices.wrappedBuffer(constantBytes);
+
         Block[] blocks = new Block[types.size()];
         for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = createZeroBlock(types.get(i), rowsCount);
+            blocks[i] = createZeroBlock(types.get(i), rowsCount, constantSlice);
         }
 
         return new Page(rowsCount, blocks);
     }
 
-    private Block createZeroBlock(Type type, int rowsCount)
+    private Block createZeroBlock(Type type, int rowsCount, Slice constantSlice)
     {
         checkArgument(SUPPORTED_TYPES.contains(type), "Unsupported type [%s]", type);
         BlockBuilder builder;
@@ -88,7 +91,7 @@ public final class BlackHolePageSourceProvider
             builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount);
         }
         else {
-            builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount, CONSTANT_BYTES.length);
+            builder = type.createBlockBuilder(new BlockBuilderStatus(), rowsCount, constantSlice.length());
         }
 
         for (int i = 0; i < rowsCount; i++) {
@@ -103,7 +106,7 @@ public final class BlackHolePageSourceProvider
                 type.writeDouble(builder, 0.0);
             }
             else if (javaType == Slice.class) {
-                type.writeSlice(builder, CONSTANT_SLICE, 0, CONSTANT_SLICE.length());
+                type.writeSlice(builder, constantSlice, 0, constantSlice.length());
             }
             else {
                 throw new UnsupportedOperationException("Unknown javaType: " + javaType.getName());

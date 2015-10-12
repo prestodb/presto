@@ -26,16 +26,19 @@ public final class BlackHoleTableLayoutHandle
     private final int splitCount;
     private final int pagesPerSplit;
     private final int rowsPerPage;
+    private final int fieldsLength;
 
     @JsonCreator
     public BlackHoleTableLayoutHandle(
             @JsonProperty("splitCount") int splitCount,
             @JsonProperty("pagesPerSplit") int pagesPerSplit,
-            @JsonProperty("rowsPerPage") int rowsPerPage)
+            @JsonProperty("rowsPerPage") int rowsPerPage,
+            @JsonProperty("fieldsLength") int fieldsLength)
     {
         this.splitCount = splitCount;
         this.pagesPerSplit = pagesPerSplit;
         this.rowsPerPage = rowsPerPage;
+        this.fieldsLength = fieldsLength;
     }
 
     @JsonProperty
@@ -54,6 +57,12 @@ public final class BlackHoleTableLayoutHandle
     public int getRowsPerPage()
     {
         return rowsPerPage;
+    }
+
+    @JsonProperty
+    public int getFieldsLength()
+    {
+        return fieldsLength;
     }
 
     @Override

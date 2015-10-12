@@ -33,7 +33,8 @@ public class BlackHoleMetadataTest
     private final Map<String, Object> tableProperties = ImmutableMap.of(
             BlackHoleConnector.SPLIT_COUNT_PROPERTY, 0,
             BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY, 0,
-            BlackHoleConnector.ROWS_PER_PAGE_PROPERTY, 0);
+            BlackHoleConnector.ROWS_PER_PAGE_PROPERTY, 0,
+            BlackHoleConnector.FIELD_LENGTH_PROPERTY, 16);
 
     @Test
     public void tableIsCreatedAfterCommits()
