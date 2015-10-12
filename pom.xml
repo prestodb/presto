@@ -847,7 +847,7 @@
                 <version>1.2.2</version>
                 <configuration>
                     <javaVersion>1.8</javaVersion>
-                    <failOnViolations>false</failOnViolations>
+                    <failOnViolations>true</failOnViolations>
                 </configuration>
                 <executions>
                     <execution>
