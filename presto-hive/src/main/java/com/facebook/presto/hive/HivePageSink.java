@@ -92,7 +92,6 @@ public class HivePageSink
     private final String tableName;
 
     private final int[] dataColumns;
-    private final int sampleWeightDataColumn;
     private final List<String> dataColumnNames;
     private final List<Type> dataColumnTypes;
 
@@ -198,7 +197,6 @@ public class HivePageSink
         }
         this.partitionColumns = Ints.toArray(partitionColumns.build());
         this.dataColumns = Ints.toArray(dataColumns.build());
-        this.sampleWeightDataColumn = this.dataColumnNames.indexOf(SAMPLE_WEIGHT_COLUMN_NAME);
 
         this.pageIndexer = pageIndexerFactory.createPageIndexer(this.partitionColumnTypes);
 
@@ -443,7 +441,8 @@ public class HivePageSink
             blocks[i] = page.getBlock(dataColumn);
         }
         if (sampleWeightBlock != null) {
-            blocks[sampleWeightDataColumn] = sampleWeightBlock;
+            // sample weight block is always last
+            blocks[blocks.length - 1] = sampleWeightBlock;
         }
         return blocks;
     }
