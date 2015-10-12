@@ -32,7 +32,6 @@ import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createSha
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -87,7 +86,8 @@ public class TestShardManagerDao
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
 
         String nodeName = UUID.randomUUID().toString();
-        dao.insertNode(nodeName);
+        int nodeId = dao.insertNode(nodeName);
+        assertEquals(dao.getNodeId(nodeName), (Integer) nodeId);
 
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName));
     }
@@ -114,8 +114,7 @@ public class TestShardManagerDao
     public void testInsertShardNodeUsingShardUuid()
             throws Exception
     {
-        dao.insertNode("node");
-        int nodeId = dao.getNodeId("node");
+        int nodeId = dao.insertNode("node");
 
         long tableId = 1;
         UUID shard = UUID.randomUUID();
@@ -133,14 +132,10 @@ public class TestShardManagerDao
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
 
         String nodeName1 = UUID.randomUUID().toString();
-        dao.insertNode(nodeName1);
-        Integer nodeId1 = dao.getNodeId(nodeName1);
-        assertNotNull(nodeId1);
+        int nodeId1 = dao.insertNode(nodeName1);
 
         String nodeName2 = UUID.randomUUID().toString();
-        dao.insertNode(nodeName2);
-        Integer nodeId2 = dao.getNodeId(nodeName2);
-        assertNotNull(nodeId2);
+        int nodeId2 = dao.insertNode(nodeName2);
 
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1, nodeName2));
 
@@ -192,16 +187,12 @@ public class TestShardManagerDao
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
 
         String nodeName1 = UUID.randomUUID().toString();
-        dao.insertNode(nodeName1);
-        Integer nodeId1 = dao.getNodeId(nodeName1);
-        assertNotNull(nodeId1);
+        int nodeId1 = dao.insertNode(nodeName1);
 
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1));
 
         String nodeName2 = UUID.randomUUID().toString();
-        dao.insertNode(nodeName2);
-        Integer nodeId2 = dao.getNodeId(nodeName2);
-        assertNotNull(nodeId2);
+        int nodeId2 = dao.insertNode(nodeName2);
 
         assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1, nodeName2));
 
