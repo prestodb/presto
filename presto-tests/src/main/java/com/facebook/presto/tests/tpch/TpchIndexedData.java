@@ -34,7 +34,6 @@ import io.airlift.slice.Slice;
 import io.airlift.tpch.TpchTable;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,29 +92,19 @@ class TpchIndexedData
 
     private static <T> List<T> extractPositionValues(final List<T> values, List<Integer> positions)
     {
-        return Lists.transform(positions, new Function<Integer, T>()
-        {
-            @Override
-            public T apply(Integer position)
-            {
-                checkPositionIndex(position, values.size());
-                return values.get(position);
-            }
+        return Lists.transform(positions, position -> {
+            checkPositionIndex(position, values.size());
+            return values.get(position);
         });
     }
 
     private static IndexedTable indexTable(RecordSet recordSet, final List<String> outputColumns, List<String> keyColumns)
     {
         List<Integer> keyPositions = FluentIterable.from(keyColumns)
-                .transform(new Function<String, Integer>()
-                {
-                    @Override
-                    public Integer apply(String columnName)
-                    {
-                        int position = outputColumns.indexOf(columnName);
-                        checkState(position != -1);
-                        return position;
-                    }
+                .transform(columnName -> {
+                    int position = outputColumns.indexOf(columnName);
+                    checkState(position != -1);
+                    return position;
                 })
                 .toList();
 
@@ -197,18 +186,13 @@ class TpchIndexedData
         {
             checkArgument(recordSet.getColumnTypes().equals(keyTypes), "Input RecordSet keys do not match expected key type");
 
-            Iterable<RecordSet> outputRecordSets = Iterables.transform(tupleIterable(recordSet), new Function<MaterializedTuple, RecordSet>()
-            {
-                @Override
-                public RecordSet apply(MaterializedTuple key)
-                {
-                    for (Object value : key.getValues()) {
-                        if (value == null) {
-                            throw new IllegalArgumentException("TPCH index does not support null values");
-                        }
+            Iterable<RecordSet> outputRecordSets = Iterables.transform(tupleIterable(recordSet), key -> {
+                for (Object value : key.getValues()) {
+                    if (value == null) {
+                        throw new IllegalArgumentException("TPCH index does not support null values");
                     }
-                    return lookupKey(key);
                 }
+                return lookupKey(key);
             });
 
             return new ConcatRecordSet(outputRecordSets, outputTypes);
@@ -221,24 +205,17 @@ class TpchIndexedData
 
         private static Iterable<MaterializedTuple> tupleIterable(final RecordSet recordSet)
         {
-            return new Iterable<MaterializedTuple>()
+            return () -> new AbstractIterator<MaterializedTuple>()
             {
-                @Override
-                public Iterator<MaterializedTuple> iterator()
-                {
-                    return new AbstractIterator<MaterializedTuple>()
-                    {
-                        private final RecordCursor cursor = recordSet.cursor();
+                private final RecordCursor cursor = recordSet.cursor();
 
-                        @Override
-                        protected MaterializedTuple computeNext()
-                        {
-                            if (!cursor.advanceNextPosition()) {
-                                return endOfData();
-                            }
-                            return new MaterializedTuple(extractValues(cursor, recordSet.getColumnTypes()));
-                        }
-                    };
+                @Override
+                protected MaterializedTuple computeNext()
+                {
+                    if (!cursor.advanceNextPosition()) {
+                        return endOfData();
+                    }
+                    return new MaterializedTuple(extractValues(cursor, recordSet.getColumnTypes()));
                 }
             };
         }
@@ -257,14 +234,7 @@ class TpchIndexedData
 
         public static Function<String, TpchScaledColumn> columnFunction(final TpchScaledTable table)
         {
-            return new Function<String, TpchScaledColumn>()
-            {
-                @Override
-                public TpchScaledColumn apply(String columnName)
-                {
-                    return new TpchScaledColumn(table, columnName);
-                }
-            };
+            return name -> new TpchScaledColumn(table, name);
         }
 
         @Override
