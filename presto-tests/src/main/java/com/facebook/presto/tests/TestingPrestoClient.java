@@ -114,58 +114,53 @@ public class TestingPrestoClient
 
     private static Function<List<Object>, MaterializedRow> dataToRow(final TimeZoneKey timeZoneKey, final List<Type> types)
     {
-        return new Function<List<Object>, MaterializedRow>()
-        {
-            @Override
-            public MaterializedRow apply(List<Object> data)
-            {
-                checkArgument(data.size() == types.size(), "columns size does not match types size");
-                List<Object> row = new ArrayList<>();
-                for (int i = 0; i < data.size(); i++) {
-                    Object value = data.get(i);
-                    if (value == null) {
-                        row.add(null);
-                        continue;
-                    }
-
-                    Type type = types.get(i);
-                    if (BOOLEAN.equals(type)) {
-                        row.add(value);
-                    }
-                    else if (BIGINT.equals(type)) {
-                        row.add(((Number) value).longValue());
-                    }
-                    else if (DOUBLE.equals(type)) {
-                        row.add(((Number) value).doubleValue());
-                    }
-                    else if (VARCHAR.equals(type)) {
-                        row.add(value);
-                    }
-                    else if (VARBINARY.equals(type)) {
-                        row.add(value);
-                    }
-                    else if (DATE.equals(type)) {
-                        int days = parseDate((String) value);
-                        row.add(new Date(TimeUnit.DAYS.toMillis(days)));
-                    }
-                    else if (TIME.equals(type)) {
-                        row.add(new Time(parseTime(timeZoneKey, (String) value)));
-                    }
-                    else if (TIME_WITH_TIME_ZONE.equals(type)) {
-                        row.add(new Time(unpackMillisUtc(parseTimeWithTimeZone((String) value))));
-                    }
-                    else if (TIMESTAMP.equals(type)) {
-                        row.add(new Timestamp(parseTimestampWithoutTimeZone(timeZoneKey, (String) value)));
-                    }
-                    else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                        row.add(new Timestamp(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value))));
-                    }
-                    else {
-                        throw new AssertionError("unhandled type: " + type);
-                    }
+        return data -> {
+            checkArgument(data.size() == types.size(), "columns size does not match types size");
+            List<Object> row = new ArrayList<>();
+            for (int i = 0; i < data.size(); i++) {
+                Object value = data.get(i);
+                if (value == null) {
+                    row.add(null);
+                    continue;
                 }
-                return new MaterializedRow(DEFAULT_PRECISION, row);
+
+                Type type = types.get(i);
+                if (BOOLEAN.equals(type)) {
+                    row.add(value);
+                }
+                else if (BIGINT.equals(type)) {
+                    row.add(((Number) value).longValue());
+                }
+                else if (DOUBLE.equals(type)) {
+                    row.add(((Number) value).doubleValue());
+                }
+                else if (VARCHAR.equals(type)) {
+                    row.add(value);
+                }
+                else if (VARBINARY.equals(type)) {
+                    row.add(value);
+                }
+                else if (DATE.equals(type)) {
+                    int days = parseDate((String) value);
+                    row.add(new Date(TimeUnit.DAYS.toMillis(days)));
+                }
+                else if (TIME.equals(type)) {
+                    row.add(new Time(parseTime(timeZoneKey, (String) value)));
+                }
+                else if (TIME_WITH_TIME_ZONE.equals(type)) {
+                    row.add(new Time(unpackMillisUtc(parseTimeWithTimeZone((String) value))));
+                }
+                else if (TIMESTAMP.equals(type)) {
+                    row.add(new Timestamp(parseTimestampWithoutTimeZone(timeZoneKey, (String) value)));
+                }
+                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                    row.add(new Timestamp(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value))));
+                }
+                else {
+                    throw new AssertionError("unhandled type: " + type);
+                }
             }
+            return new MaterializedRow(DEFAULT_PRECISION, row);
         };
     }
 }
