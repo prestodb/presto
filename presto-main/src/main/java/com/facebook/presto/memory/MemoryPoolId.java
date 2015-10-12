@@ -15,7 +15,8 @@ package com.facebook.presto.memory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -48,13 +49,13 @@ public class MemoryPoolId
             return false;
         }
         MemoryPoolId that = (MemoryPoolId) o;
-        return Objects.equal(id, that.id);
+        return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(id);
+        return Objects.hash(id);
     }
 
     @Override

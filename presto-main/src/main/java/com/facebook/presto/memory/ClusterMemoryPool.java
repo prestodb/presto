@@ -15,7 +15,6 @@ package com.facebook.presto.memory;
 
 import com.facebook.presto.execution.QueryId;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -24,6 +23,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
@@ -131,13 +131,13 @@ public class ClusterMemoryPool
             return false;
         }
         ClusterMemoryPool that = (ClusterMemoryPool) o;
-        return Objects.equal(id, that.id);
+        return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(id);
+        return Objects.hash(id);
     }
 
     @Override
