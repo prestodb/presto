@@ -17,5 +17,5 @@ public final class QuerygridTestGroups
 {
     public static final String FUNCTIONS = "functions";
 
-    private QuerygridTestGroups(){}
+    private QuerygridTestGroups() {}
 }
