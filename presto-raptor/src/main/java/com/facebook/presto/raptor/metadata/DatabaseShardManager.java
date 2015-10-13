@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.log.Logger;
 import org.h2.jdbc.JdbcConnection;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -80,6 +81,8 @@ import static java.util.stream.Collectors.toSet;
 public class DatabaseShardManager
         implements ShardManager
 {
+    private static final Logger log = Logger.get(DatabaseShardManager.class);
+
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
 
     private final IDBI dbi;
@@ -132,6 +135,30 @@ public class DatabaseShardManager
         }
         catch (DBIException e) {
             throw metadataError(e);
+        }
+    }
+
+    @Override
+    public void dropTable(long tableId)
+    {
+        runTransaction(dbi, (handle, status) -> {
+            ShardManagerDao shardManagerDao = handle.attach(ShardManagerDao.class);
+            shardManagerDao.dropShardNodes(tableId);
+            shardManagerDao.dropShards(tableId);
+
+            MetadataDao dao = handle.attach(MetadataDao.class);
+            dao.dropColumns(tableId);
+            dao.dropTable(tableId);
+            return null;
+        });
+
+        // TODO: add a cleanup process for leftover index tables
+        // It is not possible to drop the index tables in a transaction.
+        try (Handle handle = dbi.open()) {
+            handle.execute("DROP TABLE " + shardIndexTable(tableId));
+        }
+        catch (DBIException e) {
+            log.warn(e, "Failed to drop index table %s", shardIndexTable(tableId));
         }
     }
 

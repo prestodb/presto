@@ -32,6 +32,11 @@ public interface ShardManager
     void createTable(long tableId, List<ColumnInfo> columns);
 
     /**
+     * Drop a table.
+     */
+    void dropTable(long tableId);
+
+    /**
      * Add a column to the end of the table.
      */
     void addColumn(long tableId, ColumnInfo column);
