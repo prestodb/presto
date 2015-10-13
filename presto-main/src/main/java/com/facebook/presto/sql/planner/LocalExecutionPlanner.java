@@ -687,6 +687,24 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
             }
 
+            if (node.getStep() == Step.INTERMEDIATE) {
+                LocalExecutionPlanContext intermediateContext = context.createSubContext();
+                intermediateContext.setInputDriver(context.isInputDriver());
+
+                PhysicalOperation source = node.getSource().accept(this, intermediateContext);
+                InMemoryExchange exchange = new InMemoryExchange(source.getTypes());
+                List<OperatorFactory> factories = ImmutableList.<OperatorFactory>builder()
+                        .addAll(source.getOperatorFactories())
+                        .add(exchange.createSinkFactory(intermediateContext.getNextOperatorId()))
+                        .build();
+                exchange.noMoreSinkFactories();
+                context.addDriverFactory(new DriverFactory(intermediateContext.isInputDriver(), false, factories));
+
+                OperatorFactory exchangeSource = createRandomDistribution(context.getNextOperatorId(), exchange);
+                source = new PhysicalOperation(exchangeSource, source.getLayout());
+                return planGroupByAggregation(node, source, context, Optional.empty());
+            }
+
             int aggregationConcurrency = getTaskAggregationConcurrency(session);
             if (node.getStep() == Step.PARTIAL || !context.isAllowLocalParallel() || context.getDriverInstanceCount() > 1 || aggregationConcurrency <= 1) {
                 PhysicalOperation source = node.getSource().accept(this, context);
