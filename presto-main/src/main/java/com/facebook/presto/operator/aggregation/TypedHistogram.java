@@ -162,7 +162,7 @@ public class TypedHistogram
         for (int i = 0; i < values.getPositionCount(); i++) {
             // find an empty slot for the address
             int hashPosition = getHashPosition(TypeUtils.hashPosition(type, values, i), newMask);
-            while (hashPositions.get(hashPosition) != -1) {
+            while (newHashPositions.get(hashPosition) != -1) {
                 hashPosition = (hashPosition + 1) & newMask;
             }
 
