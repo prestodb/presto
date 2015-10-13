@@ -27,7 +27,6 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
@@ -368,14 +367,9 @@ public class TestHiveFileFormats
     public void testDwrf()
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, new Predicate<TestColumn>()
-        {
-            @Override
-            public boolean apply(TestColumn testColumn)
-            {
-                ObjectInspector objectInspector = testColumn.getObjectInspector();
-                return !hasType(objectInspector, PrimitiveCategory.DATE);
-            }
+        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
+            ObjectInspector objectInspector = testColumn.getObjectInspector();
+            return !hasType(objectInspector, PrimitiveCategory.DATE);
         }));
 
         HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
@@ -398,15 +392,9 @@ public class TestHiveFileFormats
     public void testDwrfDataStream()
             throws Exception
     {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, new Predicate<TestColumn>()
-        {
-            @Override
-            public boolean apply(TestColumn testColumn)
-            {
-                ObjectInspector objectInspector = testColumn.getObjectInspector();
-                return !hasType(objectInspector, PrimitiveCategory.DATE);
-            }
-
+        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
+            ObjectInspector objectInspector = testColumn.getObjectInspector();
+            return !hasType(objectInspector, PrimitiveCategory.DATE);
         }));
 
         HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
