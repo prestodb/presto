@@ -46,22 +46,22 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * This load balancing policy is intended to be used only for CqlRecordReader when it fetches a particular split.
  * <p/>
- * It chooses alive hosts only from the set of the given replicas - because the connection is used to load the data from
- * the particular split, with a strictly defined list of the replicas, it is pointless to try the other nodes.
- * The policy tracks which of the replicas are alive, and when a new query plan is requested, it returns those replicas
+ * It chooses alive hosts only from the set of the given contact points - because the connection is used to load the data from
+ * the particular split, with a strictly defined list of the allowed hosts, it is pointless to try the other nodes.
+ * The policy tracks which of the allowed hosts are alive, and when a new query plan is requested, it returns those hosts
  * in the following order:
  * <ul>
  * <li>the local node</li>
@@ -74,35 +74,35 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
 
     private static final Set<InetAddress> localAddresses = Collections.unmodifiableSet(getLocalInetAddresses());
 
-    private final CopyOnWriteArraySet<Host> liveReplicaHosts = new CopyOnWriteArraySet<>();
+    private final CopyOnWriteArraySet<Host> allowedHosts = new CopyOnWriteArraySet<>();
 
-    private final Set<InetAddress> replicaAddresses = new HashSet<>();
+    private final Set<InetAddress> allowedAddresses = new HashSet<>();
 
-    public LimitedLocalNodeFirstLocalBalancingPolicy(String[] replicas)
+    public LimitedLocalNodeFirstLocalBalancingPolicy(String[] contactPoints)
     {
-        for (String replica : replicas) {
+        for (String contactPoint : contactPoints) {
             try {
-                InetAddress[] addresses = InetAddress.getAllByName(replica);
-                Collections.addAll(replicaAddresses, addresses);
+                InetAddress[] addresses = InetAddress.getAllByName(contactPoint);
+                Collections.addAll(allowedAddresses, addresses);
             }
             catch (UnknownHostException e) {
-                logger.warn("Invalid replica host name: {}, skipping it", replica);
+                logger.warn("Invalid contact point host name: {}, skipping it", contactPoint);
             }
         }
-        logger.debug("Created instance with the following replicas: {}", Arrays.asList(replicas));
+        logger.debug("Created instance with the following contact points: {}", Arrays.asList(contactPoints));
     }
 
     @Override
     public void init(Cluster cluster, Collection<Host> hosts)
     {
-        List<Host> replicaHosts = new ArrayList<>();
+        List<Host> addedHosts = new ArrayList<>();
         for (Host host : hosts) {
-            if (replicaAddresses.contains(host.getAddress())) {
-                replicaHosts.add(host);
+            if (allowedAddresses.contains(host.getAddress())) {
+                addedHosts.add(host);
             }
         }
-        liveReplicaHosts.addAll(replicaHosts);
-        logger.debug("Initialized with replica hosts: {}", replicaHosts);
+        allowedHosts.addAll(addedHosts);
+        logger.debug("Initialized with allowed hosts: {}", addedHosts);
     }
 
     @Override
@@ -120,13 +120,13 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     public Iterator<Host> newQueryPlan(String keyspace, Statement statement)
     {
         List<Host> local = new ArrayList<>(1);
-        List<Host> remote = new ArrayList<>(liveReplicaHosts.size());
-        for (Host liveReplicaHost : liveReplicaHosts) {
-            if (isLocalHost(liveReplicaHost)) {
-                local.add(liveReplicaHost);
+        List<Host> remote = new ArrayList<>(allowedHosts.size());
+        for (Host allowedHost : allowedHosts) {
+            if (isLocalHost(allowedHost)) {
+                local.add(allowedHost);
             }
             else {
-                remote.add(liveReplicaHost);
+                remote.add(allowedHost);
             }
         }
 
@@ -140,8 +140,8 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     @Override
     public void onAdd(Host host)
     {
-        if (replicaAddresses.contains(host.getAddress())) {
-            liveReplicaHosts.add(host);
+        if (allowedAddresses.contains(host.getAddress())) {
+            allowedHosts.add(host);
             logger.debug("Added a new host {}", host);
         }
     }
@@ -149,8 +149,8 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     @Override
     public void onUp(Host host)
     {
-        if (replicaAddresses.contains(host.getAddress())) {
-            liveReplicaHosts.add(host);
+        if (allowedAddresses.contains(host.getAddress())) {
+            allowedHosts.add(host);
             logger.debug("The host {} is now up", host);
         }
     }
@@ -158,7 +158,7 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     @Override
     public void onDown(Host host)
     {
-        if (liveReplicaHosts.remove(host)) {
+        if (allowedHosts.remove(host)) {
             logger.debug("The host {} is now down", host);
         }
     }
@@ -166,7 +166,7 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     @Override
     public void onRemove(Host host)
     {
-        if (liveReplicaHosts.remove(host)) {
+        if (allowedHosts.remove(host)) {
             logger.debug("Removed the host {}", host);
         }
     }
@@ -189,13 +189,7 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
             return Sets.newHashSet(Iterators.concat(
                     Iterators.transform(
                             Iterators.forEnumeration(NetworkInterface.getNetworkInterfaces()),
-                            new Function<NetworkInterface, Iterator<InetAddress>>() {
-                                @Override
-                                public Iterator<InetAddress> apply(NetworkInterface netIface)
-                                {
-                                    return Iterators.forEnumeration(netIface.getInetAddresses());
-                                }
-                            })));
+                            (Function<NetworkInterface, Iterator<InetAddress>>) netIface -> Iterators.forEnumeration(netIface.getInetAddresses()))));
         }
         catch (SocketException e) {
             logger.warn("Could not retrieve local network interfaces.", e);
