@@ -20,8 +20,8 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -154,17 +154,16 @@ public final class ByteCodeUtils
                 binding.getType().returnType());
     }
 
-    public static ByteCodeNode generateInvocation(Scope scope, FunctionInfo function, List<ByteCodeNode> arguments, Binding binding)
+    public static ByteCodeNode generateInvocation(Scope scope, String name, ScalarFunctionImplementation function, List<ByteCodeNode> arguments, Binding binding)
     {
         MethodType methodType = binding.getType();
 
-        Signature signature = function.getSignature();
         Class<?> returnType = methodType.returnType();
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
         LabelNode end = new LabelNode("end");
         ByteCodeBlock block = new ByteCodeBlock()
-                .setDescription("invoke " + signature);
+                .setDescription("invoke " + name);
 
         List<Class<?>> stackTypes = new ArrayList<>();
 
@@ -186,7 +185,7 @@ public final class ByteCodeUtils
                 index++;
             }
         }
-        block.append(invoke(binding, function.getSignature()));
+        block.append(invoke(binding, name));
 
         if (function.isNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));

@@ -35,7 +35,9 @@ import java.util.Optional;
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -43,91 +45,102 @@ import static java.util.Objects.requireNonNull;
 public final class Signature
 {
     private final String name;
+    private final FunctionType type;
     private final List<TypeParameter> typeParameters;
     private final TypeSignature returnType;
     private final List<TypeSignature> argumentTypes;
     private final boolean variableArity;
-    private final boolean internal;
 
     @JsonCreator
     public Signature(
             @JsonProperty("name") String name,
+            @JsonProperty("type") FunctionType type,
             @JsonProperty("typeParameters") List<TypeParameter> typeParameters,
             @JsonProperty("returnType") TypeSignature returnType,
             @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
-            @JsonProperty("variableArity") boolean variableArity,
-            @JsonProperty("internal") boolean internal)
+            @JsonProperty("variableArity") boolean variableArity)
     {
         requireNonNull(name, "name is null");
         requireNonNull(typeParameters, "typeParameters is null");
 
         this.name = name;
+        this.type = requireNonNull(type, "type is null");
         this.typeParameters = ImmutableList.copyOf(typeParameters);
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
-        this.internal = internal;
     }
 
-    public Signature(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity, boolean internal)
+    public Signature(String name, FunctionType type, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity)
     {
-        this(name, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), variableArity, internal);
+        this(name, type, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), variableArity);
     }
 
-    public Signature(String name, String returnType, List<String> argumentTypes)
+    public Signature(String name, FunctionType type, String returnType, List<String> argumentTypes)
     {
-        this(name, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), false, false);
+        this(name, type, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), false);
     }
 
-    public Signature(String name, String returnType, String... argumentTypes)
+    public Signature(String name, FunctionType type, String returnType, String... argumentTypes)
     {
-        this(name, returnType, ImmutableList.copyOf(argumentTypes));
+        this(name, type, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public Signature(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    public Signature(String name, FunctionType type, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        this(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, false);
+        this(name, type, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false);
     }
 
-    public Signature(String name, TypeSignature returnType, TypeSignature... argumentTypes)
+    public Signature(String name, FunctionType type, TypeSignature returnType, TypeSignature... argumentTypes)
     {
-        this(name, returnType, ImmutableList.copyOf(argumentTypes));
+        this(name, type, returnType, ImmutableList.copyOf(argumentTypes));
+    }
+
+    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends  Type> argumentTypes)
+    {
+        return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }
 
     public static Signature internalOperator(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return internalFunction(mangleOperatorName(name), returnType, argumentTypes);
+        return internalScalarFunction(mangleOperatorName(name), returnType, argumentTypes);
     }
 
     public static Signature internalOperator(String name, TypeSignature returnType, TypeSignature... argumentTypes)
     {
-        return internalFunction(mangleOperatorName(name), returnType, ImmutableList.copyOf(argumentTypes));
+        return internalScalarFunction(mangleOperatorName(name), returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public static Signature internalFunction(String name, String returnType, String... argumentTypes)
+    public static Signature internalScalarFunction(String name, String returnType, String... argumentTypes)
     {
-        return internalFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
+        return internalScalarFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public static Signature internalFunction(String name, String returnType, List<String> argumentTypes)
+    public static Signature internalScalarFunction(String name, String returnType, List<String> argumentTypes)
     {
-        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, true);
+        return new Signature(name, SCALAR, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false);
     }
 
-    public static Signature internalFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)
+    public static Signature internalScalarFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)
     {
-        return internalFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
+        return internalScalarFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public static Signature internalFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    public static Signature internalScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return new Signature(name, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false, true);
+        return new Signature(name, SCALAR, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false);
     }
 
     @JsonProperty
     public String getName()
     {
         return name;
+    }
+
+    @JsonProperty
+    public FunctionType getType()
+    {
+        return type;
     }
 
     @JsonProperty
@@ -140,12 +153,6 @@ public final class Signature
     public List<TypeSignature> getArgumentTypes()
     {
         return argumentTypes;
-    }
-
-    @JsonProperty
-    public boolean isInternal()
-    {
-        return internal;
     }
 
     @JsonProperty
@@ -163,12 +170,12 @@ public final class Signature
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, typeParameters, returnType, argumentTypes, variableArity, internal);
+        return Objects.hash(name, type, typeParameters, returnType, argumentTypes, variableArity);
     }
 
     Signature withAlias(String name)
     {
-        return new Signature(name, typeParameters, getReturnType(), getArgumentTypes(), variableArity, internal);
+        return new Signature(name, type, typeParameters, getReturnType(), getArgumentTypes(), variableArity);
     }
 
     @Override
@@ -182,17 +189,17 @@ public final class Signature
         }
         Signature other = (Signature) obj;
         return Objects.equals(this.name, other.name) &&
+                Objects.equals(this.type, other.type) &&
                 Objects.equals(this.typeParameters, other.typeParameters) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
-                Objects.equals(this.variableArity, other.variableArity) &&
-                Objects.equals(this.internal, other.internal);
+                Objects.equals(this.variableArity, other.variableArity);
     }
 
     @Override
     public String toString()
     {
-        return (internal ? "%" : "") + name + (typeParameters.isEmpty() ? "" : "<" + Joiner.on(",").join(typeParameters) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        return name + (typeParameters.isEmpty() ? "" : "<" + Joiner.on(",").join(typeParameters) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 
     @Nullable

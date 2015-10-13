@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -29,6 +29,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -38,11 +39,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayElementAtFunction
-        extends ParametricScalar
+        implements ParametricFunction
 {
     public static final ArrayElementAtFunction ARRAY_ELEMENT_AT_FUNCTION = new ArrayElementAtFunction();
     private static final String FUNCTION_NAME = "element_at";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array<E>", "bigint"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array<E>", "bigint"), false);
     private static final Map<Class<?>, MethodHandle> METHOD_HANDLES = ImmutableMap.<Class<?>, MethodHandle>builder()
             .put(boolean.class, methodHandle(ArrayElementAtFunction.class, "booleanElementAt", Type.class, Block.class, long.class))
             .put(long.class, methodHandle(ArrayElementAtFunction.class, "longElementAt", Type.class, Block.class, long.class))
@@ -92,7 +93,7 @@ public class ArrayElementAtFunction
         }
         requireNonNull(methodHandle, "methodHandle is null");
         methodHandle = methodHandle.bindTo(elementType);
-        Signature signature = new Signature(FUNCTION_NAME, elementType.getTypeSignature(), parameterizedTypeName("array", elementType.getTypeSignature()), parseTypeSignature("bigint"));
+        Signature signature = new Signature(FUNCTION_NAME, SCALAR, elementType.getTypeSignature(), parameterizedTypeName("array", elementType.getTypeSignature()), parseTypeSignature("bigint"));
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false, false));
     }
 

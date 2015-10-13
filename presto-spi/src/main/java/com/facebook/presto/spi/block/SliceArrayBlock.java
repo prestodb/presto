@@ -34,6 +34,11 @@ public class SliceArrayBlock
 
     public SliceArrayBlock(int positionCount, Slice[] values)
     {
+        this(positionCount, values, false);
+    }
+
+    public SliceArrayBlock(int positionCount, Slice[] values, boolean valueSlicesAreDistinct)
+    {
         this.positionCount = positionCount;
 
         if (values.length < positionCount) {
@@ -42,7 +47,9 @@ public class SliceArrayBlock
         this.values = values;
 
         sizeInBytes = getSliceArraySizeInBytes(values);
-        retainedSizeInBytes = getSliceArrayRetainedSizeInBytes(values);
+
+        // if values are distinct, use the already computed value
+        retainedSizeInBytes = valueSlicesAreDistinct ? sizeInBytes : getSliceArrayRetainedSizeInBytes(values);
     }
 
     public Slice[] getValues()
@@ -202,7 +209,7 @@ public class SliceArrayBlock
     static int getSliceArrayRetainedSizeInBytes(Slice[] values)
     {
         long sizeInBytes = SizeOf.sizeOf(values);
-        Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>();
+        Map<Object, Boolean> uniqueRetained = new IdentityHashMap<>(values.length);
         for (Slice value : values) {
             if (value != null && value.getBase() != null && uniqueRetained.put(value.getBase(), true) == null) {
                 sizeInBytes += value.getRetainedSize();

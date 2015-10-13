@@ -32,6 +32,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -53,7 +54,7 @@ public class ChecksumAggregation
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ChecksumAggregation.class, "output", NullableLongState.class, BlockBuilder.class);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(ChecksumAggregation.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ChecksumAggregation.class, "combine", NullableLongState.class, NullableLongState.class);
-    private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.VARBINARY, ImmutableList.of("T"), false, false);
+    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.VARBINARY, ImmutableList.of("T"), false);
 
     @Override
     public Signature getSignature()
@@ -71,7 +72,7 @@ public class ChecksumAggregation
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type valueType = types.get("T");
-        Signature signature = new Signature(NAME, VARBINARY.getTypeSignature(), valueType.getTypeSignature());
+        Signature signature = new Signature(NAME, AGGREGATE, VARBINARY.getTypeSignature(), valueType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(valueType);
         return new FunctionInfo(signature, getDescription(), aggregation);
     }

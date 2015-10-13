@@ -22,19 +22,9 @@ public interface ParametricFunction
 {
     Signature getSignature();
 
-    boolean isScalar();
-
-    boolean isAggregate();
-
     boolean isHidden();
 
-    boolean isApproximate();
-
-    boolean isWindow();
-
     boolean isDeterministic();
-
-    boolean isUnbound();
 
     String getDescription();
 

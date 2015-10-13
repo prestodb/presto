@@ -30,9 +30,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Queue;
 
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -46,6 +47,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.requireNonNull;
 
 public final class ExpressionUtils
@@ -104,14 +106,12 @@ public final class ExpressionUtils
         requireNonNull(expressions, "expressions is null");
         Preconditions.checkArgument(!Iterables.isEmpty(expressions), "expressions is empty");
 
-        Iterator<Expression> iterator = expressions.iterator();
-
-        Expression result = iterator.next();
-        while (iterator.hasNext()) {
-            result = new LogicalBinaryExpression(type, result, iterator.next());
+        // build balanced tree for efficient recursive processing
+        Queue<Expression> queue = new ArrayDeque<>(newArrayList(expressions));
+        while (queue.size() > 1) {
+            queue.add(new LogicalBinaryExpression(type, queue.remove(), queue.remove()));
         }
-
-        return result;
+        return queue.remove();
     }
 
     public static Expression combineConjuncts(Expression... expressions)

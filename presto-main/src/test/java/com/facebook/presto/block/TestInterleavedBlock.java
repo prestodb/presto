@@ -13,13 +13,19 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Array;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -40,9 +46,20 @@ public class TestInterleavedBlock
         assertValues((Slice[]) alternatingNullValues(expectedValues));
     }
 
-    private static void assertValues(Slice[] expectedValues)
+    @Test
+    public void testCopyPositions()
     {
-        InterleavedBlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(VARCHAR, BIGINT), new BlockBuilderStatus(), 10);
+        Slice[] expectedValues = createExpectedValues();
+        InterleavedBlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, ImmutableList.of(VARCHAR, BIGINT));
+
+        assertBlockFilteredPositions(expectedValues, blockBuilder, Ints.asList(0, 1, 4, 5, 6, 7, 14, 15));
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(0, 1, 4, 5, 6, 7, 14, 15));
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), Ints.asList(2, 3, 4, 5, 8, 9, 12, 13));
+    }
+
+    private static InterleavedBlockBuilder createBlockBuilderWithValues(Slice[] expectedValues, List<Type> types)
+    {
+        InterleavedBlockBuilder blockBuilder = new InterleavedBlockBuilder(types, new BlockBuilderStatus(), expectedValues.length);
 
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
@@ -52,6 +69,14 @@ public class TestInterleavedBlock
                 blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
             }
         }
+
+        return blockBuilder;
+    }
+
+    private void assertValues(Slice[] expectedValues)
+    {
+        InterleavedBlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, ImmutableList.of(VARCHAR, BIGINT));
+
         assertBlock(blockBuilder, expectedValues);
         assertBlock(blockBuilder.build(), expectedValues);
     }
@@ -78,5 +103,20 @@ public class TestInterleavedBlock
         objectsWithNulls[objectsWithNulls.length - 2] = null;
         objectsWithNulls[objectsWithNulls.length - 1] = null;
         return objectsWithNulls;
+    }
+
+    @Override
+    protected <T> void assertBlockPosition(Block block, int position, T expectedValue)
+    {
+        assertPositionValue(block, position, expectedValue);
+        assertPositionValue(block.getSingleValueBlock(position), 0, expectedValue);
+        assertPositionValue(block.getRegion(position, 1), 0, expectedValue);
+        assertPositionValue(block.getRegion(0, position + 1), position, expectedValue);
+        assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, expectedValue);
+        assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
+        assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
+        assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
+        int positionFloored = position / COLUMN_COUNT * COLUMN_COUNT;
+        assertPositionValue(block.copyPositions(IntStream.range(positionFloored, positionFloored + COLUMN_COUNT).boxed().collect(Collectors.toList())), position % COLUMN_COUNT, expectedValue);
     }
 }

@@ -24,7 +24,7 @@ import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -55,6 +55,7 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.consta
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantNull;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.equal;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.newInstance;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
@@ -65,10 +66,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public final class ArrayConstructor
-        extends ParametricScalar
+        implements ParametricFunction
 {
     public static final ArrayConstructor ARRAY_CONSTRUCTOR = new ArrayConstructor();
-    private static final Signature SIGNATURE = new Signature("array_constructor", ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "E"), true, true);
+    private static final Signature SIGNATURE = new Signature("array_constructor", SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "E"), true);
 
     @Override
     public Signature getSignature()

@@ -18,10 +18,10 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
@@ -57,8 +57,10 @@ public class NullIfCodeGenerator
         Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        FunctionInfo equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
+        Signature operatorSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
+        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(operatorSignature);
         ByteCodeNode equalsCall = generatorContext.generateCall(
+                operatorSignature.getName(),
                 equalsFunction,
                 ImmutableList.of(
                         cast(generatorContext, new ByteCodeBlock().dup(firstType.getJavaType()), firstType, commonType),
@@ -85,11 +87,11 @@ public class NullIfCodeGenerator
 
     private ByteCodeNode cast(ByteCodeGeneratorContext generatorContext, ByteCodeNode argument, Type fromType, Type toType)
     {
-        FunctionInfo function = generatorContext
+        Signature function = generatorContext
             .getRegistry()
             .getCoercion(fromType, toType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(function, ImmutableList.of(argument));
+        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(argument));
     }
 }

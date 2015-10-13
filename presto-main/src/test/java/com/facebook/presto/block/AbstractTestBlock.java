@@ -45,7 +45,7 @@ import static org.testng.Assert.fail;
 @Test
 public abstract class AbstractTestBlock
 {
-    protected static <T> void assertBlock(Block block, T[] expectedValues)
+    protected <T> void assertBlock(Block block, T[] expectedValues)
     {
         assertBlockPositions(block, expectedValues);
         assertBlockPositions(copyBlock(block), expectedValues);
@@ -64,24 +64,25 @@ public abstract class AbstractTestBlock
         }
     }
 
-    protected static void assertBlockFilteredPositions(Slice[] expectedValues, Block block, List<Integer> positions)
+    protected <T> void assertBlockFilteredPositions(T[] expectedValues, Block block, List<Integer> positions)
     {
         Block filteredBlock = block.copyPositions(positions);
-        Slice[] filteredExpectedValues = filter(expectedValues, positions);
+        T[] filteredExpectedValues = filter(expectedValues, positions);
         assertEquals(filteredBlock.getPositionCount(), positions.size());
         assertBlock(filteredBlock, filteredExpectedValues);
     }
 
-    private static Slice[] filter(Slice[] expectedValues, List<Integer> positions)
+    private static <T> T[] filter(T[] expectedValues, List<Integer> positions)
     {
-        Slice[] prunedExpectedValues = new Slice[positions.size()];
+        @SuppressWarnings("unchecked")
+        T[] prunedExpectedValues = (T[]) Array.newInstance(expectedValues.getClass().getComponentType(), positions.size());
         for (int i = 0; i < prunedExpectedValues.length; i++) {
             prunedExpectedValues[i] = expectedValues[positions.get(i)];
         }
         return prunedExpectedValues;
     }
 
-    private static <T> void assertBlockPositions(Block block, T[] expectedValues)
+    private <T> void assertBlockPositions(Block block, T[] expectedValues)
     {
         assertEquals(block.getPositionCount(), expectedValues.length);
         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -89,7 +90,7 @@ public abstract class AbstractTestBlock
         }
     }
 
-    private static <T> void assertBlockPosition(Block block, int position, T expectedValue)
+    protected <T> void assertBlockPosition(Block block, int position, T expectedValue)
     {
         assertPositionValue(block, position, expectedValue);
         assertPositionValue(block.getSingleValueBlock(position), 0, expectedValue);
@@ -99,15 +100,10 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);
-        try {
-            assertPositionValue(block.copyPositions(Ints.asList(position)), 0, expectedValue);
-        }
-        catch (UnsupportedOperationException e) {
-            // ignore blocks that do not support this operation
-        }
+        assertPositionValue(block.copyPositions(Ints.asList(position)), 0, expectedValue);
     }
 
-    private static <T> void assertPositionValue(Block block, int position, T expectedValue)
+    protected static <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
         if (expectedValue == null) {
             assertTrue(block.isNull(position));

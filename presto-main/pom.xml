@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.120-SNAPSHOT</version>
+        <version>0.123-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -295,6 +295,14 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-plugin</artifactId>
+                <configuration>
+                    <failOnViolations>false</failOnViolations>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>

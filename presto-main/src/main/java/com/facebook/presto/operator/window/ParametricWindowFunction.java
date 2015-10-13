@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -46,43 +47,13 @@ public class ParametricWindowFunction
     }
 
     @Override
-    public boolean isScalar()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isAggregate()
-    {
-        return false;
-    }
-
-    @Override
     public boolean isHidden()
     {
         return false;
     }
 
     @Override
-    public boolean isApproximate()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isWindow()
-    {
-        return true;
-    }
-
-    @Override
     public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isUnbound()
     {
         return true;
     }
@@ -104,7 +75,7 @@ public class ParametricWindowFunction
                 .map(argument -> argument.getBase().equals(typeVariable) ? type : argument)
                 .collect(toImmutableList());
 
-        Signature signature = new Signature(getSignature().getName(), type, argumentTypes);
+        Signature signature = new Signature(getSignature().getName(), WINDOW, type, argumentTypes);
         return new FunctionInfo(signature, getDescription(), supplier);
     }
 }

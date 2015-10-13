@@ -38,6 +38,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -51,7 +52,7 @@ public class ArbitraryAggregation
 {
     public static final ArbitraryAggregation ARBITRARY_AGGREGATION = new ArbitraryAggregation();
     private static final String NAME = "arbitrary";
-    private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false, false);
+    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"), false);
 
     private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, NullableDoubleState.class, Block.class, int.class);
@@ -83,7 +84,7 @@ public class ArbitraryAggregation
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type valueType = types.get("T");
-        Signature signature = new Signature(NAME, valueType.getTypeSignature(), valueType.getTypeSignature());
+        Signature signature = new Signature(NAME, AGGREGATE, valueType.getTypeSignature(), valueType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(valueType);
         return new FunctionInfo(signature, getDescription(), aggregation);
     }

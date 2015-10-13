@@ -17,7 +17,6 @@ import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -26,6 +25,7 @@ import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
@@ -47,17 +47,19 @@ public class IsDistinctFromCodeGenerator
         Type leftType = left.getType();
         Type rightType = right.getType();
 
-        FunctionInfo operator = generatorContext
+        Signature equalsSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(leftType, rightType));
+        MethodHandle methodHandle = generatorContext
                 .getRegistry()
-                .resolveOperator(OperatorType.EQUAL, ImmutableList.of(leftType, rightType));
+                .getScalarFunctionImplementation(equalsSignature)
+                .getMethodHandle();
 
         Binding binding = generatorContext
                 .getCallSiteBinder()
-                .bind(operator.getMethodHandle());
+                .bind(methodHandle);
 
         ByteCodeNode equalsCall = new ByteCodeBlock()
                 .comment("equals(%s, %s)", leftType, rightType)
-                .append(invoke(binding, operator.getSignature()));
+                .append(invoke(binding, equalsSignature));
 
         ByteCodeNode neitherSideIsNull;
         if (leftType instanceof UnknownType || rightType instanceof UnknownType) {

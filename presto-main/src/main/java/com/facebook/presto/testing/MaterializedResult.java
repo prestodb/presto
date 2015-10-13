@@ -17,16 +17,23 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 
 import java.sql.Date;
@@ -37,10 +44,24 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -130,6 +151,102 @@ public class MaterializedResult
                 .add("setSessionProperties", setSessionProperties)
                 .add("resetSessionProperties", resetSessionProperties)
                 .toString();
+    }
+
+    public Page toPage()
+    {
+        PageBuilder pageBuilder = new PageBuilder(types);
+        for (MaterializedRow row : rows) {
+            appendToPage(pageBuilder, row);
+        }
+        return pageBuilder.build();
+    }
+
+    private static void appendToPage(PageBuilder pageBuilder, MaterializedRow row)
+    {
+        for (int field = 0; field < row.getFieldCount(); field++) {
+            Type type = pageBuilder.getType(field);
+            Object value = row.getField(field);
+            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(field);
+            writeValue(type, blockBuilder, value);
+        }
+        pageBuilder.declarePosition();
+    }
+
+    private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
+    {
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else if (BIGINT.equals(type)) {
+            type.writeLong(blockBuilder, ((Number) value).longValue());
+        }
+        else if (DOUBLE.equals(type)) {
+            type.writeDouble(blockBuilder, ((Number) value).doubleValue());
+        }
+        else if (BOOLEAN.equals(type)) {
+            type.writeBoolean(blockBuilder, (Boolean) value);
+        }
+        else if (VARCHAR.equals(type)) {
+            type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
+        }
+        else if (VARBINARY.equals(type)) {
+            type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) value));
+        }
+        else if (DATE.equals(type)) {
+            int days = ((SqlDate) value).getDays();
+            type.writeLong(blockBuilder, days);
+        }
+        else if (TIME.equals(type)) {
+            long millisUtc = ((SqlTime) value).getMillisUtc();
+            type.writeLong(blockBuilder, millisUtc);
+        }
+        else if (TIME_WITH_TIME_ZONE.equals(type)) {
+            long millisUtc = ((SqlTimeWithTimeZone) value).getMillisUtc();
+            TimeZoneKey timeZoneKey = ((SqlTimeWithTimeZone) value).getTimeZoneKey();
+            type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
+        }
+        else if (TIMESTAMP.equals(type)) {
+            long millisUtc = ((SqlTimestamp) value).getMillisUtc();
+            type.writeLong(blockBuilder, millisUtc);
+        }
+        else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            long millisUtc = ((SqlTimestampWithTimeZone) value).getMillisUtc();
+            TimeZoneKey timeZoneKey = ((SqlTimestampWithTimeZone) value).getTimeZoneKey();
+            type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
+        }
+        else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+            List<Object> list = (List<Object>) value;
+            Type elementType = ((ArrayType) type).getElementType();
+            BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
+            for (Object element : list) {
+                writeValue(elementType, arrayBlockBuilder, element);
+            }
+            blockBuilder.closeEntry();
+        }
+        else if (MAP.equals(type.getTypeSignature().getBase())) {
+            Map<Object, Object> map = (Map<Object, Object>) value;
+            Type keyType = ((MapType) type).getKeyType();
+            Type valueType = ((MapType) type).getValueType();
+            BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
+            for (Entry<Object, Object> entry : map.entrySet()) {
+                writeValue(keyType, mapBlockBuilder, entry.getKey());
+                writeValue(valueType, mapBlockBuilder, entry.getValue());
+            }
+            blockBuilder.closeEntry();
+        }
+        else if (type instanceof RowType) {
+            List<Object> row = (List<Object>) value;
+            List<Type> fieldTypes = type.getTypeParameters();
+            BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
+            for (int field = 0; field < row.size(); field++) {
+                writeValue(fieldTypes.get(field), rowBlockBuilder, row.get(field));
+            }
+            blockBuilder.closeEntry();
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported type " + type);
+        }
     }
 
     public MaterializedResult toJdbcTypes()

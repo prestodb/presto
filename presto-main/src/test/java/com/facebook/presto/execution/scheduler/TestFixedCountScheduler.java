@@ -56,7 +56,8 @@ public class TestFixedCountScheduler
             throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of()),
+                node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of(), delta -> {
+                }),
                 TestFixedCountScheduler::generateRandomNodes,
                 1);
 
@@ -72,7 +73,8 @@ public class TestFixedCountScheduler
             throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of()),
+                node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of(), delta -> {
+                }),
                 TestFixedCountScheduler::generateRandomNodes,
                 5);
 
@@ -88,7 +90,8 @@ public class TestFixedCountScheduler
             throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of()),
+                node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of(), delta -> {
+                }),
                 count -> generateRandomNodes(3),
                 5);
 
@@ -105,7 +108,8 @@ public class TestFixedCountScheduler
     {
         try {
             FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                    node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of()),
+                    node -> taskFactory.createTableScanTask((Node) node, ImmutableList.of(), delta -> {
+                    }),
                     count -> generateRandomNodes(0),
                     5);
 

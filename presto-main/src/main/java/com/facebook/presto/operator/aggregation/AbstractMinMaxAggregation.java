@@ -42,12 +42,15 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -78,7 +81,7 @@ public abstract class AbstractMinMaxAggregation
         requireNonNull(operatorType);
         this.name = name;
         this.operatorType = operatorType;
-        this.signature = new Signature(name, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), false, false);
+        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), false);
     }
 
     @Override
@@ -91,8 +94,8 @@ public abstract class AbstractMinMaxAggregation
     public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("E");
-        MethodHandle compareMethodHandle = functionRegistry.resolveOperator(operatorType, ImmutableList.of(type, type)).getMethodHandle();
-        Signature signature = new Signature(name, type.getTypeSignature(), type.getTypeSignature());
+        MethodHandle compareMethodHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(operatorType, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
+        Signature signature = new Signature(name, AGGREGATE, type.getTypeSignature(), type.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(type, compareMethodHandle);
         return new FunctionInfo(signature, getDescription(), aggregation);
     }

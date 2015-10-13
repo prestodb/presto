@@ -57,6 +57,9 @@ public class HiveClientConfig
     private int domainCompactionThreshold = 100;
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
+
+    private int maxConcurrentFileRenames = 20;
+
     private boolean allowAddColumn;
     private boolean allowDropTable;
     private boolean allowRenameTable;
@@ -93,6 +96,9 @@ public class HiveClientConfig
     private boolean useParquetColumnNames;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
+    private boolean respectTableFormat = true;
+    private boolean immutablePartitions;
+    private int maxPartitionsPerWriter = 100;
 
     private List<String> resourceConfigFiles;
 
@@ -157,6 +163,19 @@ public class HiveClientConfig
     public HiveClientConfig setForceLocalScheduling(boolean forceLocalScheduling)
     {
         this.forceLocalScheduling = forceLocalScheduling;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentFileRenames()
+    {
+        return maxConcurrentFileRenames;
+    }
+
+    @Config("hive.max-concurrent-file-renames")
+    public HiveClientConfig setMaxConcurrentFileRenames(int maxConcurrentFileRenames)
+    {
+        this.maxConcurrentFileRenames = maxConcurrentFileRenames;
         return this;
     }
 
@@ -454,6 +473,46 @@ public class HiveClientConfig
     public HiveClientConfig setHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
     {
         this.hiveStorageFormat = hiveStorageFormat;
+        return this;
+    }
+
+    public boolean isRespectTableFormat()
+    {
+        return respectTableFormat;
+    }
+
+    @Config("hive.respect-table-format")
+    @ConfigDescription("Should new partitions be written using the existing table format or the default Presto format")
+    public HiveClientConfig setRespectTableFormat(boolean respectTableFormat)
+    {
+        this.respectTableFormat = respectTableFormat;
+        return this;
+    }
+
+    public boolean isImmutablePartitions()
+    {
+        return immutablePartitions;
+    }
+
+    @Config("hive.immutable-partitions")
+    @ConfigDescription("Can new data be inserted into existing partitions")
+    public HiveClientConfig setImmutablePartitions(boolean immutablePartitions)
+    {
+        this.immutablePartitions = immutablePartitions;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPartitionsPerWriter()
+    {
+        return maxPartitionsPerWriter;
+    }
+
+    @Config("hive.max-partitions-per-writers")
+    @ConfigDescription("Maximum number of partitions per writer")
+    public HiveClientConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
+    {
+        this.maxPartitionsPerWriter = maxPartitionsPerWriter;
         return this;
     }
 

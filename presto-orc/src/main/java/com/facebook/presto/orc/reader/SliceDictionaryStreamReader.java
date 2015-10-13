@@ -201,7 +201,7 @@ public class SliceDictionaryStreamReader
             }
             // copy ids into a private array for this block since data vector is reused
             Slice ids = Slices.wrappedIntArray(Arrays.copyOfRange(dataVector, 0, nextBatchSize));
-            block = new DictionaryBlock(nextBatchSize, new SliceArrayBlock(dictionarySize + 1, dictionary), ids);
+            block = new DictionaryBlock(nextBatchSize, new SliceArrayBlock(dictionarySize + 1, dictionary, true), ids);
         }
 
         readOffset = 0;

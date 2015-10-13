@@ -37,7 +37,7 @@ public final class ClassLoaderSafeConnectorPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.createPageSink(session, outputTableHandle);
+            return new ClassLoaderSafeConnectorPageSink(delegate.createPageSink(session, outputTableHandle), classLoader);
         }
     }
 
@@ -45,7 +45,7 @@ public final class ClassLoaderSafeConnectorPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.createPageSink(session, insertTableHandle);
+            return new ClassLoaderSafeConnectorPageSink(delegate.createPageSink(session, insertTableHandle), classLoader);
         }
     }
 }

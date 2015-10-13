@@ -14,16 +14,15 @@
 package com.facebook.presto.raptor.systemtables;
 
 import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -34,13 +33,15 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
+import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
+import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -58,6 +59,8 @@ public class ShardMetadataRecordCursor
     private static final String SHARD_UUID = "shard_uuid";
     private static final String SCHEMA_NAME = "table_schema";
     private static final String TABLE_NAME = "table_name";
+    private static final String MIN_TIMESTAMP = "min_timestamp";
+    private static final String MAX_TIMESTAMP = "max_timestamp";
 
     public static final SchemaTableName SHARD_METADATA_TABLE_NAME = new SchemaTableName("system", "shards");
     public static final ConnectorTableMetadata SHARD_METADATA = new ConnectorTableMetadata(
@@ -69,65 +72,52 @@ public class ShardMetadataRecordCursor
                     new ColumnMetadata("uncompressed_size", BIGINT, false),
                     new ColumnMetadata("compressed_size", BIGINT, false),
                     new ColumnMetadata("row_count", BIGINT, false),
-                    new ColumnMetadata("min_timestamp", TIMESTAMP, false),
-                    new ColumnMetadata("max_timestamp", TIMESTAMP, false)));
+                    new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP, false),
+                    new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP, false)));
 
     private static final List<ColumnMetadata> COLUMNS = SHARD_METADATA.getColumns();
     private static final List<Type> TYPES = COLUMNS.stream().map(ColumnMetadata::getType).collect(toList());
 
-    private final MetadataDao metadataDao;
-    private final Iterator<Long> tableIds;
     private final IDBI dbi;
-    private final PreparedStatementBuilder preparedStatementBuilder;
+    private final MetadataDao metadataDao;
+
+    private final Iterator<Long> tableIds;
+    private final List<String> columnNames;
+    private final TupleDomain<Integer> tupleDomain;
+
+    private ResultSet resultSet;
+    private Connection connection;
+    private PreparedStatement statement;
     private final ResultSetValues resultSetValues;
 
     private boolean closed;
-    private Connection connection;
-    private PreparedStatement statement;
-    private ResultSet resultSet;
     private long completedBytes;
 
     public ShardMetadataRecordCursor(IDBI dbi, TupleDomain<Integer> tupleDomain)
     {
         requireNonNull(dbi, "dbi is null");
-        requireNonNull(tupleDomain, "tupleDomain is null");
-
         this.dbi = dbi;
-        this.metadataDao = dbi.onDemand(MetadataDao.class);
-
-        this.tableIds = getTableIds(metadataDao, tupleDomain);
-
-        List<String> columnNames = createQualifiedColumnName();
-        this.preparedStatementBuilder = new PreparedStatementBuilder(
-                constructSqlTemplate(columnNames),
-                columnNames,
-                TYPES,
-                ImmutableList.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
-                tupleDomain);
+        this.metadataDao = onDemandDao(dbi, MetadataDao.class);
+        this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
+        this.tableIds = getTableIds(dbi, tupleDomain);
+        this.columnNames = createQualifiedColumnNames();
         this.resultSetValues = new ResultSetValues(TYPES);
-
         this.resultSet = getNextResultSet();
     }
 
-    private static String constructSqlTemplate(List<String> columnNames)
+    private static String constructSqlTemplate(List<String> columnNames, String indexTableName)
     {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT\n");
-
-        for (int i = 0; i < columnNames.size() - 2; i++) {
-            sql.append(columnNames.get(i) + ",\n");
-        }
-        sql.append("%s AS min_timestamp,\n");
-        sql.append("%s AS max_timestamp\n");
-
-        sql.append("FROM %s x\n");
+        sql.append(Joiner.on(",\n").join(columnNames));
+        sql.append("\nFROM " + indexTableName + " x\n");
         sql.append("JOIN shards ON (x.shard_id = shards.shard_id)\n");
         sql.append("JOIN tables ON (shards.table_id = tables.table_id)\n");
 
         return sql.toString();
     }
 
-    private static List<String> createQualifiedColumnName()
+    private static List<String> createQualifiedColumnNames()
     {
         return ImmutableList.<String>builder()
                 .add("tables.schema_name")
@@ -189,7 +179,7 @@ public class ShardMetadataRecordCursor
             return true;
         }
         catch (SQLException e) {
-            throw Throwables.propagate(e);
+            throw metadataError(e);
         }
     }
 
@@ -269,47 +259,75 @@ public class ShardMetadataRecordCursor
         String minColumn = (columnId == null) ? "null" : minColumn(columnId);
         String maxColumn = (columnId == null) ? "null" : maxColumn(columnId);
 
+        List<String> columnNames = getMappedColumnNames(minColumn, maxColumn);
         try {
             connection = dbi.open().getConnection();
-            statement = preparedStatementBuilder.create(connection, minColumn, maxColumn, shardIndexTable(tableId));
+            statement = PreparedStatementBuilder.create(
+                    connection,
+                    constructSqlTemplate(columnNames, shardIndexTable(tableId)),
+                    columnNames,
+                    TYPES,
+                    ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)),
+                    tupleDomain);
             return statement.executeQuery();
         }
         catch (SQLException e) {
             close();
-            throw new PrestoException(RAPTOR_ERROR, e);
+            throw metadataError(e);
         }
     }
 
-    private static Iterator<Long> getTableIds(MetadataDao metadataDao, TupleDomain<Integer> tupleDomain)
+    private List<String> getMappedColumnNames(String minColumn, String maxColumn)
     {
-        List<Long> tableIds = metadataDao.listTableIds();
-        if (tupleDomain.isNone()) {
-            return tableIds.iterator();
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (String column : columnNames) {
+            switch (column) {
+                case MIN_TIMESTAMP:
+                    builder.add(minColumn);
+                    break;
+                case MAX_TIMESTAMP:
+                    builder.add(maxColumn);
+                    break;
+                default:
+                    builder.add(column);
+                    break;
+            }
         }
+        return builder.build();
+    }
 
-        Domain schemaNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, SHARD_UUID));
+    @VisibleForTesting
+    static Iterator<Long> getTableIds(IDBI dbi, TupleDomain<Integer> tupleDomain)
+    {
+        Domain schemaNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, SCHEMA_NAME));
         Domain tableNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, TABLE_NAME));
 
-        if (tableNameDomain != null && tableNameDomain.isSingleValue()) {
-            String tableName = getStringValue(tableNameDomain.getSingleValue());
-
-            if (schemaNameDomain == null) {
-                List<Table> tables = metadataDao.getTableInformation(tableName);
-                if (tables == null) {
-                    return ImmutableList.<Long>of().iterator();
-                }
-                tableIds = tables.stream().map(Table::getTableId).collect(toList());
+        StringBuilder sql = new StringBuilder("SELECT table_id FROM tables ");
+        if (schemaNameDomain != null || tableNameDomain != null) {
+            sql.append("WHERE ");
+            List<String> predicates = new ArrayList<>();
+            if (tableNameDomain != null && tableNameDomain.isSingleValue()) {
+                predicates.add(format("table_name = '%s'", getStringValue(tableNameDomain.getSingleValue())));
             }
-            else if (schemaNameDomain.isSingleValue()) {
-                String schemaName = getStringValue(schemaNameDomain.getSingleValue());
-                Table table = metadataDao.getTableInformation(schemaName, tableName);
-                if (table == null) {
-                    return ImmutableList.<Long>of().iterator();
-                }
-                tableIds = ImmutableList.of(table.getTableId());
+            if (schemaNameDomain != null && schemaNameDomain.isSingleValue()) {
+                predicates.add(format("schema_name = '%s'", getStringValue(schemaNameDomain.getSingleValue())));
+            }
+            sql.append(Joiner.on(" AND ").join(predicates));
+        }
+
+        System.out.println(sql.toString());
+        ImmutableList.Builder<Long> tableIds = ImmutableList.builder();
+        try (Connection connection = dbi.open().getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql.toString())) {
+            while (resultSet.next()) {
+                tableIds.add(resultSet.getLong("table_id"));
             }
         }
-        return tableIds.iterator();
+        catch (SQLException e) {
+            throw metadataError(e);
+        }
+        return tableIds.build().iterator();
     }
 
     private static int getColumnIndex(ConnectorTableMetadata tableMetadata, String columnName)

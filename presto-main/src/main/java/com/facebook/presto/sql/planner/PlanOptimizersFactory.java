@@ -97,8 +97,9 @@ public class PlanOptimizersFactory
         builder.add(new PickLayout(metadata));
 
         builder.add(new PredicatePushDown(metadata, sqlParser)); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
-        builder.add(new UnaliasSymbolReferences());
+        builder.add(new ProjectionPushDown());
         builder.add(new MergeProjections());
+        builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
         builder.add(new PruneRedundantProjections());
 

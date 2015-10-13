@@ -24,7 +24,7 @@ import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -47,8 +47,12 @@ import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -59,7 +63,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public abstract class AbstractGreatestLeast
-        extends ParametricScalar
+        implements ParametricFunction
 {
     private static final MethodHandle CHECK_NOT_NAN = methodHandle(AbstractGreatestLeast.class, "checkNotNaN", String.class, double.class);
 
@@ -68,7 +72,7 @@ public abstract class AbstractGreatestLeast
 
     protected AbstractGreatestLeast(String name, OperatorType operatorType)
     {
-        this.signature = new Signature(name, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), true, false);
+        this.signature = new Signature(name, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), true);
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
     }
 
@@ -96,7 +100,7 @@ public abstract class AbstractGreatestLeast
         Type type = types.get("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
 
-        MethodHandle compareMethod = functionRegistry.resolveOperator(operatorType, ImmutableList.of(type, type)).getMethodHandle();
+        MethodHandle compareMethod = functionRegistry.getScalarFunctionImplementation(internalOperator(operatorType, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
 
         List<Class<?>> javaTypes = IntStream.range(0, arity)
                 .mapToObj(i -> type.getJavaType())
@@ -106,7 +110,7 @@ public abstract class AbstractGreatestLeast
         MethodHandle methodHandle = methodHandle(clazz, signature.getName(), javaTypes.toArray(new Class<?>[javaTypes.size()]));
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(javaTypes.size(), false));
 
-        Signature specializedSignature = Signature.internalFunction(signature.getName(), type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature()));
+        Signature specializedSignature = internalScalarFunction(signature.getName(), type.getTypeSignature(), Collections.nCopies(arity, type.getTypeSignature()));
         return new FunctionInfo(specializedSignature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, nullableParameters);
     }
 

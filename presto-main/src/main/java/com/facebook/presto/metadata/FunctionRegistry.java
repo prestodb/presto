@@ -31,6 +31,7 @@ import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.CovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.NumericHistogramAggregation;
@@ -46,6 +47,7 @@ import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonOperators;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
@@ -60,6 +62,7 @@ import com.facebook.presto.operator.window.NthValueFunction;
 import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
+import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -105,6 +108,7 @@ import com.google.common.primitives.Primitives;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
@@ -117,6 +121,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.FunctionType.WINDOW;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregation.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ArrayAggregation.ARRAY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregation.CHECKSUM_AGGREGATION;
@@ -125,9 +134,11 @@ import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregation.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MaxAggregation.MAX_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
+import static com.facebook.presto.operator.aggregation.MaxByNAggregation.MAX_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxNAggregation.MAX_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinAggregation.MIN_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinBy.MIN_BY;
+import static com.facebook.presto.operator.aggregation.MinByNAggregation.MIN_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinNAggregation.MIN_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MultimapAggregation.MULTIMAP_AGG;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
@@ -177,6 +188,7 @@ import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_C
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -194,10 +206,12 @@ import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -310,7 +324,7 @@ public class FunctionRegistry
                 .function(ARBITRARY_AGGREGATION)
                 .function(ARRAY_AGGREGATION)
                 .functions(GREATEST, LEAST)
-                .functions(MAX_BY, MIN_BY)
+                .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
                 .function(COUNT_COLUMN)
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL)
@@ -325,6 +339,43 @@ public class FunctionRegistry
         }
 
         addFunctions(builder.getFunctions());
+    }
+
+    @Nullable
+    private static Signature bindSignature(Signature signature, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    {
+        List<TypeSignature> argumentTypes = signature.getArgumentTypes();
+        Map<String, Type> boundParameters = signature.bindTypeParameters(types, allowCoercion, typeManager);
+        if (boundParameters == null) {
+            return null;
+        }
+        ImmutableList.Builder<TypeSignature> boundArguments = ImmutableList.builder();
+        for (int i = 0; i < argumentTypes.size() - 1; i++) {
+            boundArguments.add(bindParameters(argumentTypes.get(i), boundParameters));
+        }
+        if (!argumentTypes.isEmpty()) {
+            TypeSignature lastArgument = bindParameters(argumentTypes.get(argumentTypes.size() - 1), boundParameters);
+            if (signature.isVariableArity()) {
+                for (int i = 0; i < types.size() - (argumentTypes.size() - 1); i++) {
+                    boundArguments.add(lastArgument);
+                }
+            }
+            else {
+                boundArguments.add(lastArgument);
+            }
+        }
+        return new Signature(signature.getName(), signature.getType(), bindParameters(signature.getReturnType(), boundParameters), boundArguments.build());
+    }
+
+    private static TypeSignature bindParameters(TypeSignature typeSignature, Map<String, Type> boundParameters)
+    {
+        List<TypeSignature> parameters = typeSignature.getParameters().stream().map(signature -> bindParameters(signature, boundParameters)).collect(toImmutableList());
+        String base = typeSignature.getBase();
+        if (boundParameters.containsKey(base)) {
+            verify(typeSignature.getLiteralParameters().isEmpty() && typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
+            return boundParameters.get(base).getTypeSignature();
+        }
+        return new TypeSignature(base, parameters, typeSignature.getLiteralParameters());
     }
 
     public final synchronized void addFunctions(List<? extends ParametricFunction> functions)
@@ -346,28 +397,23 @@ public class FunctionRegistry
 
     public boolean isAggregationFunction(QualifiedName name)
     {
-        return Iterables.any(functions.get(name), ParametricFunction::isAggregate);
+        return Iterables.any(functions.get(name), function -> function.getSignature().getType() == AGGREGATE || function.getSignature().getType() == APPROXIMATE_AGGREGATE);
     }
 
-    public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
+    public Signature resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
     {
         List<ParametricFunction> candidates = functions.get(name).stream()
-                .filter(function -> function.isScalar() || function.isApproximate() == approximate)
+                .filter(function -> function.getSignature().getType() == SCALAR || (function.getSignature().getType() == APPROXIMATE_AGGREGATE) == approximate)
                 .collect(toImmutableList());
 
         List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
         // search for exact match
-        FunctionInfo match = null;
+        Signature match = null;
         for (ParametricFunction function : candidates) {
-            Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
-            if (boundTypeParameters != null) {
+            Signature signature = bindSignature(function.getSignature(), resolvedTypes, false, typeManager);
+            if (signature != null) {
                 checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
-                try {
-                    match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
-                }
-                catch (UncheckedExecutionException e) {
-                    throw Throwables.propagate(e.getCause());
-                }
+                match = signature;
             }
         }
 
@@ -377,15 +423,10 @@ public class FunctionRegistry
 
         // search for coerced match
         for (ParametricFunction function : candidates) {
-            Map<String, Type> boundTypeParameters = function.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
-            if (boundTypeParameters != null) {
+            Signature signature = bindSignature(function.getSignature(), resolvedTypes, true, typeManager);
+            if (signature != null) {
                 // TODO: This should also check for ambiguities
-                try {
-                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
-                }
-                catch (UncheckedExecutionException e) {
-                    throw Throwables.propagate(e.getCause());
-                }
+                return signature;
             }
         }
 
@@ -416,34 +457,22 @@ public class FunctionRegistry
             Type parameterType = typeManager.getType(parameterTypes.get(0));
             requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
 
-            MethodHandle methodHandle = null;
-            if (parameterType.getJavaType() == type.getJavaType()) {
-                methodHandle = MethodHandles.identity(parameterType.getJavaType());
-            }
-
-            if (parameterType.getJavaType() == Slice.class) {
-                if (type.getJavaType() == Block.class) {
-                    methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
-                }
-            }
-
-            checkArgument(methodHandle != null,
-                    "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
-                    type,
-                    parameterType.getJavaType(),
-                    type.getJavaType());
-
-            return new FunctionInfo(
-                    getMagicLiteralFunctionSignature(type),
-                    null,
-                    true,
-                    methodHandle,
-                    true,
-                    false,
-                    ImmutableList.of(false));
+            return getMagicLiteralFunctionSignature(type);
         }
 
         // TODO this should be made to work for any parametric type
+        FunctionInfo fieldReference = getRowFieldReferenceFunctionInfo(name, parameterTypes);
+        if (fieldReference != null) {
+            return fieldReference.getSignature();
+        }
+
+        throw new PrestoException(FUNCTION_NOT_FOUND, message);
+    }
+
+    private FunctionInfo getRowFieldReferenceFunctionInfo(QualifiedName name, List<TypeSignature> parameterTypes)
+    {
+        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
+        FunctionInfo match = null;
         for (TypeSignature typeSignature : parameterTypes) {
             if (typeSignature.getBase().equals(StandardTypes.ROW)) {
                 RowType rowType = RowParametricType.ROW.createType(resolveTypes(typeSignature.getParameters(), typeManager), typeSignature.getLiteralParameters());
@@ -469,11 +498,10 @@ public class FunctionRegistry
                 }
             }
         }
-
-        throw new PrestoException(FUNCTION_NOT_FOUND, message);
+        return null;
     }
 
-    public FunctionInfo getExactFunction(Signature signature)
+    private FunctionInfo getExactFunction(Signature signature)
     {
         Iterable<ParametricFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
@@ -493,6 +521,80 @@ public class FunctionRegistry
         return null;
     }
 
+    public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
+    {
+        checkArgument(signature.getType() == WINDOW || signature.getType() == AGGREGATE, "%s is not a window function", signature);
+        checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
+        FunctionInfo function = getExactFunction(signature);
+        checkCondition(function != null, FUNCTION_IMPLEMENTATION_MISSING, "%s not found", signature);
+        return function.getWindowFunction();
+    }
+
+    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    {
+        checkArgument(signature.getType() == AGGREGATE || signature.getType() == APPROXIMATE_AGGREGATE, "%s is not an aggregate function", signature);
+        checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
+        FunctionInfo function = getExactFunction(signature);
+        checkCondition(function != null, FUNCTION_IMPLEMENTATION_MISSING, "%s not found", signature);
+        return function.getAggregationFunction();
+    }
+
+    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
+    {
+        checkArgument(signature.getType() == SCALAR, "%s is not a scalar function", signature);
+        checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
+        FunctionInfo function = getExactFunction(signature);
+
+        // TODO: this is a hack and should be removed
+        if (function == null && signature.getName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+            List<TypeSignature> parameterTypes = signature.getArgumentTypes();
+            // extract type from function name
+            String typeName = signature.getName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+
+            // lookup the type
+            Type type = typeManager.getType(parseTypeSignature(typeName));
+            requireNonNull(type, format("Type %s not registered", typeName));
+
+            // verify we have one parameter of the proper type
+            checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
+            Type parameterType = typeManager.getType(parameterTypes.get(0));
+            requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
+
+            MethodHandle methodHandle = null;
+            if (parameterType.getJavaType() == type.getJavaType()) {
+                methodHandle = MethodHandles.identity(parameterType.getJavaType());
+            }
+
+            if (parameterType.getJavaType() == Slice.class) {
+                if (type.getJavaType() == Block.class) {
+                    methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
+                }
+            }
+
+            checkArgument(methodHandle != null,
+                    "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
+                    type,
+                    parameterType.getJavaType(),
+                    type.getJavaType());
+
+            function = new FunctionInfo(
+                    signature,
+                    null,
+                    true,
+                    methodHandle,
+                    true,
+                    false,
+                    ImmutableList.of(false));
+        }
+
+        // TODO: this is a hack and should be removed
+        if (function == null) {
+            function = getRowFieldReferenceFunctionInfo(QualifiedName.of(signature.getName()), signature.getArgumentTypes());
+        }
+        checkCondition(function != null, FUNCTION_IMPLEMENTATION_MISSING, "%s not found", signature);
+        return new ScalarFunctionImplementation(function.isNullable(), function.getNullableArguments(), function.getMethodHandle(), function.isDeterministic());
+    }
+
     @VisibleForTesting
     public List<ParametricFunction> listOperators()
     {
@@ -505,7 +607,12 @@ public class FunctionRegistry
                 .collect(toImmutableList());
     }
 
-    public FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends  Type> argumentTypes)
+    {
+        return getExactFunction(internalOperator(operatorType, returnType, argumentTypes)) != null;
+    }
+
+    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         try {
@@ -521,13 +628,13 @@ public class FunctionRegistry
         }
     }
 
-    public FunctionInfo getCoercion(Type fromType, Type toType)
+    public Signature getCoercion(Type fromType, Type toType)
     {
-        FunctionInfo functionInfo = getExactFunction(Signature.internalOperator(OperatorType.CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+        FunctionInfo functionInfo = getExactFunction(internalOperator(OperatorType.CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
         if (functionInfo == null) {
             throw new OperatorNotFoundException(OperatorType.CAST, ImmutableList.of(fromType), toType);
         }
-        return functionInfo;
+        return functionInfo.getSignature();
     }
 
     public static boolean canCoerce(List<? extends Type> actualTypes, List<Type> expectedTypes)
@@ -687,6 +794,7 @@ public class FunctionRegistry
         TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
 
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
+                SCALAR,
                 type.getTypeSignature(),
                 argumentType);
     }
@@ -700,7 +808,7 @@ public class FunctionRegistry
     {
         operatorType.validateSignature(returnType, argumentTypes);
 
-        Signature signature = Signature.internalOperator(operatorType.name(), returnType, argumentTypes);
+        Signature signature = internalOperator(operatorType.name(), returnType, argumentTypes);
         return new FunctionInfo(signature, operatorType.getOperator(), true, method, true, nullable, nullableArguments);
     }
 
@@ -740,8 +848,11 @@ public class FunctionRegistry
             // Make sure all functions with the same name are aggregations or none of them are
             for (Map.Entry<QualifiedName, Collection<ParametricFunction>> entry : this.functions.asMap().entrySet()) {
                 Collection<ParametricFunction> values = entry.getValue();
-                checkState(Iterables.all(values, ParametricFunction::isAggregate) || !Iterables.any(values, ParametricFunction::isAggregate),
-                        "'%s' is both an aggregation and a scalar function", entry.getKey());
+                long aggregations = values.stream()
+                        .map(function -> function.getSignature().getType())
+                        .filter(type -> type == AGGREGATE || type == APPROXIMATE_AGGREGATE)
+                        .count();
+                checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());
             }
         }
 

@@ -80,6 +80,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
@@ -502,6 +503,7 @@ public class CachingHiveMetastore
         tableCache.invalidate(new HiveTableName(databaseName, tableName));
         tableNamesCache.invalidate(databaseName);
         viewNamesCache.invalidate(databaseName);
+        invalidatePartitionCache(databaseName, tableName);
     }
 
     @Override
@@ -635,6 +637,93 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void addPartitions(String databaseName, String tableName, List<Partition> partitions)
+    {
+        if (partitions.isEmpty()) {
+            return;
+        }
+        try {
+            retry()
+                    .exceptionMapper(getExceptionMapper())
+                    .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class, PrestoException.class)
+                    .stopOnIllegalExceptions()
+                    .run("addPartitions", stats.getAddPartitions().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            int partitionsAdded = client.add_partitions(partitions);
+                            if (partitionsAdded != partitions.size()) {
+                                throw new PrestoException(HIVE_METASTORE_ERROR,
+                                        format("Hive metastore only added %s of %s partitions", partitionsAdded, partitions.size()));
+                            }
+                            return null;
+                        }
+                    }));
+        }
+        catch (AlreadyExistsException e) {
+            // todo partition already exists exception
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
+        finally {
+            // todo do we need to invalidate all partitions?
+            invalidatePartitionCache(databaseName, tableName);
+        }
+    }
+
+    @Override
+    public void dropPartition(String databaseName, String tableName, List<String> parts)
+    {
+        try {
+            retry()
+                    .stopOn(NoSuchObjectException.class)
+                    .stopOnIllegalExceptions()
+                    .run("dropPartition", stats.getDropPartition().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            client.drop_partition(databaseName, tableName, parts, true);
+                        }
+                        return null;
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
+        finally {
+            invalidatePartitionCache(databaseName, tableName);
+        }
+    }
+
+    private void invalidatePartitionCache(String databaseName, String tableName)
+    {
+        HiveTableName hiveTableName = HiveTableName.table(databaseName, tableName);
+        partitionNamesCache.invalidate(hiveTableName);
+        partitionCache.asMap().keySet().stream()
+                .filter(partitionName -> partitionName.getHiveTableName().equals(hiveTableName))
+                .forEach(partitionCache::invalidate);
+        partitionFilterCache.asMap().keySet().stream()
+                .filter(partitionFilter -> partitionFilter.getHiveTableName().equals(hiveTableName))
+                .forEach(partitionFilterCache::invalidate);
+    }
+
+    @Override
     public Optional<Map<String, Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
         Iterable<HivePartitionName> names = transform(partitionNames, name -> HivePartitionName.partition(databaseName, tableName, name));
@@ -648,6 +737,13 @@ public class CachingHiveMetastore
             partitionsByName.put(entry.getKey().getPartitionName(), entry.getValue().get());
         }
         return Optional.of(partitionsByName.build());
+    }
+
+    @Override
+    public Optional<Partition> getPartition(String databaseName, String tableName, String partitionName)
+    {
+        HivePartitionName name = HivePartitionName.partition(databaseName, tableName, partitionName);
+        return get(partitionCache, name);
     }
 
     private Optional<Partition> loadPartitionByName(HivePartitionName partitionName)

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.FunctionType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
@@ -66,6 +67,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -145,7 +147,7 @@ public class TestEffectivePredicateExtractor
                                 equals(EE, FE))),
                 ImmutableList.of(A, B, C),
                 ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
-                ImmutableMap.of(C, fakeFunctionHandle("test"), D, fakeFunctionHandle("test")),
+                ImmutableMap.of(C, fakeFunctionHandle("test", AGGREGATE), D, fakeFunctionHandle("test", AGGREGATE)),
                 ImmutableMap.<Symbol, Symbol>of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
@@ -616,9 +618,9 @@ public class TestEffectivePredicateExtractor
         return new FunctionCall(QualifiedName.of("test"), ImmutableList.<Expression>of());
     }
 
-    private static Signature fakeFunctionHandle(String name)
+    private static Signature fakeFunctionHandle(String name, FunctionType type)
     {
-        return new Signature(name, UnknownType.NAME, ImmutableList.<String>of());
+        return new Signature(name, type, UnknownType.NAME, ImmutableList.<String>of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

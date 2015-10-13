@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -25,7 +25,8 @@ import com.google.common.primitives.Primitives;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.internalFunction;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -34,11 +35,11 @@ import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodType.methodType;
 
 public class TryCastFunction
-        extends ParametricScalar
+        implements ParametricFunction
 {
     public static final TryCastFunction TRY_CAST = new TryCastFunction();
 
-    private static final Signature SIGNATURE = new Signature("TRY_CAST", ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"), false, false);
+    private static final Signature SIGNATURE = new Signature("TRY_CAST", SCALAR, ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"), false);
 
     @Override
     public Signature getSignature()
@@ -78,7 +79,8 @@ public class TryCastFunction
         }
         else {
             // the resulting method needs to return a boxed type
-            MethodHandle coercion = functionRegistry.getCoercion(fromType, toType).getMethodHandle();
+            Signature signature = functionRegistry.getCoercion(fromType, toType);
+            MethodHandle coercion = functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
             coercion = coercion.asType(methodType(returnType, coercion.type()));
 
             MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
@@ -86,7 +88,7 @@ public class TryCastFunction
         }
 
         return new FunctionInfo(
-                internalFunction(SIGNATURE.getName(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())),
+                internalScalarFunction(SIGNATURE.getName(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())),
                 getDescription(),
                 isHidden(),
                 tryCastHandle,

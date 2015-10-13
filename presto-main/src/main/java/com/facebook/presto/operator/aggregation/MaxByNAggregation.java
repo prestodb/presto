@@ -11,38 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.operator.aggregation;
 
-public abstract class ParametricScalar
-        implements ParametricFunction
+public class MaxByNAggregation
+        extends AbstractMinMaxByNAggregation
 {
-    @Override
-    public final boolean isScalar()
+    private static final String NAME = "max_by";
+
+    public static final MaxByNAggregation MAX_BY_N_AGGREGATION = new MaxByNAggregation();
+
+    public MaxByNAggregation()
     {
-        return true;
+        super(NAME, t -> t::compareTo);
     }
 
     @Override
-    public final boolean isAggregate()
+    public String getDescription()
     {
-        return false;
-    }
-
-    @Override
-    public final boolean isApproximate()
-    {
-        return false;
-    }
-
-    @Override
-    public final boolean isWindow()
-    {
-        return false;
-    }
-
-    @Override
-    public final boolean isUnbound()
-    {
-        return true;
+        return  "Returns the values of the first argument associated with the maximum values of the second argument";
     }
 }

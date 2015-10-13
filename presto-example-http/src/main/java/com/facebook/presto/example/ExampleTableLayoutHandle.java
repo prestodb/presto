@@ -16,7 +16,8 @@ package com.facebook.presto.example;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
+
+import java.util.Objects;
 
 public class ExampleTableLayoutHandle
     implements ConnectorTableLayoutHandle
@@ -45,13 +46,13 @@ public class ExampleTableLayoutHandle
             return false;
         }
         ExampleTableLayoutHandle that = (ExampleTableLayoutHandle) o;
-        return Objects.equal(table, that.table);
+        return Objects.equals(table, that.table);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(table);
+        return Objects.hash(table);
     }
 
     @Override

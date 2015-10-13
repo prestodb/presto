@@ -334,6 +334,7 @@ public class StateMachine<T>
     private static class FutureStateChange<T>
     {
         // Use a separate future for each listener so canceled listeners can be removed
+        @GuardedBy("this")
         private final Set<CompletableFuture<T>> listeners = new HashSet<>();
 
         public synchronized CompletableFuture<T> createNewListener()
@@ -342,7 +343,11 @@ public class StateMachine<T>
             listeners.add(listener);
 
             // remove the listener when the future completes
-            listener.whenComplete((t, throwable) -> listeners.remove(listener));
+            listener.whenComplete((t, throwable) -> {
+                synchronized (FutureStateChange.this) {
+                    listeners.remove(listener);
+                }
+            });
 
             return listener;
         }

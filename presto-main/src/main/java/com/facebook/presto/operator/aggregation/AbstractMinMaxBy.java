@@ -31,6 +31,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -55,7 +56,7 @@ public abstract class AbstractMinMaxBy
     protected AbstractMinMaxBy(boolean min)
     {
         this.name = (min ? "min" : "max") + "_by";
-        this.signature = new Signature(name, ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"), false, false);
+        this.signature = new Signature(name, AGGREGATE, ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"), false);
         this.min = min;
     }
 
@@ -70,7 +71,7 @@ public abstract class AbstractMinMaxBy
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        Signature signature = new Signature(name, valueType.getTypeSignature(), valueType.getTypeSignature(), keyType.getTypeSignature());
+        Signature signature = new Signature(name, AGGREGATE, valueType.getTypeSignature(), valueType.getTypeSignature(), keyType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(valueType, keyType);
         return new FunctionInfo(signature, getDescription(), aggregation);
     }

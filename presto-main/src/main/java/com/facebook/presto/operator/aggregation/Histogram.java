@@ -35,6 +35,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -54,8 +55,8 @@ public class Histogram
     private static final MethodHandle INPUT_FUNCTION = methodHandle(Histogram.class, "input", Type.class, HistogramState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(Histogram.class, "combine", HistogramState.class, HistogramState.class);
 
-    private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(comparableTypeParameter("K")),
-            "map<K,bigint>", ImmutableList.of("K"), false, false);
+    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(comparableTypeParameter("K")),
+            "map<K,bigint>", ImmutableList.of("K"), false);
 
     public static final int EXPECTED_SIZE_FOR_HASHING = 10;
 
@@ -76,7 +77,7 @@ public class Histogram
     {
         Type keyType = types.get("K");
         Type valueType = BigintType.BIGINT;
-        Signature signature = new Signature(NAME, new MapType(keyType, valueType).getTypeSignature(), keyType.getTypeSignature());
+        Signature signature = new Signature(NAME, AGGREGATE, new MapType(keyType, valueType).getTypeSignature(), keyType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(keyType, valueType);
         return new FunctionInfo(signature, getDescription(), aggregation);
     }

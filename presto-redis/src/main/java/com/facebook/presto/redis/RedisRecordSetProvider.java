@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.redis;
 
+import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.decoder.DecoderRegistry;
+import com.facebook.presto.decoder.FieldDecoder;
+import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.DecoderRegistry;
-import com.facebook.presto.decoder.FieldDecoder;
-import com.facebook.presto.decoder.RowDecoder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 

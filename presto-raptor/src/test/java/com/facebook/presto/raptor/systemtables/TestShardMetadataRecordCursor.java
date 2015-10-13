@@ -17,14 +17,15 @@ import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
+import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedRow;
@@ -33,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import org.joda.time.DateTime;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -43,14 +45,15 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
+import static com.facebook.presto.spi.Range.greaterThan;
+import static com.facebook.presto.spi.Range.lessThanOrEqual;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -75,6 +78,12 @@ public class TestShardMetadataRecordCursor
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         this.dummyHandle = dbi.open();
         this.metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, new DatabaseShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        // Create table
+        metadata.createTable(SESSION, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                .column("orderkey", BIGINT)
+                .column("orderdate", DATE)
+                .property("temporal_column", "orderdate")
+                .build());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -87,17 +96,6 @@ public class TestShardMetadataRecordCursor
     public void testSimple()
             throws Exception
     {
-        // Create table
-        ConnectorTableMetadata tableMetadata = tableMetadataBuilder(DEFAULT_TEST_ORDERS)
-                .column("orderkey", BIGINT)
-                .column("custkey", BIGINT)
-                .column("totalprice", DOUBLE)
-                .column("orderdate", DATE)
-                .column("orderstate", VARCHAR)
-                .property("temporal_column", "orderdate")
-                .build();
-        metadata.createTable(SESSION, tableMetadata);
-
         DatabaseShardManager shardManager = new DatabaseShardManager(dbi);
 
         // Add shards to the table
@@ -114,20 +112,21 @@ public class TestShardMetadataRecordCursor
                 tableId,
                 ImmutableList.of(
                         new ColumnInfo(1, BIGINT),
-                        new ColumnInfo(2, BIGINT),
-                        new ColumnInfo(3, DOUBLE),
-                        new ColumnInfo(4, DATE),
-                        new ColumnInfo(5, VARCHAR)),
+                        new ColumnInfo(2, DATE)),
                 shards,
                 Optional.empty());
 
         Slice schema = utf8Slice(DEFAULT_TEST_ORDERS.getSchemaName());
         Slice table = utf8Slice(DEFAULT_TEST_ORDERS.getTableName());
 
+        DateTime date1 = DateTime.parse("2015-01-01T00:00");
+        DateTime date2 = DateTime.parse("2015-01-02T00:00");
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<Integer, Domain>builder()
                         .put(0, Domain.singleValue(schema))
-                        .put(1, Domain.singleValue(table))
+                        .put(1, Domain.create(SortedRangeSet.of(lessThanOrEqual(table)), true))
+                        .put(6, Domain.create(SortedRangeSet.of(lessThanOrEqual(date1.getMillis()), greaterThan(date2.getMillis())), true))
+                        .put(7, Domain.create(SortedRangeSet.of(lessThanOrEqual(date1.getMillis()), greaterThan(date2.getMillis())), true))
                         .build());
 
         List<MaterializedRow> actual;
@@ -141,6 +140,60 @@ public class TestShardMetadataRecordCursor
                 new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid2.toString()), 200, 20, 2),
                 new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid3.toString()), 300, 30, 3));
 
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testNoSchemaFilter()
+            throws Exception
+    {
+        // Create "orders" table in a different schema
+        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("other", "orders"))
+                .column("orderkey", BIGINT)
+                .build());
+
+        // Create another table that should not be selected
+        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
+                .column("orderkey", BIGINT)
+                .build());
+
+        TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.<Integer, Domain>builder()
+                        .put(1, Domain.singleValue(utf8Slice("orders")))
+                        .build());
+
+        MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
+        Set<Long> actual = ImmutableSet.copyOf(ShardMetadataRecordCursor.getTableIds(dbi, tupleDomain));
+        Set<Long> expected = ImmutableSet.of(
+                metadataDao.getTableInformation("other", "orders").getTableId(),
+                metadataDao.getTableInformation("test", "orders").getTableId());
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testNoTableFilter()
+            throws Exception
+    {
+        // Create "orders" table in a different schema
+        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("test", "orders2"))
+                .column("orderkey", BIGINT)
+                .build());
+
+        // Create another table that should not be selected
+        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
+                .column("orderkey", BIGINT)
+                .build());
+
+        TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.<Integer, Domain>builder()
+                        .put(0, Domain.singleValue(utf8Slice("test")))
+                        .build());
+
+        MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
+        Set<Long> actual = ImmutableSet.copyOf(ShardMetadataRecordCursor.getTableIds(dbi, tupleDomain));
+        Set<Long> expected = ImmutableSet.of(
+                metadataDao.getTableInformation("test", "orders").getTableId(),
+                metadataDao.getTableInformation("test", "orders2").getTableId());
         assertEquals(actual, expected);
     }
 

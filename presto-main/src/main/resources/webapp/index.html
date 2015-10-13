@@ -161,6 +161,10 @@ var Query = React.createClass({
                 </div>
             </div>;
         }
+        var authenticatedIcon = "";
+        if (query.session.principal) {
+            authenticatedIcon = <span className="glyphicon glyphicon-lock"></span>;
+        }
         var queryText = query.query;
         if (queryText.length > 200) {
             queryText = queryText.substring(0, 200) + "...";
@@ -172,7 +176,9 @@ var Query = React.createClass({
                             <div className="col-md-12"><a href={"query.html?" + query.queryId}>{query.queryId}</a></div>
                         </div>
                         <div className="row">
-                            <div className="col-md-12 truncate">{query.session.user}</div>
+                            <div className="col-md-12 truncate">
+                                <span>{query.session.user} {authenticatedIcon}</span>
+                            </div>
                         </div>
                         <div className="row">
                             <div className="col-md-12 truncate">{query.session.source}</div>

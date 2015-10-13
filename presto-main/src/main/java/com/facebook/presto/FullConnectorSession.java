@@ -14,10 +14,10 @@
 package com.facebook.presto;
 
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 

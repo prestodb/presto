@@ -16,8 +16,6 @@ package com.facebook.presto.execution;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static org.testng.Assert.assertEquals;
 
 public class TestColumn
@@ -27,7 +25,7 @@ public class TestColumn
     @Test
     public void testRoundTrip()
     {
-        Column expected = new Column("name", "type", Optional.empty());
+        Column expected = new Column("name", "type");
         String json = codec.toJson(expected);
         Column actual = codec.fromJson(json);
 

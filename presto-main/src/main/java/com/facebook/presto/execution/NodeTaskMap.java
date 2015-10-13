@@ -14,13 +14,13 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.Node;
+import com.google.common.collect.Sets;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @ThreadSafe
 public class NodeTaskMap
@@ -29,11 +29,26 @@ public class NodeTaskMap
 
     public void addTask(Node node, RemoteTask task)
     {
+        createOrGetNodeTasks(node).addTask(task);
+    }
+
+    public int getPartitionedSplitsOnNode(Node node)
+    {
+        return createOrGetNodeTasks(node).getPartitionedSplitCount();
+    }
+
+    public SplitCountChangeListener getSplitCountChangeListener(Node node)
+    {
+        return createOrGetNodeTasks(node).getSplitCountChangeListener();
+    }
+
+    private NodeTasks createOrGetNodeTasks(Node node)
+    {
         NodeTasks nodeTasks = nodeTasksMap.get(node);
         if (nodeTasks == null) {
             nodeTasks = addNodeTask(node);
         }
-        nodeTasks.addTask(task);
+        return nodeTasks;
     }
 
     private NodeTasks addNodeTask(Node node)
@@ -41,49 +56,46 @@ public class NodeTaskMap
         NodeTasks newNodeTasks = new NodeTasks();
         NodeTasks nodeTasks = nodeTasksMap.putIfAbsent(node, newNodeTasks);
         if (nodeTasks == null) {
-           return newNodeTasks;
+            return newNodeTasks;
         }
         return nodeTasks;
     }
 
-    public int getPartitionedSplitsOnNode(Node node)
-    {
-        NodeTasks nodeTasks = nodeTasksMap.get(node);
-        if (nodeTasks == null) {
-            nodeTasks = addNodeTask(node);
-        }
-        return nodeTasks.getPartitionedSplitCount();
-    }
-
     private static class NodeTasks
     {
-        @GuardedBy("this")
-        private final List<RemoteTask> remoteTasks = new ArrayList<>();
+        private final Set<RemoteTask> remoteTasks = Sets.newConcurrentHashSet();
+        private final AtomicInteger partitionedSplitCount = new AtomicInteger();
+        private final SplitCountChangeListener splitCountChangeListener = partitionedSplitCount::addAndGet;
 
-        private synchronized int getPartitionedSplitCount()
+        private int getPartitionedSplitCount()
         {
-            int partitionedSplitCount = 0;
-            for (RemoteTask task : remoteTasks) {
-                partitionedSplitCount += task.getPartitionedSplitCount();
-            }
-            return partitionedSplitCount;
+            return partitionedSplitCount.get();
         }
 
-        private synchronized void addTask(RemoteTask task)
+        private void addTask(RemoteTask task)
         {
-            remoteTasks.add(task);
-            task.addStateChangeListener(taskInfo -> {
-                if (taskInfo.getState().isDone()) {
-                    synchronized (NodeTasks.this) {
+            if (remoteTasks.add(task)) {
+                task.addStateChangeListener(taskInfo -> {
+                    if (task.getTaskInfo().getState().isDone()) {
                         remoteTasks.remove(task);
                     }
-                }
-            });
+                });
 
-            // Check if task state changes before adding the listener
-            if (task.getTaskInfo().getState().isDone()) {
-                remoteTasks.remove(task);
+                // Check if task state is already done before adding the listener
+                if (task.getTaskInfo().getState().isDone()) {
+                    remoteTasks.remove(task);
+                }
             }
         }
+
+        public SplitCountChangeListener getSplitCountChangeListener()
+        {
+            return splitCountChangeListener;
+        }
+    }
+
+    public interface SplitCountChangeListener
+    {
+        void splitCountChanged(int delta);
     }
 }

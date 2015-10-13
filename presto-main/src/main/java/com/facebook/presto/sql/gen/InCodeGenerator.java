@@ -20,16 +20,22 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.LookupSwitch;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.util.FastutilSetHelper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Ints;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -38,13 +44,66 @@ import java.util.Set;
 import static com.facebook.presto.byteCode.control.LookupSwitch.lookupSwitchBuilder;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
 import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
+import static com.facebook.presto.metadata.OperatorType.EQUAL;
+import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
+import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
+import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
+import static java.util.Objects.requireNonNull;
 
 public class InCodeGenerator
         implements ByteCodeGenerator
 {
+    private final FunctionRegistry registry;
+
+    public InCodeGenerator(FunctionRegistry registry)
+    {
+        this.registry = requireNonNull(registry, "registry is null");
+    }
+
+    enum SwitchGenerationCase
+    {
+        DIRECT_SWITCH,
+        HASH_SWITCH,
+        SET_CONTAINS
+    }
+
+    @VisibleForTesting
+    static SwitchGenerationCase checkSwitchGenerationCase(Type type, List<RowExpression> values)
+    {
+        if (values.size() <= 1000) {
+            if (!(type instanceof BigintType || type instanceof DateType)) {
+                return SwitchGenerationCase.HASH_SWITCH;
+            }
+            boolean areSmallPrimitives = true;
+            for (RowExpression expression : values) {
+                // For non-constant expressions, they will be added to the default case in the generated switch code. They do not affect any of
+                // the cases other than the default one. Therefore, it's okay to skip them when choosing between DIRECT_SWITCH and HASH_SWITCH.
+                // Same argument applies for nulls.
+                if (!(expression instanceof ConstantExpression)) {
+                    continue;
+                }
+                Object constant = ((ConstantExpression) expression).getValue();
+                if (constant == null) {
+                    continue;
+                }
+                long longConstant = (Long) constant;
+                if (longConstant < Integer.MIN_VALUE || longConstant > Integer.MAX_VALUE) {
+                    areSmallPrimitives = false;
+                    break;
+                }
+            }
+            return areSmallPrimitives ? SwitchGenerationCase.DIRECT_SWITCH : SwitchGenerationCase.HASH_SWITCH;
+        }
+        else {
+            return SwitchGenerationCase.SET_CONTAINS;
+        }
+    }
+
     @Override
     public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
@@ -61,7 +120,10 @@ public class InCodeGenerator
         Type type = arguments.get(0).getType();
         Class<?> javaType = type.getJavaType();
 
-        FunctionInfo hashCodeFunction = generatorContext.getRegistry().resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(type));
+        SwitchGenerationCase switchGenerationCase  = checkSwitchGenerationCase(type, values);
+
+        Signature hashCodeSignature = internalOperator(HASH_CODE, BIGINT, ImmutableList.of(type));
+        MethodHandle hashCodeFunction = generatorContext.getRegistry().getScalarFunctionImplementation(hashCodeSignature).getMethodHandle();
 
         ImmutableListMultimap.Builder<Integer, ByteCodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<ByteCodeNode> defaultBucket = ImmutableList.builder();
@@ -73,14 +135,22 @@ public class InCodeGenerator
             if (testValue instanceof ConstantExpression && ((ConstantExpression) testValue).getValue() != null) {
                 ConstantExpression constant = (ConstantExpression) testValue;
                 Object object = constant.getValue();
-                constantValuesBuilder.add(object);
-
-                try {
-                    int hashCode = ((Long) hashCodeFunction.getMethodHandle().invoke(object)).intValue();
-                    hashBucketsBuilder.put(hashCode, testByteCode);
-                }
-                catch (Throwable throwable) {
-                    throw new IllegalArgumentException("Error processing IN statement: error calculating hash code for " + object, throwable);
+                switch (switchGenerationCase) {
+                    case DIRECT_SWITCH:
+                    case SET_CONTAINS:
+                        constantValuesBuilder.add(object);
+                        break;
+                    case HASH_SWITCH:
+                        try {
+                            int hashCode = Ints.checkedCast((Long) hashCodeFunction.invoke(object));
+                            hashBucketsBuilder.put(hashCode, testByteCode);
+                        }
+                        catch (Throwable throwable) {
+                            throw new IllegalArgumentException("Error processing IN statement: error calculating hash code for " + object, throwable);
+                        }
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
                 }
             }
             else {
@@ -99,49 +169,61 @@ public class InCodeGenerator
         Scope scope = generatorContext.getScope();
 
         ByteCodeNode switchBlock;
-        if (constantValues.size() < 1000) {
-            ByteCodeBlock switchCaseBlocks = new ByteCodeBlock();
-            LookupSwitch.LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
-            for (Map.Entry<Integer, Collection<ByteCodeNode>> bucket : hashBuckets.asMap().entrySet()) {
-                LabelNode label = new LabelNode("inHash" + bucket.getKey());
-                switchBuilder.addCase(bucket.getKey(), label);
-                Collection<ByteCodeNode> testValues = bucket.getValue();
+        ByteCodeBlock switchCaseBlocks = new ByteCodeBlock();
+        LookupSwitch.LookupSwitchBuilder switchBuilder = lookupSwitchBuilder();
+        switch (switchGenerationCase) {
+            case DIRECT_SWITCH:
+                // A white-list is used to select types eligible for DIRECT_SWITCH.
+                // For these types, it's safe to not use presto HASH_CODE and EQUAL operator.
+                for (Object constantValue : constantValues) {
+                    switchBuilder.addCase(Ints.checkedCast((Long) constantValue), match);
+                }
+                switchBuilder.defaultCase(defaultLabel);
+                switchBlock = new ByteCodeBlock()
+                        .comment("lookupSwitch(<stackValue>))")
+                        .dup(javaType)
+                        .longToInt()
+                        .append(switchBuilder.build());
+                break;
+            case HASH_SWITCH:
+                for (Map.Entry<Integer, Collection<ByteCodeNode>> bucket : hashBuckets.asMap().entrySet()) {
+                    LabelNode label = new LabelNode("inHash" + bucket.getKey());
+                    switchBuilder.addCase(bucket.getKey(), label);
+                    Collection<ByteCodeNode> testValues = bucket.getValue();
 
-                ByteCodeBlock caseBlock = buildInCase(generatorContext, scope, type, label, match, defaultLabel, testValues, false);
-                switchCaseBlocks
-                        .append(caseBlock.setDescription("case " + bucket.getKey()));
-            }
-            switchBuilder.defaultCase(defaultLabel);
+                    ByteCodeBlock caseBlock = buildInCase(generatorContext, scope, type, label, match, defaultLabel, testValues, false);
+                    switchCaseBlocks.append(caseBlock.setDescription("case " + bucket.getKey()));
+                }
+                switchBuilder.defaultCase(defaultLabel);
+                Binding hashCodeBinding = generatorContext
+                        .getCallSiteBinder()
+                        .bind(hashCodeFunction);
+                switchBlock = new ByteCodeBlock()
+                        .comment("lookupSwitch(hashCode(<stackValue>))")
+                        .dup(javaType)
+                        .append(invoke(hashCodeBinding, hashCodeSignature))
+                        .longToInt()
+                        .append(switchBuilder.build())
+                        .append(switchCaseBlocks);
+                break;
+            case SET_CONTAINS:
+                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, registry);
+                Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
-            Binding hashCodeBinding = generatorContext
-                    .getCallSiteBinder()
-                    .bind(hashCodeFunction.getMethodHandle());
-
-            switchBlock = new ByteCodeBlock()
-                    .comment("lookupSwitch(hashCode(<stackValue>))")
-                    .dup(javaType)
-                    .append(invoke(hashCodeBinding, hashCodeFunction.getSignature()))
-                    .longToInt()
-                    .append(switchBuilder.build())
-                    .append(switchCaseBlocks);
-        }
-        else {
-            // TODO: replace Set with fastutils (or similar) primitive sets if types are primitive
-            // for huge IN lists, use a Set
-            Binding constant = generatorContext.getCallSiteBinder().bind(constantValues, Set.class);
-
-            switchBlock = new ByteCodeBlock()
-                    .comment("inListSet.contains(<stackValue>)")
-                    .append(new IfStatement()
-                            .condition(new ByteCodeBlock()
-                                    .comment("value (+boxing if necessary)")
-                                    .dup(javaType)
-                                    .append(ByteCodeUtils.boxPrimitive(javaType))
-                                    .comment("set")
-                                    .append(loadConstant(constant))
-                                    // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
-                                    .invokeStatic(CompilerOperations.class, "in", boolean.class, Object.class, Set.class))
-                            .ifTrue(jump(match)));
+                switchBlock = new ByteCodeBlock()
+                        .comment("inListSet.contains(<stackValue>)")
+                        .append(new IfStatement()
+                                .condition(new ByteCodeBlock()
+                                        .comment("value")
+                                        .dup(javaType)
+                                        .comment("set")
+                                        .append(loadConstant(constant))
+                                        // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
+                                        .invokeStatic(FastutilSetHelper.class, "in", boolean.class, javaType.isPrimitive() ? javaType : Object.class, constantValuesSet.getClass()))
+                                .ifTrue(jump(match)));
+                break;
+            default:
+                throw new IllegalArgumentException("Not supported switch generation case: " + switchGenerationCase);
         }
 
         ByteCodeBlock defaultCaseBlock = buildInCase(generatorContext, scope, type, defaultLabel, match, noMatch, defaultBucket.build(), true).setDescription("default");
@@ -207,7 +289,7 @@ public class InCodeGenerator
 
         elseBlock.gotoLabel(noMatchLabel);
 
-        FunctionInfo operator = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type));
+        ScalarFunctionImplementation operator = generatorContext.getRegistry().getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type)));
 
         Binding equalsFunction = generatorContext
                 .getCallSiteBinder()
@@ -230,7 +312,7 @@ public class InCodeGenerator
                         .append(ifWasNullPopAndGoto(scope, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
             }
             test.condition()
-                    .append(invoke(equalsFunction, operator.getSignature()));
+                    .append(invoke(equalsFunction, EQUAL.name()));
 
             test.ifTrue().gotoLabel(matchLabel);
             test.ifFalse(elseNode);

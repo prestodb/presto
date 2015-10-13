@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -31,6 +31,7 @@ import it.unimi.dsi.fastutil.ints.IntComparator;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -38,11 +39,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public final class ArrayIntersectFunction
-        extends ParametricScalar
+        implements ParametricFunction
 {
     public static final ArrayIntersectFunction ARRAY_INTERSECT_FUNCTION = new ArrayIntersectFunction();
     private static final String FUNCTION_NAME = "array_intersect";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>", "array<E>"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>", "array<E>"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayIntersectFunction.class, "intersect", Type.class, Block.class, Block.class);
 
     @Override
@@ -75,7 +76,7 @@ public final class ArrayIntersectFunction
         checkArgument(types.size() == 1, format("%s expects only one argument", FUNCTION_NAME));
         TypeSignature typeSignature = parameterizedTypeName("array", types.get("E").getTypeSignature());
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(types.get("E"));
-        Signature signature = new Signature(FUNCTION_NAME, typeSignature, typeSignature, typeSignature);
+        Signature signature = new Signature(FUNCTION_NAME, SCALAR, typeSignature, typeSignature, typeSignature);
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
     }
 

@@ -37,6 +37,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -53,7 +54,7 @@ public class ArrayAggregation
     private static final MethodHandle INPUT_FUNCTION = methodHandle(ArrayAggregation.class, "input", Type.class, ArrayAggregationState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArrayAggregation.class, "combine", Type.class, ArrayAggregationState.class, ArrayAggregationState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregation.class, "output", Type.class, ArrayAggregationState.class, BlockBuilder.class);
-    private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("T"), false, false);
+    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("T"), false);
 
     @Override
     public Signature getSignature()
@@ -72,6 +73,7 @@ public class ArrayAggregation
     {
         Type type = types.get("T");
         Signature signature = new Signature(NAME,
+                AGGREGATE,
                 parameterizedTypeName("array", type.getTypeSignature()),
                 type.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(type);
