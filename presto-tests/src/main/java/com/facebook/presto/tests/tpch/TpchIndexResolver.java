@@ -122,25 +122,11 @@ public class TpchIndexResolver
 
         // Compute how to map from the final lookup schema to the table index key order
         final List<Integer> keyRemap = computeRemap(handleToNames(finalLookupSchema), table.getKeyColumns());
-        Function<RecordSet, RecordSet> keyFormatter = new Function<RecordSet, RecordSet>()
-        {
-            @Override
-            public RecordSet apply(RecordSet key)
-            {
-                return new MappedRecordSet(new AppendingRecordSet(key, rawFixedValues, rawFixedTypes), keyRemap);
-            }
-        };
+        Function<RecordSet, RecordSet> keyFormatter = key -> new MappedRecordSet(new AppendingRecordSet(key, rawFixedValues, rawFixedTypes), keyRemap);
 
         // Compute how to map from the output of the indexed data to the expected output schema
         final List<Integer> outputRemap = computeRemap(table.getOutputColumns(), handleToNames(outputSchema));
-        Function<RecordSet, RecordSet> outputFormatter = new Function<RecordSet, RecordSet>()
-        {
-            @Override
-            public RecordSet apply(RecordSet output)
-            {
-                return new MappedRecordSet(output, outputRemap);
-            }
-        };
+        Function<RecordSet, RecordSet> outputFormatter = output -> new MappedRecordSet(output, outputRemap);
 
         return new TpchConnectorIndex(keyFormatter, outputFormatter, table);
     }
@@ -163,13 +149,6 @@ public class TpchIndexResolver
 
     private static Function<ColumnHandle, String> columnNameGetter()
     {
-        return new Function<ColumnHandle, String>()
-        {
-            @Override
-            public String apply(ColumnHandle columnHandle)
-            {
-                return checkType(columnHandle, TpchColumnHandle.class, "columnHandle").getColumnName();
-            }
-        };
+        return columnHandle -> checkType(columnHandle, TpchColumnHandle.class, "columnHandle").getColumnName();
     }
 }

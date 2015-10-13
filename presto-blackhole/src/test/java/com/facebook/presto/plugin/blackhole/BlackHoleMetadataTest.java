@@ -17,18 +17,23 @@ package com.facebook.presto.plugin.blackhole;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertTrue;
 
 public class BlackHoleMetadataTest
 {
-    private final BlackHoleMetadata metadata = new BlackHoleMetadata(new TypeRegistry());
+    private final BlackHoleMetadata metadata = new BlackHoleMetadata();
+    private final Map<String, Object> tableProperties = ImmutableMap.of(
+            BlackHoleConnector.SPLIT_COUNT_PROPERTY, 0,
+            BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY, 0,
+            BlackHoleConnector.ROWS_PER_PAGE_PROPERTY, 0);
 
     @Test
     public void tableIsCreatedAfterCommits()
@@ -36,7 +41,14 @@ public class BlackHoleMetadataTest
         assertThatNoTableIsCreated();
 
         SchemaTableName schemaTableName = new SchemaTableName("default", "temp_table");
-        ConnectorOutputTableHandle table = metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of()));
+
+        ConnectorOutputTableHandle table = metadata.beginCreateTable(
+                SESSION,
+                new ConnectorTableMetadata(
+                        schemaTableName,
+                        ImmutableList.of(),
+                        tableProperties,
+                        null));
 
         assertThatNoTableIsCreated();
 

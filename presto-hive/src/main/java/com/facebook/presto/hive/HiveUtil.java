@@ -20,7 +20,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +41,7 @@ import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -64,7 +64,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -81,9 +80,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
-import static com.facebook.presto.hive.HiveType.getHiveType;
-import static com.facebook.presto.hive.HiveType.getSupportedHiveType;
-import static com.facebook.presto.hive.HiveType.getType;
+import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -104,6 +101,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfoFromTypeString;
 
 public final class HiveUtil
 {
@@ -438,6 +436,11 @@ public final class HiveUtil
         return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
     }
 
+    public static boolean isRowType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.ROW);
+    }
+
     public static boolean isStructuralType(Type type)
     {
         String baseName = type.getTypeSignature().getBase();
@@ -505,39 +508,36 @@ public final class HiveUtil
         return checkType(tableHandle, HiveTableHandle.class, "tableHandle").getSchemaTableName();
     }
 
-    public static List<HiveColumnHandle> hiveColumnHandles(TypeManager typeManager, String connectorId, Table table, boolean includeSampleWeight)
+    public static List<HiveColumnHandle> hiveColumnHandles(String connectorId, Table table)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         // add the data fields first
         int hiveColumnIndex = 0;
-        for (StructField field : getTableStructFields(table)) {
+        for (FieldSchema field : table.getSd().getCols()) {
             // ignore unsupported types rather than failing
-            HiveType hiveType = getHiveType(field.getFieldObjectInspector());
-            if (hiveType != null && (includeSampleWeight || !field.getFieldName().equals(SAMPLE_WEIGHT_COLUMN_NAME))) {
-                Type type = getType(field.getFieldObjectInspector(), typeManager);
-                checkCondition(type != null, NOT_SUPPORTED, "Unsupported Hive type: %s", field.getFieldObjectInspector().getTypeName());
-                columns.add(new HiveColumnHandle(connectorId, field.getFieldName(), hiveColumnIndex, hiveType, type.getTypeSignature(), hiveColumnIndex, false));
+            TypeInfo typeInfo = getTypeInfoFromTypeString(field.getType());
+            if (HiveType.isSupportedType(typeInfo)) {
+                HiveType hiveType = toHiveType(typeInfo);
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, false));
             }
             hiveColumnIndex++;
         }
 
         // add the partition keys last (like Hive does)
-        columns.addAll(getPartitionKeyColumnHandles(connectorId, table, hiveColumnIndex));
+        columns.addAll(getPartitionKeyColumnHandles(connectorId, table));
 
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table, int startOrdinal)
+    public static List<HiveColumnHandle> getPartitionKeyColumnHandles(String connectorId, Table table)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         List<FieldSchema> partitionKeys = table.getPartitionKeys();
-        for (int i = 0; i < partitionKeys.size(); i++) {
-            FieldSchema field = partitionKeys.get(i);
-
-            HiveType hiveType = getSupportedHiveType(field.getType());
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), startOrdinal + i, hiveType, getType(field.getType()).getTypeSignature(), -1, true));
+        for (FieldSchema field : partitionKeys) {
+            HiveType hiveType = HiveType.valueOf(field.getType());
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, HiveType.valueOf(field.getType()).getTypeSignature(), -1, true));
         }
 
         return columns.build();

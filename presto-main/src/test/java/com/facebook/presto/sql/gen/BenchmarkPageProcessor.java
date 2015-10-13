@@ -45,6 +45,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -181,37 +182,37 @@ public class BenchmarkPageProcessor
     //    and discount >= 0.05
     //    and discount <= 0.07
     //    and quantity < 24;
-    private static final RowExpression FILTER = call(new Signature("AND", StandardTypes.BOOLEAN),
+    private static final RowExpression FILTER = call(new Signature("AND", SCALAR, StandardTypes.BOOLEAN),
             BOOLEAN,
-            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), StandardTypes.BOOLEAN, StandardTypes.VARCHAR, StandardTypes.VARCHAR),
+            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.VARCHAR, StandardTypes.VARCHAR),
                     BOOLEAN,
                     field(SHIP_DATE, VARCHAR),
                     constant(MIN_SHIP_DATE, VARCHAR)),
-            call(new Signature("AND", StandardTypes.BOOLEAN),
+            call(new Signature("AND", SCALAR, StandardTypes.BOOLEAN),
                     BOOLEAN,
-                    call(new Signature(OperatorType.LESS_THAN.name(), StandardTypes.BOOLEAN, StandardTypes.VARCHAR, StandardTypes.VARCHAR),
+                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.VARCHAR, StandardTypes.VARCHAR),
                             BOOLEAN,
                             field(SHIP_DATE, VARCHAR),
                             constant(MAX_SHIP_DATE, VARCHAR)),
-                    call(new Signature("AND", StandardTypes.BOOLEAN),
+                    call(new Signature("AND", SCALAR, StandardTypes.BOOLEAN),
                             BOOLEAN,
-                            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+                            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
                                     BOOLEAN,
                                     field(DISCOUNT, DOUBLE),
                                     constant(0.05, DOUBLE)),
-                            call(new Signature("AND", StandardTypes.BOOLEAN),
+                            call(new Signature("AND", SCALAR, StandardTypes.BOOLEAN),
                                     BOOLEAN,
-                                    call(new Signature(OperatorType.LESS_THAN_OR_EQUAL.name(), StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+                                    call(new Signature(OperatorType.LESS_THAN_OR_EQUAL.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
                                             BOOLEAN,
                                             field(DISCOUNT, DOUBLE),
                                             constant(0.07, DOUBLE)),
-                                    call(new Signature(OperatorType.LESS_THAN.name(), StandardTypes.BOOLEAN, StandardTypes.BIGINT, StandardTypes.BIGINT),
+                                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, StandardTypes.BOOLEAN, StandardTypes.BIGINT, StandardTypes.BIGINT),
                                             BOOLEAN,
                                             field(QUANTITY, BIGINT),
                                             constant((long) 24, BIGINT))))));
 
     private static final RowExpression PROJECT = call(
-            new Signature(OperatorType.MULTIPLY.name(), StandardTypes.DOUBLE, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
+            new Signature(OperatorType.MULTIPLY.name(), SCALAR, StandardTypes.DOUBLE, StandardTypes.DOUBLE, StandardTypes.DOUBLE),
             DOUBLE,
             field(EXTENDED_PRICE, DOUBLE),
             field(DISCOUNT, DOUBLE));

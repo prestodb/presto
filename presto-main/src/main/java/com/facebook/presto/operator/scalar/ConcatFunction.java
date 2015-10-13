@@ -23,7 +23,7 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -51,7 +51,8 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.add;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
-import static com.facebook.presto.metadata.Signature.internalFunction;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
@@ -60,11 +61,11 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.Math.addExact;
 
 public final class ConcatFunction
-        extends ParametricScalar
+        implements ParametricFunction
 {
     public static final ConcatFunction CONCAT = new ConcatFunction();
 
-    private static final Signature SIGNATURE = new Signature("concat", ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of(StandardTypes.VARCHAR), true, false);
+    private static final Signature SIGNATURE = new Signature("concat", SCALAR, ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of(StandardTypes.VARCHAR), true);
 
     @Override
     public Signature getSignature()
@@ -101,7 +102,7 @@ public final class ConcatFunction
         MethodHandle methodHandle = methodHandle(clazz, "concat", Collections.nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(arity, false));
 
-        Signature specializedSignature = internalFunction(SIGNATURE.getName(), VARCHAR.getTypeSignature(), Collections.nCopies(arity, VARCHAR.getTypeSignature()));
+        Signature specializedSignature = internalScalarFunction(SIGNATURE.getName(), VARCHAR.getTypeSignature(), Collections.nCopies(arity, VARCHAR.getTypeSignature()));
         return new FunctionInfo(specializedSignature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, nullableParameters);
     }
 

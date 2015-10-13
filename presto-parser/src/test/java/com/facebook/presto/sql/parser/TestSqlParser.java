@@ -717,7 +717,7 @@ public class TestSqlParser
                         ImmutableMap.of()));
 
         assertStatement("CREATE TABLE foo " +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana' ) " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                         "AS " +
                         "SELECT * " +
                         "FROM t",
@@ -729,6 +729,7 @@ public class TestSqlParser
                                 .put("computed", new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
                                         new StringLiteral("ban"),
                                         new StringLiteral("ana"))))
+                                .put("a", new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2"))))
                                 .build()));
     }
 

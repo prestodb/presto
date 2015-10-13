@@ -205,14 +205,9 @@ public abstract class AbstractTestQueryFramework
 
     public Function<MaterializedRow, String> onlyColumnGetter()
     {
-        return new Function<MaterializedRow, String>()
-        {
-            @Override
-            public String apply(MaterializedRow input)
-            {
-                assertEquals(input.getFieldCount(), 1);
-                return (String) input.getField(0);
-            }
+        return input -> {
+            assertEquals(input.getFieldCount(), 1);
+            return (String) input.getField(0);
         };
     }
 

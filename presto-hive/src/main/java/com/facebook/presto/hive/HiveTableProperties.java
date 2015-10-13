@@ -21,13 +21,16 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
 {
     public static final String STORAGE_FORMAT_PROPERTY = "format";
+    public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -42,7 +45,17 @@ public class HiveTableProperties
                         HiveStorageFormat.class,
                         config.getHiveStorageFormat(),
                         false,
-                        value -> HiveStorageFormat.valueOf(((String) value).toUpperCase(ENGLISH))));
+                        value -> HiveStorageFormat.valueOf(((String) value).toUpperCase(ENGLISH))),
+                new PropertyMetadata<>(
+                        PARTITIONED_BY_PROPERTY,
+                        "Partition columns",
+                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((List<String>) value).stream()
+                                .map(name -> name.toLowerCase(ENGLISH))
+                                .collect(Collectors.toList()))));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -53,5 +66,10 @@ public class HiveTableProperties
     public static HiveStorageFormat getHiveStorageFormat(Map<String, Object> tableProperties)
     {
         return (HiveStorageFormat) tableProperties.get(STORAGE_FORMAT_PROPERTY);
+    }
+
+    public static List<String> getPartitionedBy(Map<String, Object> tableProperties)
+    {
+        return (List<String>) tableProperties.get(PARTITIONED_BY_PROPERTY);
     }
 }

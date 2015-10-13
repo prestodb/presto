@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
@@ -67,6 +66,7 @@ import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.operator.index.IndexLookupSourceSupplier;
 import com.facebook.presto.operator.index.IndexSourceOperator;
 import com.facebook.presto.operator.window.FrameInfo;
+import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.PageBuilder;
@@ -152,6 +152,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskAggregationConc
 import static com.facebook.presto.SystemSessionProperties.getTaskHashBuildConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskJoinConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory.createBroadcastDistribution;
 import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory.createRandomDistribution;
@@ -159,6 +160,7 @@ import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperat
 import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
+import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
@@ -553,9 +555,9 @@ public class LocalExecutionPlanner
                 }
                 Symbol symbol = entry.getKey();
                 Signature signature = node.getSignatures().get(symbol);
-                FunctionInfo functionInfo = metadata.getExactFunction(signature);
-                Type type = metadata.getType(functionInfo.getReturnType());
-                windowFunctionsBuilder.add(functionInfo.bindWindowFunction(type, arguments.build()));
+                WindowFunctionSupplier windowFunctionSupplier = metadata.getFunctionRegistry().getWindowFunctionImplementation(signature);
+                Type type = metadata.getType(signature.getReturnType());
+                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, arguments.build()));
                 windowFunctionOutputSymbolsBuilder.add(symbol);
             }
 
@@ -955,7 +957,7 @@ public class LocalExecutionPlanner
 
         private RowExpression toRowExpression(Expression expression, IdentityHashMap<Expression, Type> types)
         {
-            return SqlToRowExpressionTranslator.translate(expression, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, true);
+            return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, true);
         }
 
         private Map<Integer, Type> getInputTypes(Map<Symbol, Integer> layout, List<Type> types)
@@ -1613,7 +1615,7 @@ public class LocalExecutionPlanner
                 sampleWeightChannel = Optional.of(source.getLayout().get(sampleWeight.get()));
             }
 
-            return metadata.getExactFunction(function).getAggregationFunction().bind(arguments, maskChannel, sampleWeightChannel, confidence);
+            return metadata.getFunctionRegistry().getAggregateFunctionImplementation(function).bind(arguments, maskChannel, sampleWeightChannel, confidence);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)

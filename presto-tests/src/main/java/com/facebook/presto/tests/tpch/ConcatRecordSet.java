@@ -16,7 +16,6 @@ package com.facebook.presto.tests.tpch;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Iterator;
@@ -54,14 +53,7 @@ class ConcatRecordSet
         // NOTE: the ConcatRecordCursor implementation relies on the fact that the
         // cursor creation in the Iterable is lazy so DO NOT materialize this into
         // an ImmutableList
-        Iterable<RecordCursor> recordCursors = transform(recordSets, new Function<RecordSet, RecordCursor>()
-        {
-            @Override
-            public RecordCursor apply(RecordSet recordSet)
-            {
-                return recordSet.cursor();
-            }
-        });
+        Iterable<RecordCursor> recordCursors = transform(recordSets, RecordSet::cursor);
         return new ConcatRecordCursor(recordCursors.iterator(), types);
     }
 

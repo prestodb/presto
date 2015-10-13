@@ -21,12 +21,24 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.google.common.collect.ImmutableList;
 
+import static com.facebook.presto.plugin.blackhole.Types.checkType;
+
 public final class BlackHoleSplitManager
         implements ConnectorSplitManager
 {
     @Override
-    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
-        return new FixedSplitSource("blackhole-splitsource", ImmutableList.of());
+        BlackHoleTableLayoutHandle layout = checkType(
+                layoutHandle,
+                BlackHoleTableLayoutHandle.class,
+                "BlackHoleTableLayoutHandle");
+
+        ImmutableList.Builder<BlackHoleSplit> builder = ImmutableList.<BlackHoleSplit>builder();
+
+        for (int i = 0; i < layout.getSplitCount(); i++) {
+            builder.add(new BlackHoleSplit(layout.getPagesPerSplit(), layout.getRowsPerPage()));
+        }
+        return new FixedSplitSource("blackhole", builder.build());
     }
 }

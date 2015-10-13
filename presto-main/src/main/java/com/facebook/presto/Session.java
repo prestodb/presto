@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 import java.net.URI;
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -254,6 +255,7 @@ public final class Session
     {
         return new SessionRepresentation(
                 identity.getUser(),
+                identity.getPrincipal().map(Principal::toString),
                 source,
                 catalog,
                 schema,
@@ -271,6 +273,7 @@ public final class Session
     {
         return toStringHelper(this)
                 .add("user", getUser())
+                .add("principal", getIdentity().getPrincipal().orElse(null))
                 .add("source", source.orElse(null))
                 .add("catalog", catalog.orElse(null))
                 .add("schema", schema.orElse(null))

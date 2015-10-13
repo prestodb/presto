@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.IdentityHashMap;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestSqlToRowExpressionTranslator
@@ -44,6 +45,6 @@ public class TestSqlToRowExpressionTranslator
             expression = new CoalesceExpression(expression);
             types.put(expression, BIGINT);
         }
-        SqlToRowExpressionTranslator.translate(expression, types,  FUNCTION_REGISTRY, TYPE_MANAGER, TEST_SESSION, true);
+        SqlToRowExpressionTranslator.translate(expression, SCALAR, types, FUNCTION_REGISTRY, TYPE_MANAGER, TEST_SESSION, true);
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -39,7 +40,8 @@ public abstract class AbstractTestAggregationFunction
 
     protected final InternalAggregationFunction getFunction()
     {
-        return functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature), isApproximate()).getAggregationFunction();
+        Signature signature = functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature), isApproximate());
+        return functionRegistry.getAggregateFunctionImplementation(signature);
     }
 
     protected abstract String getFunctionName();

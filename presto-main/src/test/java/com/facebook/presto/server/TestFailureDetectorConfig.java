@@ -29,7 +29,7 @@ public class TestFailureDetectorConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(FailureDetectorConfig.class)
                 .setExpirationGraceInterval(new Duration(10, TimeUnit.MINUTES))
-                .setFailureRatioThreshold(0.01)
+                .setFailureRatioThreshold(0.1)
                 .setHeartbeatInterval(new Duration(500, TimeUnit.MILLISECONDS))
                 .setWarmupInterval(new Duration(5, TimeUnit.SECONDS))
                 .setEnabled(true));

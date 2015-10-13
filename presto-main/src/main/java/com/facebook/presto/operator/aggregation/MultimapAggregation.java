@@ -35,6 +35,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -58,11 +59,12 @@ public class MultimapAggregation
 
     private static final Signature SIGNATURE = new Signature(
             NAME,
+            AGGREGATE,
             ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")),
             "map<K,array<V>>",
             ImmutableList.of("K", "V"),
-            false,
-            false);
+            false
+    );
 
     @Override
     public Signature getSignature()
@@ -81,7 +83,7 @@ public class MultimapAggregation
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        Signature signature = new Signature(NAME, new MapType(keyType, new ArrayType(valueType)).getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
+        Signature signature = new Signature(NAME, AGGREGATE, new MapType(keyType, new ArrayType(valueType)).getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(keyType, valueType);
         return new FunctionInfo(signature, getDescription(), aggregation);
     }

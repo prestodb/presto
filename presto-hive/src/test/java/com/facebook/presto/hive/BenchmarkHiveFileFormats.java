@@ -73,7 +73,6 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
-import static com.facebook.presto.hive.HiveType.getType;
 import static com.facebook.presto.hive.HiveUtil.setReadColumns;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -1685,11 +1684,11 @@ public final class BenchmarkHiveFileFormats
         for (TpchColumn<?> column : tpchColumns) {
             int ordinal = COLUMNS.indexOf(column);
             ObjectInspector inspector = getObjectInspector(column);
+            HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
             columns.add(new HiveColumnHandle("test",
                     column.getColumnName(),
-                    ordinal,
-                    HiveType.getHiveType(inspector),
-                    getType(inspector, TYPE_MANAGER).getTypeSignature(),
+                    hiveType,
+                    hiveType.getTypeSignature(),
                     ordinal,
                     false));
         }

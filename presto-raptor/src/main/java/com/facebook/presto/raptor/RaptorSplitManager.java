@@ -173,7 +173,7 @@ public class RaptorSplitManager
                 future.cancel(true);
                 future = null;
             }
-            executor.submit(iterator::close);
+            executor.execute(iterator::close);
         }
 
         @Override

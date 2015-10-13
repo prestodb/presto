@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -27,16 +27,17 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayToElementConcatFunction
-        extends ParametricScalar
+        implements ParametricFunction
 {
     public static final ArrayToElementConcatFunction ARRAY_TO_ELEMENT_CONCAT_FUNCTION = new ArrayToElementConcatFunction();
     private static final String FUNCTION_NAME = "concat";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "E"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "E"), false);
 
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayConcatUtils.class, "appendElement", Type.class, Block.class, boolean.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayConcatUtils.class, "appendElement", Type.class, Block.class, long.class);
@@ -92,7 +93,7 @@ public class ArrayToElementConcatFunction
 
         TypeSignature typeSignature = type.getTypeSignature();
         TypeSignature returnType = parameterizedTypeName("array", typeSignature);
-        Signature signature = new Signature(FUNCTION_NAME, returnType, returnType, typeSignature);
+        Signature signature = new Signature(FUNCTION_NAME, SCALAR, returnType, returnType, typeSignature);
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
     }
 }

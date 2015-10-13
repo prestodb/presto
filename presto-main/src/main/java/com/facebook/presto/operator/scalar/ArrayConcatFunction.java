@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricScalar;
+import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -26,16 +26,17 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayConcatFunction
-        extends ParametricScalar
+        implements ParametricFunction
 {
     public static final ArrayConcatFunction ARRAY_CONCAT_FUNCTION = new ArrayConcatFunction();
     private static final String FUNCTION_NAME = "concat";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "array<E>"), false, false);
+    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "array<E>"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatUtils.class, FUNCTION_NAME, Type.class, Block.class, Block.class);
 
     @Override
@@ -68,7 +69,7 @@ public class ArrayConcatFunction
         Type elementType = types.get("E");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(elementType);
         TypeSignature typeSignature = parameterizedTypeName("array", elementType.getTypeSignature());
-        Signature signature = new Signature(FUNCTION_NAME, typeSignature, typeSignature, typeSignature); // return type & arg types are the same
+        Signature signature = new Signature(FUNCTION_NAME, SCALAR, typeSignature, typeSignature, typeSignature); // return type & arg types are the same
         return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false));
     }
 }

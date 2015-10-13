@@ -30,8 +30,10 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.castValue;
@@ -56,7 +58,7 @@ public class ArrayLessThanOperator
         Type elementType = types.get("T");
         Type type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(elementType.getTypeSignature()), ImmutableList.of());
         TypeSignature typeSignature = type.getTypeSignature();
-        MethodHandle lessThanFunction = functionRegistry.resolveOperator(LESS_THAN, ImmutableList.of(elementType, elementType)).getMethodHandle();
+        MethodHandle lessThanFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(elementType, elementType))).getMethodHandle();
         MethodHandle method = METHOD_HANDLE.bindTo(lessThanFunction).bindTo(elementType);
         return operatorInfo(LESS_THAN, RETURN_TYPE, ImmutableList.of(typeSignature, typeSignature), method, false, ImmutableList.of(false, false));
     }

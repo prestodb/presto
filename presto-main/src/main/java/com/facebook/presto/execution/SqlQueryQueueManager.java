@@ -162,7 +162,8 @@ public class SqlQueryQueueManager
             }
         }
 
-        return queues.get(0).enqueue(createQueuedExecution(queryExecution, queues.subList(1, queues.size()), executor, stats));
+        queues.get(0).enqueue(createQueuedExecution(queryExecution, queues.subList(1, queues.size()), executor, stats));
+        return true;
     }
 
     // Queues returned have already been created and added queryQueues

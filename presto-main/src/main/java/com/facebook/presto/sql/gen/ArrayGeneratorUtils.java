@@ -16,10 +16,8 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 
 import java.util.function.Function;
 
@@ -31,27 +29,25 @@ public final class ArrayGeneratorUtils
     {
     }
 
-    public static ArrayMapByteCodeExpression map(Scope scope, CallSiteBinder binder, TypeManager typeManager, Variable array, FunctionInfo elementFunction)
+    public static ArrayMapByteCodeExpression map(Scope scope, CallSiteBinder binder, Type fromElementType, Type toElementType, Variable array, String elementFunctionName, ScalarFunctionImplementation elementFunction)
     {
         return map(
                 scope,
                 binder,
-                typeManager,
+                fromElementType,
+                toElementType,
                 array,
-                elementFunction.getSignature(),
-                element -> invokeFunction(scope, binder, elementFunction, element));
+                element -> invokeFunction(scope, binder, elementFunctionName, elementFunction, element));
     }
 
     public static ArrayMapByteCodeExpression map(
             Scope scope,
             CallSiteBinder binder,
-            TypeManager typeManager,
+            Type fromElementType,
+            Type toElementType,
             ByteCodeExpression array,
-            Signature mapperSignature,
             Function<ByteCodeExpression, ByteCodeExpression> mapper)
     {
-        Type fromElementType = typeManager.getType(mapperSignature.getArgumentTypes().get(0));
-        Type toElementType = typeManager.getType(mapperSignature.getReturnType());
         return map(scope, binder, array, fromElementType, toElementType, mapper);
     }
 

@@ -132,18 +132,13 @@ public abstract class AbstractTestingPrestoClient<T>
 
     protected Function<Column, Type> columnTypeGetter()
     {
-        return new Function<Column, Type>()
-        {
-            @Override
-            public Type apply(Column column)
-            {
-                String typeName = column.getType();
-                Type type = prestoServer.getMetadata().getType(parseTypeSignature(typeName));
-                if (type == null) {
-                    throw new AssertionError("Unhandled type: " + typeName);
-                }
-                return type;
+        return column -> {
+            String typeName = column.getType();
+            Type type = prestoServer.getMetadata().getType(parseTypeSignature(typeName));
+            if (type == null) {
+                throw new AssertionError("Unhandled type: " + typeName);
             }
+            return type;
         };
     }
 }

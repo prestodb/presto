@@ -49,6 +49,10 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
+import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -81,7 +85,7 @@ public class FunctionListBuilder
     public FunctionListBuilder window(String name, Type returnType, List<? extends Type> argumentTypes, Class<? extends WindowFunction> functionClass)
     {
         WindowFunctionSupplier windowFunctionSupplier = new ReflectionWindowFunctionSupplier<>(
-                new Signature(name, returnType.getTypeSignature(), Lists.transform(ImmutableList.copyOf(argumentTypes), Type::getTypeSignature)),
+                new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(ImmutableList.copyOf(argumentTypes), Type::getTypeSignature)),
                 functionClass);
 
         functions.add(new FunctionInfo(windowFunctionSupplier.getSignature(), windowFunctionSupplier.getDescription(), windowFunctionSupplier));
@@ -90,7 +94,7 @@ public class FunctionListBuilder
 
     public FunctionListBuilder window(String name, Class<? extends ValueWindowFunction> clazz, String typeVariable, String... argumentTypes)
     {
-        Signature signature = new Signature(name, ImmutableList.of(typeParameter(typeVariable)), typeVariable, ImmutableList.copyOf(argumentTypes), false, false);
+        Signature signature = new Signature(name, WINDOW, ImmutableList.of(typeParameter(typeVariable)), typeVariable, ImmutableList.copyOf(argumentTypes), false);
         functions.add(new ParametricWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz)));
         return this;
     }
@@ -109,7 +113,7 @@ public class FunctionListBuilder
         name = name.toLowerCase(ENGLISH);
 
         String description = getDescription(function.getClass());
-        Signature signature = new Signature(name, function.getFinalType().getTypeSignature(), Lists.transform(ImmutableList.copyOf(function.getParameterTypes()), Type::getTypeSignature));
+        Signature signature = new Signature(name, function.isApproximate() ? APPROXIMATE_AGGREGATE : AGGREGATE, function.getFinalType().getTypeSignature(), Lists.transform(ImmutableList.copyOf(function.getParameterTypes()), Type::getTypeSignature));
         functions.add(new FunctionInfo(signature, description, function));
         return this;
     }
@@ -180,7 +184,7 @@ public class FunctionListBuilder
         SqlType returnTypeAnnotation = method.getAnnotation(SqlType.class);
         checkArgument(returnTypeAnnotation != null, "Method %s return type does not have a @SqlType annotation", method);
         Type returnType = type(typeManager, returnTypeAnnotation);
-        Signature signature = new Signature(name.toLowerCase(ENGLISH), returnType.getTypeSignature(), Lists.transform(parameterTypes(typeManager, method), Type::getTypeSignature));
+        Signature signature = new Signature(name.toLowerCase(ENGLISH), SCALAR, returnType.getTypeSignature(), Lists.transform(parameterTypes(typeManager, method), Type::getTypeSignature));
 
         verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes(), typeManager);
 

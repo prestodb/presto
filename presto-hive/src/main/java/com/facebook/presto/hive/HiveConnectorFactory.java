@@ -18,13 +18,14 @@ import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorPageSourceProvider;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSinkProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
@@ -56,8 +57,15 @@ public class HiveConnectorFactory
     private final ClassLoader classLoader;
     private final HiveMetastore metastore;
     private final TypeManager typeManager;
+    private final PageIndexerFactory pageIndexerFactory;
 
-    public HiveConnectorFactory(String name, Map<String, String> optionalConfig, ClassLoader classLoader, HiveMetastore metastore, TypeManager typeManager)
+    public HiveConnectorFactory(
+            String name,
+            Map<String, String> optionalConfig,
+            ClassLoader classLoader,
+            HiveMetastore metastore,
+            TypeManager typeManager,
+            PageIndexerFactory pageIndexerFactory)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
@@ -65,6 +73,7 @@ public class HiveConnectorFactory
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.metastore = metastore;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexer is null");
     }
 
     @Override
@@ -83,7 +92,7 @@ public class HiveConnectorFactory
                     new NodeModule(),
                     new MBeanModule(),
                     new JsonModule(),
-                    new HiveClientModule(connectorId, metastore, typeManager),
+                    new HiveClientModule(connectorId, metastore, typeManager, pageIndexerFactory),
                     installModuleIf(
                             SecurityConfig.class,
                             security -> "none".equalsIgnoreCase(security.getSecuritySystem()),
@@ -113,7 +122,7 @@ public class HiveConnectorFactory
             ConnectorMetadata metadata = injector.getInstance(ConnectorMetadata.class);
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
-            ConnectorRecordSinkProvider recordSinkProvider = injector.getInstance(ConnectorRecordSinkProvider.class);
+            ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             ConnectorHandleResolver handleResolver = injector.getInstance(ConnectorHandleResolver.class);
             HiveSessionProperties hiveSessionProperties = injector.getInstance(HiveSessionProperties.class);
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
@@ -124,7 +133,7 @@ public class HiveConnectorFactory
                     new ClassLoaderSafeConnectorMetadata(metadata, classLoader),
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
-                    new ClassLoaderSafeConnectorRecordSinkProvider(recordSinkProvider, classLoader),
+                    new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
                     new ClassLoaderSafeConnectorHandleResolver(handleResolver, classLoader),
                     ImmutableSet.of(),
                     hiveSessionProperties.getSessionProperties(),

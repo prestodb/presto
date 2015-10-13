@@ -202,61 +202,6 @@ public class TestDatabaseShardManager
     }
 
     @Test
-    public void testReplaceShardIds()
-            throws Exception
-    {
-        long tableId = 1;
-        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        List<String> nodes = ImmutableList.of("node1", "node2", "node3");
-        List<UUID> originalUuids = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
-
-        List<ShardInfo> oldShards = ImmutableList.<ShardInfo>builder()
-                .add(shardInfo(originalUuids.get(0), nodes.get(0)))
-                .add(shardInfo(originalUuids.get(1), nodes.get(1)))
-                .add(shardInfo(originalUuids.get(2), nodes.get(2)))
-                .build();
-
-        shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, oldShards, Optional.empty());
-
-        List<UUID> expectedUuids = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID());
-        List<ShardInfo> newShards = ImmutableList.<ShardInfo>builder()
-                .add(shardInfo(expectedUuids.get(0), nodes.get(0)))
-                .add(shardInfo(expectedUuids.get(1), nodes.get(0)))
-                .build();
-
-        Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(nodes.get(0));
-        Set<Long> shardIds = shardMetadata.stream().map(ShardMetadata::getShardId).collect(toSet());
-        Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
-
-        shardManager.replaceShardIds(tableId, columns, shardIds, newShards);
-
-        shardMetadata = shardManager.getNodeShards(nodes.get(0));
-        Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
-        assertEquals(actualUuids, ImmutableSet.copyOf(expectedUuids));
-
-        // Compute expected all uuids for this table
-        Set<UUID> expectedAllUuids = new HashSet<>(originalUuids);
-        expectedAllUuids.removeAll(replacedUuids);
-        expectedAllUuids.addAll(expectedUuids);
-
-        // check that shards are replaced in index table as well
-        Set<ShardNodes> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.<RaptorColumnHandle>all()));
-        Set<UUID> actualAllUuids = shardNodes.stream().map(ShardNodes::getShardUuid).collect(toSet());
-        assertEquals(actualAllUuids, expectedAllUuids);
-
-        // verify that conflicting updates are handled
-        newShards = ImmutableList.of(shardInfo(UUID.randomUUID(), nodes.get(0)));
-        try {
-            shardManager.replaceShardIds(tableId, columns, shardIds, newShards);
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
-        }
-    }
-
-    @Test
     public void testReplaceShardUuids()
             throws Exception
     {

@@ -28,6 +28,7 @@ import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static org.testng.Assert.assertNotNull;
@@ -42,15 +43,15 @@ public class TestArbitraryAggregation
         Set<Type> allTypes = metadata.getTypeManager().getTypes().stream().collect(toImmutableSet());
 
         for (Type valueType : allTypes) {
-            assertNotNull(metadata.getExactFunction(new Signature("arbitrary", valueType.getTypeSignature(), valueType.getTypeSignature())));
+            assertNotNull(metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, valueType.getTypeSignature(), valueType.getTypeSignature())));
         }
     }
 
     @Test
     public void testNullBoolean()
-        throws Exception
+            throws Exception
     {
-        InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.BOOLEAN, StandardTypes.BOOLEAN)).getAggregationFunction();
+        InternalAggregationFunction booleanAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, StandardTypes.BOOLEAN, StandardTypes.BOOLEAN));
         assertAggregation(
                 booleanAgg,
                 1.0,
@@ -62,7 +63,7 @@ public class TestArbitraryAggregation
     public void testValidBoolean()
             throws Exception
     {
-        InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.BOOLEAN, StandardTypes.BOOLEAN)).getAggregationFunction();
+        InternalAggregationFunction booleanAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, StandardTypes.BOOLEAN, StandardTypes.BOOLEAN));
         assertAggregation(
                 booleanAgg,
                 1.0,
@@ -74,7 +75,7 @@ public class TestArbitraryAggregation
     public void testNullLong()
             throws Exception
     {
-        InternalAggregationFunction longAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
+        InternalAggregationFunction longAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, StandardTypes.BIGINT, StandardTypes.BIGINT));
         assertAggregation(
                 longAgg,
                 1.0,
@@ -86,19 +87,19 @@ public class TestArbitraryAggregation
     public void testValidLong()
             throws Exception
     {
-        InternalAggregationFunction longAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
+        InternalAggregationFunction longAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, StandardTypes.BIGINT, StandardTypes.BIGINT));
         assertAggregation(
                 longAgg,
                 1.0,
                 1L,
-                createLongsBlock(1L , null));
+                createLongsBlock(1L, null));
     }
 
     @Test
     public void testNullDouble()
             throws Exception
     {
-        InternalAggregationFunction doubleAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.DOUBLE, StandardTypes.DOUBLE)).getAggregationFunction();
+        InternalAggregationFunction doubleAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, StandardTypes.DOUBLE, StandardTypes.DOUBLE));
         assertAggregation(
                 doubleAgg,
                 1.0,
@@ -110,7 +111,7 @@ public class TestArbitraryAggregation
     public void testValidDouble()
             throws Exception
     {
-        InternalAggregationFunction doubleAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.DOUBLE, StandardTypes.DOUBLE)).getAggregationFunction();
+        InternalAggregationFunction doubleAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, StandardTypes.DOUBLE, StandardTypes.DOUBLE));
         assertAggregation(
                 doubleAgg,
                 1.0,
@@ -122,7 +123,7 @@ public class TestArbitraryAggregation
     public void testNullString()
             throws Exception
     {
-        InternalAggregationFunction stringAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.VARCHAR, StandardTypes.VARCHAR)).getAggregationFunction();
+        InternalAggregationFunction stringAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, StandardTypes.VARCHAR, StandardTypes.VARCHAR));
         assertAggregation(
                 stringAgg,
                 1.0,
@@ -134,7 +135,7 @@ public class TestArbitraryAggregation
     public void testValidString()
             throws Exception
     {
-        InternalAggregationFunction stringAgg = metadata.getExactFunction(new Signature("arbitrary", StandardTypes.VARCHAR, StandardTypes.VARCHAR)).getAggregationFunction();
+        InternalAggregationFunction stringAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, StandardTypes.VARCHAR, StandardTypes.VARCHAR));
         assertAggregation(
                 stringAgg,
                 1.0,
@@ -146,7 +147,7 @@ public class TestArbitraryAggregation
     public void testNullArray()
             throws Exception
     {
-        InternalAggregationFunction arrayAgg = metadata.getExactFunction(new Signature("arbitrary", "array<bigint>", "array<bigint>")).getAggregationFunction();
+        InternalAggregationFunction arrayAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, "array<bigint>", "array<bigint>"));
         assertAggregation(
                 arrayAgg,
                 1.0,
@@ -158,7 +159,7 @@ public class TestArbitraryAggregation
     public void testValidArray()
             throws Exception
     {
-        InternalAggregationFunction arrayAgg = metadata.getExactFunction(new Signature("arbitrary", "array<bigint>", "array<bigint>")).getAggregationFunction();
+        InternalAggregationFunction arrayAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, "array<bigint>", "array<bigint>"));
         assertAggregation(
                 arrayAgg,
                 1.0,

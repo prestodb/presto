@@ -34,6 +34,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -55,8 +56,8 @@ public class MapAggregation
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(MapAggregation.class, "combine", KeyValuePairsState.class, KeyValuePairsState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MapAggregation.class, "output", KeyValuePairsState.class, BlockBuilder.class);
 
-    private static final Signature SIGNATURE = new Signature(NAME, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")),
-                                                                   "map<K,V>", ImmutableList.of("K", "V"), false, false);
+    private static final Signature SIGNATURE = new Signature(NAME, AGGREGATE, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")),
+                                                                   "map<K,V>", ImmutableList.of("K", "V"), false);
 
     @Override
     public Signature getSignature()
@@ -75,7 +76,7 @@ public class MapAggregation
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
-        Signature signature = new Signature(NAME, new MapType(keyType, valueType).getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
+        Signature signature = new Signature(NAME, AGGREGATE, new MapType(keyType, valueType).getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
         InternalAggregationFunction aggregation = generateAggregation(keyType, valueType);
         return new FunctionInfo(signature, getDescription(), aggregation);
     }

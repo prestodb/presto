@@ -38,20 +38,12 @@ public interface Metadata
 
     Type getType(TypeSignature signature);
 
-    FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate);
-
-    @NotNull
-    FunctionInfo getExactFunction(Signature handle);
-
     boolean isAggregationFunction(QualifiedName name);
 
     @NotNull
     List<ParametricFunction> listFunctions();
 
     void addFunctions(List<? extends ParametricFunction> functions);
-
-    FunctionInfo resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-            throws OperatorNotFoundException;
 
     @NotNull
     List<String> listSchemaNames(Session session, String catalogName);

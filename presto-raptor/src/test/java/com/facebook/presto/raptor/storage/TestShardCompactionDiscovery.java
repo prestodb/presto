@@ -17,7 +17,6 @@ import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.MetadataDaoUtils;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
@@ -41,6 +40,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.raptor.metadata.MetadataDaoUtils.createMetadataTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
 import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
 import static com.facebook.presto.raptor.storage.TestShardRecovery.createShardRecoveryManager;
@@ -82,9 +82,8 @@ public class TestShardCompactionDiscovery
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT), new ColumnInfo(2, BIGINT));
         long tableId = 1;
         shardManager.createTable(tableId, columns);
-        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
-        MetadataDaoUtils.createMetadataTablesWithRetry(metadataDao);
-        metadataDao.updateTemporalColumnId(1, 1);
+        createMetadataTablesWithRetry(dbi);
+        dbi.onDemand(MetadataDao.class).updateTemporalColumnId(1, 1);
 
         Set<ShardInfo> nonTimeRangeShards = ImmutableSet.<ShardInfo>builder()
                 .add(shardInfo(UUID.randomUUID(), "node1"))

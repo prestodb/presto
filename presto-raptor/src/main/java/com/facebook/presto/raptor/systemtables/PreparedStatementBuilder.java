@@ -28,6 +28,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.raptor.metadata.JdbcUtil.enableStreamingResults;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
@@ -45,32 +46,25 @@ import static com.google.common.collect.Iterables.limit;
 import static java.lang.String.format;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
-import static java.util.Objects.requireNonNull;
 import static java.util.UUID.fromString;
 
 public class PreparedStatementBuilder
 {
-    private final List<ValueBuffer> bindValues = new ArrayList<>(256);
-    private final String sqlTemplate;
-    private final List<String> columnsNames;
-    private final List<Type> types;
-    private final List<Integer> uuidColumnIndexes;
+    private PreparedStatementBuilder() {}
 
-    public PreparedStatementBuilder(String sqlTemplate, List<String> columnsNames, List<Type> types, List<Integer> uuidColumnIndexes, TupleDomain<Integer> tupleDomain)
-    {
-        checkArgument(!isNullOrEmpty(sqlTemplate), "sql template is null or empty");
-
-        this.columnsNames = ImmutableList.copyOf(requireNonNull(columnsNames, "columnsNames is null"));
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.uuidColumnIndexes = ImmutableList.copyOf(requireNonNull(uuidColumnIndexes, "uuidColumnIndexes is null"));
-
-        this.sqlTemplate = sqlTemplate + getWhereClause(tupleDomain);
-    }
-
-    public PreparedStatement create(Connection connection, String... args)
+    public static PreparedStatement create(
+            Connection connection,
+            String sql,
+            List<String> columnNames,
+            List<Type> types,
+            Set<Integer> uuidColumnIndexes,
+            TupleDomain<Integer> tupleDomain)
             throws SQLException
     {
-        String sql = format(sqlTemplate, args);
+        checkArgument(!isNullOrEmpty(sql), "sql is null or empty");
+
+        List<ValueBuffer> bindValues = new ArrayList<>(256);
+        sql = sql + getWhereClause(tupleDomain, columnNames, types, uuidColumnIndexes, bindValues);
 
         PreparedStatement statement = connection.prepareStatement(sql, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY);
         enableStreamingResults(statement);
@@ -78,13 +72,18 @@ public class PreparedStatementBuilder
         // bind values to statement
         int bindIndex = 1;
         for (ValueBuffer value : bindValues) {
-            bindField(value, statement, bindIndex);
+            bindField(value, statement, bindIndex, uuidColumnIndexes.contains(value.getColumnIndex()));
             bindIndex++;
         }
         return statement;
     }
 
-    private String getWhereClause(TupleDomain<Integer> tupleDomain)
+    private static String getWhereClause(
+            TupleDomain<Integer> tupleDomain,
+            List<String> columnNames,
+            List<Type> types,
+            Set<Integer> uuidColumnIndexes,
+            List<ValueBuffer> bindValues)
     {
         if (tupleDomain.isNone()) {
             return "";
@@ -93,22 +92,28 @@ public class PreparedStatementBuilder
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
         Map<Integer, Domain> domainMap = tupleDomain.getDomains();
         for (Map.Entry<Integer, Domain> entry : domainMap.entrySet()) {
-            conjunctsBuilder.add(toPredicate(entry.getKey(), entry.getValue()));
+            int index = entry.getKey();
+            String columnName = columnNames.get(index);
+            Type type = types.get(index);
+            conjunctsBuilder.add(toPredicate(index, columnName, type, entry.getValue(), uuidColumnIndexes, bindValues));
         }
         List<String> conjuncts = conjunctsBuilder.build();
 
         if (conjuncts.isEmpty()) {
             return "";
         }
-        StringBuilder where = new StringBuilder("\nWHERE ");
-        return Joiner.on(" AND ").appendTo(where, conjuncts).toString();
+        StringBuilder where = new StringBuilder("WHERE ");
+        return Joiner.on(" AND\n").appendTo(where, conjuncts).toString();
     }
 
-    private String toPredicate(int columnIndex, Domain domain)
+    private static String toPredicate(
+            int columnIndex,
+            String columnName,
+            Type type,
+            Domain domain,
+            Set<Integer> uuidColumnIndexes,
+            List<ValueBuffer> bindValues)
     {
-        String columnName = columnsNames.get(columnIndex);
-        Type type = types.get(columnIndex);
-
         if (domain.getRanges().isNone() && domain.isNullAllowed()) {
             return columnName + " IS NULL";
         }
@@ -122,14 +127,13 @@ public class PreparedStatementBuilder
         List<Comparable<?>> singleValues = new ArrayList<>();
         for (Range range : domain.getRanges()) {
             checkState(!range.isAll()); // Already checked
-            Comparable<?> lowValue = range.getLow().getValue();
             if (range.isSingleValue()) {
-                singleValues.add(lowValue);
+                singleValues.add(range.getLow().getValue());
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.getLow().isLowerUnbounded()) {
-                    Object bindValue = getBindValue(columnIndex, lowValue);
+                    Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getLow().getValue());
                     switch (range.getLow().getBound()) {
                         case ABOVE:
                             rangeConjuncts.add(toBindPredicate(columnName, ">"));
@@ -146,8 +150,7 @@ public class PreparedStatementBuilder
                     }
                 }
                 if (!range.getHigh().isUpperUnbounded()) {
-                    Comparable<?> highValue = range.getHigh().getValue();
-                    Object bindValue = getBindValue(columnIndex, highValue);
+                    Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getHigh().getValue());
                     switch (range.getHigh().getBound()) {
                         case ABOVE:
                             throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
@@ -172,12 +175,12 @@ public class PreparedStatementBuilder
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
             disjuncts.add(toBindPredicate(columnName, "="));
-            bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, getOnlyElement(singleValues))));
+            bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, uuidColumnIndexes, getOnlyElement(singleValues))));
         }
         else if (singleValues.size() > 1) {
             disjuncts.add(columnName + " IN (" + Joiner.on(",").join(limit(cycle("?"), singleValues.size())) + ")");
             for (Comparable<?> singleValue : singleValues) {
-                bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, singleValue)));
+                bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, uuidColumnIndexes, singleValue)));
             }
         }
 
@@ -190,10 +193,10 @@ public class PreparedStatementBuilder
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private Object getBindValue(int columnIndex, Object value)
+    private static Object getBindValue(int columnIndex, Set<Integer> uuidColumnIndexes, Object value)
     {
         if (uuidColumnIndexes.contains(columnIndex)) {
-            return uuidToBytes(fromString(new String(((Slice) value).toStringUtf8().getBytes())));
+            return uuidToBytes(fromString(((Slice) value).toStringUtf8()));
         }
         return value;
     }
@@ -203,7 +206,7 @@ public class PreparedStatementBuilder
         return format("%s %s ?", columnName, operator);
     }
 
-    public void bindField(ValueBuffer valueBuffer, PreparedStatement preparedStatement, int parameterIndex)
+    private static void bindField(ValueBuffer valueBuffer, PreparedStatement preparedStatement, int parameterIndex, boolean isUuid)
             throws SQLException
     {
         Type type = valueBuffer.getType();
@@ -219,7 +222,7 @@ public class PreparedStatementBuilder
         else if (type.getJavaType() == boolean.class) {
             preparedStatement.setBoolean(parameterIndex, valueBuffer.getBoolean());
         }
-        else if (type.getJavaType() == Slice.class && uuidColumnIndexes.contains(valueBuffer.getColumnIndex())) {
+        else if (type.getJavaType() == Slice.class && isUuid) {
             preparedStatement.setBytes(parameterIndex, valueBuffer.getSlice().getBytes());
         }
         else if (type.getJavaType() == Slice.class) {

@@ -16,6 +16,8 @@ package com.facebook.presto.raptor.metadata;
 import com.google.common.base.Throwables;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.skife.jdbi.v2.Handle;
+import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
 import java.util.concurrent.TimeUnit;
@@ -26,12 +28,12 @@ public final class MetadataDaoUtils
 
     private MetadataDaoUtils() {}
 
-    public static void createMetadataTablesWithRetry(MetadataDao dao)
+    public static void createMetadataTablesWithRetry(IDBI dbi)
     {
         Duration delay = new Duration(10, TimeUnit.SECONDS);
         while (true) {
-            try {
-                createMetadataTables(dao);
+            try (Handle handle = dbi.open()) {
+                createMetadataTables(handle.attach(MetadataDao.class));
                 return;
             }
             catch (UnableToObtainConnectionException e) {

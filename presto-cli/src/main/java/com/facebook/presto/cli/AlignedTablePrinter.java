@@ -30,8 +30,8 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.max;
 import static java.lang.String.format;
-import static jline.console.WCWidth.wcwidth;
 import static java.util.Objects.requireNonNull;
+import static jline.console.WCWidth.wcwidth;
 
 public class AlignedTablePrinter
         implements OutputPrinter
