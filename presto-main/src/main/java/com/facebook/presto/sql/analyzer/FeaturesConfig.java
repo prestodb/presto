@@ -25,6 +25,7 @@ public class FeaturesConfig
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
+    private boolean intermediateAggregationsEnabled = false;
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
@@ -108,6 +109,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeSingleDistinct(boolean optimizeSingleDistinct)
     {
         this.optimizeSingleDistinct = optimizeSingleDistinct;
+        return this;
+    }
+
+    public boolean isIntermediateAggregationsEnabled()
+    {
+        return intermediateAggregationsEnabled;
+    }
+
+    @Config("optimizer.use-intermediate-aggregations")
+    public FeaturesConfig setIntermediateAggregationsEnabled(boolean intermediateAggregationsEnabled)
+    {
+        this.intermediateAggregationsEnabled = intermediateAggregationsEnabled;
         return this;
     }
 }

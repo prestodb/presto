@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
+import com.facebook.presto.sql.planner.optimizations.AddIntermediateAggregation;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.optimizations.CountConstantOptimizer;
@@ -93,6 +94,7 @@ public class PlanOptimizersFactory
 
         if (!forceSingleNode) {
             builder.add(new AddExchanges(metadata, sqlParser, featuresConfig.isDistributedIndexJoinsEnabled()));
+            builder.add(new AddIntermediateAggregation(metadata)); // Must run after AddExchanges
         }
 
         builder.add(new PickLayout(metadata));
