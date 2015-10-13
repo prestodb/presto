@@ -105,7 +105,7 @@ public class RowType
         }
 
         Block arrayBlock = getObject(block, position);
-        List<Object> values = Lists.newArrayListWithCapacity(arrayBlock.getPositionCount());
+        List<Object> values = new ArrayList<>(arrayBlock.getPositionCount());
 
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             values.add(fields.get(i).getType().getObjectValue(session, arrayBlock, i));

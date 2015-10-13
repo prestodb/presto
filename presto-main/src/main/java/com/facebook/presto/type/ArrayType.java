@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -133,7 +132,7 @@ public class ArrayType
 
         Block arrayBlock = block.getObject(position, Block.class);
 
-        List<Object> values = Lists.newArrayListWithCapacity(arrayBlock.getPositionCount());
+        List<Object> values = new ArrayList<>(arrayBlock.getPositionCount());
 
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             values.add(elementType.getObjectValue(session, arrayBlock, i));
