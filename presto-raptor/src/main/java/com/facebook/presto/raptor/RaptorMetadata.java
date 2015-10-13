@@ -19,7 +19,6 @@ import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.raptor.metadata.ShardManagerDao;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.ViewResult;
@@ -45,11 +44,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.exceptions.DBIException;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -70,7 +66,6 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatchId;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
@@ -93,8 +88,6 @@ import static java.util.stream.Collectors.toList;
 public class RaptorMetadata
         implements ConnectorMetadata
 {
-    private static final Logger log = Logger.get(RaptorMetadata.class);
-
     private final IDBI dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
@@ -254,26 +247,7 @@ public class RaptorMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle raptorHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-        long tableId = raptorHandle.getTableId();
-        runTransaction(dbi, (handle, status) -> {
-            ShardManagerDao shardManagerDao = handle.attach(ShardManagerDao.class);
-            shardManagerDao.dropShardNodes(tableId);
-            shardManagerDao.dropShards(tableId);
-
-            MetadataDao dao = handle.attach(MetadataDao.class);
-            dao.dropColumns(tableId);
-            dao.dropTable(tableId);
-            return null;
-        });
-
-        // TODO: add a cleanup process for leftover index tables
-        // It is not possible to drop the index tables in a transaction.
-        try (Handle handle = dbi.open()) {
-            handle.execute("DROP TABLE " + shardIndexTable(tableId));
-        }
-        catch (DBIException e) {
-            log.warn(e, "Failed to drop index table %s", shardIndexTable(tableId));
-        }
+        shardManager.dropTable(raptorHandle.getTableId());
     }
 
     @Override
