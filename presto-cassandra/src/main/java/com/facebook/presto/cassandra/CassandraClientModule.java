@@ -104,7 +104,7 @@ public class CassandraClientModule
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
 
         if (config.getUseLocalNodeFirstBalancingPolicy()) {
-            LoadBalancingPolicy loadPolicy = new LimitedLocalNodeFirstLocalBalancingPolicy(config.getContactPoints().toArray(new String[config.getContactPoints().size()]));
+            LoadBalancingPolicy loadPolicy = new LimitedLocalNodeFirstLocalBalancingPolicy(config.getContactPoints().stream().toArray(String[]::new));
             clusterBuilder.withLoadBalancingPolicy(loadPolicy);
         }
         SocketOptions socketOptions = new SocketOptions();
