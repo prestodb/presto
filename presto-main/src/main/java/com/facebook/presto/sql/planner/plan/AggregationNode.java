@@ -47,9 +47,29 @@ public class AggregationNode
 
     public enum Step
     {
-        PARTIAL,
-        FINAL,
-        SINGLE
+        PARTIAL(true, true),
+        FINAL(false, false),
+        INTERMEDIATE(false, true),
+        SINGLE(true, false);
+
+        private final boolean inputRaw;
+        private final boolean outputPartial;
+
+        Step(boolean inputRaw, boolean outputPartial)
+        {
+            this.inputRaw = inputRaw;
+            this.outputPartial = outputPartial;
+        }
+
+        public boolean isInputRaw()
+        {
+            return inputRaw;
+        }
+
+        public boolean isOutputPartial()
+        {
+            return outputPartial;
+        }
     }
 
     @JsonCreator
