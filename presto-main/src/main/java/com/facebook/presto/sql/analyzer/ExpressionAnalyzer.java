@@ -136,13 +136,15 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<Expression, Boolean> rowFieldReferences = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
     private final Session session;
+    private IdentityHashMap<Field, Field> equivalentJoinFields = new IdentityHashMap<>();
 
-    public ExpressionAnalyzer(FunctionRegistry functionRegistry, TypeManager typeManager, Function<Node, StatementAnalyzer> statementAnalyzerFactory, Session session)
+    public ExpressionAnalyzer(FunctionRegistry functionRegistry, TypeManager typeManager, Function<Node, StatementAnalyzer> statementAnalyzerFactory, Session session, IdentityHashMap<Field, Field> equivalentJoinFields)
     {
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
+        this.equivalentJoinFields = requireNonNull(equivalentJoinFields, "equivalentJoinFields is null");
     }
 
     public Map<QualifiedName, Integer> getResolvedNames()
@@ -287,11 +289,21 @@ public class ExpressionAnalyzer
                 // TODO This is kind of hacky, instead we should change the way QualifiedNameReferences are parsed
                 return tryVisitRowFieldAccessor(node);
             }
-            if (matches.size() > 1) {
+            Field field = null;
+            if (matches.size() == 1) {
+                field = Iterables.getOnlyElement(matches);
+            }
+            else if (matches.size() == 2) {
+                if (equivalentJoinFields.get(matches.get(1)) == matches.get(0)) {
+                    field = matches.get(1);
+                }
+                else if (equivalentJoinFields.get(matches.get(0)) == matches.get(1)) {
+                    field = matches.get(0);
+                }
+            }
+            if (field == null) {
                 throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", node.getName());
             }
-
-            Field field = Iterables.getOnlyElement(matches);
             int fieldIndex = tupleDescriptor.indexOf(field);
             resolvedNames.put(node.getName(), fieldIndex);
             expressionTypes.put(node, field.getType());
@@ -1068,8 +1080,9 @@ public class ExpressionAnalyzer
                 metadata.getFunctionRegistry(),
                 metadata.getTypeManager(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, Optional.empty()),
-                session);
+                session, analysis.getEquivalentJoinFields());
     }
+
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session)
     {
         return createWithoutSubqueries(
@@ -1084,6 +1097,6 @@ public class ExpressionAnalyzer
     {
         return new ExpressionAnalyzer(functionRegistry, typeManager, node -> {
             throw new SemanticException(errorCode, node, message);
-        }, session);
+        }, session, new IdentityHashMap<>());
     }
 }

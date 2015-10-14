@@ -261,7 +261,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * FROM (VALUES (1.1, 2), (sin(3.3), 2+2))");
         assertQuery(
                 "SELECT * FROM (VALUES (1.1, 2), (sin(3.3), 2+2)) x (a, b) LEFT JOIN (VALUES (1.1, 2), (1.1, 2+2)) y (a, b) USING (a)",
-                "VALUES (1.1, 2, 1.1, 4), (1.1, 2, 1.1, 2), (sin(3.3), 4, NULL, NULL)");
+                "VALUES (1.1, 2, 4), (1.1, 2, 2), (sin(3.3), 4, NULL)");
         assertQuery("SELECT 1.1 in (VALUES (1.1), (2.2))", "VALUES (TRUE)");
 
         assertQuery("" +
@@ -1252,17 +1252,58 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinUsingOutputColumn()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (1)) b (x) USING (x)",
+                "VALUES (1)");
+
+        assertQuery(
+                "SELECT x FROM (VALUES (1)) a (x) JOIN (VALUES (1)) b (x) USING (x)",
+                "VALUES (1)");
+
+        assertQuery(
+                "SELECT x FROM (VALUES (1), (2)) a (x) FULL JOIN (VALUES (2), (3)) b (x) USING (x)",
+                "VALUES (1, 2, 3)");
+
+        assertQuery(
+                "SELECT x, sum(y)\n"
+                + "FROM (\n"
+                + "VALUES (1, 2), (1, 3)) a (x, y)\n"
+                + "JOIN\n"
+                + "(VALUES (1, 2), (1, 3)) b (x, y)\n"
+                + "USING (x, y)\n"
+                + "GROUP BY x\n"
+                + "ORDER BY x",
+                "VALUES (1, 5)");
+
+        MaterializedResult actualLeftJoin = computeActual("SELECT x\n"
+                + "FROM (VALUES (1), (2)) a (x)\n"
+                + "LEFT JOIN (VALUES (1)) b (x)\n"
+                + "USING (x)");
+        MaterializedResult actualRightJoin = computeActual("SELECT x\n"
+                + "FROM (VALUES (1)) a (x)\n"
+                + "RIGHT JOIN (VALUES (1), (2)) b (x)\n"
+                + "USING (x)");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1)
+                .row(2)
+                .build();
+        assertEqualsIgnoreOrder(actualLeftJoin.getMaterializedRows(), expected.getMaterializedRows());
+        assertEqualsIgnoreOrder(actualRightJoin.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testJoinCriteriaCoercion()
             throws Exception
     {
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) USING(a)",
-                "VALUES (1.0, 2.0, 1, 3)"
-        );
+                "VALUES (1.0, 2.0, 3)");
         assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1, 3)) y (a, b) ON x.a = y.a",
-                "VALUES (1.0, 2.0, 1, 3)"
-        );
+                "VALUES (1.0, 2.0, 1, 3)");
     }
 
     @Test
@@ -1311,7 +1352,7 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b using (orderkey)",
-                "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey"
+                "SELECT a.orderkey, partkey, custkey FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey"
         );
     }
 

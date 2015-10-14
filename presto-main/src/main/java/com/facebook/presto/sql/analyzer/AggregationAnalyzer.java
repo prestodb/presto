@@ -54,6 +54,7 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nullable;
 
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -79,11 +80,12 @@ public class AggregationAnalyzer
 
     private final TupleDescriptor tupleDescriptor;
 
-    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, TupleDescriptor tupleDescriptor)
+    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, TupleDescriptor tupleDescriptor, IdentityHashMap<Field, Field> equivalentJoinFields)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(tupleDescriptor, "tupleDescriptor is null");
+        requireNonNull(equivalentJoinFields, "equivalentJoinFields is null");
 
         this.tupleDescriptor = tupleDescriptor;
         this.metadata = metadata;
@@ -107,10 +109,20 @@ public class AggregationAnalyzer
             QualifiedName name = ((QualifiedNameReference) expression).getName();
 
             List<Field> fields = tupleDescriptor.resolveFields(name);
-            Preconditions.checkState(fields.size() <= 1, "Found more than one field for name '%s': %s", name, fields);
+            boolean hasEquivalentField = false;
+            if (fields.size() == 2) {
+                if (equivalentJoinFields.get(fields.get(0)) == fields.get(1)
+                        || equivalentJoinFields.get(fields.get(1)) == fields.get(0)) {
+                    hasEquivalentField = true;
+                }
+            }
+            Preconditions.checkState(fields.size() <= 1 || hasEquivalentField, "Found more than one field for name '%s': %s", name, fields);
 
-            if (fields.size() == 1) {
-                Field field = Iterables.getOnlyElement(fields);
+            if (fields.size() <= 2) {
+                Field field = fields.get(0);
+                if (fields.size() == 2 && equivalentJoinFields.get(fields.get(1)) == fields.get(0)) {
+                    field = fields.get(1);
+                }
                 fieldIndexes.add(tupleDescriptor.indexOf(field));
             }
         }
