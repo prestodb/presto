@@ -39,8 +39,7 @@ import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.airlift.log.Logger;
 
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -70,7 +69,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
  */
 class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
 {
-    private static final Logger logger = LoggerFactory.getLogger(LimitedLocalNodeFirstLocalBalancingPolicy.class);
+    private static final Logger logger = Logger.get(LimitedLocalNodeFirstLocalBalancingPolicy.class);
 
     private static final Set<InetAddress> localAddresses = Collections.unmodifiableSet(getLocalInetAddresses());
 
