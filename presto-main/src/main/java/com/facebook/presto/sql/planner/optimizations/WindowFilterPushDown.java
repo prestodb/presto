@@ -49,6 +49,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.DomainTranslator.toPredicate;
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -107,7 +108,7 @@ public class WindowFilterPushDown
                         Optional.empty(),
                         Optional.empty());
             }
-            return context.replaceChildren(node, ImmutableList.of(rewrittenSource));
+            return replaceChildren(node, ImmutableList.of(rewrittenSource));
         }
 
         @Override
@@ -137,7 +138,7 @@ public class WindowFilterPushDown
                 }
                 source = topNRowNumberNode;
             }
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
 
         @Override
@@ -166,7 +167,7 @@ public class WindowFilterPushDown
                     return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
                 }
             }
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
 
         private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rowNumberSymbol, int upperBound)

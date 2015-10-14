@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Verify.verify;
 
 /*
@@ -169,15 +170,15 @@ public class BeginTableWrite
 
             if (node instanceof FilterNode) {
                 PlanNode source = rewriteDeleteTableScan(((FilterNode) node).getSource(), handle, context);
-                return context.replaceChildren(node, ImmutableList.of(source));
+                return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof ProjectNode) {
                 PlanNode source = rewriteDeleteTableScan(((ProjectNode) node).getSource(), handle, context);
-                return context.replaceChildren(node, ImmutableList.of(source));
+                return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof SemiJoinNode) {
                 PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle, context);
-                return context.replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
+                return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
         }

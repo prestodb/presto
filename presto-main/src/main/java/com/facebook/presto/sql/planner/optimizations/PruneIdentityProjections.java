@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -57,7 +58,7 @@ public class PruneIdentityProjections
 
             if (node.getOutputSymbols().size() != source.getOutputSymbols().size()) {
                 // Can't get rid of this projection. It constrains the output tuple from the underlying operator
-                return context.replaceChildren(node, ImmutableList.of(source));
+                return replaceChildren(node, ImmutableList.of(source));
             }
 
             boolean canElide = true;
@@ -74,7 +75,7 @@ public class PruneIdentityProjections
                 return source;
             }
 
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
     }
 }

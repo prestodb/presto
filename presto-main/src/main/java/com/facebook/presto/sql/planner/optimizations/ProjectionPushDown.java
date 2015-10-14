@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
 public class ProjectionPushDown
@@ -77,7 +78,7 @@ public class ProjectionPushDown
             else if (source instanceof ExchangeNode) {
                 return pushProjectionThrough(node, (ExchangeNode) source);
             }
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
 
         private PlanNode pushProjectionThrough(ProjectNode node, UnionNode source)
