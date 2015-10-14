@@ -22,18 +22,18 @@ import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
 import java.util.concurrent.TimeUnit;
 
-public final class MetadataDaoUtils
+public final class SchemaDaoUtil
 {
-    private static final Logger log = Logger.get(MetadataDaoUtils.class);
+    private static final Logger log = Logger.get(SchemaDaoUtil.class);
 
-    private MetadataDaoUtils() {}
+    private SchemaDaoUtil() {}
 
-    public static void createMetadataTablesWithRetry(IDBI dbi)
+    public static void createTablesWithRetry(IDBI dbi)
     {
-        Duration delay = new Duration(10, TimeUnit.SECONDS);
+        Duration delay = new Duration(2, TimeUnit.SECONDS);
         while (true) {
             try (Handle handle = dbi.open()) {
-                createMetadataTables(handle.attach(MetadataDao.class));
+                createTables(handle.attach(SchemaDao.class));
                 return;
             }
             catch (UnableToObtainConnectionException e) {
@@ -43,11 +43,15 @@ public final class MetadataDaoUtils
         }
     }
 
-    private static void createMetadataTables(MetadataDao dao)
+    private static void createTables(SchemaDao dao)
     {
         dao.createTableTables();
         dao.createTableColumns();
         dao.createTableViews();
+        dao.createTableNodes();
+        dao.createTableShards();
+        dao.createTableShardNodes();
+        dao.createTableExternalBatches();
     }
 
     private static void sleep(Duration duration)

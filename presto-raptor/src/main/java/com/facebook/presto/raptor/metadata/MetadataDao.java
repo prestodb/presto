@@ -25,38 +25,6 @@ import java.util.List;
 
 public interface MetadataDao
 {
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS tables (\n" +
-            "  table_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
-            "  schema_name VARCHAR(255) NOT NULL,\n" +
-            "  table_name VARCHAR(255) NOT NULL,\n" +
-            "  temporal_column_id BIGINT DEFAULT NULL,\n" +
-            "  compaction_enabled BOOLEAN NOT NULL,\n" +
-            "  UNIQUE (schema_name, table_name)\n" +
-            ")")
-    void createTableTables();
-
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS columns (\n" +
-            "  table_id BIGINT NOT NULL,\n" +
-            "  column_id BIGINT NOT NULL,\n" +
-            "  column_name VARCHAR(255) NOT NULL,\n" +
-            "  ordinal_position INT NOT NULL,\n" +
-            "  data_type VARCHAR(255) NOT NULL,\n" +
-            "  sort_ordinal_position INT DEFAULT NULL,\n" +
-            "  PRIMARY KEY (table_id, column_id),\n" +
-            "  UNIQUE (table_id, column_name),\n" +
-            "  UNIQUE (table_id, ordinal_position),\n" +
-            "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
-            ")")
-    void createTableColumns();
-
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS views (\n" +
-            "  schema_name VARCHAR(255) NOT NULL,\n" +
-            "  table_name VARCHAR(255) NOT NULL,\n" +
-            "  data TEXT NOT NULL,\n" +
-            "  PRIMARY KEY (schema_name, table_name)\n" +
-            ")")
-    void createTableViews();
-
     @SqlQuery("SELECT table_id FROM tables\n" +
             "WHERE schema_name = :schemaName\n" +
             "  AND table_name = :tableName")

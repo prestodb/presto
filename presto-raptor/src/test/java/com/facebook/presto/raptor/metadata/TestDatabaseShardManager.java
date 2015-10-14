@@ -70,6 +70,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestDatabaseShardManager
 {
+    private IDBI dbi;
     private Handle dummyHandle;
     private File dataDir;
     private ShardManager shardManager;
@@ -77,7 +78,7 @@ public class TestDatabaseShardManager
     @BeforeMethod
     public void setup()
     {
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
         shardManager = new DatabaseShardManager(dbi);
@@ -94,7 +95,7 @@ public class TestDatabaseShardManager
     public void testCommit()
             throws Exception
     {
-        long tableId = 1;
+        long tableId = createTable("test");
 
         List<ShardInfo> shards = ImmutableList.<ShardInfo>builder()
                 .add(shardInfo(UUID.randomUUID(), "node1"))
@@ -114,7 +115,7 @@ public class TestDatabaseShardManager
     @Test
     public void testAssignShard()
     {
-        long tableId = 1;
+        long tableId = createTable("test");
         UUID shard = UUID.randomUUID();
         List<ShardInfo> shardNodes = ImmutableList.of(shardInfo(shard, "node1"));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
@@ -147,7 +148,7 @@ public class TestDatabaseShardManager
     @Test
     public void testGetNodeBytes()
     {
-        long tableId = 1;
+        long tableId = createTable("test");
 
         UUID shard1 = UUID.randomUUID();
         UUID shard2 = UUID.randomUUID();
@@ -178,7 +179,7 @@ public class TestDatabaseShardManager
     public void testGetNodeTableShards()
             throws Exception
     {
-        long tableId = 1;
+        long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         List<String> nodes = ImmutableList.of("node1", "node2", "node3");
 
@@ -205,7 +206,7 @@ public class TestDatabaseShardManager
     public void testReplaceShardUuids()
             throws Exception
     {
-        long tableId = 1;
+        long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         List<String> nodes = ImmutableList.of("node1", "node2", "node3");
         List<UUID> originalUuids = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
@@ -259,7 +260,7 @@ public class TestDatabaseShardManager
     public void testExternalBatches()
             throws Exception
     {
-        long tableId = 1;
+        long tableId = createTable("test");
         Optional<String> externalBatchId = Optional.of("foo");
 
         List<ShardInfo> shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
@@ -342,7 +343,7 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c5 = new RaptorColumnHandle("raptor", "c5", 5, VARCHAR);
         RaptorColumnHandle c6 = new RaptorColumnHandle("raptor", "c6", 6, BOOLEAN);
 
-        long tableId = 1;
+        long tableId = createTable("test");
         shardManager.createTable(tableId, columns);
         shardManager.commitShards(tableId, columns, shards, Optional.empty());
 
@@ -422,7 +423,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, VARCHAR));
         RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, VARCHAR);
 
-        long tableId = 1;
+        long tableId = createTable("test");
         shardManager.createTable(tableId, columns);
         shardManager.commitShards(tableId, columns, shards, Optional.empty());
 
@@ -453,7 +454,7 @@ public class TestDatabaseShardManager
         ShardInfo shard = shardInfo(UUID.randomUUID(), "node");
         List<ShardInfo> shards = ImmutableList.of(shard);
 
-        long tableId = 1;
+        long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, BIGINT);
 
@@ -469,6 +470,11 @@ public class TestDatabaseShardManager
         try (ResultIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, predicate)) {
             return ImmutableSet.copyOf(iterator);
         }
+    }
+
+    private long createTable(String name)
+    {
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false);
     }
 
     public static ShardInfo shardInfo(UUID shardUuid, String nodeIdentifier)

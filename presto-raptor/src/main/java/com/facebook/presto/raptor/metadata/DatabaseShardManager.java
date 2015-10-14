@@ -56,7 +56,7 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
-import static com.facebook.presto.raptor.metadata.ShardManagerDaoUtils.createShardTablesWithRetry;
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
 import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
@@ -102,8 +102,7 @@ public class DatabaseShardManager
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = onDemandDao(dbi, ShardManagerDao.class);
 
-        // keep retrying if database is unavailable when the server starts
-        createShardTablesWithRetry(dbi);
+        createTablesWithRetry(dbi);
     }
 
     @Override
