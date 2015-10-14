@@ -41,9 +41,9 @@ public class TypedHistogram
     private int maxFill;
     private int mask;
 
-    private Type type;
+    private final Type type;
 
-    private BlockBuilder values;
+    private final BlockBuilder values;
     private IntBigArray hashPositions;
     private final LongBigArray counts;
 
