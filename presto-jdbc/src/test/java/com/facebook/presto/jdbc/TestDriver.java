@@ -594,44 +594,67 @@ public class TestDriver
             throws Exception
     {
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns(null, null, "tables", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(null, null, "tables", "table_name")) {
                 assertColumnMetadata(rs);
+                assertTrue(rs.next());
+                assertEquals(rs.getString("TABLE_CAT"), "system");
+                assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
+                assertEquals(rs.getString("TABLE_NAME"), "tables");
+                assertEquals(rs.getString("COLUMN_NAME"), "table_name");
+                assertEquals(rs.getInt("DATA_TYPE"), Types.LONGNVARCHAR);
+                assertTrue(rs.next());
+                assertEquals(rs.getString("TABLE_CAT"), "system");
+                assertEquals(rs.getString("TABLE_SCHEM"), "jdbc");
+                assertTrue(rs.next());
+                assertEquals(rs.getString("TABLE_CAT"), TEST_CATALOG);
+                assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
+                assertFalse(rs.next());
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, null, "tables", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, null, "tables", "table_name")) {
                 assertColumnMetadata(rs);
+                assertEquals(readRows(rs).size(), 1);
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns(null, "information_schema", "tables", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(null, "information_schema", "tables", "table_name")) {
                 assertColumnMetadata(rs);
+                assertEquals(readRows(rs).size(), 2);
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tables", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tables", "table_name")) {
                 assertColumnMetadata(rs);
+                assertEquals(readRows(rs).size(), 1);
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "inf%", "tables", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "inf%", "tables", "table_name")) {
                 assertColumnMetadata(rs);
+                assertEquals(readRows(rs).size(), 1);
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tab%", "column_name")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tab%", "table_name")) {
                 assertColumnMetadata(rs);
+                assertEquals(readRows(rs).size(), 1);
             }
         }
 
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tables", "col%")) {
+            try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tables", "%m%")) {
                 assertColumnMetadata(rs);
+                assertTrue(rs.next());
+                assertEquals(rs.getString("COLUMN_NAME"), "table_schema");
+                assertTrue(rs.next());
+                assertEquals(rs.getString("COLUMN_NAME"), "table_name");
+                assertFalse(rs.next());
             }
         }
     }

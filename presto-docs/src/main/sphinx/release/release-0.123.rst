@@ -19,3 +19,9 @@ creating a Hive table you can specify the file format.  To list all available ta
 properties, run the following query::
 
     SELECT * FROM system.metadata.table_properties
+
+General Changes
+---------------
+
+* Fix exception when using the ``ResultSet`` returned from the
+  ``DatabaseMetaData.getColumns`` method in the JDBC driver.
