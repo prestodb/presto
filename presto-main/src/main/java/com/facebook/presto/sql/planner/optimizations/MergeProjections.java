@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -67,7 +68,7 @@ public class MergeProjections
                 return new ProjectNode(node.getId(), ((ProjectNode) source).getSource(), projections.build());
             }
 
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
     }
 }

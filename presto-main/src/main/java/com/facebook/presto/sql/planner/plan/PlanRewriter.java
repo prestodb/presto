@@ -17,6 +17,7 @@ import com.facebook.presto.util.ImmutableCollectors;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -75,21 +76,6 @@ public abstract class PlanRewriter<C>
                     .collect(ImmutableCollectors.toImmutableList());
 
             return replaceChildren(node, children);
-        }
-
-        /**
-         * Return an identical copy of the given node with its children replaced
-         */
-        public PlanNode replaceChildren(PlanNode node, List<PlanNode> newChildren)
-        {
-            for (int i = 0; i < node.getSources().size(); i++) {
-                if (newChildren.get(i) != node.getSources().get(i)) {
-                    return ChildReplacer.replaceChildren(node, newChildren);
-                }
-            }
-
-            // children haven't change, so make this a no-op
-            return node;
         }
 
         /**
