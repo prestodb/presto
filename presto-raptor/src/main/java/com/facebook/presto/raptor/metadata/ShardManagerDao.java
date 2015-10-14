@@ -32,41 +32,6 @@ import java.util.UUID;
 @RegisterMapperFactory(UuidMapperFactory.class)
 public interface ShardManagerDao
 {
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS nodes (\n" +
-            "  node_id INT PRIMARY KEY AUTO_INCREMENT,\n" +
-            "  node_identifier VARCHAR(255) NOT NULL,\n" +
-            "  UNIQUE (node_identifier)\n" +
-            ")")
-    void createTableNodes();
-
-    // TODO: FOREIGN KEY (table_id) REFERENCES tables (table_id)
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS shards (\n" +
-            "  shard_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
-            "  shard_uuid BINARY(16) NOT NULL,\n" +
-            "  table_id BIGINT NOT NULL,\n" +
-            "  create_time DATETIME NOT NULL,\n" +
-            "  row_count BIGINT NOT NULL,\n" +
-            "  compressed_size BIGINT NOT NULL,\n" +
-            "  uncompressed_size BIGINT NOT NULL,\n" +
-            "  UNIQUE (shard_uuid)\n" +
-            ")")
-    void createTableShards();
-
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS shard_nodes (\n" +
-            "  shard_id BIGINT NOT NULL,\n" +
-            "  node_id INT NOT NULL,\n" +
-            "  PRIMARY KEY (shard_id, node_id),\n" +
-            "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id),\n" +
-            "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
-            ")")
-    void createTableShardNodes();
-
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS external_batches (\n" +
-            "  external_batch_id VARCHAR(255) PRIMARY KEY,\n" +
-            "  successful BOOLEAN NOT NULL\n" +
-            ")")
-    void createTableExternalBatches();
-
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     @GetGeneratedKeys
     int insertNode(@Bind("nodeIdentifier") String nodeIdentifier);

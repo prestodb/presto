@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
+import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
@@ -53,6 +54,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestShardEjector
 {
+    private IDBI dbi;
     private Handle dummyHandle;
     private ShardManager shardManager;
     private File dataDir;
@@ -62,7 +64,7 @@ public class TestShardEjector
     public void setup()
             throws Exception
     {
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         shardManager = new DatabaseShardManager(dbi);
 
@@ -113,7 +115,7 @@ public class TestShardEjector
                 .add(shardInfo("node6", 200))
                 .build();
 
-        long tableId = 1;
+        long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
         shardManager.createTable(tableId, columns);
@@ -156,6 +158,11 @@ public class TestShardEjector
                 .build();
 
         assertTrue(others.containsAll(ejectedShards));
+    }
+
+    private long createTable(String name)
+    {
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false);
     }
 
     private static Set<UUID> uuids(Set<ShardMetadata> metadata)
