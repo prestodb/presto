@@ -65,11 +65,6 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlQuery("SELECT table_id FROM tables\n" +
-            "WHERE table_name = :tableName")
-    @Mapper(TableMapper.class)
-    List<Table> getTableInformation(@Bind("tableName") String tableName);
-
     @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
             "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
             "FROM tables t\n" +
@@ -98,9 +93,6 @@ public interface MetadataDao
 
     @SqlQuery("SELECT DISTINCT schema_name FROM tables")
     List<String> listSchemaNames();
-
-    @SqlQuery("SELECT table_id FROM tables")
-    List<Long> listTableIds();
 
     @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
             "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
