@@ -132,7 +132,7 @@ public class InMemoryRecordSet
         {
             checkState(record != null, "no current record");
             checkNotNull(record.get(field), "value is null");
-            return (Long) record.get(field);
+            return ((Number) record.get(field)).longValue();
         }
 
         @Override
@@ -226,7 +226,8 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof Boolean, "Expected value %d to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                    checkArgument(value instanceof Long, "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
+                    checkArgument(value instanceof Integer || value instanceof Long,
+                            "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (DOUBLE.equals(type)) {
                     checkArgument(value instanceof Double, "Expected value %d to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
@@ -281,10 +282,7 @@ public class InMemoryRecordSet
             else if (value instanceof Boolean) {
                 completedBytes++;
             }
-            else if (value instanceof Long) {
-                completedBytes += 8;
-            }
-            else if (value instanceof Double) {
+            else if (value instanceof Number) {
                 completedBytes += 8;
             }
             else if (value instanceof String) {
