@@ -120,6 +120,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -189,7 +190,7 @@ class StatementAnalyzer
         }
 
         Query query = simpleQuery(
-                selectList(aliasedName("table_name", "Table")),
+                selectList(aliasedName("table_name", format("Table_in_%s.%s", catalogName, schemaName))),
                 from(catalogName, TABLE_TABLES),
                 predicate,
                 ordering(ascending("table_name")));
@@ -204,9 +205,10 @@ class StatementAnalyzer
             throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
         }
 
+        String catalog = node.getCatalog().orElseGet(() -> session.getCatalog().get());
         Query query = simpleQuery(
-                selectList(aliasedName("schema_name", "Schema")),
-                from(node.getCatalog().orElseGet(() -> session.getCatalog().get()), TABLE_SCHEMATA),
+                selectList(aliasedName("schema_name", format("Schema_in_%s", catalog))),
+                from(catalog, TABLE_SCHEMATA),
                 ordering(ascending("schema_name")));
 
         return process(query, context);
