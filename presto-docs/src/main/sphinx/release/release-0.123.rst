@@ -6,6 +6,8 @@ General Changes
 ---------------
 
 * Remove ``node-scheduler.location-aware-scheduling-enabled`` config.
+* Optimize execution of cross join.
+* Implement add column support in Raptor.
 
 Table Properties
 ----------------
