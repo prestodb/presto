@@ -306,6 +306,33 @@ public class NodeScheduler
                 }
             }
 
+            // if the chosen set is empty and the hint includes the coordinator, force pick the coordinator
+            if (chosen.isEmpty() && !includeCoordinator) {
+                for (HostAddress hint : addresses) {
+                    // In the code below, before calling `chosen::add`, it could have been checked that
+                    // `coordinatorIds.contains(node.getNodeIdentifier())`. But checking the condition isn't necessary
+                    // because every node satisfies it. Otherwise, `chosen` wouldn't have been empty.
+
+                    nodeMap.getNodesByHostAndPort().get(hint).stream()
+                            .forEach(chosen::add);
+
+                    InetAddress address;
+                    try {
+                        address = hint.toInetAddress();
+                    }
+                    catch (UnknownHostException e) {
+                        // skip addresses that don't resolve
+                        continue;
+                    }
+
+                    // consider a split with a host hint without a port as being accessible by all nodes in that host
+                    if (!hint.hasPort()) {
+                        nodeMap.getNodesByHost().get(address).stream()
+                                .forEach(chosen::add);
+                    }
+                }
+            }
+
             return ImmutableList.copyOf(chosen);
         }
     }
