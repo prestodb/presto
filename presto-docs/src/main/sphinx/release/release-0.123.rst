@@ -6,6 +6,9 @@ General Changes
 ---------------
 
 * Remove ``node-scheduler.location-aware-scheduling-enabled`` config.
+* Fixed query failures that occur when the ``optimizer.optimize-hash-generation``
+  config is disabled.
+
 
 Table Properties
 ----------------
