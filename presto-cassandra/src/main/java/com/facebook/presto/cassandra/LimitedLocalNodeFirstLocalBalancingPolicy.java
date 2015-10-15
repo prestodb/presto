@@ -73,7 +73,7 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
 
     private static final Set<InetAddress> localAddresses = Collections.unmodifiableSet(getLocalInetAddresses());
 
-    private final CopyOnWriteArraySet<Host> allowedHosts = new CopyOnWriteArraySet<>();
+    private final CopyOnWriteArraySet<Host> allowedLiveHosts = new CopyOnWriteArraySet<>();
 
     private final Set<InetAddress> allowedAddresses = new HashSet<>();
 
@@ -100,7 +100,7 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
                 addedHosts.add(host);
             }
         }
-        allowedHosts.addAll(addedHosts);
+        allowedLiveHosts.addAll(addedHosts);
         logger.debug("Initialized with allowed hosts: {}", addedHosts);
     }
 
@@ -119,8 +119,8 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     public Iterator<Host> newQueryPlan(String keyspace, Statement statement)
     {
         List<Host> local = new ArrayList<>(1);
-        List<Host> remote = new ArrayList<>(allowedHosts.size());
-        for (Host allowedHost : allowedHosts) {
+        List<Host> remote = new ArrayList<>(allowedLiveHosts.size());
+        for (Host allowedHost : allowedLiveHosts) {
             if (isLocalHost(allowedHost)) {
                 local.add(allowedHost);
             }
@@ -140,7 +140,7 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     public void onAdd(Host host)
     {
         if (allowedAddresses.contains(host.getAddress())) {
-            allowedHosts.add(host);
+            allowedLiveHosts.add(host);
             logger.debug("Added a new host {}", host);
         }
     }
@@ -149,7 +149,7 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     public void onUp(Host host)
     {
         if (allowedAddresses.contains(host.getAddress())) {
-            allowedHosts.add(host);
+            allowedLiveHosts.add(host);
             logger.debug("The host {} is now up", host);
         }
     }
@@ -157,7 +157,7 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     @Override
     public void onDown(Host host)
     {
-        if (allowedHosts.remove(host)) {
+        if (allowedLiveHosts.remove(host)) {
             logger.debug("The host {} is now down", host);
         }
     }
@@ -165,7 +165,7 @@ class LimitedLocalNodeFirstLocalBalancingPolicy implements LoadBalancingPolicy
     @Override
     public void onRemove(Host host)
     {
-        if (allowedHosts.remove(host)) {
+        if (allowedLiveHosts.remove(host)) {
             logger.debug("Removed the host {}", host);
         }
     }
