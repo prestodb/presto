@@ -17,21 +17,21 @@ import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.raptor.systemtables.ShardMetadataSystemTable;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.Multibinder;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.tweak.ConnectionFactory;
 
 import javax.inject.Singleton;
 
-import java.util.Set;
-
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +57,9 @@ public class RaptorModule
         binder.bind(RaptorHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(RaptorTableProperties.class).in(Scopes.SINGLETON);
-        binder.bind(new TypeLiteral<Set<SystemTable>>() {}).toProvider(RaptorSystemTablesFactory.class).in(Scopes.SINGLETON);
+
+        Multibinder<SystemTable> tableBinder = newSetBinder(binder, SystemTable.class);
+        tableBinder.addBinding().to(ShardMetadataSystemTable.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(ShardInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(ShardDelta.class);

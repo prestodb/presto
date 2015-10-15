@@ -21,6 +21,8 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TupleDomain;
 import org.skife.jdbi.v2.IDBI;
 
+import javax.inject.Inject;
+
 import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.util.Objects.requireNonNull;
@@ -30,6 +32,7 @@ public class ShardMetadataSystemTable
 {
     private final IDBI dbi;
 
+    @Inject
     public ShardMetadataSystemTable(@ForMetadata IDBI dbi)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
