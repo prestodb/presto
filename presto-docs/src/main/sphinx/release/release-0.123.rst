@@ -10,7 +10,9 @@ General Changes
   config is disabled.
 * Fix exception when using the ``ResultSet`` returned from the
   ``DatabaseMetaData.getColumns`` method in the JDBC driver.
-
+* Increase default value of ``failure-detector.threshold`` config.
+* Fix race in queueing system which could cause queries to fail with
+  "Entering secondary queue failed".
 
 Table Properties
 ----------------
