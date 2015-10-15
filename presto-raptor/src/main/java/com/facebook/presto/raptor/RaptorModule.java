@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
-import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.type.TypeManager;
@@ -60,7 +58,6 @@ public class RaptorModule
         binder.bind(RaptorSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(RaptorTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(new TypeLiteral<Set<SystemTable>>() {}).toProvider(RaptorSystemTablesFactory.class).in(Scopes.SINGLETON);
-        binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(ShardInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(ShardDelta.class);
