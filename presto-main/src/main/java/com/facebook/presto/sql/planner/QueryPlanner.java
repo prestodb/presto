@@ -72,7 +72,7 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -256,7 +256,7 @@ class QueryPlanner
         TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
 
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-        for (FieldOrExpression fieldOrExpression : ImmutableSet.copyOf(expressions)) {
+        for (FieldOrExpression fieldOrExpression : expressions) {
             Symbol symbol;
 
             if (fieldOrExpression.isFieldReference()) {
@@ -343,11 +343,11 @@ class QueryPlanner
             return subPlan;
         }
 
-        Set<FieldOrExpression> arguments = analysis.getAggregates(node).stream()
+        List<FieldOrExpression> arguments = analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
                 .map(FieldOrExpression::new)
-                .collect(toImmutableSet());
+                .collect(toImmutableList());
 
         // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
         Iterable<FieldOrExpression> inputs = Iterables.concat(analysis.getGroupByExpressions(node), arguments);

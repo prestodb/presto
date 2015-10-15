@@ -528,6 +528,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testAggregationWithSomeArgumentCasts()
+            throws Exception
+    {
+        assertQuery("SELECT APPROX_PERCENTILE(0.1, x), AVG(x), MIN(x) FROM (values 1, 1, 1) t(x)", "SELECT 0.1, 1.0, 1");
+    }
+
+    @Test
     public void testApproximateCountDistinct()
             throws Exception
     {
