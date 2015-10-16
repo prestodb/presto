@@ -15,6 +15,8 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
+import com.facebook.presto.raptor.metadata.ShardCleaner;
+import com.facebook.presto.raptor.metadata.ShardCleanerConfig;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.google.inject.Binder;
@@ -40,6 +42,8 @@ public class StorageModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(StorageManagerConfig.class);
+        configBinder(binder).bindConfig(ShardCleanerConfig.class);
+
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
@@ -50,6 +54,7 @@ public class StorageModule
         binder.bind(ShardCompactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardCompactor.class).in(Scopes.SINGLETON);
         binder.bind(ShardEjector.class).in(Scopes.SINGLETON);
+        binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
         binder.bind(ReaderAttributes.class).in(Scopes.SINGLETON);
 
         newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));
