@@ -527,7 +527,8 @@ public class LocalQueryRunner
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
+                .setOptimizeHashGeneration(true)
+                .setOptimizeJoinedAggregations(true);
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, true);
 
         QueryExplainer queryExplainer = new QueryExplainer(

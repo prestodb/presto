@@ -144,7 +144,8 @@ public class DistributedQueryRunner
                 .put("compiler.interpreter-enabled", "false")
                 .put("task.max-index-memory", "16kB") // causes index joins to fault load
                 .put("datasources", "system")
-                .put("distributed-index-joins-enabled", "true");
+                .put("distributed-index-joins-enabled", "true")
+                .put("optimizer.optimize-joined-aggregations", "true");
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("distributed-joins-enabled", "true");

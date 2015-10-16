@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.optimizations.EmptyDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
+import com.facebook.presto.sql.planner.optimizations.JoinedAggregationsOptimizer;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
@@ -89,6 +90,11 @@ public class PlanOptimizersFactory
         if (featuresConfig.isOptimizeSingleDistinct()) {
             builder.add(new SingleDistinctOptimizer());
             builder.add(new PruneUnreferencedOutputs());
+        }
+
+        if (featuresConfig.isOptimizeJoinedAggregations()) {
+            builder.add(new JoinedAggregationsOptimizer());
+            builder.add(new UnaliasSymbolReferences());
         }
 
         if (!forceSingleNode) {

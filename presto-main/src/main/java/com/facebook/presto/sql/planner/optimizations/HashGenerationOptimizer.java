@@ -767,11 +767,11 @@ public class HashGenerationOptimizer
         return Optional.of(new HashComputation(fields));
     }
 
-    private static class HashComputation
+    public static class HashComputation
     {
         private final List<Symbol> fields;
 
-        private HashComputation(Iterable<Symbol> fields)
+        public HashComputation(Iterable<Symbol> fields)
         {
             requireNonNull(fields, "fields is null");
             this.fields = ImmutableList.copyOf(fields);
@@ -801,7 +801,7 @@ public class HashGenerationOptimizer
             return availableFields.containsAll(fields);
         }
 
-        private Expression getHashExpression()
+        public Expression getHashExpression()
         {
             Expression hashExpression = new LongLiteral(String.valueOf(INITIAL_HASH_VALUE));
             for (Symbol field : fields) {
