@@ -546,10 +546,6 @@ public class AddExchanges
 
             if (child.getProperties().isDistributed()) {
                 child = withDerivedProperties(
-                        new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.getHashSymbol()),
-                        child.getProperties());
-
-                child = withDerivedProperties(
                         gatheringExchange(
                                 idAllocator.getNextId(),
                                 new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), node.getHashSymbol())),
