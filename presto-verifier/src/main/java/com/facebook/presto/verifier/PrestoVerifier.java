@@ -177,7 +177,9 @@ public class PrestoVerifier
                     Query test = new Query(
                             Optional.ofNullable(config.getTestCatalogOverride()).orElse(input.getTest().getCatalog()),
                             Optional.ofNullable(config.getTestSchemaOverride()).orElse(input.getTest().getSchema()),
+                            input.getTest().getPreQueries(),
                             input.getTest().getQuery(),
+                            input.getTest().getPostQueries(),
                             Optional.ofNullable(config.getTestUsernameOverride()).orElse(input.getTest().getUsername()),
                             Optional.ofNullable(config.getTestPasswordOverride()).orElse(
                                     Optional.ofNullable(input.getTest().getPassword()).orElse(null)),
@@ -185,7 +187,9 @@ public class PrestoVerifier
                     Query control = new Query(
                             Optional.ofNullable(config.getControlCatalogOverride()).orElse(input.getControl().getCatalog()),
                             Optional.ofNullable(config.getControlSchemaOverride()).orElse(input.getControl().getSchema()),
+                            input.getControl().getPreQueries(),
                             input.getControl().getQuery(),
+                            input.getControl().getPostQueries(),
                             Optional.ofNullable(config.getControlUsernameOverride()).orElse(input.getControl().getUsername()),
                             Optional.ofNullable(config.getControlPasswordOverride()).orElse(
                                     Optional.ofNullable(input.getControl().getPassword()).orElse(null)),

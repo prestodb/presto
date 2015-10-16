@@ -15,22 +15,29 @@ package com.facebook.presto.verifier;
 
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
+
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 public class Query
 {
     private final String catalog;
     private final String schema;
+    private final List<String> preQueries;
     private final String query;
+    private final List<String> postQueries;
     private final String username;
     private final String password;
     private final Map<String, String> sessionProperties;
 
-    public Query(String catalog, String schema, String query, String username, String password, Map<String, String> sessionProperties)
+    public Query(String catalog, String schema, List<String> preQueries, String query, List<String> postQueries, String username, String password, Map<String, String> sessionProperties)
     {
         this.catalog = catalog;
         this.schema = schema;
+        this.preQueries = preQueries.stream().map(Query::clean).collect(toImmutableList());
         this.query = clean(query);
+        this.postQueries = postQueries.stream().map(Query::clean).collect(toImmutableList());
         this.username = username;
         this.password = password;
         this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
@@ -46,9 +53,19 @@ public class Query
         return schema;
     }
 
+    public List<String> getPreQueries()
+    {
+        return preQueries;
+    }
+
     public String getQuery()
     {
         return query;
+    }
+
+    public List<String> getPostQueries()
+    {
+        return postQueries;
     }
 
     public String getUsername()

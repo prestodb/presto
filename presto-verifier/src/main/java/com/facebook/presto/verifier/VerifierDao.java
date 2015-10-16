@@ -27,12 +27,16 @@ public interface VerifierDao
             ", name\n" +
             ", test_catalog\n" +
             ", test_schema\n" +
+            ", test_prequeries\n" +
             ", test_query\n" +
+            ", test_postqueries\n" +
             ", test_username\n" +
             ", test_password\n" +
             ", control_catalog\n" +
             ", control_schema\n" +
+            ", control_prequeries\n" +
             ", control_query\n" +
+            ", control_postqueries\n" +
             ", control_username\n" +
             ", control_password\n" +
             ", session_properties_json\n" +
