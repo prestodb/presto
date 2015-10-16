@@ -13,6 +13,9 @@ General Changes
 * Increase default value of ``failure-detector.threshold`` config.
 * Fix race in queueing system which could cause queries to fail with
   "Entering secondary queue failed".
+* Fix issue with :func:`histogram` that can cause failures or incorrect results
+  when there are more than ten buckets.
+* Optimize execution of cross join.
 
 Table Properties
 ----------------
