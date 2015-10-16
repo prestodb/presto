@@ -13,11 +13,25 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 public abstract class Node
 {
+    private Optional<NodeLocation> location;
+
+    public Node(Optional<NodeLocation> location)
+    {
+        this.location = location;
+    }
+
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitNode(this, context);
+    }
+
+    public Optional<NodeLocation> getLocation()
+    {
+        return location;
     }
 
     // Force subclasses to have a proper equals and hashcode implementation

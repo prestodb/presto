@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -31,6 +32,17 @@ public class ExplainFormat
 
     public ExplainFormat(Type type)
     {
+        this(Optional.empty(), type);
+    }
+
+    public ExplainFormat(NodeLocation location, Type type)
+    {
+        this(Optional.of(location), type);
+    }
+
+    private ExplainFormat(Optional<NodeLocation> location, Type type)
+    {
+        super(location);
         this.type = requireNonNull(type, "type is null");
     }
 

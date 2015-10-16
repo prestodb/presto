@@ -21,6 +21,8 @@ import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.DenyAllAccessControl;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -468,7 +470,7 @@ public class ExpressionAnalyzer
         protected Type visitSimpleCaseExpression(SimpleCaseExpression node, AnalysisContext context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
-                coerceToSingleType(context, node, "CASE operand type does not match WHEN clause operand type: %s vs %s", node.getOperand(), whenClause.getOperand());
+                coerceToSingleType(context, whenClause, "CASE operand type does not match WHEN clause operand type: %s vs %s", node.getOperand(), whenClause.getOperand());
             }
 
             Type type = coerceToSingleType(context,
@@ -708,7 +710,17 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context).getTypeSignature());
             }
 
-            Signature function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
+            Signature function;
+            try {
+                function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build(), context.isApproximate());
+            }
+            catch (PrestoException e) {
+                if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
+                    throw new SemanticException(SemanticErrorCode.FUNCTION_NOT_FOUND, node, e.getMessage());
+                }
+                throw e;
+            }
+
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type type = typeManager.getType(function.getArgumentTypes().get(i));

@@ -15,6 +15,8 @@ package com.facebook.presto.sql.tree;
 
 import com.facebook.presto.sql.parser.ParsingException;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class LongLiteral
@@ -24,6 +26,17 @@ public class LongLiteral
 
     public LongLiteral(String value)
     {
+        this(Optional.empty(), value);
+    }
+
+    public LongLiteral(NodeLocation location, String value)
+    {
+        this(Optional.of(location), value);
+    }
+
+    private LongLiteral(Optional<NodeLocation> location, String value)
+    {
+        super(location);
         requireNonNull(value, "value is null");
         try {
             this.value = Long.parseLong(value);

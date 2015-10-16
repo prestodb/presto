@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class ExistsPredicate
@@ -22,6 +24,17 @@ public class ExistsPredicate
 
     public ExistsPredicate(Query subquery)
     {
+        this(Optional.empty(), subquery);
+    }
+
+    public ExistsPredicate(NodeLocation location, Query subquery)
+    {
+        this(Optional.of(location), subquery);
+    }
+
+    private ExistsPredicate(Optional<NodeLocation> location, Query subquery)
+    {
+        super(location);
         requireNonNull(subquery, "subquery is null");
         this.subquery = subquery;
     }
