@@ -29,6 +29,12 @@ public final class Insert
 
     public Insert(QualifiedName target, Optional<List<String>> columns, Query query)
     {
+        this(Optional.empty(), columns, target, query);
+    }
+
+    private Insert(Optional<NodeLocation> location, Optional<List<String>> columns, QualifiedName target, Query query)
+    {
+        super(location);
         this.target = requireNonNull(target, "target is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.query = requireNonNull(query, "query is null");

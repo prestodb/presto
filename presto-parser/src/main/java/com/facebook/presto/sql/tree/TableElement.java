@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -26,6 +27,17 @@ public final class TableElement
 
     public TableElement(String name, String type)
     {
+        this(Optional.empty(), name, type);
+    }
+
+    public TableElement(NodeLocation location, String name, String type)
+    {
+        this(Optional.of(location), name, type);
+    }
+
+    private TableElement(Optional<NodeLocation> location, String name, String type)
+    {
+        super(location);
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
     }

@@ -27,6 +27,17 @@ public final class Use
 
     public Use(Optional<String> catalog, String schema)
     {
+        this(Optional.empty(), catalog, schema);
+    }
+
+    public Use(NodeLocation location, Optional<String> catalog, String schema)
+    {
+        this(Optional.of(location), catalog, schema);
+    }
+
+    private Use(Optional<NodeLocation> location, Optional<String> catalog, String schema)
+    {
+        super(location);
         requireNonNull(catalog, "catalog is null");
         requireNonNull(schema, "schema is null");
         this.catalog = catalog;

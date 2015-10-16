@@ -13,11 +13,28 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ShowFunctions
         extends Statement
 {
+    public ShowFunctions()
+    {
+        this(Optional.empty());
+    }
+
+    public ShowFunctions(NodeLocation location)
+    {
+        this(Optional.of(location));
+    }
+
+    private ShowFunctions(Optional<NodeLocation> location)
+    {
+        super(location);
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
