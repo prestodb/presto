@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 /**
  * A reference to an execution engine channel.
  * <p>
@@ -26,6 +28,17 @@ public class InputReference
 
     public InputReference(int channel)
     {
+        this(Optional.empty(), channel);
+    }
+
+    public InputReference(NodeLocation location, int channel)
+    {
+        this(Optional.of(location), channel);
+    }
+
+    private InputReference(Optional<NodeLocation> location, int channel)
+    {
+        super(location);
         this.channel = channel;
     }
 

@@ -24,23 +24,34 @@ public class SingleColumn
     private final Optional<String> alias;
     private final Expression expression;
 
+    public SingleColumn(Expression expression)
+    {
+        this(Optional.empty(), expression, Optional.empty());
+    }
+
     public SingleColumn(Expression expression, Optional<String> alias)
     {
+        this(Optional.empty(), expression, alias);
+    }
+
+    public SingleColumn(Expression expression, String alias)
+    {
+        this(Optional.empty(), expression, Optional.of(alias));
+    }
+
+    public SingleColumn(NodeLocation location, Expression expression, Optional<String> alias)
+    {
+        this(Optional.of(location), expression, alias);
+    }
+
+    private SingleColumn(Optional<NodeLocation> location, Expression expression, Optional<String> alias)
+    {
+        super(location);
         requireNonNull(expression, "expression is null");
         requireNonNull(alias, "alias is null");
 
         this.expression = expression;
         this.alias = alias;
-    }
-
-    public SingleColumn(Expression expression, String alias)
-    {
-        this(expression, Optional.of(alias));
-    }
-
-    public SingleColumn(Expression expression)
-    {
-        this(expression, Optional.empty());
     }
 
     public Optional<String> getAlias()

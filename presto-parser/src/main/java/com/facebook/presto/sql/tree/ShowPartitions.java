@@ -32,6 +32,17 @@ public class ShowPartitions
 
     public ShowPartitions(QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
     {
+        this(Optional.empty(), table, where, orderBy, limit);
+    }
+
+    public ShowPartitions(NodeLocation location, QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
+    {
+        this(Optional.of(location), table, where, orderBy, limit);
+    }
+
+    private ShowPartitions(Optional<NodeLocation> location, QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
+    {
+        super(location);
         this.table = requireNonNull(table, "table is null");
         this.where = requireNonNull(where, "where is null");
         this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));

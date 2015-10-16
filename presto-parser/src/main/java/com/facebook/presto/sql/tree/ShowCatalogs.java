@@ -13,11 +13,23 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class ShowCatalogs
         extends Statement
 {
+    public ShowCatalogs()
+    {
+        super(Optional.empty());
+    }
+
+    public ShowCatalogs(NodeLocation location)
+    {
+        super(Optional.of(location));
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {

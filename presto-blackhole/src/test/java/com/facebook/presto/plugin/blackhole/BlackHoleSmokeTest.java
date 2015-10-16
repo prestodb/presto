@@ -91,8 +91,8 @@ public class BlackHoleSmokeTest
             queryRunner.execute(createTableSql);
             fail("Expected exception to be thrown here!");
         }
-        catch (RuntimeException ex) { // it has to be RuntimeException as FailureInfo$FailureException is private
-            assertTrue(ex.getMessage().equals("Destination table 'blackhole.default.nation' already exists"));
+        catch (RuntimeException ex) { // it has to RuntimeException as FailureInfo$FailureException is private
+            assertTrue(ex.getMessage().equals("line 1:1: Destination table 'blackhole.default.nation' already exists"));
         }
         finally {
             assertThatQueryReturnsValue("DROP TABLE nation", true);

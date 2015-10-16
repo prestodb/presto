@@ -29,6 +29,17 @@ public class SimpleCaseExpression
 
     public SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
+        this(Optional.empty(), operand, whenClauses, defaultValue);
+    }
+
+    public SimpleCaseExpression(NodeLocation location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    {
+        this(Optional.of(location), operand, whenClauses, defaultValue);
+    }
+
+    private SimpleCaseExpression(Optional<NodeLocation> location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    {
+        super(location);
         requireNonNull(operand, "operand is null");
         requireNonNull(whenClauses, "whenClauses is null");
 

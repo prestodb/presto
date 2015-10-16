@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,6 +26,17 @@ public final class GenericLiteral
 
     public GenericLiteral(String type, String value)
     {
+        this(Optional.empty(), type, value);
+    }
+
+    public GenericLiteral(NodeLocation location, String type, String value)
+    {
+        this(Optional.of(location), type, value);
+    }
+
+    private GenericLiteral(Optional<NodeLocation> location, String type, String value)
+    {
+        super(location);
         requireNonNull(type, "type is null");
         requireNonNull(value, "value is null");
         this.type = type;

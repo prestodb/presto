@@ -113,7 +113,7 @@ public class TestRowOperators
             fail("hyperloglog is not comparable");
         }
         catch (SemanticException e) {
-            if (!e.getMessage().matches("Operator EQUAL.* not registered")) {
+            if (!e.getMessage().matches("line 1:55: Operator EQUAL.* not registered")) {
                 throw e;
             }
             //Expected

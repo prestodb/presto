@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class CurrentTime
@@ -44,11 +46,27 @@ public class CurrentTime
 
     public CurrentTime(Type type)
     {
-        this(type, null);
+        this(Optional.empty(), type, null);
+    }
+
+    public CurrentTime(NodeLocation location, Type type)
+    {
+        this(Optional.of(location), type, null);
     }
 
     public CurrentTime(Type type, Integer precision)
     {
+        this(Optional.empty(), type, precision);
+    }
+
+    public CurrentTime(NodeLocation location, Type type, Integer precision)
+    {
+        this(Optional.of(location), type, precision);
+    }
+
+    private CurrentTime(Optional<NodeLocation> location, Type type, Integer precision)
+    {
+        super(location);
         requireNonNull(type, "type is null");
         this.type = type;
         this.precision = precision;

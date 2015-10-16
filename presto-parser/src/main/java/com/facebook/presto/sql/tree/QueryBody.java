@@ -13,9 +13,16 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 public abstract class QueryBody
         extends Relation
 {
+    public QueryBody(Optional<NodeLocation> location)
+    {
+        super(location);
+    }
+
     @Override
     public abstract int hashCode();
 

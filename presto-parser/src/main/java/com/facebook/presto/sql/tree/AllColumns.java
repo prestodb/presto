@@ -24,11 +24,24 @@ public class AllColumns
 
     public AllColumns()
     {
+        super(Optional.empty());
         prefix = Optional.empty();
     }
 
-    public AllColumns(QualifiedName prefix)
+    public AllColumns(NodeLocation location)
     {
+        super(Optional.of(location));
+        prefix = Optional.empty();
+    }
+
+    public AllColumns(NodeLocation location, QualifiedName prefix)
+    {
+        this(Optional.of(location), prefix);
+    }
+
+    private AllColumns(Optional<NodeLocation> location, QualifiedName prefix)
+    {
+        super(location);
         requireNonNull(prefix, "prefix is null");
         this.prefix = Optional.of(prefix);
     }

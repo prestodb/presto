@@ -29,6 +29,17 @@ public class Window
 
     public Window(List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
     {
+        this(Optional.empty(), partitionBy, orderBy, frame);
+    }
+
+    public Window(NodeLocation location, List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
+    {
+        this(Optional.of(location), partitionBy, orderBy, frame);
+    }
+
+    private Window(Optional<NodeLocation> location, List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
+    {
+        super(location);
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
         this.frame = requireNonNull(frame, "frame is null");

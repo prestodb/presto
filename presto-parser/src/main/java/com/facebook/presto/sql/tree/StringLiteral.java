@@ -16,6 +16,8 @@ package com.facebook.presto.sql.tree;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.Optional;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -27,6 +29,17 @@ public class StringLiteral
 
     public StringLiteral(String value)
     {
+        this(Optional.empty(), value);
+    }
+
+    public StringLiteral(NodeLocation location, String value)
+    {
+        this(Optional.of(location), value);
+    }
+
+    private StringLiteral(Optional<NodeLocation> location, String value)
+    {
+        super(location);
         requireNonNull(value, "value is null");
         this.value = value;
         this.slice = Slices.wrappedBuffer(value.getBytes(UTF_8));

@@ -40,6 +40,33 @@ public class QuerySpecification
             List<SortItem> orderBy,
             Optional<String> limit)
     {
+        this(Optional.empty(), select, from, where, groupBy, having, orderBy, limit);
+    }
+
+    public QuerySpecification(
+            NodeLocation location,
+            Select select,
+            Optional<Relation> from,
+            Optional<Expression> where,
+            List<Expression> groupBy,
+            Optional<Expression> having,
+            List<SortItem> orderBy,
+            Optional<String> limit)
+    {
+        this(Optional.of(location), select, from, where, groupBy, having, orderBy, limit);
+    }
+
+    private QuerySpecification(
+            Optional<NodeLocation> location,
+            Select select,
+            Optional<Relation> from,
+            Optional<Expression> where,
+            List<Expression> groupBy,
+            Optional<Expression> having,
+            List<SortItem> orderBy,
+            Optional<String> limit)
+    {
+        super(location);
         requireNonNull(select, "select is null");
         requireNonNull(from, "from is null");
         requireNonNull(where, "where is null");

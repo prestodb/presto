@@ -25,6 +25,17 @@ public class ShowSchemas
 
     public ShowSchemas(Optional<String> catalog)
     {
+        this(Optional.empty(), catalog);
+    }
+
+    public ShowSchemas(NodeLocation location, Optional<String> catalog)
+    {
+        this(Optional.of(location), catalog);
+    }
+
+    private ShowSchemas(Optional<NodeLocation> location, Optional<String> catalog)
+    {
+        super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");
     }
 

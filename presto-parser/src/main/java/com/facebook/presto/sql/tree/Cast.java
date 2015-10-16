@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -27,11 +28,27 @@ public final class Cast
 
     public Cast(Expression expression, String type)
     {
-        this(expression, type, false);
+        this(Optional.empty(), expression, type, false);
+    }
+
+    public Cast(NodeLocation location, Expression expression, String type)
+    {
+        this(Optional.of(location), expression, type, false);
     }
 
     public Cast(Expression expression, String type, boolean safe)
     {
+        this(Optional.empty(), expression, type, safe);
+    }
+
+    public Cast(NodeLocation location, Expression expression, String type, boolean safe)
+    {
+        this(Optional.of(location), expression, type, safe);
+    }
+
+    private Cast(Optional<NodeLocation> location, Expression expression, String type, boolean safe)
+    {
+        super(location);
         requireNonNull(expression, "expression is null");
         requireNonNull(type, "type is null");
 

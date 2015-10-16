@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -24,6 +25,17 @@ public class ResetSession
 
     public ResetSession(QualifiedName name)
     {
+        this(Optional.empty(), name);
+    }
+
+    public ResetSession(NodeLocation location, QualifiedName name)
+    {
+        this(Optional.of(location), name);
+    }
+
+    private ResetSession(Optional<NodeLocation> location, QualifiedName name)
+    {
+        super(location);
         this.name = name;
     }
 

@@ -13,9 +13,16 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 public abstract class Literal
         extends Expression
 {
+    public Literal(Optional<NodeLocation> location)
+    {
+        super(location);
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {

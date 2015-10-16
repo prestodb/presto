@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,6 +26,17 @@ public class SubscriptExpression
 
     public SubscriptExpression(Expression base, Expression index)
     {
+        this(Optional.empty(), base, index);
+    }
+
+    public SubscriptExpression(NodeLocation location, Expression base, Expression index)
+    {
+        this(Optional.of(location), base, index);
+    }
+
+    private SubscriptExpression(Optional<NodeLocation> location, Expression base, Expression index)
+    {
+        super(location);
         this.base = requireNonNull(base, "base is null");
         this.index = requireNonNull(index, "index is null");
     }

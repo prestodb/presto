@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class SortItem
@@ -34,6 +36,17 @@ public class SortItem
 
     public SortItem(Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
     {
+        this(Optional.empty(), sortKey, ordering, nullOrdering);
+    }
+
+    public SortItem(NodeLocation location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
+    {
+        this(Optional.of(location), sortKey, ordering, nullOrdering);
+    }
+
+    private SortItem(Optional<NodeLocation> location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
+    {
+        super(location);
         this.ordering = ordering;
         this.sortKey = sortKey;
         this.nullOrdering = nullOrdering;

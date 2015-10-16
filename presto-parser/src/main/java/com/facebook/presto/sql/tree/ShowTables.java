@@ -27,6 +27,17 @@ public class ShowTables
 
     public ShowTables(Optional<QualifiedName> schema, Optional<String> likePattern)
     {
+        this(Optional.empty(), schema, likePattern);
+    }
+
+    public ShowTables(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern)
+    {
+        this(Optional.of(location), schema, likePattern);
+    }
+
+    private ShowTables(Optional<NodeLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern)
+    {
+        super(location);
         requireNonNull(schema, "schema is null");
         requireNonNull(likePattern, "likePattern is null");
 

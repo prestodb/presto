@@ -30,6 +30,17 @@ public class IfExpression
 
     public IfExpression(Expression condition, Expression trueValue, Expression falseValue)
     {
+        this(Optional.empty(), condition, trueValue, falseValue);
+    }
+
+    public IfExpression(NodeLocation location, Expression condition, Expression trueValue, Expression falseValue)
+    {
+        this(Optional.of(location), condition, trueValue, falseValue);
+    }
+
+    private IfExpression(Optional<NodeLocation> location, Expression condition, Expression trueValue, Expression falseValue)
+    {
+        super(location);
         this.condition = requireNonNull(condition, "condition is null");
         this.trueValue = requireNonNull(trueValue, "trueValue is null");
         this.falseValue = Optional.ofNullable(falseValue);

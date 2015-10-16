@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 /**
  * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
  */
@@ -24,6 +26,17 @@ public class NullIfExpression
 
     public NullIfExpression(Expression first, Expression second)
     {
+        this(Optional.empty(), first, second);
+    }
+
+    public NullIfExpression(NodeLocation location, Expression first, Expression second)
+    {
+        this(Optional.of(location), first, second);
+    }
+
+    private NullIfExpression(Optional<NodeLocation> location, Expression first, Expression second)
+    {
+        super(location);
         this.first = first;
         this.second = second;
     }
