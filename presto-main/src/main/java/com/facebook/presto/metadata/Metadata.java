@@ -177,7 +177,7 @@ public interface Metadata
     /**
      * @return whether delete without table scan is supported
      */
-    boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
+    boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
 
     /**
      * Delete the provide table layout

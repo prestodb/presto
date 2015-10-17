@@ -78,14 +78,18 @@ public class MetadataDeleteOptimizer
         public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<Void> context)
         {
             Optional<DeleteNode> delete = findNode(node.getSource(), DeleteNode.class);
-            if (!delete.isPresent() || !metadata.supportsMetadataDelete(session, delete.get().getTarget().getHandle())) {
+            if (!delete.isPresent()) {
                 return context.defaultRewrite(node);
             }
             Optional<TableScanNode> tableScan = findNode(delete.get().getSource(), TableScanNode.class);
             if (!tableScan.isPresent()) {
                 return context.defaultRewrite(node);
             }
-            return new MetadataDeleteNode(idAllocator.getNextId(), delete.get().getTarget(), Iterables.getOnlyElement(node.getOutputSymbols()), tableScan.get().getLayout().get());
+            TableScanNode tableScanNode = tableScan.get();
+            if (!metadata.supportsMetadataDelete(session, tableScanNode.getTable(), tableScanNode.getLayout().get())) {
+                return context.defaultRewrite(node);
+            }
+            return new MetadataDeleteNode(idAllocator.getNextId(), delete.get().getTarget(), Iterables.getOnlyElement(node.getOutputSymbols()), tableScanNode.getLayout().get());
         }
 
         private <T> Optional<T> findNode(PlanNode source, Class<T> clazz)

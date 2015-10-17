@@ -544,10 +544,13 @@ public class MetadataManager
     }
 
     @Override
-    public boolean supportsMetadataDelete(Session session, TableHandle tableHandle)
+    public boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle)
     {
         ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);
-        return entry.getMetadata().supportsMetadataDelete(session.toConnectorSession(entry.getCatalog()));
+        return entry.getMetadata().supportsMetadataDelete(
+                session.toConnectorSession(entry.getCatalog()),
+                tableHandle.getConnectorHandle(),
+                tableLayoutHandle.getConnectorHandle());
     }
 
     @Override

@@ -340,6 +340,21 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testDeleteFromUnpartitionedTable()
+            throws Exception
+    {
+        assertQuery("CREATE TABLE test_delete_unpartitioned (x bigint, y varchar)", "SELECT 1");
+
+        try {
+            queryRunner.execute("DELETE FROM test_delete_unpartitioned");
+            fail("expected exception");
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
+        }
+    }
+
+    @Test
     public void testMetadataDelete()
             throws Exception
     {
