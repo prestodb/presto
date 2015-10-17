@@ -11,6 +11,10 @@ addons:
 env:
   global:
     - MAVEN_OPTS="-Xmx256M"
+  matrix:
+    - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql
+    - TEST_MODULES=presto-tests
+    - TEST_MODULES=presto-raptor,presto-redis,presto-cassandra,presto-kafka,presto-postgresql,presto-mysql
 
 sudo: false
 
@@ -23,7 +27,7 @@ cache:
 
 install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -q -T 2
 
-script: mvn test -Dair.check.skip-dependency=true
+script: mvn test -Dair.check.skip-dependency=true -pl $TEST_MODULES
 notifications:
   slack:
     secure: V5eyoGShxFoCcYJcp858vf/T6gC9KeMxL0C1EElcpZRcKBrIVZzvhek3HLHxZOxlghqnvNVsyDtU3u5orkEaAXeXj5c2dN+4XBsAB9oeN5MtQ0Z3VLAhZDqKIW1LzcXrq4DpzM0PkGhjfjum/P94/qFYk0UckPtB6a341AuYRo8=
