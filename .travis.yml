@@ -16,8 +16,10 @@ sudo: false
 
 cache:
   directories:
-    - $HOME/.m2/io
-    - $HOME/.m2/org
+    - $HOME/.m2/repository/io
+    - $HOME/.m2/repository/it
+    - $HOME/.m2/repository/org
+    - $HOME/.m2/repository/mysql
 
 install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -q -T 2
 
