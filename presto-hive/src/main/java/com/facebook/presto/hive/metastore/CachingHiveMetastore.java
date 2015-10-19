@@ -16,7 +16,6 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hive.ForHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCluster;
-import com.facebook.presto.hive.HiveMetastoreClient;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.spi.PrestoException;
@@ -319,7 +318,7 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getAllDatabases", stats.getGetAllDatabases().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            return client.get_all_databases();
+                            return client.getAllDatabases();
                         }
                     }));
         }
@@ -343,7 +342,7 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getDatabase", stats.getGetDatabase().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            return Optional.of(client.get_database(databaseName));
+                            return Optional.of(client.getDatabase(databaseName));
                         }
                     }));
         }
@@ -366,13 +365,13 @@ public class CachingHiveMetastore
     {
         Callable<List<String>> getAllTables = stats.getGetAllTables().wrap(() -> {
             try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                return client.get_all_tables(databaseName);
+                return client.getAllTables(databaseName);
             }
         });
 
         Callable<Void> getDatabase = stats.getGetDatabase().wrap(() -> {
             try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                client.get_database(databaseName);
+                client.getDatabase(databaseName);
                 return null;
             }
         });
@@ -420,7 +419,7 @@ public class CachingHiveMetastore
                     .run("getAllViews", stats.getAllViews().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             String filter = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
-                            return Optional.of(client.get_table_names_by_filter(databaseName, filter, (short) -1));
+                            return Optional.of(client.getTableNamesByFilter(databaseName, filter));
                         }
                     }));
         }
@@ -442,7 +441,7 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("createTable", stats.getCreateTable().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            client.create_table(table);
+                            client.createTable(table);
                         }
                         return null;
                     }));
@@ -476,7 +475,7 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropTable", stats.getDropTable().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            client.drop_table(databaseName, tableName, true);
+                            client.dropTable(databaseName, tableName, true);
                         }
                         return null;
                     }));
@@ -520,7 +519,7 @@ public class CachingHiveMetastore
                             if (!source.isPresent()) {
                                 throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
                             }
-                            client.alter_table(databaseName, tableName, table);
+                            client.alterTable(databaseName, tableName, table);
                         }
                         return null;
                     }));
@@ -554,7 +553,7 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            Table table = client.get_table(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
+                            Table table = client.getTable(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
                             if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && (!isPrestoView(table))) {
                                 throw new HiveViewNotSupportedException(new SchemaTableName(hiveTableName.getDatabaseName(), hiveTableName.getTableName()));
                             }
@@ -590,10 +589,7 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getPartitionNames", stats.getGetPartitionNames().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            return Optional.of(client.get_partition_names(
-                                    hiveTableName.getDatabaseName(),
-                                    hiveTableName.getTableName(),
-                                    (short) 0));
+                            return Optional.of(client.getPartitionNames(hiveTableName.getDatabaseName(), hiveTableName.getTableName()));
                         }
                     }));
         }
@@ -620,11 +616,10 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getPartitionNamesByParts", stats.getGetPartitionNamesPs().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            return Optional.of(client.get_partition_names_ps(
+                            return Optional.of(client.getPartitionNamesFiltered(
                                     partitionFilter.getHiveTableName().getDatabaseName(),
                                     partitionFilter.getHiveTableName().getTableName(),
-                                    partitionFilter.getParts(),
-                                    (short) -1));
+                                    partitionFilter.getParts()));
                         }
                     }));
         }
@@ -649,7 +644,7 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("addPartitions", stats.getAddPartitions().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            int partitionsAdded = client.add_partitions(partitions);
+                            int partitionsAdded = client.addPartitions(partitions);
                             if (partitionsAdded != partitions.size()) {
                                 throw new PrestoException(HIVE_METASTORE_ERROR,
                                         format("Hive metastore only added %s of %s partitions", partitionsAdded, partitions.size()));
@@ -689,7 +684,7 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropPartition", stats.getDropPartition().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            client.drop_partition(databaseName, tableName, parts, true);
+                            client.dropPartition(databaseName, tableName, parts, true);
                         }
                         return null;
                     }));
@@ -723,7 +718,7 @@ public class CachingHiveMetastore
                             // It is observed that: (examples below assumes a table with one partition column `ds`)
                             //  * When a partition doesn't exist (e.g. ds=2015-09-99), this thrift call is a no-op. It doesn't throw any exception.
                             //  * When a typo exists in partition column name (e.g. dxs=2015-09-01), this thrift call will delete ds=2015-09-01.
-                            client.drop_partition_by_name(databaseName, tableName, partitionName, true);
+                            client.dropPartitionByName(databaseName, tableName, partitionName, true);
                         }
                         return null;
                     }));
@@ -790,7 +785,7 @@ public class CachingHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getPartitionsByNames", stats.getGetPartitionByName().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                            return Optional.of(client.get_partition_by_name(
+                            return Optional.of(client.getPartitionByName(
                                     partitionName.getHiveTableName().getDatabaseName(),
                                     partitionName.getHiveTableName().getTableName(),
                                     partitionName.getPartitionName()));
@@ -832,7 +827,7 @@ public class CachingHiveMetastore
                     .run("getPartitionsByNames", stats.getGetPartitionsByNames().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             ImmutableMap.Builder<HivePartitionName, Optional<Partition>> partitions = ImmutableMap.builder();
-                            for (Partition partition : client.get_partitions_by_names(databaseName, tableName, partitionsToFetch)) {
+                            for (Partition partition : client.getPartitionsByNames(databaseName, tableName, partitionsToFetch)) {
                                 String partitionId = FileUtils.makePartName(partitionColumnNames, partition.getValues(), null);
                                 partitions.put(HivePartitionName.partition(databaseName, tableName, partitionId), Optional.of(partition));
                             }
@@ -859,7 +854,7 @@ public class CachingHiveMetastore
     private Set<String> loadRoles(String user)
     {
         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-            List<Role> roles = client.list_roles(user, USER);
+            List<Role> roles = client.listRoles(user, USER);
             if (roles == null) {
                 return ImmutableSet.of();
             }
@@ -907,7 +902,7 @@ public class CachingHiveMetastore
     {
         ImmutableSet.Builder<HivePrivilege> privileges = ImmutableSet.builder();
         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-            PrincipalPrivilegeSet privilegeSet = client.get_privilege_set(objectReference, user, null);
+            PrincipalPrivilegeSet privilegeSet = client.getPrivilegeSet(objectReference, user, null);
 
             if (privilegeSet != null) {
                 Map<String, List<PrivilegeGrantInfo>> userPrivileges = privilegeSet.getUserPrivileges();
@@ -923,6 +918,7 @@ public class CachingHiveMetastore
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+
         return privileges.build();
     }
 
