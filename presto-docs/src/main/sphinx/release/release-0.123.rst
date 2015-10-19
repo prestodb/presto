@@ -16,6 +16,7 @@ General Changes
 * Fix issue with :func:`histogram` that can cause failures or incorrect results
   when there are more than ten buckets.
 * Optimize execution of cross join.
+* Run Presto server as ``presto`` user in RPM init scripts.
 
 Table Properties
 ----------------
@@ -46,3 +47,8 @@ entire partitions.  For example, to delete from the above table, execute the fol
 
     DELETE FROM orders
     WHERE order_date = '2015-10-15' AND order_region = 'APAC'
+
+.. note::
+
+    Currently, Hive deletion is only supported for partitioned tables.
+    Additionally, partition keys must be of type VARCHAR.
