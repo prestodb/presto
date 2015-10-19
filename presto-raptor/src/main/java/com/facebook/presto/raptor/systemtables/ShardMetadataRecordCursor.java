@@ -315,7 +315,6 @@ public class ShardMetadataRecordCursor
             sql.append(Joiner.on(" AND ").join(predicates));
         }
 
-        System.out.println(sql.toString());
         ImmutableList.Builder<Long> tableIds = ImmutableList.builder();
         try (Connection connection = dbi.open().getConnection();
              Statement statement = connection.createStatement();
