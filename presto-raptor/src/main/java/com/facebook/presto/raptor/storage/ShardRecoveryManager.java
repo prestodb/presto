@@ -204,6 +204,7 @@ public class ShardRecoveryManager
         }
         catch (PrestoException e) {
             stats.incrementShardRecoveryFailure();
+            stagingFile.delete();
             throw e;
         }
 
@@ -225,6 +226,9 @@ public class ShardRecoveryManager
         catch (IOException e) {
             stats.incrementShardRecoveryFailure();
             throw new PrestoException(RAPTOR_RECOVERY_ERROR, "Failed to move shard: " + shardUuid, e);
+        }
+        finally {
+            stagingFile.delete();
         }
 
         if (!storageFile.exists() || (shardSize.isPresent() && (storageFile.length() != shardSize.getAsLong()))) {
