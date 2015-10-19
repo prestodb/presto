@@ -308,7 +308,7 @@ public class TestHiveFileFormats
         return TEST_COLUMNS.stream()
                 .filter(column -> !ImmutableSet.of("t_array_empty", "t_map_null_key", "t_map_null_key_complex_value", "t_map_null_key_complex_key_value")
                         .contains(column.getName()))
-                .filter(column -> !hasType(column.getObjectInspector(), PrimitiveCategory.DATE))
+                .filter(column -> column.isPartitionKey() || !hasType(column.getObjectInspector(), PrimitiveCategory.DATE))
                 .collect(toList());
     }
 
