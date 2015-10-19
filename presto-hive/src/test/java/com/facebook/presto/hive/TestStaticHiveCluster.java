@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
+import com.facebook.presto.hive.metastore.MockHiveMetastoreClient;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.Duration;
-import org.apache.thrift.transport.TTransport;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -84,6 +85,6 @@ public class TestStaticHiveCluster
 
     private static HiveMetastoreClient createFakeMetastoreClient()
     {
-        return new HiveMetastoreClient((TTransport) null);
+        return new MockHiveMetastoreClient();
     }
 }

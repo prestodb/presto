@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.HiveMetastoreClient;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -21,18 +20,21 @@ import com.google.common.collect.Lists;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
+import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
-import org.apache.thrift.transport.TTransport;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MockHiveMetastoreClient
-        extends HiveMetastoreClient
+        implements HiveMetastoreClient
 {
     static final String TEST_DATABASE = "testdb";
     static final String BAD_DATABASE = "baddb";
@@ -42,11 +44,6 @@ public class MockHiveMetastoreClient
 
     private final AtomicInteger accessCount = new AtomicInteger();
     private boolean throwException;
-
-    MockHiveMetastoreClient()
-    {
-        super((TTransport) null);
-    }
 
     public void setThrowException(boolean throwException)
     {
@@ -59,7 +56,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public List<String> get_all_databases()
+    public List<String> getAllDatabases()
             throws TException
     {
         accessCount.incrementAndGet();
@@ -70,7 +67,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public List<String> get_all_tables(String dbName)
+    public List<String> getAllTables(String dbName)
             throws TException
     {
         accessCount.incrementAndGet();
@@ -84,7 +81,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public Database get_database(String name)
+    public Database getDatabase(String name)
             throws TException
     {
         accessCount.incrementAndGet();
@@ -98,7 +95,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public Table get_table(String dbName, String tableName)
+    public Table getTable(String dbName, String tableName)
             throws TException
     {
         accessCount.incrementAndGet();
@@ -112,7 +109,13 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public List<String> get_partition_names(String dbName, String tableName, short maxParts)
+    public List<String> getTableNamesByFilter(String databaseName, String filter)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<String> getPartitionNames(String dbName, String tableName)
             throws TException
     {
         accessCount.incrementAndGet();
@@ -126,7 +129,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public List<String> get_partition_names_ps(String dbName, String tableName, List<String> partValues, short maxParts)
+    public List<String> getPartitionNamesFiltered(String dbName, String tableName, List<String> partValues)
             throws TException
     {
         accessCount.incrementAndGet();
@@ -140,7 +143,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public Partition get_partition_by_name(String dbName, String tableName, String partName)
+    public Partition getPartitionByName(String dbName, String tableName, String partName)
             throws TException
     {
         accessCount.incrementAndGet();
@@ -154,7 +157,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public List<Partition> get_partitions_by_names(String dbName, String tableName, List<String> names)
+    public List<Partition> getPartitionsByNames(String dbName, String tableName, List<String> names)
             throws TException
     {
         accessCount.incrementAndGet();
@@ -172,6 +175,54 @@ public class MockHiveMetastoreClient
                 throw Throwables.propagate(e);
             }
         });
+    }
+
+    @Override
+    public void createTable(Table table)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropTable(String databaseName, String name, boolean deleteData)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterTable(String databaseName, String tableName, Table newTable)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int addPartitions(List<Partition> newPartitions)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean dropPartitionByName(String databaseName, String tableName, String partitionName, boolean deleteData)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<Role> listRoles(String principalName, PrincipalType principalType)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PrincipalPrivilegeSet getPrivilegeSet(HiveObjectRef hiveObject, String userName, List<String> groupNames)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

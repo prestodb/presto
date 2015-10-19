@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
@@ -61,7 +62,7 @@ public class HiveMetastoreClientFactory
     public HiveMetastoreClient create(String host, int port)
             throws TTransportException
     {
-        return new HiveMetastoreClient(createTransport(host, port));
+        return new ThriftHiveMetastoreClient(createTransport(host, port));
     }
 
     protected TTransport createRawTransport(String host, int port)

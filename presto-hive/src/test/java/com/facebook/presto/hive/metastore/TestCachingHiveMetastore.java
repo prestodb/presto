@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveCluster;
-import com.facebook.presto.hive.HiveMetastoreClient;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
