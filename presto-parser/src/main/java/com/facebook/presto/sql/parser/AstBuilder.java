@@ -71,6 +71,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -222,6 +223,12 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.REPLACE() != null);
+    }
+
+    @Override
+    public Node visitRefreshMaterializedView(SqlBaseParser.RefreshMaterializedViewContext context)
+    {
+        return new RefreshMaterializedView(getQualifiedName(context.qualifiedName()));
     }
 
     // ********************** query expressions ********************

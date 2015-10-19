@@ -44,6 +44,7 @@ statement
         ADD COLUMN column=tableElement                                 #addColumn
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
+    | REFRESH MATERIALIZED VIEW qualifiedName                          #refreshMaterializedView
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
     | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)?  #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?                           #showSchemas
@@ -440,6 +441,8 @@ CREATE: 'CREATE';
 TABLE: 'TABLE';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
+REFRESH: 'REFRESH';
+MATERIALIZED: 'MATERIALIZED';
 INSERT: 'INSERT';
 DELETE: 'DELETE';
 INTO: 'INTO';
