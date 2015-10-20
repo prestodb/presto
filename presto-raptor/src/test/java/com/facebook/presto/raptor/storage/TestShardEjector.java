@@ -272,6 +272,12 @@ public class TestShardEjector
         }
 
         @Override
+        public void deleteShard(UUID uuid)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public boolean shardExists(UUID uuid)
         {
             return true;

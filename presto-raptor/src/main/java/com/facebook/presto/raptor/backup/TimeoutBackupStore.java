@@ -75,6 +75,17 @@ public class TimeoutBackupStore
     }
 
     @Override
+    public void deleteShard(UUID uuid)
+    {
+        try {
+            store.deleteShard(uuid);
+        }
+        catch (UncheckedTimeoutException e) {
+            throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, "Shard delete timed out");
+        }
+    }
+
+    @Override
     public boolean shardExists(UUID uuid)
     {
         try {

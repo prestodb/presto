@@ -35,6 +35,14 @@ public interface BackupStore
     void restoreShard(UUID uuid, File target);
 
     /**
+     * Delete shard from backup store. This method is idempotent.
+     * No exception is thrown if the shard does not exist.
+     *
+     * @param uuid shard UUID
+     */
+    void deleteShard(UUID uuid);
+
+    /**
      * Check if a shard exists in the backup store.
      *
      * @param uuid shard UUID

@@ -86,5 +86,18 @@ public class TestFileBackupStore
 
         // verify random UUID does not exist
         assertFalse(store.shardExists(randomUUID()));
+
+        // delete first file
+        assertTrue(store.shardExists(uuid1));
+        assertTrue(store.shardExists(uuid2));
+
+        store.deleteShard(uuid1);
+        store.deleteShard(uuid1);
+
+        assertFalse(store.shardExists(uuid1));
+        assertTrue(store.shardExists(uuid2));
+
+        // delete random UUID
+        store.deleteShard(randomUUID());
     }
 }
