@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.security.Identity;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableMap;
 
 import java.security.Principal;
 import java.util.Collections;
@@ -60,6 +61,11 @@ public class TestingAccessControlManager
         extends AccessControlManager
 {
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
+
+    public TestingAccessControlManager()
+    {
+        setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.of());
+    }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
     {
