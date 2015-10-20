@@ -21,8 +21,8 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -58,11 +58,11 @@ public class SingleDistinctOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return PlanRewriter.rewriteWith(new Optimizer(idAllocator), plan, Optional.empty());
+        return SimplePlanRewriter.rewriteWith(new Optimizer(idAllocator), plan, Optional.empty());
     }
 
     private static class Optimizer
-            extends PlanRewriter<Optional<Symbol>>
+            extends SimplePlanRewriter<Optional<Symbol>>
     {
         private final PlanNodeIdAllocator idAllocator;
 

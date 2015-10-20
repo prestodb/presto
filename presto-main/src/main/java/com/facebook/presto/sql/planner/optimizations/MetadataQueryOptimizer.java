@@ -33,8 +33,8 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -74,11 +74,11 @@ public class MetadataQueryOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return PlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
     }
 
     private static class Optimizer
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
@@ -172,7 +172,7 @@ public class MetadataQueryOptimizer
 
             // replace the tablescan node with a values node
             ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build());
-            return PlanRewriter.rewriteWith(new Replacer(valuesNode), node);
+            return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
         }
 
         private Optional<TableScanNode> findTableScan(PlanNode source)
@@ -205,7 +205,7 @@ public class MetadataQueryOptimizer
     }
 
     private static class Replacer
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final ValuesNode replacement;
 

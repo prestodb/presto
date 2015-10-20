@@ -21,15 +21,15 @@ import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public abstract class PlanRewriter<C>
-        extends PlanVisitor<PlanRewriter.RewriteContext<C>, PlanNode>
+public abstract class SimplePlanRewriter<C>
+        extends PlanVisitor<SimplePlanRewriter.RewriteContext<C>, PlanNode>
 {
-    public static <C> PlanNode rewriteWith(PlanRewriter<C> rewriter, PlanNode node)
+    public static <C> PlanNode rewriteWith(SimplePlanRewriter<C> rewriter, PlanNode node)
     {
         return node.accept(rewriter, new RewriteContext<>(rewriter, null));
     }
 
-    public static <C> PlanNode rewriteWith(PlanRewriter<C> rewriter, PlanNode node, C context)
+    public static <C> PlanNode rewriteWith(SimplePlanRewriter<C> rewriter, PlanNode node, C context)
     {
         return node.accept(rewriter, new RewriteContext<>(rewriter, context));
     }
@@ -43,9 +43,9 @@ public abstract class PlanRewriter<C>
     public static class RewriteContext<C>
     {
         private final C userContext;
-        private final PlanRewriter<C> nodeRewriter;
+        private final SimplePlanRewriter<C> nodeRewriter;
 
-        private RewriteContext(PlanRewriter<C> nodeRewriter, C userContext)
+        private RewriteContext(SimplePlanRewriter<C> nodeRewriter, C userContext)
         {
             this.nodeRewriter = nodeRewriter;
             this.userContext = userContext;

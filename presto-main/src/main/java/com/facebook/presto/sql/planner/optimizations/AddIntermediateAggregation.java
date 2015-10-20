@@ -24,7 +24,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -61,13 +61,13 @@ public class AddIntermediateAggregation
         requireNonNull(idAllocator, "idAllocator is null");
 
         if (SystemSessionProperties.isIntermediateAggregation(session)) {
-            return PlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, symbolAllocator), plan);
+            return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, symbolAllocator), plan);
         }
         return plan;
     }
 
     private static class Rewriter
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
