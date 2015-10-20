@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -41,6 +42,7 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -59,6 +61,7 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -241,51 +244,6 @@ public final class TypeRegistry
         return firstTypeBase.equals(StandardTypes.ARRAY) || firstTypeBase.equals(StandardTypes.MAP);
     }
 
-    /*
-     * Return true if actualType can be coerced to expectedType AND they are both binary compatible (so it's only type coercion)
-     */
-    public static boolean isTypeOnlyCoercion(TypeSignature actualType, TypeSignature expectedType)
-    {
-        if (!canCoerce(actualType, expectedType)) {
-            return false;
-        }
-
-        if (actualType.equals(expectedType)) {
-            return true;
-        }
-        else if (actualType.getBase().equals(StandardTypes.VARCHAR) && expectedType.getBase().equals(StandardTypes.VARCHAR)) {
-            return true;
-        }
-
-        if (actualType.getBase().equals(expectedType.getBase()) &&
-                actualType.getParameters().size() == expectedType.getParameters().size()) {
-            for (int i = 0; i < actualType.getParameters().size(); i++) {
-                if (!isCovariantParameterPosition(actualType.getBase(), i)) {
-                    return false;
-                }
-
-                TypeSignatureParameter actualParameter = actualType.getParameters().get(i);
-                TypeSignatureParameter expectedParameter = expectedType.getParameters().get(i);
-                if (actualParameter.equals(expectedParameter)) {
-                    continue;
-                }
-
-                Optional<TypeSignature> actualParameterSignature = actualParameter.getTypeSignatureOrNamedTypeSignature();
-                Optional<TypeSignature> expectedParameterSignature = expectedParameter.getTypeSignatureOrNamedTypeSignature();
-                if (!actualParameterSignature.isPresent() || !expectedParameterSignature.isPresent()) {
-                    return false;
-                }
-
-                if (!isTypeOnlyCoercion(actualParameterSignature.get(), expectedParameterSignature.get())) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        return false;
-    }
-
     public static boolean canCoerce(Type actualType, Type expectedType)
     {
         return canCoerce(actualType.getTypeSignature(), expectedType.getTypeSignature());
@@ -322,6 +280,7 @@ public final class TypeRegistry
         if (canCastTypeBase(secondTypeBase, firstTypeBase)) {
             return Optional.of(firstTypeBase);
         }
+
         return Optional.empty();
     }
 
@@ -371,12 +330,31 @@ public final class TypeRegistry
                 firstType,
                 secondType);
 
+        // TODO: special case for decimal for now, this needs be moved somehow to DecimalType class
+        if (firstType.getBase().equals(DECIMAL) && secondType.getBase().equals(DECIMAL)) {
+            long firstPrecision = firstType.getParameters().get(0).getLongLiteral();
+            long secondPrecision = secondType.getParameters().get(0).getLongLiteral();
+            long firstScale = firstType.getParameters().get(1).getLongLiteral();
+            long secondScale = secondType.getParameters().get(1).getLongLiteral();
+            long targetScale = Math.max(firstScale, secondScale);
+            long targetPrecision = Math.max(firstPrecision - firstScale, secondPrecision - secondScale) + targetScale;
+            targetPrecision = Math.min(38, targetPrecision); //we allow potential loss of precision here. Overflow checking is done in operators.
+            return Optional.of(new TypeSignature(
+                    DECIMAL,
+                    ImmutableList.of(TypeSignatureParameter.of(targetPrecision), TypeSignatureParameter.of(targetScale))));
+        }
+
+        if (firstTypeTypeParameters.size() != secondTypeTypeParameters.size()) {
+            return Optional.empty();
+        }
+
         ImmutableList.Builder<TypeSignatureParameter> typeParameters = ImmutableList.builder();
         for (int i = 0; i < firstTypeTypeParameters.size(); i++) {
             TypeSignatureParameter firstParameter = firstTypeTypeParameters.get(i);
             TypeSignatureParameter secondParameter = secondTypeTypeParameters.get(i);
 
             if (firstParameter.isLongLiteral() && secondParameter.isLongLiteral()) {
+                // TODO: this Math.max should be moved to VarcharType?
                 typeParameters.add(TypeSignatureParameter.of(Math.max(
                         firstParameter.getLongLiteral(),
                         secondParameter.getLongLiteral())));
@@ -404,5 +382,81 @@ public final class TypeRegistry
         }
 
         return Optional.of(new TypeSignature(commonSuperTypeBase.get(), typeParameters.build()));
+    }
+
+    public static boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    {
+        return isTypeOnlyCoercion(actualType.getTypeSignature(), expectedType.getTypeSignature());
+    }
+
+    /*
+     * Return true if actualType can be coerced to expectedType AND they are both binary compatible (so it's only type coercion)
+     */
+    public static boolean isTypeOnlyCoercion(TypeSignature actualType, TypeSignature expectedType)
+    {
+        if (!canCoerce(actualType, expectedType)) {
+            return false;
+        }
+
+        if (actualType.equals(expectedType)) {
+            return true;
+        }
+        else if (actualType.getBase().equals(StandardTypes.VARCHAR) && expectedType.getBase().equals(StandardTypes.VARCHAR)) {
+            return true;
+        }
+
+        if (actualType.getBase().equals(expectedType.getBase()) &&
+                actualType.getParameters().size() == expectedType.getParameters().size()) {
+            for (int i = 0; i < actualType.getParameters().size(); i++) {
+                if (!isCovariantParameterPosition(actualType.getBase(), i)) {
+                    return false;
+                }
+
+                TypeSignatureParameter actualParameter = actualType.getParameters().get(i);
+                TypeSignatureParameter expectedParameter = expectedType.getParameters().get(i);
+                if (actualParameter.equals(expectedParameter)) {
+                    continue;
+                }
+
+                Optional<TypeSignature> actualParameterSignature = actualParameter.getTypeSignatureOrNamedTypeSignature();
+                Optional<TypeSignature> expectedParameterSignature = expectedParameter.getTypeSignatureOrNamedTypeSignature();
+                if (!actualParameterSignature.isPresent() || !expectedParameterSignature.isPresent()) {
+                    return false;
+                }
+
+                if (!isTypeOnlyCoercion(actualParameterSignature.get(), expectedParameterSignature.get())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (actualType.getBase().equals(DECIMAL) && expectedType.getBase().equals(DECIMAL)) {
+            long actualPrecision = actualType.getParameters().get(0).getLongLiteral();
+            long expectedPrecision = (long) expectedType.getParameters().get(0).getLongLiteral();
+            long actualScale = (long) actualType.getParameters().get(1).getLongLiteral();
+            long expectedScale = (long) expectedType.getParameters().get(1).getLongLiteral();
+
+            if (actualPrecision <= DecimalType.MAX_SHORT_PRECISION ^ expectedPrecision <= DecimalType.MAX_SHORT_PRECISION) {
+                return false;
+            }
+
+            return actualScale == expectedScale && actualPrecision <= expectedPrecision;
+        }
+
+        return false;
+    }
+
+    /*
+     * Given signature with unmatched parameters return filtered one.
+     */
+    public static TypeSignature getUnmatchedSignature(TypeSignature signature)
+    {
+        if (signature.getParameters().stream().allMatch(
+                parameter -> parameter.isLongLiteral() || parameter.isTypeSignature() || parameter.isNamedTypeSignature()
+        )) {
+            return signature;
+        }
+        return new TypeSignature(signature.getBase(), emptyList());
     }
 }

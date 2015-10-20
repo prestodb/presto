@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.LongDecimalType;
 import com.facebook.presto.spi.type.ShortDecimalType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -39,6 +40,7 @@ import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.util.DecimalUtils.overflows;
+import static com.facebook.presto.util.Types.checkType;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
@@ -100,7 +102,7 @@ public final class DecimalCasts
 
     private static List<Object> castExtraParametersFromTypeParameters(SpecializeContext context)
     {
-        DecimalType resultType = (DecimalType) context.getType("X");
+        DecimalType resultType = checkType(context.getReturnType(), DecimalType.class, "resultType");
         long tenToScale = ShortDecimalType.tenToNth(resultType.getScale());
         return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
     }
