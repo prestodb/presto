@@ -20,7 +20,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -43,12 +43,12 @@ public class SetFlatteningOptimizer
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(), plan, false);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan, false);
     }
 
     // TODO: remove expectation that UNION DISTINCT => distinct aggregation directly above union node
     private static class Rewriter
-            extends PlanRewriter<Boolean>
+            extends SimplePlanRewriter<Boolean>
     {
         @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<Boolean> context)
