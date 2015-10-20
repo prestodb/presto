@@ -112,6 +112,7 @@ public class TestingPrestoServer
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
                 .put("presto.version", "testversion")
+                .put("http-client.max-threads", "16")
                 .put("task.default-concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("analyzer.experimental-syntax-enabled", "true");
