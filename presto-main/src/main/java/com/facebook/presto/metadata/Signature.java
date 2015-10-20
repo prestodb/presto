@@ -326,17 +326,31 @@ public final class Signature
 
     private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameter> typeParameters, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
     {
+        // TODO: the code flow here needs reworking. The 'if (allowCoercion()) {...
+        // does not make much sense if parameter, we are matching to, is calculated type.
+        // Similar binding logic as is done for type parameters should be performed here
+        // for literal parameters. I would like to leave it out of this patch as
+        // the type system code is going to be refactored soon anyway.
+
         // If this parameter is already bound, then match (with coercion)
         if (boundParameters.containsKey(parameter.getBase())) {
             checkArgument(parameter.getParameters().isEmpty(), "Unexpected parametric type");
-            if (allowCoercion) {
+            if (allowCoercion && !parameter.isCalculated()) { // see above for explanation of !parameter.isCalculated()
                 if (canCoerce(type, boundParameters.get(parameter.getBase()))) {
                     return true;
                 }
                 else if (canCoerce(boundParameters.get(parameter.getBase()), type) && typeParameters.get(parameter.getBase()).canBind(type)) {
-                    // Broaden the binding
+                    // Try to coerce current binding to new candidate
                     boundParameters.put(parameter.getBase(), type);
                     return true;
+                }
+                else {
+                    // Try to use common super type of current binding and candidate
+                    Optional<Type> commonSuperType = getCommonSuperType(boundParameters.get(parameter.getBase()), type);
+                    if (commonSuperType.isPresent() && typeParameters.get(parameter.getBase()).canBind(commonSuperType.get())) {
+                        boundParameters.put(parameter.getBase(), commonSuperType.get());
+                        return true;
+                    }
                 }
                 return false;
             }
@@ -376,7 +390,7 @@ public final class Signature
 
         // The parameter is not a type parameter, so it must be a concrete type
         Type parameterType = typeManager.getType(parseTypeSignature(parameter.getBase()));
-        if (allowCoercion) {
+        if (allowCoercion && !parameter.isCalculated()) { // see above for explanation of !parameter.isCalculated()
             return canCoerce(type, parameterType);
         }
         else {
