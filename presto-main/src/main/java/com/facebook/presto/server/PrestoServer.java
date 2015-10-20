@@ -17,6 +17,7 @@ import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
 import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -118,6 +119,8 @@ public class PrestoServer
                     injector.getInstance(Metadata.class),
                     injector.getInstance(ServerConfig.class),
                     injector.getInstance(NodeSchedulerConfig.class));
+
+            injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
 
             injector.getInstance(Announcer.class).start();
 

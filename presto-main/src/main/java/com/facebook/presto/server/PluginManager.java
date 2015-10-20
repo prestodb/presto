@@ -22,7 +22,7 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.security.SystemAccessControl;
+import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ParametricType;
 import com.facebook.presto.type.TypeRegistry;
@@ -217,9 +217,9 @@ public class PluginManager
             metadata.addFunctions(functionFactory.listFunctions());
         }
 
-        for (SystemAccessControl accessControl : plugin.getServices(SystemAccessControl.class)) {
-            log.info("Registering system access control %s", accessControl.getClass().getName());
-            accessControlManager.addSystemAccessControl(accessControl);
+        for (SystemAccessControlFactory accessControlFactory : plugin.getServices(SystemAccessControlFactory.class)) {
+            log.info("Registering system access control %s", accessControlFactory.getName());
+            accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         }
     }
 
