@@ -67,6 +67,7 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -769,6 +770,11 @@ public class FunctionRegistry
             return canCoerce(actualElementType, expectedElementType);
         }
 
+        if (actualType instanceof DecimalType && expectedType instanceof DecimalType) {
+            Optional<Type> superType = getCommonSuperType(actualType, expectedType);
+            return superType.isPresent() && superType.get().equals(expectedType);
+        }
+
         return false;
     }
 
@@ -783,6 +789,16 @@ public class FunctionRegistry
                 return true;
             }
             return ((VarcharType) actualType).getLength().orElse(Integer.MAX_VALUE) < ((VarcharType) expectedType).getLength().orElse(Integer.MAX_VALUE);
+        }
+
+        if (actualType instanceof DecimalType && expectedType instanceof DecimalType) {
+            DecimalType actualDecimal = (DecimalType) actualType;
+            DecimalType expectedDecimal = (DecimalType) expectedType;
+
+            if (actualDecimal.isShort() ^ expectedDecimal.isShort()) {
+                return false;
+            }
+            return actualDecimal.getScale() == expectedDecimal.getScale() && actualDecimal.getPrecision() <= expectedDecimal.getPrecision();
         }
 
         return false;
@@ -859,6 +875,14 @@ public class FunctionRegistry
             if (keyType.isPresent() && valueType.isPresent()) {
                 return Optional.of(new MapType(keyType.get(), valueType.get()));
             }
+        }
+        if (firstType instanceof DecimalType && secondType instanceof DecimalType) {
+            DecimalType firstDecimal = (DecimalType) firstType;
+            DecimalType secondDecimal = (DecimalType) secondType;
+            int targetScale = Math.max(firstDecimal.getScale(), secondDecimal.getScale());
+            int targetPrecision = Math.max(firstDecimal.getPrecision() - firstDecimal.getScale(), secondDecimal.getPrecision() - secondDecimal.getScale()) + targetScale;
+            targetPrecision = Math.min(38, targetPrecision); //we allow potential loss of precision here. Overflow checking is done in operators.
+            return Optional.of(DecimalType.createDecimalType(targetPrecision, targetScale));
         }
 
         // TODO add row type
