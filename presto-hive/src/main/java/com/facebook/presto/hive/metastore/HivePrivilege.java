@@ -38,6 +38,8 @@ public enum HivePrivilege
                 return ImmutableSet.of(UPDATE);
             case "DELETE":
                 return ImmutableSet.of(DELETE);
+            case "OWNERSHIP":
+                return ImmutableSet.of(OWNERSHIP);
         }
         return ImmutableSet.of();
     }
