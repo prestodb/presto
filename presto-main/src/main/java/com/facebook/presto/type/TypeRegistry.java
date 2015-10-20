@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -38,6 +39,7 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -259,6 +261,7 @@ public final class TypeRegistry
         if (canCastTypeBase(secondTypeBase, firstTypeBase)) {
             return Optional.of(firstTypeBase);
         }
+
         return Optional.empty();
     }
 
@@ -295,6 +298,18 @@ public final class TypeRegistry
 
             long length = Math.max((long) firstType.getLiteralParameters().get(0), (long) secondType.getLiteralParameters().get(0));
             return Optional.of(new TypeSignature(VARCHAR, ImmutableList.of(), ImmutableList.of(length)));
+        }
+
+        // special case for decimal for now; needs fixing when pnowojski patches are applied
+        if (firstType.getBase().equals(DECIMAL) && secondType.getBase().equals(DECIMAL)) {
+            long firstPrecision = (long) firstType.getLiteralParameters().get(0);
+            long secondPrecision = (long) secondType.getLiteralParameters().get(0);
+            long firstScale = (long) firstType.getLiteralParameters().get(1);
+            long secondScale = (long) secondType.getLiteralParameters().get(1);
+            long targetScale = Math.max(firstScale, secondScale);
+            long targetPrecision = Math.max(firstPrecision - firstScale, secondPrecision - secondScale) + targetScale;
+            targetPrecision = Math.min(38, targetPrecision); //we allow potential loss of precision here. Overflow checking is done in operators.
+            return Optional.of(new TypeSignature(DECIMAL, ImmutableList.of(), ImmutableList.of(targetPrecision, targetScale)));
         }
 
         List<TypeSignature> firstTypeTypeParameters = firstType.getParameters();
@@ -348,6 +363,19 @@ public final class TypeRegistry
             }
             int actualLength = actualType.getLiteralParameters().isEmpty() ? Integer.MAX_VALUE : (int) actualType.getLiteralParameters().get(0);
             return actualLength < (int) expectedType.getLiteralParameters().get(1);
+        }
+
+        if (actualType.getBase().equals(DECIMAL) && expectedType.getBase().equals(DECIMAL)) {
+            long actualPrecision = (long) actualType.getLiteralParameters().get(0);
+            long expectedPrecision = (long) expectedType.getLiteralParameters().get(0);
+            long actualScale = (long) actualType.getLiteralParameters().get(1);
+            long expectedScale = (long) expectedType.getLiteralParameters().get(1);
+
+            if (actualPrecision <= DecimalType.MAX_SHORT_PRECISION ^ expectedPrecision <= DecimalType.MAX_SHORT_PRECISION) {
+                return false;
+            }
+
+            return actualScale == expectedScale && actualPrecision <= expectedPrecision;
         }
 
         return false;
