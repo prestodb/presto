@@ -117,6 +117,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -207,6 +208,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -377,6 +379,18 @@ public class FunctionRegistry
     @Nullable
     private static Signature bindSignature(Signature signature, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
+        Signature mangledSignature = extractTypeParametersForArgumentsWithLiteralParameters(signature);
+        Signature boundMangledSignature = bindSignatureInternal(mangledSignature, types, allowCoercion, typeManager);
+        if (boundMangledSignature == null) {
+            return null;
+        }
+        Signature boundOriginalSignature = bindSignatureInternal(signature, types, allowCoercion, typeManager);
+        requireNonNull(boundOriginalSignature, () -> format("unexpected null when binding original signature %s", signature));
+        return boundOriginalSignature.resolveCalculatedTypes(boundMangledSignature.getArgumentTypes());
+    }
+
+    private static Signature bindSignatureInternal(Signature signature, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    {
         List<TypeSignature> argumentTypes = signature.getArgumentTypes();
         Map<String, Type> boundParameters = signature.bindTypeParameters(types, allowCoercion, typeManager);
         if (boundParameters == null) {
@@ -397,7 +411,35 @@ public class FunctionRegistry
                 boundArguments.add(lastArgument);
             }
         }
-        return new Signature(signature.getName(), signature.getKind(), bindParameters(signature.getReturnType(), boundParameters), boundArguments.build());
+        Signature boundSignature = new Signature(signature.getName(), signature.getKind(), bindParameters(signature.getReturnType(), boundParameters), boundArguments.build());
+        return boundSignature;
+    }
+
+    private static Signature extractTypeParametersForArgumentsWithLiteralParameters(Signature signature)
+    {
+        SignatureBuilder newSignature = Signature.builder(signature);
+        newSignature.clearArgumentTypes();
+        Map<TypeSignature, String> generatedTypeVariables = new HashMap<>();
+        int typeVariableNameId = 0;
+        for (TypeSignature argumentType : signature.getArgumentTypes()) {
+            if (!argumentType.getLiteralParameters().isEmpty()) {
+                String argumentTypeName;
+                if (!generatedTypeVariables.containsKey(argumentType)) {
+                    argumentTypeName = "GENTYPE" + typeVariableNameId++;
+                    generatedTypeVariables.put(argumentType, argumentTypeName);
+                    newSignature.addTypeParameter(new TypeParameter(argumentTypeName, false, false, argumentType.getBase()));
+                }
+                else {
+                    argumentTypeName = generatedTypeVariables.get(argumentType);
+                }
+                newSignature.addArgumentType(new TypeSignature(argumentTypeName, emptyList(), emptyList()));
+            }
+            else {
+                newSignature.addArgumentType(argumentType);
+            }
+        }
+
+        return newSignature.build();
     }
 
     private static TypeSignature bindParameters(TypeSignature typeSignature, Map<String, Type> boundParameters)
@@ -450,25 +492,27 @@ public class FunctionRegistry
             }
         }
 
-        if (match != null) {
-            return match.resolveCalculatedTypes(parameterTypes);
+        // search for coerced match
+        if (match == null) {
+            for (SqlFunction function : candidates) {
+                Signature signature = bindSignature(function.getSignature(), resolvedTypes, true, typeManager);
+                if (signature != null) {
+                    // TODO: This should also check for ambiguities
+                    return signature;
+                }
+            }
         }
 
-        // search for coerced match
-        for (SqlFunction function : candidates) {
-            Signature signature = bindSignature(function.getSignature(), resolvedTypes, true, typeManager);
-            if (signature != null) {
-                // TODO: This should also check for ambiguities
-                return signature;
-            }
+        if (match != null) {
+            return match;
         }
 
         List<String> expectedParameters = new ArrayList<>();
         for (SqlFunction function : candidates) {
             expectedParameters.add(format("%s(%s) %s",
-                                    name,
-                                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                                    Joiner.on(", ").join(function.getSignature().getTypeParameters())));
+                    name,
+                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
+                    Joiner.on(", ").join(function.getSignature().getTypeParameters())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
         String message = format("Function %s not registered", name);
@@ -643,7 +687,7 @@ public class FunctionRegistry
                 .collect(toImmutableList());
     }
 
-    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends  Type> argumentTypes)
+    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
     {
         Signature signature = internalOperator(operatorType, returnType, argumentTypes);
         try {
@@ -765,41 +809,41 @@ public class FunctionRegistry
         return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
     }
 
-    private static class FunctionMap
+private static class FunctionMap
+{
+    private final Multimap<QualifiedName, SqlFunction> functions;
+
+    public FunctionMap()
     {
-        private final Multimap<QualifiedName, SqlFunction> functions;
+        functions = ImmutableListMultimap.of();
+    }
 
-        public FunctionMap()
-        {
-            functions = ImmutableListMultimap.of();
-        }
+    public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
+    {
+        this.functions = ImmutableListMultimap.<QualifiedName, SqlFunction>builder()
+                .putAll(map.functions)
+                .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
+                .build();
 
-        public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
-        {
-            this.functions = ImmutableListMultimap.<QualifiedName, SqlFunction>builder()
-                    .putAll(map.functions)
-                    .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
-                    .build();
-
-            // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
-                Collection<SqlFunction> values = entry.getValue();
-                long aggregations = values.stream()
-                        .map(function -> function.getSignature().getKind())
-                        .filter(kind -> kind == AGGREGATE || kind == APPROXIMATE_AGGREGATE)
-                        .count();
-                checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());
-            }
-        }
-
-        public List<SqlFunction> list()
-        {
-            return ImmutableList.copyOf(functions.values());
-        }
-
-        public Collection<SqlFunction> get(QualifiedName name)
-        {
-            return functions.get(name);
+        // Make sure all functions with the same name are aggregations or none of them are
+        for (Map.Entry<QualifiedName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
+            Collection<SqlFunction> values = entry.getValue();
+            long aggregations = values.stream()
+                    .map(function -> function.getSignature().getKind())
+                    .filter(kind -> kind == AGGREGATE || kind == APPROXIMATE_AGGREGATE)
+                    .count();
+            checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());
         }
     }
+
+    public List<SqlFunction> list()
+    {
+        return ImmutableList.copyOf(functions.values());
+    }
+
+    public Collection<SqlFunction> get(QualifiedName name)
+    {
+        return functions.get(name);
+    }
+}
 }
