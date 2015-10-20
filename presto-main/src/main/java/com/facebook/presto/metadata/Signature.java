@@ -328,7 +328,7 @@ public final class Signature
     {
         // If this parameter is already bound, then match (with coercion)
         if (boundParameters.containsKey(parameter.getBase())) {
-            checkArgument(parameter.getParameters().isEmpty(), "Unexpected parameteric type");
+            checkArgument(parameter.getParameters().isEmpty(), "Unexpected parametric type");
             if (allowCoercion) {
                 if (canCoerce(type, boundParameters.get(parameter.getBase()))) {
                     return true;
@@ -415,5 +415,10 @@ public final class Signature
     public static SignatureBuilder builder()
     {
         return new SignatureBuilder();
+    }
+
+    public static SignatureBuilder builder(Signature source)
+    {
+        return new SignatureBuilder(source);
     }
 }

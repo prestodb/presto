@@ -15,16 +15,16 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.type.TypeSignature;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.google.common.collect.ImmutableList.copyOf;
-import static com.google.common.collect.Lists.transform;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 
 public final class SignatureBuilder
 {
@@ -36,6 +36,16 @@ public final class SignatureBuilder
     private boolean variableArity;
 
     public SignatureBuilder() {}
+
+    public SignatureBuilder(Signature source)
+    {
+        name = source.getName();
+        type = source.getType();
+        typeParameters = new ArrayList<>(source.getTypeParameters());
+        returnType = source.getReturnType();
+        argumentTypes = new ArrayList<>(source.getArgumentTypes());
+        variableArity = source.isVariableArity();
+    }
 
     public SignatureBuilder name(String name)
     {
@@ -63,7 +73,19 @@ public final class SignatureBuilder
 
     public SignatureBuilder typeParameters(List<TypeParameter> typeParameters)
     {
-        this.typeParameters = copyOf(requireNonNull(typeParameters, "typeParameters is null"));
+        this.typeParameters = new ArrayList<>(requireNonNull(typeParameters, "typeParameters is null"));
+        return this;
+    }
+
+    public SignatureBuilder clearTypeParameters()
+    {
+        this.typeParameters = new ArrayList<>();
+        return this;
+    }
+
+    public SignatureBuilder addTypeParameter(TypeParameter typeParameter)
+    {
+        this.typeParameters.add(typeParameter);
         return this;
     }
 
@@ -80,7 +102,21 @@ public final class SignatureBuilder
 
     public SignatureBuilder argumentTypes(List<String> argumentTypes)
     {
-        this.argumentTypes = transform(copyOf(requireNonNull(argumentTypes, "argumentTypes is null")), TypeSignature::parseTypeSignature);
+        this.argumentTypes = argumentTypes.stream()
+                .map(TypeSignature::parseTypeSignature)
+                .collect(toCollection(ArrayList::new));
+        return this;
+    }
+
+    public SignatureBuilder clearArgumentTypes()
+    {
+        this.argumentTypes = new ArrayList<>();
+        return this;
+    }
+
+    public SignatureBuilder addArgumentType(TypeSignature argumentType)
+    {
+        this.argumentTypes.add(argumentType);
         return this;
     }
 
