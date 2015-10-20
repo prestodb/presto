@@ -81,7 +81,7 @@ public class TimeoutBackupStore
             return store.shardExists(uuid);
         }
         catch (UncheckedTimeoutException e) {
-            throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, "Shard backup size fetch timed out");
+            throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, "Shard existence check timed out");
         }
     }
 
