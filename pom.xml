@@ -48,6 +48,7 @@
         <dep.airlift.version>0.119</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.15</dep.slice.version>
+        <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -583,8 +584,20 @@
 
             <dependency>
                 <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk</artifactId>
-                <version>1.8.9.1</version>
+                <artifactId>aws-java-sdk-core</artifactId>
+                <version>${dep.aws-sdk.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-s3</artifactId>
+                <version>${dep.aws-sdk.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>commons-logging</groupId>
