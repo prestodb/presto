@@ -66,6 +66,7 @@ public class QueryMonitor
                 new QueryCreatedEvent(
                         queryInfo.getQueryId(),
                         queryInfo.getSession().getUser(),
+                        queryInfo.getSession().getPrincipal().orElse(null),
                         queryInfo.getSession().getSource().orElse(null),
                         serverVersion,
                         environment,
@@ -111,6 +112,7 @@ public class QueryMonitor
                     new QueryCompletionEvent(
                             queryInfo.getQueryId(),
                             queryInfo.getSession().getUser(),
+                            queryInfo.getSession().getPrincipal().orElse(null),
                             queryInfo.getSession().getSource().orElse(null),
                             serverVersion,
                             environment,
