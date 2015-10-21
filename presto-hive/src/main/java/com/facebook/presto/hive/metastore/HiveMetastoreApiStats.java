@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -47,6 +48,11 @@ public class HiveMetastoreApiStats
                 }
 
                 if (e instanceof TException) {
+                    if (e instanceof TBase) {
+                        // This exception is an API response and not a server error
+                        throw e;
+                    }
+
                     thriftExceptions.update(1);
                     // Need to throw here instead of falling through due to JDK-8059299
                     totalFailures.update(1);
