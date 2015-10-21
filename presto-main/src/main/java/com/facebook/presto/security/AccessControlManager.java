@@ -22,6 +22,11 @@ import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
+
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -56,6 +61,12 @@ public class AccessControlManager
     private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new InitializingSystemAccessControl());
     private final AtomicBoolean systemAccessControlLoading = new AtomicBoolean();
 
+    private final CounterStat authenticationSuccess = new CounterStat();
+    private final CounterStat authenticationFail = new CounterStat();
+    private final CounterStat authorizationSuccess = new CounterStat();
+    private final CounterStat authorizationFail = new CounterStat();
+
+    @Inject
     public AccessControlManager()
     {
         systemAccessControlFactories.put(ALLOW_ALL_ACCESS_CONTROL, new SystemAccessControlFactory()
@@ -136,7 +147,7 @@ public class AccessControlManager
     {
         requireNonNull(userName, "userName is null");
 
-        systemAccessControl.get().checkCanSetUser(principal, userName);
+        authenticationCheck(() -> systemAccessControl.get().checkCanSetUser(principal, userName));
     }
 
     @Override
@@ -147,7 +158,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanCreateTable(identity, tableName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanCreateTable(identity, tableName.asSchemaTableName()));
         }
     }
 
@@ -159,7 +170,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanDropTable(identity, tableName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanDropTable(identity, tableName.asSchemaTableName()));
         }
     }
 
@@ -172,7 +183,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanRenameTable(identity, tableName.asSchemaTableName(), newTableName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanRenameTable(identity, tableName.asSchemaTableName(), newTableName.asSchemaTableName()));
         }
     }
 
@@ -184,7 +195,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanAddColumn(identity, tableName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanAddColumn(identity, tableName.asSchemaTableName()));
         }
     }
 
@@ -196,7 +207,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanRenameColumn(identity, tableName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanRenameColumn(identity, tableName.asSchemaTableName()));
         }
     }
 
@@ -208,7 +219,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanSelectFromTable(identity, tableName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanSelectFromTable(identity, tableName.asSchemaTableName()));
         }
     }
 
@@ -220,7 +231,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanInsertIntoTable(identity, tableName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanInsertIntoTable(identity, tableName.asSchemaTableName()));
         }
     }
 
@@ -232,7 +243,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanDeleteFromTable(identity, tableName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanDeleteFromTable(identity, tableName.asSchemaTableName()));
         }
     }
 
@@ -244,7 +255,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(viewName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanCreateView(identity, viewName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanCreateView(identity, viewName.asSchemaTableName()));
         }
     }
 
@@ -256,7 +267,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(viewName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanDropView(identity, viewName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanDropView(identity, viewName.asSchemaTableName()));
         }
     }
 
@@ -268,7 +279,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(viewName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanSelectFromView(identity, viewName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanSelectFromView(identity, viewName.asSchemaTableName()));
         }
     }
 
@@ -280,7 +291,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanCreateViewWithSelectFromTable(identity, tableName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanCreateViewWithSelectFromTable(identity, tableName.asSchemaTableName()));
         }
     }
 
@@ -292,7 +303,7 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(viewName.getCatalogName());
         if (accessControl != null) {
-            accessControl.checkCanCreateViewWithSelectFromView(identity, viewName.asSchemaTableName());
+            authorizationCheck(() -> accessControl.checkCanCreateViewWithSelectFromView(identity, viewName.asSchemaTableName()));
         }
     }
 
@@ -302,7 +313,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(propertyName, "propertyName is null");
 
-        systemAccessControl.get().checkCanSetSystemSessionProperty(identity, propertyName);
+        authorizationCheck(() -> systemAccessControl.get().checkCanSetSystemSessionProperty(identity, propertyName));
     }
 
     @Override
@@ -314,7 +325,59 @@ public class AccessControlManager
 
         ConnectorAccessControl accessControl = catalogAccessControl.get(catalogName);
         if (accessControl != null) {
-            accessControl.checkCanSetCatalogSessionProperty(identity, propertyName);
+            authorizationCheck(() -> accessControl.checkCanSetCatalogSessionProperty(identity, propertyName));
+        }
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAuthenticationSuccess()
+    {
+        return authenticationSuccess;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAuthenticationFail()
+    {
+        return authenticationFail;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAuthorizationSuccess()
+    {
+        return authorizationSuccess;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAuthorizationFail()
+    {
+        return authorizationFail;
+    }
+
+    private void authenticationCheck(Runnable runnable)
+    {
+        try {
+            runnable.run();
+            authenticationSuccess.update(1);
+        }
+        catch (PrestoException e) {
+            authenticationFail.update(1);
+            throw e;
+        }
+    }
+
+    private void authorizationCheck(Runnable runnable)
+    {
+        try {
+            runnable.run();
+            authorizationSuccess.update(1);
+        }
+        catch (PrestoException e) {
+            authorizationFail.update(1);
+            throw e;
         }
     }
 
