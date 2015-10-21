@@ -1,0 +1,126 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.1. Release 0.123 &mdash; Presto 0.123 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.123',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.123 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.2. Release 0.122" href="release-0.122.html" />
+    <link rel="prev" title="10. Release Notes" href="../release.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.123 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.1. Release 0.123</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.122.html">10.2. Release 0.122</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-123">
+<h1>10.1. Release 0.123</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Remove <tt class="docutils literal"><span class="pre">node-scheduler.location-aware-scheduling-enabled</span></tt> config.</li>
+<li>Fixed query failures that occur when the <tt class="docutils literal"><span class="pre">optimizer.optimize-hash-generation</span></tt>
+config is disabled.</li>
+<li>Fix exception when using the <tt class="docutils literal"><span class="pre">ResultSet</span></tt> returned from the
+<tt class="docutils literal"><span class="pre">DatabaseMetaData.getColumns</span></tt> method in the JDBC driver.</li>
+<li>Increase default value of <tt class="docutils literal"><span class="pre">failure-detector.threshold</span></tt> config.</li>
+<li>Fix race in queueing system which could cause queries to fail with
+&#8220;Entering secondary queue failed&#8221;.</li>
+<li>Fix issue with <a class="reference internal" href="../functions/aggregate.html#histogram" title="histogram"><tt class="xref py py-func docutils literal"><span class="pre">histogram()</span></tt></a> that can cause failures or incorrect results
+when there are more than ten buckets.</li>
+<li>Optimize execution of cross join.</li>
+<li>Run Presto server as <tt class="docutils literal"><span class="pre">presto</span></tt> user in RPM init scripts.</li>
+</ul>
+</div>
+<div class="section" id="table-properties">
+<h2>Table Properties</h2>
+<p>When creating tables with <a class="reference internal" href="../sql/create-table.html"><em>CREATE TABLE</em></a> or <a class="reference internal" href="../sql/create-table-as.html"><em>CREATE TABLE AS</em></a>,
+you can now add connector specific properties to the new table.  For example, when
+creating a Hive table you can specify the file format.  To list all available table,
+properties, run the following query:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="k">system</span><span class="p">.</span><span class="n">metadata</span><span class="p">.</span><span class="n">table_properties</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<p>We have implemented <tt class="docutils literal"><span class="pre">INSERT</span></tt> and <tt class="docutils literal"><span class="pre">DELETE</span></tt> for Hive.  Both <tt class="docutils literal"><span class="pre">INSERT</span></tt> and <tt class="docutils literal"><span class="pre">CREATE</span></tt>
+statements support partitioned tables.  For example, to create a partitioned table
+execute the following:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+   <span class="n">order_date</span> <span class="nb">VARCHAR</span><span class="p">,</span>
+   <span class="n">order_region</span> <span class="nb">VARCHAR</span><span class="p">,</span>
+   <span class="n">order_id</span> <span class="nb">BIGINT</span><span class="p">,</span>
+   <span class="n">order_info</span> <span class="nb">VARCHAR</span>
+<span class="p">)</span> <span class="k">WITH</span> <span class="p">(</span><span class="n">partitioned_by</span> <span class="o">=</span> <span class="nb">ARRAY</span><span class="p">[</span><span class="s1">&#39;order_date&#39;</span><span class="p">,</span> <span class="s1">&#39;order_region&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>To <tt class="docutils literal"><span class="pre">DELETE</span></tt> from a Hive table, you must specify a <tt class="docutils literal"><span class="pre">WHERE</span></tt> clause that matches
+entire partitions.  For example, to delete from the above table, execute the following:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">DELETE</span> <span class="k">FROM</span> <span class="n">orders</span>
+<span class="k">WHERE</span> <span class="n">order_date</span> <span class="o">=</span> <span class="s1">&#39;2015-10-15&#39;</span> <span class="k">AND</span> <span class="n">order_region</span> <span class="o">=</span> <span class="s1">&#39;APAC&#39;</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Currently, Hive deletion is only supported for partitioned tables.
+Additionally, partition keys must be of type VARCHAR.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.122.html">10.2. Release 0.122</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

@@ -1,0 +1,698 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>5.8. Date and Time Functions and Operators &mdash; Presto 0.123 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.123',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.123 Documentation" href="../index.html" />
+    <link rel="up" title="5. Functions and Operators" href="../functions.html" />
+    <link rel="next" title="5.9. Regular Expression Functions" href="regexp.html" />
+    <link rel="prev" title="5.7. Binary Functions" href="binary.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.123 Documentation</span></a></h1>
+    <h2 class="heading"><span>5.8. Date and Time Functions and Operators</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="binary.html">5.7. Binary Functions</a>
+    </span>
+    <span class="right">
+        <a href="regexp.html">5.9. Regular Expression Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="date-and-time-functions-and-operators">
+<h1>5.8. Date and Time Functions and Operators</h1>
+<div class="section" id="date-and-time-operators">
+<h2>Date and Time Operators</h2>
+<table border="1" class="docutils">
+<colgroup>
+<col width="9%" />
+<col width="60%" />
+<col width="31%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Operator</th>
+<th class="head">Example</th>
+<th class="head">Result</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">+</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">date</span> <span class="pre">'2012-08-08'</span> <span class="pre">+</span> <span class="pre">interval</span> <span class="pre">'2'</span> <span class="pre">day</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2012-08-10</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">+</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">time</span> <span class="pre">'01:00'</span> <span class="pre">+</span> <span class="pre">interval</span> <span class="pre">'3'</span> <span class="pre">hour</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">04:00:00.000</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">+</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">timestamp</span> <span class="pre">'2012-08-08</span> <span class="pre">01:00'</span> <span class="pre">+</span> <span class="pre">interval</span> <span class="pre">'29'</span> <span class="pre">hour</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2012-08-09</span> <span class="pre">06:00:00.000</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">+</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">timestamp</span> <span class="pre">'2012-10-31</span> <span class="pre">01:00'</span> <span class="pre">+</span> <span class="pre">interval</span> <span class="pre">'1'</span> <span class="pre">month</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2012-11-30</span> <span class="pre">01:00:00.000</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">+</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">interval</span> <span class="pre">'2'</span> <span class="pre">day</span> <span class="pre">+</span> <span class="pre">interval</span> <span class="pre">'3'</span> <span class="pre">hour</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2</span> <span class="pre">03:00:00.000</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">+</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">interval</span> <span class="pre">'3'</span> <span class="pre">year</span> <span class="pre">+</span> <span class="pre">interval</span> <span class="pre">'5'</span> <span class="pre">month</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">3-5</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">-</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">date</span> <span class="pre">'2012-08-08'</span> <span class="pre">-</span> <span class="pre">interval</span> <span class="pre">'2'</span> <span class="pre">day</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2012-08-06</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">-</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">time</span> <span class="pre">'01:00'</span> <span class="pre">-</span> <span class="pre">interval</span> <span class="pre">'3'</span> <span class="pre">hour</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">22:00:00.000</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">-</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">timestamp</span> <span class="pre">'2012-08-08</span> <span class="pre">01:00'</span> <span class="pre">-</span> <span class="pre">interval</span> <span class="pre">'29'</span> <span class="pre">hour</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2012-08-06</span> <span class="pre">20:00:00.000</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">-</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">timestamp</span> <span class="pre">'2012-10-31</span> <span class="pre">01:00'</span> <span class="pre">-</span> <span class="pre">interval</span> <span class="pre">'1'</span> <span class="pre">month</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2012-09-30</span> <span class="pre">01:00:00.000</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">-</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">interval</span> <span class="pre">'2'</span> <span class="pre">day</span> <span class="pre">-</span> <span class="pre">interval</span> <span class="pre">'3'</span> <span class="pre">hour</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">1</span> <span class="pre">21:00:00.000</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">-</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">interval</span> <span class="pre">'3'</span> <span class="pre">year</span> <span class="pre">-</span> <span class="pre">interval</span> <span class="pre">'5'</span> <span class="pre">month</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2-7</span></tt></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="time-zone-conversion">
+<h2>Time Zone Conversion</h2>
+<p>The <tt class="docutils literal"><span class="pre">AT</span> <span class="pre">TIME</span> <span class="pre">ZONE</span></tt> operator sets the time zone of a timestamp:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">timestamp</span> <span class="s1">&#39;2012-10-31 01:00 UTC&#39;</span><span class="p">;</span>
+<span class="mi">2012</span><span class="o">-</span><span class="mi">10</span><span class="o">-</span><span class="mi">31</span> <span class="mi">01</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">.</span><span class="mi">000</span> <span class="n">UTC</span>
+
+<span class="k">SELECT</span> <span class="k">timestamp</span> <span class="s1">&#39;2012-10-31 01:00 UTC&#39;</span> <span class="k">AT</span> <span class="n">TIME</span> <span class="k">ZONE</span> <span class="s1">&#39;America/Los_Angeles&#39;</span><span class="p">;</span>
+<span class="mi">2012</span><span class="o">-</span><span class="mi">10</span><span class="o">-</span><span class="mi">30</span> <span class="mi">18</span><span class="p">:</span><span class="mi">00</span><span class="p">:</span><span class="mi">00</span><span class="p">.</span><span class="mi">000</span> <span class="n">America</span><span class="o">/</span><span class="n">Los_Angeles</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="date-and-time-functions">
+<h2>Date and Time Functions</h2>
+<dl class="function">
+<dt>
+<tt class="descname">current_date -&gt; date</tt></dt>
+<dd><p>Returns the current date as of the start of the query.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">current_time -&gt; time with time zone</tt></dt>
+<dd><p>Returns the current time as of the start of the query.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">current_timestamp -&gt; timestamp with time zone</tt></dt>
+<dd><p>Returns the current timestamp as of the start of the query.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="current_timezone">
+<tt class="descname">current_timezone</tt><big>(</big><big>)</big> &rarr; varchar</dt>
+<dd><p>Returns the current time zone in the format defined by IANA
+(e.g., <tt class="docutils literal"><span class="pre">America/Los_Angeles</span></tt>) or as fixed offset from UTC (e.g., <tt class="docutils literal"><span class="pre">+08:35</span></tt>)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="from_iso8601_timestamp">
+<tt class="descname">from_iso8601_timestamp</tt><big>(</big><em>string</em><big>)</big> &rarr; timestamp with time zone</dt>
+<dd><p>Parses the ISO 8601 formatted <tt class="docutils literal"><span class="pre">string</span></tt> into a <tt class="docutils literal"><span class="pre">timestamp</span> <span class="pre">with</span> <span class="pre">time</span> <span class="pre">zone</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="from_iso8601_date">
+<tt class="descname">from_iso8601_date</tt><big>(</big><em>string</em><big>)</big> &rarr; date</dt>
+<dd><p>Parses the ISO 8601 formatted <tt class="docutils literal"><span class="pre">string</span></tt> into a <tt class="docutils literal"><span class="pre">date</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="from_unixtime">
+<tt class="descname">from_unixtime</tt><big>(</big><em>unixtime</em><big>)</big> &rarr; timestamp</dt>
+<dd><p>Returns the UNIX timestamp <tt class="docutils literal"><span class="pre">unixtime</span></tt> as a timestamp.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">from_unixtime</tt><big>(</big><em>unixtime</em>, <em>hours</em>, <em>minutes</em><big>)</big> &rarr; timestamp with time zone</dt>
+<dd><p>Returns the UNIX timestamp <tt class="docutils literal"><span class="pre">unixtime</span></tt> as a timestamp with time zone
+using <tt class="docutils literal"><span class="pre">hours</span></tt> and <tt class="docutils literal"><span class="pre">minutes</span></tt> for the time zone offset.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">localtime -&gt; time</tt></dt>
+<dd><p>Returns the current time as of the start of the query.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<tt class="descname">localtimestamp -&gt; timestamp</tt></dt>
+<dd><p>Returns the current timestamp as of the start of the query.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="now">
+<tt class="descname">now</tt><big>(</big><big>)</big> &rarr; timestamp with time zone</dt>
+<dd><p>This is an alias for <tt class="docutils literal"><span class="pre">current_timestamp</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="to_iso8601">
+<tt class="descname">to_iso8601</tt><big>(</big><em>x</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Formats <tt class="docutils literal"><span class="pre">x</span></tt> as an ISO 8601 string. <tt class="docutils literal"><span class="pre">x</span></tt> can be date, timestamp, or
+timestamp with time zone.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="to_unixtime">
+<tt class="descname">to_unixtime</tt><big>(</big><em>timestamp</em><big>)</big> &rarr; double</dt>
+<dd><p>Returns <tt class="docutils literal"><span class="pre">timestamp</span></tt> as a UNIX timestamp.</p>
+</dd></dl>
+
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>The following SQL-standard functions do not use parenthesis:</p>
+<ul class="last simple">
+<li><tt class="docutils literal"><span class="pre">current_date</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">current_time</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">current_timestamp</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">localtime</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">localtimestamp</span></tt></li>
+</ul>
+</div>
+</div>
+<div class="section" id="truncation-function">
+<h2>Truncation Function</h2>
+<p>The <tt class="docutils literal"><span class="pre">date_trunc</span></tt> function supports the following units:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="29%" />
+<col width="71%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Unit</th>
+<th class="head">Example Truncated Value</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">second</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2001-08-22</span> <span class="pre">03:04:05.000</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">minute</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2001-08-22</span> <span class="pre">03:04:00.000</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">hour</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2001-08-22</span> <span class="pre">03:00:00.000</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">day</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2001-08-22</span> <span class="pre">00:00:00.000</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">week</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2001-08-20</span> <span class="pre">00:00:00.000</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">month</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2001-08-01</span> <span class="pre">00:00:00.000</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">quarter</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2001-07-01</span> <span class="pre">00:00:00.000</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">year</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2001-01-01</span> <span class="pre">00:00:00.000</span></tt></td>
+</tr>
+</tbody>
+</table>
+<p>The above examples use the timestamp <tt class="docutils literal"><span class="pre">2001-08-22</span> <span class="pre">03:04:05.321</span></tt> as the input.</p>
+<dl class="function">
+<dt id="date_trunc">
+<tt class="descname">date_trunc</tt><big>(</big><em>unit</em>, <em>x</em><big>)</big> &rarr; [same as input]</dt>
+<dd><p>Returns <tt class="docutils literal"><span class="pre">x</span></tt> truncated to <tt class="docutils literal"><span class="pre">unit</span></tt>.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="interval-functions">
+<h2>Interval Functions</h2>
+<p>The functions in this section support the following interval units:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="49%" />
+<col width="51%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Unit</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">millisecond</span></tt></td>
+<td>Milliseconds</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">second</span></tt></td>
+<td>Seconds</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">minute</span></tt></td>
+<td>Minutes</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">hour</span></tt></td>
+<td>Hours</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">day</span></tt></td>
+<td>Days</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">week</span></tt></td>
+<td>Weeks</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">month</span></tt></td>
+<td>Months</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">quarter</span></tt></td>
+<td>Quarters of a year</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">year</span></tt></td>
+<td>Years</td>
+</tr>
+</tbody>
+</table>
+<dl class="function">
+<dt id="date_add">
+<tt class="descname">date_add</tt><big>(</big><em>unit</em>, <em>value</em>, <em>timestamp</em><big>)</big> &rarr; [same as input]</dt>
+<dd><p>Adds an interval <tt class="docutils literal"><span class="pre">value</span></tt> of type <tt class="docutils literal"><span class="pre">unit</span></tt> to <tt class="docutils literal"><span class="pre">timestamp</span></tt>.
+Subtraction can be performed by using a negative value.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="date_diff">
+<tt class="descname">date_diff</tt><big>(</big><em>unit</em>, <em>timestamp1</em>, <em>timestamp2</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns <tt class="docutils literal"><span class="pre">timestamp2</span> <span class="pre">-</span> <span class="pre">timestamp1</span></tt> expressed in terms of <tt class="docutils literal"><span class="pre">unit</span></tt>.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="mysql-date-functions">
+<h2>MySQL Date Functions</h2>
+<p>The functions in this section use a format string that is compatible with
+the MySQL <tt class="docutils literal"><span class="pre">date_parse</span></tt> and <tt class="docutils literal"><span class="pre">str_to_date</span></tt> functions. The following table,
+based on the MySQL manual, describes the format specifiers:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="8%" />
+<col width="92%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Specifier</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%a</span></tt></td>
+<td>Abbreviated weekday name (<tt class="docutils literal"><span class="pre">Sun</span></tt> .. <tt class="docutils literal"><span class="pre">Sat</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%b</span></tt></td>
+<td>Abbreviated month name (<tt class="docutils literal"><span class="pre">Jan</span></tt> .. <tt class="docutils literal"><span class="pre">Dec</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%c</span></tt></td>
+<td>Month, numeric (<tt class="docutils literal"><span class="pre">0</span></tt> .. <tt class="docutils literal"><span class="pre">12</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%D</span></tt></td>
+<td>Day of the month with English suffix (<tt class="docutils literal"><span class="pre">0th</span></tt>, <tt class="docutils literal"><span class="pre">1st</span></tt>, <tt class="docutils literal"><span class="pre">2nd</span></tt>, <tt class="docutils literal"><span class="pre">3rd</span></tt>, ...)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%d</span></tt></td>
+<td>Day of the month, numeric (<tt class="docutils literal"><span class="pre">00</span></tt> .. <tt class="docutils literal"><span class="pre">31</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%e</span></tt></td>
+<td>Day of the month, numeric (<tt class="docutils literal"><span class="pre">0</span></tt> .. <tt class="docutils literal"><span class="pre">31</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%f</span></tt></td>
+<td>Microseconds (<tt class="docutils literal"><span class="pre">000000</span></tt> .. <tt class="docutils literal"><span class="pre">999999</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%H</span></tt></td>
+<td>Hour (<tt class="docutils literal"><span class="pre">00</span></tt> .. <tt class="docutils literal"><span class="pre">23</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%h</span></tt></td>
+<td>Hour (<tt class="docutils literal"><span class="pre">01</span></tt> .. <tt class="docutils literal"><span class="pre">12</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%I</span></tt></td>
+<td>Hour (<tt class="docutils literal"><span class="pre">01</span></tt> .. <tt class="docutils literal"><span class="pre">12</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%i</span></tt></td>
+<td>Minutes, numeric (<tt class="docutils literal"><span class="pre">00</span></tt> .. <tt class="docutils literal"><span class="pre">59</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%j</span></tt></td>
+<td>Day of year (<tt class="docutils literal"><span class="pre">001</span></tt> .. <tt class="docutils literal"><span class="pre">366</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%k</span></tt></td>
+<td>Hour (<tt class="docutils literal"><span class="pre">0</span></tt> .. <tt class="docutils literal"><span class="pre">23</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%l</span></tt></td>
+<td>Hour (<tt class="docutils literal"><span class="pre">1</span></tt> .. <tt class="docutils literal"><span class="pre">12</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%M</span></tt></td>
+<td>Month name (<tt class="docutils literal"><span class="pre">January</span></tt> .. <tt class="docutils literal"><span class="pre">December</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%m</span></tt></td>
+<td>Month, numeric (<tt class="docutils literal"><span class="pre">00</span></tt> .. <tt class="docutils literal"><span class="pre">12</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%p</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">AM</span></tt> or <tt class="docutils literal"><span class="pre">PM</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%r</span></tt></td>
+<td>Time, 12-hour (<tt class="docutils literal"><span class="pre">hh:mm:ss</span></tt> followed by <tt class="docutils literal"><span class="pre">AM</span></tt> or <tt class="docutils literal"><span class="pre">PM</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%S</span></tt></td>
+<td>Seconds (<tt class="docutils literal"><span class="pre">00</span></tt> .. <tt class="docutils literal"><span class="pre">59</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%s</span></tt></td>
+<td>Seconds (<tt class="docutils literal"><span class="pre">00</span></tt> .. <tt class="docutils literal"><span class="pre">59</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%T</span></tt></td>
+<td>Time, 24-hour (<tt class="docutils literal"><span class="pre">hh:mm:ss</span></tt>)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%U</span></tt></td>
+<td>Week (<tt class="docutils literal"><span class="pre">00</span></tt> .. <tt class="docutils literal"><span class="pre">53</span></tt>), where Sunday is the first day of the week</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%u</span></tt></td>
+<td>Week (<tt class="docutils literal"><span class="pre">00</span></tt> .. <tt class="docutils literal"><span class="pre">53</span></tt>), where Monday is the first day of the week</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%V</span></tt></td>
+<td>Week (<tt class="docutils literal"><span class="pre">01</span></tt> .. <tt class="docutils literal"><span class="pre">53</span></tt>), where Sunday is the first day of the week; used with <tt class="docutils literal"><span class="pre">%X</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%v</span></tt></td>
+<td>Week (<tt class="docutils literal"><span class="pre">01</span></tt> .. <tt class="docutils literal"><span class="pre">53</span></tt>), where Monday is the first day of the week; used with <tt class="docutils literal"><span class="pre">%x</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%W</span></tt></td>
+<td>Weekday name (<tt class="docutils literal"><span class="pre">Sunday</span></tt> .. <tt class="docutils literal"><span class="pre">Saturday</span></tt>)</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%w</span></tt></td>
+<td>Day of the week (<tt class="docutils literal"><span class="pre">0</span></tt> .. <tt class="docutils literal"><span class="pre">6</span></tt>), where Sunday is the first day of the week</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%X</span></tt></td>
+<td>Year for the week where Sunday is the first day of the week, numeric, four digits; used with <tt class="docutils literal"><span class="pre">%V</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%x</span></tt></td>
+<td>Year for the week, where Monday is the first day of the week, numeric, four digits; used with <tt class="docutils literal"><span class="pre">%v</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%Y</span></tt></td>
+<td>Year, numeric, four digits</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%y</span></tt></td>
+<td>Year, numeric (two digits)</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">%%</span></tt></td>
+<td>A literal <tt class="docutils literal"><span class="pre">%</span></tt> character</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">%x</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">x</span></tt>, for any <tt class="docutils literal"><span class="pre">x</span></tt> not listed above</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">The following specifiers are not currently supported: <tt class="docutils literal"><span class="pre">%D</span> <span class="pre">%U</span> <span class="pre">%u</span> <span class="pre">%V</span> <span class="pre">%X</span></tt></p>
+</div>
+<dl class="function">
+<dt id="date_format">
+<tt class="descname">date_format</tt><big>(</big><em>timestamp</em>, <em>format</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Formats <tt class="docutils literal"><span class="pre">timestamp</span></tt> as a string using <tt class="docutils literal"><span class="pre">format</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="date_parse">
+<tt class="descname">date_parse</tt><big>(</big><em>string</em>, <em>format</em><big>)</big> &rarr; timestamp</dt>
+<dd><p>Parses <tt class="docutils literal"><span class="pre">string</span></tt> into a timestamp using <tt class="docutils literal"><span class="pre">format</span></tt>.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="java-date-functions">
+<h2>Java Date Functions</h2>
+<p>The functions in this section use a format string that is compatible with
+the Java <a class="reference external" href="http://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html">SimpleDateFormat</a> pattern format.</p>
+<dl class="function">
+<dt id="format_datetime">
+<tt class="descname">format_datetime</tt><big>(</big><em>timestamp</em>, <em>format</em><big>)</big> &rarr; varchar</dt>
+<dd><p>Formats <tt class="docutils literal"><span class="pre">timestamp</span></tt> as a string using <tt class="docutils literal"><span class="pre">format</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="parse_datetime">
+<tt class="descname">parse_datetime</tt><big>(</big><em>string</em>, <em>format</em><big>)</big> &rarr; timestamp with time zone</dt>
+<dd><p>Parses <tt class="docutils literal"><span class="pre">string</span></tt> into a timestamp with time zone using <tt class="docutils literal"><span class="pre">format</span></tt>.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="extraction-function">
+<h2>Extraction Function</h2>
+<p>The <tt class="docutils literal"><span class="pre">extract</span></tt> function supports the following fields:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="45%" />
+<col width="55%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">YEAR</span></tt></td>
+<td><a class="reference internal" href="#year" title="year"><tt class="xref py py-func docutils literal"><span class="pre">year()</span></tt></a></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">QUARTER</span></tt></td>
+<td><a class="reference internal" href="#quarter" title="quarter"><tt class="xref py py-func docutils literal"><span class="pre">quarter()</span></tt></a></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">MONTH</span></tt></td>
+<td><a class="reference internal" href="#month" title="month"><tt class="xref py py-func docutils literal"><span class="pre">month()</span></tt></a></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">WEEK</span></tt></td>
+<td><a class="reference internal" href="#week" title="week"><tt class="xref py py-func docutils literal"><span class="pre">week()</span></tt></a></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">DAY</span></tt></td>
+<td><a class="reference internal" href="#day" title="day"><tt class="xref py py-func docutils literal"><span class="pre">day()</span></tt></a></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">DAY_OF_MONTH</span></tt></td>
+<td><a class="reference internal" href="#day" title="day"><tt class="xref py py-func docutils literal"><span class="pre">day()</span></tt></a></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">DAY_OF_WEEK</span></tt></td>
+<td><a class="reference internal" href="#day_of_week" title="day_of_week"><tt class="xref py py-func docutils literal"><span class="pre">day_of_week()</span></tt></a></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">DOW</span></tt></td>
+<td><a class="reference internal" href="#day_of_week" title="day_of_week"><tt class="xref py py-func docutils literal"><span class="pre">day_of_week()</span></tt></a></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">DAY_OF_YEAR</span></tt></td>
+<td><a class="reference internal" href="#day_of_year" title="day_of_year"><tt class="xref py py-func docutils literal"><span class="pre">day_of_year()</span></tt></a></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">DOY</span></tt></td>
+<td><a class="reference internal" href="#day_of_year" title="day_of_year"><tt class="xref py py-func docutils literal"><span class="pre">day_of_year()</span></tt></a></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">YEAR_OF_WEEK</span></tt></td>
+<td><a class="reference internal" href="#year_of_week" title="year_of_week"><tt class="xref py py-func docutils literal"><span class="pre">year_of_week()</span></tt></a></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">YOW</span></tt></td>
+<td><a class="reference internal" href="#year_of_week" title="year_of_week"><tt class="xref py py-func docutils literal"><span class="pre">year_of_week()</span></tt></a></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">HOUR</span></tt></td>
+<td><a class="reference internal" href="#hour" title="hour"><tt class="xref py py-func docutils literal"><span class="pre">hour()</span></tt></a></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">MINUTE</span></tt></td>
+<td><a class="reference internal" href="#minute" title="minute"><tt class="xref py py-func docutils literal"><span class="pre">minute()</span></tt></a></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">SECOND</span></tt></td>
+<td><a class="reference internal" href="#second" title="second"><tt class="xref py py-func docutils literal"><span class="pre">second()</span></tt></a></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">TIMEZONE_HOUR</span></tt></td>
+<td><a class="reference internal" href="#timezone_hour" title="timezone_hour"><tt class="xref py py-func docutils literal"><span class="pre">timezone_hour()</span></tt></a></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">TIMEZONE_MINUTE</span></tt></td>
+<td><a class="reference internal" href="#timezone_minute" title="timezone_minute"><tt class="xref py py-func docutils literal"><span class="pre">timezone_minute()</span></tt></a></td>
+</tr>
+</tbody>
+</table>
+<p>The types supported by the <tt class="docutils literal"><span class="pre">extract</span></tt> function vary depending on the
+field to be extracted. Most fields support all date and time types.</p>
+<dl class="function">
+<dt id="extract">
+<tt class="descname">extract</tt><big>(</big><em>field FROM x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns <tt class="docutils literal"><span class="pre">field</span></tt> from <tt class="docutils literal"><span class="pre">x</span></tt>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This SQL-standard function uses special syntax for specifying the arguments.</p>
+</div>
+</dd></dl>
+
+</div>
+<div class="section" id="convenience-extraction-functions">
+<h2>Convenience Extraction Functions</h2>
+<dl class="function">
+<dt id="day">
+<tt class="descname">day</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the day of the month from <tt class="docutils literal"><span class="pre">x</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="day_of_month">
+<tt class="descname">day_of_month</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>This is an alias for <a class="reference internal" href="#day" title="day"><tt class="xref py py-func docutils literal"><span class="pre">day()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="day_of_week">
+<tt class="descname">day_of_week</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the ISO day of the week from <tt class="docutils literal"><span class="pre">x</span></tt>.
+The value ranges from <tt class="docutils literal"><span class="pre">1</span></tt> (Monday) to <tt class="docutils literal"><span class="pre">7</span></tt> (Sunday).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="day_of_year">
+<tt class="descname">day_of_year</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the day of the year from <tt class="docutils literal"><span class="pre">x</span></tt>.
+The value ranges from <tt class="docutils literal"><span class="pre">1</span></tt> to <tt class="docutils literal"><span class="pre">366</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="dow">
+<tt class="descname">dow</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>This is an alias for <a class="reference internal" href="#day_of_week" title="day_of_week"><tt class="xref py py-func docutils literal"><span class="pre">day_of_week()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="doy">
+<tt class="descname">doy</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>This is an alias for <a class="reference internal" href="#day_of_year" title="day_of_year"><tt class="xref py py-func docutils literal"><span class="pre">day_of_year()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="hour">
+<tt class="descname">hour</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the hour of the day from <tt class="docutils literal"><span class="pre">x</span></tt>.
+The value ranges from <tt class="docutils literal"><span class="pre">0</span></tt> to <tt class="docutils literal"><span class="pre">23</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="minute">
+<tt class="descname">minute</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the minute of the hour from <tt class="docutils literal"><span class="pre">x</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="month">
+<tt class="descname">month</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the month of the year from <tt class="docutils literal"><span class="pre">x</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="quarter">
+<tt class="descname">quarter</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the quarter of the year from <tt class="docutils literal"><span class="pre">x</span></tt>.
+The value ranges from <tt class="docutils literal"><span class="pre">1</span></tt> to <tt class="docutils literal"><span class="pre">4</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="second">
+<tt class="descname">second</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the second of the hour from <tt class="docutils literal"><span class="pre">x</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="timezone_hour">
+<tt class="descname">timezone_hour</tt><big>(</big><em>timestamp</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the hour of the time zone offset from <tt class="docutils literal"><span class="pre">timestamp</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="timezone_minute">
+<tt class="descname">timezone_minute</tt><big>(</big><em>timestamp</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the minute of the time zone offset from <tt class="docutils literal"><span class="pre">timestamp</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="week">
+<tt class="descname">week</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the <a class="reference external" href="https://en.wikipedia.org/wiki/ISO_week_date">ISO week</a> of the year from <tt class="docutils literal"><span class="pre">x</span></tt>.
+The value ranges from <tt class="docutils literal"><span class="pre">1</span></tt> to <tt class="docutils literal"><span class="pre">53</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="week_of_year">
+<tt class="descname">week_of_year</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>This is an alias for <a class="reference internal" href="#week" title="week"><tt class="xref py py-func docutils literal"><span class="pre">week()</span></tt></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="year">
+<tt class="descname">year</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the year from <tt class="docutils literal"><span class="pre">x</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="year_of_week">
+<tt class="descname">year_of_week</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>Returns the year of the <a class="reference external" href="https://en.wikipedia.org/wiki/ISO_week_date">ISO week</a> from <tt class="docutils literal"><span class="pre">x</span></tt>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="yow">
+<tt class="descname">yow</tt><big>(</big><em>x</em><big>)</big> &rarr; bigint</dt>
+<dd><p>This is an alias for <a class="reference internal" href="#year_of_week" title="year_of_week"><tt class="xref py py-func docutils literal"><span class="pre">year_of_week()</span></tt></a>.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="binary.html">5.7. Binary Functions</a>
+    </span>
+    <span class="right">
+        <a href="regexp.html">5.9. Regular Expression Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

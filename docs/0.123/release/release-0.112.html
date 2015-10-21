@@ -1,0 +1,94 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.12. Release 0.112 &mdash; Presto 0.123 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.123',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.123 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.13. Release 0.111" href="release-0.111.html" />
+    <link rel="prev" title="10.11. Release 0.113" href="release-0.113.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.123 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.12. Release 0.112</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.113.html">10.11. Release 0.113</a>
+    </span>
+    <span class="right">
+        <a href="release-0.111.html">10.13. Release 0.111</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-112">
+<h1>10.12. Release 0.112</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix incorrect handling of filters and limits in <a class="reference internal" href="../functions/window.html#row_number" title="row_number"><tt class="xref py py-func docutils literal"><span class="pre">row_number()</span></tt></a> optimizer.
+This caused certain query shapes to produce incorrect results.</li>
+<li>Fix non-string object arrays in JMX connector.</li>
+</ul>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Tables created using <a class="reference internal" href="../sql/create-table.html"><em>CREATE TABLE</em></a> (not <a class="reference internal" href="../sql/create-table-as.html"><em>CREATE TABLE AS</em></a>)
+had invalid metadata and were not readable.</li>
+<li>Improve performance of <tt class="docutils literal"><span class="pre">IN</span></tt> and <tt class="docutils literal"><span class="pre">OR</span></tt> clauses when reading <tt class="docutils literal"><span class="pre">ORC</span></tt> data.
+Previously, the ranges for a column were always compacted into a single range
+before being passed to the reader, preventing the reader from taking full
+advantage of row skipping. The compaction only happens now if the number of
+ranges exceeds the <tt class="docutils literal"><span class="pre">hive.domain-compaction-threshold</span></tt> config property.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.113.html">10.11. Release 0.113</a>
+    </span>
+    <span class="right">
+        <a href="release-0.111.html">10.13. Release 0.111</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
