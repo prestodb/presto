@@ -35,6 +35,7 @@ public class QueryCompletionEvent
 {
     private final QueryId queryId;
     private final String user;
+    private final String principal;
     private final String source;
     private final String serverVersion;
     private final String environment;
@@ -78,6 +79,7 @@ public class QueryCompletionEvent
     public QueryCompletionEvent(
             QueryId queryId,
             String user,
+            String principal,
             String source,
             String serverVersion,
             String environment,
@@ -113,6 +115,7 @@ public class QueryCompletionEvent
     {
         this.queryId = queryId;
         this.user = user;
+        this.principal = principal;
         this.source = source;
         this.serverVersion = serverVersion;
         this.environment = environment;
@@ -175,6 +178,12 @@ public class QueryCompletionEvent
     public String getUser()
     {
         return user;
+    }
+
+    @EventField
+    public String getPrincipal()
+    {
+        return principal;
     }
 
     @EventField
