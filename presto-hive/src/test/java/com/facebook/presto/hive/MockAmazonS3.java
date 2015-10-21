@@ -30,6 +30,7 @@ import com.amazonaws.services.s3.model.BucketLifecycleConfiguration;
 import com.amazonaws.services.s3.model.BucketLoggingConfiguration;
 import com.amazonaws.services.s3.model.BucketNotificationConfiguration;
 import com.amazonaws.services.s3.model.BucketPolicy;
+import com.amazonaws.services.s3.model.BucketReplicationConfiguration;
 import com.amazonaws.services.s3.model.BucketTaggingConfiguration;
 import com.amazonaws.services.s3.model.BucketVersioningConfiguration;
 import com.amazonaws.services.s3.model.BucketWebsiteConfiguration;
@@ -80,9 +81,11 @@ import com.amazonaws.services.s3.model.SetBucketLifecycleConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketLoggingConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketNotificationConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketPolicyRequest;
+import com.amazonaws.services.s3.model.SetBucketReplicationConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketTaggingConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketVersioningConfigurationRequest;
 import com.amazonaws.services.s3.model.SetBucketWebsiteConfigurationRequest;
+import com.amazonaws.services.s3.model.SetObjectAclRequest;
 import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
@@ -762,5 +765,36 @@ public class MockAmazonS3
             throws AmazonClientException
     {
         return false;
+    }
+
+    @Override
+    public void setObjectAcl(SetObjectAclRequest setObjectAclRequest)
+            throws AmazonClientException, AmazonServiceException
+    {
+    }
+
+    @Override
+    public void setBucketReplicationConfiguration(String s, BucketReplicationConfiguration bucketReplicationConfiguration)
+            throws AmazonServiceException, AmazonClientException
+    {
+    }
+
+    @Override
+    public void setBucketReplicationConfiguration(SetBucketReplicationConfigurationRequest setBucketReplicationConfigurationRequest)
+            throws AmazonServiceException, AmazonClientException
+    {
+    }
+
+    @Override
+    public BucketReplicationConfiguration getBucketReplicationConfiguration(String s)
+            throws AmazonServiceException, AmazonClientException
+    {
+        return null;
+    }
+
+    @Override
+    public void deleteBucketReplicationConfiguration(String s)
+            throws AmazonServiceException, AmazonClientException
+    {
     }
 }

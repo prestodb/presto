@@ -29,7 +29,10 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.CryptoConfiguration;
+import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -49,6 +52,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.BufferedFSInputStream;
@@ -121,6 +125,7 @@ public class PrestoS3FileSystem
     public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
     public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
     public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
+    public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -264,12 +269,18 @@ public class PrestoS3FileSystem
         }
 
         return new FileStatus(
-                metadata.getContentLength(),
+                getObjectSize(metadata),
                 false,
                 1,
                 BLOCK_SIZE.toBytes(),
                 lastModifiedTime(metadata),
                 qualifiedPath(path));
+    }
+
+    private static long getObjectSize(ObjectMetadata metadata)
+    {
+        String unencryptedContentLength = metadata.getUserMetadata().get("x-amz-unencrypted-content-length");
+        return unencryptedContentLength != null ? Long.parseLong(unencryptedContentLength) : metadata.getContentLength();
     }
 
     @Override
@@ -444,6 +455,9 @@ public class PrestoS3FileSystem
 
     private Iterator<LocatedFileStatus> statusFromObjects(List<S3ObjectSummary> objects)
     {
+        // NOTE: for encrypted objects, S3ObjectSummary.size() used below is NOT correct,
+        // however, to get the correct size we'd need to make an additional request to get
+        // user metadata, and in this case it doesn't matter.
         return objects.stream()
                 .filter(object -> !object.getKey().endsWith("/"))
                 .map(object -> new FileStatus(
@@ -552,7 +566,14 @@ public class PrestoS3FileSystem
     private AmazonS3Client createAmazonS3Client(URI uri, Configuration hadoopConfig, ClientConfiguration clientConfig)
     {
         AWSCredentialsProvider credentials = getAwsCredentialsProvider(uri, hadoopConfig);
-        AmazonS3Client client = new AmazonS3Client(credentials, clientConfig, METRIC_COLLECTOR);
+        EncryptionMaterialsProvider emp = createEncryptionMaterialsProvider(hadoopConfig);
+        AmazonS3Client client;
+        if (emp != null) {
+            client = new AmazonS3EncryptionClient(credentials, emp, clientConfig, new CryptoConfiguration(), METRIC_COLLECTOR);
+        }
+        else {
+            client = new AmazonS3Client(credentials, clientConfig, METRIC_COLLECTOR);
+        }
 
         // use local region when running inside of EC2
         Region region = Regions.getCurrentRegion();
@@ -560,6 +581,26 @@ public class PrestoS3FileSystem
             client.setRegion(region);
         }
         return client;
+    }
+
+    private EncryptionMaterialsProvider createEncryptionMaterialsProvider(Configuration hadoopConfig)
+    {
+        EncryptionMaterialsProvider emp = null;
+        String empClassName = hadoopConfig.get(S3_ENCRYPTION_MATERIALS_PROVIDER);
+        if (empClassName != null) {
+            try {
+                Class empClass = Class.forName(empClassName);
+                emp = (EncryptionMaterialsProvider) empClass.newInstance();
+                if (emp instanceof Configurable) {
+                    ((Configurable) emp).setConf(hadoopConfig);
+                }
+            }
+            catch (Exception x) {
+                throw new RuntimeException("Unable to load or create S3 encryption materials provider " + empClassName + ": " + x, x);
+            }
+        }
+
+        return emp;
     }
 
     private AWSCredentialsProvider getAwsCredentialsProvider(URI uri, Configuration conf)
