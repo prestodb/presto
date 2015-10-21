@@ -32,34 +32,29 @@ public class HiveMetastoreApiStats
     private final CounterStat metastoreExceptions = new CounterStat();
     private final CounterStat thriftExceptions = new CounterStat();
 
-    public <V> Callable<V> wrap(final Callable<V> callable)
+    public <V> Callable<V> wrap(Callable<V> callable)
     {
-        return new Callable<V>()
-        {
-            @Override
-            public V call()
-                    throws Exception
-            {
-                try (TimeStat.BlockTimer timer = time.time()) {
-                    return callable.call();
-                }
-                catch (Exception e) {
-                    if (e instanceof MetaException) {
-                        metastoreExceptions.update(1);
-                        // Need to throw here instead of falling through due to JDK-8059299
-                        totalFailures.update(1);
-                        throw e;
-                    }
-                    else if (e instanceof TException) {
-                        thriftExceptions.update(1);
-                        // Need to throw here instead of falling through due to JDK-8059299
-                        totalFailures.update(1);
-                        throw e;
-                    }
+        return () -> {
+            try (TimeStat.BlockTimer ignored = time.time()) {
+                return callable.call();
+            }
+            catch (Exception e) {
+                if (e instanceof MetaException) {
+                    metastoreExceptions.update(1);
+                    // Need to throw here instead of falling through due to JDK-8059299
                     totalFailures.update(1);
-
                     throw e;
                 }
+
+                if (e instanceof TException) {
+                    thriftExceptions.update(1);
+                    // Need to throw here instead of falling through due to JDK-8059299
+                    totalFailures.update(1);
+                    throw e;
+                }
+
+                totalFailures.update(1);
+                throw e;
             }
         };
     }
