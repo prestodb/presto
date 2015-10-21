@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.google.common.base.Throwables;
 import org.apache.thrift.transport.TTransportException;
 

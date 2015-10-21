@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
+
 /**
  * A Hive cluster is a single logical installation of Hive. It might
  * have multiple instances of the metastore service (for scalability
@@ -25,7 +27,7 @@ package com.facebook.presto.hive;
 public interface HiveCluster
 {
     /**
-     * Create a connected {@link HiveMetastoreClient} to this HiveCluster
+     * Create a connected {@link ThriftHiveMetastoreClient} to this HiveCluster
      */
     HiveMetastoreClient createMetastoreClient();
 }

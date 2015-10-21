@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -44,7 +45,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.thrift.TException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -433,8 +433,8 @@ public abstract class AbstractTestHiveClientS3
 
                 // drop table
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    client.alter_table(databaseName, tableName, table.get());
-                    client.drop_table(databaseName, tableName, false);
+                    client.alterTable(databaseName, tableName, table.get());
+                    client.dropTable(databaseName, tableName, false);
                 }
 
                 // drop data
@@ -450,18 +450,13 @@ public abstract class AbstractTestHiveClientS3
 
         public void updateTableLocation(String databaseName, String tableName, String location)
         {
-            try {
-                Optional<Table> table = getTable(databaseName, tableName);
-                if (!table.isPresent()) {
-                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-                }
-                table.get().getSd().setLocation(location);
-                try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    client.alter_table(databaseName, tableName, table.get());
-                }
+            Optional<Table> table = getTable(databaseName, tableName);
+            if (!table.isPresent()) {
+                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
             }
-            catch (TException e) {
-                throw Throwables.propagate(e);
+            table.get().getSd().setLocation(location);
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                client.alterTable(databaseName, tableName, table.get());
             }
         }
     }

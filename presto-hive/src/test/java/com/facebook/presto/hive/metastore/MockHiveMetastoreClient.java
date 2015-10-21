@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.HiveMetastoreClient;
+import com.facebook.presto.hive.ThriftHiveMetastoreClient;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -22,17 +22,15 @@ import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransport;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MockHiveMetastoreClient
-        extends HiveMetastoreClient
+        extends ThriftHiveMetastoreClient
 {
     static final String TEST_DATABASE = "testdb";
     static final String BAD_DATABASE = "baddb";
@@ -59,8 +57,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public List<String> get_all_databases()
-            throws TException
+    public List<String> getAllDatabases()
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -70,8 +67,7 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public List<String> get_all_tables(String dbName)
-            throws TException
+    public List<String> getAllTables(String dbName)
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -84,36 +80,33 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public Database get_database(String name)
-            throws TException
+    public Database getDatabase(String name)
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
         if (!name.equals(TEST_DATABASE)) {
-            throw new NoSuchObjectException();
+            throw new HiveMetastoreClientNoSuchObjectException();
         }
         return new Database(TEST_DATABASE, null, null, null);
     }
 
     @Override
-    public Table get_table(String dbName, String tableName)
-            throws TException
+    public Table getTable(String dbName, String tableName)
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
-            throw new NoSuchObjectException();
+            throw new HiveMetastoreClientNoSuchObjectException();
         }
         return new Table(TEST_TABLE, TEST_DATABASE, "", 0, 0, 0, null, ImmutableList.of(new FieldSchema("key", "String", null)), null, "", "", "");
     }
 
     @Override
-    public List<String> get_partition_names(String dbName, String tableName, short maxParts)
-            throws TException
+    public List<String> getPartitionNames(String dbName, String tableName)
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -126,43 +119,40 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public List<String> get_partition_names_ps(String dbName, String tableName, List<String> partValues, short maxParts)
-            throws TException
+    public List<String> getPartitionNamesPS(String dbName, String tableName, List<String> partValues)
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
-            throw new NoSuchObjectException();
+            throw new HiveMetastoreClientNoSuchObjectException();
         }
         return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
     }
 
     @Override
-    public Partition get_partition_by_name(String dbName, String tableName, String partName)
-            throws TException
+    public Partition getPartitionByName(String dbName, String tableName, String partName)
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).contains(partName)) {
-            throw new NoSuchObjectException();
+            throw new HiveMetastoreClientNoSuchObjectException();
         }
         return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, null, null);
     }
 
     @Override
-    public List<Partition> get_partitions_by_names(String dbName, String tableName, List<String> names)
-            throws TException
+    public List<Partition> getPartitionsByNames(String dbName, String tableName, List<String> names)
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
-            throw new NoSuchObjectException();
+            throw new HiveMetastoreClientNoSuchObjectException();
         }
         return Lists.transform(names, name -> {
             try {
