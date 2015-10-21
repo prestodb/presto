@@ -7,6 +7,11 @@ General Changes
 
 * The :func:`approx_percentile` aggregation now also accepts an array of percentages.
 
+Hive Changes
+------------
+
+* Do not count expected exceptions as errors in the Hive metastore client stats.
+
 Verifier
 --------
 

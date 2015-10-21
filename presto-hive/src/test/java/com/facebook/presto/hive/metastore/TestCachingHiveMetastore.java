@@ -39,6 +39,7 @@ public class TestCachingHiveMetastore
 {
     private MockHiveMetastoreClient mockClient;
     private HiveMetastore metastore;
+    private CachingHiveMetastoreStats stats;
 
     @BeforeMethod
     public void setUp()
@@ -48,6 +49,7 @@ public class TestCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         metastore = new CachingHiveMetastore(mockHiveCluster, executor, new Duration(5, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES));
+        stats = ((CachingHiveMetastore) metastore).getStats();
     }
 
     @Test
@@ -108,6 +110,9 @@ public class TestCachingHiveMetastore
             throws Exception
     {
         assertFalse(metastore.getTable(BAD_DATABASE, TEST_TABLE).isPresent());
+
+        assertEquals(stats.getGetTable().getThriftExceptions().getTotalCount(), 0);
+        assertEquals(stats.getGetTable().getTotalFailures().getTotalCount(), 0);
     }
 
     @Test
