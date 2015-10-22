@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ public class HiveOutputTableHandle
         implements ConnectorOutputTableHandle
 {
     private final List<String> partitionedBy;
+    private final TableType hiveTableType;
     private final String tableOwner;
 
     @JsonCreator
@@ -39,6 +41,7 @@ public class HiveOutputTableHandle
             @JsonProperty("filePrefix") String filePrefix,
             @JsonProperty("writePath") String writePath,
             @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat,
+            @JsonProperty("hiveTableType") TableType hiveTableType,
             @JsonProperty("partitionedBy") List<String> partitionedBy,
             @JsonProperty("tableOwner") String tableOwner)
     {
@@ -52,6 +55,7 @@ public class HiveOutputTableHandle
                 hiveStorageFormat);
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
+        this.hiveTableType = requireNonNull(hiveTableType, "hiveTableType is null");
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
     }
 
@@ -59,6 +63,12 @@ public class HiveOutputTableHandle
     public List<String> getPartitionedBy()
     {
         return partitionedBy;
+    }
+
+    @JsonProperty
+    public TableType getHiveTableType()
+    {
+        return hiveTableType;
     }
 
     @JsonProperty
