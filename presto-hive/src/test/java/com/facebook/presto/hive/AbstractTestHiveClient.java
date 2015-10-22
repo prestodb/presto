@@ -83,6 +83,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.joda.time.DateTime;
@@ -118,6 +119,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.TABLE_TYPE_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FACTORIES;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -156,6 +158,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -1334,11 +1337,13 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
-            try {
-                doCreateEmptyTable(temporaryCreateEmptyTable, storageFormat, CREATE_TABLE_COLUMNS);
-            }
-            finally {
-                dropTable(temporaryCreateEmptyTable);
+            for (TableType tableType : TableType.values()) {
+                try {
+                    doCreateEmptyTable(temporaryCreateEmptyTable, storageFormat, CREATE_TABLE_COLUMNS, Optional.of(tableType));
+                }
+                finally {
+                    dropTable(temporaryCreateEmptyTable);
+                }
             }
         }
     }
@@ -1544,14 +1549,14 @@ public abstract class AbstractTestHiveClient
         assertEqualsIgnoreOrder(result.getMaterializedRows(), CREATE_TABLE_DATA.getMaterializedRows());
     }
 
-    protected void doCreateEmptyTable(SchemaTableName tableName, HiveStorageFormat storageFormat, List<ColumnMetadata> createTableColumns)
+    protected void doCreateEmptyTable(SchemaTableName tableName, HiveStorageFormat storageFormat, List<ColumnMetadata> createTableColumns, Optional<TableType> tableType)
             throws Exception
     {
         List<String> partitionedBy = createTableColumns.stream()
                 .filter(ColumnMetadata::isPartitionKey)
                 .map(ColumnMetadata::getName)
                 .collect(toList());
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, createTableColumns, createTableProperties(storageFormat, partitionedBy), SESSION.getUser());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, createTableColumns, createTableProperties(storageFormat, partitionedBy, tableType), SESSION.getUser());
 
         metadata.createTable(SESSION, tableMetadata);
 
@@ -1579,7 +1584,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         // creating the table
-        doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS);
+        doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS, Optional.empty());
 
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_DATA.getTypes());
         for (int i = 0; i < 3; i++) {
@@ -1705,7 +1710,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         // creating the table
-        doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
+        doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED, Optional.empty());
 
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_PARTITIONED_DATA.getTypes());
         for (int i = 0; i < 3; i++) {
@@ -1786,7 +1791,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         // creating the table
-        doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
+        doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED, Optional.empty());
 
         // verify table directory is empty
         Set<String> initialFiles = listAllDataFiles(tableName.getSchemaName(), tableName.getTableName());
@@ -2290,14 +2295,20 @@ public abstract class AbstractTestHiveClient
 
     private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat)
     {
-        return createTableProperties(storageFormat, ImmutableList.of());
+        return createTableProperties(storageFormat, ImmutableList.of(), Optional.empty());
     }
 
-    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> parititonedBy)
+    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> partitionedBy, Optional<TableType> tableType)
     {
-        return ImmutableMap.<String, Object>builder()
-                .put(STORAGE_FORMAT_PROPERTY, storageFormat)
-                .put(PARTITIONED_BY_PROPERTY, ImmutableList.copyOf(parititonedBy))
-                .build();
+        ImmutableMap.Builder<String, Object> builder = ImmutableMap.<String, Object>builder();
+        builder.put(STORAGE_FORMAT_PROPERTY, storageFormat)
+                .put(PARTITIONED_BY_PROPERTY, ImmutableList.copyOf(partitionedBy));
+        if (tableType.isPresent()) {
+            builder.put(TABLE_TYPE_PROPERTY, tableType.get());
+        }
+        else {
+            builder.put(TABLE_TYPE_PROPERTY, MANAGED_TABLE);
+        }
+        return builder.build();
     }
 }
