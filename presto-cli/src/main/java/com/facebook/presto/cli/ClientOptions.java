@@ -175,8 +175,7 @@ public class ClientOptions
         if (value != null && value.startsWith("FILE:")) {
             return value.substring("FILE:".length());
         }
-
-        return null;
+        return value;
     }
 
     public static final class ClientSessionProperty
