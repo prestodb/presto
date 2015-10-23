@@ -140,13 +140,13 @@ Approximate Aggregate Functions
 .. function:: approx_percentile(x, percentage) -> [same as x]
 
     Returns the approximate percentile for all input values of ``x`` at the
-    given ''percentage''. The value of ``percentage`` must be between zero and
+    given ``percentage``. The value of ``percentage`` must be between zero and
     one and must be constant for all input rows.
 
 .. function:: approx_percentile(x, percentages) -> array<[same as x]>
 
     Returns the approximate percentile for all input values of ``x`` at each of
-    the percentages specified in the array. Each element of the array must be 
+    the specified percentages. Each element of the ``percentages`` array must be
     between zero and one, and the array must be constant for all input rows.
 
 .. function:: approx_percentile(x, w, percentage) -> [same as x]
