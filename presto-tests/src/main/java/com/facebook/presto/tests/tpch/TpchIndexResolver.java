@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.NullableValue;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -32,10 +33,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -69,7 +72,11 @@ public class TpchIndexResolver
 
         // Keep the fixed values that don't overlap with the indexableColumns
         // Note: technically we could more efficiently utilize the overlapped columns, but this way is simpler for now
-        Map<ColumnHandle, Comparable<?>> fixedValues = Maps.filterKeys(tupleDomain.extractFixedValues(), not(in(indexableColumns)));
+
+        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tupleDomain).entrySet().stream()
+                .filter(entry -> !indexableColumns.contains(entry.getKey()))
+                .filter(entry -> !entry.getValue().isNull()) // strip nulls since meaningless in index join lookups
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         // determine all columns available for index lookup
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
@@ -84,9 +91,9 @@ public class TpchIndexResolver
 
         TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain;
         if (!tupleDomain.isNone()) {
-            filteredTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(fixedValues.keySet()))));
+            filteredTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().get(), not(in(fixedValues.keySet()))));
         }
-        return new ConnectorResolvedIndex(new TpchIndexHandle(connectorId, tpchTableHandle.getTableName(), tpchTableHandle.getScaleFactor(), lookupColumnNames, TupleDomain.withFixedValues(fixedValues)), filteredTupleDomain);
+        return new ConnectorResolvedIndex(new TpchIndexHandle(connectorId, tpchTableHandle.getTableName(), tpchTableHandle.getScaleFactor(), lookupColumnNames, TupleDomain.fromFixedValues(fixedValues)), filteredTupleDomain);
     }
 
     @Override
@@ -94,21 +101,19 @@ public class TpchIndexResolver
     {
         TpchIndexHandle tpchIndexHandle = checkType(indexHandle, TpchIndexHandle.class, "indexHandle");
 
-        Map<ColumnHandle, Comparable<?>> fixedValues = tpchIndexHandle.getFixedValues().extractFixedValues();
+        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tpchIndexHandle.getFixedValues());
         checkArgument(!any(lookupSchema, in(fixedValues.keySet())), "Lookup columnHandles are not expected to overlap with the fixed value predicates");
 
         // Establish an order for the fixedValues
         List<ColumnHandle> fixedValueColumns = ImmutableList.copyOf(fixedValues.keySet());
 
         // Extract the fixedValues as their raw values and types
-        ImmutableList.Builder<Object> valueBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
+        List<Object> rawFixedValues = new ArrayList<>(fixedValueColumns.size());
+        List<Type> rawFixedTypes = new ArrayList<>(fixedValueColumns.size());
         for (ColumnHandle fixedValueColumn : fixedValueColumns) {
-            valueBuilder.add(fixedValues.get(fixedValueColumn));
-            typeBuilder.add(((TpchColumnHandle) fixedValueColumn).getType());
+            rawFixedValues.add(fixedValues.get(fixedValueColumn).getValue());
+            rawFixedTypes.add(((TpchColumnHandle) fixedValueColumn).getType());
         }
-        final List<Object> rawFixedValues = valueBuilder.build();
-        final List<Type> rawFixedTypes = typeBuilder.build();
 
         // Establish the schema after we append the fixed values to the lookup keys.
         List<ColumnHandle> finalLookupSchema = ImmutableList.<ColumnHandle>builder()

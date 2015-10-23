@@ -334,7 +334,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.empty(),
-                TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(1L))),
+                TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L))),
                 null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(1L), AE)));
@@ -346,8 +346,8 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        scanAssignments.get(A), Domain.singleValue(1L),
-                        scanAssignments.get(B), Domain.singleValue(2L))),
+                        scanAssignments.get(A), Domain.singleValue(BIGINT, 1L),
+                        scanAssignments.get(B), Domain.singleValue(BIGINT, 2L))),
                 null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(2L), BE), equals(number(1L), AE)));

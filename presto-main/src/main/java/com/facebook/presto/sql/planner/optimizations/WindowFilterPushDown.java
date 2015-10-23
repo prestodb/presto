@@ -18,8 +18,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.ValueSet;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -45,6 +45,7 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.spi.Marker.Bound.BELOW;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.DomainTranslator.toPredicate;
@@ -178,7 +179,7 @@ public class WindowFilterPushDown
             }
 
             // Remove the row number domain because it is absorbed into the node
-            Map<Symbol, Domain> newDomains = tupleDomain.getDomains().entrySet().stream()
+            Map<Symbol, Domain> newDomains = tupleDomain.getDomains().get().entrySet().stream()
                     .filter(entry -> !entry.getKey().equals(rowNumberSymbol))
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -186,7 +187,7 @@ public class WindowFilterPushDown
             TupleDomain<Symbol> newTupleDomain = TupleDomain.withColumnDomains(newDomains);
             Expression newPredicate = ExpressionUtils.combineConjuncts(
                     extractionResult.getRemainingExpression(),
-                    toPredicate(newTupleDomain, types));
+                    toPredicate(newTupleDomain));
 
             if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 return source;
@@ -199,7 +200,8 @@ public class WindowFilterPushDown
             if (tupleDomain.isNone()) {
                 return false;
             }
-            return tupleDomain.getDomains().get(symbol).getRanges().equals(SortedRangeSet.of(Range.lessThanOrEqual(upperBound)));
+            Domain domain = tupleDomain.getDomains().get().get(symbol);
+            return domain.getValues().equals(ValueSet.ofRanges(Range.lessThanOrEqual(domain.getType(), upperBound)));
         }
 
         private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, Symbol symbol)
@@ -208,23 +210,22 @@ public class WindowFilterPushDown
                 return OptionalInt.empty();
             }
 
-            Domain rowNumberDomain = tupleDomain.getDomains().get(symbol);
+            Domain rowNumberDomain = tupleDomain.getDomains().get().get(symbol);
             if (rowNumberDomain == null) {
                 return OptionalInt.empty();
             }
-
-            SortedRangeSet ranges = rowNumberDomain.getRanges();
-            if (ranges.isAll() || ranges.isNone() || ranges.getRangeCount() <= 0) {
+            ValueSet values = rowNumberDomain.getValues();
+            if (values.isAll() || values.isNone() || values.getRanges().getRangeCount() <= 0) {
                 return OptionalInt.empty();
             }
 
-            Range span = ranges.getSpan();
+            Range span = values.getRanges().getSpan();
 
             if (span.getHigh().isUpperUnbounded()) {
                 return OptionalInt.empty();
             }
 
-            verify(rowNumberDomain.getType().equals(Long.class));
+            verify(rowNumberDomain.getType().equals(BIGINT));
             long upperBound = (Long) span.getHigh().getValue();
             if (span.getHigh().getBound() == BELOW) {
                 upperBound--;

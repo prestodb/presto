@@ -179,11 +179,11 @@ public final class CassandraCqlUtils
         }
     }
 
-    public static String toCQLCompatibleString(Comparable<?> comparable)
+    public static String toCQLCompatibleString(Object value)
     {
-        if (comparable instanceof Slice) {
-            return ((Slice) comparable).toStringUtf8();
+        if (value instanceof Slice) {
+            return ((Slice) value).toStringUtf8();
         }
-        return comparable.toString();
+        return value.toString();
     }
 }

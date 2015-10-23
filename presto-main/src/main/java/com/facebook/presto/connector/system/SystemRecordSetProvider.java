@@ -87,7 +87,7 @@ public class SystemRecordSetProvider
 
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
         ImmutableMap.Builder<Integer, Domain> newConstraints = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().entrySet()) {
+        for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
             String columnName = checkType(entry.getKey(), SystemColumnHandle.class, "column").getColumnName();
             newConstraints.put(columnsByName.get(columnName), entry.getValue());
         }

@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * A point on the continuous space defined by the specified type.
@@ -28,121 +30,109 @@ import java.util.Objects;
 public final class Marker
         implements Comparable<Marker>
 {
-    public static enum Bound
+    public enum Bound
     {
         BELOW,   // lower than the value, but infinitesimally close to the value
         EXACTLY, // exactly the value
         ABOVE    // higher than the value, but infinitesimally close to the value
     }
 
-    private final Class<?> type;
-    private final Comparable<?> value;
+    private final Type type;
+    private final Optional<Block> valueBlock;
     private final Bound bound;
 
     /**
-     * LOWER UNBOUNDED is specified with a null value and a ABOVE bound
-     * UPPER UNBOUNDED is specified with a null value and a BELOW bound
+     * LOWER UNBOUNDED is specified with an empty value and a ABOVE bound
+     * UPPER UNBOUNDED is specified with an empty value and a BELOW bound
      */
-    private Marker(Class<?> type, Comparable<?> value, Bound bound)
+    @JsonCreator
+    public Marker(
+            @JsonProperty("type") Type type,
+            @JsonProperty("valueBlock") Optional<Block> valueBlock,
+            @JsonProperty("bound") Bound bound)
     {
-        Objects.requireNonNull(type, "type is null");
-        Objects.requireNonNull(bound, "bound is null");
-        if (value != null && !verifySelfComparable(type)) {
-            // Condition "value != null" enables LOWER UNBOUNDED and UPPER UNBOUNDED values for non-comparable types.
+        requireNonNull(type, "type is null");
+        requireNonNull(valueBlock, "valueBlock is null");
+        requireNonNull(bound, "bound is null");
 
-            // !!!HACK ALERT!!!
-            // It is planned that we will support non-comparable type in TupleDomain. Until that day comes, the
-            // `value != null` part of this if condition is a HACK so that Block can be used as a native container
-            // type. Consider this a hack and don't rely on it because plans CAN change.
-
-            // Notes: assuming type and value match, one would quickly conclude that type implements some sort of
-            // Comparable. This conclusion is WRONG. For example, type=Object.class and value=null.
-            throw new IllegalArgumentException("type must be comparable to itself: " + type);
+        if (!type.isOrderable()) {
+            throw new IllegalArgumentException("type must be orderable");
         }
-        if (value == null && bound == Bound.EXACTLY) {
+        if (!valueBlock.isPresent() && bound == Bound.EXACTLY) {
             throw new IllegalArgumentException("Can not be equal to unbounded");
         }
-        if (value != null && !type.isInstance(value)) {
-            throw new IllegalArgumentException(String.format("value (%s) must be of specified type (%s)", value, type));
+        if (valueBlock.isPresent() && valueBlock.get().getPositionCount() != 1) {
+            throw new IllegalArgumentException("value block should only have one position");
         }
         this.type = type;
-        this.value = value;
+        this.valueBlock = valueBlock;
         this.bound = bound;
     }
 
-    @JsonCreator
-    public Marker(
-            @JsonProperty("value") SerializableNativeValue value,
-            @JsonProperty("bound") Bound bound)
+    private static Marker create(Type type, Optional<Object> value, Bound bound)
     {
-        this(value.getType(), value.getValue(), bound);
+        return new Marker(type, value.map(object -> Utils.nativeValueToBlock(type, object)), bound);
     }
 
-    private static boolean verifySelfComparable(Class<?> type)
+    public static Marker upperUnbounded(Type type)
     {
-        // TODO: expand this with the proper implementation
-        for (Type interfaceType : type.getGenericInterfaces()) {
-            if (interfaceType instanceof ParameterizedType) {
-                ParameterizedType parameterizedType = (ParameterizedType) interfaceType;
-                if (parameterizedType.getRawType().equals(Comparable.class)) {
-                    Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
-                    Type typeArgument = actualTypeArguments[0];
-                    if (typeArgument.equals(type)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+        requireNonNull(type, "type is null");
+        return create(type, Optional.empty(), Bound.BELOW);
     }
 
-    public static Marker upperUnbounded(Class<?> type)
+    public static Marker lowerUnbounded(Type type)
     {
-        return new Marker(type, null, Bound.BELOW);
+        requireNonNull(type, "type is null");
+        return create(type, Optional.empty(), Bound.ABOVE);
     }
 
-    public static Marker lowerUnbounded(Class<?> type)
+    public static Marker above(Type type, Object value)
     {
-        return new Marker(type, null, Bound.ABOVE);
+        requireNonNull(type, "type is null");
+        requireNonNull(value, "value is null");
+        return create(type, Optional.of(value), Bound.ABOVE);
     }
 
-    public static Marker above(Comparable<?> value)
+    public static Marker exactly(Type type, Object value)
     {
-        Objects.requireNonNull(value, "value is null");
-        return new Marker(value.getClass(), value, Bound.ABOVE);
+        requireNonNull(type, "type is null");
+        requireNonNull(value, "value is null");
+        return create(type, Optional.of(value), Bound.EXACTLY);
     }
 
-    public static Marker exactly(Comparable<?> value)
+    public static Marker below(Type type, Object value)
     {
-        Objects.requireNonNull(value, "value is null");
-        return new Marker(value.getClass(), value, Bound.EXACTLY);
+        requireNonNull(type, "type is null");
+        requireNonNull(value, "value is null");
+        return create(type, Optional.of(value), Bound.BELOW);
     }
 
-    public static Marker below(Comparable<?> value)
-    {
-        Objects.requireNonNull(value, "value is null");
-        return new Marker(value.getClass(), value, Bound.BELOW);
-    }
-
-    @JsonIgnore
-    public Class<?> getType()
+    @JsonProperty
+    public Type getType()
     {
         return type;
     }
 
-    @JsonIgnore
-    public Comparable<?> getValue()
+    @JsonProperty
+    public Optional<Block> getValueBlock()
     {
-        if (value == null) {
-            throw new IllegalStateException("Can not get value for unbounded");
-        }
-        return value;
+        return valueBlock;
     }
 
-    @JsonProperty("value")
-    public SerializableNativeValue getSerializableNativeValue()
+    public Object getValue()
     {
-        return new SerializableNativeValue(type, value);
+        if (!valueBlock.isPresent()) {
+            throw new IllegalStateException("No value to get");
+        }
+        return Utils.blockToNativeValue(type, valueBlock.get());
+    }
+
+    public Object getPrintableValue(ConnectorSession session)
+    {
+        if (!valueBlock.isPresent()) {
+            throw new IllegalStateException("No value to get");
+        }
+        return type.getObjectValue(session, valueBlock.get(), 0);
     }
 
     @JsonProperty
@@ -151,16 +141,14 @@ public final class Marker
         return bound;
     }
 
-    @JsonIgnore
     public boolean isUpperUnbounded()
     {
-        return value == null && bound == Bound.BELOW;
+        return !valueBlock.isPresent() && bound == Bound.BELOW;
     }
 
-    @JsonIgnore
     public boolean isLowerUnbounded()
     {
-        return value == null && bound == Bound.ABOVE;
+        return !valueBlock.isPresent() && bound == Bound.ABOVE;
     }
 
     private void checkTypeCompatibility(Marker marker)
@@ -180,23 +168,23 @@ public final class Marker
         if (isUpperUnbounded() || isLowerUnbounded() || other.isUpperUnbounded() || other.isLowerUnbounded()) {
             return false;
         }
-        if (compare(value, other.value) != 0) {
+        if (type.compareTo(valueBlock.get(), 0, other.valueBlock.get(), 0) != 0) {
             return false;
         }
         return (bound == Bound.EXACTLY && other.bound != Bound.EXACTLY) ||
-               (bound != Bound.EXACTLY && other.bound == Bound.EXACTLY);
+                (bound != Bound.EXACTLY && other.bound == Bound.EXACTLY);
     }
 
     public Marker greaterAdjacent()
     {
-        if (value == null) {
+        if (!valueBlock.isPresent()) {
             throw new IllegalStateException("No marker adjacent to unbounded");
         }
         switch (bound) {
             case BELOW:
-                return new Marker(type, value, Bound.EXACTLY);
+                return new Marker(type, valueBlock, Bound.EXACTLY);
             case EXACTLY:
-                return new Marker(type, value, Bound.ABOVE);
+                return new Marker(type, valueBlock, Bound.ABOVE);
             case ABOVE:
                 throw new IllegalStateException("No greater marker adjacent to an ABOVE bound");
             default:
@@ -206,16 +194,16 @@ public final class Marker
 
     public Marker lesserAdjacent()
     {
-        if (value == null) {
+        if (!valueBlock.isPresent()) {
             throw new IllegalStateException("No marker adjacent to unbounded");
         }
         switch (bound) {
             case BELOW:
                 throw new IllegalStateException("No lesser marker adjacent to a BELOW bound");
             case EXACTLY:
-                return new Marker(type, value, Bound.BELOW);
+                return new Marker(type, valueBlock, Bound.BELOW);
             case ABOVE:
-                return new Marker(type, value, Bound.EXACTLY);
+                return new Marker(type, valueBlock, Bound.EXACTLY);
             default:
                 throw new AssertionError("Unsupported type: " + bound);
         }
@@ -237,9 +225,9 @@ public final class Marker
         if (o.isLowerUnbounded()) {
             return 1;
         }
-        // INVARIANT: value and o.value not null
+        // INVARIANT: value and o.value are present
 
-        int compare = compare(value, o.value);
+        int compare = type.compareTo(valueBlock.get(), 0, o.valueBlock.get(), 0);
         if (compare == 0) {
             if (bound == o.bound) {
                 return 0;
@@ -256,13 +244,6 @@ public final class Marker
         return compare;
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    private static int compare(Comparable<?> value1, Comparable<?> value2)
-    {
-        // This is terrible, but it should be safe as we have checked the compatibility in the constructor
-        return ((Comparable) value1).compareTo(value2);
-    }
-
     public static Marker min(Marker marker1, Marker marker2)
     {
         return marker1.compareTo(marker2) <= 0 ? marker1 : marker2;
@@ -276,7 +257,11 @@ public final class Marker
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, value, bound);
+        int hash = Objects.hash(type, bound);
+        if (valueBlock.isPresent()) {
+            hash = hash * 31 + type.hash(valueBlock.get(), 0);
+        }
+        return hash;
     }
 
     @Override
@@ -288,18 +273,29 @@ public final class Marker
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final Marker other = (Marker) obj;
-        return Objects.equals(this.type, other.type) && Objects.equals(this.value, other.value) && Objects.equals(this.bound, other.bound);
+        Marker other = (Marker) obj;
+        return Objects.equals(this.type, other.type)
+                && Objects.equals(this.bound, other.bound)
+                && ((this.valueBlock.isPresent()) == (other.valueBlock.isPresent()))
+                && (!this.valueBlock.isPresent() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
     }
 
-    @Override
-    public String toString()
+    public String toString(ConnectorSession session)
     {
-        final StringBuilder sb = new StringBuilder("Marker{");
-        sb.append("type=").append(type);
-        sb.append(", value=").append(value);
-        sb.append(", bound=").append(bound);
-        sb.append('}');
-        return sb.toString();
+        StringBuilder buffer = new StringBuilder("{");
+        buffer.append("type=").append(type);
+        buffer.append(", value=");
+        if (isLowerUnbounded()) {
+            buffer.append("<min>");
+        }
+        else if (isUpperUnbounded()) {
+            buffer.append("<max>");
+        }
+        else {
+            buffer.append(getPrintableValue(session));
+        }
+        buffer.append(", bound=").append(bound);
+        buffer.append("}");
+        return buffer.toString();
     }
 }

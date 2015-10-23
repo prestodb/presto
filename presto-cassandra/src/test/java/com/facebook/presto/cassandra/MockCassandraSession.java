@@ -122,7 +122,7 @@ public class MockCassandraSession
     }
 
     @Override
-    public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> filterPrefix)
+    public List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix)
     {
         accessCount.incrementAndGet();
         if (throwException) {
@@ -133,7 +133,7 @@ public class MockCassandraSession
     }
 
     @Override
-    protected List<Row> queryPartitionKeys(CassandraTable table, List<Comparable<?>> filterPrefix)
+    protected List<Row> queryPartitionKeys(CassandraTable table, List<Object> filterPrefix)
     {
         CassandraTableHandle tableHandle = table.getTableHandle();
         if (tableHandle.getSchemaName().equals(TEST_SCHEMA) && tableHandle.getTableName().equals(TEST_TABLE)) {

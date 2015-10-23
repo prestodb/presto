@@ -268,11 +268,11 @@ public class CachingCassandraSchemaProvider
 
     public List<CassandraPartition> getAllPartitions(CassandraTable table)
     {
-        PartitionListKey key = new PartitionListKey(table, ImmutableList.<Comparable<?>>of());
+        PartitionListKey key = new PartitionListKey(table, ImmutableList.of());
         return getCacheValue(partitionsCache, key, RuntimeException.class);
     }
 
-    public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> partitionKeys)
+    public List<CassandraPartition> getPartitions(CassandraTable table, List<Object> partitionKeys)
     {
         requireNonNull(table, "table is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
@@ -311,15 +311,15 @@ public class CachingCassandraSchemaProvider
     private static final class PartitionListKey
     {
         private final CassandraTable table;
-        private final List<Comparable<?>> filterPrefix;
+        private final List<Object> filterPrefix;
 
-        PartitionListKey(CassandraTable table, List<Comparable<?>> filterPrefix)
+        PartitionListKey(CassandraTable table, List<Object> filterPrefix)
         {
             this.table = table;
             this.filterPrefix = ImmutableList.copyOf(filterPrefix);
         }
 
-        public List<Comparable<?>> getFilterPrefix()
+        public List<Object> getFilterPrefix()
         {
             return filterPrefix;
         }

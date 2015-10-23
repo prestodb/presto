@@ -14,8 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.NullableValue;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SerializableNativeValue;
 import com.facebook.presto.spi.TupleDomain;
 import com.google.common.collect.ImmutableMap;
 
@@ -33,7 +33,7 @@ public class HivePartition
     private final SchemaTableName tableName;
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
     private final String partitionId;
-    private final Map<ColumnHandle, SerializableNativeValue> keys;
+    private final Map<ColumnHandle, NullableValue> keys;
     private final Optional<HiveBucket> bucket;
 
     public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate)
@@ -53,7 +53,7 @@ public class HivePartition
     public HivePartition(SchemaTableName tableName,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             String partitionId,
-            Map<ColumnHandle, SerializableNativeValue> keys,
+            Map<ColumnHandle, NullableValue> keys,
             Optional<HiveBucket> bucket)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -80,10 +80,10 @@ public class HivePartition
 
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
-        return TupleDomain.withNullableFixedValues(keys);
+        return TupleDomain.fromFixedValues(keys);
     }
 
-    public Map<ColumnHandle, SerializableNativeValue> getKeys()
+    public Map<ColumnHandle, NullableValue> getKeys()
     {
         return keys;
     }

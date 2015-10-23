@@ -53,20 +53,14 @@ final class FilterUtil
             return Optional.empty();
         }
 
-        Domain domain = constraint.getDomains().get(index);
+        Domain domain = constraint.getDomains().get().get(index);
         if ((domain == null) || !domain.isSingleValue()) {
             return Optional.empty();
         }
 
-        Comparable<?> value = domain.getSingleValue();
-        if (value == null) {
-            return Optional.empty();
-        }
+        Object value = domain.getSingleValue();
         if (value instanceof Slice) {
             return Optional.of(((Slice) value).toStringUtf8());
-        }
-        if (value instanceof String) {
-            return Optional.of((String) value);
         }
         return Optional.empty();
     }

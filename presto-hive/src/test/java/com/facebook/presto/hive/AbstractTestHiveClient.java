@@ -45,16 +45,16 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.NullableValue;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.SerializableNativeValue;
-import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.ValueSet;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -327,67 +327,67 @@ public abstract class AbstractTestHiveClient
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=textfile/dummy=1",
-                        ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
-                                .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
-                                .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("textfile")))
-                                .put(dummyColumn, new SerializableNativeValue(Long.class, 1L))
+                        ImmutableMap.<ColumnHandle, NullableValue>builder()
+                                .put(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29")))
+                                .put(fileFormatColumn, NullableValue.of(VARCHAR, utf8Slice("textfile")))
+                                .put(dummyColumn, NullableValue.of(BIGINT, 1L))
                                 .build(),
                         Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
-                        ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
-                                .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
-                                .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("sequencefile")))
-                                .put(dummyColumn, new SerializableNativeValue(Long.class, 2L))
+                        ImmutableMap.<ColumnHandle, NullableValue>builder()
+                                .put(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29")))
+                                .put(fileFormatColumn, NullableValue.of(VARCHAR, utf8Slice("sequencefile")))
+                                .put(dummyColumn, NullableValue.of(BIGINT, 2L))
                                 .build(),
                         Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=rctext/dummy=3",
-                        ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
-                                .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
-                                .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rctext")))
-                                .put(dummyColumn, new SerializableNativeValue(Long.class, 3L))
+                        ImmutableMap.<ColumnHandle, NullableValue>builder()
+                                .put(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29")))
+                                .put(fileFormatColumn, NullableValue.of(VARCHAR, utf8Slice("rctext")))
+                                .put(dummyColumn, NullableValue.of(BIGINT, 3L))
                                 .build(),
                         Optional.empty()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=rcbinary/dummy=4",
-                        ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
-                                .put(dsColumn, new SerializableNativeValue(Slice.class, utf8Slice("2012-12-29")))
-                                .put(fileFormatColumn, new SerializableNativeValue(Slice.class, utf8Slice("rcbinary")))
-                                .put(dummyColumn, new SerializableNativeValue(Long.class, 4L))
+                        ImmutableMap.<ColumnHandle, NullableValue>builder()
+                                .put(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29")))
+                                .put(fileFormatColumn, NullableValue.of(VARCHAR, utf8Slice("rcbinary")))
+                                .put(dummyColumn, NullableValue.of(BIGINT, 4L))
                                 .build(),
                         Optional.empty()))
                 .build();
         partitionCount = partitions.size();
-        tupleDomain = TupleDomain.withFixedValues(ImmutableMap.of(dsColumn, "2012-12-29"));
+        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29"))));
         tableLayout = new ConnectorTableLayout(
                 new HiveTableLayoutHandle(clientId, partitions, tupleDomain),
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        dsColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("2012-12-29"))), false),
-                        fileFormatColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("textfile")), Range.equal(utf8Slice("sequencefile")), Range.equal(utf8Slice("rctext")), Range.equal(utf8Slice("rcbinary"))), false),
-                        dummyColumn, Domain.create(SortedRangeSet.of(Range.equal(1L), Range.equal(2L), Range.equal(3L), Range.equal(4L)), false))),
+                        dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
+                        fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("textfile")), Range.equal(VARCHAR, utf8Slice("sequencefile")), Range.equal(VARCHAR, utf8Slice("rctext")), Range.equal(VARCHAR, utf8Slice("rcbinary"))), false),
+                        dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L)), false))),
                 Optional.empty(),
                 Optional.of(ImmutableList.of(
                         TupleDomain.withColumnDomains(ImmutableMap.of(
-                                dsColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("2012-12-29"))), false),
-                                fileFormatColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("textfile"))), false),
-                                dummyColumn, Domain.create(SortedRangeSet.of(Range.equal(1L)), false))),
+                                dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
+                                fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("textfile"))), false),
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))),
                         TupleDomain.withColumnDomains(ImmutableMap.of(
-                                dsColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("2012-12-29"))), false),
-                                fileFormatColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("sequencefile"))), false),
-                                dummyColumn, Domain.create(SortedRangeSet.of(Range.equal(2L)), false))),
+                                dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
+                                fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("sequencefile"))), false),
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false))),
                         TupleDomain.withColumnDomains(ImmutableMap.of(
-                                dsColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("2012-12-29"))), false),
-                                fileFormatColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("rctext"))), false),
-                                dummyColumn, Domain.create(SortedRangeSet.of(Range.equal(3L)), false))),
+                                dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
+                                fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("rctext"))), false),
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 3L)), false))),
                         TupleDomain.withColumnDomains(ImmutableMap.of(
-                                dsColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("2012-12-29"))), false),
-                                fileFormatColumn, Domain.create(SortedRangeSet.of(Range.equal(utf8Slice("rcbinary"))), false),
-                                dummyColumn, Domain.create(SortedRangeSet.of(Range.equal(4L)), false)))
+                                dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
+                                fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("rcbinary"))), false),
+                                dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 4L)), false)))
                 )),
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.<HiveColumnHandle>all()));
@@ -524,7 +524,7 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableHandle tableHandle = getTableHandle(tablePartitionFormat);
-        List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(5L))), bindings -> true), Optional.empty());
+        List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(BIGINT, 5L))), bindings -> true), Optional.empty());
         assertExpectedTableLayout(getOnlyElement(tableLayoutResults).getTableLayout(), tableLayout);
     }
 
@@ -726,7 +726,7 @@ public abstract class AbstractTestHiveClient
         ColumnHandle dsColumn = metadata.getColumnHandles(SESSION, tableHandle).get("ds");
         assertNotNull(dsColumn);
 
-        Domain domain = Domain.singleValue(utf8Slice("2012-12-30"));
+        Domain domain = Domain.singleValue(VARCHAR, utf8Slice("2012-12-30"));
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, new Constraint<>(tupleDomain, bindings -> true), Optional.empty());
         try {
@@ -754,13 +754,13 @@ public abstract class AbstractTestHiveClient
         Long testSmallint = 12L;
 
         // Reverse the order of bindings as compared to bucketing order
-        ImmutableMap<ColumnHandle, SerializableNativeValue> bindings = ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
-                .put(columnHandles.get(columnIndex.get("t_int")), new SerializableNativeValue(Long.class, testInt))
-                .put(columnHandles.get(columnIndex.get("t_string")), new SerializableNativeValue(Slice.class, utf8Slice(testString)))
-                .put(columnHandles.get(columnIndex.get("t_smallint")), new SerializableNativeValue(Long.class, testSmallint))
+        ImmutableMap<ColumnHandle, NullableValue> bindings = ImmutableMap.<ColumnHandle, NullableValue>builder()
+                .put(columnHandles.get(columnIndex.get("t_int")), NullableValue.of(BIGINT, testInt))
+                .put(columnHandles.get(columnIndex.get("t_string")), NullableValue.of(VARCHAR, utf8Slice(testString)))
+                .put(columnHandles.get(columnIndex.get("t_smallint")), NullableValue.of(BIGINT, testSmallint))
                 .build();
 
-        MaterializedResult result = readTable(tableHandle, columnHandles, SESSION, TupleDomain.withNullableFixedValues(bindings), OptionalInt.of(1), Optional.empty());
+        MaterializedResult result = readTable(tableHandle, columnHandles, SESSION, TupleDomain.fromFixedValues(bindings), OptionalInt.of(1), Optional.empty());
 
         boolean rowFound = false;
         for (MaterializedRow row : result) {
@@ -788,13 +788,13 @@ public abstract class AbstractTestHiveClient
         Long testBigint = 89L;
         Boolean testBoolean = true;
 
-        ImmutableMap<ColumnHandle, SerializableNativeValue> bindings = ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
-                .put(columnHandles.get(columnIndex.get("t_string")), new SerializableNativeValue(Slice.class, utf8Slice(testString)))
-                .put(columnHandles.get(columnIndex.get("t_bigint")), new SerializableNativeValue(Long.class, testBigint))
-                .put(columnHandles.get(columnIndex.get("t_boolean")), new SerializableNativeValue(Boolean.class, testBoolean))
+        ImmutableMap<ColumnHandle, NullableValue> bindings = ImmutableMap.<ColumnHandle, NullableValue>builder()
+                .put(columnHandles.get(columnIndex.get("t_string")), NullableValue.of(VARCHAR, utf8Slice(testString)))
+                .put(columnHandles.get(columnIndex.get("t_bigint")), NullableValue.of(BIGINT, testBigint))
+                .put(columnHandles.get(columnIndex.get("t_boolean")), NullableValue.of(BOOLEAN, testBoolean))
                 .build();
 
-        MaterializedResult result = readTable(tableHandle, columnHandles, SESSION, TupleDomain.withNullableFixedValues(bindings), OptionalInt.of(1), Optional.empty());
+        MaterializedResult result = readTable(tableHandle, columnHandles, SESSION, TupleDomain.fromFixedValues(bindings), OptionalInt.of(1), Optional.empty());
 
         boolean rowFound = false;
         for (MaterializedRow row : result) {
@@ -818,13 +818,13 @@ public abstract class AbstractTestHiveClient
 
         assertTableIsBucketed(tableHandle);
 
-        ImmutableMap<ColumnHandle, SerializableNativeValue> bindings = ImmutableMap.<ColumnHandle, SerializableNativeValue>builder()
-                .put(columnHandles.get(columnIndex.get("t_float")), new SerializableNativeValue(Double.class, 87.1))
-                .put(columnHandles.get(columnIndex.get("t_double")), new SerializableNativeValue(Double.class, 88.2))
+        ImmutableMap<ColumnHandle, NullableValue> bindings = ImmutableMap.<ColumnHandle, NullableValue>builder()
+                .put(columnHandles.get(columnIndex.get("t_float")), NullableValue.of(DOUBLE, 87.1))
+                .put(columnHandles.get(columnIndex.get("t_double")), NullableValue.of(DOUBLE, 88.2))
                 .build();
 
         // floats and doubles are not supported, so we should see all splits
-        MaterializedResult result = readTable(tableHandle, columnHandles, SESSION, TupleDomain.withNullableFixedValues(bindings), OptionalInt.of(32), Optional.empty());
+        MaterializedResult result = readTable(tableHandle, columnHandles, SESSION, TupleDomain.fromFixedValues(bindings), OptionalInt.of(32), Optional.empty());
         assertEquals(result.getRowCount(), 100);
     }
 
@@ -1027,7 +1027,7 @@ public abstract class AbstractTestHiveClient
         ConnectorTableHandle table = getTableHandle(tablePartitionSchemaChangeNonCanonical);
         ColumnHandle column = metadata.getColumnHandles(SESSION, table).get("t_boolean");
         assertNotNull(column);
-        List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, table, new Constraint<>(TupleDomain.withFixedValues(ImmutableMap.of(column, false)), bindings -> true), Optional.empty());
+        List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, table, new Constraint<>(TupleDomain.fromFixedValues(ImmutableMap.of(column, NullableValue.of(BOOLEAN, false))), bindings -> true), Optional.empty());
         ConnectorTableLayoutHandle layoutHandle = getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
         assertEquals(getAllPartitions(layoutHandle).size(), 1);
         assertEquals(getPartitionId(getAllPartitions(layoutHandle).get(0)), "t_boolean=0");
@@ -1823,7 +1823,7 @@ public abstract class AbstractTestHiveClient
         int dsColumnOrdinalPosition = columnHandles.indexOf(dsColumnHandle);
 
         // delete ds=2015-07-03
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withFixedValues(ImmutableMap.of(dsColumnHandle, utf8Slice("2015-07-03")));
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumnHandle, NullableValue.of(VARCHAR, utf8Slice("2015-07-03"))));
         Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(tupleDomain));
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, constraint, Optional.empty());
         ConnectorTableLayoutHandle tableLayoutHandle = Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
@@ -1837,7 +1837,7 @@ public abstract class AbstractTestHiveClient
 
         // delete ds=2015-07-01 and 2015-07-02
         TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
-                ImmutableMap.of(dsColumnHandle, Domain.create(SortedRangeSet.of(Range.range(utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
+                ImmutableMap.of(dsColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
         Constraint<ColumnHandle> constraint2 = new Constraint<>(tupleDomain2, convertToPredicate(tupleDomain2));
         List<ConnectorTableLayoutResult> tableLayoutResults2 = metadata.getTableLayouts(SESSION, tableHandle, constraint2, Optional.empty());
         ConnectorTableLayoutHandle tableLayoutHandle2 = Iterables.getOnlyElement(tableLayoutResults2).getTableLayout().getHandle();

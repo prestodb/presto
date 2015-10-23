@@ -188,7 +188,7 @@ public final class ParquetPredicateUtils
     {
         String[] columnPath = columnDescriptor.getPath();
         String columnName = columnPath[columnPath.length - 1];
-        return effectivePredicate.getDomains().keySet().stream()
+        return effectivePredicate.getDomains().get().keySet().stream()
                 .map(HiveColumnHandle::getName)
                 .anyMatch(columnName::equals);
     }

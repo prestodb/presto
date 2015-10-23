@@ -13,84 +13,82 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
+
 /**
- * Defines the possible values of a single variable in terms of its valid scalar ranges and nullability.
- *
+ * Defines the possible values of a single variable in terms of its valid scalar values and nullability.
+ * <p>
  * For example:
- *   Domain.none() => no scalar values allowed, NULL not allowed
- *   Domain.all() => all scalar values allowed, NULL allowed
- *   Domain.onlyNull() => no scalar values allowed, NULL allowed
- *   Domain.notNull() => all scalar values allowed, NULL not allowed
+ * <p>
+ * <ul>
+ * <li>Domain.none() => no scalar values allowed, NULL not allowed
+ * <li>Domain.all() => all scalar values allowed, NULL allowed
+ * <li>Domain.onlyNull() => no scalar values allowed, NULL allowed
+ * <li>Domain.notNull() => all scalar values allowed, NULL not allowed
+ * </ul>
+ * <p>
  */
 public final class Domain
 {
-    private final SortedRangeSet ranges;
+    private final ValueSet values;
     private final boolean nullAllowed;
 
+    private Domain(ValueSet values, boolean nullAllowed)
+    {
+        this.values = requireNonNull(values, "values is null");
+        this.nullAllowed = nullAllowed;
+    }
+
     @JsonCreator
-    public Domain(
-            @JsonProperty("ranges") SortedRangeSet ranges,
+    public static Domain create(
+            @JsonProperty("values") ValueSet values,
             @JsonProperty("nullAllowed") boolean nullAllowed)
     {
-        this.ranges = Objects.requireNonNull(ranges, "ranges is null");
-        this.nullAllowed = nullAllowed;
-        if (ranges.getType().isPrimitive()) {
-            throw new IllegalArgumentException("Primitive types not supported: " + ranges.getType());
-        }
+        return new Domain(values, nullAllowed);
     }
 
-    public static Domain create(SortedRangeSet ranges, boolean nullAllowed)
+    public static Domain none(Type type)
     {
-        return new Domain(ranges, nullAllowed);
+        return new Domain(ValueSet.none(type), false);
     }
 
-    public static Domain none(Class<?> type)
+    public static Domain all(Type type)
     {
-        return new Domain(SortedRangeSet.none(type), false);
+        return new Domain(ValueSet.all(type), true);
     }
 
-    public static Domain all(Class<?> type)
+    public static Domain onlyNull(Type type)
     {
-        return new Domain(SortedRangeSet.of(Range.all(type)), true);
+        return new Domain(ValueSet.none(type), true);
     }
 
-    public static Domain onlyNull(Class<?> type)
+    public static Domain notNull(Type type)
     {
-        return new Domain(SortedRangeSet.none(type), true);
+        return new Domain(ValueSet.all(type), false);
     }
 
-    public static Domain notNull(Class<?> type)
+    public static Domain singleValue(Type type, Object value)
     {
-        return new Domain(SortedRangeSet.all(type), false);
+        return new Domain(ValueSet.of(type, value), false);
     }
 
-    public static Domain singleValue(Comparable<?> value)
+    public Type getType()
     {
-        return new Domain(SortedRangeSet.of(Range.equal(value)), false);
+        return values.getType();
     }
 
-    @JsonIgnore
-    public Class<?> getType()
-    {
-        return ranges.getType();
-    }
-
-    /**
-     * Returns a SortedRangeSet to represent the set of scalar values that are allowed in this Domain.
-     * An empty (a.k.a. "none") SortedRangeSet indicates that no scalar values are allowed.
-     */
     @JsonProperty
-    public SortedRangeSet getRanges()
+    public ValueSet getValues()
     {
-        return ranges;
+        return values;
     }
 
     @JsonProperty
@@ -99,138 +97,133 @@ public final class Domain
         return nullAllowed;
     }
 
-    @JsonIgnore
     public boolean isNone()
     {
-        return equals(Domain.none(getType()));
+        return values.isNone() && !nullAllowed;
     }
 
-    @JsonIgnore
     public boolean isAll()
     {
-        return equals(Domain.all(getType()));
+        return values.isAll() && nullAllowed;
     }
 
-    @JsonIgnore
     public boolean isSingleValue()
     {
-        return !nullAllowed && ranges.isSingleValue();
+        return !nullAllowed && values.isSingleValue();
     }
 
-    @JsonIgnore
     public boolean isNullableSingleValue()
     {
         if (nullAllowed) {
-            return ranges.isNone();
+            return values.isNone();
         }
         else {
-            return ranges.isSingleValue();
+            return values.isSingleValue();
         }
     }
 
-    @JsonIgnore
     public boolean isOnlyNull()
     {
-        return equals(onlyNull(getType()));
+        return values.isNone() && nullAllowed;
     }
 
-    @JsonIgnore
-    public Comparable<?> getSingleValue()
+    public Object getSingleValue()
     {
         if (!isSingleValue()) {
             throw new IllegalStateException("Domain is not a single value");
         }
-        return ranges.getSingleValue();
+        return values.getSingleValue();
     }
 
-    @JsonIgnore
-    public Comparable<?> getNullableSingleValue()
+    public Object getNullableSingleValue()
     {
         if (!isNullableSingleValue()) {
-            throw new IllegalStateException("Domain is not a single value");
+            throw new IllegalStateException("Domain is not a nullable single value");
         }
 
         if (nullAllowed) {
             return null;
         }
         else {
-            return ranges.getSingleValue();
+            return values.getSingleValue();
         }
     }
 
-    public boolean includesValue(Comparable<?> value)
+    public boolean includesNullableValue(Object value)
     {
-        return value == null ? nullAllowed : ranges.includesMarker(Marker.exactly(value));
+        return value == null ? nullAllowed : values.containsValue(value);
     }
 
     public boolean overlaps(Domain other)
     {
-        checkTypeCompatibility(other);
+        checkCompatibility(other);
         return !this.intersect(other).isNone();
     }
 
     public boolean contains(Domain other)
     {
-        checkTypeCompatibility(other);
+        checkCompatibility(other);
         return this.union(other).equals(this);
     }
 
     public Domain intersect(Domain other)
     {
-        checkTypeCompatibility(other);
-        SortedRangeSet intersectedRanges = this.getRanges().intersect(other.getRanges());
-        boolean nullAllowed = this.isNullAllowed() && other.isNullAllowed();
-        return new Domain(intersectedRanges, nullAllowed);
+        checkCompatibility(other);
+        return new Domain(values.intersect(other.getValues()), this.isNullAllowed() && other.isNullAllowed());
     }
 
     public Domain union(Domain other)
     {
-        checkTypeCompatibility(other);
-        SortedRangeSet unionRanges = this.getRanges().union(other.getRanges());
-        boolean nullAllowed = this.isNullAllowed() || other.isNullAllowed();
-        return new Domain(unionRanges, nullAllowed);
+        checkCompatibility(other);
+        return new Domain(values.union(other.getValues()), this.isNullAllowed() || other.isNullAllowed());
     }
 
     public static Domain union(List<Domain> domains)
     {
+        if (domains.isEmpty()) {
+            throw new IllegalArgumentException("domains cannot be empty for union");
+        }
         if (domains.size() == 1) {
             return domains.get(0);
         }
 
         boolean nullAllowed = false;
-        List<SortedRangeSet> ranges = new ArrayList<>();
+        List<ValueSet> valueSets = new ArrayList<>(domains.size());
         for (Domain domain : domains) {
-            ranges.add(domain.getRanges());
+            valueSets.add(domain.getValues());
             nullAllowed = nullAllowed || domain.nullAllowed;
         }
 
-        return new Domain(SortedRangeSet.union(ranges), nullAllowed);
+        ValueSet unionedValues = valueSets.get(0).union(valueSets.subList(1, valueSets.size()));
+
+        return new Domain(unionedValues, nullAllowed);
     }
 
     public Domain complement()
     {
-        return new Domain(ranges.complement(), !nullAllowed);
+        return new Domain(values.complement(), !nullAllowed);
     }
 
     public Domain subtract(Domain other)
     {
-        checkTypeCompatibility(other);
-        SortedRangeSet subtractedRanges = this.getRanges().subtract(other.getRanges());
-        boolean nullAllowed = this.isNullAllowed() && !other.isNullAllowed();
-        return new Domain(subtractedRanges, nullAllowed);
+        checkCompatibility(other);
+        return new Domain(values.subtract(other.getValues()), this.isNullAllowed() && !other.isNullAllowed());
     }
 
-    private void checkTypeCompatibility(Domain domain)
+    private void checkCompatibility(Domain domain)
     {
         if (!getType().equals(domain.getType())) {
             throw new IllegalArgumentException(String.format("Mismatched Domain types: %s vs %s", getType(), domain.getType()));
+        }
+        if (values.getClass() != domain.values.getClass()) {
+            throw new IllegalArgumentException(String.format("Mismatched Domain value set classes: %s vs %s", values.getClass(), domain.values.getClass()));
         }
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(ranges, nullAllowed);
+        return Objects.hash(values, nullAllowed);
     }
 
     @Override
@@ -242,21 +235,13 @@ public final class Domain
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final Domain other = (Domain) obj;
-        return Objects.equals(this.ranges, other.ranges) &&
-                Objects.equals(this.nullAllowed, other.nullAllowed);
+        Domain other = (Domain) obj;
+        return Objects.equals(this.values, other.values) &&
+                this.nullAllowed == other.nullAllowed;
     }
 
-    @Override
-    public String toString()
+    public String toString(ConnectorSession session)
     {
-        List<Object> values = new ArrayList<>();
-        if (nullAllowed) {
-            values.add("NULL");
-        }
-        for (Range range : ranges) {
-            values.add(range);
-        }
-        return values.toString();
+        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session) + " ]";
     }
 }

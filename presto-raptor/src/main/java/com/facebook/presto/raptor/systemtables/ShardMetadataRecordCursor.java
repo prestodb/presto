@@ -36,6 +36,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
@@ -237,8 +238,8 @@ public class ShardMetadataRecordCursor
         // use try-with-resources to close everything properly
         //noinspection EmptyTryBlock
         try (Connection connection = this.connection;
-             Statement statement = this.statement;
-             ResultSet resultSet = this.resultSet) {
+                Statement statement = this.statement;
+                ResultSet resultSet = this.resultSet) {
             // do nothing
         }
         catch (SQLException ignored) {
@@ -299,8 +300,9 @@ public class ShardMetadataRecordCursor
     @VisibleForTesting
     static Iterator<Long> getTableIds(IDBI dbi, TupleDomain<Integer> tupleDomain)
     {
-        Domain schemaNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, SCHEMA_NAME));
-        Domain tableNameDomain = tupleDomain.getDomains().get(getColumnIndex(SHARD_METADATA, TABLE_NAME));
+        Map<Integer, Domain> domains = tupleDomain.getDomains().get();
+        Domain schemaNameDomain = domains.get(getColumnIndex(SHARD_METADATA, SCHEMA_NAME));
+        Domain tableNameDomain = domains.get(getColumnIndex(SHARD_METADATA, TABLE_NAME));
 
         StringBuilder sql = new StringBuilder("SELECT table_id FROM tables ");
         if (schemaNameDomain != null || tableNameDomain != null) {
@@ -317,8 +319,8 @@ public class ShardMetadataRecordCursor
 
         ImmutableList.Builder<Long> tableIds = ImmutableList.builder();
         try (Connection connection = dbi.open().getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql.toString())) {
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql.toString())) {
             while (resultSet.next()) {
                 tableIds.add(resultSet.getLong("table_id"));
             }
@@ -347,7 +349,7 @@ public class ShardMetadataRecordCursor
         checkArgument(type.getJavaType() == clazz, "Type %s cannot be read as %s", type, clazz.getSimpleName());
     }
 
-    private static String getStringValue(Comparable<?> value)
+    private static String getStringValue(Object value)
     {
         return checkType(value, Slice.class, "value").toStringUtf8();
     }
