@@ -55,7 +55,7 @@ public class StructStreamReader
 
     private boolean rowGroupOpen;
 
-    public StructStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public StructStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, Type type)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
 
@@ -63,7 +63,7 @@ public class StructStreamReader
         this.structFields = new StreamReader[nestedStreams.size()];
         for (int i = 0; i < nestedStreams.size(); i++) {
             StreamDescriptor nestedStream = nestedStreams.get(i);
-            this.structFields[i] = createStreamReader(nestedStream, hiveStorageTimeZone);
+            this.structFields[i] = createStreamReader(nestedStream, type.getTypeParameters().get(i), hiveStorageTimeZone);
         }
     }
 
