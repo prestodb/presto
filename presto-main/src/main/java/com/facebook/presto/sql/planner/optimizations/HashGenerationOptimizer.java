@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -42,6 +43,7 @@ import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.List;
@@ -66,7 +68,7 @@ public class HashGenerationOptimizer
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            return PlanRewriter.rewriteWith(new Rewriter(idAllocator, symbolAllocator), plan, null);
+            return PlanRewriter.rewriteWith(new Rewriter(idAllocator, symbolAllocator, types), plan, null);
         }
         return plan;
     }
@@ -76,11 +78,13 @@ public class HashGenerationOptimizer
     {
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
+        private final Map<Symbol, Type> types;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+        private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Map<Symbol, Type> types)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -90,7 +94,7 @@ public class HashGenerationOptimizer
             if (rewrittenSource == node.getSource() && node.getGroupBy().isEmpty()) {
                 return node;
             }
-            if (node.getGroupBy().isEmpty()) {
+            if (node.getGroupBy().isEmpty() || canSkipHashGeneration(node)) {
                 return new AggregationNode(idAllocator.getNextId(),
                         rewrittenSource,
                         node.getGroupBy(),
@@ -115,6 +119,12 @@ public class HashGenerationOptimizer
                     node.getSampleWeight(),
                     node.getConfidence(),
                     Optional.of(hashSymbol));
+        }
+
+        private boolean canSkipHashGeneration(AggregationNode node)
+        {
+            // HACK: bigint grouped aggregation has special operators that do not use precomputed hash, so we can skip hash generation
+            return node.getGroupBy().size() == 1 && types.get(Iterables.getOnlyElement(node.getGroupBy())).equals(BigintType.BIGINT);
         }
 
         @Override
