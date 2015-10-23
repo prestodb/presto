@@ -381,7 +381,7 @@ public class OrcRecordReader
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
+                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, includedColumns.get(columnId), hiveStorageTimeZone);
             }
         }
         return streamReaders;
