@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -27,8 +27,11 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
-import static java.util.Collections.unmodifiableCollection;
+import static java.util.Objects.requireNonNull;
 
 /**
  * A set containing zero or more Ranges of the same type over a continuous space of possible values.
@@ -37,99 +40,113 @@ import static java.util.Collections.unmodifiableCollection;
  * set-related operation.
  */
 public final class SortedRangeSet
-        implements Iterable<Range>
+        implements ValueSet
 {
-    private final Class<?> type;
+    private final Type type;
     private final NavigableMap<Marker, Range> lowIndexedRanges;
 
-    private SortedRangeSet(Class<?> type, NavigableMap<Marker, Range> lowIndexedRanges)
+    private SortedRangeSet(Type type, NavigableMap<Marker, Range> lowIndexedRanges)
     {
-        this.type = Objects.requireNonNull(type, "type is null");
-        this.lowIndexedRanges = Objects.requireNonNull(lowIndexedRanges, "lowIndexedRanges is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(lowIndexedRanges, "lowIndexedRanges is null");
+
+        if (!type.isOrderable()) {
+            throw new IllegalArgumentException("Type is not orderable: " + type);
+        }
+        this.type = type;
+        this.lowIndexedRanges = lowIndexedRanges;
     }
 
-    public static SortedRangeSet none(Class<?> type)
+    static SortedRangeSet none(Type type)
     {
         return copyOf(type, Collections.<Range>emptyList());
     }
 
-    public static SortedRangeSet all(Class<?> type)
+    static SortedRangeSet all(Type type)
     {
-        return copyOf(type, Arrays.asList(Range.all(type)));
+        return copyOf(type, Collections.singletonList(Range.all(type)));
     }
 
-    public static SortedRangeSet singleValue(Comparable<?> value)
+    /**
+     * Provided discrete values that are unioned together to form the SortedRangeSet
+     */
+    static SortedRangeSet of(Type type, Object first, Object... rest)
     {
-        return SortedRangeSet.of(Range.equal(value));
+        List<Range> ranges = new ArrayList<>(rest.length + 1);
+        ranges.add(Range.equal(type, first));
+        for (Object value : rest) {
+            ranges.add(Range.equal(type, value));
+        }
+        return copyOf(type, ranges);
     }
 
     /**
      * Provided Ranges are unioned together to form the SortedRangeSet
      */
-    public static SortedRangeSet of(Range first, Range... ranges)
+    static SortedRangeSet of(Range first, Range... rest)
     {
-        List<Range> rangeList = new ArrayList<>();
+        List<Range> rangeList = new ArrayList<>(rest.length + 1);
         rangeList.add(first);
-        rangeList.addAll(Arrays.asList(ranges));
+        for (Range range : rest) {
+            rangeList.add(range);
+        }
         return copyOf(first.getType(), rangeList);
     }
 
     /**
      * Provided Ranges are unioned together to form the SortedRangeSet
      */
-    public static SortedRangeSet copyOf(Class<?> type, Iterable<Range> ranges)
+    static SortedRangeSet copyOf(Type type, Iterable<Range> ranges)
     {
         return new Builder(type).addAll(ranges).build();
     }
 
     @JsonCreator
     public static SortedRangeSet copyOf(
-            @JsonProperty("type") Class<?> type,
+            @JsonProperty("type") Type type,
             @JsonProperty("ranges") List<Range> ranges)
     {
         return copyOf(type, (Iterable<Range>) ranges);
     }
 
+    @Override
     @JsonProperty
-    public Class<?> getType()
+    public Type getType()
     {
         return type;
     }
 
-    @JsonProperty
-    public List<Range> getRanges()
+    @JsonProperty("ranges")
+    public List<Range> getOrderedRanges()
     {
-        ArrayList<Range> ranges = new ArrayList<>();
-        ranges.addAll(lowIndexedRanges.values());
-        return ranges;
+        return new ArrayList<>(lowIndexedRanges.values());
     }
 
-    @JsonIgnore
     public int getRangeCount()
     {
         return lowIndexedRanges.size();
     }
 
-    @JsonIgnore
+    @Override
     public boolean isNone()
     {
         return lowIndexedRanges.isEmpty();
     }
 
-    @JsonIgnore
+    @Override
     public boolean isAll()
     {
         return lowIndexedRanges.size() == 1 && lowIndexedRanges.values().iterator().next().isAll();
     }
 
-    @JsonIgnore
+    @Override
     public boolean isSingleValue()
     {
         return lowIndexedRanges.size() == 1 && lowIndexedRanges.values().iterator().next().isSingleValue();
     }
 
-    @JsonIgnore
-    public Comparable<?> getSingleValue()
+    @Override
+    public Object getSingleValue()
     {
         if (!isSingleValue()) {
             throw new IllegalStateException("SortedRangeSet does not have just a single value");
@@ -137,15 +154,21 @@ public final class SortedRangeSet
         return lowIndexedRanges.values().iterator().next().getSingleValue();
     }
 
-    public boolean includesMarker(Marker marker)
+    @Override
+    public boolean containsValue(Object value)
     {
-        Objects.requireNonNull(marker, "marker is null");
+        return includesMarker(Marker.exactly(type, value));
+    }
+
+    boolean includesMarker(Marker marker)
+    {
+        requireNonNull(marker, "marker is null");
         checkTypeCompatibility(marker);
+
         Map.Entry<Marker, Range> floorEntry = lowIndexedRanges.floorEntry(marker);
         return floorEntry != null && floorEntry.getValue().includes(marker);
     }
 
-    @JsonIgnore
     public Range getSpan()
     {
         if (lowIndexedRanges.isEmpty()) {
@@ -154,30 +177,63 @@ public final class SortedRangeSet
         return lowIndexedRanges.firstEntry().getValue().span(lowIndexedRanges.lastEntry().getValue());
     }
 
-    public boolean overlaps(SortedRangeSet other)
+    @Override
+    public Ranges getRanges()
     {
-        checkTypeCompatibility(other);
-        return !this.intersect(other).isNone();
+        return new Ranges()
+        {
+            @Override
+            public int getRangeCount()
+            {
+                return SortedRangeSet.this.getRangeCount();
+            }
+
+            @Override
+            public List<Range> getOrderedRanges()
+            {
+                return SortedRangeSet.this.getOrderedRanges();
+            }
+
+            @Override
+            public Range getSpan()
+            {
+                return SortedRangeSet.this.getSpan();
+            }
+        };
     }
 
-    public boolean contains(SortedRangeSet other)
+    @Override
+    public ValuesProcessor getValuesProcessor()
     {
-        checkTypeCompatibility(other);
-        return this.union(other).equals(this);
+        return new ValuesProcessor()
+        {
+            @Override
+            public <T> T transform(Function<Ranges, T> rangesFunction, Function<DiscreteValues, T> valuesFunction, Function<AllOrNone, T> allOrNoneFunction)
+            {
+                return rangesFunction.apply(getRanges());
+            }
+
+            @Override
+            public void consume(Consumer<Ranges> rangesConsumer, Consumer<DiscreteValues> valuesConsumer, Consumer<AllOrNone> allOrNoneConsumer)
+            {
+                rangesConsumer.accept(getRanges());
+            }
+        };
     }
 
-    public SortedRangeSet intersect(SortedRangeSet other)
+    @Override
+    public SortedRangeSet intersect(ValueSet other)
     {
-        checkTypeCompatibility(other);
+        SortedRangeSet otherRangeSet = checkCompatibility(other);
 
         Builder builder = new Builder(type);
 
-        Iterator<Range> iter1 = iterator();
-        Iterator<Range> iter2 = other.iterator();
+        Iterator<Range> iterator1 = getOrderedRanges().iterator();
+        Iterator<Range> iterator2 = otherRangeSet.getOrderedRanges().iterator();
 
-        if (iter1.hasNext() && iter2.hasNext()) {
-            Range range1 = iter1.next();
-            Range range2 = iter2.next();
+        if (iterator1.hasNext() && iterator2.hasNext()) {
+            Range range1 = iterator1.next();
+            Range range2 = iterator2.next();
 
             while (true) {
                 if (range1.overlaps(range2)) {
@@ -185,16 +241,16 @@ public final class SortedRangeSet
                 }
 
                 if (range1.getHigh().compareTo(range2.getHigh()) <= 0) {
-                    if (!iter1.hasNext()) {
+                    if (!iterator1.hasNext()) {
                         break;
                     }
-                    range1 = iter1.next();
+                    range1 = iterator1.next();
                 }
                 else {
-                    if (!iter2.hasNext()) {
+                    if (!iterator2.hasNext()) {
                         break;
                     }
-                    range2 = iter2.next();
+                    range2 = iterator2.next();
                 }
             }
         }
@@ -202,33 +258,28 @@ public final class SortedRangeSet
         return builder.build();
     }
 
-    public SortedRangeSet union(SortedRangeSet other)
+    @Override
+    public SortedRangeSet union(ValueSet other)
     {
-        checkTypeCompatibility(other);
+        SortedRangeSet otherRangeSet = checkCompatibility(other);
         return new Builder(type)
-                .addAll(this)
-                .addAll(other)
+                .addAll(this.getOrderedRanges())
+                .addAll(otherRangeSet.getOrderedRanges())
                 .build();
     }
 
-    public static SortedRangeSet union(Iterable<SortedRangeSet> ranges)
+    @Override
+    public SortedRangeSet union(Collection<ValueSet> valueSets)
     {
-        Iterator<SortedRangeSet> iterator = ranges.iterator();
-        if (!iterator.hasNext()) {
-            throw new IllegalArgumentException("ranges must have at least one element");
+        Builder builder = new Builder(type);
+        builder.addAll(this.getOrderedRanges());
+        for (ValueSet valueSet : valueSets) {
+            builder.addAll(checkCompatibility(valueSet).getOrderedRanges());
         }
-
-        SortedRangeSet first = iterator.next();
-        Builder builder = new Builder(first.type);
-        builder.addAll(first);
-
-        while (iterator.hasNext()) {
-            builder.addAll(iterator.next());
-        }
-
         return builder.build();
     }
 
+    @Override
     public SortedRangeSet complement()
     {
         Builder builder = new Builder(type);
@@ -263,17 +314,15 @@ public final class SortedRangeSet
         return builder.build();
     }
 
-    public SortedRangeSet subtract(SortedRangeSet other)
-    {
-        checkTypeCompatibility(other);
-        return this.intersect(other.complement());
-    }
-
-    private void checkTypeCompatibility(SortedRangeSet other)
+    private SortedRangeSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(String.format("Mismatched SortedRangeSet types: %s vs %s", getType(), other.getType()));
+            throw new IllegalStateException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
+        if (!(other instanceof SortedRangeSet)) {
+            throw new IllegalStateException(String.format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
+        }
+        return (SortedRangeSet) other;
     }
 
     private void checkTypeCompatibility(Marker marker)
@@ -281,12 +330,6 @@ public final class SortedRangeSet
         if (!getType().equals(marker.getType())) {
             throw new IllegalStateException(String.format("Marker of %s does not match SortedRangeSet of %s", marker.getType(), getType()));
         }
-    }
-
-    @Override
-    public Iterator<Range> iterator()
-    {
-        return unmodifiableCollection(lowIndexedRanges.values()).iterator();
     }
 
     @Override
@@ -309,36 +352,29 @@ public final class SortedRangeSet
     }
 
     @Override
-    public String toString()
+    public String toString(ConnectorSession session)
     {
-        return lowIndexedRanges.values().toString();
+        return "[" + lowIndexedRanges.values().stream()
+                .map(range -> range.toString(session))
+                .collect(Collectors.joining(", ")) + "]";
     }
 
-    public static Builder builder(Class<?> type)
+    static class Builder
     {
-        return new Builder(type);
-    }
-
-    public static class Builder
-    {
-        private static final Comparator<Range> LOW_MARKER_COMPARATOR = new Comparator<Range>()
-        {
-            @Override
-            public int compare(Range o1, Range o2)
-            {
-                return o1.getLow().compareTo(o2.getLow());
-            }
-        };
-
-        private final Class<?> type;
+        private final Type type;
         private final List<Range> ranges = new ArrayList<>();
 
-        public Builder(Class<?> type)
+        Builder(Type type)
         {
-            this.type = Objects.requireNonNull(type, "type is null");
+            requireNonNull(type, "type is null");
+
+            if (!type.isOrderable()) {
+                throw new IllegalArgumentException("Type is not orderable: " + type);
+            }
+            this.type = type;
         }
 
-        public Builder add(Range range)
+        Builder add(Range range)
         {
             if (!type.equals(range.getType())) {
                 throw new IllegalArgumentException(String.format("Range type %s does not match builder type %s", range.getType(), type));
@@ -348,7 +384,7 @@ public final class SortedRangeSet
             return this;
         }
 
-        public Builder addAll(Iterable<Range> ranges)
+        Builder addAll(Iterable<Range> ranges)
         {
             for (Range range : ranges) {
                 add(range);
@@ -356,9 +392,9 @@ public final class SortedRangeSet
             return this;
         }
 
-        public SortedRangeSet build()
+        SortedRangeSet build()
         {
-            Collections.sort(ranges, LOW_MARKER_COMPARATOR);
+            Collections.sort(ranges, Comparator.comparing(Range::getLow));
 
             NavigableMap<Marker, Range> result = new TreeMap<>();
 

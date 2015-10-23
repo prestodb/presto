@@ -602,9 +602,7 @@ public class AddExchanges
 
             Expression constraint = combineConjuncts(
                     deterministicPredicate,
-                    DomainTranslator.toPredicate(
-                            node.getCurrentConstraint().transform(assignments::get),
-                            symbolAllocator.getTypes()));
+                    DomainTranslator.toPredicate(node.getCurrentConstraint().transform(assignments::get)));
 
             // Layouts will be returned in order of the connector's preference
             List<TableLayoutResult> layouts = metadata.getLayouts(
@@ -640,9 +638,7 @@ public class AddExchanges
                         PlanWithProperties result = new PlanWithProperties(tableScan, deriveProperties(tableScan, ImmutableList.of()));
 
                         Expression resultingPredicate = combineConjuncts(
-                                DomainTranslator.toPredicate(
-                                        layout.getUnenforcedConstraint().transform(assignments::get),
-                                        symbolAllocator.getTypes()),
+                                DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)),
                                 stripDeterministicConjuncts(predicate),
                                 decomposedPredicate.getRemainingExpression());
 

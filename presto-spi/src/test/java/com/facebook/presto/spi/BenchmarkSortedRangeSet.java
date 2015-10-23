@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+
 @Fork(1)
 @Warmup(iterations = 5)
 @Measurement(iterations = 10)
@@ -45,7 +47,7 @@ public class BenchmarkSortedRangeSet
     @Benchmark
     public SortedRangeSet benchmarkBuilder(Data data)
     {
-        SortedRangeSet build = new SortedRangeSet.Builder(Integer.class)
+        SortedRangeSet build = new SortedRangeSet.Builder(BIGINT)
                 .addAll(data.ranges)
                 .build();
 
@@ -64,12 +66,11 @@ public class BenchmarkSortedRangeSet
 
             int factor = 0;
             for (int i = 0; i < 10000; i++) {
-                int from = ThreadLocalRandom.current().nextInt(100) + factor * 100;
-                int to = ThreadLocalRandom.current().nextInt(100) + (factor + 1) * 100;
+                long from = ThreadLocalRandom.current().nextLong(100) + factor * 100;
+                long to = ThreadLocalRandom.current().nextLong(100) + (factor + 1) * 100;
                 factor++;
 
-                ranges.add(new Range(new Marker(new SerializableNativeValue(Integer.class, from), Marker.Bound.ABOVE),
-                        new Marker(new SerializableNativeValue(Integer.class, to), Marker.Bound.BELOW)));
+                ranges.add(new Range(Marker.above(BIGINT, from), Marker.below(BIGINT, to)));
             }
         }
     }

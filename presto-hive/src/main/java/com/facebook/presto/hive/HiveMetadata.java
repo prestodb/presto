@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.NullableValue;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -1238,16 +1239,16 @@ public class HiveMetadata
     static Predicate<Map<ColumnHandle, ?>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
     {
         return map -> {
-            ImmutableMap.Builder<ColumnHandle, Comparable<?>> mapBuilder = new ImmutableMap.Builder<>();
+            ImmutableMap.Builder<ColumnHandle, NullableValue> mapBuilder = new ImmutableMap.Builder<>();
             for (Map.Entry<ColumnHandle, ?> entry : map.entrySet()) {
                 HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "map.key");
                 // Temporarily, only VARCHAR partition key is supported for delete
                 if (!VARCHAR.getTypeSignature().equals(hiveColumnHandle.getTypeSignature())) {
                     throw new PrestoException(NOT_SUPPORTED, "The type of partition key is not VARCHAR");
                 }
-                mapBuilder.put(hiveColumnHandle, (Slice) entry.getValue());
+                mapBuilder.put(hiveColumnHandle, NullableValue.of(VARCHAR, entry.getValue()));
             }
-            return tupleDomain.contains(TupleDomain.withFixedValues(mapBuilder.build()));
+            return tupleDomain.contains(TupleDomain.fromFixedValues(mapBuilder.build()));
         };
     }
 

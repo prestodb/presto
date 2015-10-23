@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * A Range of values across the continuous space defined by the types of the Markers
@@ -32,16 +34,16 @@ public final class Range
             @JsonProperty("low") Marker low,
             @JsonProperty("high") Marker high)
     {
-        Objects.requireNonNull(low, "value is null");
-        Objects.requireNonNull(high, "value is null");
+        requireNonNull(low, "value is null");
+        requireNonNull(high, "value is null");
         if (!low.getType().equals(high.getType())) {
             throw new IllegalArgumentException(String.format("Marker types do not match: %s vs %s", low.getType(), high.getType()));
         }
-        if (low.isUpperUnbounded()) {
-            throw new IllegalArgumentException("low cannot be upper unbounded");
+        if (low.getBound() == Marker.Bound.BELOW) {
+            throw new IllegalArgumentException("low bound must be EXACTLY or ABOVE");
         }
-        if (high.isLowerUnbounded()) {
-            throw new IllegalArgumentException("high cannot be lower unbounded");
+        if (high.getBound() == Marker.Bound.ABOVE) {
+            throw new IllegalArgumentException("high bound must be EXACTLY or BELOW");
         }
         if (low.compareTo(high) > 0) {
             throw new IllegalArgumentException("low must be less than or equal to high");
@@ -50,45 +52,44 @@ public final class Range
         this.high = high;
     }
 
-    public static Range all(Class<?> type)
+    public static Range all(Type type)
     {
         return new Range(Marker.lowerUnbounded(type), Marker.upperUnbounded(type));
     }
 
-    public static Range greaterThan(Comparable<?> low)
+    public static Range greaterThan(Type type, Object low)
     {
-        return new Range(Marker.above(low), Marker.upperUnbounded(low.getClass()));
+        return new Range(Marker.above(type, low), Marker.upperUnbounded(type));
     }
 
-    public static Range greaterThanOrEqual(Comparable<?> low)
+    public static Range greaterThanOrEqual(Type type, Object low)
     {
-        return new Range(Marker.exactly(low), Marker.upperUnbounded(low.getClass()));
+        return new Range(Marker.exactly(type, low), Marker.upperUnbounded(type));
     }
 
-    public static Range lessThan(Comparable<?> high)
+    public static Range lessThan(Type type, Object high)
     {
-        return new Range(Marker.lowerUnbounded(high.getClass()), Marker.below(high));
+        return new Range(Marker.lowerUnbounded(type), Marker.below(type, high));
     }
 
-    public static Range lessThanOrEqual(Comparable<?> high)
+    public static Range lessThanOrEqual(Type type, Object high)
     {
-        return new Range(Marker.lowerUnbounded(high.getClass()), Marker.exactly(high));
+        return new Range(Marker.lowerUnbounded(type), Marker.exactly(type, high));
     }
 
-    public static Range equal(Comparable<?> value)
+    public static Range equal(Type type, Object value)
     {
-        return new Range(Marker.exactly(value), Marker.exactly(value));
+        return new Range(Marker.exactly(type, value), Marker.exactly(type, value));
     }
 
-    public static Range range(Comparable<?> low, boolean lowInclusive, Comparable<?> high, boolean highInclusive)
+    public static Range range(Type type, Object low, boolean lowInclusive, Object high, boolean highInclusive)
     {
-        Marker lowMarker = lowInclusive ? Marker.exactly(low) : Marker.above(low);
-        Marker highMarker = highInclusive ? Marker.exactly(high) : Marker.below(high);
+        Marker lowMarker = lowInclusive ? Marker.exactly(type, low) : Marker.above(type, low);
+        Marker highMarker = highInclusive ? Marker.exactly(type, high) : Marker.below(type, high);
         return new Range(lowMarker, highMarker);
     }
 
-    @JsonIgnore
-    public Class<?> getType()
+    public Type getType()
     {
         return low.getType();
     }
@@ -105,18 +106,12 @@ public final class Range
         return high;
     }
 
-    @JsonIgnore
     public boolean isSingleValue()
     {
-        return !low.isLowerUnbounded() &&
-                !high.isUpperUnbounded() &&
-                low.getBound() == Marker.Bound.EXACTLY &&
-                high.getBound() == Marker.Bound.EXACTLY &&
-                low.getValue().equals(high.getValue());
+        return low.getBound() == Marker.Bound.EXACTLY && low.equals(high);
     }
 
-    @JsonIgnore
-    public Comparable<?> getSingleValue()
+    public Object getSingleValue()
     {
         if (!isSingleValue()) {
             throw new IllegalStateException("Range does not have just a single value");
@@ -124,7 +119,6 @@ public final class Range
         return low.getValue();
     }
 
-    @JsonIgnore
     public boolean isAll()
     {
         return low.isLowerUnbounded() && high.isUpperUnbounded();
@@ -132,7 +126,7 @@ public final class Range
 
     public boolean includes(Marker marker)
     {
-        Objects.requireNonNull(marker, "marker is null");
+        requireNonNull(marker, "marker is null");
         checkTypeCompatibility(marker);
         return low.compareTo(marker) <= 0 && high.compareTo(marker) >= 0;
     }
@@ -141,7 +135,7 @@ public final class Range
     {
         checkTypeCompatibility(other);
         return this.getLow().compareTo(other.getLow()) <= 0 &&
-               this.getHigh().compareTo(other.getHigh()) >= 0;
+                this.getHigh().compareTo(other.getHigh()) >= 0;
     }
 
     public Range span(Range other)
@@ -204,20 +198,19 @@ public final class Range
                 Objects.equals(this.high, other.high);
     }
 
-    @Override
-    public String toString()
+    public String toString(ConnectorSession session)
     {
-        final StringBuilder sb = new StringBuilder();
+        StringBuilder buffer = new StringBuilder();
         if (isSingleValue()) {
-            sb.append('[').append(low.getValue()).append(']');
+            buffer.append('[').append(low.getPrintableValue(session)).append(']');
         }
         else {
-            sb.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
-            sb.append(low.isLowerUnbounded() ? "<min>" : low.getValue());
-            sb.append(", ");
-            sb.append(high.isUpperUnbounded() ? "<max>" : high.getValue());
-            sb.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+            buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+            buffer.append(low.isLowerUnbounded() ? "<min>" : low.getPrintableValue(session));
+            buffer.append(", ");
+            buffer.append(high.isUpperUnbounded() ? "<max>" : high.getPrintableValue(session));
+            buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
         }
-        return sb.toString();
+        return buffer.toString();
     }
 }

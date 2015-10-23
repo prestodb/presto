@@ -287,9 +287,7 @@ public class IndexJoinOptimizer
                     simplifiedConstraint);
 
             Expression resultingPredicate = combineConjuncts(
-                    DomainTranslator.toPredicate(
-                            resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get),
-                            symbolAllocator.getTypes()),
+                    DomainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
             if (!resultingPredicate.equals(TRUE_LITERAL)) {

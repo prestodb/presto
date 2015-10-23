@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.NullableValue;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -59,6 +60,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
@@ -69,6 +71,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.TupleDomain.extractFixedValues;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorOnly;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.distributed;
@@ -80,6 +83,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Maps.filterValues;
 import static java.util.stream.Collectors.toMap;
 
 class PropertyDerivations
@@ -385,7 +389,7 @@ class PropertyDerivations
                     types);
 
             Map<Symbol, Object> constants = new HashMap<>(properties.getConstants());
-            constants.putAll(decomposedPredicate.getTupleDomain().extractFixedValues());
+            constants.putAll(Maps.transformValues(filterValues(extractFixedValues(decomposedPredicate.getTupleDomain()), value -> !value.isNull()), NullableValue::getValue));
 
             return ActualProperties.builderFrom(properties)
                     .constants(constants)
@@ -479,7 +483,8 @@ class PropertyDerivations
             LocalProperties.extractLeadingConstants(layout.getLocalProperties()).stream()
                     .forEach(column -> constants.put(column, new Object())); // Use an arbitrary object value for property constants b/c we don't know its actual value
             // Do predicate constants after property constants so that we can override with known real predicate values (if they exist)
-            node.getCurrentConstraint().extractFixedValues().entrySet().stream()
+            extractFixedValues(node.getCurrentConstraint()).entrySet().stream()
+                    .filter(entry -> !entry.getValue().isNull())
                     .forEach(entry -> constants.put(entry.getKey(), entry.getValue()));
 
             Map<Symbol, Object> symbolConstants = constants.entrySet().stream()

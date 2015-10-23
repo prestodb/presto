@@ -13,14 +13,28 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
+import com.facebook.presto.spi.block.TestingBlockJsonSerde;
+import com.facebook.presto.spi.type.TestingTypeDeserializer;
+import com.facebook.presto.spi.type.TestingTypeManager;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
+import io.airlift.json.ObjectMapperProvider;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class TestMarker
 {
@@ -28,28 +42,28 @@ public class TestMarker
     public void testTypes()
             throws Exception
     {
-        Assert.assertEquals(Marker.lowerUnbounded(Long.class).getType(), Long.class);
-        Assert.assertEquals(Marker.below(1L).getType(), Long.class);
-        Assert.assertEquals(Marker.exactly(1L).getType(), Long.class);
-        Assert.assertEquals(Marker.above(1L).getType(), Long.class);
-        Assert.assertEquals(Marker.upperUnbounded(Long.class).getType(), Long.class);
+        Assert.assertEquals(Marker.lowerUnbounded(BIGINT).getType(), BIGINT);
+        Assert.assertEquals(Marker.below(BIGINT, 1L).getType(), BIGINT);
+        Assert.assertEquals(Marker.exactly(BIGINT, 1L).getType(), BIGINT);
+        Assert.assertEquals(Marker.above(BIGINT, 1L).getType(), BIGINT);
+        Assert.assertEquals(Marker.upperUnbounded(BIGINT).getType(), BIGINT);
     }
 
     @Test
     public void testUnbounded()
             throws Exception
     {
-        Assert.assertTrue(Marker.lowerUnbounded(Long.class).isLowerUnbounded());
-        Assert.assertFalse(Marker.lowerUnbounded(Long.class).isUpperUnbounded());
-        Assert.assertTrue(Marker.upperUnbounded(Long.class).isUpperUnbounded());
-        Assert.assertFalse(Marker.upperUnbounded(Long.class).isLowerUnbounded());
+        Assert.assertTrue(Marker.lowerUnbounded(BIGINT).isLowerUnbounded());
+        Assert.assertFalse(Marker.lowerUnbounded(BIGINT).isUpperUnbounded());
+        Assert.assertTrue(Marker.upperUnbounded(BIGINT).isUpperUnbounded());
+        Assert.assertFalse(Marker.upperUnbounded(BIGINT).isLowerUnbounded());
 
-        Assert.assertFalse(Marker.below(1L).isLowerUnbounded());
-        Assert.assertFalse(Marker.below(1L).isUpperUnbounded());
-        Assert.assertFalse(Marker.exactly(1L).isLowerUnbounded());
-        Assert.assertFalse(Marker.exactly(1L).isUpperUnbounded());
-        Assert.assertFalse(Marker.above(1L).isLowerUnbounded());
-        Assert.assertFalse(Marker.above(1L).isUpperUnbounded());
+        Assert.assertFalse(Marker.below(BIGINT, 1L).isLowerUnbounded());
+        Assert.assertFalse(Marker.below(BIGINT, 1L).isUpperUnbounded());
+        Assert.assertFalse(Marker.exactly(BIGINT, 1L).isLowerUnbounded());
+        Assert.assertFalse(Marker.exactly(BIGINT, 1L).isUpperUnbounded());
+        Assert.assertFalse(Marker.above(BIGINT, 1L).isLowerUnbounded());
+        Assert.assertFalse(Marker.above(BIGINT, 1L).isUpperUnbounded());
     }
 
     @Test
@@ -57,13 +71,13 @@ public class TestMarker
             throws Exception
     {
         ImmutableList<Marker> markers = ImmutableList.of(
-                Marker.lowerUnbounded(Long.class),
-                Marker.above(0L),
-                Marker.below(1L),
-                Marker.exactly(1L),
-                Marker.above(1L),
-                Marker.below(2L),
-                Marker.upperUnbounded(Long.class));
+                Marker.lowerUnbounded(BIGINT),
+                Marker.above(BIGINT, 0L),
+                Marker.below(BIGINT, 1L),
+                Marker.exactly(BIGINT, 1L),
+                Marker.above(BIGINT, 1L),
+                Marker.below(BIGINT, 2L),
+                Marker.upperUnbounded(BIGINT));
 
         Assert.assertTrue(Ordering.natural().isStrictlyOrdered(markers));
 
@@ -82,13 +96,13 @@ public class TestMarker
             throws Exception
     {
         ImmutableMap<Marker, Integer> markers = ImmutableMap.<Marker, Integer>builder()
-                .put(Marker.lowerUnbounded(Long.class), -1000)
-                .put(Marker.above(0L), -100)
-                .put(Marker.below(1L), -1)
-                .put(Marker.exactly(1L), 0)
-                .put(Marker.above(1L), 1)
-                .put(Marker.below(2L), 100)
-                .put(Marker.upperUnbounded(Long.class), 1000)
+                .put(Marker.lowerUnbounded(BIGINT), -1000)
+                .put(Marker.above(BIGINT, 0L), -100)
+                .put(Marker.below(BIGINT, 1L), -1)
+                .put(Marker.exactly(BIGINT, 1L), 0)
+                .put(Marker.above(BIGINT, 1L), 1)
+                .put(Marker.below(BIGINT, 2L), 100)
+                .put(Marker.upperUnbounded(BIGINT), 1000)
                 .build();
 
         // Compare every marker with every other marker
@@ -101,48 +115,48 @@ public class TestMarker
             }
         }
 
-        Assert.assertEquals(Marker.below(1L).greaterAdjacent(), Marker.exactly(1L));
-        Assert.assertEquals(Marker.exactly(1L).greaterAdjacent(), Marker.above(1L));
-        Assert.assertEquals(Marker.above(1L).lesserAdjacent(), Marker.exactly(1L));
-        Assert.assertEquals(Marker.exactly(1L).lesserAdjacent(), Marker.below(1L));
+        Assert.assertEquals(Marker.below(BIGINT, 1L).greaterAdjacent(), Marker.exactly(BIGINT, 1L));
+        Assert.assertEquals(Marker.exactly(BIGINT, 1L).greaterAdjacent(), Marker.above(BIGINT, 1L));
+        Assert.assertEquals(Marker.above(BIGINT, 1L).lesserAdjacent(), Marker.exactly(BIGINT, 1L));
+        Assert.assertEquals(Marker.exactly(BIGINT, 1L).lesserAdjacent(), Marker.below(BIGINT, 1L));
 
         try {
-            Marker.below(1L).lesserAdjacent();
+            Marker.below(BIGINT, 1L).lesserAdjacent();
             Assert.fail();
         }
         catch (IllegalStateException e) {
         }
 
         try {
-            Marker.above(1L).greaterAdjacent();
+            Marker.above(BIGINT, 1L).greaterAdjacent();
             Assert.fail();
         }
         catch (IllegalStateException e) {
         }
 
         try {
-            Marker.lowerUnbounded(Long.class).lesserAdjacent();
+            Marker.lowerUnbounded(BIGINT).lesserAdjacent();
             Assert.fail();
         }
         catch (IllegalStateException e) {
         }
 
         try {
-            Marker.lowerUnbounded(Long.class).greaterAdjacent();
+            Marker.lowerUnbounded(BIGINT).greaterAdjacent();
             Assert.fail();
         }
         catch (IllegalStateException e) {
         }
 
         try {
-            Marker.upperUnbounded(Long.class).lesserAdjacent();
+            Marker.upperUnbounded(BIGINT).lesserAdjacent();
             Assert.fail();
         }
         catch (IllegalStateException e) {
         }
 
         try {
-            Marker.upperUnbounded(Long.class).greaterAdjacent();
+            Marker.upperUnbounded(BIGINT).greaterAdjacent();
             Assert.fail();
         }
         catch (IllegalStateException e) {
@@ -153,24 +167,31 @@ public class TestMarker
     public void testJsonSerialization()
             throws Exception
     {
-        ObjectMapper mapper = new ObjectMapper();
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(typeManager);
 
-        Marker marker = Marker.above(0L);
+        ObjectMapper mapper = new ObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+
+        Marker marker = Marker.above(BIGINT, 0L);
         Assert.assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
 
-        marker = Marker.exactly("abc");
+        marker = Marker.exactly(VARCHAR, utf8Slice("abc"));
         Assert.assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
 
-        marker = Marker.below(0.123);
+        marker = Marker.below(DOUBLE, 0.123);
         Assert.assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
 
-        marker = Marker.exactly(true);
+        marker = Marker.exactly(BOOLEAN, true);
         Assert.assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
 
-        marker = Marker.upperUnbounded(Long.class);
+        marker = Marker.upperUnbounded(BIGINT);
         Assert.assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
 
-        marker = Marker.lowerUnbounded(Long.class);
+        marker = Marker.lowerUnbounded(BIGINT);
         Assert.assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
     }
 }

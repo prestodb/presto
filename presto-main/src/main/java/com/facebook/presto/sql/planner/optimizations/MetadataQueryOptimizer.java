@@ -20,7 +20,7 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.SerializableNativeValue;
+import com.facebook.presto.spi.NullableValue;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
@@ -149,14 +149,14 @@ public class MetadataQueryOptimizer
 
             ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
             for (TupleDomain<ColumnHandle> domain : layout.getDiscretePredicates().get()) {
-                Map<ColumnHandle, SerializableNativeValue> entries = domain.extractNullableFixedValues();
+                Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain);
 
                 ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
                 // for each input column, add a literal expression using the entry value
                 for (Symbol input : inputs) {
                     ColumnHandle column = columns.get(input);
                     Type type = types.get(input);
-                    SerializableNativeValue value = entries.get(column);
+                    NullableValue value = entries.get(column);
                     if (value == null) {
                         // partition key does not have a single value, so bail out to be safe
                         return context.defaultRewrite(node);

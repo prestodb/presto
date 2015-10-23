@@ -140,9 +140,7 @@ public class PickLayout
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
             Expression resultingPredicate = combineConjuncts(
                     decomposedPredicate.getRemainingExpression(),
-                    DomainTranslator.toPredicate(
-                            layout.getUnenforcedConstraint().transform(assignments::get),
-                            symbolAllocator.getTypes()));
+                    DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
 
             if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
                 return new FilterNode(idAllocator.getNextId(), result, resultingPredicate);

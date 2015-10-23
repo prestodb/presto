@@ -427,7 +427,7 @@ public class OrcStorageManager
     private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
     {
         ImmutableList.Builder<ColumnReference<RaptorColumnHandle>> columns = ImmutableList.builder();
-        for (RaptorColumnHandle column : effectivePredicate.getDomains().keySet()) {
+        for (RaptorColumnHandle column : effectivePredicate.getDomains().get().keySet()) {
             Integer index = indexMap.get(column.getColumnId());
             if (index != null) {
                 columns.add(new ColumnReference<>(column, index, column.getColumnType()));

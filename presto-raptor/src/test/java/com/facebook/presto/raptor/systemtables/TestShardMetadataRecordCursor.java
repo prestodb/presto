@@ -25,8 +25,8 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SortedRangeSet;
 import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.collect.ImmutableList;
@@ -54,6 +54,7 @@ import static com.facebook.presto.spi.Range.greaterThan;
 import static com.facebook.presto.spi.Range.lessThanOrEqual;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -123,10 +124,10 @@ public class TestShardMetadataRecordCursor
         DateTime date2 = DateTime.parse("2015-01-02T00:00");
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<Integer, Domain>builder()
-                        .put(0, Domain.singleValue(schema))
-                        .put(1, Domain.create(SortedRangeSet.of(lessThanOrEqual(table)), true))
-                        .put(6, Domain.create(SortedRangeSet.of(lessThanOrEqual(date1.getMillis()), greaterThan(date2.getMillis())), true))
-                        .put(7, Domain.create(SortedRangeSet.of(lessThanOrEqual(date1.getMillis()), greaterThan(date2.getMillis())), true))
+                        .put(0, Domain.singleValue(VARCHAR, schema))
+                        .put(1, Domain.create(ValueSet.ofRanges(lessThanOrEqual(VARCHAR, table)), true))
+                        .put(6, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true))
+                        .put(7, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true))
                         .build());
 
         List<MaterializedRow> actual;
@@ -159,7 +160,7 @@ public class TestShardMetadataRecordCursor
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<Integer, Domain>builder()
-                        .put(1, Domain.singleValue(utf8Slice("orders")))
+                        .put(1, Domain.singleValue(VARCHAR, utf8Slice("orders")))
                         .build());
 
         MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
@@ -186,7 +187,7 @@ public class TestShardMetadataRecordCursor
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<Integer, Domain>builder()
-                        .put(0, Domain.singleValue(utf8Slice("test")))
+                        .put(0, Domain.singleValue(VARCHAR, utf8Slice("test")))
                         .build());
 
         MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
