@@ -1379,8 +1379,18 @@ public class HiveMetadata
 
     private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, TypeManager typeManager)
     {
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        table.getPartitionKeys().stream().map(FieldSchema::getName).forEach(columnNames::add);
+        table.getSd().getCols().stream().map(FieldSchema::getName).forEach(columnNames::add);
+        List<String> allColumnNames = columnNames.build();
+        if (allColumnNames.size() > Sets.newHashSet(allColumnNames).size()) {
+            throw new PrestoException(HIVE_INVALID_METADATA,
+                    format("Hive metadata for table %s is invalid: Table descriptor contains duplicate columns", table.getTableName()));
+        }
+
+        List<FieldSchema> tableColumns = table.getSd().getCols();
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        for (FieldSchema field : concat(table.getSd().getCols(), table.getPartitionKeys())) {
+        for (FieldSchema field : concat(tableColumns, table.getPartitionKeys())) {
             if (field.getComment() != null) {
                 builder.put(field.getName(), field.getComment());
             }
