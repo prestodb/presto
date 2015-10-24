@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
@@ -901,14 +902,23 @@ public class TupleAnalyzer
             }
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
+                Expression expression = column.getExpression();
 
                 Optional<String> alias = column.getAlias();
-                if (!alias.isPresent() && column.getExpression() instanceof QualifiedNameReference) {
-                    QualifiedName name = ((QualifiedNameReference) column.getExpression()).getName();
-                    alias = Optional.of(getLast(name.getOriginalParts()));
+                if (!alias.isPresent()) {
+                    QualifiedName name = null;
+                    if (expression instanceof QualifiedNameReference) {
+                        name = ((QualifiedNameReference) expression).getName();
+                    }
+                    else if (expression instanceof DereferenceExpression) {
+                        name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
+                    }
+                    if (name != null) {
+                        alias = Optional.of(getLast(name.getOriginalParts()));
+                    }
                 }
 
-                outputFields.add(Field.newUnqualified(alias, analysis.getType(column.getExpression()))); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                outputFields.add(Field.newUnqualified(alias, analysis.getType(expression))); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
             }
             else {
                 throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
