@@ -284,6 +284,57 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM VALUES (11, 370, 1), (22, 781, 2), (33, 1234, 3)");
     }
 
+    @Test
+    public void testDereferenceInSubquery()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT x " +
+                        "FROM (" +
+                        "   SELECT a.x" +
+                        "   FROM (VALUES 1, 2, 3) a(x)" +
+                        ") " +
+                        "GROUP BY x",
+                "SELECT * FROM VALUES 1, 2, 3");
+
+        assertQuery("" +
+                "SELECT custkey, orders2 " +
+                "FROM (" +
+                "   SELECT x.custkey, SUM(x.orders) + 1 orders2 " +
+                "   FROM ( " +
+                "      SELECT x.custkey, COUNT(x.orderkey) orders " +
+                "      FROM ORDERS x " +
+                "      WHERE x.custkey < 100 " +
+                "      GROUP BY x.custkey " +
+                "   ) x " +
+                "   GROUP BY x.custkey" +
+                ") " +
+                "ORDER BY custkey");
+    }
+
+    @Test
+    public void testDereferenceInFunctionCall()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(DISTINCT custkey) " +
+                "FROM ( " +
+                "  SELECT x.custkey " +
+                "  FROM ORDERS x " +
+                "  WHERE custkey < 100 " +
+                ") t");
+    }
+
+    @Test
+    public void testDereferenceInComparsion()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT orders.custkey, orders.orderkey " +
+                "FROM ORDERS " +
+                "WHERE orders.custkey > orders.orderkey AND orders.custkey < 200");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "'\"a\".\"col0\"' must be an aggregate expression or appear in GROUP BY clause")
     public void testMissingRowFieldInGroupBy()
             throws Exception
