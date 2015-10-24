@@ -20,12 +20,27 @@ import java.util.Arrays;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlVarbinary
+        implements Comparable<SqlVarbinary>
 {
     private final byte[] bytes;
 
     public SqlVarbinary(byte[] bytes)
     {
         this.bytes = requireNonNull(bytes, "bytes is null");
+    }
+
+    @Override
+    public int compareTo(SqlVarbinary obj)
+    {
+        for (int i = 0; i < Math.min(bytes.length, obj.bytes.length); i++) {
+            if (bytes[i] < obj.bytes[i]) {
+                return -1;
+            }
+            else if (bytes[i] > obj.bytes[i]) {
+                return 1;
+            }
+        }
+        return bytes.length - obj.bytes.length;
     }
 
     @JsonValue
