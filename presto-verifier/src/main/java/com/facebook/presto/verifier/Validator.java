@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier;
 
 import com.facebook.presto.jdbc.PrestoConnection;
+import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.verifier.Validator.ChangedRow.Changed;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
@@ -445,6 +446,9 @@ public class Validator
                 }
                 if (object instanceof Array) {
                     object = ((Array) object).getArray();
+                }
+                if (object instanceof byte[]) {
+                    object = new SqlVarbinary((byte[]) object);
                 }
                 row.add(object);
             }
