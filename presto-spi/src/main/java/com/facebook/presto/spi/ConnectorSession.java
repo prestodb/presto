@@ -20,6 +20,8 @@ import java.util.Locale;
 
 public interface ConnectorSession
 {
+    String getQueryId();
+
     default String getUser()
     {
         return getIdentity().getUser();

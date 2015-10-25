@@ -30,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class FullConnectorSession
         implements ConnectorSession
 {
+    private final String queryId;
     private final Identity identity;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
@@ -39,11 +40,13 @@ public class FullConnectorSession
     private final SessionPropertyManager sessionPropertyManager;
 
     public FullConnectorSession(
+            String queryId,
             Identity identity,
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime)
     {
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
@@ -55,6 +58,7 @@ public class FullConnectorSession
     }
 
     public FullConnectorSession(
+            String queryId,
             Identity identity,
             TimeZoneKey timeZoneKey,
             Locale locale,
@@ -63,6 +67,7 @@ public class FullConnectorSession
             String catalog,
             SessionPropertyManager sessionPropertyManager)
     {
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
@@ -71,6 +76,12 @@ public class FullConnectorSession
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+    }
+
+    @Override
+    public String getQueryId()
+    {
+        return queryId;
     }
 
     @Override
@@ -112,6 +123,7 @@ public class FullConnectorSession
     {
         return toStringHelper(this)
                 .omitNullValues()
+                .add("queryId", queryId)
                 .add("user", getUser())
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)

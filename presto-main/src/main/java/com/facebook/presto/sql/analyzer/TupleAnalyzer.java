@@ -1118,6 +1118,7 @@ public class TupleAnalyzer
             }
 
             Session viewSession = Session.builder(metadata.getSessionPropertyManager())
+                    .setQueryId(session.getQueryId())
                     .setIdentity(identity)
                     .setSource(session.getSource().orElse(null))
                     .setCatalog(catalog.orElse(null))

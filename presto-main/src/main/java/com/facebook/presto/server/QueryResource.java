@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageId;
@@ -55,13 +56,15 @@ public class QueryResource
     private final QueryManager queryManager;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
+    private final QueryIdGenerator queryIdGenerator;
 
     @Inject
-    public QueryResource(QueryManager queryManager, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
+    public QueryResource(QueryManager queryManager, AccessControl accessControl, SessionPropertyManager sessionPropertyManager, QueryIdGenerator queryIdGenerator)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
     }
 
     @GET
@@ -103,7 +106,7 @@ public class QueryResource
     {
         assertRequest(!isNullOrEmpty(statement), "SQL statement is empty");
 
-        Session session = createSessionForRequest(servletRequest, accessControl, sessionPropertyManager);
+        Session session = createSessionForRequest(servletRequest, accessControl, sessionPropertyManager, queryIdGenerator.createNextQueryId());
 
         QueryInfo queryInfo = queryManager.createQuery(session, statement);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();

@@ -67,6 +67,12 @@ public class TestingConnectorSession
     }
 
     @Override
+    public String getQueryId()
+    {
+        return "test_connector_query_id";
+    }
+
+    @Override
     public Identity getIdentity()
     {
         return identity;

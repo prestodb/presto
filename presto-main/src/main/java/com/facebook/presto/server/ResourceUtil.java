@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.security.AccessDeniedException;
@@ -63,7 +64,7 @@ final class ResourceUtil
     {
     }
 
-    public static Session createSessionForRequest(HttpServletRequest servletRequest, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
+    public static Session createSessionForRequest(HttpServletRequest servletRequest, AccessControl accessControl, SessionPropertyManager sessionPropertyManager, QueryId queryId)
     {
         String catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
         String schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
@@ -82,6 +83,7 @@ final class ResourceUtil
 
         Identity identity = new Identity(user, Optional.ofNullable(principal));
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
+                .setQueryId(queryId)
                 .setIdentity(identity)
                 .setSource(servletRequest.getHeader(PRESTO_SOURCE))
                 .setCatalog(catalog)

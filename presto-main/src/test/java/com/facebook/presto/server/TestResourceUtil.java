@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.google.common.collect.ImmutableListMultimap;
@@ -57,8 +58,9 @@ public class TestResourceUtil
                         .build(),
                 "testRemote");
 
-        Session session = createSessionForRequest(request, new AllowAllAccessControl(), new SessionPropertyManager());
+        Session session = createSessionForRequest(request, new AllowAllAccessControl(), new SessionPropertyManager(), new QueryId("test_query_id"));
 
+        assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
         assertEquals(session.getSource().get(), "testSource");
         assertEquals(session.getCatalog().get(), "testCatalog");

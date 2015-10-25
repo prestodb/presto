@@ -207,6 +207,7 @@ public class LocalQueryRunner
 
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(
+                defaultSession.getQueryId(),
                 defaultSession.getIdentity(),
                 defaultSession.getSource(),
                 defaultSession.getCatalog(),
