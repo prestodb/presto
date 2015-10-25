@@ -30,12 +30,14 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.EmptyGroupingSet;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Explain;
@@ -47,6 +49,9 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupBySpecification;
+import com.facebook.presto.sql.tree.GroupingColumnReferenceList;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -78,6 +83,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -92,6 +98,7 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
@@ -324,10 +331,48 @@ class AstBuilder
                 new Select(getLocation(context.SELECT()), isDistinct(context.setQuantifier()), visit(context.selectItem(), SelectItem.class)),
                 from,
                 visitIfPresent(context.where, Expression.class),
-                visit(context.groupBy, Expression.class),
+                visit(context.groupingElement(), GroupBySpecification.class),
                 visitIfPresent(context.having, Expression.class),
                 ImmutableList.of(),
                 Optional.<String>empty());
+    }
+
+    @Override
+    public Node visitGroupingColumnReferenceList(SqlBaseParser.GroupingColumnReferenceListContext context)
+    {
+        return new GroupingColumnReferenceList(getLocation(context), context.qualifiedName().stream()
+                .map(AstBuilder::getQualifiedName)
+                .collect(Collectors.toList()));
+    }
+
+    @Override
+    public Node visitSimpleGroupBy(SqlBaseParser.SimpleGroupByContext context)
+    {
+        return new SimpleGroupBy(getLocation(context), visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitRollupList(SqlBaseParser.RollupListContext context)
+    {
+        return new Rollup(getLocation(context), (GroupingColumnReferenceList) visit(context.rollupList));
+    }
+
+    @Override
+    public Node visitCubeList(SqlBaseParser.CubeListContext context)
+    {
+        return new Cube(getLocation(context), (GroupingColumnReferenceList) visit(context.cubeList));
+    }
+
+    @Override
+    public Node visitEmptyGroupingSet(SqlBaseParser.EmptyGroupingSetContext context)
+    {
+        return new EmptyGroupingSet(getLocation(context));
+    }
+
+    @Override
+    public Node visitGroupingSet(SqlBaseParser.GroupingSetContext context)
+    {
+        return new GroupingSets(getLocation(context), visit(context.groupingColumnReferenceList(), GroupingColumnReferenceList.class));
     }
 
     @Override

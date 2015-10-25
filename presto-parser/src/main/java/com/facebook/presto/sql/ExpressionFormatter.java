@@ -32,6 +32,8 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupBySpecification;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -52,6 +54,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
@@ -71,6 +74,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 
 public final class ExpressionFormatter
 {
@@ -564,6 +568,34 @@ public final class ExpressionFormatter
         return Joiner.on(", ").join(sortItems.stream()
                 .map(sortItemFormatterFunction(unmangleNames))
                 .iterator());
+    }
+
+    static String formatGroupBy(List<GroupBySpecification> groupBySpecifications)
+    {
+        checkState(groupBySpecifications.size() <= 1, "multiple groupings are not yet supported");
+        for (GroupBySpecification groupBySpecification : groupBySpecifications) {
+            if (groupBySpecification instanceof SimpleGroupBy) {
+                return Joiner.on(", ").join(
+                        getOnlyElement(groupBySpecification.enumerateGroupingSets()).stream()
+                                .map(ExpressionFormatter::formatExpression)
+                                .collect(Collectors.toList()));
+            }
+            else if (groupBySpecification instanceof GroupingSets) {
+                return "GROUPING SETS " + Joiner.on(", ").join(
+                        groupBySpecification.enumerateGroupingSets().stream()
+                                .map(ExpressionFormatter::formatGroupingSet)
+                                .map(set -> "(" + set + ")")
+                                .collect(Collectors.toList()));
+            }
+        }
+        return "";
+    }
+
+    private static String formatGroupingSet(List<Expression> groupingSet)
+    {
+        return Joiner.on(", ").join(groupingSet.stream()
+                .map(ExpressionFormatter::formatExpression)
+                .collect(Collectors.toList()));
     }
 
     private static Function<SortItem, String> sortItemFormatterFunction(boolean unmangleNames)

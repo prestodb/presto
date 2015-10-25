@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -69,12 +70,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -339,10 +342,24 @@ class QueryPlanner
 
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
     {
-        if (analysis.getAggregates(node).isEmpty() && analysis.getGroupByExpressions(node).isEmpty()) {
+        if (analysis.getAggregates(node).isEmpty() && analysis.getGroupingSets(node).isEmpty()) {
             return subPlan;
         }
 
+        List<List<FieldOrExpression>> groupingSets = analysis.getGroupingSets(node);
+        if (groupingSets.size() == 0) {
+            return aggregateSingleGroupingSet(ImmutableList.of(), subPlan, node);
+        }
+        else if (groupingSets.size() == 1) {
+            return aggregateSingleGroupingSet(getOnlyElement(groupingSets), subPlan, node);
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, "Multiple GROUPING SETS not yet supported");
+        }
+    }
+
+    private PlanBuilder aggregateSingleGroupingSet(List<FieldOrExpression> singleGroupingSet, PlanBuilder subPlan, QuerySpecification node)
+    {
         List<FieldOrExpression> arguments = analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
@@ -350,7 +367,7 @@ class QueryPlanner
                 .collect(toImmutableList());
 
         // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
-        Iterable<FieldOrExpression> inputs = Iterables.concat(analysis.getGroupByExpressions(node), arguments);
+        Iterable<FieldOrExpression> inputs = Iterables.concat(singleGroupingSet, arguments);
         if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
             subPlan = project(subPlan, inputs);
         }
@@ -380,7 +397,7 @@ class QueryPlanner
 
         // 2.b. Rewrite group by expressions in terms of pre-projected inputs
         Set<Symbol> groupBySymbols = new LinkedHashSet<>();
-        for (FieldOrExpression fieldOrExpression : analysis.getGroupByExpressions(node)) {
+        for (FieldOrExpression fieldOrExpression : singleGroupingSet) {
             Symbol symbol = subPlan.translate(fieldOrExpression);
             groupBySymbols.add(symbol);
             translations.put(fieldOrExpression, symbol);
@@ -397,7 +414,7 @@ class QueryPlanner
             Symbol aggregateSymbol = translations.get(aggregate);
             if (marker == null) {
                 if (args.size() == 1) {
-                    marker = symbolAllocator.newSymbol(Iterables.getOnlyElement(args), BOOLEAN, "distinct");
+                    marker = symbolAllocator.newSymbol(getOnlyElement(args), BOOLEAN, "distinct");
                 }
                 else {
                     marker = symbolAllocator.newSymbol(aggregateSymbol.getName(), BOOLEAN, "distinct");
@@ -445,7 +462,7 @@ class QueryPlanner
         // Add back the implicit casts that we removed in 2.a
         // TODO: this is a hack, we should change type coercions to coerce the inputs to functions/operators instead of coercing the output
         if (needPostProjectionCoercion) {
-            return explicitCoercionFields(subPlan, analysis.getGroupByExpressions(node), analysis.getAggregates(node));
+            return explicitCoercionFields(subPlan, singleGroupingSet, analysis.getAggregates(node));
         }
         return subPlan;
     }
@@ -630,7 +647,7 @@ class QueryPlanner
         SubqueryExpression subqueryExpression = (SubqueryExpression) inPredicate.getValueList();
         RelationPlanner relationPlanner = new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
         RelationPlan valueListRelation = relationPlanner.process(subqueryExpression.getQuery(), null);
-        Symbol filteringSourceJoinSymbol = Iterables.getOnlyElement(valueListRelation.getRoot().getOutputSymbols());
+        Symbol filteringSourceJoinSymbol = getOnlyElement(valueListRelation.getRoot().getOutputSymbols());
 
         Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", BOOLEAN);
 

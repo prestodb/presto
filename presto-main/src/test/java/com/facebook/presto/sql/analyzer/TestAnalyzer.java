@@ -669,6 +669,39 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testSingleGroupingSet()
+            throws Exception
+    {
+        // TODO: validate output
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a))");
+    }
+
+    @Test
+    public void testSingleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        // TODO: validate output
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b))");
+    }
+
+    @Test
+    public void testMultipleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        // TODO: validate output
+        assertFails(NOT_SUPPORTED, "SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b), (c, d))");
+    }
+
+    @Test
+    public void testMultipleGroupingSetsMultipleTypes()
+            throws Exception
+    {
+        // TODO: validate output
+        assertFails(NOT_SUPPORTED, "SELECT a, SUM(b) FROM t1 GROUP BY a, b, GROUPING SETS ((c, d))");
+    }
+
+    @Test
     public void testAggregateWithWildcard()
             throws Exception
     {

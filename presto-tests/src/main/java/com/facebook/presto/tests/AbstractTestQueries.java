@@ -1233,6 +1233,23 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSingleGroupingSet()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT orderstatus, SUM(totalprice) FROM ORDERS GROUP BY GROUPING SETS (orderstatus)",
+                "SELECT orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testSingleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY GROUPING SETS (custkey, orderstatus) ORDER BY 3",
+                "SELECT custkey, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY custkey, orderstatus ORDER BY 3");
+    }
+
+    @Test
     public void testCountAllWithComparison()
             throws Exception
     {
