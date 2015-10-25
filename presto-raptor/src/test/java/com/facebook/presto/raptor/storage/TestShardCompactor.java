@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
@@ -110,7 +111,7 @@ public class TestShardCompactor
         Set<UUID> inputUuids = inputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
 
         long transactionId = 1;
-        List<ShardInfo> outputShards = compactor.compact(transactionId, inputUuids, getColumnInfo(columnIds, columnTypes));
+        List<ShardInfo> outputShards = compactor.compact(transactionId, OptionalInt.empty(), inputUuids, getColumnInfo(columnIds, columnTypes));
         assertEquals(outputShards.size(), expectedOutputShards);
 
         Set<UUID> outputUuids = outputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
@@ -138,7 +139,7 @@ public class TestShardCompactor
         Set<UUID> inputUuids = inputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
 
         long transactionId = 1;
-        List<ShardInfo> outputShards = compactor.compactSorted(transactionId, inputUuids, getColumnInfo(columnIds, columnTypes), sortColumnIds, sortOrders);
+        List<ShardInfo> outputShards = compactor.compactSorted(transactionId, OptionalInt.empty(), inputUuids, getColumnInfo(columnIds, columnTypes), sortColumnIds, sortOrders);
         List<UUID> outputUuids = outputShards.stream()
                 .map(ShardInfo::getShardUuid)
                 .collect(toList());
@@ -221,7 +222,7 @@ public class TestShardCompactor
     {
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES)) {
+            try (ConnectorPageSource pageSource = getPageSource(columnIds, columnTypes, uuid)) {
                 while (!pageSource.isFinished()) {
                     Page outputPage = pageSource.getNextPage();
                     if (outputPage == null) {
@@ -240,12 +241,17 @@ public class TestShardCompactor
     {
         MaterializedResult.Builder rows = MaterializedResult.resultBuilder(SESSION, columnTypes);
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES)) {
+            try (ConnectorPageSource pageSource = getPageSource(columnIds, columnTypes, uuid)) {
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
                 rows.rows(result.getMaterializedRows());
             }
         }
         return rows.build();
+    }
+
+    private ConnectorPageSource getPageSource(List<Long> columnIds, List<Type> columnTypes, UUID uuid)
+    {
+        return storageManager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES);
     }
 
     private static List<ShardInfo> createSortedShards(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int shardCount)
@@ -289,7 +295,7 @@ public class TestShardCompactor
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
     {
         long transactionId = 1;
-        return manager.createStoragePageSink(transactionId, columnIds, columnTypes);
+        return manager.createStoragePageSink(transactionId, OptionalInt.empty(), columnIds, columnTypes);
     }
 
     private static List<Page> createPages(List<Type> columnTypes)

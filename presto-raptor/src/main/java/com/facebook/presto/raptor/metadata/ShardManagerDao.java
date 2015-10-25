@@ -38,12 +38,13 @@ public interface ShardManagerDao
     @GetGeneratedKeys
     int insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
 
-    @SqlUpdate("INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size)\n" +
-            "VALUES (:shardUuid, :tableId, CURRENT_TIMESTAMP, :rowCount, :compressedSize, :uncompressedSize)")
+    @SqlUpdate("INSERT INTO shards (shard_uuid, table_id, bucket_number, create_time, row_count, compressed_size, uncompressed_size)\n" +
+            "VALUES (:shardUuid, :tableId, :bucketNumber, CURRENT_TIMESTAMP, :rowCount, :compressedSize, :uncompressedSize)")
     @GetGeneratedKeys
     long insertShard(
             @Bind("shardUuid") UUID shardUuid,
             @Bind("tableId") long tableId,
+            @Bind("bucketNumber") Integer bucketNumber,
             @Bind("rowCount") long rowCount,
             @Bind("compressedSize") long compressedSize,
             @Bind("uncompressedSize") long uncompressedSize);
@@ -74,7 +75,7 @@ public interface ShardManagerDao
     @SqlQuery("SELECT shard_uuid FROM shards WHERE table_id = :tableId")
     List<UUID> getShards(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT s.table_id, s.shard_id, s.shard_uuid, s.row_count, s.compressed_size, s.uncompressed_size\n" +
+    @SqlQuery("SELECT s.table_id, s.shard_id, s.shard_uuid, s.bucket_number, s.row_count, s.compressed_size, s.uncompressed_size\n" +
             "FROM shards s\n" +
             "JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +

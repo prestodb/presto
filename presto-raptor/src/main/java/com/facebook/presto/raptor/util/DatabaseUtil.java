@@ -21,11 +21,15 @@ import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.exceptions.DBIException;
 
 import java.lang.reflect.InvocationTargetException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_METADATA_ERROR;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.reflect.Reflection.newProxy;
+import static java.sql.Types.INTEGER;
 
 public final class DatabaseUtil
 {
@@ -82,6 +86,24 @@ public final class DatabaseUtil
                 }
             }
             throw e;
+        }
+    }
+
+    public static OptionalInt getOptionalInt(ResultSet rs, String name)
+            throws SQLException
+    {
+        int value = rs.getInt(name);
+        return rs.wasNull() ? OptionalInt.empty() : OptionalInt.of(value);
+    }
+
+    public static void bindOptionalInt(PreparedStatement statement, int index, OptionalInt value)
+            throws SQLException
+    {
+        if (value.isPresent()) {
+            statement.setInt(index, value.getAsInt());
+        }
+        else {
+            statement.setNull(index, INTEGER);
         }
     }
 }

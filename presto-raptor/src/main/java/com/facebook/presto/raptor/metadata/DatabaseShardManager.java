@@ -60,6 +60,7 @@ import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
+import static com.facebook.presto.raptor.util.DatabaseUtil.bindOptionalInt;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
@@ -127,6 +128,7 @@ public class DatabaseShardManager
                 "  shard_id BIGINT NOT NULL PRIMARY KEY,\n" +
                 "  shard_uuid BINARY(16) NOT NULL,\n" +
                 "  node_ids VARBINARY(128) NOT NULL,\n" +
+                "  bucket_number INT,\n" +
                 tableColumns +
                 "  UNIQUE (shard_uuid)\n" +
                 ")";
@@ -317,7 +319,12 @@ public class DatabaseShardManager
                     Set<Integer> shardNodes = shard.getNodeIdentifiers().stream()
                             .map(nodeIds::get)
                             .collect(toSet());
-                    indexInserter.insert(shardIds.get(i), shard.getShardUuid(), shardNodes, shard.getColumnStats());
+                    indexInserter.insert(
+                            shardIds.get(i),
+                            shard.getShardUuid(),
+                            shard.getBucketNumber(),
+                            shardNodes,
+                            shard.getColumnStats());
                 }
                 indexInserter.execute();
             }
@@ -476,8 +483,8 @@ public class DatabaseShardManager
             throws SQLException
     {
         String sql = "" +
-                "INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size)\n" +
-                "VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?)";
+                "INSERT INTO shards (shard_uuid, table_id, create_time, row_count, compressed_size, uncompressed_size, bucket_number)\n" +
+                "VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)";
 
         try (PreparedStatement statement = connection.prepareStatement(sql, RETURN_GENERATED_KEYS)) {
             for (ShardInfo shard : shards) {
@@ -486,6 +493,7 @@ public class DatabaseShardManager
                 statement.setLong(3, shard.getRowCount());
                 statement.setLong(4, shard.getCompressedSize());
                 statement.setLong(5, shard.getUncompressedSize());
+                bindOptionalInt(statement, 6, shard.getBucketNumber());
                 statement.addBatch();
             }
             statement.executeBatch();

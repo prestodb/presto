@@ -22,6 +22,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
@@ -34,6 +35,7 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardInde
 import static com.facebook.presto.raptor.metadata.ShardPredicate.bindValue;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
+import static com.facebook.presto.raptor.util.DatabaseUtil.bindOptionalInt;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static io.airlift.slice.Slices.utf8Slice;
 
@@ -55,9 +57,9 @@ class IndexInserter
         StringJoiner valueJoiner = new StringJoiner(", ");
         int index = 1;
 
-        nameJoiner.add("shard_id").add("shard_uuid").add("node_ids");
-        valueJoiner.add("?").add("?").add("?");
-        index += 3;
+        nameJoiner.add("shard_id").add("shard_uuid").add("node_ids").add("bucket_number");
+        valueJoiner.add("?").add("?").add("?").add("?");
+        index += 4;
 
         for (ColumnInfo column : columns) {
             JDBCType jdbcType = jdbcType(column.getType());
@@ -100,12 +102,13 @@ class IndexInserter
         statement.close();
     }
 
-    public void insert(long shardId, UUID shardUuid, Set<Integer> nodeIds, List<ColumnStats> stats)
+    public void insert(long shardId, UUID shardUuid, OptionalInt bucketNumber, Set<Integer> nodeIds, List<ColumnStats> stats)
             throws SQLException
     {
         statement.setLong(1, shardId);
         statement.setBytes(2, uuidToBytes(shardUuid));
         statement.setBytes(3, intArrayToBytes(nodeIds));
+        bindOptionalInt(statement, 4, bucketNumber);
 
         for (ColumnInfo column : columns) {
             int index = indexes.get(column.getColumnId());

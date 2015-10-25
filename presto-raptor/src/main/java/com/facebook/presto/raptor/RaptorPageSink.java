@@ -33,6 +33,7 @@ import io.airlift.units.DataSize;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -69,7 +70,7 @@ public class RaptorPageSink
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
 
         requireNonNull(storageManager, "storageManager is null");
-        this.storagePageSink = storageManager.createStoragePageSink(transactionId, columnIds, columnTypes);
+        this.storagePageSink = storageManager.createStoragePageSink(transactionId, OptionalInt.empty(), columnIds, columnTypes);
         this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
 
         requireNonNull(sampleWeightColumnId, "sampleWeightColumnId is null");

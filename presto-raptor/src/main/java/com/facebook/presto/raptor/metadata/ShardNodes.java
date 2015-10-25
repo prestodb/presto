@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.metadata;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
@@ -25,17 +26,24 @@ import static java.util.Objects.requireNonNull;
 public class ShardNodes
 {
     private final UUID shardUuid;
+    private final OptionalInt bucketNumber;
     private final Set<String> nodeIdentifiers;
 
-    public ShardNodes(UUID shardUuid, Set<String> nodeIdentifiers)
+    public ShardNodes(UUID shardUuid, OptionalInt bucketNumber, Set<String> nodeIdentifiers)
     {
         this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.nodeIdentifiers = ImmutableSet.copyOf(requireNonNull(nodeIdentifiers, "nodeIdentifiers is null"));
     }
 
     public UUID getShardUuid()
     {
         return shardUuid;
+    }
+
+    public OptionalInt getBucketNumber()
+    {
+        return bucketNumber;
     }
 
     public Set<String> getNodeIdentifiers()
@@ -54,13 +62,14 @@ public class ShardNodes
         }
         ShardNodes other = (ShardNodes) obj;
         return Objects.equals(this.shardUuid, other.shardUuid) &&
+                Objects.equals(this.bucketNumber, other.bucketNumber) &&
                 Objects.equals(this.nodeIdentifiers, other.nodeIdentifiers);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(shardUuid, nodeIdentifiers);
+        return Objects.hash(shardUuid, bucketNumber, nodeIdentifiers);
     }
 
     @Override
@@ -68,7 +77,9 @@ public class ShardNodes
     {
         return toStringHelper(this)
                 .add("shardUuid", shardUuid)
+                .add("bucketNumber", bucketNumber.isPresent() ? bucketNumber.getAsInt() : null)
                 .add("nodeIdentifiers", nodeIdentifiers)
+                .omitNullValues()
                 .toString();
     }
 }

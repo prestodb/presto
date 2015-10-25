@@ -23,6 +23,7 @@ public interface SchemaDao
             "  table_name VARCHAR(255) NOT NULL,\n" +
             "  temporal_column_id BIGINT,\n" +
             "  compaction_enabled BOOLEAN NOT NULL,\n" +
+            "  bucket_count INT,\n" +
             "  UNIQUE (schema_name, table_name)\n" +
             ")")
     void createTableTables();
@@ -34,10 +35,12 @@ public interface SchemaDao
             "  ordinal_position INT NOT NULL,\n" +
             "  data_type VARCHAR(255) NOT NULL,\n" +
             "  sort_ordinal_position INT,\n" +
+            "  bucket_ordinal_position INT,\n" +
             "  PRIMARY KEY (table_id, column_id),\n" +
             "  UNIQUE (table_id, column_name),\n" +
             "  UNIQUE (table_id, ordinal_position),\n" +
             "  UNIQUE (table_id, sort_ordinal_position),\n" +
+            "  UNIQUE (table_id, bucket_ordinal_position),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createTableColumns();
@@ -61,6 +64,7 @@ public interface SchemaDao
             "  shard_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
             "  table_id BIGINT NOT NULL,\n" +
+            "  bucket_number INT,\n" +
             "  create_time DATETIME NOT NULL,\n" +
             "  row_count BIGINT NOT NULL,\n" +
             "  compressed_size BIGINT NOT NULL,\n" +
