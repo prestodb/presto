@@ -37,25 +37,15 @@ public class RaptorTableProperties
     @Inject
     public RaptorTableProperties(TypeManager typeManager)
     {
-        tableProperties = ImmutableList.of(
-                new PropertyMetadata<>(
+        tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(stringListSessionProperty(
+                        typeManager,
                         ORDERING_PROPERTY,
-                        "Sort order for each shard of the table",
-                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()),
-                        List.class,
-                        ImmutableList.of(),
-                        false,
-                        value -> ImmutableList.copyOf(((List<String>) value).stream()
-                                .map(name -> name.toLowerCase(ENGLISH))
-                                .collect(toList()))),
-                new PropertyMetadata<>(
+                        "Sort order for each shard of the table"))
+                .add(lowerCaseStringSessionProperty(
                         TEMPORAL_COLUMN_PROPERTY,
-                        "Temporal column of the table",
-                        VARCHAR,
-                        String.class,
-                        null,
-                        false,
-                        value -> ((String) value).toLowerCase(ENGLISH)));
+                        "Temporal column of the table"))
+                .build();
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -65,11 +55,43 @@ public class RaptorTableProperties
 
     public static List<String> getSortColumns(Map<String, Object> tableProperties)
     {
-        return (List<String>) tableProperties.get(ORDERING_PROPERTY);
+        return stringList(tableProperties.get(ORDERING_PROPERTY));
     }
 
     public static String getTemporalColumn(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(TEMPORAL_COLUMN_PROPERTY);
+    }
+
+    public static PropertyMetadata<String> lowerCaseStringSessionProperty(String name, String description)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                String.class,
+                null,
+                false,
+                value -> ((String) value).toLowerCase(ENGLISH));
+    }
+
+    private static PropertyMetadata<?> stringListSessionProperty(TypeManager typeManager, String name, String description)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()),
+                List.class,
+                ImmutableList.of(),
+                false,
+                value -> ImmutableList.copyOf(stringList(value).stream()
+                        .map(s -> s.toLowerCase(ENGLISH))
+                        .collect(toList())));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> stringList(Object value)
+    {
+        return (value == null) ? ImmutableList.of() : ((List<String>) value);
     }
 }
