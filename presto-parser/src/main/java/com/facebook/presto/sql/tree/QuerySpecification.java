@@ -26,7 +26,7 @@ public class QuerySpecification
     private final Select select;
     private final Optional<Relation> from;
     private final Optional<Expression> where;
-    private final List<Expression> groupBy;
+    private final List<GroupingElement> groupBy;
     private final Optional<Expression> having;
     private final List<SortItem> orderBy;
     private final Optional<String> limit;
@@ -35,7 +35,7 @@ public class QuerySpecification
             Select select,
             Optional<Relation> from,
             Optional<Expression> where,
-            List<Expression> groupBy,
+            List<GroupingElement> groupBy,
             Optional<Expression> having,
             List<SortItem> orderBy,
             Optional<String> limit)
@@ -48,7 +48,7 @@ public class QuerySpecification
             Select select,
             Optional<Relation> from,
             Optional<Expression> where,
-            List<Expression> groupBy,
+            List<GroupingElement> groupBy,
             Optional<Expression> having,
             List<SortItem> orderBy,
             Optional<String> limit)
@@ -61,7 +61,7 @@ public class QuerySpecification
             Select select,
             Optional<Relation> from,
             Optional<Expression> where,
-            List<Expression> groupBy,
+            List<GroupingElement> groupBy,
             Optional<Expression> having,
             List<SortItem> orderBy,
             Optional<String> limit)
@@ -99,7 +99,7 @@ public class QuerySpecification
         return where;
     }
 
-    public List<Expression> getGroupBy()
+    public List<GroupingElement> getGroupBy()
     {
         return groupBy;
     }

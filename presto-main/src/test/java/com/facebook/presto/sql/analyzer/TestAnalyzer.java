@@ -669,6 +669,17 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testSingleGroupingSet()
+            throws Exception
+    {
+        // TODO: validate output
+        analyze("SELECT SUM(b) FROM t1 GROUP BY ()");
+        analyze("SELECT SUM(b) FROM t1 GROUP BY GROUPING SETS (())");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b))");
+    }
+
+    @Test
     public void testAggregateWithWildcard()
             throws Exception
     {
