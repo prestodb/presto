@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -113,6 +114,7 @@ public class InformationSchemaPageSourceProvider
         Map<String, SerializableNativeValue> filters = split.getFilters();
 
         Session session = Session.builder(metadata.getSessionPropertyManager())
+                .setQueryId(new QueryId(connectorSession.getQueryId()))
                 .setIdentity(connectorSession.getIdentity())
                 .setSource("information_schema")
                 .setCatalog("") // default catalog is not be used

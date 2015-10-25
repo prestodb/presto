@@ -15,6 +15,7 @@ package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
@@ -36,6 +37,7 @@ final class FilterUtil
     public static Session toSession(ConnectorSession session)
     {
         return Session.builder(new SessionPropertyManager(SYSTEM_SESSION_PROPERTIES))
+                .setQueryId(new QueryId(session.getQueryId()))
                 .setCatalog("catalog")
                 .setSchema("schema")
                 .setIdentity(session.getIdentity())

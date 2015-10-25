@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.security.Identity;
 
@@ -25,11 +26,14 @@ import static java.util.Locale.ENGLISH;
 
 public final class TestingSession
 {
+    private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
+
     private TestingSession() {}
 
     public static SessionBuilder testSessionBuilder()
     {
         return Session.builder(new SessionPropertyManager())
+                .setQueryId(queryIdGenerator.createNextQueryId())
                 .setIdentity(new Identity("user", Optional.empty()))
                 .setSource("test")
                 .setCatalog("catalog")

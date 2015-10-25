@@ -89,7 +89,6 @@ public class SqlQueryManager
 
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
-    private final QueryIdGenerator queryIdGenerator;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
 
@@ -102,7 +101,6 @@ public class SqlQueryManager
             QueryMonitor queryMonitor,
             QueryQueueManager queueManager,
             ClusterMemoryManager memoryManager,
-            QueryIdGenerator queryIdGenerator,
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
     {
@@ -119,7 +117,6 @@ public class SqlQueryManager
 
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
-        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
 
         this.maxQueryAge = config.getMaxQueryAge();
         this.maxQueryHistory = config.getMaxQueryHistory();
@@ -268,7 +265,7 @@ public class SqlQueryManager
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
 
-        QueryId queryId = queryIdGenerator.createNextQueryId();
+        QueryId queryId = session.getQueryId();
 
         Statement statement;
         QueryExecutionFactory<?> queryExecutionFactory;

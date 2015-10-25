@@ -38,6 +38,12 @@ public class TestDictionaryBlockEncoding
     private static final ConnectorSession SESSION = new ConnectorSession()
     {
         @Override
+        public String getQueryId()
+        {
+            return "test_query_id";
+        }
+
+        @Override
         public Identity getIdentity()
         {
             return new Identity("user", Optional.empty());

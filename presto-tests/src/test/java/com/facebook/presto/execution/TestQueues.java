@@ -31,17 +31,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TestQueues
 {
-    private static final Session SESSION = testSessionBuilder()
-            .setCatalog("tpch")
-            .setSchema("sf100000")
-            .build();
-
-    private static final Session DASHBOARD_SESSION = testSessionBuilder()
-            .setCatalog("tpch")
-            .setSchema("sf100000")
-            .setSource("dashboard")
-            .build();
-
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
 
     @Test(timeOut = 240_000)
@@ -54,25 +43,25 @@ public class TestQueues
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
             // submit first "dashboard" query
-            QueryId firstDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
 
             // wait for the first "dashboard" query to start
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
 
             // submit second "dashboard" query
-            QueryId secondDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
 
             // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
             // submit first non "dashboard" query
-            QueryId firstNonDashboardQuery = createQuery(queryRunner, SESSION, LONG_LASTING_QUERY);
+            QueryId firstNonDashboardQuery = createQuery(queryRunner, newSession(), LONG_LASTING_QUERY);
 
             // wait for the first non "dashboard" query to start
             waitForQueryState(queryRunner, firstNonDashboardQuery, RUNNING);
 
             // submit second non "dashboard" query
-            QueryId secondNonDashboardQuery = createQuery(queryRunner, SESSION, LONG_LASTING_QUERY);
+            QueryId secondNonDashboardQuery = createQuery(queryRunner, newSession(), LONG_LASTING_QUERY);
 
             // wait for the second non "dashboard" query to be queued ("user.${USER}" queue strategy only allows three user queries to be accepted for execution,
             // two "dashboard" and one non "dashboard" queries are already accepted by "user.${USER}" queue)
@@ -95,8 +84,8 @@ public class TestQueues
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
-            QueryId firstDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
-            QueryId secondDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
 
             ImmutableSet<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
             waitForQueryState(queryRunner, firstDashboardQuery, queuedOrRunning);
@@ -113,13 +102,13 @@ public class TestQueues
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(properties)) {
-            QueryId firstDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
 
-            QueryId secondDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
-            QueryId thirdDashboardQuery = createQuery(queryRunner, DASHBOARD_SESSION, LONG_LASTING_QUERY);
+            QueryId thirdDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
         }
     }
@@ -169,5 +158,22 @@ public class TestQueues
             queryRunner.close();
             throw e;
         }
+    }
+
+    private static Session newSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .build();
+    }
+
+    private static Session newDashboardSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .setSource("dashboard")
+                .build();
     }
 }

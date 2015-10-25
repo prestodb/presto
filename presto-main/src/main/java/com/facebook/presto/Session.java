@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.security.Identity;
@@ -37,6 +38,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class Session
 {
+    private final QueryId queryId;
     private final Identity identity;
     private final Optional<String> source;
     private final Optional<String> catalog;
@@ -51,6 +53,7 @@ public final class Session
     private final SessionPropertyManager sessionPropertyManager;
 
     public Session(
+            QueryId queryId,
             Identity identity,
             Optional<String> source,
             Optional<String> catalog,
@@ -64,6 +67,7 @@ public final class Session
             Map<String, Map<String, String>> catalogProperties,
             SessionPropertyManager sessionPropertyManager)
     {
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = identity;
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -83,6 +87,11 @@ public final class Session
         this.catalogProperties = catalogPropertiesBuilder.build();
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
+    }
+
+    public QueryId getQueryId()
+    {
+        return queryId;
     }
 
     public String getUser()
@@ -164,6 +173,7 @@ public final class Session
         systemProperties.put(key, value);
 
         return new Session(
+                queryId,
                 identity,
                 source,
                 catalog,
@@ -196,6 +206,7 @@ public final class Session
         catalogProperties.put(catalog, properties);
 
         return new Session(
+                queryId,
                 identity,
                 source,
                 this.catalog,
@@ -212,13 +223,14 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(identity, timeZoneKey, locale, startTime);
+        return new FullConnectorSession(queryId.toString(), identity, timeZoneKey, locale, startTime);
     }
 
     public ConnectorSession toConnectorSession(String catalog)
     {
         requireNonNull(catalog, "catalog is null");
         return new FullConnectorSession(
+                queryId.toString(),
                 identity,
                 timeZoneKey,
                 locale,
@@ -254,6 +266,7 @@ public final class Session
     public SessionRepresentation toSessionRepresentation()
     {
         return new SessionRepresentation(
+                queryId.toString(),
                 identity.getUser(),
                 identity.getPrincipal().map(Principal::toString),
                 source,
@@ -272,6 +285,7 @@ public final class Session
     public String toString()
     {
         return toStringHelper(this)
+                .add("queryId", queryId)
                 .add("user", getUser())
                 .add("principal", getIdentity().getPrincipal().orElse(null))
                 .add("source", source.orElse(null))
@@ -293,6 +307,7 @@ public final class Session
 
     public static class SessionBuilder
     {
+        private QueryId queryId;
         private Identity identity;
         private String source;
         private String catalog;
@@ -309,6 +324,12 @@ public final class Session
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
             this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        }
+
+        public SessionBuilder setQueryId(QueryId queryId)
+        {
+            this.queryId = requireNonNull(queryId, "queryId is null");
+            return this;
         }
 
         public SessionBuilder setCatalog(String catalog)
@@ -391,6 +412,7 @@ public final class Session
         public Session build()
         {
             return new Session(
+                    queryId,
                     identity,
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
