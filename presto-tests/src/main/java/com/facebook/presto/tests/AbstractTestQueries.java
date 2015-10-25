@@ -1233,6 +1233,56 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSingleEmptyGroupBy()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY ()",
+                "SELECT SUM(quantity) " +
+                        "FROM lineitem");
+    }
+
+    @Test
+    public void testSingleEmptyGroupingSet()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY GROUPING SETS (())",
+                "SELECT SUM(quantity) " +
+                        "FROM lineitem");
+    }
+
+    @Test
+    public void testSingleGroupingSet()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT suppkey, SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY GROUPING SETS (suppkey) ",
+                "SELECT suppkey, SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY suppkey");
+    }
+
+    @Test
+    public void testSingleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT linenumber, suppkey, SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY GROUPING SETS ((linenumber, suppkey)) ",
+                "SELECT linenumber, suppkey, SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY linenumber, suppkey");
+    }
+
+    @Test
     public void testCountAllWithComparison()
             throws Exception
     {

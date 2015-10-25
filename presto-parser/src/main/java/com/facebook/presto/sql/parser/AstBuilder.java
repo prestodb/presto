@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -47,6 +48,8 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -78,6 +81,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -92,6 +96,7 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
@@ -124,9 +129,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 class AstBuilder
         extends SqlBaseBaseVisitor<Node>
@@ -324,10 +329,42 @@ class AstBuilder
                 new Select(getLocation(context.SELECT()), isDistinct(context.setQuantifier()), visit(context.selectItem(), SelectItem.class)),
                 from,
                 visitIfPresent(context.where, Expression.class),
-                visit(context.groupBy, Expression.class),
+                visit(context.groupingElement(), GroupingElement.class),
                 visitIfPresent(context.having, Expression.class),
                 ImmutableList.of(),
                 Optional.<String>empty());
+    }
+
+    @Override
+    public Node visitSingleGroupingSet(SqlBaseParser.SingleGroupingSetContext context)
+    {
+        return new SimpleGroupBy(getLocation(context), visit(context.groupingExpressions().expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitRollup(SqlBaseParser.RollupContext context)
+    {
+        return new Rollup(getLocation(context), context.qualifiedName().stream()
+                .map(AstBuilder::getQualifiedName)
+                .collect(toList()));
+    }
+
+    @Override
+    public Node visitCube(SqlBaseParser.CubeContext context)
+    {
+        return new Cube(getLocation(context), context.qualifiedName().stream()
+                .map(AstBuilder::getQualifiedName)
+                .collect(toList()));
+    }
+
+    @Override
+    public Node visitMultipleGroupingSets(SqlBaseParser.MultipleGroupingSetsContext context)
+    {
+        return new GroupingSets(getLocation(context), context.groupingSet().stream()
+                .map(groupingSet -> groupingSet.qualifiedName().stream()
+                        .map(AstBuilder::getQualifiedName)
+                        .collect(toList()))
+                .collect(toList()));
     }
 
     @Override
@@ -527,7 +564,7 @@ class AstBuilder
                 List<String> columns = context.joinCriteria()
                         .identifier().stream()
                         .map(ParseTree::getText)
-                        .collect(Collectors.toList());
+                        .collect(toList());
 
                 criteria = new JoinUsing(columns);
             }
@@ -959,7 +996,7 @@ class AstBuilder
     {
         List<String> arguments = context.identifier().stream()
                 .map(SqlBaseParser.IdentifierContext::getText)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         Expression body = (Expression) visit(context.expression());
 
@@ -1122,7 +1159,7 @@ class AstBuilder
         return contexts.stream()
                 .map(this::visit)
                 .map(clazz::cast)
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     private static String unquote(String string)
@@ -1136,7 +1173,7 @@ class AstBuilder
         List<String> parts = context
                 .identifier().stream()
                 .map(ParseTree::getText)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         return new QualifiedName(parts);
     }
@@ -1167,7 +1204,7 @@ class AstBuilder
         return columnAliasesContext
                 .identifier().stream()
                 .map(ParseTree::getText)
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     private static ArithmeticBinaryExpression.Type getArithmeticBinaryOperator(Token operator)

@@ -60,6 +60,7 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -85,6 +86,7 @@ import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
@@ -388,7 +390,7 @@ class StatementAnalyzer
                 Optional.of(logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(table.getSchemaName())),
                         equal(nameReference("table_name"), new StringLiteral(table.getTableName())))),
-                ImmutableList.of(nameReference("partition_number")),
+                ImmutableList.of(new SimpleGroupBy(ImmutableList.of(nameReference("partition_number")))),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
@@ -933,7 +935,7 @@ class StatementAnalyzer
         node.getWhere().ifPresent(where -> analyzeWhere(node, tupleDescriptor, context, where));
 
         List<FieldOrExpression> outputExpressions = analyzeSelect(node, tupleDescriptor, context);
-        List<FieldOrExpression> groupByExpressions = analyzeGroupBy(node, tupleDescriptor, context, outputExpressions);
+        List<List<FieldOrExpression>> groupByExpressions = analyzeGroupBy(node, tupleDescriptor, context, outputExpressions);
         List<FieldOrExpression> orderByExpressions = analyzeOrderBy(node, tupleDescriptor, context, outputExpressions);
         analyzeHaving(node, tupleDescriptor, context);
 
@@ -1411,48 +1413,78 @@ class StatementAnalyzer
         return orderByExpressions;
     }
 
-    private List<FieldOrExpression> analyzeGroupBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    private List<List<FieldOrExpression>> analyzeGroupBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
-        ImmutableList.Builder<FieldOrExpression> groupByExpressionsBuilder = ImmutableList.builder();
-        if (!node.getGroupBy().isEmpty()) {
-            // Translate group by expressions that reference ordinals
-            for (Expression expression : node.getGroupBy()) {
-                // first, see if this is an ordinal
-                FieldOrExpression groupByExpression;
+        List<Set<Set<Expression>>> enumeratedGroupingSets = node.getGroupBy().stream()
+                .map(GroupingElement::enumerateGroupingSets)
+                .distinct()
+                .collect(toImmutableList());
 
-                if (expression instanceof LongLiteral) {
-                    long ordinal = ((LongLiteral) expression).getValue();
-                    if (ordinal < 1 || ordinal > outputExpressions.size()) {
-                        throw new SemanticException(INVALID_ORDINAL, expression, "GROUP BY position %s is not in select list", ordinal);
-                    }
-
-                    groupByExpression = outputExpressions.get((int) (ordinal - 1));
-                }
-                else {
-                    ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, tupleDescriptor, context);
-                    analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
-                    groupByExpression = new FieldOrExpression(expression);
-                }
-
-                Type type;
-                if (groupByExpression.isExpression()) {
-                    Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression.getExpression(), "GROUP BY");
-                    type = analysis.getType(groupByExpression.getExpression());
-                }
-                else {
-                    type = tupleDescriptor.getFieldByIndex(groupByExpression.getFieldIndex()).getType();
-                }
-                if (!type.isComparable()) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
-                }
-
-                groupByExpressionsBuilder.add(groupByExpression);
-            }
+        // compute cross product of enumerated grouping sets, if there are any
+        List<List<Expression>> computedGroupingSets = ImmutableList.of();
+        if (!enumeratedGroupingSets.isEmpty()) {
+            computedGroupingSets = Sets.cartesianProduct(enumeratedGroupingSets).stream()
+                    .map(groupingSetList -> groupingSetList.stream()
+                            .flatMap(Collection::stream)
+                            .distinct()
+                            .collect(toImmutableList()))
+                    .distinct()
+                    .collect(toImmutableList());
         }
 
-        List<FieldOrExpression> groupByExpressions = groupByExpressionsBuilder.build();
-        analysis.setGroupByExpressions(node, groupByExpressions);
-        return groupByExpressions;
+        // if there are aggregates, but no grouping columns, create a grand total grouping set
+        if (computedGroupingSets.isEmpty() && !extractAggregates(node).isEmpty()) {
+            computedGroupingSets = ImmutableList.of(ImmutableList.of());
+        }
+
+        if (computedGroupingSets.size() > 1) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Grouping by multiple sets of columns is not yet supported");
+        }
+
+        List<List<FieldOrExpression>> analyzedGroupingSets = computedGroupingSets.stream()
+                .map(groupingSet -> analyzeGroupingColumns(groupingSet, node, tupleDescriptor, context, outputExpressions))
+                .collect(toImmutableList());
+
+        analysis.setGroupingSets(node, analyzedGroupingSets);
+        return analyzedGroupingSets;
+    }
+
+    private List<FieldOrExpression> analyzeGroupingColumns(List<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    {
+        ImmutableList.Builder<FieldOrExpression> groupingColumnsBuilder = ImmutableList.builder();
+        for (Expression groupingColumn : groupingColumns) {
+            // first, see if this is an ordinal
+            FieldOrExpression groupByExpression;
+
+            if (groupingColumn instanceof LongLiteral) {
+                long ordinal = ((LongLiteral) groupingColumn).getValue();
+                if (ordinal < 1 || ordinal > outputExpressions.size()) {
+                    throw new SemanticException(INVALID_ORDINAL, groupingColumn, "GROUP BY position %s is not in select list", ordinal);
+                }
+
+                groupByExpression = outputExpressions.get((int) (ordinal - 1));
+            }
+            else {
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, tupleDescriptor, context);
+                analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+                groupByExpression = new FieldOrExpression(groupingColumn);
+            }
+
+            Type type;
+            if (groupByExpression.isExpression()) {
+                Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression.getExpression(), "GROUP BY");
+                type = analysis.getType(groupByExpression.getExpression());
+            }
+            else {
+                type = tupleDescriptor.getFieldByIndex(groupByExpression.getFieldIndex()).getType();
+            }
+            if (!type.isComparable()) {
+                throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
+            }
+
+            groupingColumnsBuilder.add(groupByExpression);
+        }
+        return groupingColumnsBuilder.build();
     }
 
     private RelationType computeOutputDescriptor(QuerySpecification node, RelationType inputTupleDescriptor)
@@ -1578,7 +1610,7 @@ class StatementAnalyzer
 
     private void analyzeAggregations(QuerySpecification node,
             RelationType tupleDescriptor,
-            List<FieldOrExpression> groupByExpressions,
+            List<List<FieldOrExpression>> groupingSets,
             List<FieldOrExpression> outputExpressions,
             List<FieldOrExpression> orderByExpressions,
             AnalysisContext context,
@@ -1592,19 +1624,25 @@ class StatementAnalyzer
             }
         }
 
+        ImmutableList<FieldOrExpression> allGroupingColumns = groupingSets.stream()
+                .flatMap(Collection::stream)
+                .distinct()
+                .collect(toImmutableList());
+
         // is this an aggregation query?
-        if (!aggregates.isEmpty() || !groupByExpressions.isEmpty()) {
+        if (!aggregates.isEmpty() || !allGroupingColumns.isEmpty()) {
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group
             // e.g, these are all valid expressions:
             //     SELECT f(a) GROUP BY a
             //     SELECT f(a + 1) GROUP BY a + 1
             //     SELECT a + sum(b) GROUP BY a
+
             for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
-                verifyAggregations(node, groupByExpressions, tupleDescriptor, fieldOrExpression, columnReferences);
+                verifyAggregations(node, allGroupingColumns, tupleDescriptor, fieldOrExpression, columnReferences);
             }
 
             if (node.getHaving().isPresent()) {
-                verifyAggregations(node, groupByExpressions, tupleDescriptor, new FieldOrExpression(node.getHaving().get()), columnReferences);
+                verifyAggregations(node, allGroupingColumns, tupleDescriptor, new FieldOrExpression(node.getHaving().get()), columnReferences);
             }
         }
     }
