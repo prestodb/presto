@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
@@ -32,6 +33,7 @@ public class RaptorSplit
 {
     private final String connectorId;
     private final UUID shardUuid;
+    private final OptionalInt bucketNumber;
     private final List<HostAddress> addresses;
     private final TupleDomain<RaptorColumnHandle> effectivePredicate;
     private final OptionalLong transactionId;
@@ -40,21 +42,24 @@ public class RaptorSplit
     public RaptorSplit(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("shardUuid") UUID shardUuid,
+            @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("effectivePredicate") TupleDomain<RaptorColumnHandle> effectivePredicate,
             @JsonProperty("transactionId") OptionalLong transactionId)
     {
-        this(connectorId, shardUuid, ImmutableList.of(), effectivePredicate, transactionId);
+        this(connectorId, shardUuid, bucketNumber, ImmutableList.of(), effectivePredicate, transactionId);
     }
 
     public RaptorSplit(
             String connectorId,
             UUID shardUuid,
+            OptionalInt bucketNumber,
             List<HostAddress> addresses,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             OptionalLong transactionId)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -85,6 +90,12 @@ public class RaptorSplit
     }
 
     @JsonProperty
+    public OptionalInt getBucketNumber()
+    {
+        return bucketNumber;
+    }
+
+    @JsonProperty
     public TupleDomain<RaptorColumnHandle> getEffectivePredicate()
     {
         return effectivePredicate;
@@ -107,7 +118,9 @@ public class RaptorSplit
     {
         return toStringHelper(this)
                 .add("shardUuid", shardUuid)
+                .add("bucketNumber", bucketNumber.isPresent() ? bucketNumber.getAsInt() : null)
                 .add("hosts", addresses)
+                .omitNullValues()
                 .toString();
     }
 }

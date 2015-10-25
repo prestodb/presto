@@ -29,6 +29,7 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -36,6 +37,7 @@ import java.util.function.Function;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
+import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
@@ -59,7 +61,7 @@ final class ShardIterator
         ShardPredicate predicate = ShardPredicate.create(effectivePredicate);
 
         String sql = format(
-                "SELECT shard_uuid, node_ids FROM %s WHERE %s",
+                "SELECT shard_uuid, bucket_number, node_ids FROM %s WHERE %s",
                 shardIndexTable(tableId),
                 predicate.getPredicate());
 
@@ -113,6 +115,7 @@ final class ShardIterator
         }
 
         UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
+        OptionalInt bucketNumber = getOptionalInt(resultSet, "bucket_number");
         List<Integer> nodeIds = intArrayFromBytes(resultSet.getBytes("node_ids"));
 
         Function<Integer, String> fetchNode = id -> fetchNode(id, shardUuid);
@@ -120,7 +123,7 @@ final class ShardIterator
                 .map(id -> nodeMap.computeIfAbsent(id, fetchNode))
                 .collect(toSet());
 
-        return new ShardNodes(shardUuid, nodeIdentifiers);
+        return new ShardNodes(shardUuid, bucketNumber, nodeIdentifiers);
     }
 
     private String fetchNode(int id, UUID shardUuid)

@@ -200,8 +200,9 @@ public class ShardEjector
         // only include nodes that are below threshold
         nodes = new HashMap<>(filterValues(nodes, size -> size <= averageSize));
 
-        // get node shards by size, largest to smallest
+        // get non-bucketed node shards by size, largest to smallest
         List<ShardMetadata> shards = shardManager.getNodeShards(currentNode).stream()
+                .filter(shard -> !shard.getBucketNumber().isPresent())
                 .sorted(comparingLong(ShardMetadata::getCompressedSize).reversed())
                 .collect(toList());
 

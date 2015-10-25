@@ -38,6 +38,7 @@ import javax.inject.Inject;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
@@ -190,6 +191,7 @@ public class RaptorSplitManager
         private ConnectorSplit createSplit(ShardNodes shard)
         {
             UUID shardId = shard.getShardUuid();
+            OptionalInt bucketNumber = shard.getBucketNumber();
             Collection<String> nodeIds = shard.getNodeIdentifiers();
 
             List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);
@@ -197,6 +199,9 @@ public class RaptorSplitManager
             if (addresses.isEmpty()) {
                 if (!backupAvailable) {
                     throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, format("No host for shard %s found: %s", shardId, nodeIds));
+                }
+                if (bucketNumber.isPresent()) {
+                    throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, "No host for shard of bucketed table");
                 }
 
                 // Pick a random node and optimistically assign the shard to it.
@@ -210,7 +215,7 @@ public class RaptorSplitManager
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
-            return new RaptorSplit(connectorId, shardId, addresses, effectivePredicate, transactionId);
+            return new RaptorSplit(connectorId, shardId, bucketNumber, addresses, effectivePredicate, transactionId);
         }
     }
 }

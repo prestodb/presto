@@ -19,6 +19,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
@@ -26,21 +27,27 @@ public interface StorageManager
 {
     default ConnectorPageSource getPageSource(
             UUID shardUuid,
+            OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes)
     {
-        return getPageSource(shardUuid, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty());
+        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty());
     }
 
     ConnectorPageSource getPageSource(
             UUID shardUuid,
+            OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes,
             OptionalLong transactionId);
 
-    StoragePageSink createStoragePageSink(long transactionId, List<Long> columnIds, List<Type> columnTypes);
+    StoragePageSink createStoragePageSink(
+            long transactionId,
+            OptionalInt bucketNumber,
+            List<Long> columnIds,
+            List<Type> columnTypes);
 }

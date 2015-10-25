@@ -26,6 +26,7 @@ import com.facebook.presto.spi.type.Type;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -50,12 +51,14 @@ public class RaptorPageSourceProvider
         RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
 
         UUID shardUuid = raptorSplit.getShardUuid();
+        OptionalInt bucketNumber = raptorSplit.getBucketNumber();
         List<RaptorColumnHandle> columnHandles = columns.stream().map(toRaptorColumnHandle()).collect(toList());
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
         return storageManager.getPageSource(
                 shardUuid,
+                bucketNumber,
                 columnIds,
                 columnTypes,
                 raptorSplit.getEffectivePredicate(),

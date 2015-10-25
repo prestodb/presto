@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
@@ -104,12 +105,13 @@ public class TestShardMetadataRecordCursor
 
         // Add shards to the table
         long tableId = 1;
+        OptionalInt bucketNumber = OptionalInt.empty();
         UUID uuid1 = UUID.randomUUID();
         UUID uuid2 = UUID.randomUUID();
         UUID uuid3 = UUID.randomUUID();
-        ShardInfo shardInfo1 = new ShardInfo(uuid1, ImmutableSet.of("node1"), ImmutableList.of(), 1, 10, 100);
-        ShardInfo shardInfo2 = new ShardInfo(uuid2, ImmutableSet.of("node2"), ImmutableList.of(), 2, 20, 200);
-        ShardInfo shardInfo3 = new ShardInfo(uuid3, ImmutableSet.of("node3"), ImmutableList.of(), 3, 30, 300);
+        ShardInfo shardInfo1 = new ShardInfo(uuid1, bucketNumber, ImmutableSet.of("node1"), ImmutableList.of(), 1, 10, 100);
+        ShardInfo shardInfo2 = new ShardInfo(uuid2, bucketNumber, ImmutableSet.of("node2"), ImmutableList.of(), 2, 20, 200);
+        ShardInfo shardInfo3 = new ShardInfo(uuid3, bucketNumber, ImmutableSet.of("node3"), ImmutableList.of(), 3, 30, 300);
         List<ShardInfo> shards = ImmutableList.of(shardInfo1, shardInfo2, shardInfo3);
 
         long transactionId = shardManager.beginTransaction();

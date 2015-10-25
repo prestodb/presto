@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
@@ -29,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class ShardInfo
 {
     private final UUID shardUuid;
+    private final OptionalInt bucketNumber;
     private final Set<String> nodeIdentifiers;
     private final List<ColumnStats> columnStats;
     private final long rowCount;
@@ -38,6 +40,7 @@ public class ShardInfo
     @JsonCreator
     public ShardInfo(
             @JsonProperty("shardUuid") UUID shardUuid,
+            @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("nodeIdentifiers") Set<String> nodeIdentifiers,
             @JsonProperty("columnStats") List<ColumnStats> columnStats,
             @JsonProperty("rowCount") long rowCount,
@@ -45,6 +48,7 @@ public class ShardInfo
             @JsonProperty("uncompressedSize") long uncompressedSize)
     {
         this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.nodeIdentifiers = ImmutableSet.copyOf(requireNonNull(nodeIdentifiers, "nodeIdentifiers is null"));
         this.columnStats = ImmutableList.copyOf(requireNonNull(columnStats, "columnStats is null"));
 
@@ -60,6 +64,12 @@ public class ShardInfo
     public UUID getShardUuid()
     {
         return shardUuid;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketNumber()
+    {
+        return bucketNumber;
     }
 
     @JsonProperty
@@ -97,11 +107,13 @@ public class ShardInfo
     {
         return toStringHelper(this)
                 .add("shardUuid", shardUuid)
+                .add("bucketNumber", bucketNumber.isPresent() ? bucketNumber.getAsInt() : null)
                 .add("nodeIdentifiers", nodeIdentifiers)
                 .add("columnStats", columnStats)
                 .add("rowCount", rowCount)
                 .add("compressedSize", compressedSize)
                 .add("uncompressedSize", uncompressedSize)
+                .omitNullValues()
                 .toString();
     }
 }
