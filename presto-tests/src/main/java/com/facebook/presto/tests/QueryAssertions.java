@@ -120,6 +120,29 @@ public final class QueryAssertions
         assertApproximatelyEqual(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
     }
 
+    public static void assertResultsApproximatelyEqual(MaterializedResult actual, MaterializedResult expected)
+            throws Exception
+    {
+        List<MaterializedRow> actualRows = actual.getMaterializedRows();
+        List<MaterializedRow> expectedRows = expected.getMaterializedRows();
+        assertEquals(actualRows.size(), expectedRows.size(), "number of rows did not match");
+        for (int i = 0; i < actualRows.size(); i++) {
+            MaterializedRow actualRow = actualRows.get(i);
+            MaterializedRow expectedRow = expectedRows.get(i);
+
+            for (int j = 0; j < actualRow.getFieldCount(); j++) {
+                if (actualRow.getField(j) instanceof Double && expectedRow.getField(j) instanceof Double) {
+                    Double actualValue = (Double) actualRow.getField(j);
+                    Double expectedValue = (Double) expectedRow.getField(j);
+                    assertTrue(Math.abs(actualValue - expectedValue) < 1e-9);
+                }
+                else {
+                    assertEquals(actualRow.getField(j), expectedRow.getField(j));
+                }
+            }
+        }
+    }
+
     public static void assertApproximatelyEqual(List<MaterializedRow> actual, List<MaterializedRow> expected)
             throws Exception
     {

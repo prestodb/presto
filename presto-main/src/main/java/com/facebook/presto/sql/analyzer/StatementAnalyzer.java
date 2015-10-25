@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.GroupingColumn;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -305,7 +306,9 @@ class StatementAnalyzer
                 Optional.of(logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(table.getSchemaName())),
                         equal(nameReference("table_name"), new StringLiteral(table.getTableName())))),
-                ImmutableList.of(nameReference("partition_number")),
+                // TODO: raghavsethi: change
+                //ImmutableList.of(nameReference("partition_number")),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
@@ -314,7 +317,7 @@ class StatementAnalyzer
                 selectAll(wrappedList.build()),
                 subquery(query),
                 showPartitions.getWhere(),
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.<SortItem>builder()
                         .addAll(showPartitions.getOrderBy())

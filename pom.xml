@@ -40,7 +40,7 @@
         <air.check.skip-license>false</air.check.skip-license>
 
         <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
-        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
+        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
 
         <air.java.version>1.8.0-40</air.java.version>
 

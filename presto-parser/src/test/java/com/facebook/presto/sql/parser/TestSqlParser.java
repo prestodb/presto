@@ -299,11 +299,12 @@ public class TestSqlParser
 
     private static QuerySpecification createSelect123()
     {
+
         return new QuerySpecification(
                 selectList(new LongLiteral("123")),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty()
@@ -329,7 +330,7 @@ public class TestSqlParser
                 simpleQuery(selectList(new AllColumns()),
                         subquery(valuesQuery),
                         Optional.empty(),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(),
                         Optional.of("ALL")));
@@ -697,6 +698,7 @@ public class TestSqlParser
     public void testSelectWithRowType()
             throws Exception
     {
+
         assertStatement("SELECT col1.f1, col2, col3.f1.f2.f3 FROM table1",
                 new Query(
                         Optional.empty(),
@@ -708,7 +710,7 @@ public class TestSqlParser
                                                 new DereferenceExpression(new DereferenceExpression(new QualifiedNameReference(QualifiedName.of("col3")), "f1"), "f2"), "f3")),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -728,7 +730,7 @@ public class TestSqlParser
                                 ),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -745,7 +747,7 @@ public class TestSqlParser
                                 ),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
