@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.ScalarFunction;
@@ -48,22 +47,28 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory.fromAggregationDefinition;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class FunctionListBuilder
 {
@@ -74,7 +79,35 @@ public class FunctionListBuilder
             Regex.class,
             JsonPath.class);
 
-    private final List<SqlFunction> functions = new ArrayList<>();
+    private static final class FunctionWithMethodHandle
+    {
+        private final SqlFunction function;
+        private final Optional<MethodHandle> methodHandle;
+
+        public FunctionWithMethodHandle(SqlFunction function)
+        {
+            this.function = function;
+            this.methodHandle = Optional.empty();
+        }
+
+        public FunctionWithMethodHandle(SqlFunction function, MethodHandle methodHandle)
+        {
+            this.function = function;
+            this.methodHandle = Optional.of(methodHandle);
+        }
+
+        public Optional<MethodHandle> getMethodHandle()
+        {
+            return methodHandle;
+        }
+
+        public SqlFunction getFunction()
+        {
+            return function;
+        }
+    }
+
+    private final List<FunctionWithMethodHandle> functions = new ArrayList<>();
     private final TypeManager typeManager;
 
     public FunctionListBuilder(TypeManager typeManager)
@@ -88,7 +121,7 @@ public class FunctionListBuilder
                 new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(ImmutableList.copyOf(argumentTypes), Type::getTypeSignature)),
                 functionClass);
 
-        functions.add(new SqlWindowFunction(windowFunctionSupplier));
+        addFunction(new SqlWindowFunction(windowFunctionSupplier));
         return this;
     }
 
@@ -102,7 +135,7 @@ public class FunctionListBuilder
                 ImmutableList.copyOf(argumentTypes),
                 false,
                 ImmutableSet.of());
-        functions.add(new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz)));
+        addFunction(new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz)));
         return this;
     }
 
@@ -120,13 +153,13 @@ public class FunctionListBuilder
         name = name.toLowerCase(ENGLISH);
 
         String description = getDescription(function.getClass());
-        functions.add(SqlAggregationFunction.create(name, description, function));
+        addFunction(SqlAggregationFunction.create(name, description, function));
         return this;
     }
 
     public FunctionListBuilder aggregate(Class<?> aggregationDefinition)
     {
-        functions.addAll(GenericAggregationFunctionFactory.fromAggregationDefinition(aggregationDefinition, typeManager).listFunctions());
+        fromAggregationDefinition(aggregationDefinition, typeManager).listFunctions().forEach(this::addFunction);
         return this;
     }
 
@@ -141,16 +174,18 @@ public class FunctionListBuilder
             List<Boolean> nullableArguments,
             Set<String> literalParameters)
     {
-        functions.add(SqlScalarFunction.create(
-                signature,
-                description,
-                hidden,
-                function,
-                instanceFactory,
-                deterministic,
-                nullable,
-                nullableArguments,
-                literalParameters));
+        addFunction(
+                SqlScalarFunction.create(
+                        signature,
+                        description,
+                        hidden,
+                        function,
+                        instanceFactory,
+                        deterministic,
+                        nullable,
+                        nullableArguments,
+                        literalParameters),
+                function);
         return this;
     }
 
@@ -165,19 +200,39 @@ public class FunctionListBuilder
             Set<String> literalParameters)
     {
         operatorType.validateSignature(returnType, argumentTypes);
-        functions.add(SqlOperator.create(
-                operatorType,
-                argumentTypes,
-                returnType,
-                function,
-                instanceFactory,
-                nullable,
-                nullableArguments,
-                literalParameters));
+        addFunction(
+                SqlOperator.create(
+                        operatorType,
+                        argumentTypes,
+                        returnType,
+                        function,
+                        instanceFactory,
+                        nullable,
+                        nullableArguments,
+                        literalParameters),
+                function);
         return this;
     }
 
     public FunctionListBuilder scalar(Class<?> clazz)
+    {
+        FunctionListBuilder localFunctionListBuilder = new FunctionListBuilder(typeManager);
+        localFunctionListBuilder.processScalarsInClass(clazz);
+        functions.addAll(localFunctionListBuilder.functions);
+        return this;
+    }
+
+    private void addFunction(SqlFunction function)
+    {
+        functions.add(new FunctionWithMethodHandle(function));
+    }
+
+    private void addFunction(SqlFunction function, MethodHandle methodHandle)
+    {
+        functions.add(new FunctionWithMethodHandle(function, methodHandle));
+    }
+
+    private FunctionListBuilder processScalarsInClass(Class<?> clazz)
     {
         try {
             boolean foundOne = false;
@@ -190,7 +245,59 @@ public class FunctionListBuilder
         catch (IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
+        groupMatchingScalars();
         return this;
+    }
+
+    private FunctionListBuilder groupMatchingScalars()
+    {
+        List<FunctionWithMethodHandle> newFunctions = groupMatchingScalars(functions);
+        functions.clear();
+        functions.addAll(newFunctions);
+        return this;
+    }
+
+    private List<FunctionWithMethodHandle> groupMatchingScalars(List<FunctionWithMethodHandle> inputFunctions)
+    {
+        inputFunctions.forEach(f -> checkArgument(f.getMethodHandle().isPresent(), "expected function with method handle: %s", f));
+        inputFunctions.forEach(f -> checkArgument(f.getFunction() instanceof SqlScalarFunction, "expected scalar function: %s", f));
+        Map<Signature, List<FunctionWithMethodHandle>> groupedFunctions = inputFunctions.stream()
+                .collect(Collectors.groupingBy(f -> f.getFunction().getSignature()));
+        List<FunctionWithMethodHandle> resultFunctions = new ArrayList<>();
+        for (Map.Entry<Signature, List<FunctionWithMethodHandle>> entry : groupedFunctions.entrySet()) {
+            List<FunctionWithMethodHandle> functionsGroup = entry.getValue();
+            if (functionsGroup.size() == 1) {
+                resultFunctions.add(getOnlyElement(functionsGroup));
+            }
+            else {
+                resultFunctions.add(new FunctionWithMethodHandle(buildGroupingScalarWrapper(functionsGroup)));
+            }
+        }
+        return resultFunctions;
+    }
+
+    private SqlScalarFunction buildGroupingScalarWrapper(List<FunctionWithMethodHandle> functionsGroup)
+    {
+        checkArgument(functionsGroup.size() > 1, "functions group must have multiple elements");
+        SqlFunction masterFunction = functionsGroup.get(0).getFunction();
+        functionsGroup.forEach(f -> checkMatchingScalarsConsistent(masterFunction, f.getFunction()));
+
+        SqlScalarFunctionBuilder wrapperBuilder = SqlScalarFunction.builder()
+                .signature(masterFunction.getSignature())
+                .deterministic(masterFunction.isDeterministic())
+                .hidden(masterFunction.isHidden())
+                .description(masterFunction.getDescription());
+
+        functionsGroup.forEach(f -> wrapperBuilder.method((SqlScalarFunction) f.getFunction(), f.getMethodHandle().get()));
+        return wrapperBuilder.build();
+    }
+
+    private void checkMatchingScalarsConsistent(SqlFunction master, SqlFunction canditate)
+    {
+        checkArgument(canditate.getSignature().equals(master.getSignature()), "signature mismatch; %s vs. %s", master, canditate);
+        checkArgument(canditate.isHidden() == master.isHidden(), "hidden flag mismatch; %s vs. %s", master, canditate);
+        checkArgument(canditate.isDeterministic() == master.isDeterministic(), "deterministic flag mismatch; %s vs. %s", master, canditate);
+        checkArgument(Objects.equals(canditate.getDescription(), master.getDescription()), "description mismatch, %s vs. %s", master, canditate);
     }
 
     public FunctionListBuilder functions(SqlFunction... sqlFunctions)
@@ -204,7 +311,7 @@ public class FunctionListBuilder
     public FunctionListBuilder function(SqlFunction sqlFunction)
     {
         requireNonNull(sqlFunction, "parametricFunction is null");
-        functions.add(sqlFunction);
+        addFunction(sqlFunction);
         return this;
     }
 
@@ -450,6 +557,6 @@ public class FunctionListBuilder
 
     public List<SqlFunction> getFunctions()
     {
-        return ImmutableList.copyOf(functions);
+        return ImmutableList.copyOf(functions.stream().map(FunctionWithMethodHandle::getFunction).collect(toList()));
     }
 }
