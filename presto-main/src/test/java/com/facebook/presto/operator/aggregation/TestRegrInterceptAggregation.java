@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -75,20 +74,6 @@ public class TestRegrInterceptAggregation
         }
         double expected = regression.getIntercept();
         checkArgument(Double.isFinite(expected) && expected != 0., "Expected result is trivial");
-        testAggregation(new Object() {
-            @Override
-            public boolean equals(Object obj)
-            {
-                Assert.assertEquals(expected, (Double) obj, 1e-10);
-                return true;
-            }
-
-            @Override
-            public int hashCode()
-            {
-                // required by checkstyle
-                return super.hashCode();
-            }
-        }, createDoublesBlock(y), createDoublesBlock(x));
+        testAggregation(expected, createDoublesBlock(y), createDoublesBlock(x));
     }
 }
