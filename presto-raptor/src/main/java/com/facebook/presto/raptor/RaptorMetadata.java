@@ -275,7 +275,8 @@ public class RaptorMetadata
         long columnId = lastColumn.getColumnId() + 1;
         int ordinalPosition = existingColumns.size();
 
-        dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, column.getType().getTypeSignature().toString(), null);
+        String type = column.getType().getTypeSignature().toString();
+        dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null);
         shardManager.addColumn(table.getTableId(), new ColumnInfo(columnId, column.getType()));
     }
 
@@ -373,8 +374,9 @@ public class RaptorMetadata
                 RaptorColumnHandle column = table.getColumnHandles().get(i);
 
                 int columnId = i + 1;
-                Integer sortPosition = !sortColumnHandles.contains(column) ? null : sortColumnHandles.indexOf(column);
-                dao.insertColumn(tableId, columnId, column.getColumnName(), i, table.getColumnTypes().get(i).getTypeSignature().toString(), sortPosition);
+                String type = table.getColumnTypes().get(i).getTypeSignature().toString();
+                Integer sortPosition = sortColumnHandles.contains(column) ? sortColumnHandles.indexOf(column) : null;
+                dao.insertColumn(tableId, columnId, column.getColumnName(), i, type, sortPosition);
 
                 if (table.getTemporalColumnHandle().isPresent() && table.getTemporalColumnHandle().get().equals(column)) {
                     dao.updateTemporalColumnId(tableId, columnId);
