@@ -21,7 +21,7 @@ public interface SchemaDao
             "  table_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  schema_name VARCHAR(255) NOT NULL,\n" +
             "  table_name VARCHAR(255) NOT NULL,\n" +
-            "  temporal_column_id BIGINT DEFAULT NULL,\n" +
+            "  temporal_column_id BIGINT,\n" +
             "  compaction_enabled BOOLEAN NOT NULL,\n" +
             "  UNIQUE (schema_name, table_name)\n" +
             ")")
@@ -33,7 +33,7 @@ public interface SchemaDao
             "  column_name VARCHAR(255) NOT NULL,\n" +
             "  ordinal_position INT NOT NULL,\n" +
             "  data_type VARCHAR(255) NOT NULL,\n" +
-            "  sort_ordinal_position INT DEFAULT NULL,\n" +
+            "  sort_ordinal_position INT,\n" +
             "  PRIMARY KEY (table_id, column_id),\n" +
             "  UNIQUE (table_id, column_name),\n" +
             "  UNIQUE (table_id, ordinal_position),\n" +
