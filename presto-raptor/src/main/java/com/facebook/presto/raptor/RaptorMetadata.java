@@ -428,12 +428,9 @@ public class RaptorMetadata
 
     private List<RaptorColumnHandle> getSortColumnHandles(long tableId)
     {
-        ImmutableList.Builder<RaptorColumnHandle> builder = ImmutableList.builder();
-        for (TableColumn tableColumn : dao.listSortColumns(tableId)) {
-            checkArgument(!tableColumn.getColumnName().equals(SAMPLE_WEIGHT_COLUMN_NAME), "sample weight column may not be a sort column");
-            builder.add(getRaptorColumnHandle(tableColumn));
-        }
-        return builder.build();
+        return dao.listSortColumns(tableId).stream()
+                .map(this::getRaptorColumnHandle)
+                .collect(toList());
     }
 
     @Override
