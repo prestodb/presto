@@ -59,7 +59,6 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -129,9 +128,9 @@ public class FunctionListBuilder
         return this;
     }
 
-    private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable, List<Boolean> nullableArguments)
+    private FunctionListBuilder operator(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> parameterTypes, MethodHandle function, boolean nullable, List<Boolean> nullableArguments)
     {
-        FunctionInfo operatorInfo = operatorInfo(operatorType, returnType.getTypeSignature(), Lists.transform(parameterTypes, Type::getTypeSignature), function, nullable, nullableArguments);
+        FunctionInfo operatorInfo = operatorInfo(operatorType, returnType, parameterTypes, function, nullable, nullableArguments);
         functions.add(operatorInfo);
         return this;
     }
@@ -193,39 +192,6 @@ public class FunctionListBuilder
             scalar(signature.withAlias(alias.toLowerCase(ENGLISH)), methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
         }
         return true;
-    }
-
-    private static Type type(TypeManager typeManager, SqlType explicitType)
-    {
-        Type type = typeManager.getType(parseTypeSignature(explicitType.value()));
-        requireNonNull(type, format("No type found for '%s'", explicitType.value()));
-        return type;
-    }
-
-    private static List<Type> parameterTypes(TypeManager typeManager, Method method)
-    {
-        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
-
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (int i = 0; i < method.getParameterTypes().length; i++) {
-            Class<?> clazz = method.getParameterTypes()[i];
-            // skip session parameters
-            if (clazz == ConnectorSession.class) {
-                continue;
-            }
-
-            // find the explicit type annotation if present
-            SqlType explicitType = null;
-            for (Annotation annotation : parameterAnnotations[i]) {
-                if (annotation instanceof SqlType) {
-                    explicitType = (SqlType) annotation;
-                    break;
-                }
-            }
-            checkArgument(explicitType != null, "Method %s argument %s does not have a @SqlType annotation", method, i);
-            types.add(type(typeManager, explicitType));
-        }
-        return types.build();
     }
 
     private static List<TypeSignature> parameterTypeSignatures(Method method)
@@ -332,24 +298,23 @@ public class FunctionListBuilder
         MethodHandle methodHandle = lookup().unreflect(method);
         OperatorType operatorType = scalarOperator.value();
 
-        List<Type> parameterTypes = parameterTypes(typeManager, method);
+        TypeSignature returnTypeSignature;
+        List<TypeSignature> parameterTypes = parameterTypeSignatures(method);
 
-        Type returnType;
         if (operatorType == OperatorType.HASH_CODE) {
             // todo hack for hashCode... should be int
-            returnType = BIGINT;
+            returnTypeSignature = BIGINT.getTypeSignature();
         }
         else {
             SqlType explicitType = method.getAnnotation(SqlType.class);
             checkArgument(explicitType != null, "Method %s return type does not have a @SqlType annotation", method);
-            returnType = type(typeManager, explicitType);
-
-            verifyMethodSignature(method, returnType.getTypeSignature(), Lists.transform(parameterTypes, Type::getTypeSignature), typeManager);
+            returnTypeSignature = parseTypeSignature(explicitType.value());
+            verifyMethodSignature(method, returnTypeSignature, parameterTypes, typeManager);
         }
 
         List<Boolean> nullableArguments = getNullableArguments(method);
 
-        operator(operatorType, returnType, parameterTypes, methodHandle, method.isAnnotationPresent(Nullable.class), nullableArguments);
+        operator(operatorType, returnTypeSignature, parameterTypes, methodHandle, method.isAnnotationPresent(Nullable.class), nullableArguments);
         return true;
     }
 
