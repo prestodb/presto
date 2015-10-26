@@ -21,7 +21,9 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 
+import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
@@ -31,6 +33,8 @@ public class RaptorTableProperties
 {
     public static final String ORDERING_PROPERTY = "ordering";
     public static final String TEMPORAL_COLUMN_PROPERTY = "temporal_column";
+    public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
+    public static final String BUCKETED_ON_PROPERTY = "bucketed_on";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -45,6 +49,15 @@ public class RaptorTableProperties
                 .add(lowerCaseStringSessionProperty(
                         TEMPORAL_COLUMN_PROPERTY,
                         "Temporal column of the table"))
+                .add(integerSessionProperty(
+                        BUCKET_COUNT_PROPERTY,
+                        "Number of buckets into which to divide the table",
+                        null,
+                        false))
+                .add(stringListSessionProperty(
+                        typeManager,
+                        BUCKETED_ON_PROPERTY,
+                        "Table columns on which to bucket the table"))
                 .build();
     }
 
@@ -61,6 +74,17 @@ public class RaptorTableProperties
     public static String getTemporalColumn(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(TEMPORAL_COLUMN_PROPERTY);
+    }
+
+    public static OptionalInt getBucketCount(Map<String, Object> tableProperties)
+    {
+        Integer value = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
+        return (value != null) ? OptionalInt.of(value) : OptionalInt.empty();
+    }
+
+    public static List<String> getBucketColumns(Map<String, Object> tableProperties)
+    {
+        return stringList(tableProperties.get(BUCKETED_ON_PROPERTY));
     }
 
     public static PropertyMetadata<String> lowerCaseStringSessionProperty(String name, String description)

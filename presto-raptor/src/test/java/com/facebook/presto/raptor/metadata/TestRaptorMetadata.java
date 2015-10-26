@@ -51,10 +51,13 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -199,6 +202,62 @@ public class TestRaptorMetadata
 
         // verify temporal column
         assertEquals(metadataDao.getTemporalColumnId(tableId), Long.valueOf(4));
+        metadata.dropTable(SESSION, tableHandle);
+    }
+
+    @Test
+    public void testCreateBucketedTable()
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+
+        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
+                BUCKET_COUNT_PROPERTY, 16,
+                BUCKETED_ON_PROPERTY, ImmutableList.of("orderdate", "orderkey")));
+        metadata.createTable(SESSION, ordersTable);
+
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+        assertEquals(raptorTableHandle.getTableId(), 1);
+
+        long tableId = raptorTableHandle.getTableId();
+        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
+
+        assertEquals(metadataDao.listBucketColumns(tableId), ImmutableList.of(
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderdate", DATE, 4),
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1)));
+
+        assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
+
+        metadata.dropTable(SESSION, tableHandle);
+    }
+
+    @Test
+    public void testCreateBucketedTableAsSelect()
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+
+        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
+                BUCKET_COUNT_PROPERTY, 32,
+                BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey", "custkey")));
+
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.empty());
+        metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of());
+
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+        assertEquals(raptorTableHandle.getTableId(), 1);
+
+        long tableId = raptorTableHandle.getTableId();
+        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
+
+        assertEquals(metadataDao.listBucketColumns(tableId), ImmutableList.of(
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1),
+                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 0)));
+
+        assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(32));
+
         metadata.dropTable(SESSION, tableHandle);
     }
 
