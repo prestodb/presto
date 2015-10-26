@@ -39,11 +39,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Comparator.comparingLong;
@@ -453,11 +454,12 @@ public class OrcRecordReader
     static class LinearProbeRangeFinder
             implements CachingOrcDataSource.RegionFinder
     {
-        private final ListIterator<DiskRange> diskRangeIterator;
+        private final List<DiskRange> diskRanges;
+        private int index;
 
-        public LinearProbeRangeFinder(ListIterator<DiskRange> diskRangeIterator)
+        public LinearProbeRangeFinder(List<DiskRange> diskRanges)
         {
-            this.diskRangeIterator = diskRangeIterator;
+            this.diskRanges = diskRanges;
         }
 
         @Override
@@ -465,11 +467,11 @@ public class OrcRecordReader
         {
             // Assumption: range are always read in order
             // Assumption: bytes that are not part of any range are never read
-            while (diskRangeIterator.hasNext()) {
-                DiskRange range = diskRangeIterator.next();
+            for (; index < diskRanges.size(); index++) {
+                DiskRange range = diskRanges.get(index);
                 if (range.getEnd() > desiredOffset) {
                     checkArgument(range.getOffset() <= desiredOffset);
-                    return diskRangeIterator.previous();
+                    return range;
                 }
             }
             throw new IllegalArgumentException("Invalid desiredOffset " + desiredOffset);
@@ -477,13 +479,16 @@ public class OrcRecordReader
 
         public static LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize maxReadSize)
         {
-            List<DiskRange> scratchDiskRanges = new ArrayList<>(stripes.size());
-            for (StripeInformation stripe : stripes) {
-                scratchDiskRanges.add(new DiskRange(stripe.getOffset(), Ints.checkedCast(stripe.getTotalLength())));
+            if (stripes.size() == 0) {
+                return new LinearProbeRangeFinder(ImmutableList.of());
             }
-            List<DiskRange> diskRanges = OrcDataSourceUtils.mergeAdjacentDiskRanges(scratchDiskRanges, maxMergeDistance, maxReadSize);
 
-            return new LinearProbeRangeFinder(diskRanges.listIterator());
+            List<DiskRange> scratchDiskRanges = stripes.stream()
+                    .map(stripe -> new DiskRange(stripe.getOffset(), Ints.checkedCast(stripe.getTotalLength())))
+                    .collect(Collectors.toList());
+            List<DiskRange> diskRanges = mergeAdjacentDiskRanges(scratchDiskRanges, maxMergeDistance, maxReadSize);
+
+            return new LinearProbeRangeFinder(diskRanges);
         }
     }
 }

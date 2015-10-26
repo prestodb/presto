@@ -91,6 +91,13 @@ public class TestCachingOrcDataSource
 
         OrcDataSource actual = wrapWithCacheIfTinyStripes(
                 FakeOrcDataSource.INSTANCE,
+                ImmutableList.of(),
+                maxMergeDistance,
+                maxReadSize);
+        assertInstanceOf(actual, CachingOrcDataSource.class);
+
+        actual = wrapWithCacheIfTinyStripes(
+                FakeOrcDataSource.INSTANCE,
                 ImmutableList.of(new StripeInformation(123, 3, 10, 10, 10)),
                 maxMergeDistance,
                 maxReadSize);
