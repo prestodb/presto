@@ -218,17 +218,9 @@ class TranslationMap
                 }
 
                 // Rewrite all row field reference to function call.
-                Expression rewrittenBaseExpression = rewrite(node.getBase());
                 QualifiedName mangledName = QualifiedName.of(mangleFieldReference(node.getFieldName()));
-                Expression rewrittenExpression = new FunctionCall(mangledName, ImmutableList.of(rewrittenBaseExpression));
-
-                // cast expression if coercion is registered
-                Type coercion = analysis.getCoercion(node);
-                if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
-                }
-
-                return rewrittenExpression;
+                FunctionCall functionCall = new FunctionCall(mangledName, ImmutableList.of(node.getBase()));
+                return rewriteFunctionCall(functionCall, context, treeRewriter);
             }
         }, expression);
     }
