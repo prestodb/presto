@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.metadata.TableLayout.NodePartitioning;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
@@ -65,7 +66,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -511,18 +511,7 @@ class PropertyDerivations
             properties.constants(symbolConstants);
 
             // Partitioning properties
-            Optional<List<Symbol>> partitioningColumns = Optional.empty();
-            if (layout.getPartitioningColumns().isPresent()) {
-                // Strip off the global constants from the partitioning columns (since those are not required for translation)
-                Set<ColumnHandle> constantsStrippedPartitionColumns = layout.getPartitioningColumns().get().stream()
-                        .filter(column -> !globalConstants.containsKey(column))
-                        .collect(toImmutableSet());
-                partitioningColumns = translate(constantsStrippedPartitionColumns, assignments);
-            }
-
-            if (partitioningColumns.isPresent()) {
-                properties.global(streamPartitionedOn(ImmutableSet.copyOf(partitioningColumns.get()))));
-            }
+            properties.global(deriveGlobalProperties(layout, assignments, globalConstants));
 
             // Append the global constants onto the local properties to maximize their translation potential
             List<LocalProperty<ColumnHandle>> constantAppendedLocalProperties = ImmutableList.<LocalProperty<ColumnHandle>>builder()
@@ -534,6 +523,47 @@ class PropertyDerivations
             return properties.build();
         }
 
+        private static Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, Object> constants)
+        {
+            Optional<List<Symbol>> partitioning = layout.getPartitioningColumns()
+                    .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));
+
+            if (layout.getNodePartitioning().isPresent()) {
+                NodePartitioning nodePartitioning = layout.getNodePartitioning().get();
+                if (assignments.keySet().containsAll(nodePartitioning.getPartitioningColumns())) {
+                    List<Symbol> parameters = nodePartitioning.getPartitioningColumns().stream()
+                            .map(assignments::get)
+                            .collect(toImmutableList());
+
+                    return partitionedOn(nodePartitioning.getPartitioningHandle(), parameters, partitioning);
+                }
+            }
+
+            if (partitioning.isPresent()) {
+                return streamPartitionedOn(partitioning.get());
+            }
+            return arbitraryPartition();
+        }
+
+        private static Optional<List<Symbol>> translateToNonConstantSymbols(Set<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, Object> globalConstants)
+        {
+            // Strip off the constants from the partitioning columns (since those are not required for translation)
+            Set<ColumnHandle> constantsStrippedColumns = columnHandles.stream()
+                    .filter(column -> !globalConstants.containsKey(column))
+                    .collect(toImmutableSet());
+
+            ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
+            for (ColumnHandle column : constantsStrippedColumns) {
+                Symbol translated = assignments.get(column);
+                if (translated == null) {
+                    return Optional.empty();
+                }
+                builder.add(translated);
+            }
+
+            return Optional.of(ImmutableList.copyOf(builder.build()));
+        }
+
         private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
@@ -543,24 +573,6 @@ class PropertyDerivations
                 }
             }
             return inputToOutput;
-        }
-
-        /**
-         * @return Optional.empty() if not all columns could be translated
-         */
-        private static <T> Optional<List<Symbol>> translate(Collection<T> columns, Map<T, Symbol> mappings)
-        {
-            ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-
-            for (T column : columns) {
-                Symbol translated = mappings.get(column);
-                if (translated == null) {
-                    return Optional.empty();
-                }
-                builder.add(translated);
-            }
-
-            return Optional.of(builder.build());
         }
     }
 }

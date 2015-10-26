@@ -126,6 +126,7 @@ public class TpchMetadata
                 new TpchTableLayoutHandle(tableHandle),
                 Optional.<List<ColumnHandle>>empty(),
                 TupleDomain.<ColumnHandle>all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
+                Optional.empty(),
                 partitioningColumns,
                 Optional.empty(),
                 localProperties);

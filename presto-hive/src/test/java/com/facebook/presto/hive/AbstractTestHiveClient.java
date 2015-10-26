@@ -386,6 +386,7 @@ public abstract class AbstractTestHiveClient
                         fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("textfile")), Range.equal(VARCHAR, utf8Slice("sequencefile")), Range.equal(VARCHAR, utf8Slice("rctext")), Range.equal(VARCHAR, utf8Slice("rcbinary"))), false),
                         dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L)), false))),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(ImmutableList.of(
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
@@ -410,6 +411,7 @@ public abstract class AbstractTestHiveClient
                 new HiveTableLayoutHandle(clientId, unpartitionedPartitions, TupleDomain.all()),
                 Optional.empty(),
                 TupleDomain.all(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.of(ImmutableList.of(TupleDomain.all())),
                 ImmutableList.of());
@@ -574,7 +576,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(actualTableLayout.getPredicate(), expectedTableLayout.getPredicate());
         assertEquals(actualTableLayout.getDiscretePredicates().isPresent(), expectedTableLayout.getDiscretePredicates().isPresent());
         actualTableLayout.getDiscretePredicates().ifPresent(actual -> assertEqualsIgnoreOrder(actual, expectedTableLayout.getDiscretePredicates().get()));
-        assertEquals(actualTableLayout.getPartitioningColumns(), expectedTableLayout.getPartitioningColumns());
+        assertEquals(actualTableLayout.getStreamPartitioningColumns(), expectedTableLayout.getStreamPartitioningColumns());
         assertEquals(actualTableLayout.getLocalProperties(), expectedTableLayout.getLocalProperties());
     }
 
