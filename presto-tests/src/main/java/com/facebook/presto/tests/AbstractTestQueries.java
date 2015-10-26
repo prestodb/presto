@@ -239,8 +239,20 @@ public abstract class AbstractTestQueries
                         "(ROW(test_row(1.5, ARRAY[2, 13, 4], test_row(11, 4.1)))), " +
                         "(ROW(test_row(1.5, ARRAY[2, 13, 4], test_row(11, 4.1)))), " +
                         "(ROW(test_row(7.0, ARRAY[22, 33, 44], test_row(13, 5.0))))) t(a) " +
+                        "WHERE a.col1[2] < 30 " +
                         "GROUP BY 1, 2 ORDER BY 1",
-                "SELECT * FROM VALUES (11, 1.0, 4.1), (11, 1.5, 8.2), (11, 2.0, 14.0), (13, 7.0, 5.0)");
+                "SELECT * FROM VALUES (11, 1.0, 4.1), (11, 1.5, 8.2), (11, 2.0, 14.0)");
+
+        assertQuery("SELECT a[1].col0, COUNT(1) FROM " +
+                        "(VALUES " +
+                        "(ROW(ARRAY[test_row(31, 4.2), test_row(22, 4.2)])), " +
+                        "(ROW(ARRAY[test_row(31, 4.5), test_row(12, 4.2)])), " +
+                        "(ROW(ARRAY[test_row(41, 3.1), test_row(32, 4.2)])), " +
+                        "(ROW(ARRAY[test_row(31, 3.1), test_row(32, 4.2)])) " +
+                        ") t(a) " +
+                        "GROUP BY 1 " +
+                        "ORDER BY 2 DESC",
+                "SELECT * FROM VALUES (31, 3), (41, 1)");
     }
 
     @Test
@@ -583,6 +595,13 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT APPROX_PERCENTILE(0.1, x), AVG(x), MIN(x) FROM (values 1, 1, 1) t(x)", "SELECT 0.1, 1.0, 1");
+    }
+
+    @Test
+    public void testAggregationWithHaving()
+            throws Exception
+    {
+        assertQuery("SELECT a, count(1) FROM (VALUES 1, 2, 3, 2) t(a) GROUP BY a HAVING count(1) > 1", "SELECT 2, 2");
     }
 
     @Test
