@@ -1256,7 +1256,14 @@ public class HiveMetadata
         if (!partitionDomains.isEmpty()) {
             predicate = TupleDomain.columnWiseUnion(partitionDomains);
         }
-        return new ConnectorTableLayout(hiveLayoutHandle, Optional.empty(), predicate, Optional.empty(), Optional.of(partitionDomains), ImmutableList.of());
+        return new ConnectorTableLayout(
+                hiveLayoutHandle,
+                Optional.empty(),
+                predicate,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(partitionDomains),
+                ImmutableList.of());
     }
 
     @Override

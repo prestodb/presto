@@ -18,8 +18,11 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -59,9 +62,20 @@ public class TableLayout
         return handle;
     }
 
+    public Optional<NodePartitioning> getNodePartitioning()
+    {
+        return layout.getNodePartitioning()
+                .map(nodePartitioning -> new NodePartitioning(
+                        new PartitioningHandle(
+                                Optional.of(handle.getConnectorId()),
+                                Optional.of(handle.getTransactionHandle()),
+                                nodePartitioning.getPartitioningHandle()),
+                        nodePartitioning.getPartitioningColumns()));
+    }
+
     public Optional<Set<ColumnHandle>> getPartitioningColumns()
     {
-        return layout.getPartitioningColumns();
+        return layout.getStreamPartitioningColumns();
     }
 
     public Optional<List<TupleDomain<ColumnHandle>>> getDiscretePredicates()
@@ -72,5 +86,47 @@ public class TableLayout
     public static TableLayout fromConnectorLayout(String connectorId, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
     {
         return new TableLayout(new TableLayoutHandle(connectorId, transactionHandle, layout.getHandle()), layout);
+    }
+
+    public static class NodePartitioning
+    {
+        private final PartitioningHandle partitioningHandle;
+        private final List<ColumnHandle> partitioningColumns;
+
+        public NodePartitioning(PartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
+        {
+            this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
+            this.partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
+        }
+
+        public PartitioningHandle getPartitioningHandle()
+        {
+            return partitioningHandle;
+        }
+
+        public List<ColumnHandle> getPartitioningColumns()
+        {
+            return partitioningColumns;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            NodePartitioning that = (NodePartitioning) o;
+            return Objects.equals(partitioningHandle, that.partitioningHandle) &&
+                    Objects.equals(partitioningColumns, that.partitioningColumns);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(partitioningHandle, partitioningColumns);
+        }
     }
 }
