@@ -62,8 +62,7 @@ public interface MetadataDao
     @SqlQuery("SELECT DISTINCT schema_name FROM tables")
     List<String> listSchemaNames();
 
-    @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
@@ -73,8 +72,7 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlQuery("SELECT t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE t.table_id = :tableId\n" +
