@@ -37,6 +37,7 @@ public interface SchemaDao
             "  PRIMARY KEY (table_id, column_id),\n" +
             "  UNIQUE (table_id, column_name),\n" +
             "  UNIQUE (table_id, ordinal_position),\n" +
+            "  UNIQUE (table_id, sort_ordinal_position),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createTableColumns();
