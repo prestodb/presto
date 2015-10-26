@@ -192,7 +192,7 @@ public class TestRaptorMetadata
         metadata.dropTable(SESSION, tableHandle);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Ordering column .* does not exist")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Ordering column does not exist: orderdatefoo")
     public void testInvalidOrderingColumns()
             throws Exception
     {
@@ -203,7 +203,7 @@ public class TestRaptorMetadata
         fail("Expected createTable to fail");
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Temporal column .* does not exist")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Temporal column does not exist: foo")
     public void testInvalidTemporalColumn()
             throws Exception
     {
