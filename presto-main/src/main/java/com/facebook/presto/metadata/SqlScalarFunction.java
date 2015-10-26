@@ -78,6 +78,10 @@ public abstract class SqlScalarFunction
         return new SqlScalarFunctionBuilder(clazz);
     }
 
+    public static SqlScalarFunctionBuilder builder()
+    {
+        return new SqlScalarFunctionBuilder();
+    }
 
     private static class SimpleSqlScalarFunction
             extends SqlScalarFunction

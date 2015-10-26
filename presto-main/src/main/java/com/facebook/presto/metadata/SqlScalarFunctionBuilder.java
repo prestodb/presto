@@ -15,9 +15,11 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +29,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.copyOf;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -36,7 +37,7 @@ import static java.util.stream.Collectors.toList;
 
 public final class SqlScalarFunctionBuilder
 {
-    private final Class<?> clazz;
+    private final Optional<Class<?>> clazz;
     private Signature signature;
     private String description;
     private Optional<Boolean> hidden = Optional.empty();
@@ -44,10 +45,17 @@ public final class SqlScalarFunctionBuilder
     private boolean nullableResult;
     private List<Boolean> nullableArguments = emptyList();
     private List<MethodsGroup> methodsGroups = newArrayList();
+    private Optional<MethodsGroup> currentMethodGroup = Optional.empty();
+    private boolean methodsFlushedForCurrentGroup;
 
     public SqlScalarFunctionBuilder(Class<?> clazz)
     {
-        this.clazz = clazz;
+        this.clazz = Optional.of(clazz);
+    }
+
+    public SqlScalarFunctionBuilder()
+    {
+        this.clazz = Optional.empty();
     }
 
     public SqlScalarFunctionBuilder signature(Signature signature)
@@ -107,39 +115,60 @@ public final class SqlScalarFunctionBuilder
     public SqlScalarFunctionBuilder methods(List<String> methodNames)
     {
         requireNonNull(methodNames, "methodNames is null");
+        methodNames.forEach(this::method);
+        return this;
+    }
 
-        List<Method> matchingMethods = asList(clazz.getMethods()).stream()
-                .filter(method -> methodNames.contains(method.getName()))
+    public SqlScalarFunctionBuilder method(String methodName)
+    {
+        initMethodGroupIfNeeded();
+        checkState(clazz.isPresent(), "class instance not set");
+        List<TargetMethodDelegate> matchingMethods = asList(clazz.get().getMethods()).stream()
+                .filter(method -> methodName.equals(method.getName()))
+                .map(Reflection::methodHandle)
+                .map(methodHandle -> new TargetMethodDelegate(methodName, methodHandle))
                 .collect(toList());
-        List<String> matchingMethodNames = matchingMethods.stream()
-                .map(Method::getName)
-                .collect(toList());
+        checkState(!matchingMethods.isEmpty(), "method %s was not found in %s", methodName, clazz.get());
+        matchingMethods.forEach(currentMethodGroup.get()::addMethod);
+        return this;
+    }
 
-        for (String methodName : methodNames) {
-            checkState(matchingMethodNames.contains(methodName), "method %s was not found in %s", methodName, clazz);
+    private void initMethodGroupIfNeeded()
+    {
+        if (!currentMethodGroup.isPresent() || methodsFlushedForCurrentGroup) {
+            MethodsGroup newMethodGroup = new MethodsGroup();
+            currentMethodGroup = Optional.of(newMethodGroup);
+            methodsGroups.add(newMethodGroup);
+            methodsFlushedForCurrentGroup = false;
         }
+    }
 
-        methodsGroups.add(new MethodsGroup(matchingMethods));
+    public SqlScalarFunctionBuilder method(SqlScalarFunction scalarFunctionDelegate, MethodHandle methodHandle)
+    {
+        initMethodGroupIfNeeded();
+        currentMethodGroup.get().addMethod(new TargetMethodDelegate(scalarFunctionDelegate, methodHandle));
         return this;
     }
 
     public SqlScalarFunctionBuilder predicate(Predicate<SpecializeContext> predicate)
     {
         requireNonNull(predicate, "predicate is null");
-        checkState(!methodsGroups.isEmpty(), "no methods are selected (call methods() first)");
-        checkState(!getLast(methodsGroups).getPredicate().isPresent(), "predicate already defined for selected methods");
-
-        getLast(methodsGroups).setPredicate(predicate);
+        checkState(currentMethodGroup.isPresent(), "no methods are selected (call methods() first)");
+        checkState(!currentMethodGroup.get().getPredicate().isPresent(), "predicate already defined for selected methods");
+        currentMethodGroup.get().setPredicate(predicate);
+        methodsFlushedForCurrentGroup = true;
         return this;
     }
 
     public SqlScalarFunctionBuilder extraParameters(Function<SpecializeContext, List<Object>> extraParametersFunction)
     {
         requireNonNull(extraParametersFunction, "extraParametersFunction is null");
-        checkState(!methodsGroups.isEmpty(), "no methods are selected (call methods() first)");
-        checkState(!getLast(methodsGroups).getExtraParametersFunction().isPresent(), "extraParameters already defined for selected methods");
+        checkState(currentMethodGroup.isPresent(), "no methods are selected (call methods() first)");
+        checkState(!currentMethodGroup.get().getExtraParametersFunction().isPresent(), "extraParameters already defined for selected methods");
+        checkState(!currentMethodGroup.get().hasScalarMethodDelegates(), "scalar method delegates cannot be used with extraParameters");
 
-        getLast(methodsGroups).setExtraParametersFunction(extraParametersFunction);
+        currentMethodGroup.get().setExtraParametersFunction(extraParametersFunction);
+        methodsFlushedForCurrentGroup = true;
         return this;
     }
 
@@ -225,20 +254,60 @@ public final class SqlScalarFunctionBuilder
         }
     }
 
+    static class TargetMethodDelegate
+    {
+        private final String name;
+        private final MethodHandle methodHandle;
+        private final Optional<SqlScalarFunction> scalarFunctionDelegate;
+
+        public TargetMethodDelegate(SqlScalarFunction scalarFunctionDelegate, MethodHandle methodHandle)
+        {
+            this.name = scalarFunctionDelegate.getSignature().getName();
+            this.methodHandle = methodHandle;
+            this.scalarFunctionDelegate = Optional.of(scalarFunctionDelegate);
+        }
+
+        public TargetMethodDelegate(String name, MethodHandle methodHandle)
+        {
+            this.name = name;
+            this.methodHandle = methodHandle;
+            this.scalarFunctionDelegate = Optional.empty();
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public MethodHandle getMethodHandle()
+        {
+            return methodHandle;
+        }
+
+        public Optional<SqlScalarFunction> getScalarFunctionDelegate()
+        {
+            return scalarFunctionDelegate;
+        }
+    }
+
     static class MethodsGroup
     {
-        private final List<Method> methods;
+        private final List<TargetMethodDelegate> methods = new ArrayList<>();
         private Optional<Predicate<SpecializeContext>> predicate = Optional.empty();
         private Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction = Optional.empty();
 
-        private MethodsGroup(List<Method> methods)
+        private MethodsGroup()
         {
-            this.methods = methods;
         }
 
-        List<Method> getMethods()
+        List<TargetMethodDelegate> getMethods()
         {
-            return methods;
+            return copyOf(methods);
+        }
+
+        private void addMethod(TargetMethodDelegate method)
+        {
+            methods.add(method);
         }
 
         Optional<Predicate<SpecializeContext>> getPredicate()
@@ -259,6 +328,11 @@ public final class SqlScalarFunctionBuilder
         private void setExtraParametersFunction(Function<SpecializeContext, List<Object>> extraParametersFunction)
         {
             this.extraParametersFunction = Optional.of(extraParametersFunction);
+        }
+
+        public boolean hasScalarMethodDelegates()
+        {
+            return methods.stream().anyMatch(method -> method.scalarFunctionDelegate.isPresent());
         }
     }
 }
