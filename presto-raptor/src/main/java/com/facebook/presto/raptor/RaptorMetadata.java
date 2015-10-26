@@ -304,6 +304,13 @@ public class RaptorMetadata
         List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(getSortColumns(tableMetadata.getProperties()), columnHandleMap);
         Optional<RaptorColumnHandle> temporalColumnHandle = getTemporalColumnHandle(getTemporalColumn(tableMetadata.getProperties()), columnHandleMap);
 
+        if (temporalColumnHandle.isPresent()) {
+            RaptorColumnHandle column = temporalColumnHandle.get();
+            if (!column.getColumnType().equals(TIMESTAMP) && !column.getColumnType().equals(DATE)) {
+                throw new PrestoException(NOT_SUPPORTED, "Temporal column must be of type timestamp or date: " + column.getColumnName());
+            }
+        }
+
         RaptorColumnHandle sampleWeightColumnHandle = null;
         if (tableMetadata.isSampled()) {
             sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, columnId, BIGINT);
@@ -334,25 +341,21 @@ public class RaptorMetadata
 
         RaptorColumnHandle handle = columnHandleMap.get(temporalColumn);
         if (handle == null) {
-            throw new PrestoException(NOT_FOUND, format("Temporal column %s does not exist", temporalColumn));
+            throw new PrestoException(NOT_FOUND, "Temporal column does not exist: " + temporalColumn);
         }
         return Optional.of(handle);
     }
 
     private static List<RaptorColumnHandle> getSortColumnHandles(List<String> sortColumns, Map<String, RaptorColumnHandle> columnHandleMap)
     {
-        if (sortColumns == null) {
-            return ImmutableList.of();
-        }
-        ImmutableList.Builder<RaptorColumnHandle> sortColumnHandles = ImmutableList.builder();
+        ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
         for (String column : sortColumns) {
-            RaptorColumnHandle handle = columnHandleMap.get(column);
-            if (handle == null) {
-                throw new PrestoException(NOT_FOUND, format("Ordering column %s does not exist", column));
+            if (!columnHandleMap.containsKey(column)) {
+                throw new PrestoException(NOT_FOUND, "Ordering column does not exist: " + column);
             }
-            sortColumnHandles.add(handle);
+            columnHandles.add(columnHandleMap.get(column));
         }
-        return sortColumnHandles.build();
+        return columnHandles.build();
     }
 
     @Override
@@ -360,13 +363,6 @@ public class RaptorMetadata
     {
         RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
         long transactionId = table.getTransactionId();
-
-        if (table.getTemporalColumnHandle().isPresent()) {
-            RaptorColumnHandle column = table.getTemporalColumnHandle().get();
-            if (!column.getColumnType().equals(TIMESTAMP) && !column.getColumnType().equals(DATE)) {
-                throw new PrestoException(NOT_SUPPORTED, "Temporal column must be of type timestamp or date: " + column.getColumnName());
-            }
-        }
 
         long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
