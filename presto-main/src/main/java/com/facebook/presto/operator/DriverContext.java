@@ -189,6 +189,12 @@ public class DriverContext
         return pipelineContext.getOperatorPreAllocatedMemory();
     }
 
+    public void transferMemoryToTaskContext(long bytes)
+    {
+        pipelineContext.transferMemoryToTaskContext(bytes);
+        checkArgument(memoryReservation.addAndGet(-bytes) >= 0, "Tried to transfer more memory than is reserved");
+    }
+
     public ListenableFuture<?> reserveMemory(long bytes)
     {
         ListenableFuture<?> future = pipelineContext.reserveMemory(bytes);

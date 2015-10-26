@@ -296,6 +296,13 @@ public class OperatorContext
         memoryFuture.get().set(null);
     }
 
+    public long transferMemoryToTaskContext()
+    {
+        long bytes = memoryReservation.getAndSet(0);
+        driverContext.transferMemoryToTaskContext(bytes);
+        return bytes;
+    }
+
     public void setMemoryReservation(long newMemoryReservation)
     {
         checkArgument(newMemoryReservation >= 0, "newMemoryReservation is negative");

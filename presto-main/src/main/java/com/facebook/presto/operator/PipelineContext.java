@@ -194,6 +194,12 @@ public class PipelineContext
         return taskContext.getOperatorPreAllocatedMemory();
     }
 
+    public void transferMemoryToTaskContext(long bytes)
+    {
+        // The memory is already reserved in the task context, so just decrement our reservation
+        checkArgument(memoryReservation.addAndGet(-bytes) >= 0, "Tried to transfer more memory than is reserved");
+    }
+
     public synchronized ListenableFuture<?> reserveMemory(long bytes)
     {
         ListenableFuture<?> future = taskContext.reserveMemory(bytes);
