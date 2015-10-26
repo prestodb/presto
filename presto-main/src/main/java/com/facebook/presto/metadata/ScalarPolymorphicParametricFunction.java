@@ -14,15 +14,15 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.ParametricFunctionBuilder.MethodsGroup;
+import com.facebook.presto.metadata.ParametricFunctionBuilder.NamedMethodHandle;
 import com.facebook.presto.metadata.ParametricFunctionBuilder.SpecializeContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.util.Reflection;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -94,10 +94,10 @@ class ScalarPolymorphicParametricFunction
         Type resolvedReturnType = resolveReturnType(types, typeManager, calculatedReturnType);
         SpecializeContext context = new SpecializeContext(types, filterPresentLiterals(literalParameters), resolvedParameterTypes, resolvedReturnType, typeManager, functionRegistry);
 
-        Optional<Method> matchingMethod = Optional.empty();
+        Optional<NamedMethodHandle> matchingMethod = Optional.empty();
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();
         for (MethodsGroup candidateMethodsGroup : methodsGroups) {
-            for (Method candidateMethod : candidateMethodsGroup.getMethods()) {
+            for (NamedMethodHandle candidateMethod : candidateMethodsGroup.getMethods()) {
                 if (matchesParameterAndReturnTypes(candidateMethod, resolvedParameterTypes, resolvedReturnType) &&
                         predicateIsTrue(candidateMethodsGroup, context)) {
                     if (matchingMethod.isPresent()) {
@@ -134,19 +134,19 @@ class ScalarPolymorphicParametricFunction
         return resolvedReturnType;
     }
 
-    private boolean matchesParameterAndReturnTypes(Method method, List<Type> resolvedTypes, Type returnType)
+    private boolean matchesParameterAndReturnTypes(NamedMethodHandle method, List<Type> resolvedTypes, Type returnType)
     {
-        checkState(method.getParameterCount() >= resolvedTypes.size(),
-                "method %s has not enough arguments: %s (should have at least %s)", method.getName(), method.getParameterCount(), resolvedTypes.size());
+        MethodType methodHandleType = method.getMethodHandle().type();
+        checkState(methodHandleType.parameterCount() >= resolvedTypes.size(),
+                "method %s has not enough arguments: %s (should have at least %s)", method.getName(), methodHandleType.parameterCount(), resolvedTypes.size());
 
-        Class<?>[] methodParameterJavaTypes = method.getParameterTypes();
+        List<Class<?>> methodParameterJavaTypes = methodHandleType.parameterList();
         for (int i = 0; i < resolvedTypes.size(); ++i) {
-            if (!methodParameterJavaTypes[i].equals(resolvedTypes.get(i).getJavaType())) {
+            if (!methodParameterJavaTypes.get(i).equals(resolvedTypes.get(i).getJavaType())) {
                 return false;
             }
         }
-
-        return method.getReturnType().equals(returnType.getJavaType());
+        return methodHandleType.returnType().equals(returnType.getJavaType());
     }
 
     private boolean onlyFirstMatchedMethodHasPredicate(MethodsGroup matchingMethodsGroup, MethodsGroup methodsGroup)
@@ -171,15 +171,14 @@ class ScalarPolymorphicParametricFunction
                 .collect(toMap(entry -> entry.getKey().toLowerCase(US), entry -> entry.getValue().getAsLong()));
     }
 
-    private MethodHandle applyExtraParameters(Method matchingMethod, List<Object> extraParameters)
+    private MethodHandle applyExtraParameters(NamedMethodHandle matchingMethod, List<Object> extraParameters)
     {
         int expectedNumberOfArguments = signature.getArgumentTypes().size() + extraParameters.size();
-        int matchingMethodParameterCount = matchingMethod.getParameterCount();
+        int matchingMethodParameterCount = matchingMethod.getMethodHandle().type().parameterCount();
         checkState(matchingMethodParameterCount == expectedNumberOfArguments,
                 "method %s has invalid number of arguments: %s (should have %s)", matchingMethod.getName(), matchingMethodParameterCount, expectedNumberOfArguments);
 
-        MethodHandle matchingMethodHandle = Reflection.methodHandle(matchingMethod);
-        matchingMethodHandle = MethodHandles.insertArguments(matchingMethodHandle, signature.getArgumentTypes().size(), extraParameters.toArray());
+        MethodHandle matchingMethodHandle  = MethodHandles.insertArguments(matchingMethod.getMethodHandle(), signature.getArgumentTypes().size(), extraParameters.toArray());
         return matchingMethodHandle;
     }
 }

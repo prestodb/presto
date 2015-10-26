@@ -37,4 +37,9 @@ public interface ParametricFunction
     {
         return new ParametricFunctionBuilder(clazz);
     }
+
+    static ParametricFunctionBuilder builder()
+    {
+        return new ParametricFunctionBuilder();
+    }
 }
