@@ -78,7 +78,7 @@ public class NestedLoopBuildOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.nestedLoopJoinPagesSupplier = requireNonNull(nestedLoopJoinPagesSupplier, "nestedLoopJoinPagesSupplier is null");
-        this.nestedLoopJoinPagesBuilder = new NestedLoopJoinPagesBuilder(operatorContext.getDriverContext().getPipelineContext().getTaskContext());
+        this.nestedLoopJoinPagesBuilder = new NestedLoopJoinPagesBuilder(operatorContext);
     }
 
     @Override
@@ -100,8 +100,7 @@ public class NestedLoopBuildOperator
             return;
         }
 
-        // Free memory, as the PageSource is going to take it over
-        operatorContext.setMemoryReservation(0);
+        // The NestedLoopJoinPages will take over our memory reservation, so after this point ours will be zero.
         nestedLoopJoinPagesSupplier.setPages(nestedLoopJoinPagesBuilder.build());
 
         finished = true;

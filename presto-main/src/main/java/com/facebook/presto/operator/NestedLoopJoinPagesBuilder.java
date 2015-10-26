@@ -27,15 +27,15 @@ import static java.util.Objects.requireNonNull;
 
 public class NestedLoopJoinPagesBuilder
 {
-    private final TaskContext taskContext;
+    private final OperatorContext operatorContext;
     private List<Page> pages;
     private boolean finished;
 
     private long estimatedSize;
 
-    NestedLoopJoinPagesBuilder(TaskContext taskContext)
+    NestedLoopJoinPagesBuilder(OperatorContext operatorContext)
     {
-        this.taskContext = requireNonNull(taskContext, "taskContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pages = Lists.newArrayList();
     }
 
@@ -74,7 +74,7 @@ public class NestedLoopJoinPagesBuilder
 
         finished = true;
         pages = ImmutableList.copyOf(pages);
-        return new NestedLoopJoinPages(pages, getEstimatedSize(), taskContext);
+        return new NestedLoopJoinPages(pages, getEstimatedSize(), operatorContext);
     }
 
     @Override
