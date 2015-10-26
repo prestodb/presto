@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -37,6 +38,8 @@ public class RaptorInsertTableHandle
     private final Optional<String> externalBatchId;
     private final List<RaptorColumnHandle> sortColumnHandles;
     private final List<SortOrder> sortOrders;
+    private final OptionalInt bucketCount;
+    private final List<RaptorColumnHandle> bucketColumnHandles;
 
     @JsonCreator
     public RaptorInsertTableHandle(
@@ -47,7 +50,9 @@ public class RaptorInsertTableHandle
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("externalBatchId") Optional<String> externalBatchId,
             @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
-            @JsonProperty("sortOrders") List<SortOrder> sortOrders)
+            @JsonProperty("sortOrders") List<SortOrder> sortOrders,
+            @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles)
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
@@ -60,6 +65,8 @@ public class RaptorInsertTableHandle
 
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.sortColumnHandles = ImmutableList.copyOf(requireNonNull(sortColumnHandles, "sortColumnHandles is null"));
+        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
     }
 
     @JsonProperty
@@ -108,6 +115,18 @@ public class RaptorInsertTableHandle
     public List<SortOrder> getSortOrders()
     {
         return sortOrders;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @JsonProperty
+    public List<RaptorColumnHandle> getBucketColumnHandles()
+    {
+        return bucketColumnHandles;
     }
 
     @Override

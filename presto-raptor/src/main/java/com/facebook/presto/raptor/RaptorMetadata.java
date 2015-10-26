@@ -57,6 +57,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
@@ -69,12 +70,17 @@ import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardUuidColumnHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatchId;
+import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.getBucketColumns;
+import static com.facebook.presto.raptor.RaptorTableProperties.getBucketCount;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
@@ -151,6 +157,7 @@ public class RaptorMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getTableId(),
+                table.getBucketCount(),
                 OptionalLong.empty(),
                 Optional.ofNullable(sampleWeightColumnHandle));
     }
@@ -291,7 +298,7 @@ public class RaptorMetadata
         int ordinalPosition = existingColumns.size();
 
         String type = column.getType().getTypeSignature().toString();
-        dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null);
+        dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null, null);
         shardManager.addColumn(table.getTableId(), new ColumnInfo(columnId, column.getType()));
     }
 
@@ -327,6 +334,16 @@ public class RaptorMetadata
             }
         }
 
+        OptionalInt bucketCount = getBucketCount(tableMetadata.getProperties());
+        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(getBucketColumns(tableMetadata.getProperties()), columnHandleMap);
+
+        if (bucketCount.isPresent() && bucketColumnHandles.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, BUCKET_COUNT_PROPERTY));
+        }
+        if (!bucketCount.isPresent() && !bucketColumnHandles.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKET_COUNT_PROPERTY, BUCKETED_ON_PROPERTY));
+        }
+
         RaptorColumnHandle sampleWeightColumnHandle = null;
         if (tableMetadata.isSampled()) {
             sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, columnId, BIGINT);
@@ -348,7 +365,9 @@ public class RaptorMetadata
                 Optional.ofNullable(sampleWeightColumnHandle),
                 sortColumnHandles,
                 nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
-                temporalColumnHandle);
+                temporalColumnHandle,
+                bucketCount,
+                bucketColumnHandles);
     }
 
     private static Optional<RaptorColumnHandle> getTemporalColumnHandle(String temporalColumn, Map<String, RaptorColumnHandle> columnHandleMap)
@@ -376,6 +395,18 @@ public class RaptorMetadata
         return columnHandles.build();
     }
 
+    private static List<RaptorColumnHandle> getBucketColumnHandles(List<String> bucketColumns, Map<String, RaptorColumnHandle> columnHandleMap)
+    {
+        ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
+        for (String column : bucketColumns) {
+            if (!columnHandleMap.containsKey(column)) {
+                throw new PrestoException(NOT_FOUND, "Bucketing column does not exist: " + column);
+            }
+            columnHandles.add(columnHandleMap.get(column));
+        }
+        return columnHandles.build();
+    }
+
     @Override
     public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
     {
@@ -384,8 +415,12 @@ public class RaptorMetadata
 
         long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
-            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true);
+
+            Integer bucketCount = table.getBucketCount().isPresent() ? table.getBucketCount().getAsInt() : null;
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, bucketCount);
+
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
+            List<RaptorColumnHandle> bucketColumnHandles = table.getBucketColumnHandles();
 
             for (int i = 0; i < table.getColumnTypes().size(); i++) {
                 RaptorColumnHandle column = table.getColumnHandles().get(i);
@@ -393,7 +428,9 @@ public class RaptorMetadata
                 int columnId = i + 1;
                 String type = table.getColumnTypes().get(i).getTypeSignature().toString();
                 Integer sortPosition = sortColumnHandles.contains(column) ? sortColumnHandles.indexOf(column) : null;
-                dao.insertColumn(tableId, columnId, column.getColumnName(), i, type, sortPosition);
+                Integer bucketPosition = bucketColumnHandles.contains(column) ? bucketColumnHandles.indexOf(column) : null;
+
+                dao.insertColumn(tableId, columnId, column.getColumnName(), i, type, sortPosition, bucketPosition);
 
                 if (table.getTemporalColumnHandle().isPresent() && table.getTemporalColumnHandle().get().equals(column)) {
                     dao.updateTemporalColumnId(tableId, columnId);
@@ -415,7 +452,8 @@ public class RaptorMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
+        RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        long tableId = handle.getTableId();
 
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -430,6 +468,7 @@ public class RaptorMetadata
 
         Optional<String> externalBatchId = getExternalBatchId(session);
         List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(tableId);
+        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(tableId);
         return new RaptorInsertTableHandle(connectorId,
                 transactionId,
                 tableId,
@@ -437,12 +476,21 @@ public class RaptorMetadata
                 columnTypes.build(),
                 externalBatchId,
                 sortColumnHandles,
-                nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST));
+                nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
+                handle.getBucketCount(),
+                bucketColumnHandles);
     }
 
     private List<RaptorColumnHandle> getSortColumnHandles(long tableId)
     {
         return dao.listSortColumns(tableId).stream()
+                .map(this::getRaptorColumnHandle)
+                .collect(toList());
+    }
+
+    private List<RaptorColumnHandle> getBucketColumnHandles(long tableId)
+    {
+        return dao.listBucketColumns(tableId).stream()
                 .map(this::getRaptorColumnHandle)
                 .collect(toList());
     }
@@ -481,6 +529,7 @@ public class RaptorMetadata
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getTableId(),
+                handle.getBucketCount(),
                 OptionalLong.of(transactionId),
                 handle.getSampleWeightColumnHandle());
     }

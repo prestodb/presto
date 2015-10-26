@@ -25,7 +25,7 @@ import java.util.List;
 
 public interface MetadataDao
 {
-    @SqlQuery("SELECT table_id FROM tables\n" +
+    @SqlQuery("SELECT table_id, bucket_count FROM tables\n" +
             "WHERE schema_name = :schemaName\n" +
             "  AND table_name = :tableName")
     @Mapper(TableMapper.class)
@@ -88,6 +88,14 @@ public interface MetadataDao
             "ORDER BY c.sort_ordinal_position")
     List<TableColumn> listSortColumns(@Bind("tableId") long tableId);
 
+    @SqlQuery("SELECT t.schema_name, t.table_name, c.column_id, c.column_name, c.data_type\n" +
+            "FROM tables t\n" +
+            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+            "WHERE t.table_id = :tableId\n" +
+            "  AND c.bucket_ordinal_position IS NOT NULL\n" +
+            "ORDER BY c.bucket_ordinal_position")
+    List<TableColumn> listBucketColumns(@Bind("tableId") long tableId);
+
     @SqlQuery("SELECT schema_name, table_name, data\n" +
             "FROM views\n" +
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)")
@@ -105,23 +113,25 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlUpdate("INSERT INTO tables (schema_name, table_name, compaction_enabled)\n" +
-            "VALUES (:schemaName, :tableName, :compactionEnabled)")
+    @SqlUpdate("INSERT INTO tables (schema_name, table_name, compaction_enabled, bucket_count)\n" +
+            "VALUES (:schemaName, :tableName, :compactionEnabled, :bucketCount)")
     @GetGeneratedKeys
     long insertTable(
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName,
-            @Bind("compactionEnabled") boolean compactionEnabled);
+            @Bind("compactionEnabled") boolean compactionEnabled,
+            @Bind("bucketCount") Integer bucketCount);
 
-    @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type, sort_ordinal_position)\n" +
-            "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType, :sortOrdinalPosition)")
+    @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type, sort_ordinal_position, bucket_ordinal_position)\n" +
+            "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType, :sortOrdinalPosition, :bucketOrdinalPosition)")
     void insertColumn(
             @Bind("tableId") long tableId,
             @Bind("columnId") long columnId,
             @Bind("columnName") String columnName,
             @Bind("ordinalPosition") int ordinalPosition,
             @Bind("dataType") String dataType,
-            @Bind("sortOrdinalPosition") Integer sortOrdinalPosition);
+            @Bind("sortOrdinalPosition") Integer sortOrdinalPosition,
+            @Bind("bucketOrdinalPosition") Integer bucketOrdinalPosition);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "  schema_name = :newSchemaName\n" +

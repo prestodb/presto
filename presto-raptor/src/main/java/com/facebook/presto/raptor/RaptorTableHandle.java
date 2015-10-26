@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
@@ -33,6 +34,7 @@ public final class RaptorTableHandle
     private final String schemaName;
     private final String tableName;
     private final long tableId;
+    private final OptionalInt bucketCount;
     private final OptionalLong transactionId;
     private final Optional<RaptorColumnHandle> sampleWeightColumnHandle;
 
@@ -42,6 +44,7 @@ public final class RaptorTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
+            @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("transactionId") OptionalLong transactionId,
             @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle)
     {
@@ -53,6 +56,7 @@ public final class RaptorTableHandle
         this.tableId = tableId;
 
         this.sampleWeightColumnHandle = requireNonNull(sampleWeightColumnHandle, "sampleWeightColumnHandle is null");
+        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
     }
 
@@ -78,6 +82,12 @@ public final class RaptorTableHandle
     public long getTableId()
     {
         return tableId;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
     }
 
     @JsonProperty

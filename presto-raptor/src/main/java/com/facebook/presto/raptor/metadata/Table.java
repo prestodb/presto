@@ -19,16 +19,21 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.OptionalInt;
 
+import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class Table
 {
     private final long tableId;
+    private final OptionalInt bucketCount;
 
-    public Table(long tableId)
+    public Table(long tableId, OptionalInt bucketCount)
     {
         this.tableId = tableId;
+        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
     }
 
     public long getTableId()
@@ -36,10 +41,15 @@ public final class Table
         return tableId;
     }
 
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableId);
+        return Objects.hash(tableId, bucketCount);
     }
 
     @Override
@@ -52,7 +62,8 @@ public final class Table
             return false;
         }
         Table o = (Table) obj;
-        return tableId == o.tableId;
+        return tableId == o.tableId &&
+                Objects.equals(bucketCount, o.bucketCount);
     }
 
     @Override
@@ -60,6 +71,8 @@ public final class Table
     {
         return toStringHelper(this)
                 .add("tableId", tableId)
+                .add("bucketCount", bucketCount.isPresent() ? bucketCount.getAsInt() : null)
+                .omitNullValues()
                 .toString();
     }
 
@@ -70,7 +83,9 @@ public final class Table
         public Table map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
-            return new Table(r.getLong("table_id"));
+            return new Table(
+                    r.getLong("table_id"),
+                    getOptionalInt(r, "bucket_count"));
         }
     }
 }
