@@ -93,7 +93,7 @@ public class PlanOptimizersFactory
         }
 
         if (!forceSingleNode) {
-            builder.add(new AddExchanges(metadata, sqlParser, featuresConfig.isDistributedIndexJoinsEnabled()));
+            builder.add(new AddExchanges(metadata, sqlParser));
             builder.add(new AddIntermediateAggregation(metadata)); // Must run after AddExchanges
         }
 

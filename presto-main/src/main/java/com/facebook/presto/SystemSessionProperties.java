@@ -35,6 +35,7 @@ public final class SystemSessionProperties
 {
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
+    public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
@@ -77,6 +78,11 @@ public final class SystemSessionProperties
                         DISTRIBUTED_JOIN,
                         "Use a distributed join instead of a broadcast join",
                         featuresConfig.isDistributedJoinsEnabled(),
+                        false),
+                booleanSessionProperty(
+                        DISTRIBUTED_INDEX_JOIN,
+                        "Distribute index joins on join keys instead of executing inline",
+                        featuresConfig.isDistributedIndexJoinsEnabled(),
                         false),
                 integerSessionProperty(
                         HASH_PARTITION_COUNT,
@@ -159,6 +165,11 @@ public final class SystemSessionProperties
     public static boolean isDistributedJoinEnabled(Session session)
     {
         return session.getProperty(DISTRIBUTED_JOIN, Boolean.class);
+    }
+
+    public static boolean isDistributedIndexJoinEnabled(Session session)
+    {
+        return session.getProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
     }
 
     public static int getHashPartitionCount(Session session)
