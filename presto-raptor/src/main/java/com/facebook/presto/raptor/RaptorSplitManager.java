@@ -18,13 +18,11 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
 import com.facebook.presto.raptor.util.SynchronizedResultIterator;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
@@ -52,9 +50,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHAR
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
@@ -93,23 +89,12 @@ public class RaptorSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "table");
-        ConnectorPartition partition = new RaptorPartition(handle.getTableId(), tupleDomain);
-        return new ConnectorPartitionResult(ImmutableList.of(partition), tupleDomain);
-    }
-
-    @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
-    {
-        RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-
-        checkArgument(partitions.size() == 1, "expected exactly one partition");
-        RaptorPartition partition = checkType(getOnlyElement(partitions), RaptorPartition.class, "partition");
-        TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(partition.getEffectivePredicate());
-
-        return new RaptorSplitSource(raptorTableHandle.getTableId(), effectivePredicate, raptorTableHandle.getTransactionId());
+        RaptorTableLayoutHandle handle = checkType(layout, RaptorTableLayoutHandle.class, "layout");
+        RaptorTableHandle table = handle.getTable();
+        TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(handle.getConstraint());
+        return new RaptorSplitSource(table.getTableId(), effectivePredicate, table.getTransactionId());
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
