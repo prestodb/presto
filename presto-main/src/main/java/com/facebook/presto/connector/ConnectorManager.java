@@ -26,6 +26,7 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
@@ -37,6 +38,7 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.log.Logger;
@@ -68,6 +70,7 @@ public class ConnectorManager
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
+    private final NodePartitioningManager nodePartitioningManager;
 
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
@@ -87,6 +90,7 @@ public class ConnectorManager
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
             IndexManager indexManager,
+            NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             NodeManager nodeManager,
@@ -97,6 +101,7 @@ public class ConnectorManager
         this.splitManager = splitManager;
         this.pageSourceManager = pageSourceManager;
         this.indexManager = indexManager;
+        this.nodePartitioningManager = nodePartitioningManager;
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
@@ -242,8 +247,13 @@ public class ConnectorManager
         catch (UnsupportedOperationException ignored) {
         }
 
-        requireNonNull(connector.getSessionProperties(), format("Connector %s returned null session properties", connectorId));
-        requireNonNull(connector.getTableProperties(), format("Connector %s returned null table properties", connectorId));
+        ConnectorNodePartitioningProvider partitioningProvider = null;
+        try {
+            partitioningProvider = connector.getNodePartitioningProvider();
+            requireNonNull(partitioningProvider, format("Connector %s returned a null partitioning provider", connectorId));
+        }
+        catch (UnsupportedOperationException ignored) {
+        }
 
         ConnectorAccessControl accessControl = null;
         try {
@@ -283,6 +293,10 @@ public class ConnectorManager
 
         if (indexProvider != null) {
             indexManager.addIndexProvider(connectorId, indexProvider);
+        }
+
+        if (partitioningProvider != null) {
+            nodePartitioningManager.addPartitioningProvider(connectorId, partitioningProvider);
         }
 
         if (accessControl != null) {

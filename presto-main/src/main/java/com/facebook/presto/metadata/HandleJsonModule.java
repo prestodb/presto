@@ -34,6 +34,7 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(InsertTableHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(TransactionHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(PartitioningHandleJacksonModule.class);
 
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
     }

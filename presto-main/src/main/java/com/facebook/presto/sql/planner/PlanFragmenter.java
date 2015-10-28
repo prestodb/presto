@@ -201,7 +201,7 @@ public class PlanFragmenter
 
         public FragmentProperties setSingleNodeDistribution()
         {
-            if (partitioningHandle.isPresent() && partitioningHandle.get().isSingleNodeDistribution()) {
+            if (partitioningHandle.isPresent() && partitioningHandle.get().isSingleNode()) {
                 // already single node distribution
                 return this;
             }
@@ -219,7 +219,7 @@ public class PlanFragmenter
         public FragmentProperties setDistribution(PartitioningHandle distribution)
         {
             if (partitioningHandle.isPresent() && !partitioningHandle.get().equals(distribution) && !partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
-                checkState(partitioningHandle.get().isSingleNodeDistribution(),
+                checkState(partitioningHandle.get().isSingleNode(),
                         "Cannot set distribution to %s. Already set to %s",
                         distribution,
                         partitioningHandle);
@@ -232,7 +232,7 @@ public class PlanFragmenter
 
         public FragmentProperties setCoordinatorOnlyDistribution()
         {
-            if (partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnlyDistribution()) {
+            if (partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnly()) {
                 // already single node distribution
                 return this;
             }

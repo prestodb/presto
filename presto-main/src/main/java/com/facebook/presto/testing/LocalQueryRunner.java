@@ -210,12 +210,12 @@ public class LocalQueryRunner
                 nodeManager,
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
         this.pageSinkManager = new PageSinkManager();
         this.transactionManager = TransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 transactionCheckExecutor,
                 executor);
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
         this.splitManager = new SplitManager();
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
@@ -237,6 +237,7 @@ public class LocalQueryRunner
                 splitManager,
                 pageSourceManager,
                 indexManager,
+                nodePartitioningManager,
                 pageSinkManager,
                 new HandleResolver(),
                 nodeManager,

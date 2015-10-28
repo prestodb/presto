@@ -11,11 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 
-public interface BucketFunction
+import javax.inject.Inject;
+
+public class PartitioningHandleJacksonModule
+        extends AbstractTypedJacksonModule<ConnectorPartitioningHandle>
 {
-    int getBucket(Page page, int position);
+    @Inject
+    public PartitioningHandleJacksonModule(HandleResolver handleResolver)
+    {
+        super(ConnectorPartitioningHandle.class,
+                handleResolver::getId,
+                handleResolver::getPartitioningHandleClass);
+    }
 }
