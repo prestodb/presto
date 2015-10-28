@@ -11,16 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.spi.predicate;
 
-import java.util.Collection;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
-public interface DiscreteValues
+public interface ValuesProcessor
 {
-    /**
-     * @return true if the values are to be included, false if the values are to be excluded
-     */
-    boolean isWhiteList();
+    <T> T transform(Function<Ranges, T> rangesFunction, Function<DiscreteValues, T> discreteValuesFunction, Function<AllOrNone, T> allOrNoneFunction);
 
-    Collection<Object> getValues();
+    void consume(Consumer<Ranges> rangesConsumer, Consumer<DiscreteValues> discreteValuesConsumer, Consumer<AllOrNone> allOrNoneConsumer);
 }

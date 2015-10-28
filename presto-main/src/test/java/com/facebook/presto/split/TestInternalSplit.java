@@ -16,7 +16,7 @@ package com.facebook.presto.split;
 import com.facebook.presto.connector.system.SystemSplit;
 import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 

@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.spi.predicate;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
 import com.facebook.presto.spi.block.TestingBlockJsonSerde;
@@ -33,7 +35,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Map;
 
-import static com.facebook.presto.spi.TupleDomain.columnWiseUnion;
+import static com.facebook.presto.spi.predicate.TupleDomain.columnWiseUnion;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;

@@ -17,7 +17,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.parquet.ParquetCodecFactory;
 import com.facebook.presto.hive.parquet.ParquetCodecFactory.BytesDecompressor;
 import com.facebook.presto.hive.parquet.predicate.TupleDomainParquetPredicate.ColumnReference;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
