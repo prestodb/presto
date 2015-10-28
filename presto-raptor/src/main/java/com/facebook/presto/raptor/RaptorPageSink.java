@@ -28,6 +28,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -51,7 +52,7 @@ public class RaptorPageSink
     private final List<SortOrder> sortOrders;
     private final long maxBufferBytes;
 
-    private final PageBuffer pageBuffer;
+    private final PageWriter pageWriter;
 
     public RaptorPageSink(
             PageSorter pageSorter,
@@ -79,7 +80,7 @@ public class RaptorPageSink
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
 
-        this.pageBuffer = createPageBuffer(OptionalInt.empty());
+        this.pageWriter = new SimplePageWriter();
     }
 
     @Override
@@ -93,15 +94,17 @@ public class RaptorPageSink
             page = createPageWithSampleWeightBlock(page, sampleWeightBlock);
         }
 
-        pageBuffer.add(page);
+        pageWriter.appendPage(page);
     }
 
     @Override
     public Collection<Slice> finish()
     {
-        pageBuffer.flush();
-
-        List<ShardInfo> shards = pageBuffer.getStoragePageSink().commit();
+        List<ShardInfo> shards = new ArrayList<>();
+        for (PageBuffer pageBuffer : pageWriter.getPageBuffers()) {
+            pageBuffer.flush();
+            shards.addAll(pageBuffer.getStoragePageSink().commit());
+        }
 
         ImmutableList.Builder<Slice> fragments = ImmutableList.builder();
         for (ShardInfo shard : shards) {
@@ -113,7 +116,18 @@ public class RaptorPageSink
     @Override
     public void abort()
     {
-        pageBuffer.getStoragePageSink().rollback();
+        RuntimeException error = new RuntimeException("Exception during rollback");
+        for (PageBuffer pageBuffer : pageWriter.getPageBuffers()) {
+            try {
+                pageBuffer.getStoragePageSink().rollback();
+            }
+            catch (Throwable t) {
+                error.addSuppressed(t);
+            }
+        }
+        if (error.getSuppressed().length > 0) {
+            throw error;
+        }
     }
 
     private PageBuffer createPageBuffer(OptionalInt bucketNumber)
@@ -146,5 +160,30 @@ public class RaptorPageSink
             pageChannel++;
         }
         return new Page(blocks);
+    }
+
+    private interface PageWriter
+    {
+        void appendPage(Page page);
+
+        List<PageBuffer> getPageBuffers();
+    }
+
+    private class SimplePageWriter
+            implements PageWriter
+    {
+        private final PageBuffer pageBuffer = createPageBuffer(OptionalInt.empty());
+
+        @Override
+        public void appendPage(Page page)
+        {
+            pageBuffer.add(page);
+        }
+
+        @Override
+        public List<PageBuffer> getPageBuffers()
+        {
+            return ImmutableList.of(pageBuffer);
+        }
     }
 }
