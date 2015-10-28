@@ -362,8 +362,7 @@ public class ParquetHiveRecordCursor
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
-            MessageType schema = fileMetaData.getSchema();
-            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, schema);
+            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, fileSchema);
 
             List<parquet.schema.Type> fields = columns.stream()
                     .filter(column -> !column.isPartitionKey())
