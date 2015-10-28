@@ -129,6 +129,7 @@ public class TestStatementBuilder
 
         printStatement("create table foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
+        printStatement("create table foo as select * from abc WITH NO DATA");
         printStatement("drop table foo");
 
         printStatement("insert into foo select * from abc");
