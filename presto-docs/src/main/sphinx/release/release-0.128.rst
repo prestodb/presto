@@ -14,3 +14,8 @@ General Changes
   align with the grouping columns used by a preceding operation such as
   ``GROUP BY``, ``DISTINCT``, etc. When this triggers, the join may fail to
   produce some of the output rows.
+
+MySQL Changes
+-------------
+
+* Fix handling of MySQL database names with underscores.
