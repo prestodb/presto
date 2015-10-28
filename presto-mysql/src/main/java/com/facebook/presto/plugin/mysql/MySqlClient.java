@@ -91,7 +91,7 @@ public class MySqlClient
         DatabaseMetaData metadata = connection.getMetaData();
         String escape = metadata.getSearchStringEscape();
         return metadata.getTables(
-                escapeNamePattern(schemaName, escape),
+                schemaName,
                 null,
                 escapeNamePattern(tableName, escape),
                 new String[] {"TABLE"});

@@ -129,7 +129,13 @@ public abstract class AbstractTestQueryFramework
     protected void assertQueryTrue(@Language("SQL") String sql)
             throws Exception
     {
-        assertQuery(sql, "SELECT true");
+        assertQueryTrue(getSession(), sql);
+    }
+
+    protected void assertQueryTrue(Session session, @Language("SQL") String sql)
+            throws Exception
+    {
+        assertQuery(session, sql, "SELECT true");
     }
 
     public void assertApproximateQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)

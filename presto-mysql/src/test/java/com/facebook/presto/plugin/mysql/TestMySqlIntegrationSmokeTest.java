@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestMySqlIntegrationSmokeTest
@@ -31,7 +35,7 @@ public class TestMySqlIntegrationSmokeTest
     public TestMySqlIntegrationSmokeTest()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", "tpch"));
+        this(new TestingMySqlServer("testuser", "testpass", "tpch", "test_database"));
     }
 
     public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
@@ -51,5 +55,25 @@ public class TestMySqlIntegrationSmokeTest
     public final void destroy()
     {
         closeAllRuntimeException(mysqlServer);
+    }
+
+    @Test
+    public void testNameEscaping()
+            throws Exception
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("mysql")
+                .setSchema("test_database")
+                .build();
+
+        assertFalse(queryRunner.tableExists(session, "test_table"));
+
+        assertQuery(session, "CREATE TABLE test_table AS SELECT 123 x", "SELECT 1");
+        assertTrue(queryRunner.tableExists(session, "test_table"));
+
+        assertQuery(session, "SELECT * FROM test_table", "SELECT 123");
+
+        assertQueryTrue(session, "DROP TABLE test_table");
+        assertFalse(queryRunner.tableExists(session, "test_table"));
     }
 }
