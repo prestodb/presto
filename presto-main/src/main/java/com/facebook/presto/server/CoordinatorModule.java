@@ -54,6 +54,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
@@ -142,6 +143,9 @@ public class CoordinatorModule
 
         // table properties
         binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
+
+        // node partitioning manager
+        binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);
 
         // node scheduler
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);

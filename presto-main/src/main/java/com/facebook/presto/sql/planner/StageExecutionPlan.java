@@ -31,14 +31,17 @@ public class StageExecutionPlan
     private final Optional<SplitSource> dataSource;
     private final List<StageExecutionPlan> subStages;
     private final Optional<List<String>> fieldNames;
+    private final Optional<PartitioningHandle> partitioningHandle;
 
     public StageExecutionPlan(
             PlanFragment fragment,
             Optional<SplitSource> dataSource,
+            Optional<PartitioningHandle> partitioningHandle,
             List<StageExecutionPlan> subStages)
     {
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
+        this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "dependencies is null"));
 
         fieldNames = (fragment.getRoot() instanceof OutputNode) ?
@@ -62,6 +65,11 @@ public class StageExecutionPlan
         return dataSource;
     }
 
+    public Optional<PartitioningHandle> getPartitioningHandle()
+    {
+        return partitioningHandle;
+    }
+
     public List<StageExecutionPlan> getSubStages()
     {
         return subStages;
@@ -69,7 +77,7 @@ public class StageExecutionPlan
 
     public StageExecutionPlan withPartitionCount(OptionalInt partitionCount)
     {
-        return new StageExecutionPlan(fragment.withPartitionCount(partitionCount), dataSource, subStages);
+        return new StageExecutionPlan(fragment.withPartitionCount(partitionCount), dataSource, partitioningHandle, subStages);
     }
 
     @Override

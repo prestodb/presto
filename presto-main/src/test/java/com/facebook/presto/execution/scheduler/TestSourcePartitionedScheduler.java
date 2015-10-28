@@ -438,7 +438,7 @@ public class TestSourcePartitionedScheduler
                 tableScanNodeId,
                 Optional.empty());
 
-        return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(CONNECTOR_ID), splitSource)), ImmutableList.<StageExecutionPlan>of());
+        return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(CONNECTOR_ID), splitSource)), Optional.empty(), ImmutableList.of());
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)
