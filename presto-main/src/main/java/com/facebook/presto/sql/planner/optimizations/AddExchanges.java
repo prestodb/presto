@@ -602,7 +602,7 @@ public class AddExchanges
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 source.getNode(),
-                                new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, ImmutableList.of(), ImmutableList.of())),
+                                new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, source.getNode().getOutputSymbols(), ImmutableList.of())),
                         source.getProperties()
                 );
             }

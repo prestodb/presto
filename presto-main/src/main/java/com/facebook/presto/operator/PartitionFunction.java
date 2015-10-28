@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.Page;
 
 import java.util.stream.IntStream;

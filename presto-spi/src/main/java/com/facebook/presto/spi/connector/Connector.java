@@ -76,6 +76,14 @@ public interface Connector
     }
 
     /**
+     * @throws UnsupportedOperationException if this connector does not support partitioned table layouts
+     */
+    default ConnectorNodePartitioningProvider getNodePartitioningProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * @return the set of system tables provided by this connector
      */
     default Set<SystemTable> getSystemTables()

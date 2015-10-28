@@ -13,24 +13,98 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@JsonTypeInfo(
-        use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
-        property = "type")
-@JsonSubTypes(@Type(value = SystemPartitioningHandle.class, name = "system"))
-public interface PartitioningHandle
+import java.util.Objects;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
+
+public class PartitioningHandle
 {
-    default boolean isSingleNodeDistribution()
+    private final Optional<String> connectorId;
+    private final Optional<ConnectorTransactionHandle> transactionHandle;
+    private final ConnectorPartitioningHandle connectorHandle;
+
+    @JsonCreator
+    public PartitioningHandle(
+            @JsonProperty("connectorId") Optional<String> connectorId,
+            @JsonProperty("transactionHandle") Optional<ConnectorTransactionHandle> transactionHandle,
+            @JsonProperty("connectorHandle") ConnectorPartitioningHandle connectorHandle)
     {
-        return false;
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+        checkArgument(!connectorId.isPresent() || transactionHandle.isPresent(), "transactionHandle is required when connectorId is present");
+        this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
-    default boolean isCoordinatorOnlyDistribution()
+    @JsonProperty
+    public Optional<String> getConnectorId()
     {
-        return false;
+        return connectorId;
+    }
+
+    @JsonProperty
+    public Optional<ConnectorTransactionHandle> getTransactionHandle()
+    {
+        return transactionHandle;
+    }
+
+    @JsonProperty
+    public ConnectorPartitioningHandle getConnectorHandle()
+    {
+        return connectorHandle;
+    }
+
+    public boolean isSingleNode()
+    {
+        return connectorHandle.isSingleNode();
+    }
+
+    public boolean isCoordinatorOnly()
+    {
+        return connectorHandle.isCoordinatorOnly();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PartitioningHandle that = (PartitioningHandle) o;
+
+        // Currently, custom partitioning can not be equal since it will result
+        // in plans containing multiple table scans, which is not supported.
+        // TODO remove then when collocated plans are supported
+        if (connectorId.isPresent() || that.connectorId.isPresent()) {
+            return false;
+        }
+
+        return Objects.equals(connectorId, that.connectorId) &&
+                Objects.equals(transactionHandle, that.transactionHandle) &&
+                Objects.equals(connectorHandle, that.connectorHandle);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(connectorId, transactionHandle, connectorHandle);
+    }
+
+    @Override
+    public String toString()
+    {
+        if (connectorId.isPresent()) {
+            return connectorId.get() + ":" + connectorHandle;
+        }
+        return connectorHandle.toString();
     }
 }
