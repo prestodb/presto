@@ -165,6 +165,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
@@ -510,7 +511,7 @@ class StatementAnalyzer
         analysis.setUpdateType("INSERT");
 
         // analyze the query that creates the data
-        RelationType descriptor = process(insert.getQuery(), context);
+        RelationType queryDescriptor = process(insert.getQuery(), context);
 
         // verify the insert destination columns match the query
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -518,15 +519,40 @@ class StatementAnalyzer
             throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
         }
         accessControl.checkCanInsertIntoTable(session.getIdentity(), targetTable);
-        analysis.setInsertTarget(targetTableHandle.get());
 
-        List<ColumnMetadata> columns = metadata.getTableMetadata(session, targetTableHandle.get()).getColumns();
-        Iterable<Type> tableTypes = columns.stream()
-                .filter(column -> !column.isHidden())
-                .map(ColumnMetadata::getType)
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
+        List<String> tableColumns = tableMetadata.getVisibleColumnNames();
+
+        final List<String> insertColumns;
+        if (insert.getColumns().isPresent()) {
+            insertColumns = insert.getColumns().get().stream()
+                    .map(String::toLowerCase)
+                    .collect(toImmutableList());
+
+            Set<String> columnNames = new HashSet<>();
+            for (String insertColumn : insertColumns) {
+                if (!tableColumns.contains(insertColumn)) {
+                    throw new SemanticException(MISSING_COLUMN, insert, "Insert column name does not exist in target table: %s", insertColumn);
+                }
+                if (!columnNames.add(insertColumn)) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, insert, "Insert column name is specified more than once: %s", insertColumn);
+                }
+            }
+        }
+        else {
+            insertColumns = tableColumns;
+        }
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
+        analysis.setInsert(new Analysis.Insert(
+                targetTableHandle.get(),
+                insertColumns.stream().map(column -> columnHandles.get(column)).collect(toImmutableList())));
+
+        Iterable<Type> tableTypes = insertColumns.stream()
+                .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
                 .collect(toImmutableList());
 
-        Iterable<Type> queryTypes = transform(descriptor.getVisibleFields(), Field::getType);
+        Iterable<Type> queryTypes = transform(queryDescriptor.getVisibleFields(), Field::getType);
 
         if (!elementsEqual(tableTypes, queryTypes)) {
             throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, insert, "Insert query has mismatched column types: " +
