@@ -6,6 +6,8 @@ General Changes
 ---------------
 
 * The :func:`approx_percentile` aggregation now also accepts an array of percentages.
+* Fix issue where invalid plans are generated for queries with multiple aggregations that require input values to be cast in different ways.
+* Fix issue with planner that generated redundant plan nodes for queries that contain both ``DISTINCT`` and ``LIMIT``.
 
 Hive Changes
 ------------
