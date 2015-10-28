@@ -382,13 +382,58 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testCut()
+    {
+        assertFunction("cut( 3)", BIGINT, 3);
+        assertFunction("cut(-3)", BIGINT, -3);
+        assertFunction("cut(CAST(NULL as BIGINT))", BIGINT, null);
+        assertFunction("cut( 3.0)", DOUBLE, 3.0);
+        assertFunction("cut(-3.0)", DOUBLE, -3.0);
+        assertFunction("cut( 3.499)", DOUBLE, 3.0);
+        assertFunction("cut(-3.499)", DOUBLE, -3.0);
+        assertFunction("cut( 3.5)", DOUBLE, 3.0);
+        assertFunction("cut(-3.5)", DOUBLE, -3.0);
+        assertFunction("cut(-3.5001)", DOUBLE, -3.0);
+        assertFunction("cut(-3.99)", DOUBLE, -3.0);
+        assertFunction("cut(CAST(NULL as DOUBLE))", DOUBLE, null);
+
+        assertFunction("cut( 3, 0)", BIGINT, 3);
+        assertFunction("cut(-3, 0)", BIGINT, -3);
+        assertFunction("cut( 3.0, 0)", DOUBLE, 3.0);
+        assertFunction("cut(-3.0, 0)", DOUBLE, -3.0);
+        assertFunction("cut( 3.499, 0)", DOUBLE, 3.0);
+        assertFunction("cut(-3.499, 0)", DOUBLE, -3.0);
+        assertFunction("cut( 3.5, 0)", DOUBLE, 3.0);
+        assertFunction("cut(-3.5, 0)", DOUBLE, -3.0);
+        assertFunction("cut(-3.5001, 0)", DOUBLE, -3.0);
+        assertFunction("cut(-3.99, 0)", DOUBLE, -3.0);
+
+        assertFunction("cut( 3, 1)", BIGINT, 3);
+        assertFunction("cut(-3, 1)", BIGINT, -3);
+        assertFunction("cut(CAST(NULL as BIGINT), CAST(NULL as BIGINT))", BIGINT, null);
+        assertFunction("cut(-3, CAST(NULL as BIGINT))", BIGINT, null);
+        assertFunction("cut(CAST(NULL as BIGINT), 1)", BIGINT, null);
+        assertFunction("cut( 3.0, 1)", DOUBLE, 3.0);
+        assertFunction("cut(-3.0, 1)", DOUBLE, -3.0);
+        assertFunction("cut( 3.499, 1)", DOUBLE, 3.4);
+        assertFunction("cut(-3.499, 1)", DOUBLE, -3.4);
+        assertFunction("cut( 3.5, 1)", DOUBLE, 3.5);
+        assertFunction("cut(-3.5, 1)", DOUBLE, -3.5);
+        assertFunction("cut(-3.5001, 1)", DOUBLE, -3.5);
+        assertFunction("cut(-3.99, 1)", DOUBLE, -3.9);
+        assertFunction("cut(-3.99, 10000)", DOUBLE, -3.99);
+        assertFunction("cut(CAST(NULL as DOUBLE), CAST(NULL as BIGINT))", DOUBLE, null);
+        assertFunction("cut(-3.0, CAST(NULL as BIGINT))", DOUBLE, null);
+        assertFunction("cut(CAST(NULL as DOUBLE), 1)", DOUBLE, null);
+    }
+
+    @Test
     public void testSin()
     {
         for (double doubleValue : DOUBLE_VALUES) {
             assertFunction("sin(" + doubleValue + ")", DOUBLE, Math.sin(doubleValue));
         }
         assertFunction("sin(NULL)", DOUBLE, null);
-
     }
 
     @Test

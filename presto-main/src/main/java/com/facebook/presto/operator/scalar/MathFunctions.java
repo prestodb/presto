@@ -20,6 +20,8 @@ import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -279,6 +281,38 @@ public final class MathFunctions
 
         double factor = Math.pow(10, decimals);
         return Math.floor(num * factor + 0.5) / factor;
+    }
+
+    @Description("cut to nearest integer")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long cut(@SqlType(StandardTypes.BIGINT) long num)
+    {
+        return cut(num, 0);
+    }
+
+    @Description("cut to nearest integer")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long cut(@SqlType(StandardTypes.BIGINT) long num, @SqlType(StandardTypes.BIGINT) long decimals)
+    {
+        return num;
+    }
+
+    @Description("cut to nearest integer")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cut(@SqlType(StandardTypes.DOUBLE) double num)
+    {
+        return cut(num, 0);
+    }
+
+    @Description("cut to given number of decimal places")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cut(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.BIGINT) long decimals)
+    {
+        return new BigDecimal(num).setScale((int) decimals, RoundingMode.DOWN).doubleValue();
     }
 
     @Description("sine")

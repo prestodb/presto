@@ -7,6 +7,8 @@ General Changes
 
 * The :func:`approx_percentile` aggregation now also accepts an array of percentages.
 
+* Add math :func:`cut` which supports precision cut to the specific decimal.
+
 Hive Changes
 ------------
 
