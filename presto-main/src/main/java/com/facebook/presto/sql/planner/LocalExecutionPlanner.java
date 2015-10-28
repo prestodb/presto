@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.SharedBuffer;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
@@ -49,6 +50,8 @@ import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.ParallelHashBuilder;
+import com.facebook.presto.operator.PartitionFunction;
+import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RowNumberOperator;
@@ -58,6 +61,7 @@ import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
+import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.operator.TopNRowNumberOperator;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
@@ -84,7 +88,6 @@ import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -151,6 +154,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -234,18 +238,64 @@ public class LocalExecutionPlanner
         interpreterEnabled = compilerConfig.isInterpreterEnabled();
     }
 
+    public LocalExecutionPlan plan(
+            Session session,
+            PlanNode plan,
+            List<Symbol> outputLayout,
+            Map<Symbol, Type> types,
+            Optional<PartitionFunctionBinding> partitionFunctionBinding,
+            SharedBuffer sharedBuffer,
+            boolean singleNode,
+            boolean allowLocalParallel)
+    {
+        if (!partitionFunctionBinding.isPresent()) {
+            return plan(session, plan, outputLayout, types, new TaskOutputFactory(sharedBuffer), singleNode, allowLocalParallel);
+        }
+
+        PartitionFunctionBinding functionBinding = partitionFunctionBinding.get();
+
+        // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
+        List<Integer> partitionChannels;
+        List<Type> partitionChannelTypes;
+        if (functionBinding.getHashChannel().isPresent()) {
+            partitionChannels = ImmutableList.of(functionBinding.getHashChannel().get());
+            partitionChannelTypes = ImmutableList.of(BIGINT);
+        }
+        else {
+            partitionChannels = functionBinding.getPartitioningChannels();
+            partitionChannelTypes = functionBinding.getPartitioningChannels().stream()
+                    .map(outputLayout::get)
+                    .map(types::get)
+                    .collect(toImmutableList());
+        }
+
+        PartitionFunction partitionFunction = functionBinding.getFunctionHandle().createPartitionFunction(functionBinding, partitionChannelTypes);
+
+        OptionalInt nullChannel = OptionalInt.empty();
+        if (functionBinding.isReplicateNulls()) {
+            checkArgument(functionBinding.getPartitioningChannels().size() == 1);
+            nullChannel = OptionalInt.of(Iterables.getOnlyElement(functionBinding.getPartitioningChannels()));
+        }
+
+        return plan(
+                session,
+                plan,
+                outputLayout,
+                types,
+                new PartitionedOutputFactory(partitionFunction, partitionChannels, nullChannel, sharedBuffer),
+                singleNode,
+                allowLocalParallel);
+    }
+
     public LocalExecutionPlan plan(Session session,
             PlanNode plan,
             List<Symbol> outputLayout,
             Map<Symbol, Type> types,
-            PlanDistribution distribution,
-            OutputFactory outputOperatorFactory)
+            OutputFactory outputOperatorFactory,
+            boolean singleNode,
+            boolean allowLocalParallel)
     {
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(
-                session,
-                types,
-                distribution == PlanDistribution.COORDINATOR_ONLY || distribution == PlanDistribution.SINGLE,
-                distribution != PlanDistribution.SOURCE);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types, singleNode, allowLocalParallel);
 
         PhysicalOperation physicalOperation = enforceLayout(outputLayout, context, plan.accept(new Visitor(session), context));
 

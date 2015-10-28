@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -31,7 +32,10 @@ public class StageExecutionPlan
     private final List<StageExecutionPlan> subStages;
     private final Optional<List<String>> fieldNames;
 
-    public StageExecutionPlan(PlanFragment fragment, Optional<SplitSource> dataSource, List<StageExecutionPlan> subStages)
+    public StageExecutionPlan(
+            PlanFragment fragment,
+            Optional<SplitSource> dataSource,
+            List<StageExecutionPlan> subStages)
     {
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -61,6 +65,11 @@ public class StageExecutionPlan
     public List<StageExecutionPlan> getSubStages()
     {
         return subStages;
+    }
+
+    public StageExecutionPlan withPartitionCount(OptionalInt partitionCount)
+    {
+        return new StageExecutionPlan(fragment.withPartitionCount(partitionCount), dataSource, subStages);
     }
 
     @Override

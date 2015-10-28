@@ -76,10 +76,10 @@ public class DistributedExecutionPlanner
             dependencies.add(plan(childPlan, session));
         }
 
-        return new StageExecutionPlan(currentFragment,
+        return new StageExecutionPlan(
+                currentFragment,
                 splits,
-                dependencies.build()
-        );
+                dependencies.build());
     }
 
     private final class Visitor

@@ -13,52 +13,44 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.execution.NodeScheduler.NodeSelector;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.spi.Node;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class FixedCountScheduler
         implements StageScheduler
 {
-    private final Function<Node, RemoteTask> taskScheduler;
-    private final Function<Integer, List<Node>> randomNodeSupplier;
-    private final int nodeCount;
+    private final BiFunction<Node, Integer, RemoteTask> taskScheduler;
+    private final Map<Integer, Node> partitionToNode;
 
-    public FixedCountScheduler(SqlStageExecution stage, NodeSelector nodeSelector, int nodeCount)
+    public FixedCountScheduler(SqlStageExecution stage, Map<Integer, Node> partitionToNode)
     {
-        this(requireNonNull(stage, "stage is null")::scheduleTask, requireNonNull(nodeSelector, "nodeSelector is null")::selectRandomNodes, nodeCount);
+        requireNonNull(stage, "stage is null");
+        this.taskScheduler = stage::scheduleTask;
+        this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");
     }
 
     @VisibleForTesting
-    FixedCountScheduler(Function<Node, RemoteTask> taskScheduler, Function<Integer, List<Node>> randomNodeSupplier, int nodeCount)
+    public FixedCountScheduler(BiFunction<Node, Integer, RemoteTask> taskScheduler, Map<Integer, Node> partitionToNode)
     {
         this.taskScheduler = requireNonNull(taskScheduler, "taskScheduler is null");
-        this.randomNodeSupplier = requireNonNull(randomNodeSupplier, "randomNodeSupplier is null");
-
-        checkArgument(nodeCount > 0, "nodeCount must be at least one");
-        this.nodeCount = nodeCount;
+        this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");
     }
 
     @Override
     public ScheduleResult schedule()
     {
-        List<Node> nodes = randomNodeSupplier.apply(nodeCount);
-        checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-
-        List<RemoteTask> newTasks = nodes.stream()
-                .map(taskScheduler::apply)
+        List<RemoteTask> newTasks = partitionToNode.entrySet().stream()
+                .map(entry -> taskScheduler.apply(entry.getValue(), entry.getKey()))
                 .collect(toImmutableList());
 
         return new ScheduleResult(true, newTasks, CompletableFuture.completedFuture(null));

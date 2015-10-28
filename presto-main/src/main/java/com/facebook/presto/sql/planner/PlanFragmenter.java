@@ -14,8 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PlanFragment.NullPartitioning;
-import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
@@ -36,8 +34,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.PartitionFunctionHandle.HASH;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -94,10 +94,7 @@ public class PlanFragmenter
                     properties.getOutputLayout(),
                     properties.getDistribution(),
                     properties.getDistributeBy(),
-                    properties.getOutputPartitioning(),
-                    properties.getPartitionBy(),
-                    properties.getNullPartitionPolicy(),
-                    properties.getHash());
+                    properties.getPartitionFunction());
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -160,7 +157,7 @@ public class PlanFragmenter
                 context.get().setFixedDistribution();
 
                 FragmentProperties childProperties = new FragmentProperties()
-                        .setPartitionedOutput(exchange.getPartitionKeys(), exchange.getHashSymbol())
+                        .setPartitionedOutput(HASH, exchange.getPartitionKeys(), exchange.getHashSymbol())
                         .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
 
                 builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
@@ -169,7 +166,7 @@ public class PlanFragmenter
                 context.get().setFixedDistribution();
 
                 FragmentProperties childProperties = new FragmentProperties()
-                        .setPartitionedOutput(exchange.getPartitionKeys(), exchange.getHashSymbol())
+                        .setPartitionedOutput(HASH, exchange.getPartitionKeys(), exchange.getHashSymbol())
                         .replicateNulls()
                         .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
 
@@ -207,8 +204,8 @@ public class PlanFragmenter
         private final List<SubPlan> children = new ArrayList<>();
 
         private Optional<List<Symbol>> outputLayout = Optional.empty();
-        private Optional<OutputPartitioning> outputPartitioning = Optional.empty();
-        private Optional<NullPartitioning> nullPartitionPolicy = Optional.empty();
+        private Optional<PartitionFunctionHandle> partitionFunction = Optional.empty();
+        private boolean replicateNulls;
 
         private Optional<List<Symbol>> partitionBy = Optional.empty();
         private Optional<Symbol> hash = Optional.empty();
@@ -279,11 +276,11 @@ public class PlanFragmenter
 
         public FragmentProperties setUnpartitionedOutput()
         {
-            outputPartitioning.ifPresent(current -> {
-                throw new IllegalStateException(String.format("Output overwrite partitioning with %s (currently set to %s)", OutputPartitioning.NONE, current));
+            partitionFunction.ifPresent(current -> {
+                throw new IllegalStateException(String.format("Output overwrite partitioning with unpartitioned (currently set to %s)", current));
             });
 
-            outputPartitioning = Optional.of(OutputPartitioning.NONE);
+            partitionFunction = Optional.empty();
 
             return this;
         }
@@ -299,30 +296,22 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties setPartitionedOutput(Optional<List<Symbol>> partitionKeys, Optional<Symbol> hash)
+        public FragmentProperties setPartitionedOutput(PartitionFunctionHandle partitionFunction, Optional<List<Symbol>> partitionKeys, Optional<Symbol> hash)
         {
-            outputPartitioning.ifPresent(current -> {
-                throw new IllegalStateException(String.format("Cannot overwrite output partitioning with %s (currently set to %s)", OutputPartitioning.HASH, current));
+            this.partitionFunction.ifPresent(current -> {
+                throw new IllegalStateException(String.format("Cannot overwrite output partitioning with %s (currently set to %s)", partitionFunction, current));
             });
 
-            if (partitionKeys.isPresent()) {
-                this.outputPartitioning = Optional.of(OutputPartitioning.HASH);
-            this.nullPartitionPolicy = Optional.of(NullPartitioning.HASH);
-                this.partitionBy = partitionKeys.map(ImmutableList::copyOf);
-                this.hash = hash;
-            }
-            else {
-                this.outputPartitioning = Optional.of(OutputPartitioning.ROUND_ROBIN);
-            }
+            this.partitionFunction = Optional.of(partitionFunction);
+            this.partitionBy = partitionKeys.map(ImmutableList::copyOf);
+            this.hash = hash;
+
             return this;
         }
 
         public FragmentProperties replicateNulls()
         {
-            checkState(outputPartitioning.isPresent() && outputPartitioning.get().equals(OutputPartitioning.HASH),
-                    "Can only set null replicate if output partitioning is %s (currently set to %s)", OutputPartitioning.HASH, outputPartitioning);
-
-            this.nullPartitionPolicy = Optional.of(NullPartitioning.REPLICATE);
+            this.replicateNulls = true;
 
             return this;
         }
@@ -337,16 +326,6 @@ public class PlanFragmenter
         public List<Symbol> getOutputLayout()
         {
             return outputLayout.get();
-        }
-
-        public OutputPartitioning getOutputPartitioning()
-        {
-            return outputPartitioning.get();
-        }
-
-        public Optional<NullPartitioning> getNullPartitionPolicy()
-        {
-            return nullPartitionPolicy;
         }
 
         public PlanDistribution getDistribution()
@@ -367,6 +346,18 @@ public class PlanFragmenter
         public PlanNodeId getDistributeBy()
         {
             return distributeBy;
+        }
+
+        public Optional<PartitionFunctionBinding> getPartitionFunction()
+        {
+            return partitionFunction.map(partitioning ->
+                    new PartitionFunctionBinding(
+                            partitioning,
+                            partitionBy.orElse(ImmutableList.<Symbol>of()).stream()
+                                    .map(outputLayout.get()::indexOf)
+                                    .collect(toImmutableList()), hash.map(outputLayout.get()::indexOf),
+                            replicateNulls,
+                            OptionalInt.empty()));
         }
     }
 }

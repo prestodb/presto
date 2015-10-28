@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
@@ -71,7 +70,6 @@ import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning.NONE;
 import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -439,9 +437,6 @@ public class TestSourcePartitionedScheduler
                 ImmutableList.of(symbol),
                 SOURCE,
                 tableScanNodeId,
-                NONE,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, splitSource)), ImmutableList.<StageExecutionPlan>of());
@@ -469,7 +464,7 @@ public class TestSourcePartitionedScheduler
                 executor);
 
         stage.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer(OUT, new UnpartitionedPagePartitionFunction())
+                .withBuffer(OUT, 0)
                 .withNoMoreBufferIds());
 
         return stage;

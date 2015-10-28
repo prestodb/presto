@@ -24,23 +24,25 @@ import java.util.Map.Entry;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class OutputBuffers
 {
-    public static final OutputBuffers INITIAL_EMPTY_OUTPUT_BUFFERS = new OutputBuffers(0, false, ImmutableMap.<TaskId, PagePartitionFunction>of());
+    public static final int BROADCAST_PARTITION_ID = 0;
+    public static final OutputBuffers INITIAL_EMPTY_OUTPUT_BUFFERS = new OutputBuffers(0, false, ImmutableMap.<TaskId, Integer>of());
 
     private final long version;
     private final boolean noMoreBufferIds;
-    private final Map<TaskId, PagePartitionFunction> buffers;
+    private final Map<TaskId, Integer> buffers;
 
     // Visible only for Jackson... Use the "with" methods instead
     @JsonCreator
     public OutputBuffers(
             @JsonProperty("version") long version,
             @JsonProperty("noMoreBufferIds") boolean noMoreBufferIds,
-            @JsonProperty("buffers") Map<TaskId, PagePartitionFunction> buffers)
+            @JsonProperty("buffers") Map<TaskId, Integer> buffers)
     {
         this.version = version;
         this.buffers = ImmutableMap.copyOf(requireNonNull(buffers, "buffers is null"));
@@ -60,9 +62,33 @@ public final class OutputBuffers
     }
 
     @JsonProperty
-    public Map<TaskId, PagePartitionFunction> getBuffers()
+    public Map<TaskId, Integer> getBuffers()
     {
         return buffers;
+    }
+
+    public void checkValidTransition(OutputBuffers newOutputBuffers)
+    {
+        requireNonNull(newOutputBuffers, "newOutputBuffers is null");
+        if (version > newOutputBuffers.version) {
+            throw new IllegalArgumentException("newOutputBuffers version is older");
+        }
+
+        if (version == newOutputBuffers.version) {
+            checkArgument(this.equals(newOutputBuffers), "newOutputBuffers is the same version but contains different information");
+        }
+
+        // assure we are not removing the no more buffers flag
+        if (noMoreBufferIds && !newOutputBuffers.noMoreBufferIds) {
+            throw new IllegalArgumentException("Expected newOutputBuffers to have noMoreBufferIds set");
+        }
+
+        // assure we have not changed the buffer assignments
+        for (Entry<TaskId, Integer> entry : buffers.entrySet()) {
+            if (!entry.getValue().equals(newOutputBuffers.buffers.get(entry.getKey()))) {
+                throw new IllegalArgumentException("newOutputBuffers has changed the assignment for task " + entry.getKey());
+            }
+        }
     }
 
     @Override
@@ -96,12 +122,12 @@ public final class OutputBuffers
                 .toString();
     }
 
-    public OutputBuffers withBuffer(TaskId bufferId, PagePartitionFunction pagePartitionFunction)
+    public OutputBuffers withBuffer(TaskId bufferId, int partition)
     {
         requireNonNull(bufferId, "bufferId is null");
 
         if (buffers.containsKey(bufferId)) {
-            checkHasBuffer(bufferId, pagePartitionFunction);
+            checkHasBuffer(bufferId, partition);
             return this;
         }
 
@@ -111,28 +137,28 @@ public final class OutputBuffers
         return new OutputBuffers(
                 version + 1,
                 false,
-                ImmutableMap.<TaskId, PagePartitionFunction>builder()
+                ImmutableMap.<TaskId, Integer>builder()
                         .putAll(buffers)
-                        .put(bufferId, pagePartitionFunction)
+                        .put(bufferId, partition)
                         .build());
     }
 
-    public OutputBuffers withBuffers(Map<TaskId, PagePartitionFunction> buffers)
+    public OutputBuffers withBuffers(Map<TaskId, Integer> buffers)
     {
         requireNonNull(buffers, "buffers is null");
 
-        Map<TaskId, PagePartitionFunction> newBuffers = new HashMap<>();
-        for (Entry<TaskId, PagePartitionFunction> entry : buffers.entrySet()) {
+        Map<TaskId, Integer> newBuffers = new HashMap<>();
+        for (Entry<TaskId, Integer> entry : buffers.entrySet()) {
             TaskId bufferId = entry.getKey();
-            PagePartitionFunction pagePartitionFunction = entry.getValue();
+            int partition = entry.getValue();
 
-            // it is ok to have a duplicate buffer declaration but it must have the same page partition function
+            // it is ok to have a duplicate buffer declaration but it must have the same page partition
             if (this.buffers.containsKey(bufferId)) {
-                checkHasBuffer(bufferId, pagePartitionFunction);
+                checkHasBuffer(bufferId, partition);
                 continue;
             }
 
-            newBuffers.put(bufferId, pagePartitionFunction);
+            newBuffers.put(bufferId, partition);
         }
 
         // if we don't have new buffers, don't update
@@ -151,7 +177,6 @@ public final class OutputBuffers
 
     public OutputBuffers withNoMoreBufferIds()
     {
-        requireNonNull(this, "this is null");
         if (noMoreBufferIds) {
             return this;
         }
@@ -159,12 +184,12 @@ public final class OutputBuffers
         return new OutputBuffers(version + 1, true, buffers);
     }
 
-    private void checkHasBuffer(TaskId bufferId, PagePartitionFunction pagePartitionFunction)
+    private void checkHasBuffer(TaskId bufferId, int partition)
     {
-        checkState(getBuffers().get(bufferId).equals(pagePartitionFunction),
-                "outputBuffers already contains buffer %s, but partition function is %s not %s",
+        checkArgument(Objects.equals(buffers.get(bufferId), partition),
+                "OutputBuffers already contains task %s, but partition is set to %s not %s",
                 bufferId,
                 buffers.get(bufferId),
-                pagePartitionFunction);
+                partition);
     }
 }

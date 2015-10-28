@@ -14,8 +14,6 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.PagePartitionFunction;
-import com.facebook.presto.PartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import org.testng.annotations.Test;
@@ -28,26 +26,25 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestRoundRobinPartitionFunctionGenerator
+public class TestPartitionedOutputBufferManager
 {
     private static final StageId STAGE_ID = new StageId("query", "stage");
-
-    private static final RoundRobinPartitionFunctionGenerator PARTITION_FUNCTION_GENERATOR = new RoundRobinPartitionFunctionGenerator();
 
     @Test
     public void test()
             throws Exception
     {
         AtomicReference<OutputBuffers> outputBufferTarget = new AtomicReference<>();
-        PartitionedOutputBufferManager hashOutputBufferManager = new PartitionedOutputBufferManager(outputBufferTarget::set, PARTITION_FUNCTION_GENERATOR);
+
+        PartitionedOutputBufferManager hashOutputBufferManager = new PartitionedOutputBufferManager(outputBufferTarget::set);
 
         // add buffers, which does not cause output buffer to be set
         assertNull(outputBufferTarget.get());
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "0"));
+        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "0"), 2);
         assertNull(outputBufferTarget.get());
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "1"));
+        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "1"), 0);
         assertNull(outputBufferTarget.get());
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "2"));
+        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "2"), 1);
         assertNull(outputBufferTarget.get());
 
         // set no more buffers, which causes buffers to be created
@@ -59,15 +56,15 @@ public class TestRoundRobinPartitionFunctionGenerator
         assertTrue(outputBuffers.getVersion() > 0);
         assertTrue(outputBuffers.isNoMoreBufferIds());
 
-        Map<TaskId, PagePartitionFunction> buffers = outputBuffers.getBuffers();
+        Map<TaskId, Integer> buffers = outputBuffers.getBuffers();
         assertEquals(buffers.size(), 3);
-        assertEquals(buffers.get(new TaskId(STAGE_ID, "0")), new PartitionedPagePartitionFunction(0, 3));
-        assertEquals(buffers.get(new TaskId(STAGE_ID, "1")), new PartitionedPagePartitionFunction(1, 3));
-        assertEquals(buffers.get(new TaskId(STAGE_ID, "2")), new PartitionedPagePartitionFunction(2, 3));
+        assertEquals(buffers.get(new TaskId(STAGE_ID, "0")), Integer.valueOf(2));
+        assertEquals(buffers.get(new TaskId(STAGE_ID, "1")), Integer.valueOf(0));
+        assertEquals(buffers.get(new TaskId(STAGE_ID, "2")), Integer.valueOf(1));
 
         // try to add another buffer, which should not result in an error
         // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "4"));
+        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "4"), 4);
         assertEquals(outputBuffers, outputBufferTarget.get());
 
         // try to set no more buffers again, which should not result in an error

@@ -26,6 +26,9 @@ public interface RemoteTask
 
     String getNodeId();
 
+    // this is necessary to differentiate two tasks on the same node
+    int getPartition();
+
     TaskInfo getTaskInfo();
 
     void start();

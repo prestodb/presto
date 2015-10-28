@@ -23,12 +23,8 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
-import com.facebook.presto.operator.OutputFactory;
-import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -59,12 +55,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.COORDINATOR_ONLY;
+import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SINGLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecution
@@ -149,26 +145,16 @@ public class SqlTaskExecution
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             List<DriverFactory> driverFactories;
             try {
-                OutputFactory outputOperatorFactory;
-                switch (fragment.getOutputPartitioning()) {
-                    case NONE:
-                        outputOperatorFactory = new TaskOutputFactory(sharedBuffer);
-                        break;
-                    case HASH:
-                    case ROUND_ROBIN:
-                        outputOperatorFactory = new PartitionedOutputFactory(sharedBuffer);
-                        break;
-                    default:
-                        throw new PrestoException(NOT_SUPPORTED, format("OutputPartitioning %s is not supported", fragment.getOutputPartitioning()));
-                }
-
+                PlanDistribution distribution = fragment.getDistribution();
                 LocalExecutionPlan localExecutionPlan = planner.plan(
                         taskContext.getSession(),
                         fragment.getRoot(),
                         fragment.getOutputLayout(),
                         fragment.getSymbols(),
-                        fragment.getDistribution(),
-                        outputOperatorFactory);
+                        fragment.getPartitionFunction(),
+                        sharedBuffer,
+                        distribution == COORDINATOR_ONLY || distribution == SINGLE,
+                        fragment.getPartitionedSource() == null);
                 driverFactories = localExecutionPlan.getDriverFactories();
             }
             catch (Throwable e) {
@@ -191,7 +177,7 @@ public class SqlTaskExecution
             }
             this.unpartitionedDriverFactories = unpartitionedDriverFactories.build();
 
-            if (fragment.getDistribution() == PlanDistribution.SOURCE) {
+            if (fragment.getPartitionedSource() != null) {
                 checkArgument(partitionedDriverFactory != null, "Fragment is partitioned, but no partitioned driver found");
             }
             this.partitionedSourceId = fragment.getPartitionedSource();

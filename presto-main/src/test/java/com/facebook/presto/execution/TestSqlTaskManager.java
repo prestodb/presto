@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.memory.LocalMemoryManager;
@@ -110,7 +109,7 @@ public class TestSqlTaskManager
                     taskId,
                     PLAN_FRAGMENT,
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                    INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
+                    INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
             assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
@@ -202,7 +201,7 @@ public class TestSqlTaskManager
                     taskId,
                     PLAN_FRAGMENT,
                     ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                    INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
+                    INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
             assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);

@@ -11,19 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.scheduler;
+package com.facebook.presto.operator;
 
-import com.facebook.presto.PagePartitionFunction;
-import com.facebook.presto.PartitionedPagePartitionFunction;
+import com.facebook.presto.spi.Page;
 
-import java.util.function.BiFunction;
-
-public class RoundRobinPartitionFunctionGenerator
-        implements BiFunction<Integer, Integer, PagePartitionFunction>
+public interface PartitionFunction
 {
-    @Override
-    public PagePartitionFunction apply(Integer partition, Integer partitionCount)
-    {
-        return new PartitionedPagePartitionFunction(partition, partitionCount);
-    }
+    int getPartitionCount();
+
+    /**
+     * @param functionArguments the arguments to partition function in order (no extra columns)
+     */
+    int getPartition(Page functionArguments, int position);
 }

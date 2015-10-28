@@ -78,7 +78,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.jetbrains.annotations.NotNull;
 
@@ -813,7 +812,11 @@ public class AddExchanges
                 // As a result, it is written as checkState instead.
                 checkState(!filteringSource.getProperties().isHashPartitionedOn(filteringSourceSymbols) || !filteringSource.getProperties().isNullReplication());
                 filteringSource = withDerivedProperties(
-                        partitionedExchangeNullReplicate(idAllocator.getNextId(), filteringSource.getNode(), Iterables.getOnlyElement(filteringSourceSymbols), node.getFilteringSourceHashSymbol()),
+                        partitionedExchangeNullReplicate(
+                                idAllocator.getNextId(),
+                                filteringSource.getNode(),
+                                getOnlyElement(filteringSourceSymbols),
+                                node.getFilteringSourceHashSymbol()),
                         filteringSource.getProperties());
             }
             else {
