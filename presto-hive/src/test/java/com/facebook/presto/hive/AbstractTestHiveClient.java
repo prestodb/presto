@@ -63,6 +63,7 @@ import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.ArrayType;
@@ -254,6 +255,7 @@ public abstract class AbstractTestHiveClient
 
     protected HdfsEnvironment hdfsEnvironment;
 
+    protected TypeManager typeManager;
     protected ConnectorMetadata metadata;
     protected HiveMetastore metastoreClient;
     protected ConnectorSplitManager splitManager;
@@ -423,7 +425,7 @@ public abstract class AbstractTestHiveClient
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
-        TypeRegistry typeManager = new TypeRegistry();
+        typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadata = new HiveMetadata(
                 connectorId,
@@ -1824,7 +1826,7 @@ public abstract class AbstractTestHiveClient
 
         // delete ds=2015-07-03
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumnHandle, NullableValue.of(VARCHAR, utf8Slice("2015-07-03"))));
-        Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(tupleDomain));
+        Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(typeManager, tupleDomain));
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, constraint, Optional.empty());
         ConnectorTableLayoutHandle tableLayoutHandle = Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
         metadata.metadataDelete(SESSION, tableHandle, tableLayoutHandle);
@@ -1838,7 +1840,7 @@ public abstract class AbstractTestHiveClient
         // delete ds=2015-07-01 and 2015-07-02
         TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
                 ImmutableMap.of(dsColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
-        Constraint<ColumnHandle> constraint2 = new Constraint<>(tupleDomain2, convertToPredicate(tupleDomain2));
+        Constraint<ColumnHandle> constraint2 = new Constraint<>(tupleDomain2, convertToPredicate(typeManager, tupleDomain2));
         List<ConnectorTableLayoutResult> tableLayoutResults2 = metadata.getTableLayouts(SESSION, tableHandle, constraint2, Optional.empty());
         ConnectorTableLayoutHandle tableLayoutHandle2 = Iterables.getOnlyElement(tableLayoutResults2).getTableLayout().getHandle();
         metadata.metadataDelete(SESSION, tableHandle, tableLayoutHandle2);

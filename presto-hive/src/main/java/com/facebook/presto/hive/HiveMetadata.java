@@ -35,6 +35,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -80,6 +81,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
@@ -111,7 +113,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -1229,26 +1230,24 @@ public class HiveMetadata
         }
         else {
             TupleDomain<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
-            Predicate<Map<ColumnHandle, ?>> predicate = convertToPredicate(promisedPredicate);
+            Predicate<Map<ColumnHandle, ?>> predicate = convertToPredicate(typeManager, promisedPredicate);
             List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(promisedPredicate, predicate), Optional.empty());
             return checkType(Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle(), HiveTableLayoutHandle.class, "tableLayoutHandle").getPartitions().get();
         }
     }
 
     @VisibleForTesting
-    static Predicate<Map<ColumnHandle, ?>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
+    static Predicate<Map<ColumnHandle, ?>> convertToPredicate(TypeManager typeManager, TupleDomain<ColumnHandle> tupleDomain)
     {
         return map -> {
-            ImmutableMap.Builder<ColumnHandle, NullableValue> mapBuilder = new ImmutableMap.Builder<>();
-            for (Map.Entry<ColumnHandle, ?> entry : map.entrySet()) {
-                HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "map.key");
-                // Temporarily, only VARCHAR partition key is supported for delete
-                if (!VARCHAR.getTypeSignature().equals(hiveColumnHandle.getTypeSignature())) {
-                    throw new PrestoException(NOT_SUPPORTED, "The type of partition key is not VARCHAR");
-                }
-                mapBuilder.put(hiveColumnHandle, NullableValue.of(VARCHAR, entry.getValue()));
-            }
-            return tupleDomain.contains(TupleDomain.fromFixedValues(mapBuilder.build()));
+            Map<ColumnHandle, NullableValue> fixedValues = map.entrySet().stream()
+                    .map(entry -> {
+                        HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "map.key");
+                        Type type = typeManager.getType(hiveColumnHandle.getTypeSignature());
+                        return Maps.immutableEntry(entry.getKey(), NullableValue.of(type, entry.getValue()));
+                    })
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            return tupleDomain.contains(TupleDomain.fromFixedValues(fixedValues));
         };
     }
 
