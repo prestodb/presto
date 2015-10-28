@@ -41,9 +41,8 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
-import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
-import static com.facebook.presto.raptor.storage.TestShardRecovery.createShardRecoveryManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.google.common.reflect.Reflection.newProxy;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
@@ -51,7 +50,8 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestShardCompactionDiscovery
 {
-    private static final ReaderAttributes readerAttributes = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+    private static final DataSize ONE_MEGABYTE = new DataSize(1, MEGABYTE);
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(ONE_MEGABYTE, ONE_MEGABYTE, ONE_MEGABYTE);
 
     private IDBI dbi;
     private Handle dummyHandle;
@@ -106,16 +106,16 @@ public class TestShardCompactionDiscovery
                 .build();
         shardManager.commitShards(tableId, columns, timeRangeShards, Optional.empty());
 
-        StorageService storageService = new FileStorageService(dataDir);
-        ShardRecoveryManager recoveryManager = createShardRecoveryManager(storageService, Optional.empty(), shardManager);
-        StorageManager storageManager = createOrcStorageManager(storageService, Optional.empty(), recoveryManager);
+        StorageManager storageManager = newProxy(StorageManager.class, (proxy, method, args) -> {
+            throw new UnsupportedOperationException();
+        });
         ShardCompactionManager shardCompactionManager = new ShardCompactionManager(
                 dbi,
                 "node1",
                 shardManager,
-                new ShardCompactor(storageManager, readerAttributes),
+                new ShardCompactor(storageManager, READER_ATTRIBUTES),
                 new Duration(1, TimeUnit.HOURS),
-                new DataSize(1, DataSize.Unit.MEGABYTE),
+                ONE_MEGABYTE,
                 100,
                 10,
                 true);
