@@ -628,7 +628,7 @@ class RelationPlanner
         }
         // Now append the new translations into the TranslationMap
         for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
-            translations.put(entry.getValue(), entry.getKey());
+            translations.put(entry.getValue(), entry.getKey(), analysis.getColumnReferences());
         }
 
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());
@@ -658,7 +658,7 @@ class RelationPlanner
 
         Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", BOOLEAN);
 
-        translations.put(inPredicate, semiJoinOutputSymbol);
+        translations.put(inPredicate, semiJoinOutputSymbol, analysis.getColumnReferences());
 
         return new PlanBuilder(translations,
                 new SemiJoinNode(idAllocator.getNextId(),

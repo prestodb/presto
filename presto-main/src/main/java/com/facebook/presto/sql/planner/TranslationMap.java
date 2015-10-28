@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -122,19 +123,19 @@ class TranslationMap
         }
     }
 
-    public void put(Expression expression, Symbol symbol)
+    public void put(Expression expression, Symbol symbol, Collection<Expression> columnReferences)
     {
         Expression translated = translateNamesToSymbols(expression);
         expressionMappings.put(translated, symbol);
 
-        // also update the field mappings if this expression is a simple field reference
-        if (expression instanceof QualifiedNameReference) {
+        // also update the field mappings if this expression is a field reference
+        if (expression instanceof QualifiedNameReference || (expression instanceof DereferenceExpression && columnReferences.contains(expression))) {
             int fieldIndex = analysis.getResolvedNames(expression).get(expression);
             fieldSymbols[fieldIndex] = symbol;
         }
     }
 
-    public void put(FieldOrExpression fieldOrExpression, Symbol symbol)
+    public void put(FieldOrExpression fieldOrExpression, Symbol symbol, Collection<Expression> columnReferences)
     {
         if (fieldOrExpression.isFieldReference()) {
             int fieldIndex = fieldOrExpression.getFieldIndex();
@@ -142,7 +143,7 @@ class TranslationMap
             expressionMappings.put(new QualifiedNameReference(rewriteBase.getSymbol(fieldIndex).toQualifiedName()), symbol);
         }
         else {
-            put(fieldOrExpression.getExpression(), symbol);
+            put(fieldOrExpression.getExpression(), symbol, columnReferences);
         }
     }
 
