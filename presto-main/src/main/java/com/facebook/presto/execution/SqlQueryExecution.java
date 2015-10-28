@@ -33,6 +33,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -77,6 +78,7 @@ public final class SqlQueryExecution
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
+    private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
     private final List<PlanOptimizer> planOptimizers;
     private final RemoteTaskFactory remoteTaskFactory;
@@ -101,6 +103,7 @@ public final class SqlQueryExecution
             AccessControl accessControl,
             SqlParser sqlParser,
             SplitManager splitManager,
+            NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             List<PlanOptimizer> planOptimizers,
             RemoteTaskFactory remoteTaskFactory,
@@ -118,6 +121,7 @@ public final class SqlQueryExecution
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
+            this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
@@ -295,6 +299,7 @@ public final class SqlQueryExecution
                 stateMachine,
                 locationFactory,
                 outputStageExecutionPlan,
+                nodePartitioningManager,
                 nodeScheduler,
                 remoteTaskFactory,
                 stateMachine.getSession(),
@@ -441,6 +446,7 @@ public final class SqlQueryExecution
         private final AccessControl accessControl;
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
+        private final NodePartitioningManager nodePartitioningManager;
         private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
         private final RemoteTaskFactory remoteTaskFactory;
@@ -459,6 +465,7 @@ public final class SqlQueryExecution
                 SqlParser sqlParser,
                 LocationFactory locationFactory,
                 SplitManager splitManager,
+                NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
                 List<PlanOptimizer> planOptimizers,
                 RemoteTaskFactory remoteTaskFactory,
@@ -475,6 +482,7 @@ public final class SqlQueryExecution
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
+            this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
@@ -506,6 +514,7 @@ public final class SqlQueryExecution
                     accessControl,
                     sqlParser,
                     splitManager,
+                    nodePartitioningManager,
                     nodeScheduler,
                     planOptimizers,
                     remoteTaskFactory,

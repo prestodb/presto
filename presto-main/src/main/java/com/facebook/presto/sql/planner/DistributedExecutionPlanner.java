@@ -51,6 +51,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
 import static java.util.Objects.requireNonNull;
 
 public class DistributedExecutionPlanner
@@ -77,9 +78,15 @@ public class DistributedExecutionPlanner
             dependencies.add(plan(childPlan, session));
         }
 
+        Optional<PartitioningHandle> partitioningHandle = Optional.empty();
+        if (currentFragment.getDistribution() != SOURCE) {
+            partitioningHandle = Optional.of(new SystemPartitioningHandle(currentFragment.getDistribution()));
+        }
+
         return new StageExecutionPlan(
                 currentFragment,
                 splits,
+                partitioningHandle,
                 dependencies.build());
     }
 

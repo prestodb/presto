@@ -29,6 +29,8 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.planner.NodePartitionMap;
+import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -50,7 +52,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
 import static com.facebook.presto.execution.StageState.FAILED;
@@ -85,6 +86,7 @@ public class SqlQueryScheduler
     public SqlQueryScheduler(QueryStateMachine queryStateMachine,
             LocationFactory locationFactory,
             StageExecutionPlan plan,
+            NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
@@ -110,6 +112,7 @@ public class SqlQueryScheduler
                 remoteTaskFactory,
                 session,
                 splitBatchSize,
+                nodePartitioningManager,
                 executor,
                 nodeTaskMap,
                 stageSchedulers,
@@ -168,6 +171,7 @@ public class SqlQueryScheduler
             RemoteTaskFactory remoteTaskFactory,
             Session session,
             int splitBatchSize,
+            NodePartitioningManager nodePartitioningManager,
             ExecutorService executor,
             NodeTaskMap nodeTaskMap,
             ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers,
@@ -188,38 +192,19 @@ public class SqlQueryScheduler
         stages.add(stage);
 
         OptionalInt partitionCount = OptionalInt.empty();
-        if (plan.getFragment().getDistribution() == PlanDistribution.SINGLE) {
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-            List<Node> nodes = nodeSelector.selectRandomNodes(1);
-            checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-            stageSchedulers.put(stageId, new FixedCountScheduler(stage, ImmutableMap.of(0, nodes.get(0))));
-            partitionCount = OptionalInt.of(1);
+        if (plan.getPartitioningHandle().isPresent()) {
+            NodePartitionMap nodePartitionMap = nodePartitioningManager.getNodePartitioningMap(session, plan.getPartitioningHandle().get());
+            Map<Integer, Node> partitionToNode = nodePartitionMap.getPartitionToNode();
+            // todo this should asynchronously wait a standard timeout period before failing
+            checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+            stageSchedulers.put(stageId, new FixedCountScheduler(stage, partitionToNode));
+            partitionCount = OptionalInt.of(nodePartitionMap.getPartitionToNode().size());
         }
-        else if (plan.getFragment().getDistribution() == PlanDistribution.FIXED) {
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-            List<Node> nodes = nodeSelector.selectRandomNodes(getHashPartitionCount(session));
-            checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-            ImmutableMap.Builder<Integer, Node> partitionToNode = ImmutableMap.builder();
-            int partition = 0;
-            for (Node node : nodes) {
-                partitionToNode.put(partition, node);
-                partition++;
-            }
-            stageSchedulers.put(stageId, new FixedCountScheduler(stage, partitionToNode.build()));
-            partitionCount = OptionalInt.of(partition);
-        }
-        else if (plan.getFragment().getDistribution() == PlanDistribution.COORDINATOR_ONLY) {
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-            stageSchedulers.put(stageId, new FixedCountScheduler(stage, ImmutableMap.of(0, nodeSelector.selectCurrentNode())));
-            partitionCount = OptionalInt.of(1);
-        }
-        else if (plan.getFragment().getDistribution() == PlanDistribution.SOURCE) {
+        else {
+            checkArgument(plan.getFragment().getDistribution() == PlanDistribution.SOURCE, "Expected plan fragment to be source partitioned");
             SplitSource splitSource = plan.getDataSource().get();
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(splitSource.getDataSourceName());
             stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, splitSource, new SplitPlacementPolicy(nodeSelector, stage::getAllTasks), splitBatchSize));
-        }
-        else {
-            throw new IllegalStateException("Unsupported partitioning: " + plan.getFragment().getDistribution());
         }
 
         ImmutableSet.Builder<SqlStageExecution> childStages = ImmutableSet.builder();
@@ -233,6 +218,7 @@ public class SqlQueryScheduler
                     remoteTaskFactory,
                     session,
                     splitBatchSize,
+                    nodePartitioningManager,
                     executor,
                     nodeTaskMap,
                     stageSchedulers,
