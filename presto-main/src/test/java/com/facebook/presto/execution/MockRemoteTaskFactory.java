@@ -59,7 +59,9 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
 import static com.facebook.presto.util.Failures.toFailures;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -90,19 +92,15 @@ public class MockRemoteTaskFactory
                         null),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 ImmutableList.of(symbol),
-                PlanFragment.PlanDistribution.SOURCE,
+                SOURCE,
                 sourceId,
-                PlanFragment.OutputPartitioning.NONE,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-        );
+                Optional.empty());
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : splits) {
             initialSplits.put(sourceId, sourceSplit);
         }
-        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS, partitionedSplitCountTracker);
+        return createRemoteTask(TEST_SESSION, taskId, newNode, 0, testFragment, initialSplits.build(), OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS, partitionedSplitCountTracker);
     }
 
     @Override
@@ -110,12 +108,13 @@ public class MockRemoteTaskFactory
             Session session,
             TaskId taskId,
             Node node,
+            int partition,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker)
     {
-        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, initialSplits, partitionedSplitCountTracker);
+        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), partition, executor, initialSplits, partitionedSplitCountTracker);
     }
 
     public static final class MockRemoteTask
@@ -128,6 +127,7 @@ public class MockRemoteTaskFactory
         private final TaskContext taskContext;
         private final SharedBuffer sharedBuffer;
         private final String nodeId;
+        private final int partition;
 
         private final PlanFragment fragment;
 
@@ -142,6 +142,7 @@ public class MockRemoteTaskFactory
         public MockRemoteTask(TaskId taskId,
                 PlanFragment fragment,
                 String nodeId,
+                int partition,
                 Executor executor,
                 Multimap<PlanNodeId, Split> initialSplits,
                 PartitionedSplitCountTracker partitionedSplitCountTracker)
@@ -157,6 +158,8 @@ public class MockRemoteTaskFactory
             this.sharedBuffer = new SharedBuffer(taskId, executor, requireNonNull(new DataSize(1, DataSize.Unit.BYTE), "maxBufferSize is null"));
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
+            checkArgument(partition >= 0, "partition is negative");
+            this.partition = partition;
             splits.putAll(initialSplits);
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
@@ -172,6 +175,12 @@ public class MockRemoteTaskFactory
         public String getNodeId()
         {
             return nodeId;
+        }
+
+        @Override
+        public int getPartition()
+        {
+            return partition;
         }
 
         @Override

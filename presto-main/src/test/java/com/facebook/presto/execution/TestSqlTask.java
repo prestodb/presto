@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.SharedBuffer.BufferState;
@@ -129,7 +128,7 @@ public class TestSqlTask
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 PLAN_FRAGMENT,
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
+                INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -190,7 +189,7 @@ public class TestSqlTask
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 PLAN_FRAGMENT,
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
-                INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
+                INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -211,7 +210,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds();
+        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds();
         updateTask(sqlTask, EMPTY_SOURCES, outputBuffers);
 
         CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
@@ -241,7 +240,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        updateTask(sqlTask, EMPTY_SOURCES, INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()));
+        updateTask(sqlTask, EMPTY_SOURCES, INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0));
 
         CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
@@ -263,7 +262,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        updateTask(sqlTask, EMPTY_SOURCES, INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, new UnpartitionedPagePartitionFunction()));
+        updateTask(sqlTask, EMPTY_SOURCES, INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0));
 
         CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertFalse(bufferResult.isDone());

@@ -23,12 +23,12 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -45,8 +45,6 @@ public class SourcePartitionedScheduler
 
     private CompletableFuture<List<Split>> batchFuture;
     private Set<Split> pendingSplits = ImmutableSet.of();
-
-    private final Set<String> scheduledNodes = new HashSet<>();
 
     public SourcePartitionedScheduler(
             SqlStageExecution stage,
@@ -130,8 +128,8 @@ public class SourcePartitionedScheduler
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         for (Entry<Node, Collection<Split>> taskSplits : splitAssignment.asMap().entrySet()) {
-            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), taskSplits.getValue()));
-            scheduledNodes.add(taskSplits.getKey().getNodeIdentifier());
+            // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
+            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), BROADCAST_PARTITION_ID, taskSplits.getValue()));
         }
         return newTasks.build();
     }
@@ -145,9 +143,10 @@ public class SourcePartitionedScheduler
 
         splitPlacementPolicy.lockDownNodes();
 
+        Set<Node> scheduledNodes = stage.getScheduledNodes();
         Set<RemoteTask> newTasks = splitPlacementPolicy.allNodes().stream()
-                .filter(node -> !scheduledNodes.contains(node.getNodeIdentifier()))
-                .map(stage::scheduleTask)
+                .filter(node -> !scheduledNodes.contains(node))
+                .map(node -> stage.scheduleTask(node, BROADCAST_PARTITION_ID))
                 .collect(toImmutableSet());
 
         // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits

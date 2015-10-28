@@ -14,12 +14,9 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Sets.SetView;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -43,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.FAILED;
@@ -211,19 +209,16 @@ public class SharedBuffer
         }
 
         // verify this is valid state change
-        SetView<TaskId> missingBuffers = Sets.difference(outputBuffers.getBuffers().keySet(), newOutputBuffers.getBuffers().keySet());
-        checkArgument(missingBuffers.isEmpty(), "newOutputBuffers does not have existing buffers %s", missingBuffers);
-        checkArgument(!outputBuffers.isNoMoreBufferIds() || newOutputBuffers.isNoMoreBufferIds(), "Expected newOutputBuffers to have noMoreBufferIds set");
+        outputBuffers.checkValidTransition(newOutputBuffers);
         outputBuffers = newOutputBuffers;
 
         // add the new buffers
-        for (Entry<TaskId, PagePartitionFunction> entry : outputBuffers.getBuffers().entrySet()) {
+        for (Entry<TaskId, Integer> entry : outputBuffers.getBuffers().entrySet()) {
             TaskId bufferId = entry.getKey();
             if (!namedBuffers.containsKey(bufferId)) {
                 checkState(state.get().canAddBuffers(), "Cannot add buffers to %s", SharedBuffer.class.getSimpleName());
-                PagePartitionFunction partitionFunction = entry.getValue();
 
-                int partition = partitionFunction.getPartition();
+                int partition = entry.getValue();
 
                 PartitionBuffer partitionBuffer = createOrGetPartitionBuffer(partition);
                 NamedBuffer namedBuffer = new NamedBuffer(bufferId, partitionBuffer);
@@ -256,7 +251,7 @@ public class SharedBuffer
 
     public synchronized ListenableFuture<?> enqueue(Page page)
     {
-        return enqueue(0, page);
+        return enqueue(BROADCAST_PARTITION_ID, page);
     }
 
     public synchronized ListenableFuture<?> enqueue(int partition, Page page)
