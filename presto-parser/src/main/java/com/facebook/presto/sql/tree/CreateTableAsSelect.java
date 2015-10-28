@@ -52,7 +52,7 @@ public class CreateTableAsSelect
         return properties;
     }
 
-    public boolean getWithData()
+    public boolean isWithData()
     {
         return withData;
     }
@@ -66,7 +66,7 @@ public class CreateTableAsSelect
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, properties);
+        return Objects.hash(name, query, properties, withData);
     }
 
     @Override
@@ -81,7 +81,8 @@ public class CreateTableAsSelect
         CreateTableAsSelect o = (CreateTableAsSelect) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
-                && Objects.equals(properties, o.properties);
+                && Objects.equals(properties, o.properties)
+                && Objects.equals(withData, o.withData);
     }
 
     @Override
