@@ -42,7 +42,7 @@ public enum PartitionFunctionHandle
         {
             checkArgument(function.getPartitionCount().isPresent(), "Partition count must be set before a partition function can be created");
             int partitionCount = function.getPartitionCount().getAsInt();
-            if (function.getHashChannel().isPresent()) {
+            if (function.getHashColumn().isPresent()) {
                 return new HashPartitionFunction(new PrecomputedHashGenerator(0), partitionCount);
             }
             else {

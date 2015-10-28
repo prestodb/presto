@@ -257,14 +257,15 @@ public class LocalExecutionPlanner
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
         List<Integer> partitionChannels;
         List<Type> partitionChannelTypes;
-        if (functionBinding.getHashChannel().isPresent()) {
-            partitionChannels = ImmutableList.of(functionBinding.getHashChannel().get());
+        if (functionBinding.getHashColumn().isPresent()) {
+            partitionChannels = ImmutableList.of(outputLayout.indexOf(functionBinding.getHashColumn().get()));
             partitionChannelTypes = ImmutableList.of(BIGINT);
         }
         else {
-            partitionChannels = functionBinding.getPartitioningChannels();
-            partitionChannelTypes = functionBinding.getPartitioningChannels().stream()
-                    .map(outputLayout::get)
+            partitionChannels = functionBinding.getPartitioningColumns().stream()
+                    .map(outputLayout::indexOf)
+                    .collect(toImmutableList());
+            partitionChannelTypes = functionBinding.getPartitioningColumns().stream()
                     .map(types::get)
                     .collect(toImmutableList());
         }
@@ -273,8 +274,8 @@ public class LocalExecutionPlanner
 
         OptionalInt nullChannel = OptionalInt.empty();
         if (functionBinding.isReplicateNulls()) {
-            checkArgument(functionBinding.getPartitioningChannels().size() == 1);
-            nullChannel = OptionalInt.of(Iterables.getOnlyElement(functionBinding.getPartitioningChannels()));
+            checkArgument(functionBinding.getPartitioningColumns().size() == 1);
+            nullChannel = OptionalInt.of(outputLayout.indexOf(Iterables.getOnlyElement(functionBinding.getPartitioningColumns())));
         }
 
         return plan(

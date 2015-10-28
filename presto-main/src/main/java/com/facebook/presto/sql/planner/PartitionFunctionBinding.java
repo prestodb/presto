@@ -29,23 +29,41 @@ import static java.util.Objects.requireNonNull;
 public class PartitionFunctionBinding
 {
     private final PartitionFunctionHandle functionHandle;
-    private final List<Integer> partitioningChannels;
-    private final Optional<Integer> hashChannel;
+    private final List<Symbol> partitioningColumns;
+    private final Optional<Symbol> hashColumn;
     private final boolean replicateNulls;
     private final OptionalInt partitionCount;
+
+    public PartitionFunctionBinding(PartitionFunctionHandle functionHandle, List<Symbol> partitioningColumns)
+    {
+        this(functionHandle,
+                partitioningColumns,
+                Optional.empty(),
+                false,
+                OptionalInt.empty());
+    }
+
+    public PartitionFunctionBinding(PartitionFunctionHandle functionHandle, List<Symbol> partitioningColumns, Optional<Symbol> hashColumn)
+    {
+        this(functionHandle,
+                partitioningColumns,
+                hashColumn,
+                false,
+                OptionalInt.empty());
+    }
 
     @JsonCreator
     public PartitionFunctionBinding(
             @JsonProperty("functionHandle") PartitionFunctionHandle functionHandle,
-            @JsonProperty("partitioningChannels") List<Integer> partitioningChannels,
-            @JsonProperty("hashChannel") Optional<Integer> hashChannel,
+            @JsonProperty("partitioningColumns") List<Symbol> partitioningColumns,
+            @JsonProperty("hashColumn") Optional<Symbol> hashColumn,
             @JsonProperty("replicateNulls") boolean replicateNulls,
             @JsonProperty("partitionCount") OptionalInt partitionCount)
     {
         this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
-        this.partitioningChannels = ImmutableList.copyOf(requireNonNull(partitioningChannels, "partitioningChannels is null"));
-        this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
-        checkArgument(!replicateNulls || partitioningChannels.size() == 1, "size of partitioningChannels is not 1 when nullPartition is REPLICATE.");
+        this.partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
+        this.hashColumn = requireNonNull(hashColumn, "hashColumn is null");
+        checkArgument(!replicateNulls || partitioningColumns.size() == 1, "size of partitioningColumns is not 1 when nullPartition is REPLICATE.");
         this.replicateNulls = replicateNulls;
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
     }
@@ -57,15 +75,15 @@ public class PartitionFunctionBinding
     }
 
     @JsonProperty
-    public List<Integer> getPartitioningChannels()
+    public List<Symbol> getPartitioningColumns()
     {
-        return partitioningChannels;
+        return partitioningColumns;
     }
 
     @JsonProperty
-    public Optional<Integer> getHashChannel()
+    public Optional<Symbol> getHashColumn()
     {
-        return hashChannel;
+        return hashColumn;
     }
 
     @JsonProperty
@@ -82,7 +100,7 @@ public class PartitionFunctionBinding
 
     public PartitionFunctionBinding withPartitionCount(OptionalInt partitionCount)
     {
-        return new PartitionFunctionBinding(functionHandle, partitioningChannels, hashChannel, replicateNulls, partitionCount);
+        return new PartitionFunctionBinding(functionHandle, partitioningColumns, hashColumn, replicateNulls, partitionCount);
     }
 
     @Override
@@ -96,8 +114,8 @@ public class PartitionFunctionBinding
         }
         PartitionFunctionBinding that = (PartitionFunctionBinding) o;
         return Objects.equals(functionHandle, that.functionHandle) &&
-                Objects.equals(partitioningChannels, that.partitioningChannels) &&
-                Objects.equals(hashChannel, that.hashChannel) &&
+                Objects.equals(partitioningColumns, that.partitioningColumns) &&
+                Objects.equals(hashColumn, that.hashColumn) &&
                 replicateNulls == that.replicateNulls &&
                 Objects.equals(partitionCount, that.partitionCount);
     }
@@ -105,16 +123,16 @@ public class PartitionFunctionBinding
     @Override
     public int hashCode()
     {
-        return Objects.hash(functionHandle, partitioningChannels, replicateNulls, partitionCount);
+        return Objects.hash(functionHandle, partitioningColumns, replicateNulls, partitionCount);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("functionId", functionHandle)
-                .add("partitioningChannels", partitioningChannels)
-                .add("hashChannel", hashChannel)
+                .add("functionHandle", functionHandle)
+                .add("partitioningChannels", partitioningColumns)
+                .add("hashChannel", hashColumn)
                 .add("replicateNulls", replicateNulls)
                 .add("partitionCount", partitionCount)
                 .toString();
