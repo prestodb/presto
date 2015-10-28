@@ -364,7 +364,6 @@ public class ParquetHiveRecordCursor
 
             MessageType schema = fileMetaData.getSchema();
             PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, schema);
-            ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), schema);
 
             List<parquet.schema.Type> fields = columns.stream()
                     .filter(column -> !column.isPartitionKey())
@@ -389,15 +388,13 @@ public class ParquetHiveRecordCursor
                         .collect(toList());
             }
 
-            ParquetInputSplit split = new ParquetInputSplit(path,
-                    start,
-                    length,
-                    null,
-                    splitGroup,
-                    readContext.getRequestedSchema().toString(),
-                    schema.toString(),
-                    fileMetaData.getKeyValueMetaData(),
-                    readContext.getReadSupportMetadata());
+            long[] offsets = new long[splitGroup.size()];
+            for (int i = 0; i < splitGroup.size(); i++) {
+                BlockMetaData block = splitGroup.get(i);
+                offsets[i] = block.getStartingPos();
+            }
+
+            ParquetInputSplit split = new ParquetInputSplit(path, start, start + length, length, null, offsets);
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
             ParquetRecordReader<FakeParquetRecord> realReader = new PrestoParquetRecordReader(readSupport);
