@@ -164,8 +164,7 @@ public class ProjectionPushDown
             return new ExchangeNode(
                     exchange.getId(),
                     exchange.getType(),
-                    exchange.getPartitionKeys(),
-                    exchange.getHashSymbol(),
+                    exchange.getPartitionFunction(),
                     newSourceBuilder.build(),
                     outputBuilder.build(),
                     inputsBuilder.build());

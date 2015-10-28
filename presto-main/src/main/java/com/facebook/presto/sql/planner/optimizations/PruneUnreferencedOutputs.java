@@ -142,8 +142,7 @@ public class PruneUnreferencedOutputs
             return new ExchangeNode(
                     node.getId(),
                     node.getType(),
-                    node.getPartitionKeys(),
-                    node.getHashSymbol(),
+                    node.getPartitionFunction(),
                     rewrittenSources.build(),
                     newOutputSymbols,
                     inputsBySource);

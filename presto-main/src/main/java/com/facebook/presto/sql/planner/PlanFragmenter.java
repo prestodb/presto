@@ -34,10 +34,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.PartitionFunctionHandle.HASH;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -157,17 +155,7 @@ public class PlanFragmenter
                 context.get().setFixedDistribution();
 
                 FragmentProperties childProperties = new FragmentProperties()
-                        .setPartitionedOutput(HASH, exchange.getPartitionKeys(), exchange.getHashSymbol())
-                        .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
-
-                builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
-            }
-            else if (exchange.getType() == ExchangeNode.Type.REPARTITION_WITH_NULL_REPLICATION) {
-                context.get().setFixedDistribution();
-
-                FragmentProperties childProperties = new FragmentProperties()
-                        .setPartitionedOutput(HASH, exchange.getPartitionKeys(), exchange.getHashSymbol())
-                        .replicateNulls()
+                        .setPartitionedOutput(exchange.getPartitionFunction().get())
                         .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
 
                 builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
@@ -204,11 +192,7 @@ public class PlanFragmenter
         private final List<SubPlan> children = new ArrayList<>();
 
         private Optional<List<Symbol>> outputLayout = Optional.empty();
-        private Optional<PartitionFunctionHandle> partitionFunction = Optional.empty();
-        private boolean replicateNulls;
-
-        private Optional<List<Symbol>> partitionBy = Optional.empty();
-        private Optional<Symbol> hash = Optional.empty();
+        private Optional<PartitionFunctionBinding> partitionFunction = Optional.empty();
 
         private Optional<PlanDistribution> distribution = Optional.empty();
         private PlanNodeId distributeBy;
@@ -296,22 +280,13 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties setPartitionedOutput(PartitionFunctionHandle partitionFunction, Optional<List<Symbol>> partitionKeys, Optional<Symbol> hash)
+        public FragmentProperties setPartitionedOutput(PartitionFunctionBinding partitionFunction)
         {
-            this.partitionFunction.ifPresent(current -> {
-                throw new IllegalStateException(String.format("Cannot overwrite output partitioning with %s (currently set to %s)", partitionFunction, current));
-            });
+            if (this.partitionFunction.isPresent()) {
+                throw new IllegalStateException(String.format("Cannot overwrite output partitioning with %s (currently set to %s)", partitionFunction, this.partitionFunction));
+            }
 
             this.partitionFunction = Optional.of(partitionFunction);
-            this.partitionBy = partitionKeys.map(ImmutableList::copyOf);
-            this.hash = hash;
-
-            return this;
-        }
-
-        public FragmentProperties replicateNulls()
-        {
-            this.replicateNulls = true;
 
             return this;
         }
@@ -328,36 +303,19 @@ public class PlanFragmenter
             return outputLayout.get();
         }
 
+        public Optional<PartitionFunctionBinding> getPartitionFunction()
+        {
+            return partitionFunction;
+        }
+
         public PlanDistribution getDistribution()
         {
             return distribution.get();
         }
 
-        public Optional<List<Symbol>> getPartitionBy()
-        {
-            return partitionBy;
-        }
-
-        public Optional<Symbol> getHash()
-        {
-            return hash;
-        }
-
         public PlanNodeId getDistributeBy()
         {
             return distributeBy;
-        }
-
-        public Optional<PartitionFunctionBinding> getPartitionFunction()
-        {
-            return partitionFunction.map(partitioning ->
-                    new PartitionFunctionBinding(
-                            partitioning,
-                            partitionBy.orElse(ImmutableList.<Symbol>of()).stream()
-                                    .map(outputLayout.get()::indexOf)
-                                    .collect(toImmutableList()), hash.map(outputLayout.get()::indexOf),
-                            replicateNulls,
-                            OptionalInt.empty()));
         }
     }
 }

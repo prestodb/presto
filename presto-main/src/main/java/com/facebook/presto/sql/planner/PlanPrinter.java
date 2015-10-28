@@ -142,9 +142,7 @@ public class PlanPrinter
                 PartitionFunctionBinding partitionFunction = fragment.getPartitionFunction().get();
                 PartitionFunctionHandle outputPartitioning = partitionFunction.getFunctionHandle();
                 boolean replicateNulls = partitionFunction.isReplicateNulls();
-                List<Symbol> symbols = partitionFunction.getPartitioningChannels().stream()
-                        .map(fragment.getOutputLayout()::get)
-                        .collect(toImmutableList());
+                List<Symbol> symbols = partitionFunction.getPartitioningColumns();
                 builder.append(indentString(1));
                 if (replicateNulls) {
                     builder.append(format("Output partitioning: %s (replicate nulls) [%s]\n",

@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -221,7 +222,14 @@ public class UnaliasSymbolReferences
             List<PlanNode> sources = node.getSources().stream()
                     .map(context::rewrite)
                     .collect(toImmutableList());
-            Optional<List<Symbol>> partitionKeys = node.getPartitionKeys().map(this::canonicalize);
+
+            Optional<PartitionFunctionBinding> partitionFunction = node.getPartitionFunction()
+                    .map(function -> new PartitionFunctionBinding(
+                            function.getFunctionHandle(),
+                            canonicalize(function.getPartitioningColumns()),
+                            canonicalize(function.getHashColumn()),
+                            function.isReplicateNulls(),
+                            function.getPartitionCount()));
 
             List<List<Symbol>> inputs = new ArrayList<>();
             for (int i = 0; i < node.getInputs().size(); i++) {
@@ -239,7 +247,7 @@ public class UnaliasSymbolReferences
                     }
                 }
             }
-            return new ExchangeNode(node.getId(), node.getType(), partitionKeys, canonicalize(node.getHashSymbol()), sources, outputs.build(), inputs);
+            return new ExchangeNode(node.getId(), node.getType(), partitionFunction, sources, outputs.build(), inputs);
         }
 
         @Override
