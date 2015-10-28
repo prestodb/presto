@@ -310,6 +310,24 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM VALUES 1, 2, 3");
 
         assertQuery("" +
+                        "SELECT t2.*, max(t1.b) as max_b " +
+                        "FROM (VALUES (1, 'a'),  (2, 'b'), (1, 'c'), (3, 'd')) t1(a, b) " +
+                        "INNER JOIN " +
+                        "(VALUES 1, 2, 3, 4) t2(a) " +
+                        "ON t1.a = t2.a " +
+                        "GROUP BY t2.a",
+                "SELECT * FROM VALUES (1, 'c'), (2, 'b'), (3, 'd')");
+
+        assertQuery("" +
+                        "SELECT t2.*, max(t1.b1) as max_b1 " +
+                        "FROM (VALUES (1, 'a'),  (2, 'b'), (1, 'c'), (3, 'd')) t1(a1, b1) " +
+                        "INNER JOIN " +
+                        "(VALUES (1, 11, 111), (2, 22, 222), (3, 33, 333), (4, 44, 444)) t2(a2, b2, c2) " +
+                        "ON t1.a1 = t2.a2 " +
+                        "GROUP BY t2.a2, t2.b2, t2.c2",
+                "SELECT * FROM VALUES (1, 11, 111, 'c'), (2, 22, 222, 'b'), (3, 33, 333, 'd')");
+
+        assertQuery("" +
                 "SELECT custkey, orders2 " +
                 "FROM (" +
                 "   SELECT x.custkey, SUM(x.orders) + 1 orders2 " +
