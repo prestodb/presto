@@ -5,6 +5,8 @@ Release 0.124
 General Changes
 ---------------
 
+* Fix race in memory tracking of ``JOIN`` which could cause the cluster to become over
+  committed and possibly crash.
 * The :func:`approx_percentile` aggregation now also accepts an array of percentages.
 
 Hive Changes
