@@ -269,7 +269,7 @@ class QueryPlanner
             }
 
             projections.put(symbol, subPlan.rewrite(fieldOrExpression));
-            outputTranslations.put(fieldOrExpression, symbol);
+            outputTranslations.put(fieldOrExpression, symbol, analysis.getColumnReferences());
         }
 
         if (subPlan.getSampleWeight().isPresent()) {
@@ -292,7 +292,7 @@ class QueryPlanner
                 rewritten = new Cast(rewritten, coercion.getTypeSignature().toString());
             }
             projections.put(symbol, rewritten);
-            translations.put(expression, symbol);
+            translations.put(expression, symbol, analysis.getColumnReferences());
         }
 
         return projections.build();
@@ -316,7 +316,7 @@ class QueryPlanner
             }
             Expression rewritten = subPlan.rewrite(fieldOrExpression);
             projections.put(symbol, rewritten);
-            translations.put(fieldOrExpression, symbol);
+            translations.put(fieldOrExpression, symbol, analysis.getColumnReferences());
         }
 
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());
@@ -373,7 +373,7 @@ class QueryPlanner
                 needPostProjectionCoercion = true;
             }
             aggregationAssignments.put(newSymbol, (FunctionCall) rewritten);
-            translations.put(aggregate, newSymbol);
+            translations.put(aggregate, newSymbol, analysis.getColumnReferences());
 
             functions.put(newSymbol, analysis.getFunctionSignature(aggregate));
         }
@@ -383,7 +383,7 @@ class QueryPlanner
         for (FieldOrExpression fieldOrExpression : analysis.getGroupByExpressions(node)) {
             Symbol symbol = subPlan.translate(fieldOrExpression);
             groupBySymbols.add(symbol);
-            translations.put(fieldOrExpression, symbol);
+            translations.put(fieldOrExpression, symbol, analysis.getColumnReferences());
         }
 
         // 2.c. Mark distinct rows for each aggregate that has DISTINCT
@@ -540,7 +540,7 @@ class QueryPlanner
                 rewritten = ((Cast) rewritten).getExpression();
             }
             assignments.put(newSymbol, (FunctionCall) rewritten);
-            outputTranslations.put(windowFunction, newSymbol);
+            outputTranslations.put(windowFunction, newSymbol, analysis.getColumnReferences());
 
             signatures.put(newSymbol, analysis.getFunctionSignature(windowFunction));
 
@@ -594,7 +594,7 @@ class QueryPlanner
         }
         // Now append the new translations into the TranslationMap
         for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
-            translations.put(entry.getValue(), entry.getKey());
+            translations.put(entry.getValue(), entry.getKey(), analysis.getColumnReferences());
         }
 
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());
@@ -634,7 +634,7 @@ class QueryPlanner
 
         Symbol semiJoinOutputSymbol = symbolAllocator.newSymbol("semijoinresult", BOOLEAN);
 
-        translations.put(inPredicate, semiJoinOutputSymbol);
+        translations.put(inPredicate, semiJoinOutputSymbol, analysis.getColumnReferences());
 
         return new PlanBuilder(translations,
                 new SemiJoinNode(idAllocator.getNextId(),

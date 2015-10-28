@@ -6,6 +6,7 @@ General Changes
 ---------------
 
 * The :func:`approx_percentile` aggregation now also accepts an array of percentages.
+* Allow nested rowtype reference
 
 Hive Changes
 ------------
