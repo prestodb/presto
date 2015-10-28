@@ -11,21 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.spi.predicate;
 
-import java.util.List;
+import java.util.Collection;
 
-public interface Ranges
+public interface DiscreteValues
 {
-    int getRangeCount();
-
     /**
-     * @return Allowed non-overlapping predicate ranges sorted in increasing order
+     * @return true if the values are to be included, false if the values are to be excluded
      */
-    List<Range> getOrderedRanges();
+    boolean isWhiteList();
 
-    /**
-     * @return Single range encompassing all of allowed the ranges
-     */
-    Range getSpan();
+    Collection<Object> getValues();
 }

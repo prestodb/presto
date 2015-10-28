@@ -11,14 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.spi.predicate;
 
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.List;
 
-public interface ValuesProcessor
+public interface Ranges
 {
-    <T> T transform(Function<Ranges, T> rangesFunction, Function<DiscreteValues, T> discreteValuesFunction, Function<AllOrNone, T> allOrNoneFunction);
+    int getRangeCount();
 
-    void consume(Consumer<Ranges> rangesConsumer, Consumer<DiscreteValues> discreteValuesConsumer, Consumer<AllOrNone> allOrNoneConsumer);
+    /**
+     * @return Allowed non-overlapping predicate ranges sorted in increasing order
+     */
+    List<Range> getOrderedRanges();
+
+    /**
+     * @return Single range encompassing all of allowed the ranges
+     */
+    Range getSpan();
 }

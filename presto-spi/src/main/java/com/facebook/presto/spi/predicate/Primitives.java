@@ -14,7 +14,7 @@
 /*
  * Copyright (C) 2007 The Guava Authors
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.spi.predicate;
 
 import java.util.Collections;
 import java.util.HashMap;
