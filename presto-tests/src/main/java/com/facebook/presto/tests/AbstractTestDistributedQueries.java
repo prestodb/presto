@@ -279,12 +279,23 @@ public abstract class AbstractTestDistributedQueries
     {
         @Language("SQL") String query = "SELECT orderdate, orderkey FROM orders";
 
-        assertQuery("CREATE TABLE test_insert AS " + query, "SELECT count(*) FROM orders");
-        assertQuery("SELECT * FROM test_insert", query);
+        assertQuery("CREATE TABLE test_insert AS " + query + " WITH NO DATA", "SELECT 0");
+        assertQuery("SELECT count(*) FROM test_insert", "SELECT 0");
 
         assertQuery("INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
 
-        assertQuery("SELECT * FROM test_insert", query + " UNION ALL " + query);
+        assertQuery("SELECT * FROM test_insert", query);
+
+        assertQuery("INSERT INTO test_insert (orderkey) VALUES (-1)", "SELECT 1");
+        assertQuery("INSERT INTO test_insert (orderdate) VALUES (DATE '2001-01-01')", "SELECT 1");
+        assertQuery("INSERT INTO test_insert (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", "SELECT 1");
+        assertQuery("INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", "SELECT 1");
+
+        assertQuery("SELECT * FROM test_insert", query
+                + " UNION ALL SELECT null, -1"
+                + " UNION ALL SELECT DATE '2001-01-01', null"
+                + " UNION ALL SELECT DATE '2001-01-02', -2"
+                + " UNION ALL SELECT DATE '2001-01-03', -3");
 
         assertQueryTrue("DROP TABLE test_insert");
     }

@@ -186,7 +186,10 @@ class AstBuilder
     @Override
     public Node visitInsertInto(SqlBaseParser.InsertIntoContext context)
     {
-        return new Insert(getQualifiedName(context.qualifiedName()), (Query) visit(context.query()));
+        return new Insert(
+                getQualifiedName(context.qualifiedName()),
+                Optional.ofNullable(getColumnAliases(context.columnAliases())),
+                (Query) visit(context.query()));
     }
 
     @Override

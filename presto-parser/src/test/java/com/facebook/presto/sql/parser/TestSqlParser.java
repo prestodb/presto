@@ -855,8 +855,14 @@ public class TestSqlParser
     public void testInsertInto()
             throws Exception
     {
+        QualifiedName table = QualifiedName.of("a");
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
+
         assertStatement("INSERT INTO a SELECT * FROM t",
-                new Insert(QualifiedName.of("a"), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")))));
+                new Insert(table, Optional.empty(), query));
+
+        assertStatement("INSERT INTO a (c1, c2) SELECT * FROM t",
+                new Insert(table, Optional.of(ImmutableList.of("c1", "c2")), query));
     }
 
     @Test

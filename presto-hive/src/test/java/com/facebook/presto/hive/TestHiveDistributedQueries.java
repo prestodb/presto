@@ -29,13 +29,6 @@ public class TestHiveDistributedQueries
     }
 
     @Override
-    public void testInsert()
-            throws Exception
-    {
-        // Hive connector currently does not support insert
-    }
-
-    @Override
     public void testDelete()
             throws Exception
     {

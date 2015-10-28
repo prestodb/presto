@@ -57,6 +57,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
@@ -513,6 +514,17 @@ public class TestAnalyzer
 
         // fail if hidden column provided
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t5 VALUES (1, 2)");
+
+        // note b is VARCHAR, while a,c,d are BIGINT
+        analyze("INSERT INTO t6 (a) SELECT a from t6");
+        analyze("INSERT INTO t6 (a) SELECT c from t6");
+        analyze("INSERT INTO t6 (a,b,c,d) SELECT * from t6");
+        analyze("INSERT INTO t6 (A,B,C,D) SELECT * from t6");
+        analyze("INSERT INTO t6 (a,b,c,d) SELECT d,b,c,a from t6");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t6 (a) SELECT b from t6");
+        assertFails(MISSING_COLUMN, "INSERT INTO t6 (unknown) SELECT * FROM t6");
+        assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, a) SELECT * FROM t6");
+        assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, A) SELECT * FROM t6");
     }
 
     @Test
@@ -866,6 +878,15 @@ public class TestAnalyzer
                 ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
                         new ColumnMetadata("b", BIGINT, false, null, true)))));
+
+        // table with a varchar column
+        SchemaTableName table6 = new SchemaTableName("s1", "t6");
+        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table6,
+                ImmutableList.of(
+                        new ColumnMetadata("a", BIGINT, false),
+                        new ColumnMetadata("b", VARCHAR, false),
+                        new ColumnMetadata("c", BIGINT, false),
+                        new ColumnMetadata("d", BIGINT, false)))));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(

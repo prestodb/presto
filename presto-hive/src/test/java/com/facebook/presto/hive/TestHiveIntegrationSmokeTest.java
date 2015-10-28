@@ -266,7 +266,7 @@ public class TestHiveIntegrationSmokeTest
                 "(" +
                 "  _varchar VARCHAR," +
                 "  _bigint BIGINT," +
-                "  _doube DOUBLE," +
+                "  _double DOUBLE," +
                 "  _boolean BOOLEAN" +
                 ") " +
                 "WITH (format = '" + storageFormat + "') ";
@@ -285,6 +285,14 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("INSERT INTO test_insert_format_table " + select, "SELECT 1");
 
         assertQuery("SELECT * from test_insert_format_table", select);
+
+        assertQuery("INSERT INTO test_insert_format_table (_bigint, _double) SELECT 2, 14.3", "SELECT 1");
+
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 2", "SELECT null, 2, 14.3, null");
+
+        assertQuery("INSERT INTO test_insert_format_table (_double, _bigint) SELECT 2.72, 3", "SELECT 1");
+
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, 3, 2.72, null");
 
         assertQueryTrue("DROP TABLE test_insert_format_table");
 

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.SchemaTableName;
 
 import java.util.List;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class TableMetadata
@@ -53,5 +54,28 @@ public class TableMetadata
     public List<ColumnMetadata> getColumns()
     {
         return metadata.getColumns();
+    }
+
+    public List<String> getVisibleColumnNames()
+    {
+        return getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+    }
+
+    public List<ColumnMetadata> getVisibleColumns()
+    {
+        return getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .collect(toImmutableList());
+    }
+
+    public ColumnMetadata getColumn(String name)
+    {
+        return getColumns().stream()
+                .filter(columnMetadata -> columnMetadata.getName().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(String.format("Invalid column name: %s", name)));
     }
 }
