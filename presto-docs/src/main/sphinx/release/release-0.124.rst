@@ -11,6 +11,7 @@ Hive Changes
 ------------
 
 * Do not count expected exceptions as errors in the Hive metastore client stats.
+* Improve performance when reading ORC files with many tiny stripes.
 
 Verifier
 --------
