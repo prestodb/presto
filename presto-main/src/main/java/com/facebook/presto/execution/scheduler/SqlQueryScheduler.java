@@ -201,7 +201,7 @@ public class SqlQueryScheduler
             bucketToPartition = Optional.of(new int[1]);
         }
         else {
-            NodePartitionMap nodePartitionMap = nodePartitioningManager.getNodePartitioningMap(session, plan.getPartitioningHandle());
+            NodePartitionMap nodePartitionMap = nodePartitioningManager.getNodePartitioningMap(session, partitioningHandle);
             Map<Integer, Node> partitionToNode = nodePartitionMap.getPartitionToNode();
             // todo this should asynchronously wait a standard timeout period before failing
             checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");

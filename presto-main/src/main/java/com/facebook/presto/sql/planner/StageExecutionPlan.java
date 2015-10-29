@@ -30,17 +30,14 @@ public class StageExecutionPlan
     private final Optional<SplitSource> dataSource;
     private final List<StageExecutionPlan> subStages;
     private final Optional<List<String>> fieldNames;
-    private final PartitioningHandle partitioningHandle;
 
     public StageExecutionPlan(
             PlanFragment fragment,
             Optional<SplitSource> dataSource,
-            PartitioningHandle partitioningHandle,
             List<StageExecutionPlan> subStages)
     {
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
-        this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "dependencies is null"));
 
         fieldNames = (fragment.getRoot() instanceof OutputNode) ?
@@ -64,11 +61,6 @@ public class StageExecutionPlan
         return dataSource;
     }
 
-    public PartitioningHandle getPartitioningHandle()
-    {
-        return partitioningHandle;
-    }
-
     public List<StageExecutionPlan> getSubStages()
     {
         return subStages;
@@ -76,7 +68,7 @@ public class StageExecutionPlan
 
     public StageExecutionPlan withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new StageExecutionPlan(fragment.withBucketToPartition(bucketToPartition), dataSource, partitioningHandle, subStages);
+        return new StageExecutionPlan(fragment.withBucketToPartition(bucketToPartition), dataSource, subStages);
     }
 
     @Override
@@ -86,7 +78,6 @@ public class StageExecutionPlan
                 .add("fragment", fragment)
                 .add("dataSource", dataSource)
                 .add("subStages", subStages)
-                .add("partitioningHandle", partitioningHandle)
                 .toString();
     }
 }
