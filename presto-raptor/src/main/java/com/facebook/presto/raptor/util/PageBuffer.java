@@ -62,6 +62,11 @@ public class PageBuffer
         return storagePageSink;
     }
 
+    public long getUsedMemoryBytes()
+    {
+        return usedMemoryBytes;
+    }
+
     public void add(Page page)
     {
         flushIfNecessary(page.getPositionCount());

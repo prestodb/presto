@@ -212,7 +212,7 @@ public class TestRaptorMetadata
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 16,
-                BUCKETED_ON_PROPERTY, ImmutableList.of("orderdate", "orderkey")));
+                BUCKETED_ON_PROPERTY, ImmutableList.of("custkey", "orderkey")));
         metadata.createTable(SESSION, ordersTable);
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
@@ -224,7 +224,7 @@ public class TestRaptorMetadata
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
         assertEquals(metadataDao.listBucketColumns(tableId), ImmutableList.of(
-                new TableColumn(DEFAULT_TEST_ORDERS, "orderdate", DATE, 4),
+                new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 0),
                 new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1)));
 
         assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));

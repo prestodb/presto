@@ -343,6 +343,11 @@ public class RaptorMetadata
         if (!bucketCount.isPresent() && !bucketColumnHandles.isEmpty()) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKET_COUNT_PROPERTY, BUCKETED_ON_PROPERTY));
         }
+        for (RaptorColumnHandle column : bucketColumnHandles) {
+            if (!column.getColumnType().equals(BIGINT)) {
+                throw new PrestoException(NOT_SUPPORTED, "Bucketing is only supported for BIGINT columns");
+            }
+        }
 
         RaptorColumnHandle sampleWeightColumnHandle = null;
         if (tableMetadata.isSampled()) {
