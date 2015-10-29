@@ -182,6 +182,13 @@ public class InCodeGenerator
                 switchBlock = new ByteCodeBlock()
                         .comment("lookupSwitch(<stackValue>))")
                         .dup(javaType)
+                        .append(new IfStatement()
+                                .condition(new ByteCodeBlock()
+                                        .dup(javaType)
+                                        .invokeStatic(InCodeGenerator.class, "isInteger", boolean.class, long.class))
+                                .ifFalse(new ByteCodeBlock()
+                                        .pop(javaType)
+                                        .gotoLabel(defaultLabel)))
                         .longToInt()
                         .append(switchBuilder.build());
                 break;
@@ -255,6 +262,11 @@ public class InCodeGenerator
         block.visitLabel(end);
 
         return block;
+    }
+
+    public static boolean isInteger(long value)
+    {
+        return value == (int) value;
     }
 
     private ByteCodeBlock buildInCase(ByteCodeGeneratorContext generatorContext,
