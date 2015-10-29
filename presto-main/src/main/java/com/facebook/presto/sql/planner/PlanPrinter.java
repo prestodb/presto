@@ -467,7 +467,7 @@ public class PlanPrinter
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 if (entry.getValue() instanceof QualifiedNameReference && ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
                     // skip identity assignments
-                    continue;
+                   // continue;
                 }
                 print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
             }

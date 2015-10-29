@@ -1163,6 +1163,29 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMultipleGroupingSetSingleColumnT()
+            throws Exception
+    {
+        assertResultsApproximatelyEqual(
+                computeActual(getSession(), "SELECT custkey+1, null, SUM(totalprice+2) FROM ORDERS GROUP BY custkey ORDER BY 3"),
+                computeExpected("SELECT custkey, null, SUM(totalprice) FROM ORDERS GROUP BY custkey ORDER BY 3 UNION " +
+                        "SELECT null, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus ORDER BY 3", ImmutableList.of(BIGINT, VARCHAR, DOUBLE)));
+    }
+
+
+    @Test
+    public void testMultipleGroupingSetSingleColumn()
+            throws Exception
+    {
+        computeActual(getSession(), "SELECT custkey, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY GROUPING SET (orderstatus), (custkey)");
+//
+//        assertResultsApproximatelyEqual(
+//                computeActual(getSession(), "SELECT custkey, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY GROUPING SET (orderstatus), (custkey) ORDER BY 3"),
+//                computeExpected("SELECT custkey, null, SUM(totalprice) FROM ORDERS GROUP BY custkey ORDER BY 3 UNION " +
+//                        "SELECT null, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus ORDER BY 3", ImmutableList.of(BIGINT, VARCHAR, DOUBLE)));
+    }
+
+    @Test
     public void testCountAllWithComparison()
             throws Exception
     {

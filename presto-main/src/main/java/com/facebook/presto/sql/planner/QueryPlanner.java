@@ -18,12 +18,11 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
@@ -48,6 +47,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -57,13 +57,16 @@ import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import org.apache.commons.math3.analysis.function.Exp;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -71,15 +74,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.*;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -351,27 +357,71 @@ class QueryPlanner
         List<List<FieldOrExpression>> groupingSets = analysis.getGroupingSets(node);
         // TODO: raghavsethi: I have no frickin idea what I'm doing
         if (groupingSets.size() == 0) {
-            return aggregationForSingleGroupingSet(emptyList(), subPlan, node, null);
+            return ordinaryGroupBy(emptyList(), subPlan, node);
         }
         else if (groupingSets.size() == 1) {
-            return aggregationForSingleGroupingSet(groupingSets.get(0), subPlan, node, null);
+            return ordinaryGroupBy(groupingSets.get(0), subPlan, node);
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "Multiple grouping sets are currently unsupported");
-//            ImmutableList.Builder<PlanBuilder> groupingPlansBuilder = ImmutableList.builder();
-//            ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
-//            for (List<FieldOrExpression> groupingSet : analysis.getGroupingSets(node)) {
-//                groupingPlansBuilder.add(aggregationForSingleGroupingSet(groupingSet, subPlan, node, null));
-//            }
-//            List<PlanBuilder> plans = groupingPlansBuilder.build();
-//            List<PlanNode> planRoots = plans.stream().map(PlanBuilder::getRoot).collect(Collectors.toList());
-//            UnionNode unionNode = new UnionNode(idAllocator.getNextId(), planRoots, symbolMapping.build());
-//            TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
-//            return new PlanBuilder(translations, unionNode, Optional.empty());
+            return groupingSets(subPlan, node);
         }
     }
 
-    private PlanBuilder aggregationForSingleGroupingSet(List<FieldOrExpression> singleGroupingSet, PlanBuilder subPlan, QuerySpecification node, ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping)
+    private PlanBuilder groupingSets(PlanBuilder subPlan, QuerySpecification node)
+    {
+        ImmutableSet.Builder<FieldOrExpression> allGroupingColumnsBuilder = ImmutableSet.builder();
+        for (List<FieldOrExpression> groupingSet : analysis.getGroupingSets(node)) {
+            for (FieldOrExpression fieldOrExpression : groupingSet) {
+                // Because of the way this is spelled out in the grammar, these are all actually qualifiedNames
+                checkCondition(fieldOrExpression.isFieldReference(), NOT_SUPPORTED, "Grouping sets do not support field indexes, only column names");
+                allGroupingColumnsBuilder.add(fieldOrExpression);
+            }
+        }
+
+        ImmutableList<FieldOrExpression> allGroupingColumns = allGroupingColumnsBuilder.build().asList();
+
+        return singleGroupingSet(subPlan, node, allGroupingColumns, analysis.getGroupingSets(node).get(0));
+    }
+
+    private PlanBuilder singleGroupingSet(PlanBuilder subPlan, QuerySpecification node, List<FieldOrExpression> allGroupingColumns, List<FieldOrExpression> groupingSet)
+    {
+        ImmutableList.Builder<FieldOrExpression> nullFieldsBuilder = ImmutableList.builder();
+
+        for (FieldOrExpression groupingColumn : allGroupingColumns) {
+            if (!groupingSet.contains(groupingColumn)) {
+                nullFieldsBuilder.add(groupingColumn);
+            }
+        }
+
+        List<FieldOrExpression> nullFields = nullFieldsBuilder.build();
+
+        PlanBuilder singleGroupingSetPlan = ordinaryGroupBy(groupingSet, subPlan, node);
+        //RelationPlan singleGroupingSetRelationPlan = singleGroupingSetPlan.getRelationPlan();
+
+        List<Symbol> oldSymbols = singleGroupingSetPlan.getRoot().getOutputSymbols(); //singleGroupingSetRelationPlan.getOutputSymbols();
+
+        ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
+        ImmutableMap.Builder<Symbol, Expression> assignments = new ImmutableMap.Builder<>();
+
+        for (Symbol oldSymbol : oldSymbols) {
+            QualifiedNameReference qualifiedNameReference = new QualifiedNameReference(oldSymbol.toQualifiedName());
+            Symbol outputSymbol = symbolAllocator.newSymbol(qualifiedNameReference, symbolAllocator.getTypes().get(oldSymbol));
+            assignments.put(outputSymbol, qualifiedNameReference);
+            newSymbols.add(outputSymbol);
+        }
+
+        NullLiteral nullLiteral = new NullLiteral();
+        for (FieldOrExpression nullField : nullFields) {
+            Symbol outputSymbol = symbolAllocator.newSymbol(nullField.toString() + "_null", UnknownType.UNKNOWN);
+            assignments.put(outputSymbol, nullLiteral);
+            newSymbols.add(outputSymbol);
+        }
+
+        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), singleGroupingSetPlan.getRoot(), assignments.build());
+        return new PlanBuilder(singleGroupingSetPlan.getTranslations(), projectNode, singleGroupingSetPlan.getSampleWeight());
+    }
+
+    private PlanBuilder ordinaryGroupBy(List<FieldOrExpression> singleGroupingSet, PlanBuilder subPlan, QuerySpecification node)
     {
         List<FieldOrExpression> arguments = analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
