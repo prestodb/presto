@@ -29,6 +29,7 @@ import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -73,7 +74,8 @@ public class TpchIndexResolver
         // Keep the fixed values that don't overlap with the indexableColumns
         // Note: technically we could more efficiently utilize the overlapped columns, but this way is simpler for now
 
-        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tupleDomain).entrySet().stream()
+        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tupleDomain).orElse(ImmutableMap.of())
+                .entrySet().stream()
                 .filter(entry -> !indexableColumns.contains(entry.getKey()))
                 .filter(entry -> !entry.getValue().isNull()) // strip nulls since meaningless in index join lookups
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -101,7 +103,7 @@ public class TpchIndexResolver
     {
         TpchIndexHandle tpchIndexHandle = checkType(indexHandle, TpchIndexHandle.class, "indexHandle");
 
-        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tpchIndexHandle.getFixedValues());
+        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tpchIndexHandle.getFixedValues()).get();
         checkArgument(!any(lookupSchema, in(fixedValues.keySet())), "Lookup columnHandles are not expected to overlap with the fixed value predicates");
 
         // Establish an order for the fixedValues

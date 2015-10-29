@@ -389,7 +389,8 @@ class PropertyDerivations
                     types);
 
             Map<Symbol, Object> constants = new HashMap<>(properties.getConstants());
-            constants.putAll(Maps.transformValues(filterValues(extractFixedValues(decomposedPredicate.getTupleDomain()), value -> !value.isNull()), NullableValue::getValue));
+            Map<Symbol, NullableValue> fixedValues = extractFixedValues(decomposedPredicate.getTupleDomain()).orElse(ImmutableMap.of());
+            constants.putAll(Maps.transformValues(filterValues(fixedValues, value -> !value.isNull()), NullableValue::getValue));
 
             return ActualProperties.builderFrom(properties)
                     .constants(constants)
@@ -483,7 +484,8 @@ class PropertyDerivations
             LocalProperties.extractLeadingConstants(layout.getLocalProperties()).stream()
                     .forEach(column -> constants.put(column, new Object())); // Use an arbitrary object value for property constants b/c we don't know its actual value
             // Do predicate constants after property constants so that we can override with known real predicate values (if they exist)
-            extractFixedValues(node.getCurrentConstraint()).entrySet().stream()
+            extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
+                    .entrySet().stream()
                     .filter(entry -> !entry.getValue().isNull())
                     .forEach(entry -> constants.put(entry.getKey(), entry.getValue()));
 

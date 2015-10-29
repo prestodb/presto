@@ -57,7 +57,7 @@ public class InformationSchemaSplitManager
         requireNonNull(tupleDomain, "tupleDomain is null");
         InformationSchemaTableHandle informationSchemaTableHandle = checkType(table, InformationSchemaTableHandle.class, "table");
 
-        Map<ColumnHandle, NullableValue> bindings = TupleDomain.extractFixedValues(tupleDomain);
+        Map<ColumnHandle, NullableValue> bindings = TupleDomain.extractFixedValues(tupleDomain).get();
 
         List<ConnectorPartition> partitions = ImmutableList.<ConnectorPartition>of(new InformationSchemaPartition(informationSchemaTableHandle, bindings));
         // We don't strip out the bindings that we have created from the undeterminedTupleDomain b/c the current InformationSchema

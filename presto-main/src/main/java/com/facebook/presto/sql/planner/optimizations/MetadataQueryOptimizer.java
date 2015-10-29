@@ -149,23 +149,25 @@ public class MetadataQueryOptimizer
 
             ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
             for (TupleDomain<ColumnHandle> domain : layout.getDiscretePredicates().get()) {
-                Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain);
+                if (!domain.isNone()) {
+                    Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
 
-                ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
-                // for each input column, add a literal expression using the entry value
-                for (Symbol input : inputs) {
-                    ColumnHandle column = columns.get(input);
-                    Type type = types.get(input);
-                    NullableValue value = entries.get(column);
-                    if (value == null) {
-                        // partition key does not have a single value, so bail out to be safe
-                        return context.defaultRewrite(node);
+                    ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+                    // for each input column, add a literal expression using the entry value
+                    for (Symbol input : inputs) {
+                        ColumnHandle column = columns.get(input);
+                        Type type = types.get(input);
+                        NullableValue value = entries.get(column);
+                        if (value == null) {
+                            // partition key does not have a single value, so bail out to be safe
+                            return context.defaultRewrite(node);
+                        }
+                        else {
+                            rowBuilder.add(LiteralInterpreter.toExpression(value.getValue(), type));
+                        }
                     }
-                    else {
-                        rowBuilder.add(LiteralInterpreter.toExpression(value.getValue(), type));
-                    }
+                    rowsBuilder.add(rowBuilder.build());
                 }
-                rowsBuilder.add(rowBuilder.build());
             }
 
             // replace the tablescan node with a values node

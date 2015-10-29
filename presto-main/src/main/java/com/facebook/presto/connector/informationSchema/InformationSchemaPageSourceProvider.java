@@ -265,7 +265,7 @@ public class InformationSchemaPageSourceProvider
             layout.getDiscretePredicates().ifPresent(domains -> {
                 int partitionNumber = 1;
                 for (TupleDomain<ColumnHandle> domain : domains) {
-                    for (Entry<ColumnHandle, NullableValue> entry : TupleDomain.extractFixedValues(domain).entrySet()) {
+                    for (Entry<ColumnHandle, NullableValue> entry : TupleDomain.extractFixedValues(domain).get().entrySet()) {
                         ColumnHandle columnHandle = entry.getKey();
                         String columnName = columnHandles.get(columnHandle);
                         String value = null;
