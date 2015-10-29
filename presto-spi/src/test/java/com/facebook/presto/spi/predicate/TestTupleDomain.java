@@ -553,10 +553,24 @@ public class TestTupleDomain
                                 .put(B, Domain.singleValue(VARCHAR, utf8Slice("value")))
                                 .put(C, Domain.onlyNull(BIGINT))
                                 .put(D, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), true))
-                                .build())),
+                                .build())).get(),
                 ImmutableMap.of(
                         B, NullableValue.of(VARCHAR, utf8Slice("value")),
                         C, NullableValue.asNull(BIGINT)));
+    }
+
+    @Test
+    public void testExtractFixedValuesFromNone()
+            throws Exception
+    {
+        Assert.assertFalse(TupleDomain.extractFixedValues(TupleDomain.none()).isPresent());
+    }
+
+    @Test
+    public void testExtractFixedValuesFromAll()
+            throws Exception
+    {
+        Assert.assertEquals(TupleDomain.extractFixedValues(TupleDomain.all()).get(), ImmutableMap.of());
     }
 
     @Test
@@ -577,6 +591,13 @@ public class TestTupleDomain
                         .put(C, Domain.singleValue(DOUBLE, 0.01))
                         .put(D, Domain.onlyNull(BOOLEAN))
                         .build()));
+    }
+
+    @Test
+    public void testEmptySingleValuesMapToDomain()
+            throws Exception
+    {
+        Assert.assertEquals(TupleDomain.fromFixedValues(ImmutableMap.of()), TupleDomain.all());
     }
 
     @Test

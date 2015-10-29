@@ -85,17 +85,18 @@ public final class TupleDomain<T>
 
     /**
      * Extract all column constraints that require exactly one value or only null in their respective Domains.
+     * Returns an empty Optional if the Domain is none.
      */
-    public static <T> Map<T, NullableValue> extractFixedValues(TupleDomain<T> tupleDomain)
+    public static <T> Optional<Map<T, NullableValue>> extractFixedValues(TupleDomain<T> tupleDomain)
     {
         if (!tupleDomain.getDomains().isPresent()) {
-            return Collections.emptyMap();
+            return Optional.empty();
         }
 
-        return tupleDomain.getDomains().get()
+        return Optional.of(tupleDomain.getDomains().get()
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableSingleValue())
-                .collect(toMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue())));
+                .collect(toMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
     }
 
     /**
@@ -104,9 +105,6 @@ public final class TupleDomain<T>
      */
     public static <T> TupleDomain<T> fromFixedValues(Map<T, NullableValue> fixedValues)
     {
-        if (fixedValues.isEmpty()) {
-            return TupleDomain.none();
-        }
         return TupleDomain.withColumnDomains(fixedValues.entrySet().stream()
                 .collect(toMap(
                         Map.Entry::getKey,
