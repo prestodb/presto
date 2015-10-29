@@ -66,6 +66,8 @@ public class RaptorPageSinkProvider
                 handle.getSampleWeightColumnHandle().map(RaptorColumnHandle::getColumnId),
                 toColumnIds(handle.getSortColumnHandles()),
                 handle.getSortOrders(),
+                handle.getBucketCount(),
+                toColumnIds(handle.getBucketColumnHandles()),
                 maxBufferSize);
     }
 
@@ -83,6 +85,8 @@ public class RaptorPageSinkProvider
                 Optional.empty(),
                 toColumnIds(handle.getSortColumnHandles()),
                 handle.getSortOrders(),
+                handle.getBucketCount(),
+                toColumnIds(handle.getBucketColumnHandles()),
                 maxBufferSize);
     }
 

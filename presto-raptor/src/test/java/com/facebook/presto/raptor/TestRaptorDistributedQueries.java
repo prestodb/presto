@@ -98,4 +98,27 @@ public class TestRaptorDistributedQueries
                         "UNION ALL\n" +
                         "SELECT 'tpch', 'lineitem', (SELECT count(*) FROM lineitem)");
     }
+
+    @Test
+    public void testCreateBucketedTable()
+            throws Exception
+    {
+        assertUpdate("" +
+                        "CREATE TABLE orders_bucketed " +
+                        "WITH (bucket_count = 50, bucketed_on = ARRAY ['orderkey']) " +
+                        "AS SELECT * FROM orders",
+                "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT * FROM orders_bucketed", "SELECT * FROM orders");
+        assertQuery("SELECT count(*) FROM orders_bucketed", "SELECT count(*) FROM orders");
+        assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 100");
+
+        assertUpdate("INSERT INTO orders_bucketed SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT * FROM orders_bucketed", "SELECT * FROM orders UNION ALL SELECT * FROM orders");
+        assertQuery("SELECT count(*) FROM orders_bucketed", "SELECT count(*) * 2 FROM orders");
+        assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 200");
+
+        assertUpdate("DROP TABLE orders_bucketed");
+    }
 }
