@@ -277,8 +277,9 @@ public abstract class AbstractTestQueries
                         "(VALUES " +
                         "(ROW(test_row(1.0, ARRAY[test_row(31, 14.5), test_row(12, 4.2)], test_row(3, 4.0)))), " +
                         "(ROW(test_row(3.1, ARRAY[test_row(41, 13.1), test_row(32, 4.2)], test_row(6, 6.0)))), " +
-                        "(ROW(test_row(2.2, ARRAY[test_row(31, 14.2), test_row(22, 4.2)], test_row(5, 4.0))))) t(a) ",
-                "SELECT * FROM VALUES (31, 3.2, 28.7, 8.0), (31, 3.2, 28.7, 8.0), (41, 3.1, 13.1, 6.0)");
+                        "(ROW(test_row(2.2, ARRAY[test_row(31, 14.2), test_row(22, 5.2)], test_row(5, 4.0))))) t(a) " +
+                        "WHERE a.col1[2].col1 > a.col2.col0",
+                "SELECT * FROM VALUES (31, 3.2, 28.7, 8.0), (31, 3.2, 28.7, 8.0)");
     }
 
     @Test
@@ -362,7 +363,7 @@ public abstract class AbstractTestQueries
         assertQuery("" +
                 "SELECT orders.custkey, orders.orderkey " +
                 "FROM ORDERS " +
-                "WHERE orders.custkey > orders.orderkey AND orders.custkey < 200");
+                "WHERE orders.custkey > orders.orderkey AND orders.custkey < 200.3");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "'\"a\".\"col0\"' must be an aggregate expression or appear in GROUP BY clause")

@@ -429,10 +429,10 @@ public final class FunctionAssertions
                     return rewriteExpression(node, context, treeRewriter);
                 }
 
-                // Otherwise rewrite to FunctionCall
-                Expression rewrittenBase = ExpressionTreeRewriter.rewriteWith(this, node.getBase());
+                // Rewrite all row field reference to function call.
                 QualifiedName mangledName = QualifiedName.of(mangleFieldReference(node.getFieldName()));
-                Expression rewrittenExpression = new FunctionCall(mangledName, ImmutableList.of(rewrittenBase));
+                FunctionCall functionCall = new FunctionCall(mangledName, ImmutableList.of(node.getBase()));
+                Expression rewrittenExpression = rewriteFunctionCall(functionCall, context, treeRewriter);
 
                 // cast expression if coercion is registered
                 Type coercion = analysis.getCoercion(node);
