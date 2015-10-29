@@ -8,6 +8,10 @@ General Changes
 * Fix race in memory tracking of ``JOIN`` which could cause the cluster to become over
   committed and possibly crash.
 * The :func:`approx_percentile` aggregation now also accepts an array of percentages.
+* Fix correctness for some queries with ``IN`` lists. When all constants in the
+  list are in the range of 32-bit signed integers but the test value can be
+  outside of the range, ``true`` may be produced when the correct result should
+  be ``false``.
 
 Hive Changes
 ------------
