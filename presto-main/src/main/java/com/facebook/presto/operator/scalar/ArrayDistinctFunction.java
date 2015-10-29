@@ -72,8 +72,17 @@ public final class ArrayDistinctFunction
 
     public static Block distinct(Type type, Block array)
     {
-        if (array.getPositionCount() == 0) {
+        if (array.getPositionCount() < 2) {
             return array;
+        }
+
+        if (array.getPositionCount() == 2) {
+            if (type.equalTo(array, 0, array, 1)) {
+                return array.getSingleValueBlock(0);
+            }
+            else {
+                return array;
+            }
         }
 
         TypedSet typedSet = new TypedSet(type, array.getPositionCount());
