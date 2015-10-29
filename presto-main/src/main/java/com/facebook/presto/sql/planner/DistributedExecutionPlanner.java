@@ -80,7 +80,6 @@ public class DistributedExecutionPlanner
         return new StageExecutionPlan(
                 currentFragment,
                 splits,
-                currentFragment.getPartitioning(),
                 dependencies.build());
     }
 
