@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.Identity;
@@ -36,8 +37,10 @@ import static java.util.Objects.requireNonNull;
 public class TestingConnectorSession
         implements ConnectorSession
 {
+    private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
     public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
 
+    private final String queryId;
     private final Identity identity;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
@@ -58,6 +61,7 @@ public class TestingConnectorSession
             List<PropertyMetadata<?>> propertyMetadatas,
             Map<String, Object> propertyValues)
     {
+        this.queryId = queryIdGenerator.createNextQueryId().toString();
         this.identity = new Identity(requireNonNull(user, "user is null"), Optional.empty());
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
@@ -69,7 +73,7 @@ public class TestingConnectorSession
     @Override
     public String getQueryId()
     {
-        return "test_connector_query_id";
+        return queryId;
     }
 
     @Override
