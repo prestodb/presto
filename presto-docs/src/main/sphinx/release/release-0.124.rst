@@ -19,6 +19,9 @@ General Changes
   controller can be selected and configured using ``etc/access-control.properties``.
   Note that Presto currently does not ship with any system access controller
   implementations.
+* Add intermediate aggregations that can improve query performance of high cardinality aggregations.
+  This feature can be enabled by ``optimizer.use-intermediate-aggregations`` or ``task_intermediate_aggregation``
+  session property.
 
 Hive Changes
 ------------
