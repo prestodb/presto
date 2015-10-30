@@ -42,7 +42,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.Sets.newIdentityHashSet;
 import static java.util.Objects.requireNonNull;
 
 public class Analysis
@@ -54,7 +53,7 @@ public class Analysis
 
     private TupleDescriptor outputDescriptor;
     private final IdentityHashMap<Node, TupleDescriptor> outputDescriptors = new IdentityHashMap<>();
-    private final IdentityHashMap<Expression, Map<Expression, Integer>> resolvedNames = new IdentityHashMap<>();
+    private final IdentityHashMap<Expression, Integer> resolvedNames = new IdentityHashMap<>();
 
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> aggregates = new IdentityHashMap<>();
     private final IdentityHashMap<QuerySpecification, List<FieldOrExpression>> groupByExpressions = new IdentityHashMap<>();
@@ -74,7 +73,6 @@ public class Analysis
     private final IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
     private final IdentityHashMap<Relation, Type[]> relationCoercions = new IdentityHashMap<>();
     private final IdentityHashMap<FunctionCall, Signature> functionSignature = new IdentityHashMap<>();
-    private final Set<Expression> columnReferences = newIdentityHashSet();
 
     private final IdentityHashMap<Field, ColumnHandle> columns = new IdentityHashMap<>();
 
@@ -121,14 +119,14 @@ public class Analysis
         this.createTableAsSelectWithData = createTableAsSelectWithData;
     }
 
-    public void addResolvedNames(Expression expression, Map<Expression, Integer> mappings)
+    public void addResolvedNames(Map<Expression, Integer> mappings)
     {
-        resolvedNames.put(expression, mappings);
+        resolvedNames.putAll(mappings);
     }
 
-    public Map<Expression, Integer> getResolvedNames(Expression expression)
+    public Optional<Integer> getFieldIndex(Expression expression)
     {
-        return resolvedNames.get(expression);
+        return Optional.ofNullable(resolvedNames.get(expression));
     }
 
     public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)
@@ -305,12 +303,7 @@ public class Analysis
 
     public Set<Expression> getColumnReferences()
     {
-        return ImmutableSet.copyOf(columnReferences);
-    }
-
-    public void addColumnReferences(Set<Expression> references)
-    {
-        columnReferences.addAll(references);
+        return resolvedNames.keySet();
     }
 
     public void addTypes(IdentityHashMap<Expression, Type> types)

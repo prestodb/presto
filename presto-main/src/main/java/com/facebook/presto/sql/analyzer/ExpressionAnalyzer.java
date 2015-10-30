@@ -79,7 +79,6 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -131,9 +130,8 @@ public class ExpressionAnalyzer
     private final TypeManager typeManager;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final IdentityHashMap<FunctionCall, Signature> resolvedFunctions = new IdentityHashMap<>();
-    private final Map<Expression, Integer> resolvedNames = new HashMap<>();
+    private final IdentityHashMap<Expression, Integer> resolvedNames = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
-    private final Set<Expression> columnReferences = newIdentityHashSet();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
     private final Session session;
@@ -173,7 +171,7 @@ public class ExpressionAnalyzer
 
     public Set<Expression> getColumnReferences()
     {
-        return ImmutableSet.copyOf(columnReferences);
+        return ImmutableSet.copyOf(resolvedNames.keySet());
     }
 
     /**
@@ -296,7 +294,6 @@ public class ExpressionAnalyzer
             int fieldIndex = tupleDescriptor.indexOf(field);
             resolvedNames.put(node, fieldIndex);
             expressionTypes.put(node, field.getType());
-            columnReferences.add(node);
             return field.getType();
         }
 
@@ -317,7 +314,6 @@ public class ExpressionAnalyzer
                     int fieldIndex = tupleDescriptor.indexOf(field);
                     resolvedNames.put(node, fieldIndex);
                     expressionTypes.put(node, field.getType());
-                    columnReferences.add(node);
                     return field.getType();
                 }
             }
@@ -1030,7 +1026,7 @@ public class ExpressionAnalyzer
                 analyzer.getExpressionTypes(),
                 analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
-                analyzer.getColumnReferences());
+                analyzer.getResolvedNames().keySet());
     }
 
     public static ExpressionAnalysis analyzeExpression(
@@ -1054,15 +1050,12 @@ public class ExpressionAnalyzer
         analysis.addTypes(expressionTypes);
         analysis.addCoercions(expressionCoercions);
         analysis.addFunctionSignatures(resolvedFunctions);
-        analysis.addColumnReferences(analyzer.getColumnReferences());
 
-        for (Expression subExpression : expressionTypes.keySet()) {
-            analysis.addResolvedNames(subExpression, analyzer.getResolvedNames());
-        }
+        analysis.addResolvedNames(analyzer.getResolvedNames());
 
         Set<InPredicate> subqueryInPredicates = analyzer.getSubqueryInPredicates();
 
-        return new ExpressionAnalysis(expressionTypes, expressionCoercions, subqueryInPredicates, analyzer.getColumnReferences());
+        return new ExpressionAnalysis(expressionTypes, expressionCoercions, subqueryInPredicates, analyzer.getResolvedNames().keySet());
     }
 
     public static ExpressionAnalyzer create(

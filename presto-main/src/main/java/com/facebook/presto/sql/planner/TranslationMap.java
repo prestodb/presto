@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 import static com.google.common.base.Preconditions.checkState;
@@ -127,11 +128,8 @@ class TranslationMap
         Expression translated = translateNamesToSymbols(expression);
         expressionMappings.put(translated, symbol);
 
-        // also update the field mappings if this expression is a simple field reference
-        if (expression instanceof QualifiedNameReference) {
-            int fieldIndex = analysis.getResolvedNames(expression).get(expression);
-            fieldSymbols[fieldIndex] = symbol;
-        }
+        // also update the field mappings if this expression is a field reference
+        analysis.getFieldIndex(expression).ifPresent(index -> fieldSymbols[index] = symbol);
     }
 
     public void put(FieldOrExpression fieldOrExpression, Symbol symbol)
@@ -168,9 +166,6 @@ class TranslationMap
 
     private Expression translateNamesToSymbols(Expression expression)
     {
-        final Map<Expression, Integer> resolvedNames = analysis.getResolvedNames(expression);
-        Preconditions.checkArgument(resolvedNames != null, "No resolved names for expression %s", expression);
-
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
             @Override
@@ -195,11 +190,11 @@ class TranslationMap
 
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
-                Integer fieldIndex = resolvedNames.get(node);
-                checkState(fieldIndex != null, "No field mapping for node '%s'", node);
+                Optional<Integer> fieldIndex = analysis.getFieldIndex(node);
+                checkState(fieldIndex.isPresent(), "No field mapping for node '%s'", node);
 
-                Symbol symbol = rewriteBase.getSymbol(fieldIndex);
-                checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, fieldIndex);
+                Symbol symbol = rewriteBase.getSymbol(fieldIndex.get());
+                checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, fieldIndex.get());
                 Expression rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
 
                 // cast expression if coercion is registered
@@ -213,7 +208,7 @@ class TranslationMap
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                if (analysis.getColumnReferences().contains(node)) {
+                if (analysis.getFieldIndex(node).isPresent()) {
                     return rewriteExpressionWithResolvedName(node);
                 }
 
