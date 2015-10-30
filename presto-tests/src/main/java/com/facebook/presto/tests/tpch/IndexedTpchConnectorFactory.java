@@ -20,10 +20,12 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.tpch.TpchNodePartitioningProvider;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tpch.TpchTransactionHandle;
@@ -103,6 +105,12 @@ public class IndexedTpchConnectorFactory
             public Set<SystemTable> getSystemTables()
             {
                 return ImmutableSet.of(new ExampleSystemTable());
+            }
+
+            @Override
+            public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+            {
+                return new TpchNodePartitioningProvider(connectorId, nodeManager, splitsPerNode);
             }
         };
     }

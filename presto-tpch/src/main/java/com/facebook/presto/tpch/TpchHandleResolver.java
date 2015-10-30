@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public class TpchHandleResolver
@@ -51,5 +52,11 @@ public class TpchHandleResolver
     public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
         return TpchTransactionHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass()
+    {
+        return TpchPartitioningHandle.class;
     }
 }
