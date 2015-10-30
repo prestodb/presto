@@ -103,8 +103,6 @@ import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
-import static com.facebook.presto.hive.HiveWriteUtils.createTemporaryPath;
-import static com.facebook.presto.hive.HiveWriteUtils.getTableDefaultLocation;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static com.facebook.presto.hive.HiveWriteUtils.renameDirectory;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -144,6 +142,7 @@ public class HiveMetadata
     private final HivePartitionManager partitionManager;
     private final DateTimeZone timeZone;
     private final TypeManager typeManager;
+    private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final ExecutorService renameExecutionService;
 
@@ -157,6 +156,7 @@ public class HiveMetadata
             HivePartitionManager partitionManager,
             @ForHiveClient ExecutorService executorService,
             TypeManager typeManager,
+            LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this(connectorId,
@@ -171,6 +171,7 @@ public class HiveMetadata
                 hiveClientConfig.getAllowRenameColumn(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 typeManager,
+                locationService,
                 partitionUpdateCodec);
     }
 
@@ -187,6 +188,7 @@ public class HiveMetadata
             boolean allowRenameColumn,
             boolean allowCorruptWritesForTesting,
             TypeManager typeManager,
+            LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
@@ -202,6 +204,7 @@ public class HiveMetadata
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
@@ -399,28 +402,26 @@ public class HiveMetadata
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy);
+        createTable(session, schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy);
     }
 
-    public void createTable(String schemaName,
+    public void createTable(
+            ConnectorSession session,
+            String schemaName,
             String tableName,
             String tableOwner,
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
             List<String> partitionedBy)
     {
-        Path targetPath = getTableDefaultLocation(metastore, hdfsEnvironment, schemaName, tableName);
-
-        // verify the target directory for the table
-        if (pathExists(hdfsEnvironment, targetPath)) {
-            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
-        }
-
+        LocationHandle locationHandle = locationService.forNewTable(session.getQueryId(), schemaName, tableName);
+        Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(hdfsEnvironment, targetPath);
         createTable(schemaName, tableName, tableOwner, columnHandles, hiveStorageFormat, partitionedBy, targetPath);
     }
 
-    private Table createTable(String schemaName,
+    private Table createTable(
+            String schemaName,
             String tableName,
             String tableOwner,
             List<HiveColumnHandle> columnHandles,
@@ -601,25 +602,13 @@ public class HiveMetadata
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
 
-        Path targetPath = getTableDefaultLocation(metastore, hdfsEnvironment, schemaName, tableName);
-
-        // verify the target directory for the table
-        if (pathExists(hdfsEnvironment, targetPath)) {
-            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
-        }
-
-        String writePath = targetPath.toString();
-        if (useTemporaryDirectory(targetPath)) {
-            writePath = createTemporaryPath(hdfsEnvironment, targetPath);
-        }
-
         return new HiveOutputTableHandle(
                 connectorId,
                 schemaName,
                 tableName,
                 columnHandles,
                 randomUUID().toString(), // todo this should really be the queryId
-                writePath,
+                locationService.forNewTable(session.getQueryId(), schemaName, tableName),
                 hiveStorageFormat,
                 partitionedBy,
                 tableMetadata.getOwner());
@@ -635,8 +624,8 @@ public class HiveMetadata
                 .map(partitionUpdateCodec::fromJson)
                 .collect(toList());
 
-        Path targetPath = getTableDefaultLocation(metastore, hdfsEnvironment, handle.getSchemaName(), handle.getTableName());
-        Path writePath = new Path(handle.getWritePath().get());
+        Path targetPath = locationService.targetPathRoot(handle.getLocationHandle());
+        Path writePath = locationService.writePathRoot(handle.getLocationHandle()).get();
 
         // rename if using a temporary directory
         if (!targetPath.equals(writePath)) {
@@ -682,7 +671,7 @@ public class HiveMetadata
     public void rollbackCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
         HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
-        cleanupTempDirectory(handle.getWritePath().get(), handle.getFilePrefix(), "create table");
+        cleanupTempDirectory(locationService.writePathRoot(handle.getLocationHandle()).get().toString(), handle.getFilePrefix(), "create table");
         // Note: there is no need to cleanup the target directory as it will only be written
         // to during the commit call and the commit call cleans up after failures.
     }
@@ -704,22 +693,13 @@ public class HiveMetadata
 
         List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get());
 
-        Path targetPath = new Path(table.get().getSd().getLocation());
-        Optional<String> writePath;
-        if (useTemporaryDirectory(targetPath)) {
-            writePath = Optional.of(createTemporaryPath(hdfsEnvironment, targetPath));
-        }
-        else {
-            writePath = Optional.empty();
-        }
-
         return new HiveInsertTableHandle(
                 connectorId,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 handles,
                 randomUUID().toString(), // todo this should really be the queryId
-                writePath,
+                locationService.forExistingTable(session.getQueryId(), table.get()),
                 hiveStorageFormat);
     }
 
@@ -884,8 +864,9 @@ public class HiveMetadata
         HiveInsertTableHandle handle = checkType(insertHandle, HiveInsertTableHandle.class, "invalid insertHandle");
 
         // if there is a temp directory, we only need to cleanup temp files in this directory
-        if (handle.getWritePath().isPresent()) {
-            cleanupTempDirectory(handle.getWritePath().get(), handle.getFilePrefix(), "insert");
+        Optional<Path> writePath = locationService.writePathRoot(handle.getLocationHandle());
+        if (writePath.isPresent()) {
+            cleanupTempDirectory(writePath.get().toString(), handle.getFilePrefix(), "insert");
             // Note: in this case there is no need to cleanup the target directory as it will only
             // be written to during the commit call and the commit call cleans up after failures.
             return;
@@ -901,7 +882,7 @@ public class HiveMetadata
         Set<String> locationsToClean = new HashSet<>();
 
         // check the base directory of the table (this is where new partitions are created)
-        String tableDirectory = table.get().getSd().getLocation();
+        String tableDirectory = locationService.targetPathRoot(handle.getLocationHandle()).toString();
         locationsToClean.add(tableDirectory);
 
         // check every existing partition that is outside for the base directory
@@ -1301,17 +1282,6 @@ public class HiveMetadata
             throw new PrestoException(HIVE_TIMEZONE_MISMATCH, format(
                     "To write Hive data, your JVM timezone must match the Hive storage timezone. Add -Duser.timezone=%s to your JVM arguments.",
                     timeZone.getID()));
-        }
-    }
-
-    private boolean useTemporaryDirectory(Path path)
-    {
-        try {
-            // skip using temporary directory for S3
-            return !(hdfsEnvironment.getFileSystem(path) instanceof PrestoS3FileSystem);
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 

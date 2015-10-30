@@ -91,6 +91,7 @@ public abstract class AbstractTestHiveClientS3
     protected SchemaTableName temporaryCreateTable;
 
     protected HdfsEnvironment hdfsEnvironment;
+    protected LocationService locationService;
     protected TestingHiveMetastore metastoreClient;
     protected HiveMetadata metadata;
     protected ConnectorSplitManager splitManager;
@@ -147,6 +148,7 @@ public abstract class AbstractTestHiveClientS3
         HivePartitionManager hivePartitionManager = new HivePartitionManager(connectorId, hiveClientConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
+        locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
         metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket, hdfsEnvironment);
         TypeRegistry typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
@@ -158,6 +160,7 @@ public abstract class AbstractTestHiveClientS3
                 hivePartitionManager,
                 newDirectExecutorService(),
                 typeManager,
+                locationService,
                 partitionUpdateCodec);
         splitManager = new HiveSplitManager(
                 connectorId,
@@ -167,7 +170,7 @@ public abstract class AbstractTestHiveClientS3
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 executor);
-        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), partitionUpdateCodec);
+        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), locationService, partitionUpdateCodec);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
 
@@ -325,7 +328,7 @@ public abstract class AbstractTestHiveClientS3
         // table, which fails without explicit configuration for S3.
         // We work around that by using a dummy location when creating the
         // table and update it here to the correct S3 location.
-        metastoreClient.updateTableLocation(database, tableName.getTableName(), outputHandle.getWritePath().get());
+        metastoreClient.updateTableLocation(database, tableName.getTableName(), locationService.writePath(outputHandle.getLocationHandle(), Optional.empty()).get().toString());
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(tableName);
