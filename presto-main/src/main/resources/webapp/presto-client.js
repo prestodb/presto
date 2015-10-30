@@ -48,7 +48,7 @@ StatementClient.prototype.submitQuery = function(lastRecordNumber) {
         //FIXME having problems when async: true
         async: false,
         error: function(xhr, statusStr, errorStr) {
-            statementClient.errorCallback(statusStr, errorStr);
+            statementClient.errorCallback(xhr.responseText, errorStr);
         },
         success: function(response) {
             statementClient.currentResults = response;
@@ -72,7 +72,7 @@ StatementClient.prototype.advance = function(lastRecordNumber) {
         //FIXME having problems when async: true
         async: false,
         error: function(xhr, statusStr, errorStr) {
-            statementClient.errorCallback(statusStr, errorStr);
+            statementClient.errorCallback(xhr.responseText, errorStr);
         },
         success: function(response) {
             statementClient.currentResults = response;
