@@ -1718,7 +1718,7 @@ public abstract class AbstractTestHiveClient
     {
         HiveOutputTableHandle hiveOutputTableHandle = (HiveOutputTableHandle) tableHandle;
         Path writePath = new Path(getLocationService(hiveOutputTableHandle.getSchemaName()).writePathRoot(hiveOutputTableHandle.getLocationHandle()).get().toString());
-        return listAllDataFiles(writePath, new HashSet<>());
+        return listAllDataFiles(writePath);
     }
 
     protected Set<String> listAllDataFiles(ConnectorInsertTableHandle tableHandle)
@@ -1726,33 +1726,57 @@ public abstract class AbstractTestHiveClient
     {
         HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) tableHandle;
         Path writePath = new Path(getLocationService(hiveInsertTableHandle.getSchemaName()).writePathRoot(hiveInsertTableHandle.getLocationHandle()).get().toString());
-        return listAllDataFiles(writePath, new HashSet<>());
+        return listAllDataFiles(writePath);
     }
 
     protected Set<String> listAllDataFiles(String schemaName, String tableName)
             throws IOException
     {
-        Table table = metastoreClient.getTable(schemaName, tableName).get();
-        Path path = new Path(table.getSd().getLocation());
         Set<String> existingFiles = new HashSet<>();
-        return listAllDataFiles(path, existingFiles);
+        for (String location : listAllDataPaths(metastoreClient, schemaName, tableName)) {
+            existingFiles.addAll(listAllDataFiles(new Path(location)));
+        }
+        return existingFiles;
     }
 
-    protected Set<String> listAllDataFiles(Path path, Set<String> existingFiles)
+    public static List<String> listAllDataPaths(HiveMetastore metastore, String schemaName, String tableName)
+    {
+        ImmutableList.Builder<String> locations = ImmutableList.builder();
+        Table table = metastore.getTable(schemaName, tableName).get();
+        if (table.getSd().getLocation() != null) {
+            // For unpartitioned table, there should be nothing directly under this directory.
+            // But including this location in the set makes the directory content assert more
+            // extensive, which is desirable.
+            locations.add(table.getSd().getLocation());
+        }
+
+        Optional<List<String>> partitionNames = metastore.getPartitionNames(schemaName, tableName);
+        if (partitionNames.isPresent()) {
+            metastore.getPartitionsByNames(schemaName, tableName, partitionNames.get()).get().values().stream()
+                    .map(partition -> partition.getSd().getLocation())
+                    .filter(location -> !location.startsWith(table.getSd().getLocation()))
+                    .forEach(locations::add);
+        }
+
+        return locations.build();
+    }
+
+    protected Set<String> listAllDataFiles(Path path)
             throws IOException
     {
+        Set<String> result = new HashSet<>();
         FileSystem fileSystem = hdfsEnvironment.getFileSystem(path);
         if (fileSystem.exists(path)) {
             for (FileStatus fileStatus : fileSystem.listStatus(path)) {
                 if (HadoopFileStatus.isFile(fileStatus)) {
-                    existingFiles.add(fileStatus.getPath().toString());
+                    result.add(fileStatus.getPath().toString());
                 }
                 else if (HadoopFileStatus.isDirectory(fileStatus)) {
-                    existingFiles.addAll(listAllDataFiles(fileStatus.getPath(), existingFiles));
+                    result.addAll(listAllDataFiles(fileStatus.getPath()));
                 }
             }
         }
-        return existingFiles;
+        return result;
     }
 
     private void doInsertPartitioned(HiveStorageFormat storageFormat, SchemaTableName tableName)
