@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,7 +36,7 @@ public class HiveOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
             @JsonProperty("filePrefix") String filePrefix,
-            @JsonProperty("writePath") String writePath,
+            @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat,
             @JsonProperty("partitionedBy") List<String> partitionedBy,
             @JsonProperty("tableOwner") String tableOwner)
@@ -48,7 +47,7 @@ public class HiveOutputTableHandle
                 tableName,
                 inputColumns,
                 filePrefix,
-                Optional.of(requireNonNull(writePath, "writePath is null")),
+                requireNonNull(locationHandle, "locationHandle is null"),
                 hiveStorageFormat);
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));

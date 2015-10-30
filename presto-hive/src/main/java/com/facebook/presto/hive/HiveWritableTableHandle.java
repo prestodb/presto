@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,7 +27,7 @@ public class HiveWritableTableHandle
     private final String tableName;
     private final List<HiveColumnHandle> inputColumns;
     private final String filePrefix;
-    private final Optional<String> writePath;
+    private final LocationHandle locationHandle;
     private final HiveStorageFormat hiveStorageFormat;
 
     public HiveWritableTableHandle(
@@ -37,7 +36,7 @@ public class HiveWritableTableHandle
             String tableName,
             List<HiveColumnHandle> inputColumns,
             String filePrefix,
-            Optional<String> writePath,
+            LocationHandle locationHandle,
             HiveStorageFormat hiveStorageFormat)
     {
         this.clientId = requireNonNull(clientId, "clientId is null");
@@ -45,7 +44,7 @@ public class HiveWritableTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
-        this.writePath = requireNonNull(writePath, "writePath is null");
+        this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.hiveStorageFormat = requireNonNull(hiveStorageFormat, "hiveStorageFormat is null");
     }
 
@@ -80,9 +79,9 @@ public class HiveWritableTableHandle
     }
 
     @JsonProperty
-    public Optional<String> getWritePath()
+    public LocationHandle getLocationHandle()
     {
-        return writePath;
+        return locationHandle;
     }
 
     @JsonProperty

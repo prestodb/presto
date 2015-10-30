@@ -254,6 +254,7 @@ public abstract class AbstractTestHiveClient
     protected DateTimeZone timeZone;
 
     protected HdfsEnvironment hdfsEnvironment;
+    protected LocationService locationService;
 
     protected TypeManager typeManager;
     protected ConnectorMetadata metadata;
@@ -425,6 +426,7 @@ public abstract class AbstractTestHiveClient
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
+        locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
         typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadata = new HiveMetadata(
@@ -440,6 +442,7 @@ public abstract class AbstractTestHiveClient
                 true,
                 true,
                 typeManager,
+                locationService,
                 partitionUpdateCodec);
         splitManager = new HiveSplitManager(
                 connectorId,
@@ -456,7 +459,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxInitialSplits(),
                 false
         );
-        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), partitionUpdateCodec);
+        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), locationService, partitionUpdateCodec);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
     }
 
@@ -1665,7 +1668,7 @@ public abstract class AbstractTestHiveClient
             throws IOException
     {
         HiveOutputTableHandle hiveOutputTableHandle = (HiveOutputTableHandle) tableHandle;
-        Path writePath = new Path(hiveOutputTableHandle.getWritePath().get());
+        Path writePath = new Path(getLocationService(hiveOutputTableHandle.getSchemaName()).writePathRoot(hiveOutputTableHandle.getLocationHandle()).get().toString());
         return listAllDataFiles(writePath, new HashSet<>());
     }
 
@@ -1673,7 +1676,7 @@ public abstract class AbstractTestHiveClient
             throws IOException
     {
         HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) tableHandle;
-        Path writePath = new Path(hiveInsertTableHandle.getWritePath().get());
+        Path writePath = new Path(getLocationService(hiveInsertTableHandle.getSchemaName()).writePathRoot(hiveInsertTableHandle.getLocationHandle()).get().toString());
         return listAllDataFiles(writePath, new HashSet<>());
     }
 
@@ -2131,6 +2134,11 @@ public abstract class AbstractTestHiveClient
     public HiveMetastore getMetastoreClient(String namespace)
     {
         return metastoreClient;
+    }
+
+    public LocationService getLocationService(String namespace)
+    {
+        return locationService;
     }
 
     protected static int getSplitCount(ConnectorSplitSource splitSource)

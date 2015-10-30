@@ -365,7 +365,7 @@ public final class HiveWriteUtils
         }
     }
 
-    public static String createTemporaryPath(HdfsEnvironment hdfsEnvironment, Path targetPath)
+    public static Path createTemporaryPath(HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
         // use a per-user temporary directory to avoid permission problems
         // TODO: this should use Hadoop UserGroupInformation
@@ -377,7 +377,7 @@ public final class HiveWriteUtils
 
         createDirectory(hdfsEnvironment, temporaryPath);
 
-        return temporaryPath.toString();
+        return temporaryPath;
     }
 
     public static void createDirectory(HdfsEnvironment hdfsEnvironment, Path path)
