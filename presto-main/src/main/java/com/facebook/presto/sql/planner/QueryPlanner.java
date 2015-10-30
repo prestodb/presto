@@ -73,12 +73,16 @@ import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import jdk.nashorn.internal.ir.annotations.Immutable;
+import org.apache.commons.math3.analysis.function.Exp;
 import sun.jvm.hotspot.debugger.cdbg.Sym;
 
 import java.util.HashMap;
@@ -88,6 +92,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -362,17 +367,19 @@ class QueryPlanner
 
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
     {
+        // raghavsethi: I have no frickin idea what I'm doing
         if (analysis.getAggregates(node).isEmpty() && analysis.getGroupingSets(node).isEmpty()) {
             return subPlan;
         }
 
         List<List<FieldOrExpression>> groupingSets = analysis.getGroupingSets(node);
-        // TODO: raghavsethi: I have no frickin idea what I'm doing
+        ImmutableBiMap.Builder<Expression, Symbol> rewritesInGroupBy = ImmutableBiMap.builder();
+
         if (groupingSets.size() == 0) {
-            return ordinaryGroupBy(emptyList(), subPlan, node);
+            return ordinaryGroupBy(emptyList(), subPlan, node, rewritesInGroupBy);
         }
         else if (groupingSets.size() == 1) {
-            return ordinaryGroupBy(groupingSets.get(0), subPlan, node);
+            return ordinaryGroupBy(groupingSets.get(0), subPlan, node, rewritesInGroupBy);
         }
         else {
             return groupingSets(subPlan, node);
@@ -385,7 +392,7 @@ class QueryPlanner
         for (List<FieldOrExpression> groupingSet : analysis.getGroupingSets(node)) {
             for (FieldOrExpression fieldOrExpression : groupingSet) {
                 // Because of the way this is spelled out in the grammar, these are all actually qualifiedNames
-                checkCondition(fieldOrExpression.isFieldReference(), NOT_SUPPORTED, "Grouping sets do not support field indexes, only column names");
+                checkCondition(fieldOrExpression.isFieldReference(), NOT_SUPPORTED, "Grouping sets do not support expressions, only field indexes");
                 allGroupingColumnsBuilder.add(fieldOrExpression);
             }
         }
@@ -394,16 +401,17 @@ class QueryPlanner
         ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
         ImmutableList.Builder<PlanNode> subPlans = ImmutableList.builder();
 
-        // TODO: raghavsethi: check whether this initialization is correct
+        // raghavsethi: check whether this initialization is correct
         TranslationMap translationMap = new TranslationMap(subPlan.getRelationPlan(), analysis);
         ImmutableListMultimap.Builder<Symbol, Symbol> newToOldMapping = ImmutableListMultimap.builder();
-        ImmutableListMultimap.Builder<QualifiedNameReference, Symbol> nameReferenceToSymbols = ImmutableListMultimap.builder();
         ImmutableMap.Builder<FieldOrExpression, Symbol> nullFieldToSymbolMapping = ImmutableMap.builder();
+        ImmutableListMultimap.Builder<Expression, Symbol> preRewriteExpressionToSymbols = ImmutableListMultimap.builder();
+
 
         for (List<FieldOrExpression> groupingSet : analysis.getGroupingSets(node)) {
             ImmutableMap.Builder<Symbol, Symbol> oldToNewMapping = ImmutableMap.builder();
 
-            PlanBuilder subPlanBuilder = singleGroupingSet(subPlan, node, allGroupingColumns, groupingSet, oldToNewMapping, newToOldMapping, nullFieldToSymbolMapping);
+            PlanBuilder subPlanBuilder = singleGroupingSet(subPlan, node, allGroupingColumns, groupingSet, oldToNewMapping, newToOldMapping, nullFieldToSymbolMapping, preRewriteExpressionToSymbols);
 
             subPlans.add(subPlanBuilder.getRoot());
             ImmutableMap<Symbol, Symbol> oldToNewMap = oldToNewMapping.build();
@@ -411,7 +419,7 @@ class QueryPlanner
             // Generates a map from qualifiedNameReferences to symbols used to represent them in the children projectNodes
             for (Map.Entry<Symbol, Symbol> oldToNewMapEntry : oldToNewMap.entrySet()) {
                 QualifiedNameReference originalName = oldToNewMapEntry.getKey().toQualifiedNameReference();
-                nameReferenceToSymbols.put(originalName, oldToNewMapEntry.getValue());
+                //preRewriteExpressionToSymbols.put(originalName, oldToNewMapEntry.getValue());
             }
 
             symbolMapping.putAll(oldToNewMap.asMultimap());
@@ -456,19 +464,15 @@ class QueryPlanner
             List<FieldOrExpression> groupingSet,
             ImmutableMap.Builder<Symbol, Symbol> oldToNewMapping,
             ImmutableListMultimap.Builder<Symbol, Symbol> newToOldMapping,
-            ImmutableMap.Builder<FieldOrExpression, Symbol> nullFieldToSymbolMapping)
+            ImmutableMap.Builder<FieldOrExpression, Symbol> nullFieldToSymbolMapping,
+            ImmutableListMultimap.Builder<Expression, Symbol> preRewriteExpressionToSymbols)
     {
-        ImmutableList.Builder<FieldOrExpression> nullFieldsBuilder = ImmutableList.builder();
+        List<FieldOrExpression> nullFields = allGroupingColumns.stream().filter(groupingColumn -> !groupingSet.contains(groupingColumn)).collect(Collectors.toList());
 
-        for (FieldOrExpression groupingColumn : allGroupingColumns) {
-            if (!groupingSet.contains(groupingColumn)) {
-                nullFieldsBuilder.add(groupingColumn);
-            }
-        }
+        ImmutableBiMap.Builder<Expression, Symbol> rewritesInGroupByBuilder = ImmutableBiMap.builder();
+        PlanBuilder singleGroupingSetPlan = ordinaryGroupBy(groupingSet, subPlan, node, rewritesInGroupByBuilder);
+        ImmutableBiMap<Expression, Symbol> rewritesInGroupBy = rewritesInGroupByBuilder.build();
 
-        List<FieldOrExpression> nullFields = nullFieldsBuilder.build();
-
-        PlanBuilder singleGroupingSetPlan = ordinaryGroupBy(groupingSet, subPlan, node);
         List<Symbol> oldSymbols = singleGroupingSetPlan.getRoot().getOutputSymbols();
 
         ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
@@ -481,6 +485,8 @@ class QueryPlanner
             newSymbols.add(outputSymbol);
             oldToNewMapping.put(oldSymbol, outputSymbol);
             newToOldMapping.put(outputSymbol, oldSymbol);
+            Expression originalExpression = rewritesInGroupBy.inverse().get(oldSymbol);
+            preRewriteExpressionToSymbols.put(originalExpression, outputSymbol);
         }
 
         NullLiteral nullLiteral = new NullLiteral();
@@ -495,7 +501,7 @@ class QueryPlanner
         return new PlanBuilder(singleGroupingSetPlan.getTranslations(), projectNode, singleGroupingSetPlan.getSampleWeight());
     }
 
-    private PlanBuilder ordinaryGroupBy(List<FieldOrExpression> singleGroupingSet, PlanBuilder subPlan, QuerySpecification node)
+    private PlanBuilder ordinaryGroupBy(List<FieldOrExpression> singleGroupingSet, PlanBuilder subPlan, QuerySpecification node, ImmutableBiMap.Builder<Expression, Symbol> rewritesInGroupBy)
     {
         List<FieldOrExpression> arguments = analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
@@ -530,7 +536,7 @@ class QueryPlanner
             }
             aggregationAssignments.put(newSymbol, (FunctionCall) rewritten);
             translations.put(aggregate, newSymbol);
-
+            rewritesInGroupBy.put(aggregate, newSymbol);
             functions.put(newSymbol, analysis.getFunctionSignature(aggregate));
         }
 
@@ -540,6 +546,13 @@ class QueryPlanner
             Symbol symbol = subPlan.translate(fieldOrExpression);
             groupBySymbols.add(symbol);
             translations.put(fieldOrExpression, symbol);
+            if (fieldOrExpression.isFieldReference()) {
+                Expression expression = subPlan.getRelationPlan().getSymbol(fieldOrExpression.getFieldIndex()).toQualifiedNameReference();
+                rewritesInGroupBy.put(expression, symbol);
+            }
+            else {
+                rewritesInGroupBy.put(fieldOrExpression.getExpression(), symbol);
+            }
         }
 
         // 2.c. Mark distinct rows for each aggregate that has DISTINCT
