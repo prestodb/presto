@@ -24,6 +24,10 @@ General Changes
   that require input values to be cast in different ways.
 * Fix performance issue due to redundant processing in queries involving DISTINCT 
   and LIMIT.
+* Add optimization that can reduce the amount of data sent over the network
+  for grouped aggregation queries. This feature can be enabled by
+  ``optimizer.use-intermediate-aggregations`` config property or
+  ``task_intermediate_aggregation`` session property.
 
 Hive Changes
 ------------
