@@ -15,6 +15,7 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorNodePartitioning;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -35,6 +36,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.LineItemColumn;
 import io.airlift.tpch.OrderColumn;
+import io.airlift.tpch.OrderGenerator;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
@@ -100,25 +102,39 @@ public class TpchMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
+    public List<ConnectorTableLayoutResult> getTableLayouts(
+            ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         TpchTableHandle tableHandle = checkType(table, TpchTableHandle.class, "table");
 
+        Optional<ConnectorNodePartitioning> nodePartition = Optional.empty();
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
 
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
         if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
-            partitioningColumns = Optional.of(ImmutableSet.of(columns.get(OrderColumn.ORDER_KEY.getColumnName())));
-            localProperties = ImmutableList.of(new SortingProperty<>(columns.get(OrderColumn.ORDER_KEY.getColumnName()), SortOrder.ASC_NULLS_FIRST));
+            ColumnHandle orderKeyColumn = columns.get(OrderColumn.ORDER_KEY.getColumnName());
+            nodePartition = Optional.of(new ConnectorNodePartitioning(
+                    new TpchPartitioningHandle(
+                            TpchTable.ORDERS.getTableName(),
+                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
+                    ImmutableList.of(orderKeyColumn)));
+            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
+            localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
         }
         else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
-            partitioningColumns = Optional.of(ImmutableSet.of(columns.get(LineItemColumn.ORDER_KEY.getColumnName())));
+            ColumnHandle orderKeyColumn = columns.get(OrderColumn.ORDER_KEY.getColumnName());
+            nodePartition = Optional.of(new ConnectorNodePartitioning(
+                    new TpchPartitioningHandle(
+                            TpchTable.ORDERS.getTableName(),
+                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
+                    ImmutableList.of(orderKeyColumn)));
+            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
             localProperties = ImmutableList.of(
-                    new SortingProperty<>(columns.get(LineItemColumn.ORDER_KEY.getColumnName()), SortOrder.ASC_NULLS_FIRST),
+                    new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
                     new SortingProperty<>(columns.get(LineItemColumn.LINE_NUMBER.getColumnName()), SortOrder.ASC_NULLS_FIRST));
         }
 
@@ -126,7 +142,7 @@ public class TpchMetadata
                 new TpchTableLayoutHandle(tableHandle),
                 Optional.<List<ColumnHandle>>empty(),
                 TupleDomain.<ColumnHandle>all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
-                Optional.empty(),
+                nodePartition,
                 partitioningColumns,
                 Optional.empty(),
                 localProperties);
@@ -270,5 +286,14 @@ public class TpchMetadata
                 return VARCHAR;
         }
         throw new IllegalArgumentException("Unsupported type " + tpchType);
+    }
+
+    private long calculateTotalRows(int scaleBase, double scaleFactor)
+    {
+        double totalRows = scaleBase * scaleFactor;
+        if (totalRows > Long.MAX_VALUE) {
+            throw new IllegalArgumentException("Total rows is larger than 2^64");
+        }
+        return (long) totalRows;
     }
 }
