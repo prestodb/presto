@@ -328,9 +328,9 @@ public class UnaliasSymbolReferences
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 Expression expression = canonicalize(entry.getValue());
 
-                if (entry.getValue() instanceof QualifiedNameReference) {
+                if (expression instanceof QualifiedNameReference) {
                     // Always map a trivial symbol projection
-                    Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) entry.getValue()).getName());
+                    Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
                     if (!symbol.equals(entry.getKey())) {
                         map(entry.getKey(), symbol);
                     }
