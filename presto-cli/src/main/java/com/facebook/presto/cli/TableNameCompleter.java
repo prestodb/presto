@@ -107,18 +107,22 @@ public class TableNameCompleter
         int blankPos = findLastBlank(buffer.substring(0, cursor));
         String prefix = buffer.substring(blankPos + 1, cursor);
         String schemaName = queryRunner.getSession().getSchema();
-        List<String> functionNames = functionCache.getIfPresent(schemaName);
-        List<String> tableNames = tableCache.getIfPresent(schemaName);
 
-        SortedSet<String> sortedCandidates = new TreeSet<>();
-        if (functionNames != null) {
-            sortedCandidates.addAll(filterResults(functionNames, prefix));
-        }
-        if (tableNames != null) {
-            sortedCandidates.addAll(filterResults(tableNames, prefix));
+        if (schemaName != null) {
+            List<String> functionNames = functionCache.getIfPresent(schemaName);
+            List<String> tableNames = tableCache.getIfPresent(schemaName);
+
+            SortedSet<String> sortedCandidates = new TreeSet<>();
+            if (functionNames != null) {
+                sortedCandidates.addAll(filterResults(functionNames, prefix));
+            }
+            if (tableNames != null) {
+                sortedCandidates.addAll(filterResults(tableNames, prefix));
+            }
+
+            candidates.addAll(sortedCandidates);
         }
 
-        candidates.addAll(sortedCandidates);
         return blankPos + 1;
     }
 
