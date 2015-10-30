@@ -58,6 +58,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
+import static com.facebook.presto.hive.AbstractTestHiveClient.listAllDataPaths;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FACTORIES;
@@ -432,7 +433,7 @@ public abstract class AbstractTestHiveClientS3
                 }
 
                 // hack to work around the metastore not being configured for S3
-                Path path = new Path(table.get().getSd().getLocation());
+                List<String> locations = listAllDataPaths(this, databaseName, tableName);
                 table.get().getSd().setLocation("/");
 
                 // drop table
@@ -442,7 +443,10 @@ public abstract class AbstractTestHiveClientS3
                 }
 
                 // drop data
-                hdfsEnvironment.getFileSystem(path).delete(path, true);
+                for (String location : locations) {
+                    Path path = new Path(location);
+                    hdfsEnvironment.getFileSystem(path).delete(path, true);
+                }
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
