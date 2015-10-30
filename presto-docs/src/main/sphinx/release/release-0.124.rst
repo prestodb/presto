@@ -19,6 +19,7 @@ General Changes
   controller can be selected and configured using ``etc/access-control.properties``.
   Note that Presto currently does not ship with any system access controller
   implementations.
+* Add support for ``WITH NO DATA`` syntax in ``CREATE TABLE ... AS SELECT``.
 
 Hive Changes
 ------------
