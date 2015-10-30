@@ -121,6 +121,10 @@
     tableau.registerConnector(prestoWebConnector);
 
     $(document).ready(function() {
+
+        var sessionParamsDiv = $('#sessionParameters');
+        var sessionParameterCount = 0;
+
         function populateCatalogs() {
             var catalogClient = new StatementClient({
                     'catalog': 'hive',
@@ -188,15 +192,42 @@
             }
         , false);
 
+        function addSessionParameterToForm(name, value) {
+            $('<p><label for="sessionParameters"><input type="text" id="name_' + sessionParameterCount +'" size="30" value="'+ name +'" placeholder="name"/>'
+              + '<input type="text" id="value_' + sessionParameterCount +'" size="20" value="' + value + '" placeholder="value" /></label> '
+              + '<a href="#" id="removeSessionProp_' + sessionParameterCount + '">X</a></p>').appendTo(sessionParamsDiv);
+
+            $('#removeSessionProp_' + sessionParameterCount).click(function() {
+                $(this).parents('p').remove();
+                sessionParameterCount--;
+                return false;
+            });
+
+            sessionParameterCount++;
+        }
+
         if (tableau.connectionData) {
             var existingConnectionData = JSON.parse(tableau.connectionData);
             $('textarea#query').val(existingConnectionData.query);
             $('input#user_name').val(existingConnectionData.userName);
+
+            if (existingConnectionData.sessionParameters) {
+                var parameterMap = JSON.parse(existingConnectionData.sessionParameters);
+                for (var name in parameterMap) {
+                  var value = parameterMap[name];
+                  addSessionParameterToForm(name, value);
+                }
+            }
         }
 
         if (tableau.connectionName) {
             $('input#dsname').val(tableau.connectionName);
         }
+
+        $("#addSessionProp").click(function() {
+            addSessionParameterToForm('','');
+            return false;
+        });
 
         $("#inputForm").submit(function() {
             //start with a new client
@@ -205,6 +236,26 @@
             //clear global state
             headersPushed = false;
             tableau.connectionData = null;
+
+            //create a map of session parameters { name->value }
+            var i = 0;
+            var paramName;
+            var sessionParameters = {};
+            $('#sessionParameters p label input').each(function () {
+                if (i == 0) {
+                    //name
+                    paramName = this.value;
+                    sessionParameters[paramName] = null;
+                    i++;
+                }
+                else if (i == 1) {
+                    //value
+                    sessionParameters[paramName] = this.value;
+                    i = 0;
+                }
+            });
+
+            tableau.log(sessionParameters);
 
             var query = $('textarea#query').val();
             var schema = $('select#schema').val();
@@ -216,7 +267,8 @@
                 'catalog': catalog,
                 'schema': schema,
                 'query': query,
-                'userName': userName
+                'userName': userName,
+                'sessionParameters' : JSON.stringify(sessionParameters)
             };
 
             //set these before validation, because if validation fails
@@ -253,7 +305,10 @@
     <select id="schema"></select><br><br>
 
     Data Source Name:
-    <input type="text" id="dsname">
+    <input type="text" id="dsname"><br><br>
+
+    <a href="#" id="addSessionProp">Add Session Parameter</a>
+    <div id="sessionParameters"></div>
 
     <br><br>Please enter your SQL query:<br>
     <textarea id="query" form="inputForm" rows="20" cols="100"></textarea>

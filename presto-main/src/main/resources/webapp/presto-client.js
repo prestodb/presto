@@ -8,6 +8,7 @@ function StatementClient(connectionData, headerCallback, dataCallback, errorCall
     this.schema = connectionData.schema;
     this.source = 'Tableau Web Connector';
     this.user = connectionData.userName;
+    this.sessionParameters = [];
 
     this.headerCallback = headerCallback;
     this.dataCallback = dataCallback;
@@ -16,11 +17,20 @@ function StatementClient(connectionData, headerCallback, dataCallback, errorCall
     this.currentResults = null;
     this.valid = true;
 
+    if (!(connectionData.sessionParameters === undefined)) {
+        var parameterMap = JSON.parse(connectionData.sessionParameters);
+        for (var name in parameterMap) {
+          var value = parameterMap[name];
+          this.sessionParameters.push(name + '=' + value);
+        }
+    }
+
     this.headers = {
         "X-Presto-User": this.user ? this.user : 'N/A',
         "X-Presto-Source": this.source,
         "X-Presto-Catalog": this.catalog,
-        "X-Presto-Schema": this.schema
+        "X-Presto-Schema": this.schema,
+        "X-Presto-Session": this.sessionParameters
     };
 
     //lastRecordNumber starts with 0 according to Tableau web connector docs
