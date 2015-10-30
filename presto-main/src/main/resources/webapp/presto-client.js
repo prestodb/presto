@@ -77,7 +77,7 @@ StatementClient.prototype.advance = function(lastRecordNumber) {
         success: function(response) {
             statementClient.currentResults = response;
             statementClient.responseHandler(response, lastRecordNumber);
-            if (!response.data) {
+            if (!(response.data || response.error)) {
                 //no data in this batch, schedule another GET
                 statementClient.advance(lastRecordNumber);
             }
@@ -87,7 +87,7 @@ StatementClient.prototype.advance = function(lastRecordNumber) {
 
 StatementClient.prototype.responseHandler = function(response, lastRecordNumber) {
     if (response.error) {
-        this.errorCallback('FAILED', response.error.message);
+        this.errorCallback(response.error.errorName, response.error.message);
     }
 
     if (response.columns) {

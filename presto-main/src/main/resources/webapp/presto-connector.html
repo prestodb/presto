@@ -14,6 +14,8 @@
     var buffer = [];
     var schema = null;
     var prestoWebConnector = tableau.makeConnector();
+    var errorName = null;
+    var errorMessage = null;
 
     function pushHeadersToTableau(columns) {
         tableau.log('pushHeadersToTableau called');
@@ -75,19 +77,26 @@
         }
     }
 
-    function errorHandler(statusText, errorStr) {
-        var message = "Error: [" + statusText + "]: " + errorStr;
-        tableau.log(message);
-        tableau.abortWithError(message);
+    function errorHandler(errName, errMessage) {
+        errorName = errName;
+        errorMessage = errMessage;
     }
 
     prestoWebConnector.getColumnHeaders = function() {
         tableau.log('getColumnHeaders called');
         statementClient = new StatementClient(JSON.parse(tableau.connectionData), pushHeadersToTableau, pushDataToTableau, errorHandler);
         //Tableau waits for the headers before calling getTableData()
-        while(!headersPushed) {
+        while(!(headersPushed || errorMessage)) {
             statementClient.advance(0);
         }
+
+        if (errorMessage) {
+            var message = "Error: [" + errorName + "]: " + errorMessage;
+            tableau.log(message);
+            tableau.abortWithError(message);
+            return;
+        }
+
         tableau.log('getColumnHeaders done');
     }
 
