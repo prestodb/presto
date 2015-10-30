@@ -19,6 +19,10 @@ General Changes
   controller can be selected and configured using ``etc/access-control.properties``.
   Note that Presto currently does not ship with any system access controller
   implementations.
+* Add optimization that can reduce the amount of data sent over the network
+  for grouped aggregation queries. This feature can be enabled by
+  ``optimizer.use-intermediate-aggregations`` config property or
+  ``task_intermediate_aggregation`` session property.
 
 Hive Changes
 ------------
