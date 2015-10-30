@@ -13,6 +13,12 @@ General Changes
   list are in the range of 32-bit signed integers but the test value can be
   outside of the range, ``true`` may be produced when the correct result should
   be ``false``.
+* Fail queries submitted while coordinator is starting.
+* Add JMX stats to track authentication and authorization successes and failures.
+* Add configuration support for the system access control plugin. The system access
+  controller can be selected and configured using ``etc/access-control.properties``.
+  Note that Presto currently does not ship with any system access controller
+  implementations.
 
 Hive Changes
 ------------
