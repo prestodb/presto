@@ -210,6 +210,12 @@ public abstract class AbstractTestHiveClient
                     .add(VARCHAR)
                     .build());
 
+    private static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA_2ND = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, BIGINT, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE, VARCHAR)
+            .row(4, "hello", 123, 43.5, true, ImmutableList.of("apple", "banana"), ImmutableMap.of("one", 1L, "two", 2L), ImmutableList.of("true", 1, true), "2015-07-04")
+            .row(5, null, null, null, null, null, null, null, "2015-07-04")
+            .row(6, "bye", 456, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), ImmutableList.of("false", 0, false), "2015-07-04")
+            .build();
+
     protected Set<HiveStorageFormat> createTableFormats = ImmutableSet.copyOf(HiveStorageFormat.values());
 
     protected String clientId;
@@ -230,7 +236,8 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName temporaryCreateSampledTable;
     protected SchemaTableName temporaryCreateEmptyTable;
     protected SchemaTableName temporaryInsertTable;
-    protected SchemaTableName temporaryInsertPartitionedTable;
+    protected SchemaTableName temporaryInsertIntoNewPartitionTable;
+    protected SchemaTableName temporaryInsertIntoExistingPartitionTable;
     protected SchemaTableName temporaryMetadataDeleteTable;
     protected SchemaTableName temporaryRenameTableOld;
     protected SchemaTableName temporaryRenameTableNew;
@@ -305,7 +312,8 @@ public abstract class AbstractTestHiveClient
         temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryCreateEmptyTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryInsertTable = new SchemaTableName(database, "tmp_presto_test_insert_" + randomName());
-        temporaryInsertPartitionedTable = new SchemaTableName(database, "tmp_presto_test_insert_partitioned_" + randomName());
+        temporaryInsertIntoExistingPartitionTable = new SchemaTableName(database, "tmp_presto_test_insert_exsting_partitioned_" + randomName());
+        temporaryInsertIntoNewPartitionTable = new SchemaTableName(database, "tmp_presto_test_insert_new_partitioned_" + randomName());
         temporaryMetadataDeleteTable = new SchemaTableName(database, "tmp_presto_test_metadata_delete_" + randomName());
         temporaryRenameTableOld = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
@@ -1333,15 +1341,29 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testInsertPartitioned()
+    public void testInsertIntoNewPartition()
             throws Exception
     {
         for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
-                doInsertPartitioned(storageFormat, temporaryInsertPartitionedTable);
+                doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTable);
             }
             finally {
-                dropTable(temporaryInsertPartitionedTable);
+                dropTable(temporaryInsertIntoNewPartitionTable);
+            }
+        }
+    }
+
+    @Test
+    public void testInsertIntoExistingPartition()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            try {
+                doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTable);
+            }
+            finally {
+                dropTable(temporaryInsertIntoExistingPartitionTable);
             }
         }
     }
@@ -1779,7 +1801,69 @@ public abstract class AbstractTestHiveClient
         return result;
     }
 
-    private void doInsertPartitioned(HiveStorageFormat storageFormat, SchemaTableName tableName)
+    private void doInsertIntoNewPartition(HiveStorageFormat storageFormat, SchemaTableName tableName)
+            throws Exception
+    {
+        // creating the table
+        doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
+
+        ConnectorTableHandle tableHandle = getTableHandle(tableName);
+
+        // insert the data
+        insertData(tableHandle, CREATE_TABLE_PARTITIONED_DATA, newSession());
+
+        // verify partitions were created
+        List<String> partitionNames = getMetastoreClient(tableName.getSchemaName()).getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new PrestoException(HIVE_METASTORE_ERROR, "Partition metadata not available"));
+        assertEqualsIgnoreOrder(partitionNames, CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
+                .map(row -> "ds=" + row.getField(CREATE_TABLE_PARTITIONED_DATA.getTypes().size() - 1))
+                .collect(toList()));
+
+        // load the new table
+        ConnectorSession session = newSession();
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
+
+        // verify the data
+        MaterializedResult result = readTable(tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+        assertEqualsIgnoreOrder(result.getMaterializedRows(), CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows());
+
+        // test rollback
+        Set<String> existingFiles = listAllDataFiles(tableName.getSchemaName(), tableName.getTableName());
+        assertFalse(existingFiles.isEmpty());
+
+        session = newSession();
+
+        // "stage" insert data
+        ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+        ConnectorPageSink sink = pageSinkProvider.createPageSink(session, insertTableHandle);
+        sink.appendPage(CREATE_TABLE_PARTITIONED_DATA_2ND.toPage(), null);
+        sink.commit();
+
+        // verify we did not modify the table directory
+        assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+
+        // verify all temp files start with the unique prefix
+        Set<String> tempFiles = listAllDataFiles(insertTableHandle);
+        assertTrue(!tempFiles.isEmpty());
+        for (String filePath : tempFiles) {
+            assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
+        }
+
+        // rollback insert
+        metadata.rollbackInsert(session, insertTableHandle);
+
+        // verify the data is unchanged
+        result = readTable(tableHandle, columnHandles, newSession(), TupleDomain.<ColumnHandle>all(), OptionalInt.empty(), Optional.empty());
+        assertEqualsIgnoreOrder(result.getMaterializedRows(), CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows());
+
+        // verify we did not modify the table directory
+        assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+
+        // verify temp directory is empty
+        assertTrue(listAllDataFiles(insertTableHandle).isEmpty());
+    }
+
+    private void doInsertIntoExistingPartition(HiveStorageFormat storageFormat, SchemaTableName tableName)
             throws Exception
     {
         // creating the table
@@ -1874,10 +1958,8 @@ public abstract class AbstractTestHiveClient
 
         MaterializedResult.Builder expectedResultBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_PARTITIONED_DATA.getTypes());
         ConnectorTableHandle tableHandle = getTableHandle(tableName);
-        for (int i = 0; i < 3; i++) {
-            insertData(tableHandle, CREATE_TABLE_PARTITIONED_DATA, newSession());
-            expectedResultBuilder.rows(CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows());
-        }
+        insertData(tableHandle, CREATE_TABLE_PARTITIONED_DATA, newSession());
+        expectedResultBuilder.rows(CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows());
 
         // verify partitions were created
         List<String> partitionNames = getMetastoreClient(tableName.getSchemaName()).getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
