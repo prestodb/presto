@@ -22,8 +22,8 @@ General Changes
 * Add support for ``WITH NO DATA`` syntax in ``CREATE TABLE ... AS SELECT``.
 * Fix issue where invalid plans are generated for queries with multiple aggregations 
   that require input values to be cast in different ways.
-* Fix performance issue due to redundant processing in queries involving DISTINCT 
-  and LIMIT.
+* Fix performance issue due to redundant processing in queries involving ``DISTINCT`` 
+  and ``LIMIT``.
 * Add optimization that can reduce the amount of data sent over the network
   for grouped aggregation queries. This feature can be enabled by
   ``optimizer.use-intermediate-aggregations`` config property or
