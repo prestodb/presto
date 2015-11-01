@@ -80,7 +80,7 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Use Guava's `Splitter` for parsing strings.
 * When appropriate, use the Java 8 stream API. However, note that the stream implementation does not perform well so avoid using it in inner loops or otherwise performance sensitive sections.
 * Categorize errors when throwing exceptions. For example, PrestoException takes an error code as an argument, `PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`. This categorization lets you generate reports so you can monitor the frequency of various failures.
-* Ensure that all files have the appropriate license; you can generate the license by running `mvn license:format`.
-* Consider using String formatting (printf style formatting using the Java `Formatter class`): `String.format("Session property %s is invalid: %s", name, value)`. Sometimes, if you only need to append something, consider using the `+` operator.
+* Ensure that all files have the appropriate license header; you can generate the license by running `mvn license:format`.
+* Consider using String formatting (printf style formatting using the Java `Formatter` class): `format("Session property %s is invalid: %s", name, value)` (note that `format()` should always be statically imported). Sometimes, if you only need to append something, consider using the `+` operator.
 * Avoid using the ternary operator.
-* Use the `Assertions` class from Airlift where possible. Those assertion methods are preferred because they give better error messages than the TestNG equivalents. Over time we may move over to more fluent assertions like AssertJ or Fest.
+* Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ or Fest.
