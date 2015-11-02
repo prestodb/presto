@@ -33,9 +33,11 @@ import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -600,12 +602,18 @@ public class AddExchanges
         public PlanWithProperties visitTableWriter(TableWriterNode node, Context context)
         {
             PlanWithProperties source = node.getSource().accept(this, context);
-            if (redistributeWrites) {
+
+            Optional<PartitionFunctionBinding> partitionFunction = node.getPartitionFunction();
+            if (!partitionFunction.isPresent() && redistributeWrites) {
+                partitionFunction = Optional.of(new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, source.getNode().getOutputSymbols(), ImmutableList.of()));
+            }
+
+            if (partitionFunction.isPresent()) {
                 source = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 source.getNode(),
-                                new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, source.getNode().getOutputSymbols(), ImmutableList.of())),
+                                partitionFunction.get()),
                         source.getProperties()
                 );
             }
@@ -795,12 +803,14 @@ public class AddExchanges
                             .mapToObj(rightSymbols::get)
                             .collect(toImmutableList());
 
-                    if (!right.getProperties().isNodePartitionedOn(left.getProperties().getNodePartitioningHandle().get(), rightPartitioningColumns)) {
+                    PartitioningHandle partitioning = left.getProperties().getNodePartitioningHandle().get();
+                    if (!right.getProperties().isNodePartitionedOn(partitioning, rightPartitioningColumns)) {
                         PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
-                                left.getProperties().getNodePartitioningHandle().get(),
+                                partitioning,
                                 node.getRight().getOutputSymbols(),
                                 rightPartitioningColumns,
-                                node.getRightHashSymbol());
+                                // currently only system distributions support precomputed "hash" optimization
+                                partitioning.getConnectorHandle() instanceof SystemPartitioningHandle ? node.getRightHashSymbol() : Optional.empty());
                         right = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), right.getNode(), partitionFunction),
                                 right.getProperties());

@@ -472,7 +472,16 @@ public class UnaliasSymbolReferences
             ImmutableList<Symbol> columns = node.getColumns().stream()
                     .map(this::canonicalize)
                     .collect(toImmutableList());
-            return new TableWriterNode(node.getId(), source, node.getTarget(), columns, node.getColumnNames(), node.getOutputSymbols(), canonicalize(node.getSampleWeightSymbol()));
+
+            return new TableWriterNode(
+                    node.getId(),
+                    source,
+                    node.getTarget(),
+                    columns,
+                    node.getColumnNames(),
+                    node.getOutputSymbols(),
+                    canonicalize(node.getSampleWeightSymbol()),
+                    node.getPartitionFunction().map(this::canonicalizePartitionFunctionBinding));
         }
 
         @Override
@@ -571,6 +580,17 @@ public class UnaliasSymbolReferences
                 builder.putAll(canonicalize(entry.getKey()), Iterables.transform(entry.getValue(), this::canonicalize));
             }
             return builder.build();
+        }
+
+        private PartitionFunctionBinding canonicalizePartitionFunctionBinding(PartitionFunctionBinding function)
+        {
+            return new PartitionFunctionBinding(
+                    function.getPartitioningHandle(),
+                    canonicalize(function.getOutputLayout()),
+                    canonicalize(function.getPartitioningColumns()),
+                    canonicalize(function.getHashColumn()),
+                    function.isReplicateNulls(),
+                    function.getBucketToPartition());
         }
     }
 }

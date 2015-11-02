@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -42,6 +43,7 @@ public class TableWriterNode
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<Symbol> sampleWeightSymbol;
+    private final Optional<PartitionFunctionBinding> partitionFunction;
 
     @JsonCreator
     public TableWriterNode(
@@ -51,7 +53,8 @@ public class TableWriterNode
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("outputs") List<Symbol> outputs,
-            @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol)
+            @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol,
+            @JsonProperty("partitionFunction") Optional<PartitionFunctionBinding> partitionFunction)
     {
         super(id);
 
@@ -65,6 +68,7 @@ public class TableWriterNode
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.sampleWeightSymbol = requireNonNull(sampleWeightSymbol, "sampleWeightSymbol is null");
+        this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
     }
 
     @JsonProperty
@@ -102,6 +106,12 @@ public class TableWriterNode
     public List<Symbol> getOutputSymbols()
     {
         return outputs;
+    }
+
+    @JsonProperty
+    public Optional<PartitionFunctionBinding> getPartitionFunction()
+    {
+        return partitionFunction;
     }
 
     @Override

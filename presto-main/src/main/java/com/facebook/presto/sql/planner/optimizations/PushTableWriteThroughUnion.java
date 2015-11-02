@@ -90,7 +90,8 @@ public class PushTableWriteThroughUnion
                         unionNode.sourceOutputLayout(i),
                         node.getColumnNames(),
                         newSymbols.build(),
-                        node.getSampleWeightSymbol()));
+                        node.getSampleWeightSymbol(),
+                        node.getPartitionFunction()));
             }
 
             return new UnionNode(idAllocator.getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
