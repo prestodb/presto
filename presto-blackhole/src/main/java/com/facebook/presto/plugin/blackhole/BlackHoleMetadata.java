@@ -17,6 +17,7 @@ package com.facebook.presto.plugin.blackhole;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -31,6 +32,8 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -40,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.DISTRIBUTED_ON;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
@@ -52,6 +56,7 @@ import static java.text.MessageFormat.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 
 public class BlackHoleMetadata
         implements ConnectorMetadata
@@ -142,6 +147,26 @@ public class BlackHoleMetadata
     {
         ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata);
         finishCreateTable(session, outputTableHandle, ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession connectorSession, ConnectorTableMetadata tableMetadata)
+    {
+        List<String> distributeColumns = (List<String>) tableMetadata.getProperties().get(DISTRIBUTED_ON);
+        if (distributeColumns.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Set<String> undefinedColumns = Sets.difference(
+                ImmutableSet.copyOf(distributeColumns),
+                tableMetadata.getColumns().stream()
+                        .map(ColumnMetadata::getName)
+                        .collect(toSet()));
+        if (!undefinedColumns.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "Distribute columns not defined on table: " + undefinedColumns);
+        }
+
+        return Optional.of(new ConnectorNewTableLayout(BlackHolePartitioningHandle.INSTANCE, distributeColumns));
     }
 
     @Override

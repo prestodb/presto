@@ -117,6 +117,15 @@ public class TestBlackHoleSmoke
     }
 
     @Test
+    public void createTableWithDistribution()
+    {
+        assertThatQueryReturnsValue(
+                "CREATE TABLE distributed_test WITH ( distributed_on = array['orderkey'] ) AS SELECT * FROM tpch.tiny.orders",
+                15000L);
+        assertThatQueryReturnsValue("DROP TABLE distributed_test", true);
+    }
+
+    @Test
     public void dataGenerationUsage()
     {
         Session session = testSessionBuilder()
