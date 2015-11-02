@@ -106,6 +106,21 @@ public class TestSqlParser
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     @Test
+    public void testPosition()
+            throws Exception
+    {
+        assertExpression("position('a' in 'b')",
+                new FunctionCall(QualifiedName.of("strpos"), ImmutableList.of(
+                        new StringLiteral("b"),
+                        new StringLiteral("a"))));
+
+        assertExpression("position('a' in ('b'))",
+                new FunctionCall(QualifiedName.of("strpos"), ImmutableList.of(
+                        new StringLiteral("b"),
+                        new StringLiteral("a"))));
+    }
+
+    @Test
     public void testPossibleExponentialBacktracking()
             throws Exception
     {
