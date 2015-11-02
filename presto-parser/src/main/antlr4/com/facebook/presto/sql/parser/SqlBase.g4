@@ -223,6 +223,7 @@ primaryExpression
     | number                                                                         #numericLiteral
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
+    | POSITION '(' valueExpression IN valueExpression ')'                            #position
     | '(' expression (',' expression)+ ')'                                           #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                       #rowConstructor
     | qualifiedName                                                                  #columnReference
@@ -244,7 +245,6 @@ primaryExpression
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'  #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                            #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                #extract
-    | POSITION '(' valueExpression IN valueExpression ')'                            #position
     | '(' expression ')'                                                             #parenthesizedExpression
     ;
 
