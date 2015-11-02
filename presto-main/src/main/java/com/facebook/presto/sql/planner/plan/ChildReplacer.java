@@ -214,7 +214,15 @@ public class ChildReplacer
     @Override
     public PlanNode visitTableWriter(TableWriterNode node, List<PlanNode> newChildren)
     {
-        return new TableWriterNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol());
+        return new TableWriterNode(
+                node.getId(),
+                Iterables.getOnlyElement(newChildren),
+                node.getTarget(),
+                node.getColumns(),
+                node.getColumnNames(),
+                node.getOutputSymbols(),
+                node.getSampleWeightSymbol(),
+                node.getPartitionFunction());
     }
 
     @Override

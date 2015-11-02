@@ -15,5 +15,9 @@ package com.facebook.presto.spi;
 
 public interface BucketFunction
 {
+    /**
+     * Gets the bucket for the tuple at the specified position.
+     * Note the tuple values may be null.
+     */
     int getBucket(Page page, int position);
 }

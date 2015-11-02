@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
@@ -119,10 +121,14 @@ public class LogicalPlanner
             throw new PrestoException(NOT_SUPPORTED, "Cannot write sampled data to a store that doesn't support sampling");
         }
 
+        Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
+
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new CreateName(destination.getCatalogName(), tableMetadata), tableMetadata.getVisibleColumnNames());
+                new CreateName(destination.getCatalogName(), tableMetadata),
+                tableMetadata.getVisibleColumnNames(),
+                newTableLayout);
     }
 
     private RelationPlan createInsertPlan(Analysis analysis)
@@ -160,14 +166,22 @@ public class LogicalPlanner
                 projectNode.getOutputSymbols(),
                 plan.getSampleWeight());
 
+        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
+
         return createTableWriterPlan(
                 analysis,
                 plan,
                 new InsertReference(insert.getTarget()),
-                visibleTableColumnNames);
+                visibleTableColumnNames,
+                newTableLayout);
     }
 
-    private RelationPlan createTableWriterPlan(Analysis analysis, RelationPlan plan, WriterTarget target, List<String> columnNames)
+    private RelationPlan createTableWriterPlan(
+            Analysis analysis,
+            RelationPlan plan,
+            WriterTarget target,
+            List<String> columnNames,
+            Optional<NewTableLayout> writeTableLayout)
     {
         List<Symbol> writerOutputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
@@ -179,14 +193,32 @@ public class LogicalPlanner
             source = new LimitNode(idAllocator.getNextId(), source, 0L);
         }
 
+        // todo this should be checked in analysis
+        writeTableLayout.ifPresent(layout -> {
+            if (!ImmutableSet.copyOf(columnNames).containsAll(layout.getPartitionColumns())) {
+                throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+            }
+        });
+
+        List<Symbol> symbols = plan.getOutputSymbols();
+        Optional<PartitionFunctionBinding> partitionFunctionBinding = writeTableLayout.map(layout -> new PartitionFunctionBinding(
+                layout.getPartitioning(),
+                symbols,
+                layout.getPartitionColumns().stream()
+                        .mapToInt(columnNames::indexOf)
+                        .mapToObj(symbols::get)
+                        .collect(toImmutableList()),
+                Optional.empty()));
+
         PlanNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),
                 source,
                 target,
-                plan.getOutputSymbols(),
+                symbols,
                 columnNames,
                 writerOutputs,
-                plan.getSampleWeight());
+                plan.getSampleWeight(),
+                partitionFunctionBinding);
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
         TableFinishNode commitNode = new TableFinishNode(

@@ -16,6 +16,7 @@ package com.facebook.presto.spi.connector;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
@@ -158,6 +159,14 @@ public interface ConnectorMetadata
     default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    /**
+     * Get the physical layout for a new table.
+     */
+    default Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return Optional.empty();
     }
 
     /**

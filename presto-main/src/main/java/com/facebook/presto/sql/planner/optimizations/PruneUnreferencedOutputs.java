@@ -548,9 +548,22 @@ public class PruneUnreferencedOutputs
             if (node.getSampleWeightSymbol().isPresent()) {
                 expectedInputs.add(node.getSampleWeightSymbol().get());
             }
+            if (node.getPartitionFunction().isPresent()) {
+                PartitionFunctionBinding functionBinding = node.getPartitionFunction().get();
+                expectedInputs.addAll(functionBinding.getPartitioningColumns());
+                functionBinding.getHashColumn().ifPresent(expectedInputs::add);
+            }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol());
+            return new TableWriterNode(
+                    node.getId(),
+                    source,
+                    node.getTarget(),
+                    node.getColumns(),
+                    node.getColumnNames(),
+                    node.getOutputSymbols(),
+                    node.getSampleWeightSymbol(),
+                    node.getPartitionFunction());
         }
 
         @Override

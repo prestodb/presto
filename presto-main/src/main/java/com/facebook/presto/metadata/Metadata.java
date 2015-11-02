@@ -140,6 +140,8 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
+    Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, TableMetadata tableMetadata);
+
     /**
      * Begin the atomic creation of a table with data.
      */
@@ -149,6 +151,8 @@ public interface Metadata
      * Finish a table creation with data after the data is written.
      */
     void finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+
+    Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
 
     /**
      * Begin insert query
