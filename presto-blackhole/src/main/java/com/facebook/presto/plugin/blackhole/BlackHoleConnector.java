@@ -16,17 +16,23 @@ package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.Locale.ENGLISH;
 
 public class BlackHoleConnector
         implements Connector
@@ -35,21 +41,28 @@ public class BlackHoleConnector
     public static final String PAGES_PER_SPLIT_PROPERTY = "pages_per_split";
     public static final String ROWS_PER_PAGE_PROPERTY = "rows_per_page";
     public static final String FIELD_LENGTH_PROPERTY = "field_length";
+    public static final String DISTRIBUTED_ON = "distributed_on";
 
     private final BlackHoleMetadata metadata;
     private final BlackHoleSplitManager splitManager;
     private final BlackHolePageSourceProvider pageSourceProvider;
     private final BlackHolePageSinkProvider pageSinkProvider;
+    private final BlackHoleNodePartitioningProvider partitioningProvider;
+    private final TypeManager typeManager;
 
     public BlackHoleConnector(BlackHoleMetadata metadata,
             BlackHoleSplitManager splitManager,
             BlackHolePageSourceProvider pageSourceProvider,
-            BlackHolePageSinkProvider pageSinkProvider)
+            BlackHolePageSinkProvider pageSinkProvider,
+            BlackHoleNodePartitioningProvider partitioningProvider,
+            TypeManager typeManager)
     {
         this.metadata = metadata;
         this.splitManager = splitManager;
         this.pageSourceProvider = pageSourceProvider;
         this.pageSinkProvider = pageSinkProvider;
+        this.partitioningProvider = partitioningProvider;
+        this.typeManager = typeManager;
     }
 
     @Override
@@ -112,6 +125,22 @@ public class BlackHoleConnector
                         FIELD_LENGTH_PROPERTY,
                         "Overwrite default length (16) of variable length columns, such as VARCHAR or VARBINARY",
                         16,
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        DISTRIBUTED_ON,
+                        "Distribution columns",
+                        typeManager.getParameterizedType(ARRAY, ImmutableList.of(VARCHAR.getTypeSignature()), ImmutableList.of()),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((List<String>) value).stream()
+                                .map(name -> name.toLowerCase(ENGLISH))
+                                .collect(Collectors.toList()))));
+    }
+
+    @Override
+    public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+    {
+        return partitioningProvider;
     }
 }
