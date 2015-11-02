@@ -32,6 +32,8 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupByClause;
+import com.facebook.presto.sql.tree.GroupingColumnReferenceList;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -70,6 +72,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.transform;
 
 public final class ExpressionFormatter
 {
@@ -551,6 +554,25 @@ public final class ExpressionFormatter
         return Joiner.on(", ").join(sortItems.stream()
                 .map(sortItemFormatterFunction(unmangleNames))
                 .iterator());
+    }
+
+    static String formatGroupBy(GroupByClause groupByClause)
+    {
+        if (groupByClause.getOrdinaryGroupingSet().isPresent()) {
+            return Joiner.on(", ").join(transform(groupByClause.getOrdinaryGroupingSet().get(), ExpressionFormatter::formatExpression));
+        } else if (groupByClause.getGroupingSetsSpecification().isPresent()) {
+            StringBuilder builder = new StringBuilder();
+            builder.append("GROUPING SET (")
+                .append(Joiner.on("), (").join(transform(groupByClause.getGroupingSetsSpecification().get(), ExpressionFormatter::formatGroupingSet)))
+                .append(")");
+        return builder.toString();
+    }
+        return "";
+    }
+
+    private static String formatGroupingSet(GroupingColumnReferenceList groupingSet)
+    {
+        return Joiner.on(", ").join(transform(groupingSet.getGroupingColumns(), QualifiedName::toString));
     }
 
     private static Function<SortItem, String> sortItemFormatterFunction(boolean unmangleNames)

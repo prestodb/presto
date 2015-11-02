@@ -69,6 +69,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.tests.QueryAssertions.assertResultsApproximatelyEqual;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.tableNameGetter;
@@ -1230,6 +1231,47 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT * FROM (SELECT orderkey FROM orders) t GROUP BY orderkey");
+    }
+
+    @Test
+    public void testSingleGroupingSet()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT orderstatus, SUM(totalprice) FROM ORDERS GROUP BY GROUPING SET (orderstatus)",
+                "SELECT orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testSingleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        assertResultsApproximatelyEqual(
+                computeActual(getSession(), "SELECT custkey, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY GROUPING SET (custkey, orderstatus) ORDER BY 3"),
+                computeExpected("SELECT custkey, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY custkey, orderstatus ORDER BY 3", ImmutableList.of(BIGINT, VARCHAR, DOUBLE)));
+    }
+
+    @Test
+    public void testMultipleGroupingSetSingleColumnT()
+            throws Exception
+    {
+        assertResultsApproximatelyEqual(
+                computeActual(getSession(), "SELECT custkey+1, null, SUM(totalprice+2) FROM ORDERS GROUP BY custkey ORDER BY 3"),
+                computeExpected("SELECT custkey, null, SUM(totalprice) FROM ORDERS GROUP BY custkey ORDER BY 3 UNION " +
+                        "SELECT null, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus ORDER BY 3", ImmutableList.of(BIGINT, VARCHAR, DOUBLE)));
+    }
+
+
+    @Test
+    public void testMultipleGroupingSetSingleColumn()
+            throws Exception
+    {
+        computeActual(getSession(), "SELECT custkey, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY GROUPING SET (orderstatus), (custkey)");
+//
+//        assertResultsApproximatelyEqual(
+//                computeActual(getSession(), "SELECT custkey, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY GROUPING SET (orderstatus), (custkey) ORDER BY 3"),
+//                computeExpected("SELECT custkey, null, SUM(totalprice) FROM ORDERS GROUP BY custkey ORDER BY 3 UNION " +
+//                        "SELECT null, orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus ORDER BY 3", ImmutableList.of(BIGINT, VARCHAR, DOUBLE)));
     }
 
     @Test

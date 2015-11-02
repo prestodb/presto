@@ -47,6 +47,9 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.GroupByClause;
+import com.facebook.presto.sql.tree.GroupingColumn;
+import com.facebook.presto.sql.tree.GroupingColumnReferenceList;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -305,14 +308,55 @@ class AstBuilder
             from = Optional.of(relation);
         }
 
+        Optional<GroupByClause> groupByClause = visitIfPresent(context.groupByClause(), GroupByClause.class);
+
         return new QuerySpecification(
                 new Select(isDistinct(context.setQuantifier()), visit(context.selectItem(), SelectItem.class)),
                 from,
                 visitIfPresent(context.where, Expression.class),
-                visit(context.groupBy, Expression.class),
+                groupByClause,
                 visitIfPresent(context.having, Expression.class),
                 ImmutableList.of(),
                 Optional.<String>empty());
+    }
+
+    @Override
+    public Node visitGroupByClause(SqlBaseParser.GroupByClauseContext context)
+    {
+        boolean distinct = context.setQuantifier() == null || context.setQuantifier().DISTINCT() != null;
+        return visit(context.groupingElement());
+    }
+
+    @Override
+    public Node visitGroupingColumnReferenceList(SqlBaseParser.GroupingColumnReferenceListContext context)
+    {
+        return new GroupingColumnReferenceList(context.qualifiedName().stream().map(AstBuilder::getQualifiedName).collect(Collectors.toList()));
+    }
+
+    @Override
+    public Node visitOrdinaryGroupingSet(SqlBaseParser.OrdinaryGroupingSetContext context)
+    {
+        List<Expression> groupingColumns = visit(context.expression(), Expression.class);
+        return new GroupByClause(Optional.of(groupingColumns), Optional.empty(), Optional.empty(), Optional.empty(), false);
+    }
+
+    @Override
+    public Node visitRollupList(SqlBaseParser.RollupListContext ctx)
+    {
+        throw new IllegalArgumentException("ROLLUP is not yet supported");
+    }
+
+    @Override
+    public Node visitCubeList(SqlBaseParser.CubeListContext ctx)
+    {
+        throw new IllegalArgumentException("CUBE is not yet supported");
+    }
+
+    @Override
+    public Node visitComplexGroupingSet(SqlBaseParser.ComplexGroupingSetContext context)
+    {
+        List<GroupingColumnReferenceList> groupingColumns = visit(context.groupingColumnReferenceList(), GroupingColumnReferenceList.class);
+        return new GroupByClause(Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(groupingColumns), false);
     }
 
     @Override

@@ -23,6 +23,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingColumn;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -114,10 +115,11 @@ public class TreePrinter
                     process(node.getWhere().get(), indentLevel + 1);
                 }
 
-                if (!node.getGroupBy().isEmpty()) {
+                // TODO: raghavsethi: change
+                if (node.getGroupBy().isPresent() && node.getGroupBy().get().getOrdinaryGroupingSet().isPresent()) {
                     print(indentLevel, "GroupBy");
-                    for (Expression expression : node.getGroupBy()) {
-                        process(expression, indentLevel + 1);
+                    for (Expression column : node.getGroupBy().get().getOrdinaryGroupingSet().get()) {
+                        process(column, indentLevel + 1);
                     }
                 }
 

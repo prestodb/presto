@@ -21,8 +21,8 @@ import static java.util.Objects.requireNonNull;
 public class SingleColumn
         extends SelectItem
 {
-    private final Optional<String> alias;
     private final Expression expression;
+    private final Optional<String> alias;
 
     public SingleColumn(Expression expression, Optional<String> alias)
     {

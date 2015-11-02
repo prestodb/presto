@@ -111,8 +111,24 @@ querySpecification
     : SELECT setQuantifier? selectItem (',' selectItem)*
       (FROM relation (',' relation)*)?
       (WHERE where=booleanExpression)?
-      (GROUP BY groupBy+=expression (',' groupBy+=expression)*)?
+      (groupBy=groupByClause)?
       (HAVING having=booleanExpression)?
+    ;
+
+groupByClause
+    : GROUP BY setQuantifier? groupingElement
+    ;
+
+groupingElement
+    : ordinaryGroupingSet+=expression (',' ordinaryGroupingSet+=expression)*    #ordinaryGroupingSet
+    | ROLLUP rollupList=groupingColumnReferenceList                             #rollupList
+    | CUBE cubeList=groupingColumnReferenceList                                 #cubeList
+    | GROUPING SET groupingSets+=groupingColumnReferenceList (',' groupingSets+=groupingColumnReferenceList)* #complexGroupingSet
+    ;
+
+groupingColumnReferenceList
+    : qualifiedName
+    | '(' qualifiedName (',' qualifiedName)* ')'
     ;
 
 namedQuery
@@ -369,6 +385,9 @@ DISTINCT: 'DISTINCT';
 WHERE: 'WHERE';
 GROUP: 'GROUP';
 BY: 'BY';
+GROUPING: 'GROUPING';
+CUBE: 'CUBE';
+ROLLUP: 'ROLLUP';
 ORDER: 'ORDER';
 HAVING: 'HAVING';
 LIMIT: 'LIMIT';

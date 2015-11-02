@@ -58,6 +58,11 @@ class TranslationMap
         fieldSymbols = new Symbol[rewriteBase.getOutputSymbols().size()];
     }
 
+    public Map<Expression, Symbol> getExpressionMappings()
+    {
+        return expressionMappings;
+    }
+
     public RelationPlan getRelationPlan()
     {
         return rewriteBase;
@@ -150,6 +155,11 @@ class TranslationMap
 
         Preconditions.checkArgument(expressionMappings.containsKey(translated), "No mapping for expression: %s", expression);
         return expressionMappings.get(translated);
+    }
+
+    public boolean isExpressionPresent(Expression expression)
+    {
+        return expressionMappings.containsKey(translateNamesToSymbols(expression));
     }
 
     public Symbol get(FieldOrExpression fieldOrExpression)

@@ -70,6 +70,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
+import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatSortItems;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -193,9 +194,8 @@ public final class SqlFormatter
                         .append('\n');
             }
 
-            if (!node.getGroupBy().isEmpty()) {
-                append(indent, "GROUP BY " + Joiner.on(", ").join(transform(node.getGroupBy(), ExpressionFormatter::formatExpression)))
-                        .append('\n');
+            if (node.getGroupBy().isPresent()) {
+                append(indent, "GROUP BY " + formatGroupBy(node.getGroupBy().get())).append('\n');
             }
 
             if (node.getHaving().isPresent()) {
