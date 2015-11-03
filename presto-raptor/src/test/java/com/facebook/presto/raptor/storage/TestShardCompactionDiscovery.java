@@ -15,7 +15,6 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ColumnStats;
-import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
@@ -40,6 +39,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.reflect.Reflection.newProxy;
@@ -64,7 +64,7 @@ public class TestShardCompactionDiscovery
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
-        shardManager = new DatabaseShardManager(dbi);
+        shardManager = createShardManager(dbi);
     }
 
     @AfterMethod

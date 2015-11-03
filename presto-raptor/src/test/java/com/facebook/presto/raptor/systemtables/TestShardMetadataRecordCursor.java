@@ -16,10 +16,10 @@ package com.facebook.presto.raptor.systemtables;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
-import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
+import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.RecordCursor;
@@ -49,6 +49,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
 import static com.facebook.presto.spi.predicate.Range.greaterThan;
 import static com.facebook.presto.spi.predicate.Range.lessThanOrEqual;
@@ -78,7 +79,7 @@ public class TestShardMetadataRecordCursor
     {
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         this.dummyHandle = dbi.open();
-        this.metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, new DatabaseShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        this.metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, createShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
         // Create table
         metadata.createTable(SESSION, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                 .column("orderkey", BIGINT)
@@ -97,7 +98,7 @@ public class TestShardMetadataRecordCursor
     public void testSimple()
             throws Exception
     {
-        DatabaseShardManager shardManager = new DatabaseShardManager(dbi);
+        ShardManager shardManager = createShardManager(dbi);
 
         // Add shards to the table
         long tableId = 1;

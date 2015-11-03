@@ -25,7 +25,6 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
@@ -48,7 +47,6 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
 import static com.facebook.presto.raptor.util.Types.checkType;
-import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -62,21 +60,21 @@ public class RaptorSplitManager
         implements ConnectorSplitManager
 {
     private final String connectorId;
-    private final NodeManager nodeManager;
+    private final NodeSupplier nodeSupplier;
     private final ShardManager shardManager;
     private final boolean backupAvailable;
     private final ExecutorService executor;
 
     @Inject
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeManager nodeManager, ShardManager shardManager, BackupService backupService)
+    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService)
     {
-        this(connectorId, nodeManager, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
+        this(connectorId, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
     }
 
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeManager nodeManager, ShardManager shardManager, boolean backupAvailable)
+    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.backupAvailable = backupAvailable;
         this.executor = newCachedThreadPool(daemonThreadsNamed("raptor-split-" + connectorId + "-%s"));
@@ -124,7 +122,7 @@ public class RaptorSplitManager
     private class RaptorSplitSource
             implements ConnectorSplitSource
     {
-        private final Map<String, Node> nodesById = uniqueIndex(nodeManager.getNodes(ACTIVE), Node::getNodeIdentifier);
+        private final Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
         private final long tableId;
         private final TupleDomain<RaptorColumnHandle> effectivePredicate;
         private final OptionalLong transactionId;
@@ -202,7 +200,7 @@ public class RaptorSplitManager
 
                 // Pick a random node and optimistically assign the shard to it.
                 // That node will restore the shard from the backup location.
-                Set<Node> availableNodes = nodeManager.getActiveDatasourceNodes(connectorId);
+                Set<Node> availableNodes = nodeSupplier.getWorkerNodes();
                 if (availableNodes.isEmpty()) {
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }

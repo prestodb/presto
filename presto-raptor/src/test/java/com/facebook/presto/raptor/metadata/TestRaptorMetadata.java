@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
+import com.facebook.presto.raptor.RaptorNodeSupplier;
 import com.facebook.presto.raptor.RaptorSessionProperties;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
@@ -90,8 +93,13 @@ public class TestRaptorMetadata
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
-        shardManager = new DatabaseShardManager(dbi);
-        metadata = new RaptorMetadata(new RaptorConnectorId("raptor"), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+
+        RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addCurrentNodeDatasource(connectorId.toString());
+        NodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, connectorId);
+        shardManager = new DatabaseShardManager(dbi, nodeSupplier);
+        metadata = new RaptorMetadata(connectorId, dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
     }
 
     @AfterMethod

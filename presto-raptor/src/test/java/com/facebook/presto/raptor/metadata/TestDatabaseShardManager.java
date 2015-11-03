@@ -82,7 +82,7 @@ public class TestDatabaseShardManager
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
-        shardManager = new DatabaseShardManager(dbi);
+        shardManager = createShardManager(dbi);
     }
 
     @AfterMethod
@@ -535,6 +535,11 @@ public class TestDatabaseShardManager
         return shards.stream()
                 .map(shard -> new ShardNodes(shard.getShardUuid(), shard.getNodeIdentifiers()))
                 .collect(toSet());
+    }
+
+    public static ShardManager createShardManager(IDBI dbi)
+    {
+        return new DatabaseShardManager(dbi, ImmutableSet::of);
     }
 
     private static Domain createDomain(Range first, Range... ranges)
