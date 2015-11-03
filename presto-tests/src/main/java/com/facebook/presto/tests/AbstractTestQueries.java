@@ -1780,6 +1780,30 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOuterJoinWithNullsOnProbe()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT DISTINCT a.orderkey FROM " +
+                        "(SELECT CASE WHEN orderkey > 10 THEN orderkey END orderkey FROM orders) a " +
+                        "RIGHT OUTER JOIN orders b ON a.orderkey = b.orderkey");
+
+        assertQuery(
+                "SELECT DISTINCT a.orderkey FROM " +
+                        "(SELECT CASE WHEN orderkey > 2 THEN orderkey END orderkey FROM orders) a " +
+                        "FULL OUTER JOIN orders b ON a.orderkey = b.orderkey",
+                "SELECT DISTINCT orderkey FROM (" +
+                        "SELECT a.orderkey FROM " +
+                        "(SELECT CASE WHEN orderkey > 2 THEN orderkey END orderkey FROM orders) a " +
+                        "RIGHT OUTER JOIN orders b ON a.orderkey = b.orderkey " +
+                        "UNION ALL " +
+                        "SELECT a.orderkey FROM" +
+                        "(SELECT CASE WHEN orderkey > 2 THEN orderkey END orderkey FROM orders) a " +
+                        "LEFT OUTER JOIN orders b ON a.orderkey = b.orderkey " +
+                        "WHERE a.orderkey IS NULL)");
+    }
+
+    @Test
     public void testSimpleLeftJoin()
             throws Exception
     {
