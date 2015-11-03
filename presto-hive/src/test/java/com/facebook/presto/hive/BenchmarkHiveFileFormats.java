@@ -228,7 +228,7 @@ public final class BenchmarkHiveFileFormats
                                 .add(new OrcRecordCursorProvider())
                                 .build(),
                         ImmutableList.<HivePageSourceFactory>builder()
-                                .add(new OrcPageSourceFactory(TYPE_MANAGER))
+                                .add(new OrcPageSourceFactory(TYPE_MANAGER, false))
                                 .build()))
                 .build();
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
@@ -44,12 +45,16 @@ import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_ORC_COLUMN_NAME_LOOKUPS_NOT_SUPPORTED;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
@@ -62,12 +67,20 @@ import static java.util.Objects.requireNonNull;
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
+    private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final TypeManager typeManager;
+    private final boolean useOrcColumnNames;
 
     @Inject
-    public OrcPageSourceFactory(TypeManager typeManager)
+    public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config)
+    {
+        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames());
+    }
+
+    public OrcPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.useOrcColumnNames = useOrcColumnNames;
     }
 
     @Override
@@ -99,6 +112,7 @@ public class OrcPageSourceFactory
                 length,
                 columns,
                 partitionKeys,
+                useOrcColumnNames,
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
@@ -114,6 +128,7 @@ public class OrcPageSourceFactory
             long length,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
+            boolean useOrcColumnNames,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
@@ -136,20 +151,22 @@ public class OrcPageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
-        ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
-        for (HiveColumnHandle column : columns) {
-            if (!column.isPartitionKey()) {
-                Type type = typeManager.getType(column.getTypeSignature());
-                includedColumns.put(column.getHiveColumnIndex(), type);
-                columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
-            }
-        }
-
-        OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
-
         try {
             OrcReader reader = new OrcReader(orcDataSource, metadataReader, maxMergeDistance, maxBufferSize);
+
+            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader);
+            ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
+            ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
+            for (HiveColumnHandle column : physicalColumns) {
+                if (!column.isPartitionKey()) {
+                    Type type = typeManager.getType(column.getTypeSignature());
+                    includedColumns.put(column.getHiveColumnIndex(), type);
+                    columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
+                }
+            }
+
+            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
+
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
                     predicate,
@@ -161,7 +178,7 @@ public class OrcPageSourceFactory
                     recordReader,
                     orcDataSource,
                     partitionKeys,
-                    columns,
+                    physicalColumns,
                     hiveStorageTimeZone,
                     typeManager);
         }
@@ -185,5 +202,50 @@ public class OrcPageSourceFactory
     private static String splitError(Throwable t, Path path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
+    }
+
+    private static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, OrcReader reader)
+    {
+        List<HiveColumnHandle> physicalColumns = columns;
+        if (useOrcColumnNames) {
+            verifyOrcFileSupportsColumnNameLookups(reader.getColumnNames());
+            ImmutableMap<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(reader);
+            int nextMissingColumnIndex = physicalNameOrdinalMap.size();
+            physicalColumns = new ArrayList<>();
+            for (HiveColumnHandle column : columns) {
+                Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
+                if (physicalOrdinal != null) {
+                    physicalColumns.add(new HiveColumnHandle(column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.isPartitionKey()));
+                }
+                else {
+                    physicalColumns.add(new HiveColumnHandle(column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), nextMissingColumnIndex++, column.isPartitionKey()));
+                }
+            }
+        }
+        return physicalColumns;
+    }
+
+    private static void verifyOrcFileSupportsColumnNameLookups(List<String> physicalColumnNames)
+    {
+        boolean columnNamesMissingFromFooter = true;
+        Iterator<String> physicalColumnNameIterator = physicalColumnNames.iterator();
+        while (columnNamesMissingFromFooter && physicalColumnNameIterator.hasNext()) {
+            columnNamesMissingFromFooter = DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnNameIterator.next()).matches();
+        }
+        if (columnNamesMissingFromFooter) {
+            throw new PrestoException(HIVE_ORC_COLUMN_NAME_LOOKUPS_NOT_SUPPORTED,
+                    "Referencing columns by name is not supported in Orc files that do not contain column names in the footer.");
+        }
+    }
+
+    private static ImmutableMap<String, Integer> buildPhysicalNameOrdinalMap(OrcReader reader)
+    {
+        int ordinal = 0;
+        ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
+        List<String> physicalColumnNames = reader.getColumnNames();
+        for (String physicalColumnName : physicalColumnNames) {
+            physicalNameOrdinalMap.put(physicalColumnName, ordinal++);
+        }
+        return physicalNameOrdinalMap.build();
     }
 }

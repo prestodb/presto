@@ -40,20 +40,26 @@ public final class HiveTestUtils
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
-    public static final ImmutableSet<HivePageSourceFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.<HivePageSourceFactory>builder()
-            .add(new RcFilePageSourceFactory(TYPE_MANAGER))
-            .add(new OrcPageSourceFactory(TYPE_MANAGER))
-            .add(new DwrfPageSourceFactory(TYPE_MANAGER))
-            .build();
+    public static ImmutableSet<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
+    {
+        return ImmutableSet.<HivePageSourceFactory>builder()
+                .add(new RcFilePageSourceFactory(TYPE_MANAGER))
+                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig))
+                .add(new DwrfPageSourceFactory(TYPE_MANAGER))
+                .build();
+    }
 
-    public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.<HiveRecordCursorProvider>builder()
-            .add(new OrcRecordCursorProvider())
-            .add(new ParquetRecordCursorProvider(false))
-            .add(new DwrfRecordCursorProvider())
-            .add(new ColumnarTextHiveRecordCursorProvider())
-            .add(new ColumnarBinaryHiveRecordCursorProvider())
-            .add(new GenericHiveRecordCursorProvider())
-            .build();
+    public static ImmutableSet<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveClientConfig hiveClientConfig)
+    {
+        return ImmutableSet.<HiveRecordCursorProvider>builder()
+                .add(new OrcRecordCursorProvider())
+                .add(new ParquetRecordCursorProvider(hiveClientConfig))
+                .add(new DwrfRecordCursorProvider())
+                .add(new ColumnarTextHiveRecordCursorProvider())
+                .add(new ColumnarBinaryHiveRecordCursorProvider())
+                .add(new GenericHiveRecordCursorProvider())
+                .build();
+    }
 
     public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
     {
