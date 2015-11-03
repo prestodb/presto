@@ -17,10 +17,13 @@ import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 public interface ConnectorPageSink
 {
-    void appendPage(Page page, Block sampleWeightBlock);
+    CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
+
+    CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock);
 
     Collection<Slice> commit();
 

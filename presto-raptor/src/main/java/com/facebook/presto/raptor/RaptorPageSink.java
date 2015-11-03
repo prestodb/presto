@@ -33,6 +33,7 @@ import io.airlift.units.DataSize;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -82,10 +83,10 @@ public class RaptorPageSink
     }
 
     @Override
-    public void appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
     {
         if (page.getPositionCount() == 0) {
-            return;
+            return NOT_BLOCKED;
         }
 
         flushPageBufferIfNecessary(page.getPositionCount());
@@ -95,6 +96,7 @@ public class RaptorPageSink
         }
 
         pageBuffer.add(page);
+        return NOT_BLOCKED;
     }
 
     @Override

@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
@@ -245,10 +246,10 @@ public class HivePageSink
     }
 
     @Override
-    public void appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
     {
         if (page.getPositionCount() == 0) {
-            return;
+            return NOT_BLOCKED;
         }
 
         Block[] dataBlocks = getDataBlocks(page, sampleWeightBlock);
@@ -274,6 +275,7 @@ public class HivePageSink
             buildRow(dataColumnTypes, dataRow, dataBlocks, position);
             writer.addRow(dataRow);
         }
+        return NOT_BLOCKED;
     }
 
     private HiveRecordWriter createWriter(List<Object> partitionRow)
