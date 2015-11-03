@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -24,9 +23,6 @@ import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
@@ -42,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static com.facebook.presto.block.BlockSerdeUtil.blockToSlice;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -286,14 +283,6 @@ public class TestSerDeUtils
     private static void assertBlockEquals(Block actual, Block expected)
     {
         assertEquals(blockToSlice(actual), blockToSlice(expected));
-    }
-
-    private static Slice blockToSlice(Block block)
-    {
-        // This function is strictly for testing use only
-        SliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        BlockSerdeUtil.writeBlock(sliceOutput, block.copyRegion(0, block.getPositionCount()));
-        return sliceOutput.slice();
     }
 
     private static Block toBinaryBlock(com.facebook.presto.spi.type.Type type, Object object, ObjectInspector inspector)
