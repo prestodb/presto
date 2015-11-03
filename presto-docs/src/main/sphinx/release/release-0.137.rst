@@ -22,3 +22,7 @@ Hive Changes
   order as the table properties.
 * Remove ``retention_days`` table property. This property is not used by Hive.
 * Fix Parquet decoding of ``MAP`` containing a null value.
+* Add support for accessing ORC columns by name. By default, columns in ORC
+  files are accessed by their ordinal position in the Hive table definition.
+  To access columns based on the names recorded in the ORC file, set
+  ``hive.orc.use-column-names=true`` in your Hive catalog properties file.

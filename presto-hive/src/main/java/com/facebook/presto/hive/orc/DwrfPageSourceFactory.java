@@ -79,6 +79,7 @@ public class DwrfPageSourceFactory
                 length,
                 columns,
                 partitionKeys,
+                false,
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
