@@ -507,6 +507,24 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitLambdaExpression(LambdaExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteLambdaExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression body = rewrite(node.getBody(), context.get());
+            if (body != node.getBody()) {
+                return new LambdaExpression(node.getArguments(), body);
+            }
+
+            return node;
+        }
+
+        @Override
         public Expression visitLikePredicate(LikePredicate node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

@@ -775,6 +775,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testLambda()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT x -> abs(x) from t1");
+    }
+
+    @Test
     public void testInvalidDelete()
             throws Exception
     {

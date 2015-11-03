@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -278,6 +279,18 @@ public final class ExpressionFormatter
                 builder.append(" OVER ").append(visitWindow(node.getWindow().get(), unmangleNames));
             }
 
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitLambdaExpression(LambdaExpression node, Boolean unmangleNames)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append('(');
+            Joiner.on(", ").appendTo(builder, node.getArguments());
+            builder.append(") -> ");
+            builder.append(process(node.getBody(), unmangleNames));
             return builder.toString();
         }
 
