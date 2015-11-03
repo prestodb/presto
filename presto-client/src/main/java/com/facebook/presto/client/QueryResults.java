@@ -16,6 +16,7 @@ package com.facebook.presto.client;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -29,7 +30,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
@@ -212,6 +212,46 @@ public class QueryResults
         return rows.build();
     }
 
+    private static List<Object> fixList(Object list)
+    {
+        List<Object> result;
+        if (list instanceof String) {
+            String arrayAsString = (String) list;
+            int len = arrayAsString.length();
+            checkArgument(arrayAsString.charAt(0) == '[' && arrayAsString.charAt(len - 1) == ']', "Input string should have opening and closing brackets, e.g., [1,2,3]");
+            arrayAsString = arrayAsString.substring(1, len - 1);
+            result = new ArrayList<>();
+            Splitter.on(',').trimResults().split(arrayAsString).forEach(element -> result.add(element));
+        }
+        else {
+            result = List.class.cast(list);
+        }
+
+        return result;
+    }
+
+    private static Map<Object, Object> fixMap(Object map)
+    {
+        Map<Object, Object> result;
+
+        if (map instanceof String) {
+            String mapAsString = (String) map;
+            int len = mapAsString.length();
+            checkArgument(mapAsString.charAt(0) == '{' && mapAsString.charAt(len - 1) == '}', "Input string should have opening and closing curly braces, e.g., {k=v}");
+            mapAsString = mapAsString.substring(1, len - 1);
+            result = new HashMap<>();
+            for (String s : Splitter.on(',').trimResults().split(mapAsString)) {
+                String[] kv = s.split("=");
+                result.put(kv[0], kv[1]);
+            }
+        }
+        else {
+            result =  Map.class.cast(map);
+        }
+
+        return result;
+    }
+
     /**
      * Force values coming from Jackson to have the expected object type.
      */
@@ -223,7 +263,8 @@ public class QueryResults
         TypeSignature signature = parseTypeSignature(type);
         if (signature.getBase().equals(ARRAY)) {
             List<Object> fixedValue = new ArrayList<>();
-            for (Object object : List.class.cast(value)) {
+            List<Object> list = fixList(value);
+            for (Object object : list) {
                 fixedValue.add(fixValue(signature.getParameters().get(0).toString(), object));
             }
             return fixedValue;
@@ -232,7 +273,8 @@ public class QueryResults
             String keyType = signature.getParameters().get(0).toString();
             String valueType = signature.getParameters().get(1).toString();
             Map<Object, Object> fixedValue = new HashMap<>();
-            for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
+            Map<?, ?> map = fixMap(value);
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
                 fixedValue.put(fixValue(keyType, entry.getKey()), fixValue(valueType, entry.getValue()));
             }
             return fixedValue;
