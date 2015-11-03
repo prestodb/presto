@@ -291,12 +291,22 @@ class PropertyDerivations
             // TODO: include all equivalent columns in partitioning properties
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties indexProperties = inputProperties.get(1);
-            return ActualProperties.builderFrom(probeProperties)
-                    .constants(ImmutableMap.<Symbol, Object>builder()
-                            .putAll(probeProperties.getConstants())
-                            .putAll(indexProperties.getConstants())
-                            .build())
-                    .build();
+
+            switch (node.getType()) {
+                case INNER:
+                    return ActualProperties.builderFrom(probeProperties)
+                            .constants(ImmutableMap.<Symbol, Object>builder()
+                                    .putAll(probeProperties.getConstants())
+                                    .putAll(indexProperties.getConstants())
+                                    .build())
+                            .build();
+                case SOURCE_OUTER:
+                    return ActualProperties.builderFrom(probeProperties)
+                            .constants(probeProperties.getConstants())
+                            .build();
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
         }
 
         @Override
