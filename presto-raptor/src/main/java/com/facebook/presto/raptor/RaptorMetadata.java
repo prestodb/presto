@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ColumnInfo;
+import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
@@ -72,11 +73,14 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatchId;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.getBucketColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getBucketCount;
+import static com.facebook.presto.raptor.RaptorTableProperties.getDistributionName;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
+import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -334,21 +338,6 @@ public class RaptorMetadata
             }
         }
 
-        OptionalInt bucketCount = getBucketCount(tableMetadata.getProperties());
-        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(getBucketColumns(tableMetadata.getProperties()), columnHandleMap);
-
-        if (bucketCount.isPresent() && bucketColumnHandles.isEmpty()) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, BUCKET_COUNT_PROPERTY));
-        }
-        if (!bucketCount.isPresent() && !bucketColumnHandles.isEmpty()) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKET_COUNT_PROPERTY, BUCKETED_ON_PROPERTY));
-        }
-        for (RaptorColumnHandle column : bucketColumnHandles) {
-            if (!column.getColumnType().equals(BIGINT)) {
-                throw new PrestoException(NOT_SUPPORTED, "Bucketing is only supported for BIGINT columns");
-            }
-        }
-
         RaptorColumnHandle sampleWeightColumnHandle = null;
         if (tableMetadata.isSampled()) {
             sampleWeightColumnHandle = new RaptorColumnHandle(connectorId, SAMPLE_WEIGHT_COLUMN_NAME, columnId, BIGINT);
@@ -359,6 +348,8 @@ public class RaptorMetadata
         long transactionId = shardManager.beginTransaction();
 
         setTransactionId(transactionId);
+
+        Optional<DistributionInfo> distribution = getOrCreateDistribution(columnHandleMap, tableMetadata.getProperties());
 
         return new RaptorOutputTableHandle(
                 connectorId,
@@ -371,8 +362,74 @@ public class RaptorMetadata
                 sortColumnHandles,
                 nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
                 temporalColumnHandle,
-                bucketCount,
-                bucketColumnHandles);
+                distribution.map(info -> OptionalLong.of(info.getDistributionId())).orElse(OptionalLong.empty()),
+                distribution.map(info -> OptionalInt.of(info.getBucketCount())).orElse(OptionalInt.empty()),
+                distribution.map(DistributionInfo::getBucketColumns).orElse(ImmutableList.of()));
+    }
+
+    private Optional<DistributionInfo> getOrCreateDistribution(Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
+    {
+        OptionalInt bucketCount = getBucketCount(properties);
+        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(getBucketColumns(properties), columnHandleMap);
+
+        if (bucketCount.isPresent() && bucketColumnHandles.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, BUCKET_COUNT_PROPERTY));
+        }
+        if (!bucketCount.isPresent() && !bucketColumnHandles.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKET_COUNT_PROPERTY, BUCKETED_ON_PROPERTY));
+        }
+        ImmutableList.Builder<Type> bucketColumnTypes = ImmutableList.builder();
+        for (RaptorColumnHandle column : bucketColumnHandles) {
+            if (!column.getColumnType().equals(BIGINT)) {
+                throw new PrestoException(NOT_SUPPORTED, "Bucketing is only supported for BIGINT columns");
+            }
+            bucketColumnTypes.add(column.getColumnType());
+        }
+
+        long distributionId;
+        String distributionName = getDistributionName(properties);
+        if (distributionName != null) {
+            if (bucketColumnHandles.isEmpty()) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, DISTRIBUTION_NAME_PROPERTY));
+            }
+
+            Distribution distribution = dao.getDistribution(distributionName);
+            if (distribution == null) {
+                if (!bucketCount.isPresent()) {
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, "Distribution does not exist and bucket count is not specified");
+                }
+                distribution = getOrCreateDistribution(distributionName, bucketColumnTypes.build(), bucketCount.getAsInt());
+            }
+            distributionId = distribution.getId();
+
+            if (bucketCount.isPresent() && (distribution.getBucketCount() != bucketCount.getAsInt())) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Bucket count must match distribution");
+            }
+            if (!distribution.getColumnTypes().equals(bucketColumnTypes.build())) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Bucket column types must match distribution");
+            }
+        }
+        else if (bucketCount.isPresent()) {
+            String types = Distribution.serializeColumnTypes(bucketColumnTypes.build());
+            distributionId = dao.insertDistribution(null, types, bucketCount.getAsInt());
+        }
+        else {
+            return Optional.empty();
+        }
+
+        return Optional.of(new DistributionInfo(distributionId, bucketCount.getAsInt(), bucketColumnHandles));
+    }
+
+    private Distribution getOrCreateDistribution(String name, List<Type> columnTypes, int bucketCount)
+    {
+        String types = Distribution.serializeColumnTypes(columnTypes);
+        runIgnoringConstraintViolation(() -> dao.insertDistribution(name, types, bucketCount));
+
+        Distribution distribution = dao.getDistribution(name);
+        if (distribution == null) {
+            throw new PrestoException(RAPTOR_ERROR, "Distribution does not exist after insert");
+        }
+        return distribution;
     }
 
     private static Optional<RaptorColumnHandle> getTemporalColumnHandle(String temporalColumn, Map<String, RaptorColumnHandle> columnHandleMap)
@@ -421,8 +478,8 @@ public class RaptorMetadata
         long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
 
-            Integer bucketCount = table.getBucketCount().isPresent() ? table.getBucketCount().getAsInt() : null;
-            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, bucketCount);
+            Long distributionId = table.getDistributionId().isPresent() ? table.getDistributionId().getAsLong() : null;
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, distributionId);
 
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
             List<RaptorColumnHandle> bucketColumnHandles = table.getBucketColumnHandles();
@@ -665,6 +722,35 @@ public class RaptorMetadata
         Long transactionId = currentTransactionId.getAndSet(null);
         if (transactionId != null) {
             shardManager.rollbackTransaction(transactionId);
+        }
+    }
+
+    private static class DistributionInfo
+    {
+        private final long distributionId;
+        private final int bucketCount;
+        private final List<RaptorColumnHandle> bucketColumns;
+
+        public DistributionInfo(long distributionId, int bucketCount, List<RaptorColumnHandle> bucketColumns)
+        {
+            this.distributionId = distributionId;
+            this.bucketCount = bucketCount;
+            this.bucketColumns = ImmutableList.copyOf(requireNonNull(bucketColumns, "bucketColumns is null"));
+        }
+
+        public long getDistributionId()
+        {
+            return distributionId;
+        }
+
+        public int getBucketCount()
+        {
+            return bucketCount;
+        }
+
+        public List<RaptorColumnHandle> getBucketColumns()
+        {
+            return bucketColumns;
         }
     }
 }

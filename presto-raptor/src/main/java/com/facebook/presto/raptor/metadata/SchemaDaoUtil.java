@@ -45,6 +45,7 @@ public final class SchemaDaoUtil
 
     private static void createTables(SchemaDao dao)
     {
+        dao.createTableDistributions();
         dao.createTableTables();
         dao.createTableColumns();
         dao.createTableViews();

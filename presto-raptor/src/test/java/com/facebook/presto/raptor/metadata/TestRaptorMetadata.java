@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
@@ -44,6 +44,7 @@ import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.util.BooleanMapper;
+import org.skife.jdbi.v2.util.LongMapper;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -58,6 +59,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -81,6 +83,7 @@ public class TestRaptorMetadata
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
+    private static final SchemaTableName DEFAULT_TEST_LINEITEMS = new SchemaTableName("test", "lineitems");
     private static final ConnectorSession SESSION = new TestingConnectorSession(
             new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
 
@@ -96,6 +99,7 @@ public class TestRaptorMetadata
         TypeRegistry typeRegistry = new TypeRegistry();
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
+        dbi.registerMapper(new Distribution.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
@@ -107,7 +111,7 @@ public class TestRaptorMetadata
         metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void cleanupDatabase()
     {
         dummyHandle.close();
@@ -229,7 +233,15 @@ public class TestRaptorMetadata
 
         assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
 
+        assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
+
         metadata.dropTable(SESSION, tableHandle);
+
+        // create a new table and verify it has a different distribution
+        metadata.createTable(SESSION, ordersTable);
+        tableId = ((RaptorTableHandle) metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).getTableId();
+        assertEquals(tableId, 2);
+        assertEquals(getTableDistributionId(tableId), Long.valueOf(2));
     }
 
     @Test
@@ -258,7 +270,61 @@ public class TestRaptorMetadata
 
         assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(32));
 
+        assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
+
         metadata.dropTable(SESSION, tableHandle);
+    }
+
+    @Test
+    public void testCreateBucketedTableExistingDistribution()
+    {
+        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
+
+        // create orders table
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+
+        ConnectorTableMetadata table = getOrdersTable(ImmutableMap.of(
+                BUCKET_COUNT_PROPERTY, 16,
+                BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey"),
+                DISTRIBUTION_NAME_PROPERTY, "orders"));
+        metadata.createTable(SESSION, table);
+
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
+
+        long tableId = raptorTableHandle.getTableId();
+        assertEquals(raptorTableHandle.getTableId(), 1);
+
+        assertEquals(metadataDao.listBucketColumns(tableId), ImmutableList.of(
+                new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 0)));
+
+        assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
+
+        assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
+
+        // create lineitems table
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_LINEITEMS));
+
+        table = getLineItemsTable(ImmutableMap.of(
+                BUCKET_COUNT_PROPERTY, 16,
+                BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey"),
+                DISTRIBUTION_NAME_PROPERTY, "orders"));
+        metadata.createTable(SESSION, table);
+
+        tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_LINEITEMS);
+        assertInstanceOf(tableHandle, RaptorTableHandle.class);
+        raptorTableHandle = (RaptorTableHandle) tableHandle;
+
+        tableId = raptorTableHandle.getTableId();
+        assertEquals(tableId, 2);
+
+        assertEquals(metadataDao.listBucketColumns(tableId), ImmutableList.of(
+                new TableColumn(DEFAULT_TEST_LINEITEMS, "orderkey", BIGINT, 0)));
+
+        assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
+
+        assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Ordering column does not exist: orderdatefoo")
@@ -582,6 +648,16 @@ public class TestRaptorMetadata
         }
     }
 
+    private Long getTableDistributionId(long tableId)
+    {
+        try (Handle handle = dbi.open()) {
+            return handle.createQuery("SELECT distribution_id FROM tables WHERE table_id = ?")
+                    .bind(0, tableId)
+                    .map(LongMapper.FIRST)
+                    .first();
+        }
+    }
+
     private static ConnectorTableMetadata getOrdersTable()
     {
         return getOrdersTable(ImmutableMap.of());
@@ -589,18 +665,29 @@ public class TestRaptorMetadata
 
     private static ConnectorTableMetadata getOrdersTable(Map<String, Object> properties)
     {
-        MetadataUtil.TableMetadataBuilder builder = tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+        return buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                 .column("orderkey", BIGINT)
                 .column("custkey", BIGINT)
                 .column("totalprice", DOUBLE)
-                .column("orderdate", DATE);
+                .column("orderdate", DATE));
+    }
 
+    private static ConnectorTableMetadata getLineItemsTable(Map<String, Object> properties)
+    {
+        return buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_LINEITEMS)
+                .column("orderkey", BIGINT)
+                .column("partkey", BIGINT)
+                .column("quantity", BIGINT)
+                .column("price", DOUBLE));
+    }
+
+    private static ConnectorTableMetadata buildTable(Map<String, Object> properties, TableMetadataBuilder builder)
+    {
         if (!properties.isEmpty()) {
             for (Map.Entry<String, Object> entry : properties.entrySet()) {
                 builder.property(entry.getKey(), entry.getValue());
             }
         }
-
         return builder.build();
     }
 

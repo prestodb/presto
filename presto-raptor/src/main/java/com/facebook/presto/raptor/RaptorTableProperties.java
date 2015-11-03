@@ -35,6 +35,7 @@ public class RaptorTableProperties
     public static final String TEMPORAL_COLUMN_PROPERTY = "temporal_column";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
     public static final String BUCKETED_ON_PROPERTY = "bucketed_on";
+    public static final String DISTRIBUTION_NAME_PROPERTY = "distribution_name";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -58,6 +59,9 @@ public class RaptorTableProperties
                         typeManager,
                         BUCKETED_ON_PROPERTY,
                         "Table columns on which to bucket the table"))
+                .add(lowerCaseStringSessionProperty(
+                        DISTRIBUTION_NAME_PROPERTY,
+                        "Shared distribution name for colocated tables"))
                 .build();
     }
 
@@ -85,6 +89,11 @@ public class RaptorTableProperties
     public static List<String> getBucketColumns(Map<String, Object> tableProperties)
     {
         return stringList(tableProperties.get(BUCKETED_ON_PROPERTY));
+    }
+
+    public static String getDistributionName(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(DISTRIBUTION_NAME_PROPERTY);
     }
 
     public static PropertyMetadata<String> lowerCaseStringSessionProperty(String name, String description)
