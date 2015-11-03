@@ -87,4 +87,9 @@ public interface ShardManager
      * Rollback a transaction.
      */
     void rollbackTransaction(long transactionId);
+
+    /**
+     * Create initial bucket assignments for a distribution.
+     */
+    void createBuckets(long distributionId, int bucketCount);
 }

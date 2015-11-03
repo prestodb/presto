@@ -293,4 +293,11 @@ public interface ShardManagerDao
     void updatePurgedShardNodes(
             @Bind("shardUuid") Iterable<UUID> shardUuids,
             @Bind("nodeId") int nodeId);
+
+    @SqlBatch("INSERT INTO buckets (distribution_id, bucket_number, node_id)\n" +
+            "VALUES (:distributionId, :bucketNumber, :nodeId)\n")
+    void insertBuckets(
+            @Bind("distributionId") long distributionId,
+            @Bind("bucketNumber") List<Integer> bucketNumbers,
+            @Bind("nodeId") List<Integer> nodeIds);
 }
