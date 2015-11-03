@@ -21,12 +21,12 @@ import java.sql.SQLException;
 
 import static java.util.Objects.requireNonNull;
 
-public class Node
+public class RaptorNode
 {
     private final int nodeId;
     private final String nodeIdentifier;
 
-    public Node(int nodeId, String nodeIdentifier)
+    public RaptorNode(int nodeId, String nodeIdentifier)
     {
         this.nodeId = nodeId;
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null");
@@ -43,13 +43,13 @@ public class Node
     }
 
     public static class Mapper
-            implements ResultSetMapper<Node>
+            implements ResultSetMapper<RaptorNode>
     {
         @Override
-        public Node map(int index, ResultSet rs, StatementContext ctx)
+        public RaptorNode map(int index, ResultSet rs, StatementContext ctx)
                 throws SQLException
         {
-            return new Node(
+            return new RaptorNode(
                     rs.getInt("node_id"),
                     rs.getString("node_identifier"));
         }
