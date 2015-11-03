@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.shaded.com.google.common.collect.Lists;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
@@ -217,7 +218,30 @@ public class TestHiveFileFormats
         file.delete();
         try {
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
-            testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
+            testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER, false), split, inputFormat, serde, TEST_COLUMNS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testOrcUseColumnNames()
+            throws Exception
+    {
+        HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
+        InputFormat<?, ?> inputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new org.apache.hadoop.hive.ql.io.orc.OrcSerde();
+        File file = File.createTempFile("presto_test", "orc");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
+            // Reverse the order of the columns to test access by name, not by index
+            List<TestColumn> reversedColumns = Lists.reverse(TEST_COLUMNS);
+            TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
+            testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER, true), split, inputFormat, serde, reversedColumns, session);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
