@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 public class BlackHolePageSinkProvider
         implements ConnectorPageSinkProvider
@@ -46,8 +47,9 @@ public class BlackHolePageSinkProvider
             implements ConnectorPageSink
     {
         @Override
-        public void appendPage(Page page, Block sampleWeightBlock)
+        public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
         {
+            return NOT_BLOCKED;
         }
 
         @Override
