@@ -232,6 +232,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitLambdaExpression(LambdaExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitSimpleCaseExpression(SimpleCaseExpression node, C context)
     {
         return visitExpression(node, context);
