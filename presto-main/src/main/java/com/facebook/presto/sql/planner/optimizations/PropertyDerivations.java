@@ -252,12 +252,31 @@ class PropertyDerivations
             // TODO: include all equivalent columns in partitioning properties
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties buildProperties = inputProperties.get(1);
-            return ActualProperties.builderFrom(probeProperties)
-                    .constants(ImmutableMap.<Symbol, Object>builder()
-                            .putAll(probeProperties.getConstants())
-                            .putAll(buildProperties.getConstants())
-                            .build())
-                    .build();
+
+            switch (node.getType()) {
+                case INNER:
+                    return ActualProperties.builderFrom(probeProperties)
+                            .constants(ImmutableMap.<Symbol, Object>builder()
+                                    .putAll(probeProperties.getConstants())
+                                    .putAll(buildProperties.getConstants())
+                                    .build())
+                            .build();
+                case LEFT:
+                    return ActualProperties.builderFrom(probeProperties)
+                            .constants(probeProperties.getConstants())
+                            .build();
+                case RIGHT:
+                    return ActualProperties.builder()
+                            .global(buildProperties)
+                            .constants(buildProperties.getConstants())
+                            .build();
+                case FULL:
+                    // We can't say anything about the partitioning scheme because any partition of
+                    // a hash-partitioned join can produce nulls in case of a lack of matches
+                    return probeProperties.isDistributed() ? ActualProperties.distributed() : ActualProperties.undistributed();
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
         }
 
         @Override
