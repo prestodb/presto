@@ -17,14 +17,24 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 
 public interface SchemaDao
 {
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS distributions (\n" +
+            "  distribution_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  distribution_name VARCHAR(255),\n" +
+            "  column_types TEXT NOT NULL,\n" +
+            "  bucket_count INT NOT NULL,\n" +
+            "  UNIQUE (distribution_name)\n" +
+            ")")
+    void createTableDistributions();
+
     @SqlUpdate("CREATE TABLE IF NOT EXISTS tables (\n" +
             "  table_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  schema_name VARCHAR(255) NOT NULL,\n" +
             "  table_name VARCHAR(255) NOT NULL,\n" +
             "  temporal_column_id BIGINT,\n" +
             "  compaction_enabled BOOLEAN NOT NULL,\n" +
-            "  bucket_count INT,\n" +
-            "  UNIQUE (schema_name, table_name)\n" +
+            "  distribution_id BIGINT,\n" +
+            "  UNIQUE (schema_name, table_name),\n" +
+            "  FOREIGN KEY (distribution_id) REFERENCES distributions (distribution_id)\n" +
             ")")
     void createTableTables();
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
@@ -72,6 +73,7 @@ public class RaptorModule
     {
         DBI dbi = new DBI(connectionFactory);
         dbi.registerMapper(new TableColumn.Mapper(typeManager));
+        dbi.registerMapper(new Distribution.Mapper(typeManager));
         return dbi;
     }
 }

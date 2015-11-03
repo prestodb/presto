@@ -25,9 +25,11 @@ import java.util.List;
 
 public interface MetadataDao
 {
-    @SqlQuery("SELECT table_id, bucket_count FROM tables\n" +
-            "WHERE schema_name = :schemaName\n" +
-            "  AND table_name = :tableName")
+    @SqlQuery("SELECT t.table_id, d.bucket_count\n" +
+            "FROM tables t\n" +
+            "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n" +
+            "WHERE t.schema_name = :schemaName\n" +
+            "  AND t.table_name = :tableName")
     @Mapper(TableMapper.class)
     Table getTableInformation(
             @Bind("schemaName") String schemaName,
@@ -113,14 +115,14 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlUpdate("INSERT INTO tables (schema_name, table_name, compaction_enabled, bucket_count)\n" +
-            "VALUES (:schemaName, :tableName, :compactionEnabled, :bucketCount)")
+    @SqlUpdate("INSERT INTO tables (schema_name, table_name, compaction_enabled, distribution_id)\n" +
+            "VALUES (:schemaName, :tableName, :compactionEnabled, :distributionId)")
     @GetGeneratedKeys
     long insertTable(
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName,
             @Bind("compactionEnabled") boolean compactionEnabled,
-            @Bind("bucketCount") Integer bucketCount);
+            @Bind("distributionId") Long distributionId);
 
     @SqlUpdate("INSERT INTO columns (table_id, column_id, column_name, ordinal_position, data_type, sort_ordinal_position, bucket_ordinal_position)\n" +
             "VALUES (:tableId, :columnId, :columnName, :ordinalPosition, :dataType, :sortOrdinalPosition, :bucketOrdinalPosition)")
@@ -190,4 +192,17 @@ public interface MetadataDao
 
     @SqlQuery("SELECT table_id FROM tables WHERE table_id = :tableId FOR UPDATE")
     Long getLockedTableId(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT distribution_id, distribution_name, column_types, bucket_count\n" +
+            "FROM distributions\n" +
+            "WHERE distribution_name = :distributionName")
+    Distribution getDistribution(@Bind("distributionName") String distributionName);
+
+    @SqlUpdate("INSERT INTO distributions (distribution_name, column_types, bucket_count)\n" +
+            "VALUES (:distributionName, :columnTypes, :bucketCount)")
+    @GetGeneratedKeys
+    long insertDistribution(
+            @Bind("distributionName") String distributionName,
+            @Bind("columnTypes") String columnTypes,
+            @Bind("bucketCount") int bucketCount);
 }
