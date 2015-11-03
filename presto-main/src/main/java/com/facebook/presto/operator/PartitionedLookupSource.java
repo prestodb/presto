@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
-import it.unimi.dsi.fastutil.longs.LongIterator;
 
 import java.util.Arrays;
 import java.util.List;
@@ -49,6 +48,12 @@ public class PartitionedLookupSource
     public int getChannelCount()
     {
         return lookupSources[0].getChannelCount();
+    }
+
+    @Override
+    public int getJoinPositionCount()
+    {
+        throw new UnsupportedOperationException("Parallel hash can not be used in a RIGHT or FULL outer join");
     }
 
     @Override
@@ -95,12 +100,6 @@ public class PartitionedLookupSource
         long joinPosition = partitionedJoinPosition >>> lookupSources.length;
         LookupSource lookupSource = lookupSources[partition];
         lookupSource.appendTo(joinPosition, pageBuilder, outputChannelOffset);
-    }
-
-    @Override
-    public LongIterator getUnvisitedJoinPositions()
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

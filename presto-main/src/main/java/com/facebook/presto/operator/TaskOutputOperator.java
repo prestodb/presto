@@ -142,6 +142,9 @@ public class TaskOutputOperator
     public void addInput(Page page)
     {
         requireNonNull(page, "page is null");
+        if (page.getPositionCount() == 0) {
+            return;
+        }
         checkState(blocked == NOT_BLOCKED, "output is already blocked");
         ListenableFuture<?> future = sharedBuffer.enqueue(page);
         if (!future.isDone()) {

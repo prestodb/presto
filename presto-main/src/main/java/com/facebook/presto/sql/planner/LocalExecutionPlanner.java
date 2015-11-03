@@ -35,9 +35,11 @@ import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFacto
 import com.facebook.presto.operator.HashPartitionMaskOperator.HashPartitionMaskOperatorFactory;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.InMemoryExchange;
+import com.facebook.presto.operator.JoinOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.LookupOuterOperator.OuterLookupSourceSupplier;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
@@ -239,7 +241,11 @@ public class LocalExecutionPlanner
             PlanDistribution distribution,
             OutputFactory outputOperatorFactory)
     {
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types, distribution != PlanDistribution.SOURCE);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(
+                session,
+                types,
+                distribution == PlanDistribution.COORDINATOR_ONLY || distribution == PlanDistribution.SINGLE,
+                distribution != PlanDistribution.SOURCE);
 
         PhysicalOperation physicalOperation = enforceLayout(outputLayout, context, plan.accept(new Visitor(session), context));
 
@@ -253,6 +259,8 @@ public class LocalExecutionPlanner
                 context.getDriverInstanceCount());
         context.addDriverFactory(driverFactory);
 
+        addLookupOuterDrivers(context);
+
         // notify operator factories that planning has completed
         context.getDriverFactories().stream()
                 .map(DriverFactory::getOperatorFactories)
@@ -262,6 +270,36 @@ public class LocalExecutionPlanner
                 .forEach(LocalPlannerAware::localPlannerComplete);
 
         return new LocalExecutionPlan(context.getDriverFactories());
+    }
+
+    private static void addLookupOuterDrivers(LocalExecutionPlanContext context)
+    {
+        // For an outer join on the lookup side (RIGHT or FULL) add an additional
+        // driver to output the unused rows in the lookup source
+        for (DriverFactory factory : context.getDriverFactories()) {
+            List<OperatorFactory> operatorFactories = factory.getOperatorFactories();
+            for (int i = 0; i < operatorFactories.size(); i++) {
+                OperatorFactory operatorFactory = operatorFactories.get(i);
+                if (!(operatorFactory instanceof JoinOperatorFactory)) {
+                    continue;
+                }
+
+                JoinOperatorFactory lookupJoin = (JoinOperatorFactory) operatorFactory;
+                Optional<OperatorFactory> outerOperatorFactory = lookupJoin.createOuterOperatorFactory();
+                if (outerOperatorFactory.isPresent()) {
+                    // Add a new driver to output the unmatched rows in an outer join.
+                    // We duplicate all of the factories above the JoinOperator (the ones reading from the joins),
+                    // and replace the JoinOperator with the OuterOperator (the one that produces unmatched rows).
+                    ImmutableList.Builder<OperatorFactory> newOperators = ImmutableList.builder();
+                    newOperators.add(outerOperatorFactory.get());
+                    operatorFactories.subList(i + 1, operatorFactories.size()).stream()
+                            .map(OperatorFactory::duplicate)
+                            .forEach(newOperators::add);
+
+                    context.addDriverFactory(new DriverFactory(false, factory.isOutputDriver(), newOperators.build()));
+                }
+            }
+        }
     }
 
     private static PhysicalOperation enforceLayout(List<Symbol> outputLayout, LocalExecutionPlanContext context, PhysicalOperation physicalOperation)
@@ -292,6 +330,7 @@ public class LocalExecutionPlanner
     {
         private final Session session;
         private final Map<Symbol, Type> types;
+        private final boolean singleNode;
         private final boolean allowLocalParallel;
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
@@ -300,20 +339,22 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private int driverInstanceCount = 1;
 
-        public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, boolean allowLocalParallel)
+        public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, boolean singleNode, boolean allowLocalParallel)
         {
-            this(session, types, allowLocalParallel, new ArrayList<>(), Optional.empty());
+            this(session, types, singleNode, allowLocalParallel, new ArrayList<>(), Optional.empty());
         }
 
         private LocalExecutionPlanContext(
                 Session session,
                 Map<Symbol, Type> types,
+                boolean singleNode,
                 boolean allowLocalParallel,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext)
         {
             this.session = session;
             this.types = types;
+            this.singleNode = singleNode;
             this.allowLocalParallel = allowLocalParallel;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
@@ -362,12 +403,17 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
-            return new LocalExecutionPlanContext(session, types, allowLocalParallel, driverFactories, indexSourceContext);
+            return new LocalExecutionPlanContext(session, types, singleNode, allowLocalParallel, driverFactories, indexSourceContext);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(session, types, false, driverFactories, Optional.of(indexSourceContext));
+            return new LocalExecutionPlanContext(session, types, true, false, driverFactories, Optional.of(indexSourceContext));
+        }
+
+        public boolean isSingleNode()
+        {
+            return singleNode;
         }
 
         public boolean isAllowLocalParallel()
@@ -1351,12 +1397,19 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource;
             LocalExecutionPlanContext parallelParentContext = null;
             int joinConcurrency = getTaskJoinConcurrency(session);
-            // currently we can not run joins with an outer build in parallel
-            if (!isBuildOuter(node) && context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
+            if (context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
                 parallelParentContext = context;
                 context = context.createSubContext();
                 probeSource = createInMemoryExchange(probeNode, context);
                 context.setDriverInstanceCount(joinConcurrency);
+            }
+            else if (context.isSingleNode() && isBuildOuter(node)) {
+                // if this is a build side outer running on a single node, we must
+                // insert a gather exchange after the join to pull the joined rows
+                // and outer rows into a single stream
+                parallelParentContext = context;
+                context = context.createSubContext();
+                probeSource = probeNode.accept(this, context);
             }
             else {
                 probeSource = probeNode.accept(this, context);
@@ -1371,7 +1424,7 @@ public class LocalExecutionPlanner
             }
             PhysicalOperation operation = new PhysicalOperation(operator, outputMappings.build(), probeSource);
 
-            // merge parallel joiners back into a single stream
+            // merge parallel joiners (and outer) back into a single stream
             if (parallelParentContext != null) {
                 operation = addInMemoryExchange(parallelParentContext, operation, context);
             }
@@ -1443,6 +1496,11 @@ public class LocalExecutionPlanner
 
                 lookupSourceSupplier = parallelHashBuilder.getLookupSourceSupplier();
             }
+
+            if (node.getType() == RIGHT || node.getType() == FULL) {
+                lookupSourceSupplier = new OuterLookupSourceSupplier(lookupSourceSupplier);
+            }
+
             return lookupSourceSupplier;
         }
 

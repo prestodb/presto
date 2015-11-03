@@ -13,28 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import java.util.Optional;
 
-import java.io.Closeable;
-
-public interface LookupSource
-        extends Closeable
+public interface JoinOperatorFactory
+        extends OperatorFactory
 {
-    int getChannelCount();
-
-    long getInMemorySizeInBytes();
-
-    int getJoinPositionCount();
-
-    long getJoinPosition(int position, Page page, int rawHash);
-
-    long getJoinPosition(int position, Page page);
-
-    long getNextJoinPosition(long currentPosition);
-
-    void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
-
-    @Override
-    void close();
+    Optional<OperatorFactory> createOuterOperatorFactory();
 }

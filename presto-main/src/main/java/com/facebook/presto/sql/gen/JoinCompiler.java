@@ -119,8 +119,7 @@ public class JoinCompiler
         Class<? extends LookupSource> lookupSourceClass = IsolatedClass.isolateClass(
                 new DynamicClassLoader(getClass().getClassLoader()),
                 LookupSource.class,
-                InMemoryJoinHash.class,
-                InMemoryJoinHash.UnvisitedJoinPositionIterator.class);
+                InMemoryJoinHash.class);
 
         return new LookupSourceFactory(lookupSourceClass, new PagesHashStrategyFactory(pagesHashStrategyClass));
     }
