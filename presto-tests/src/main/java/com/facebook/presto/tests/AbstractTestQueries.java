@@ -2779,6 +2779,37 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowPropertyDerivation()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, orderkey,\n" +
+                "SUM(s) OVER (PARTITION BY orderstatus),\n" +
+                "SUM(s) OVER (PARTITION BY orderstatus, orderkey),\n" +
+                "SUM(s) OVER (PARTITION BY orderstatus ORDER BY orderkey),\n" +
+                "SUM(s) OVER (ORDER BY orderstatus, orderkey)\n" +
+                "FROM (\n" +
+                "   SELECT orderkey, orderstatus, SUM(orderkey) OVER (ORDER BY orderstatus, orderkey) s\n" +
+                "   FROM (\n" +
+                "       SELECT * FROM orders ORDER BY orderkey LIMIT 10\n" +
+                "   )\n" +
+                ")");
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
+                .row("F", 3, 72, 3, 3, 3)
+                .row("F", 5, 72, 8, 11, 11)
+                .row("F", 6, 72, 14, 25, 25)
+                .row("F", 33, 72, 47, 72, 72)
+                .row("O", 1, 433, 48, 48, 120)
+                .row("O", 2, 433, 50, 98, 170)
+                .row("O", 4, 433, 54, 152, 224)
+                .row("O", 7, 433, 61, 213, 285)
+                .row("O", 32, 433, 93, 306, 378)
+                .row("O", 34, 433, 127, 433, 505)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testTopNUnpartitionedWindow()
             throws Exception
     {
