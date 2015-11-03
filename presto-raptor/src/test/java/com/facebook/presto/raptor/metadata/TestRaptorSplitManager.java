@@ -17,9 +17,11 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
+import com.facebook.presto.raptor.RaptorNodeSupplier;
 import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.RaptorTableLayoutHandle;
@@ -33,6 +35,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -48,6 +51,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
+import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -90,8 +94,9 @@ public class TestRaptorSplitManager
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         temporary = createTempDir();
-        shardManager = new DatabaseShardManager(dbi);
+        shardManager = createShardManager(dbi);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        RaptorNodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, new RaptorConnectorId("raptor"));
 
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
@@ -119,7 +124,7 @@ public class TestRaptorSplitManager
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
-        raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, false);
+        raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false);
     }
 
     @AfterMethod
@@ -162,9 +167,11 @@ public class TestRaptorSplitManager
             throws InterruptedException, URISyntaxException
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
+        NodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, connectorId);
         PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN);
-        nodeManager.addNode("fbraptor", node);
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), nodeManager, shardManager, true);
+        nodeManager.addNode(connectorId.toString(), node);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true);
 
         deleteShardNodes();
 
@@ -180,7 +187,7 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), new InMemoryNodeManager(), shardManager, true);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true);
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource splitSource = raptorSplitManagerWithBackup.getSplits(SESSION, layout.getTableLayout().getHandle());
         getFutureValue(splitSource.getNextBatch(1000), PrestoException.class);
