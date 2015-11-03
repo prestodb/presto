@@ -362,19 +362,19 @@ public class MaterializedResult
             this.types = ImmutableList.copyOf(types);
         }
 
-        public Builder rows(List<MaterializedRow> rows)
+        public synchronized Builder rows(List<MaterializedRow> rows)
         {
             this.rows.addAll(rows);
             return this;
         }
 
-        public Builder row(Object... values)
+        public synchronized Builder row(Object... values)
         {
             rows.add(new MaterializedRow(DEFAULT_PRECISION, values));
             return this;
         }
 
-        public Builder rows(Object[][] rows)
+        public synchronized Builder rows(Object[][] rows)
         {
             for (Object[] row : rows) {
                 row(row);
@@ -382,7 +382,7 @@ public class MaterializedResult
             return this;
         }
 
-        public Builder pages(Iterable<Page> pages)
+        public synchronized Builder pages(Iterable<Page> pages)
         {
             for (Page page : pages) {
                 this.page(page);
@@ -391,7 +391,7 @@ public class MaterializedResult
             return this;
         }
 
-        public Builder page(Page page)
+        public synchronized Builder page(Page page)
         {
             requireNonNull(page, "page is null");
             checkArgument(page.getChannelCount() == types.size(), "Expected a page with %s columns, but got %s columns", types.size(), page.getChannelCount());
@@ -410,7 +410,7 @@ public class MaterializedResult
             return this;
         }
 
-        public MaterializedResult build()
+        public synchronized MaterializedResult build()
         {
             return new MaterializedResult(rows.build(), types);
         }

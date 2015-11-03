@@ -306,13 +306,13 @@ public class LocalQueryRunner
     public static class MaterializedOutputFactory
             implements OutputFactory
     {
-        private final AtomicReference<MaterializingOperator> materializingOperator = new AtomicReference<>();
+        private final AtomicReference<MaterializedResult.Builder> materializedResultBuilder = new AtomicReference<>();
 
-        private MaterializingOperator getMaterializingOperator()
+        public MaterializedResult getMaterializedResult()
         {
-            MaterializingOperator operator = materializingOperator.get();
-            checkState(operator != null, "Output not created");
-            return operator;
+            MaterializedResult.Builder resultBuilder = materializedResultBuilder.get();
+            checkState(resultBuilder != null, "Output not created");
+            return resultBuilder.build();
         }
 
         @Override
@@ -331,13 +331,13 @@ public class LocalQueryRunner
                 @Override
                 public Operator createOperator(DriverContext driverContext)
                 {
-                    OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
-                    MaterializingOperator operator = new MaterializingOperator(operatorContext, sourceTypes);
-
-                    if (!materializingOperator.compareAndSet(null, operator)) {
-                        throw new IllegalArgumentException("Output already created");
+                    MaterializedResult.Builder resultBuilder = materializedResultBuilder.get();
+                    if (resultBuilder == null) {
+                        materializedResultBuilder.compareAndSet(null, MaterializedResult.resultBuilder(driverContext.getSession(), sourceTypes));
+                        resultBuilder = materializedResultBuilder.get();
                     }
-                    return operator;
+                    OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
+                    return new MaterializingOperator(operatorContext, resultBuilder);
                 }
 
                 @Override
@@ -348,7 +348,7 @@ public class LocalQueryRunner
                 @Override
                 public OperatorFactory duplicate()
                 {
-                    throw new UnsupportedOperationException();
+                    return createOutputOperator(operatorId, sourceTypes);
                 }
             };
         }
@@ -406,7 +406,7 @@ public class LocalQueryRunner
                 done = !processed;
             }
 
-            return outputFactory.getMaterializingOperator().getMaterializedResult();
+            return outputFactory.getMaterializedResult();
         }
         finally {
             lock.readLock().unlock();
@@ -472,7 +472,8 @@ public class LocalQueryRunner
         );
 
         // plan query
-        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
+        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
+                session,
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getOutputLayout(),
                 plan.getTypes(),

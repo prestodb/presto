@@ -80,6 +80,12 @@ public class MaterializingOperator
         resultBuilder = MaterializedResult.resultBuilder(operatorContext.getSession(), sourceTypes);
     }
 
+    public MaterializingOperator(OperatorContext operatorContext, MaterializedResult.Builder resultBuilder)
+    {
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.resultBuilder = requireNonNull(resultBuilder, "resultBuilder is null");
+    }
+
     public boolean isClosed()
     {
         return closed;
