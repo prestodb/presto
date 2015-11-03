@@ -142,4 +142,14 @@ public interface SchemaDao
             "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
             ")")
     void createTableDeletedShardNodes();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS buckets (\n" +
+            "  distribution_id BIGINT NOT NULL,\n" +
+            "  bucket_number INT NOT NULL,\n" +
+            "  node_id INT NOT NULL,\n" +
+            "  PRIMARY KEY (distribution_id, bucket_number),\n" +
+            "  FOREIGN KEY (distribution_id) REFERENCES distributions (distribution_id),\n" +
+            "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
+            ")")
+    void createTableBuckets();
 }

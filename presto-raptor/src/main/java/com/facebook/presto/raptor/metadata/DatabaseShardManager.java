@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -26,6 +27,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -44,8 +46,11 @@ import java.sql.JDBCType;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,6 +73,7 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.partition;
@@ -450,6 +456,27 @@ public class DatabaseShardManager
             dao.insertCreatedShardNode(shardUuid, nodeId, transactionId);
             return null;
         });
+    }
+
+    @Override
+    public void createBuckets(long distributionId, int bucketCount)
+    {
+        List<Node> nodes = new ArrayList<>(nodeSupplier.getWorkerNodes());
+        if (nodes.isEmpty()) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available for bucket assignments");
+        }
+
+        Collections.shuffle(nodes);
+        Iterator<Node> nodeIterator = Iterables.cycle(nodes).iterator();
+
+        List<Integer> bucketNumbers = new ArrayList<>();
+        List<Integer> nodeIds = new ArrayList<>();
+        for (int bucket = 0; bucket < bucketCount; bucket++) {
+            bucketNumbers.add(bucket);
+            nodeIds.add(getOrCreateNodeId(nodeIterator.next().getNodeIdentifier()));
+        }
+
+        runIgnoringConstraintViolation(() -> dao.insertBuckets(distributionId, bucketNumbers, nodeIds));
     }
 
     private int getOrCreateNodeId(String nodeIdentifier)

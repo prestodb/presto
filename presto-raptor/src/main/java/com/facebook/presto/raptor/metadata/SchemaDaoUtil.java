@@ -58,6 +58,7 @@ public final class SchemaDaoUtil
         dao.createTableCreatedShardNodes();
         dao.createTableDeletedShards();
         dao.createTableDeletedShardNodes();
+        dao.createTableBuckets();
     }
 
     private static void sleep(Duration duration)
