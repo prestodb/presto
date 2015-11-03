@@ -24,11 +24,14 @@ import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -121,6 +124,7 @@ public class TableWriterOperator
     private final Optional<Integer> sampleWeightChannel;
     private final List<Integer> inputChannels;
 
+    private ListenableFuture<?> blocked = NOT_BLOCKED;
     private State state = State.RUNNING;
     private long rowCount;
     private boolean committed;
@@ -160,20 +164,36 @@ public class TableWriterOperator
     @Override
     public boolean isFinished()
     {
-        return state == State.FINISHED;
+        updateBlockedIfNecessary();
+        return state == State.FINISHED && blocked == NOT_BLOCKED;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        updateBlockedIfNecessary();
+        return blocked;
     }
 
     @Override
     public boolean needsInput()
     {
-        return state == State.RUNNING;
+        updateBlockedIfNecessary();
+        return state == State.RUNNING && blocked == NOT_BLOCKED;
+    }
+
+    private void updateBlockedIfNecessary()
+    {
+        if (blocked != NOT_BLOCKED && blocked.isDone()) {
+            blocked = NOT_BLOCKED;
+        }
     }
 
     @Override
     public void addInput(Page page)
     {
         requireNonNull(page, "page is null");
-        checkState(state == State.RUNNING, "Operator is %s", state);
+        checkState(needsInput(), "Operator does not need input");
 
         Block[] blocks = new Block[inputChannels.size()];
         for (int outputChannel = 0; outputChannel < inputChannels.size(); outputChannel++) {
@@ -183,7 +203,11 @@ public class TableWriterOperator
         if (sampleWeightChannel.isPresent()) {
             sampleWeightBlock = page.getBlock(sampleWeightChannel.get());
         }
-        pageSink.appendPage(new Page(blocks), sampleWeightBlock);
+
+        CompletableFuture<?> future = pageSink.appendPage(new Page(blocks), sampleWeightBlock);
+        if (!future.isDone()) {
+            this.blocked = MoreFutures.toListenableFuture(future);
+        }
         rowCount += page.getPositionCount();
     }
 

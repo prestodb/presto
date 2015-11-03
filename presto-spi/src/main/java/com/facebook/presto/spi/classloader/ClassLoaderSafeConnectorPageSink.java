@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,10 +36,10 @@ public class ClassLoaderSafeConnectorPageSink
     }
 
     @Override
-    public void appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.appendPage(page, sampleWeightBlock);
+            return delegate.appendPage(page, sampleWeightBlock);
         }
     }
 
