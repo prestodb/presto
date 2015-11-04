@@ -16,6 +16,7 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.PageBuffer;
+import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -29,7 +30,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -58,7 +58,6 @@ public class RaptorPageSink
     private final List<Type> columnTypes;
     private final List<Integer> sortFields;
     private final List<SortOrder> sortOrders;
-    private final OptionalInt bucketCount;
     private final int[] bucketFields;
     private final long maxBufferBytes;
 
@@ -92,10 +91,9 @@ public class RaptorPageSink
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
 
-        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.bucketFields = bucketColumnIds.stream().mapToInt(columnIds::indexOf).toArray();
 
-        this.pageWriter = bucketCount.isPresent() ? new BucketedPageWriter() : new SimplePageWriter();
+        this.pageWriter = bucketCount.isPresent() ? new BucketedPageWriter(bucketCount.getAsInt()) : new SimplePageWriter();
 
         for (int field : bucketFields) {
             if (!columnTypes.get(field).equals(BIGINT)) {
@@ -183,18 +181,6 @@ public class RaptorPageSink
         return new Page(blocks);
     }
 
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    private int computeBucketNumber(Page page, int position)
-    {
-        long hash = 0;
-        for (int field : bucketFields) {
-            long value = BIGINT.getLong(page.getBlock(field), position);
-            hash = (hash * 31) + XxHash64.hash(value);
-        }
-        int value = (int) (hash & Integer.MAX_VALUE);
-        return value % bucketCount.getAsInt();
-    }
-
     private interface PageWriter
     {
         void appendPage(Page page);
@@ -223,13 +209,25 @@ public class RaptorPageSink
     private class BucketedPageWriter
             implements PageWriter
     {
+        private final BucketFunction bucketFunction;
         private final Int2ObjectMap<PageStore> pageStores = new Int2ObjectOpenHashMap<>();
+
+        public BucketedPageWriter(int bucketCount)
+        {
+            this.bucketFunction = new RaptorBucketFunction(bucketCount);
+        }
 
         @Override
         public void appendPage(Page page)
         {
+            Block[] blocks = new Block[bucketFields.length];
+            for (int i = 0; i < bucketFields.length; i++) {
+                blocks[i] = page.getBlock(bucketFields[i]);
+            }
+            Page bucketArgs = new Page(page.getPositionCount(), blocks);
+
             for (int position = 0; position < page.getPositionCount(); position++) {
-                int bucket = computeBucketNumber(page, position);
+                int bucket = bucketFunction.getBucket(bucketArgs, position);
 
                 PageStore store = pageStores.get(bucket);
                 if (store == null) {

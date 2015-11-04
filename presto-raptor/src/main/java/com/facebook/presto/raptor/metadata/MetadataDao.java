@@ -25,7 +25,7 @@ import java.util.List;
 
 public interface MetadataDao
 {
-    @SqlQuery("SELECT t.table_id, d.bucket_count\n" +
+    @SqlQuery("SELECT t.table_id, t.distribution_id, d.bucket_count\n" +
             "FROM tables t\n" +
             "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n" +
             "WHERE t.schema_name = :schemaName\n" +
@@ -192,6 +192,11 @@ public interface MetadataDao
 
     @SqlQuery("SELECT table_id FROM tables WHERE table_id = :tableId FOR UPDATE")
     Long getLockedTableId(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT distribution_id, distribution_name, column_types, bucket_count\n" +
+            "FROM distributions\n" +
+            "WHERE distribution_id = :distributionId")
+    Distribution getDistribution(@Bind("distributionId") long distributionId);
 
     @SqlQuery("SELECT distribution_id, distribution_name, column_types, bucket_count\n" +
             "FROM distributions\n" +

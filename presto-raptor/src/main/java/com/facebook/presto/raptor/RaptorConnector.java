@@ -16,6 +16,7 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -47,6 +48,7 @@ public class RaptorConnector
     private final RaptorSplitManager splitManager;
     private final RaptorPageSourceProvider pageSourceProvider;
     private final RaptorPageSinkProvider pageSinkProvider;
+    private final RaptorNodePartitioningProvider nodePartitioningProvider;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final Set<SystemTable> systemTables;
@@ -60,6 +62,7 @@ public class RaptorConnector
             RaptorSplitManager splitManager,
             RaptorPageSourceProvider pageSourceProvider,
             RaptorPageSinkProvider pageSinkProvider,
+            RaptorNodePartitioningProvider nodePartitioningProvider,
             RaptorSessionProperties sessionProperties,
             RaptorTableProperties tableProperties,
             Set<SystemTable> systemTables)
@@ -69,6 +72,7 @@ public class RaptorConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").getSessionProperties();
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").getTableProperties();
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
@@ -127,6 +131,12 @@ public class RaptorConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    @Override
+    public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+    {
+        return nodePartitioningProvider;
     }
 
     @Override

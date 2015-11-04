@@ -300,4 +300,11 @@ public interface ShardManagerDao
             @Bind("distributionId") long distributionId,
             @Bind("bucketNumber") List<Integer> bucketNumbers,
             @Bind("nodeId") List<Integer> nodeIds);
+
+    @SqlQuery("SELECT n.node_identifier\n" +
+            "FROM buckets b\n" +
+            "JOIN nodes n ON (b.node_id = n.node_id)\n" +
+            "WHERE b.distribution_id = :distributionId\n" +
+            "ORDER BY b.bucket_number")
+    List<String> getBucketNodeIdentifiers(@Bind("distributionId") long distributionId);
 }

@@ -25,6 +25,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_METADATA_ERROR;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
@@ -94,6 +95,13 @@ public final class DatabaseUtil
     {
         int value = rs.getInt(name);
         return rs.wasNull() ? OptionalInt.empty() : OptionalInt.of(value);
+    }
+
+    public static OptionalLong getOptionalLong(ResultSet rs, String name)
+            throws SQLException
+    {
+        long value = rs.getLong(name);
+        return rs.wasNull() ? OptionalLong.empty() : OptionalLong.of(value);
     }
 
     public static void bindOptionalInt(PreparedStatement statement, int index, OptionalInt value)

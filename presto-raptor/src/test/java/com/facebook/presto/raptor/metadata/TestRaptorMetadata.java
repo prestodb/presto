@@ -20,12 +20,14 @@ import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorNodeSupplier;
+import com.facebook.presto.raptor.RaptorPartitioningHandle;
 import com.facebook.presto.raptor.RaptorSessionProperties;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -253,7 +255,13 @@ public class TestRaptorMetadata
                 BUCKET_COUNT_PROPERTY, 32,
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey", "custkey")));
 
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.empty());
+        ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
+        assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
+        assertInstanceOf(layout.getPartitioning(), RaptorPartitioningHandle.class);
+        RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning();
+        assertEquals(partitioning.getDistributionId(), 1);
+
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout));
         metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of());
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
