@@ -77,6 +77,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.partition;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static java.util.Arrays.asList;
@@ -477,6 +478,26 @@ public class DatabaseShardManager
         }
 
         runIgnoringConstraintViolation(() -> dao.insertBuckets(distributionId, bucketNumbers, nodeIds));
+    }
+
+    @Override
+    public Map<Integer, Node> getBucketAssignments(long distributionId)
+    {
+        Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
+        List<String> bucketNodes = dao.getBucketNodeIdentifiers(distributionId);
+
+        ImmutableMap.Builder<Integer, Node> distribution = ImmutableMap.builder();
+        int bucket = 0;
+        for (String identifier : bucketNodes) {
+            Node node = nodesById.get(identifier);
+            if (node == null) {
+                // TODO: reassign
+                throw new PrestoException(NO_NODES_AVAILABLE, "Reassignment not yet implemented");
+            }
+            distribution.put(bucket, node);
+            bucket++;
+        }
+        return distribution.build();
     }
 
     private int getOrCreateNodeId(String nodeIdentifier)
