@@ -1,0 +1,332 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.9. Redis Connector &mdash; Presto 0.125 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.125',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.125 Documentation" href="../index.html" />
+    <link rel="up" title="4. Connectors" href="../connector.html" />
+    <link rel="next" title="4.10. System Connector" href="system.html" />
+    <link rel="prev" title="4.8. PostgreSQL Connector" href="postgresql.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.125 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.9. Redis Connector</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="postgresql.html">4.8. PostgreSQL Connector</a>
+    </span>
+    <span class="right">
+        <a href="system.html">4.10. System Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="redis-connector">
+<h1>4.9. Redis Connector</h1>
+<p>The Redis connector allows querying of live data stored in Redis. This can be
+used to join data between different systems like Redis and Hive.</p>
+<p>Each Redis key/value pair is presented as a single row in Presto. Rows can be
+broken down into cells by using table definition files.</p>
+<p>Only Redis string and hash value types are supported; sets and zsets cannot be
+queried from Presto.</p>
+<p>The connector requires Redis 2.8.0 or later.</p>
+<div class="section" id="configuration">
+<h2>Configuration</h2>
+<p>To configure the Redis connector, create a catalog properties file
+<tt class="docutils literal"><span class="pre">etc/catalog/redis.properties</span></tt> with the following content,
+replacing the properties as appropriate:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=redis
+redis.table-names=schema1.table1,schema1.table2
+redis.nodes=host:port
+</pre></div>
+</div>
+<div class="section" id="multiple-redis-servers">
+<h3>Multiple Redis Servers</h3>
+<p>You can have as many catalogs as you need, so if you have additional
+Redis servers, simply add another properties file to <tt class="docutils literal"><span class="pre">etc/catalog</span></tt>
+with a different name (making sure it ends in <tt class="docutils literal"><span class="pre">.properties</span></tt>).</p>
+</div>
+</div>
+<div class="section" id="configuration-properties">
+<h2>Configuration Properties</h2>
+<p>The following configuration properties are available:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="27%" />
+<col width="73%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Property Name</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">redis.table-names</span></tt></td>
+<td>List of all tables provided by the catalog</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">redis.default-schema</span></tt></td>
+<td>Default schema name for tables</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">redis.nodes</span></tt></td>
+<td>Location of the Redis server</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">redis.scan-count</span></tt></td>
+<td>Redis parameter for scanning of the keys</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">redis.key-prefix-schema-table</span></tt></td>
+<td>Redis keys have schema-name:table-name prefix</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">redis.key-delimiter</span></tt></td>
+<td>Delimiter separating schema_name and table_name if redis.key-prefix-schema-table is used</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">redis.table-description-dir</span></tt></td>
+<td>Directory containing table description files</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">redis.hide-internal-columns</span></tt></td>
+<td>Controls whether internal columns are part of the table schema or not</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">redis.database-index</span></tt></td>
+<td>Redis database index</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">redis.password</span></tt></td>
+<td>Redis server password</td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="redis-table-names">
+<h3><tt class="docutils literal"><span class="pre">redis.table-names</span></tt></h3>
+<p>Comma-separated list of all tables provided by this catalog. A table name
+can be unqualified (simple name) and will be put into the default schema
+(see below) or qualified with a schema name (<tt class="docutils literal"><span class="pre">&lt;schema-name&gt;.&lt;table-name&gt;</span></tt>).</p>
+<p>For each table defined here, a table description file (see below) may
+exist. If no table description file exists, the
+table will only contain internal columns (see below).</p>
+<p>This property is required; there is no default and at least one table must be
+defined.</p>
+</div>
+<div class="section" id="redis-default-schema">
+<h3><tt class="docutils literal"><span class="pre">redis.default-schema</span></tt></h3>
+<p>Defines the schema which will contain all tables that were defined without
+a qualifying schema name.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">default</span></tt>.</p>
+</div>
+<div class="section" id="redis-nodes">
+<h3><tt class="docutils literal"><span class="pre">redis.nodes</span></tt></h3>
+<p>The <tt class="docutils literal"><span class="pre">hostname:port</span></tt> pair for the Redis server.</p>
+<p>This property is required; there is no default.</p>
+<p>Redis clusters are not supported.</p>
+</div>
+<div class="section" id="redis-scan-count">
+<h3><tt class="docutils literal"><span class="pre">redis.scan-count</span></tt></h3>
+<p>The internal COUNT parameter for Redis SCAN command when connector is using
+SCAN to find keys for the data. This parameter can be used to tune performance
+of the Redis connector.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">100</span></tt>.</p>
+</div>
+<div class="section" id="redis-key-prefix-schema-table">
+<h3><tt class="docutils literal"><span class="pre">redis.key-prefix-schema-table</span></tt></h3>
+<p>If true, only keys prefixed with the <tt class="docutils literal"><span class="pre">schema-name:table-name</span></tt> are be scanned
+for a table, and all other keys will be filtered out.  If false, all keys are
+scanned.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">false</span></tt>.</p>
+</div>
+<div class="section" id="redis-key-delimiter">
+<h3><tt class="docutils literal"><span class="pre">redis.key-delimiter</span></tt></h3>
+<p>The character used for separating <tt class="docutils literal"><span class="pre">schema-name</span></tt> and <tt class="docutils literal"><span class="pre">table-name</span></tt> when
+<tt class="docutils literal"><span class="pre">redis.key-prefix-schema-table</span></tt> is <tt class="docutils literal"><span class="pre">true</span></tt></p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">:</span></tt>.</p>
+</div>
+<div class="section" id="redis-table-description-dir">
+<h3><tt class="docutils literal"><span class="pre">redis.table-description-dir</span></tt></h3>
+<p>References a folder within Presto deployment that holds one or more JSON
+files (must end with <tt class="docutils literal"><span class="pre">.json</span></tt>) which contain table description files.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">etc/redis</span></tt>.</p>
+</div>
+<div class="section" id="redis-hide-internal-columns">
+<h3><tt class="docutils literal"><span class="pre">redis.hide-internal-columns</span></tt></h3>
+<p>In addition to the data columns defined in a table description file, the
+connector maintains a number of additional columns for each table. If
+these columns are hidden, they can still be used in queries but do not
+show up in <tt class="docutils literal"><span class="pre">DESCRIBE</span> <span class="pre">&lt;table-name&gt;</span></tt> or <tt class="docutils literal"><span class="pre">SELECT</span> <span class="pre">*</span></tt>.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">true</span></tt>.</p>
+</div>
+<div class="section" id="redis-database-index">
+<h3><tt class="docutils literal"><span class="pre">redis.database-index</span></tt></h3>
+<p>The Redis database to query.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">0</span></tt>.</p>
+</div>
+<div class="section" id="redis-password">
+<h3><tt class="docutils literal"><span class="pre">redis.password</span></tt></h3>
+<p>The password for password-protected Redis server.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">null</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="internal-columns">
+<h2>Internal Columns</h2>
+<p>For each defined table, the connector maintains the following columns:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="14%" />
+<col width="5%" />
+<col width="81%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Column name</th>
+<th class="head">Type</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">_key</span></tt></td>
+<td>VARCHAR</td>
+<td>Redis key.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">_value</span></tt></td>
+<td>VARCHAR</td>
+<td>Redis value corresponding to the key.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">_key_length</span></tt></td>
+<td>BIGINT</td>
+<td>Number of bytes in the key.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">_value_length</span></tt></td>
+<td>BIGINT</td>
+<td>Number of bytes in the value.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">_key_corrupt</span></tt></td>
+<td>BOOLEAN</td>
+<td>True if the decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">_value_corrupt</span></tt></td>
+<td>BOOLEAN</td>
+<td>True if the decoder could not decode the message for this row. When true, data columns mapped from the value should be treated as invalid.</td>
+</tr>
+</tbody>
+</table>
+<p>For tables without a table definition file, the <tt class="docutils literal"><span class="pre">_key_corrupt</span></tt> and
+<tt class="docutils literal"><span class="pre">_value_corrupt</span></tt> columns will always be <tt class="docutils literal"><span class="pre">false</span></tt>.</p>
+</div>
+<div class="section" id="table-definition-files">
+<h2>Table Definition Files</h2>
+<p>With the Redis connector it&#8217;s possible to further reduce Redis key/value pairs into
+granular cells provided the key/value sting follow a particular format. This process
+will define new columns that can be further queried from Presto.</p>
+<p>A table definition file consists of a JSON definition for a table. The
+name of the file can be arbitrary but must end in <tt class="docutils literal"><span class="pre">.json</span></tt>.</p>
+<div class="highlight-json"><pre>{
+    "tableName": ...,
+    "schemaName": ...,
+    "key": {
+        "dataFormat": ...,
+        "fields": [
+            ...
+        ]
+    },
+    "value": {
+        "dataFormat": ...,
+        "fields": [
+            ...
+       ]
+    }
+}</pre>
+</div>
+<table border="1" class="docutils">
+<colgroup>
+<col width="13%" />
+<col width="8%" />
+<col width="12%" />
+<col width="68%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Required</th>
+<th class="head">Type</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">tableName</span></tt></td>
+<td>required</td>
+<td>string</td>
+<td>Presto table name defined by this file.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">schemaName</span></tt></td>
+<td>optional</td>
+<td>string</td>
+<td>Schema which will contain the table. If omitted, the default schema name is used.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">key</span></tt></td>
+<td>optional</td>
+<td>JSON object</td>
+<td>Field definitions for data columns mapped to the value key.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">value</span></tt></td>
+<td>optional</td>
+<td>JSON object</td>
+<td>Field definitions for data columns mapped to the value itself.</td>
+</tr>
+</tbody>
+</table>
+<p>Please refer to the <a class="reference external" href="./kafka.html">Kafka connector</a> page for the description of the <tt class="docutils literal"><span class="pre">dataFormat</span></tt> as well as various available decoders.</p>
+<p>In addition to the above Kafka types, the Redis connector supports <tt class="docutils literal"><span class="pre">hash</span></tt> type for the <tt class="docutils literal"><span class="pre">value</span></tt> field which represent data stored in the Redis hash.</p>
+<div class="highlight-json"><pre>{
+    "tableName": ...,
+    "schemaName": ...,
+    "value": {
+        "dataFormat": "hash",
+        "fields": [
+            ...
+       ]
+    }
+}</pre>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="postgresql.html">4.8. PostgreSQL Connector</a>
+    </span>
+    <span class="right">
+        <a href="system.html">4.10. System Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

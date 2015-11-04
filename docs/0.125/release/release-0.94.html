@@ -1,0 +1,96 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.32. Release 0.94 &mdash; Presto 0.125 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.125',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.125 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.33. Release 0.93" href="release-0.93.html" />
+    <link rel="prev" title="10.31. Release 0.95" href="release-0.95.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.125 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.32. Release 0.94</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.95.html">10.31. Release 0.95</a>
+    </span>
+    <span class="right">
+        <a href="release-0.93.html">10.33. Release 0.93</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-94">
+<h1>10.32. Release 0.94</h1>
+<div class="section" id="orc-memory-usage">
+<h2>ORC Memory Usage</h2>
+<p>This release contains additional changes to the Presto ORC reader to favor
+small buffers when reading varchar and varbinary data. Some ORC files contain
+columns of data that are hundreds of megabytes compressed. When reading these
+columns, Presto would allocate a single buffer for the compressed column data,
+and this would cause heap fragmentation in CMS and G1 and eventually OOMs.
+In this release, the <tt class="docutils literal"><span class="pre">hive.orc.max-buffer-size</span></tt> sets the maximum size for a
+single ORC buffer, and for larger columns we instead stream the data. This
+reduces heap fragmentation and excessive buffers in ORC at the expense of
+HDFS IOPS. The default value is <tt class="docutils literal"><span class="pre">8MB</span></tt>.</p>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Update Hive CDH 4 connector to CDH 4.7.1</li>
+<li>Fix <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> with <tt class="docutils literal"><span class="pre">LIMIT</span> <span class="pre">0</span></tt></li>
+<li>Fix compilation of <tt class="docutils literal"><span class="pre">try_cast</span></tt></li>
+<li>Group threads into Java thread groups to ease debugging</li>
+<li>Add <tt class="docutils literal"><span class="pre">task.min-drivers</span></tt> config to help limit number of concurrent readers</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.95.html">10.31. Release 0.95</a>
+    </span>
+    <span class="right">
+        <a href="release-0.93.html">10.33. Release 0.93</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
