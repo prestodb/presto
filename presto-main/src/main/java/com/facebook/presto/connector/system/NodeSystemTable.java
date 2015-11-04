@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
@@ -28,7 +29,12 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
+import java.util.Set;
+
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.spi.NodeState.ACTIVE;
+import static com.facebook.presto.spi.NodeState.INACTIVE;
+import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -44,7 +50,7 @@ public class NodeSystemTable
             .column("http_uri", VARCHAR)
             .column("node_version", VARCHAR)
             .column("coordinator", BOOLEAN)
-            .column("active", BOOLEAN)
+            .column("state", VARCHAR)
             .build();
 
     private final InternalNodeManager nodeManager;
@@ -72,13 +78,17 @@ public class NodeSystemTable
     {
         Builder table = InMemoryRecordSet.builder(NODES_TABLE);
         AllNodes allNodes = nodeManager.getAllNodes();
-        for (Node node : allNodes.getActiveNodes()) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), Boolean.TRUE);
-        }
-        for (Node node : allNodes.getInactiveNodes()) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), Boolean.FALSE);
-        }
+        addRows(table, allNodes.getActiveNodes(), ACTIVE);
+        addRows(table, allNodes.getInactiveNodes(), INACTIVE);
+        addRows(table, allNodes.getShuttingDownNodes(), SHUTTING_DOWN);
         return table.build().cursor();
+    }
+
+    private void addRows(Builder table, Set<Node> nodes, NodeState state)
+    {
+        for (Node node : nodes) {
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase());
+        }
     }
 
     private static String getNodeVersion(Node node)

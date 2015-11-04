@@ -13,15 +13,9 @@
  */
 package com.facebook.presto.spi;
 
-import java.util.Set;
-
-public interface NodeManager
+public enum NodeState
 {
-    Set<Node> getNodes(NodeState state);
-
-    Set<Node> getActiveDatasourceNodes(String datasourceName);
-
-    Node getCurrentNode();
-
-    Set<Node> getCoordinators();
+    ACTIVE,
+    INACTIVE,
+    SHUTTING_DOWN
 }

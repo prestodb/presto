@@ -100,7 +100,8 @@ public class PrestoServer
                 new EmbeddedDiscoveryModule(),
                 new ServerSecurityModule(),
                 new AccessControlModule(),
-                new ServerMainModule(sqlParserOptions));
+                new ServerMainModule(sqlParserOptions),
+                new GracefulShutdownModule());
 
         modules.addAll(getAdditionalModules());
 
