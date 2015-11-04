@@ -50,6 +50,8 @@ import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalLim
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
+import static com.facebook.presto.spi.NodeState.ACTIVE;
+import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -246,18 +248,23 @@ public class ClusterMemoryManager
 
     private void updateNodes(MemoryPoolAssignmentsRequest assignments)
     {
-        Set<Node> activeNodes = nodeManager.getActiveNodes();
-        ImmutableSet<String> activeNodeIds = activeNodes.stream()
+        ImmutableSet.Builder builder = new ImmutableSet.Builder();
+        Set<Node> aliveNodes = builder
+                .addAll(nodeManager.getNodes(ACTIVE))
+                .addAll(nodeManager.getNodes(SHUTTING_DOWN))
+                .build();
+
+        ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
                 .map(Node::getNodeIdentifier)
                 .collect(toImmutableSet());
 
         // Remove nodes that don't exist anymore
         // Make a copy to materialize the set difference
-        Set<String> deadNodes = ImmutableSet.copyOf(difference(nodes.keySet(), activeNodeIds));
+        Set<String> deadNodes = ImmutableSet.copyOf(difference(nodes.keySet(), aliveNodeIds));
         nodes.keySet().removeAll(deadNodes);
 
         // Add new nodes
-        for (Node node : activeNodes) {
+        for (Node node : aliveNodes) {
             if (!nodes.containsKey(node.getNodeIdentifier())) {
                 nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(httpClient, memoryInfoCodec, assignmentsRequestJsonCodec, locationFactory.createMemoryInfoLocation(node)));
             }

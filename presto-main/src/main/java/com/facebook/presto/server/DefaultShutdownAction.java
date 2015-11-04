@@ -11,17 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.server;
 
-import java.util.Set;
-
-public interface NodeManager
+public class DefaultShutdownAction
+        implements ShutdownAction
 {
-    Set<Node> getNodes(NodeState state);
-
-    Set<Node> getActiveDatasourceNodes(String datasourceName);
-
-    Node getCurrentNode();
-
-    Set<Node> getCoordinators();
+    @Override
+    public void onShutdown()
+    {
+        System.exit(0);
+    }
 }

@@ -45,6 +45,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.filterKeys;
@@ -166,7 +167,7 @@ public class ShardEjector
         // get the size of assigned shards for each node
         Map<String, Long> nodes = shardManager.getNodeBytes();
 
-        Set<String> activeNodes = nodeManager.getActiveNodes().stream()
+        Set<String> activeNodes = nodeManager.getNodes(ACTIVE).stream()
                 .map(Node::getNodeIdentifier)
                 .collect(toSet());
 

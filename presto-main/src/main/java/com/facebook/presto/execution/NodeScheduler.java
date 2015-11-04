@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -108,7 +109,7 @@ public class NodeScheduler
                 nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
             }
             else {
-                nodes = nodeManager.getActiveNodes();
+                nodes = nodeManager.getNodes(ACTIVE);
             }
 
             for (Node node : nodes) {

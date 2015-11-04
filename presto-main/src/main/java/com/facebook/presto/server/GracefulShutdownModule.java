@@ -11,17 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.server;
 
-import java.util.Set;
+import com.google.inject.Binder;
+import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
-public interface NodeManager
+public class GracefulShutdownModule
+        extends AbstractConfigurationAwareModule
 {
-    Set<Node> getNodes(NodeState state);
-
-    Set<Node> getActiveDatasourceNodes(String datasourceName);
-
-    Node getCurrentNode();
-
-    Set<Node> getCoordinators();
+    @Override
+    protected void setup(Binder binder)
+    {
+        binder.bind(ShutdownAction.class).to(DefaultShutdownAction.class).in(Scopes.SINGLETON);
+        binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
+    }
 }

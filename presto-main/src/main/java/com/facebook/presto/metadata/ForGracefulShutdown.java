@@ -11,17 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.metadata;
 
-import java.util.Set;
+import javax.inject.Qualifier;
 
-public interface NodeManager
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForGracefulShutdown
 {
-    Set<Node> getNodes(NodeState state);
-
-    Set<Node> getActiveDatasourceNodes(String datasourceName);
-
-    Node getCurrentNode();
-
-    Set<Node> getCoordinators();
 }
