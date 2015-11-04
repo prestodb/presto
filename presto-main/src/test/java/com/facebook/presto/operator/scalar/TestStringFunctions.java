@@ -60,18 +60,18 @@ public class TestStringFunctions
     {
         assertInvalidFunction("CONCAT()", "There must be two or more concatenation arguments");
         assertInvalidFunction("CONCAT('')", "There must be two or more concatenation arguments");
-        assertFunction("CONCAT('hello', ' world')", createVarcharType(11), "hello world");
-        assertFunction("CONCAT('', '')", createVarcharType(0), "");
-        assertFunction("CONCAT('what', '')", createVarcharType(4), "what");
-        assertFunction("CONCAT('', 'what')", createVarcharType(4), "what");
-        assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", createVarcharType(12), "this is cool");
-        assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", createVarcharType(12), "this is cool");
+        assertFunction("CONCAT('hello', ' world')", VARCHAR, "hello world");
+        assertFunction("CONCAT('', '')", VARCHAR, "");
+        assertFunction("CONCAT('what', '')", VARCHAR, "what");
+        assertFunction("CONCAT('', 'what')", VARCHAR, "what");
+        assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", VARCHAR, "this is cool");
+        assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", VARCHAR, "this is cool");
         //
         // Test concat for non-ASCII
-        assertFunction("CONCAT('hello na\u00EFve', ' world')", createVarcharType(17), "hello na\u00EFve world");
-        assertFunction("CONCAT('\uD801\uDC2D', 'end')", createVarcharType(5), "\uD801\uDC2Dend");
-        assertFunction("CONCAT('\uD801\uDC2D', 'end', '\uD801\uDC2D')", createVarcharType(5), "\uD801\uDC2Dend\uD801\uDC2D");
-        assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", createVarcharType(7), "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
+        assertFunction("CONCAT('hello na\u00EFve', ' world')", VARCHAR, "hello na\u00EFve world");
+        assertFunction("CONCAT('\uD801\uDC2D', 'end')", VARCHAR, "\uD801\uDC2Dend");
+        assertFunction("CONCAT('\uD801\uDC2D', 'end', '\uD801\uDC2D')", VARCHAR, "\uD801\uDC2Dend\uD801\uDC2D");
+        assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
     }
 
     @Test

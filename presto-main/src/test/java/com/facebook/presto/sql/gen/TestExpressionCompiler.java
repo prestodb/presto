@@ -397,11 +397,7 @@ public class TestExpressionCompiler
                 assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(right) >= 0);
                 assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(right) <= 0);
 
-                VarcharType expectedType = VARCHAR;
-                if (left != null && right != null) {
-                    expectedType = createVarcharType(left.length() + right.length());
-                }
-                assertExecute(generateExpression("%s || %s", left, right), expectedType, left == null || right == null ? null : left + right);
+                assertExecute(generateExpression("%s || %s", left, right), VARCHAR, left == null || right == null ? null : left + right);
 
                 assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));
 
