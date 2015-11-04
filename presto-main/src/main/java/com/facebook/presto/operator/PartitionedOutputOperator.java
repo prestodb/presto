@@ -92,6 +92,12 @@ public class PartitionedOutputOperator
         public void close()
         {
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new PartitionedOutputOperatorFactory(operatorId, sourceTypes, sharedBuffer);
+        }
     }
 
     private final OperatorContext operatorContext;

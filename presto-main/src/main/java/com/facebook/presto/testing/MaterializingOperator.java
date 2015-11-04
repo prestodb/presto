@@ -61,6 +61,12 @@ public class MaterializingOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new MaterializingOperatorFactory(operatorId, sourceTypes);
+        }
     }
 
     private final OperatorContext operatorContext;

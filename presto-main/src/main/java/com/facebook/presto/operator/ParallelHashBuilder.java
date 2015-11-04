@@ -152,6 +152,12 @@ public class ParallelHashBuilder
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            throw new UnsupportedOperationException("Parallel hash collector can not be duplicated");
+        }
     }
 
     private static class ParallelHashCollectOperator
@@ -329,6 +335,12 @@ public class ParallelHashBuilder
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            throw new UnsupportedOperationException("Parallel hash collector can not be duplicated");
         }
     }
 

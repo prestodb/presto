@@ -95,6 +95,12 @@ public class TopNOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new TopNOperatorFactory(operatorId, sourceTypes, n, sortChannels, sortOrders, partial);
+        }
     }
 
     private static final int MAX_INITIAL_PRIORITY_QUEUE_SIZE = 10000;
@@ -307,7 +313,7 @@ public class TopNOperator
 
             while (globalCandidates.size() > n) {
                 Block[] previous = globalCandidates.remove();
-                    sizeDelta -= sizeOfRow(previous);
+                sizeDelta -= sizeOfRow(previous);
             }
             return sizeDelta;
         }

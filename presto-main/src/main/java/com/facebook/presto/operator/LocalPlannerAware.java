@@ -13,19 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-
-public interface SourceOperatorFactory
-        extends OperatorFactory
+public interface LocalPlannerAware
 {
-    PlanNodeId getSourceId();
-
-    @Override
-    SourceOperator createOperator(DriverContext driverContext);
-
-    @Override
-    default OperatorFactory duplicate()
-    {
-        throw new UnsupportedOperationException("Source operator factories can not be duplicated");
-    }
+    void localPlannerComplete();
 }
