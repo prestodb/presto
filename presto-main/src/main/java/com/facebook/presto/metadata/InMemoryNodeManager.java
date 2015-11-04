@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -59,9 +60,18 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getActiveNodes()
+    public Set<Node> getNodes(NodeState state)
     {
-        return getAllNodes().getActiveNodes();
+        switch (state) {
+            case ACTIVE:
+                return getAllNodes().getActiveNodes();
+            case INACTIVE:
+                return getAllNodes().getInactiveNodes();
+            case SHUTTING_DOWN:
+                return getAllNodes().getShuttingDownNodes();
+            default:
+                throw new IllegalArgumentException("Unknown node state " + state);
+        }
     }
 
     @Override
@@ -73,7 +83,7 @@ public class InMemoryNodeManager
     @Override
     public AllNodes getAllNodes()
     {
-        return new AllNodes(ImmutableSet.<Node>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.<Node>of());
+        return new AllNodes(ImmutableSet.<Node>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.<Node>of(), ImmutableSet.<Node>of());
     }
 
     @Override

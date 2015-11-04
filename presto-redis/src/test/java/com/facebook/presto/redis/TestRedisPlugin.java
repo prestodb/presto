@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -91,7 +92,7 @@ public class TestRedisPlugin
         private static final Node LOCAL_NODE = new TestingNode();
 
         @Override
-        public Set<Node> getActiveNodes()
+        public Set<Node> getNodes(NodeState state)
         {
             return ImmutableSet.of(LOCAL_NODE);
         }

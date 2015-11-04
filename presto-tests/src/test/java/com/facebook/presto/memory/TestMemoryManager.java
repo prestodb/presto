@@ -262,7 +262,7 @@ public class TestMemoryManager
         executor.shutdownNow();
     }
 
-    private static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
+    public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 2, properties);

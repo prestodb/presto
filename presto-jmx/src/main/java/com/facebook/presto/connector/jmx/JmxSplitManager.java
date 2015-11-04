@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 
 import static com.facebook.presto.connector.jmx.Types.checkType;
+import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -76,7 +77,7 @@ public class JmxSplitManager
         //TODO is there a better way to get the node column?
         JmxColumnHandle nodeColumnHandle = tableHandle.getColumns().get(0);
 
-        List<ConnectorSplit> splits = nodeManager.getActiveNodes()
+        List<ConnectorSplit> splits = nodeManager.getNodes(ACTIVE)
                 .stream()
                 .filter(node -> {
                     NullableValue value = NullableValue.of(VARCHAR, utf8Slice(node.getNodeIdentifier()));
