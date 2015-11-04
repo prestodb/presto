@@ -34,6 +34,7 @@ public final class ApproximateDoublePercentileAggregations
 {
     public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, DOUBLE));
     public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE));
+    public static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = new AggregationCompiler().generateAggregationFunction(ApproximateDoublePercentileAggregations.class, DOUBLE, ImmutableList.<Type>of(DOUBLE, BIGINT, DOUBLE, DOUBLE));
 
     private ApproximateDoublePercentileAggregations() {}
 
@@ -47,6 +48,12 @@ public final class ApproximateDoublePercentileAggregations
     public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile);
+    }
+
+    @InputFunction
+    public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile, accuracy);
     }
 
     @CombineFunction
