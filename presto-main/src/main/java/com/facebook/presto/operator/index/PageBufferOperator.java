@@ -59,6 +59,12 @@ public class PageBufferOperator
         public void close()
         {
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new PageBufferOperatorFactory(operatorId, pageBuffer);
+        }
     }
 
     private final OperatorContext operatorContext;

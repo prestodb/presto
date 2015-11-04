@@ -99,6 +99,12 @@ public class TableWriterOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new TableWriterOperatorFactory(operatorId, pageSinkManager, target, inputChannels, sampleWeightChannel, session);
+        }
     }
 
     private enum State

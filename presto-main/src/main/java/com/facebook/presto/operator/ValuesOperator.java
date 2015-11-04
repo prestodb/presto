@@ -61,6 +61,12 @@ public class ValuesOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new ValuesOperatorFactory(operatorId, types, pages);
+        }
     }
 
     private final OperatorContext operatorContext;

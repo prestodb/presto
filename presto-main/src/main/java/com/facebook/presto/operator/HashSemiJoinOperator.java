@@ -77,6 +77,12 @@ public class HashSemiJoinOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new HashSemiJoinOperatorFactory(operatorId, setSupplier, probeTypes, probeJoinChannel);
+        }
     }
 
     private final int probeJoinChannel;

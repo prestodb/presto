@@ -71,6 +71,12 @@ public class AggregationOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new AggregationOperatorFactory(operatorId, step, accumulatorFactories);
+        }
     }
 
     private enum State

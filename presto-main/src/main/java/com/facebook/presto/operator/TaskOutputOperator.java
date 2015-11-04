@@ -73,6 +73,12 @@ public class TaskOutputOperator
         public void close()
         {
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new TaskOutputOperatorFactory(operatorId, sharedBuffer);
+        }
     }
 
     private final OperatorContext operatorContext;

@@ -344,6 +344,12 @@ public class LocalQueryRunner
                 public void close()
                 {
                 }
+
+                @Override
+                public OperatorFactory duplicate()
+                {
+                    throw new UnsupportedOperationException();
+                }
             };
         }
     }
@@ -572,6 +578,12 @@ public class LocalQueryRunner
             @Override
             public void close()
             {
+            }
+
+            @Override
+            public OperatorFactory duplicate()
+            {
+                throw new UnsupportedOperationException();
             }
         };
     }

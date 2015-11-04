@@ -69,6 +69,12 @@ public class SampleOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new SampleOperatorFactory(operatorId, sampleRatio, rescaled, types.subList(0, types.size() - 1));
+        }
     }
 
     private final OperatorContext operatorContext;

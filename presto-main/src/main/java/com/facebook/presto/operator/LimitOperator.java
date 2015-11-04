@@ -61,6 +61,12 @@ public class LimitOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new LimitOperatorFactory(operatorId, types, limit);
+        }
     }
 
     private final OperatorContext operatorContext;

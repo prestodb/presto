@@ -84,6 +84,12 @@ public class OrderByOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new OrderByOperatorFactory(operatorId, sourceTypes, outputChannels, expectedPositions, sortChannels, sortOrder);
+        }
     }
 
     private enum State

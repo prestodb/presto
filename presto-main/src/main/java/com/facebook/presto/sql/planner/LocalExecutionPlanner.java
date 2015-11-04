@@ -36,6 +36,7 @@ import com.facebook.presto.operator.HashPartitionMaskOperator.HashPartitionMaskO
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.InMemoryExchange;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
+import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
@@ -251,6 +252,14 @@ public class LocalExecutionPlanner
                         .build(),
                 context.getDriverInstanceCount());
         context.addDriverFactory(driverFactory);
+
+        // notify operator factories that planning has completed
+        context.getDriverFactories().stream()
+                .map(DriverFactory::getOperatorFactories)
+                .flatMap(List::stream)
+                .filter(LocalPlannerAware.class::isInstance)
+                .map(LocalPlannerAware.class::cast)
+                .forEach(LocalPlannerAware::localPlannerComplete);
 
         return new LocalExecutionPlan(context.getDriverFactories());
     }
@@ -698,7 +707,6 @@ public class LocalExecutionPlanner
                         .addAll(source.getOperatorFactories())
                         .add(exchange.createSinkFactory(intermediateContext.getNextOperatorId()))
                         .build();
-                exchange.noMoreSinkFactories();
                 context.addDriverFactory(new DriverFactory(intermediateContext.isInputDriver(), false, factories));
 
                 OperatorFactory exchangeSource = createRandomDistribution(context.getNextOperatorId(), exchange);
@@ -731,7 +739,6 @@ public class LocalExecutionPlanner
                     .addAll(source.getOperatorFactories())
                     .add(exchange.createSinkFactory(sourceContext.getNextOperatorId()))
                     .build();
-            exchange.noMoreSinkFactories();
             parallelContext.addDriverFactory(new DriverFactory(sourceContext.isInputDriver(), false, factories));
 
             // add broadcast exchange as first parallel operator
@@ -1491,7 +1498,12 @@ public class LocalExecutionPlanner
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));
 
-            SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(buildContext.getNextOperatorId(), buildSource.getTypes(), buildChannel, buildHashChannel, 10_000);
+            SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
+                    buildContext.getNextOperatorId(),
+                    buildSource.getTypes().get(buildChannel),
+                    buildChannel,
+                    buildHashChannel,
+                    10_000);
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             DriverFactory buildDriverFactory = new DriverFactory(
                     buildContext.isInputDriver(),
@@ -1565,8 +1577,6 @@ public class LocalExecutionPlanner
 
             // add sub-context to current context
             context.addDriverFactory(new DriverFactory(sourceContext.isInputDriver(), false, factories, sourceContext.getDriverInstanceCount()));
-
-            exchange.noMoreSinkFactories();
 
             // the main driver is not an input: the source is the input for the plan
             context.setInputDriver(false);
@@ -1644,7 +1654,6 @@ public class LocalExecutionPlanner
                 DriverFactory driverFactory = new DriverFactory(subContext.isInputDriver(), false, operatorFactories);
                 context.addDriverFactory(driverFactory);
             }
-            inMemoryExchange.noMoreSinkFactories();
 
             // the main driver is not an input... the union sources are the input for the plan
             context.setInputDriver(false);

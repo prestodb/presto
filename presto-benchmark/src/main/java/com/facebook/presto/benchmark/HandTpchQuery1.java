@@ -153,6 +153,12 @@ public class HandTpchQuery1
             public void close()
             {
             }
+
+            @Override
+            public OperatorFactory duplicate()
+            {
+                throw new UnsupportedOperationException();
+            }
         }
 
         private final OperatorContext operatorContext;

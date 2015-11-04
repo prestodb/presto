@@ -73,6 +73,12 @@ public class MetadataDeleteOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new MetadataDeleteOperatorFactory(operatorId, tableLayout, metadata, session, tableHandle);
+        }
     }
 
     private final OperatorContext operatorContext;

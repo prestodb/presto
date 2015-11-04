@@ -73,6 +73,12 @@ public class DeleteOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new DeleteOperatorFactory(operatorId, rowIdChannel);
+        }
     }
 
     private enum State

@@ -135,6 +135,23 @@ public class WindowOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new WindowOperatorFactory(
+                operatorId,
+                sourceTypes,
+                outputChannels,
+                windowFunctionDefinitions,
+                partitionChannels,
+                preGroupedChannels,
+                sortChannels,
+                sortOrder,
+                preSortedChannelPrefix,
+                frameInfo,
+                expectedPositions);
+        }
     }
 
     private enum State

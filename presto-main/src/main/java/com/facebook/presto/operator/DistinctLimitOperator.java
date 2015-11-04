@@ -70,6 +70,12 @@ public class DistinctLimitOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new DistinctLimitOperatorFactory(operatorId, types, distinctChannels, limit, hashChannel);
+        }
     }
 
     private final OperatorContext operatorContext;

@@ -65,6 +65,12 @@ public class PagesIndexBuilderOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new PagesIndexBuilderOperatorFactory(operatorId, indexSnapshotBuilder);
+        }
     }
 
     private final OperatorContext operatorContext;

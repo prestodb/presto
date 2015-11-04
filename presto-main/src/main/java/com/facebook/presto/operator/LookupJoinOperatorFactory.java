@@ -74,4 +74,10 @@ public class LookupJoinOperatorFactory
         closed = true;
         lookupSourceSupplier.release();
     }
+
+    @Override
+    public OperatorFactory duplicate()
+    {
+        return new LookupJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, joinType, joinProbeFactory);
+    }
 }
