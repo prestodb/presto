@@ -312,6 +312,10 @@ public class OrcTester
                     // DWRF doesn't support dates
                     return;
                 }
+                if (hasType(objectInspector, PrimitiveCategory.DECIMAL)) {
+                    // DWRF doesn't support decimals
+                    return;
+                }
                 metadataReader = new DwrfMetadataReader();
             }
             else {
@@ -510,7 +514,8 @@ public class OrcTester
                 Text.class,
                 compressionCodec != NONE,
                 createTableProperties("test", columnObjectInspector.getTypeName()),
-                () -> { }
+                () -> {
+                }
         );
     }
 

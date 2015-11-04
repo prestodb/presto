@@ -66,11 +66,11 @@ public class MapStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public MapStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, Type type)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
-        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone);
+        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), type.getTypeParameters().get(0), hiveStorageTimeZone);
+        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), type.getTypeParameters().get(1), hiveStorageTimeZone);
     }
 
     @Override

@@ -67,10 +67,12 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.BigintOperators;
@@ -78,11 +80,13 @@ import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.ColorOperators;
 import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
+import com.facebook.presto.type.DecimalOperators;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.HyperLogLogOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowParametricType;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TimeOperators;
@@ -117,6 +121,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -189,6 +194,7 @@ import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_C
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
+import static com.facebook.presto.operator.scalar.VarcharToVarcharCast.VARCHAR_TO_VARCHAR_CAST;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -202,6 +208,26 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
+import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_VARCHAR_CAST;
+import static com.facebook.presto.type.DecimalCasts.DOUBLE_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_BETWEEN_OPERATOR;
+import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_EQUAL_OPERATOR;
+import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_GREATER_THAN_OPERATOR;
+import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_LESS_THAN_OPERATOR;
+import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_NOT_EQUAL_OPERATOR;
+import static com.facebook.presto.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
+import static com.facebook.presto.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
+import static com.facebook.presto.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATOR;
+import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.RegexpType.REGEXP;
@@ -214,6 +240,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -243,7 +270,7 @@ public class FunctionRegistry
                     public FunctionInfo load(SpecializedFunctionKey key)
                             throws Exception
                     {
-                        return key.getFunction().specialize(key.getBoundTypeParameters(), key.getArity(), typeManager, FunctionRegistry.this);
+                        return key.getFunction().specialize(key.getBoundTypeParameters(), key.getParameterTypes(), typeManager, FunctionRegistry.this);
                     }
                 });
 
@@ -312,6 +339,7 @@ public class FunctionRegistry
                 .scalar(CombineHashFunction.class)
                 .scalar(JsonOperators.class)
                 .scalar(FailureFunction.class)
+                .scalar(DecimalOperators.class)
                 .function(IDENTITY_CAST)
                 .functions(ARRAY_CONTAINS, ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
                 .functions(ARRAY_MIN, ARRAY_MAX)
@@ -321,8 +349,16 @@ public class FunctionRegistry
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_ELEMENT_AT_FUNCTION, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_DISTINCT_FUNCTION, ARRAY_REMOVE_FUNCTION, ARRAY_SLICE_FUNCTION)
                 .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES)
                 .functions(MAP_AGG, MULTIMAP_AGG)
+                .functions(DECIMAL_TO_VARCHAR_CAST, BOOLEAN_TO_DECIMAL_CAST, DECIMAL_TO_BIGINT_CAST, DOUBLE_TO_DECIMAL_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_BOOLEAN_CAST, BIGINT_TO_DECIMAL_CAST, VARCHAR_TO_DECIMAL_CAST)
+                .functions(DECIMAL_MULTIPLY_OPERATOR, DECIMAL_DIVIDE_OPERATOR, DECIMAL_MODULUS_OPERATOR)
+                .functions(DECIMAL_EQUAL_OPERATOR, DECIMAL_NOT_EQUAL_OPERATOR)
+                .functions(DECIMAL_LESS_THAN_OPERATOR, DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR)
+                .functions(DECIMAL_GREATER_THAN_OPERATOR, DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR)
+                .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
+                .function(VARCHAR_TO_VARCHAR_CAST)
+                .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
                 .function(ARRAY_AGGREGATION)
                 .functions(GREATEST, LEAST)
@@ -331,6 +367,7 @@ public class FunctionRegistry
                 .function(COUNT_COLUMN)
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL)
                 .function(CONCAT)
+                .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(TRY_CAST);
 
         if (experimentalSyntaxEnabled) {
@@ -345,6 +382,18 @@ public class FunctionRegistry
 
     @Nullable
     private static Signature bindSignature(Signature signature, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    {
+        Signature mangledSignature = extractTypeParametersForArgumentsWithLiteralParameters(signature);
+        Signature boundMangledSignature = bindSignatureInternal(mangledSignature, types, allowCoercion, typeManager);
+        if (boundMangledSignature == null) {
+            return null;
+        }
+        Signature boundOriginalSignature = bindSignatureInternal(signature, types, allowCoercion, typeManager);
+        requireNonNull(boundOriginalSignature, () -> format("unexpected null when binding original signature %s", signature));
+        return boundOriginalSignature.resolveCalculatedTypes(boundMangledSignature.getArgumentTypes());
+    }
+
+    private static Signature bindSignatureInternal(Signature signature, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
         List<TypeSignature> argumentTypes = signature.getArgumentTypes();
         Map<String, Type> boundParameters = signature.bindTypeParameters(types, allowCoercion, typeManager);
@@ -366,7 +415,35 @@ public class FunctionRegistry
                 boundArguments.add(lastArgument);
             }
         }
-        return new Signature(signature.getName(), signature.getType(), bindParameters(signature.getReturnType(), boundParameters), boundArguments.build());
+        Signature boundSignature = new Signature(signature.getName(), signature.getType(), bindParameters(signature.getReturnType(), boundParameters), boundArguments.build());
+        return boundSignature;
+    }
+
+    private static Signature extractTypeParametersForArgumentsWithLiteralParameters(Signature signature)
+    {
+        SignatureBuilder newSignature = Signature.builder(signature);
+        newSignature.clearArgumentTypes();
+        Map<TypeSignature, String> generatedTypeVariables = new HashMap<>();
+        int typeVariableNameId = 0;
+        for (TypeSignature argumentType : signature.getArgumentTypes()) {
+            if (!argumentType.getLiteralParameters().isEmpty()) {
+                String argumentTypeName;
+                if (!generatedTypeVariables.containsKey(argumentType)) {
+                    argumentTypeName = "GENTYPE" + typeVariableNameId++;
+                    generatedTypeVariables.put(argumentType, argumentTypeName);
+                    newSignature.addTypeParameter(new TypeParameter(argumentTypeName, false, false, argumentType.getBase()));
+                }
+                else {
+                    argumentTypeName = generatedTypeVariables.get(argumentType);
+                }
+                newSignature.addArgumentType(new TypeSignature(argumentTypeName, emptyList(), emptyList()));
+            }
+            else {
+                newSignature.addArgumentType(argumentType);
+            }
+        }
+
+        return newSignature.build();
     }
 
     private static TypeSignature bindParameters(TypeSignature typeSignature, Map<String, Type> boundParameters)
@@ -419,25 +496,28 @@ public class FunctionRegistry
             }
         }
 
-        if (match != null) {
-            return match;
+        // search for coerced match
+        if (match == null) {
+            for (ParametricFunction function : candidates) {
+                Signature signature = bindSignature(function.getSignature(), resolvedTypes, true, typeManager);
+                if (signature != null) {
+                    // TODO: This should also check for ambiguities
+                    match = signature;
+                    break;
+                }
+            }
         }
 
-        // search for coerced match
-        for (ParametricFunction function : candidates) {
-            Signature signature = bindSignature(function.getSignature(), resolvedTypes, true, typeManager);
-            if (signature != null) {
-                // TODO: This should also check for ambiguities
-                return signature;
-            }
+        if (match != null) {
+            return match;
         }
 
         List<String> expectedParameters = new ArrayList<>();
         for (ParametricFunction function : candidates) {
             expectedParameters.add(format("%s(%s) %s",
-                                    name,
-                                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                                    Joiner.on(", ").join(function.getSignature().getTypeParameters())));
+                    name,
+                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
+                    Joiner.on(", ").join(function.getSignature().getTypeParameters())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
         String message = format("Function %s not registered", name);
@@ -487,7 +567,7 @@ public class FunctionRegistry
                     if (boundTypeParameters != null) {
                         checkArgument(match == null, "Ambiguous call to %s with parameters %s", name, parameterTypes);
                         try {
-                            match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, resolvedTypes.size()));
+                            match = specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(function, boundTypeParameters, parameterTypes));
                         }
                         catch (UncheckedExecutionException e) {
                             throw Throwables.propagate(e.getCause());
@@ -496,7 +576,7 @@ public class FunctionRegistry
                 }
 
                 if (match != null) {
-                    return match;
+                    return match.resolveCalculatedTypes(parameterTypes);
                 }
             }
         }
@@ -513,7 +593,7 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 try {
-                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes().size()));
+                    return specializedFunctionCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes()));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -609,7 +689,7 @@ public class FunctionRegistry
                 .collect(toImmutableList());
     }
 
-    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends  Type> argumentTypes)
+    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
     {
         return getExactFunction(internalOperator(operatorType, returnType, argumentTypes)) != null;
     }
@@ -660,6 +740,10 @@ public class FunctionRegistry
         if (expectedType.equals(actualType)) {
             return true;
         }
+        // is this a coercion of the type only (no data change)
+        if (isTypeOnlyCoercion(actualType, expectedType)) {
+            return true;
+        }
         // null can be cast to anything
         if (actualType.equals(UNKNOWN)) {
             return true;
@@ -685,15 +769,15 @@ public class FunctionRegistry
             return true;
         }
 
-        if (actualType.equals(VARCHAR) && expectedType.equals(REGEXP)) {
+        if (actualType instanceof VarcharType && expectedType.equals(REGEXP)) {
             return true;
         }
 
-        if (actualType.equals(VARCHAR) && expectedType.equals(LIKE_PATTERN)) {
+        if (actualType instanceof VarcharType && expectedType.equals(LIKE_PATTERN)) {
             return true;
         }
 
-        if (actualType.equals(VARCHAR) && expectedType.equals(JSON_PATH)) {
+        if (actualType instanceof VarcharType && expectedType.equals(JSON_PATH)) {
             return true;
         }
 
@@ -701,6 +785,37 @@ public class FunctionRegistry
             Type actualElementType = ((ArrayType) actualType).getElementType();
             Type expectedElementType = ((ArrayType) expectedType).getElementType();
             return canCoerce(actualElementType, expectedElementType);
+        }
+
+        if (actualType instanceof DecimalType && expectedType instanceof DecimalType) {
+            Optional<Type> superType = getCommonSuperType(actualType, expectedType);
+            return superType.isPresent() && superType.get().equals(expectedType);
+        }
+
+        return false;
+    }
+
+    public static boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    {
+        if (actualType.equals(expectedType)) {
+            return true;
+        }
+
+        if (actualType instanceof VarcharType && expectedType instanceof VarcharType) {
+            if (expectedType.equals(VARCHAR)) {
+                return true;
+            }
+            return ((VarcharType) actualType).getLength().orElse(Integer.MAX_VALUE) < ((VarcharType) expectedType).getLength().orElse(Integer.MAX_VALUE);
+        }
+
+        if (actualType instanceof DecimalType && expectedType instanceof DecimalType) {
+            DecimalType actualDecimal = (DecimalType) actualType;
+            DecimalType expectedDecimal = (DecimalType) expectedType;
+
+            if (actualDecimal.isShort() ^ expectedDecimal.isShort()) {
+                return false;
+            }
+            return actualDecimal.getScale() == expectedDecimal.getScale() && actualDecimal.getPrecision() <= expectedDecimal.getPrecision();
         }
 
         return false;
@@ -754,6 +869,16 @@ public class FunctionRegistry
             return Optional.<Type>of(TIMESTAMP_WITH_TIME_ZONE);
         }
 
+        if (firstType instanceof VarcharType && secondType instanceof VarcharType) {
+            VarcharType firstVarchar = (VarcharType) firstType;
+            VarcharType secondVarchar = (VarcharType) secondType;
+            if (!firstVarchar.getLength().isPresent() || !secondVarchar.getLength().isPresent()) {
+                return Optional.of(VARCHAR);
+            }
+            int length = Math.max(firstVarchar.getLength().getAsInt(), secondVarchar.getLength().getAsInt());
+            return Optional.of(createVarcharType(length));
+        }
+
         if (firstType instanceof ArrayType && secondType instanceof ArrayType) {
             Optional<Type> elementType = getCommonSuperType(((ArrayType) firstType).getElementType(), ((ArrayType) secondType).getElementType());
             if (elementType.isPresent()) {
@@ -761,13 +886,32 @@ public class FunctionRegistry
             }
         }
 
-        // TODO add row and map type
+        if (firstType instanceof MapType && secondType instanceof MapType) {
+            Optional<Type> keyType = getCommonSuperType(((MapType) firstType).getKeyType(), ((MapType) secondType).getKeyType());
+            Optional<Type> valueType = getCommonSuperType(((MapType) firstType).getValueType(), ((MapType) secondType).getValueType());
+            if (keyType.isPresent() && valueType.isPresent()) {
+                return Optional.of(new MapType(keyType.get(), valueType.get()));
+            }
+        }
+        if (firstType instanceof DecimalType && secondType instanceof DecimalType) {
+            DecimalType firstDecimal = (DecimalType) firstType;
+            DecimalType secondDecimal = (DecimalType) secondType;
+            int targetScale = Math.max(firstDecimal.getScale(), secondDecimal.getScale());
+            int targetPrecision = Math.max(firstDecimal.getPrecision() - firstDecimal.getScale(), secondDecimal.getPrecision() - secondDecimal.getScale()) + targetScale;
+            targetPrecision = Math.min(38, targetPrecision); //we allow potential loss of precision here. Overflow checking is done in operators.
+            return Optional.of(DecimalType.createDecimalType(targetPrecision, targetScale));
+        }
+
+        // TODO add row type
 
         return Optional.empty();
     }
 
     public static Type typeForMagicLiteral(Type type)
     {
+        if (type instanceof VarcharType) {
+            return type;
+        }
         Class<?> clazz = type.getJavaType();
         clazz = Primitives.unwrap(clazz);
 
@@ -793,7 +937,13 @@ public class FunctionRegistry
 
     public static Signature getMagicLiteralFunctionSignature(Type type)
     {
-        TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
+        TypeSignature argumentType;
+        if (type.getJavaType() == Slice.class && !type.equals(VARCHAR)) {
+            argumentType = VARBINARY.getTypeSignature();
+        }
+        else {
+            argumentType = typeForMagicLiteral(type).getTypeSignature();
+        }
 
         return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
                 SCALAR,

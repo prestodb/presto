@@ -29,6 +29,7 @@ import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.FunctionType.SCALAR;
@@ -71,7 +72,7 @@ public final class ArrayIntersectFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(types.size() == 1, format("%s expects only one argument", FUNCTION_NAME));
         TypeSignature typeSignature = parameterizedTypeName("array", types.get("E").getTypeSignature());

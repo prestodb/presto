@@ -131,9 +131,18 @@ public final class FunctionInfo
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public FunctionInfo specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         return this;
+    }
+
+    public FunctionInfo resolveCalculatedTypes(List<TypeSignature> parameterTypes)
+    {
+        Signature resolvedSignature = signature.resolveCalculatedTypes(parameterTypes);
+        if (resolvedSignature == signature) {
+            return this;
+        }
+        return new FunctionInfo(resolvedSignature, description, hidden, methodHandle, deterministic, nullable, nullableArguments);
     }
 
     @Deprecated

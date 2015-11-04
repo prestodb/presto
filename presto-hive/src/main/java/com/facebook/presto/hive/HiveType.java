@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -22,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
@@ -40,6 +42,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -52,6 +55,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.binaryTypeI
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.booleanTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.byteTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.dateTypeInfo;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.decimalTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.doubleTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.floatTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getListTypeInfo;
@@ -145,8 +149,7 @@ public final class HiveType
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
-                PrimitiveObjectInspector.PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory();
-                return getPrimitiveType(primitiveCategory) != null;
+                return getPrimitiveType((PrimitiveTypeInfo) typeInfo) != null;
             case MAP:
                 MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "typeInfo");
                 return isSupportedType(mapTypeInfo.getMapKeyTypeInfo()) && isSupportedType(mapTypeInfo.getMapValueTypeInfo());
@@ -219,6 +222,10 @@ public final class HiveType
         if (TIMESTAMP.equals(type)) {
             return HIVE_TIMESTAMP.typeInfo;
         }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
+        }
         if (isArrayType(type)) {
             TypeInfo elementType = toTypeInfo(type.getTypeParameters().get(0));
             return getListTypeInfo(elementType);
@@ -246,7 +253,7 @@ public final class HiveType
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
                 PrimitiveObjectInspector.PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory();
-                Type primitiveType = getPrimitiveType(primitiveCategory);
+                Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
                 if (primitiveType == null) {
                     break;
                 }
@@ -272,9 +279,9 @@ public final class HiveType
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }
 
-    private static Type getPrimitiveType(PrimitiveObjectInspector.PrimitiveCategory primitiveCategory)
+public static Type getPrimitiveType(PrimitiveTypeInfo typeInfo)
     {
-        switch (primitiveCategory) {
+        switch (typeInfo.getPrimitiveCategory()) {
             case BOOLEAN:
                 return BOOLEAN;
             case BYTE:
@@ -297,6 +304,9 @@ public final class HiveType
                 return TIMESTAMP;
             case BINARY:
                 return VARBINARY;
+            case DECIMAL:
+                DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
+                return createDecimalType(decimalTypeInfo.precision(), decimalTypeInfo.scale());
             default:
                 return null;
         }

@@ -242,6 +242,11 @@
             <artifactId>jgrapht-core</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -302,7 +307,10 @@
                     <failOnViolations>false</failOnViolations>
                 </configuration>
             </plugin>
-
+            <plugin>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-maven-plugin</artifactId>
+            </plugin>
             <plugin>
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
@@ -346,7 +354,7 @@
                                 <argument>-DoutputDirectory=benchmark_outputs</argument>
                                 <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
-                                <classpath />
+                                <classpath/>
                                 <argument>com.facebook.presto.benchmark.BenchmarkSuite</argument>
                             </arguments>
                             <classpathScope>test</classpathScope>

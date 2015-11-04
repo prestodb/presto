@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -142,6 +143,7 @@ public class TestSqlParser
     public static void assertGenericLiteral(String type)
     {
         assertExpression(type + " 'abc'", new GenericLiteral(type, "abc"));
+        assertExpression(type + "(42) 'abc'", new GenericLiteral(type + "(42)", "abc"));
     }
 
     @Test
@@ -152,6 +154,8 @@ public class TestSqlParser
         assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
         assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
         assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
+        assertExpression("VARCHAR(42)" + " 'abc'", new GenericLiteral("VARCHAR(42)", "abc"));
+        assertExpression("FOO(42, 55)" + " 'abc'", new GenericLiteral("FOO(42, 55)", "abc"));
     }
 
     @Test
@@ -233,6 +237,13 @@ public class TestSqlParser
         assertCast("boolean array  array ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
         assertCast("boolean ARRAY ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
         assertCast("ARRAY<boolean> ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
+
+        assertCast("varchar(42)");
+        assertCast("foo(42, 55)");
+        assertCast("ARRAY<varchar(42)>");
+        assertCast("ARRAY<foo(42, 55)>");
+        assertCast("varchar(42) ARRAY", "ARRAY<varchar(42)>");
+        assertCast("foo(42, 55) ARRAY", "ARRAY<foo(42, 55)>");
     }
 
     @Test
@@ -587,6 +598,20 @@ public class TestSqlParser
         assertExpression("INTERVAL '23:59' HOUR TO MINUTE", new IntervalLiteral("23:59", Sign.POSITIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)));
         assertExpression("INTERVAL '123' MINUTE", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.MINUTE));
         assertExpression("INTERVAL '123' SECOND", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.SECOND));
+    }
+
+    @Test
+    public void testDecimal()
+            throws Exception
+    {
+        assertExpression("DECIMAL 12.34", new DecimalLiteral("12.34"));
+        assertExpression("DECIMAL 12.", new DecimalLiteral("12."));
+        assertExpression("DECIMAL 12", new DecimalLiteral("12"));
+        assertExpression("DECIMAL .34", new DecimalLiteral(".34"));
+        assertExpression("DECIMAL +12.34", new DecimalLiteral("12.34"));
+        assertExpression("DECIMAL +12", new DecimalLiteral("12"));
+        assertExpression("DECIMAL -12.34", new DecimalLiteral("-12.34"));
+        assertExpression("DECIMAL -12", new DecimalLiteral("-12"));
     }
 
     @Test

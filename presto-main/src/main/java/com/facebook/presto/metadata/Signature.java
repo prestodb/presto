@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
@@ -40,6 +42,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.any;
 import static java.util.Objects.requireNonNull;
 
 public final class Signature
@@ -96,7 +99,7 @@ public final class Signature
         this(name, type, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends  Type> argumentTypes)
+    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends Type> argumentTypes)
     {
         return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }
@@ -165,6 +168,36 @@ public final class Signature
     public List<TypeParameter> getTypeParameters()
     {
         return typeParameters;
+    }
+
+    public Signature resolveCalculatedTypes(List<TypeSignature> parameterTypes)
+    {
+        if (!isReturnTypeOrAnyArgumentTypeCalculated()) {
+            return this;
+        }
+
+        Map<String, OptionalLong> inputs = bindLiteralParameters(parameterTypes);
+        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
+        return new Signature(name, type, calculatedReturnType, parameterTypes);
+    }
+
+    public boolean isReturnTypeOrAnyArgumentTypeCalculated()
+    {
+        return returnType.isCalculated() || any(argumentTypes, TypeSignature::isCalculated);
+    }
+
+    public Map<String, OptionalLong> bindLiteralParameters(List<TypeSignature> parameterTypes)
+    {
+        Map<String, OptionalLong> boundParameters = new HashMap<>();
+
+        for (int index = 0; index < argumentTypes.size(); index++) {
+            TypeSignature argument = argumentTypes.get(index);
+            if (argument.isCalculated()) {
+                TypeSignature actualParameter = parameterTypes.get(index);
+                boundParameters.putAll(TypeUtils.extractLiteralParameters(argument, actualParameter));
+            }
+        }
+        return boundParameters;
     }
 
     @Override
@@ -293,17 +326,31 @@ public final class Signature
 
     private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameter> typeParameters, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
     {
+        // TODO: the code flow here needs reworking. The 'if (allowCoercion()) {...
+        // does not make much sense if parameter, we are matching to, is calculated type.
+        // Similar binding logic as is done for type parameters should be performed here
+        // for literal parameters. I would like to leave it out of this patch as
+        // the type system code is going to be refactored soon anyway.
+
         // If this parameter is already bound, then match (with coercion)
         if (boundParameters.containsKey(parameter.getBase())) {
-            checkArgument(parameter.getParameters().isEmpty(), "Unexpected parameteric type");
-            if (allowCoercion) {
+            checkArgument(parameter.getParameters().isEmpty(), "Unexpected parametric type");
+            if (allowCoercion && !parameter.isCalculated()) { // see above for explanation of !parameter.isCalculated()
                 if (canCoerce(type, boundParameters.get(parameter.getBase()))) {
                     return true;
                 }
                 else if (canCoerce(boundParameters.get(parameter.getBase()), type) && typeParameters.get(parameter.getBase()).canBind(type)) {
-                    // Broaden the binding
+                    // Try to coerce current binding to new candidate
                     boundParameters.put(parameter.getBase(), type);
                     return true;
+                }
+                else {
+                    // Try to use common super type of current binding and candidate
+                    Optional<Type> commonSuperType = getCommonSuperType(boundParameters.get(parameter.getBase()), type);
+                    if (commonSuperType.isPresent() && typeParameters.get(parameter.getBase()).canBind(commonSuperType.get())) {
+                        boundParameters.put(parameter.getBase(), commonSuperType.get());
+                        return true;
+                    }
                 }
                 return false;
             }
@@ -342,11 +389,12 @@ public final class Signature
         }
 
         // The parameter is not a type parameter, so it must be a concrete type
-        if (allowCoercion) {
-            return canCoerce(type, typeManager.getType(parseTypeSignature(parameter.getBase())));
+        Type parameterType = typeManager.getType(parseTypeSignature(parameter.getBase()));
+        if (allowCoercion && !parameter.isCalculated()) { // see above for explanation of !parameter.isCalculated()
+            return canCoerce(type, parameterType);
         }
         else {
-            return type.equals(typeManager.getType(parseTypeSignature(parameter.getBase())));
+            return type.getTypeSignature().getBase().equals(parameterType.getTypeSignature().getBase());
         }
     }
 
@@ -376,5 +424,15 @@ public final class Signature
     public static TypeParameter orderableTypeParameter(String name)
     {
         return new TypeParameter(name, false, true, null);
+    }
+
+    public static SignatureBuilder builder()
+    {
+        return new SignatureBuilder();
+    }
+
+    public static SignatureBuilder builder(Signature source)
+    {
+        return new SignatureBuilder(source);
     }
 }
