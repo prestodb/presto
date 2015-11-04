@@ -1,0 +1,122 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.1. Release 0.124 &mdash; Presto 0.124 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.124',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.124 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.2. Release 0.123" href="release-0.123.html" />
+    <link rel="prev" title="10. Release Notes" href="../release.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.124 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.1. Release 0.124</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.123.html">10.2. Release 0.123</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-124">
+<h1>10.1. Release 0.124</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix race in memory tracking of <tt class="docutils literal"><span class="pre">JOIN</span></tt> which could cause the cluster to become over
+committed and possibly crash.</li>
+<li>The <a class="reference internal" href="../functions/aggregate.html#approx_percentile" title="approx_percentile"><tt class="xref py py-func docutils literal"><span class="pre">approx_percentile()</span></tt></a> aggregation now also accepts an array of percentages.</li>
+<li>Allow nested row type references.</li>
+<li>Fix correctness for some queries with <tt class="docutils literal"><span class="pre">IN</span></tt> lists. When all constants in the
+list are in the range of 32-bit signed integers but the test value can be
+outside of the range, <tt class="docutils literal"><span class="pre">true</span></tt> may be produced when the correct result should
+be <tt class="docutils literal"><span class="pre">false</span></tt>.</li>
+<li>Fail queries submitted while coordinator is starting.</li>
+<li>Add JMX stats to track authentication and authorization successes and failures.</li>
+<li>Add configuration support for the system access control plugin. The system access
+controller can be selected and configured using <tt class="docutils literal"><span class="pre">etc/access-control.properties</span></tt>.
+Note that Presto currently does not ship with any system access controller
+implementations.</li>
+<li>Add support for <tt class="docutils literal"><span class="pre">WITH</span> <span class="pre">NO</span> <span class="pre">DATA</span></tt> syntax in <tt class="docutils literal"><span class="pre">CREATE</span> <span class="pre">TABLE</span> <span class="pre">...</span> <span class="pre">AS</span> <span class="pre">SELECT</span></tt>.</li>
+<li>Fix issue where invalid plans are generated for queries with multiple aggregations
+that require input values to be cast in different ways.</li>
+<li>Fix performance issue due to redundant processing in queries involving <tt class="docutils literal"><span class="pre">DISTINCT</span></tt>
+and <tt class="docutils literal"><span class="pre">LIMIT</span></tt>.</li>
+<li>Add optimization that can reduce the amount of data sent over the network
+for grouped aggregation queries. This feature can be enabled by
+<tt class="docutils literal"><span class="pre">optimizer.use-intermediate-aggregations</span></tt> config property or
+<tt class="docutils literal"><span class="pre">task_intermediate_aggregation</span></tt> session property.</li>
+</ul>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Do not count expected exceptions as errors in the Hive metastore client stats.</li>
+<li>Improve performance when reading ORC files with many tiny stripes.</li>
+</ul>
+</div>
+<div class="section" id="verifier">
+<h2>Verifier</h2>
+<ul class="simple">
+<li>Add support for pre and post control and test queries.</li>
+</ul>
+<p>If you are upgrading, you need to alter your <tt class="docutils literal"><span class="pre">verifier_queries</span></tt> table:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">verifier_queries</span> <span class="k">ADD</span> <span class="k">COLUMN</span> <span class="n">test_postqueries</span> <span class="nb">text</span><span class="p">;</span>
+<span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">verifier_queries</span> <span class="k">ADD</span> <span class="k">COLUMN</span> <span class="n">test_prequeries</span> <span class="nb">text</span><span class="p">;</span>
+<span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">verifier_queries</span> <span class="k">ADD</span> <span class="k">COLUMN</span> <span class="n">control_postqueries</span> <span class="nb">text</span><span class="p">;</span>
+<span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">verifier_queries</span> <span class="k">ADD</span> <span class="k">COLUMN</span> <span class="n">control_prequeries</span> <span class="nb">text</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.123.html">10.2. Release 0.123</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

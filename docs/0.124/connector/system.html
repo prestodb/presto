@@ -1,0 +1,127 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.10. System Connector &mdash; Presto 0.124 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.124',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.124 Documentation" href="../index.html" />
+    <link rel="up" title="4. Connectors" href="../connector.html" />
+    <link rel="next" title="4.11. TPCH Connector" href="tpch.html" />
+    <link rel="prev" title="4.9. Redis Connector" href="redis.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.124 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.10. System Connector</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="redis.html">4.9. Redis Connector</a>
+    </span>
+    <span class="right">
+        <a href="tpch.html">4.11. TPCH Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="system-connector">
+<h1>4.10. System Connector</h1>
+<p>The System connector provides information and metrics about the currently
+running Presto cluster. It makes this available via normal SQL queries.</p>
+<div class="section" id="configuration">
+<h2>Configuration</h2>
+<p>The System connector doesn&#8217;t need to be configured: it is automatically
+available via a catalog named <tt class="docutils literal"><span class="pre">system</span></tt>.</p>
+</div>
+<div class="section" id="using-the-system-connector">
+<h2>Using the System Connector</h2>
+<p>List the available system schemas:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">SCHEMAS</span> <span class="k">FROM</span> <span class="k">system</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>List the tables in one of the schemas:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SHOW</span> <span class="n">TABLES</span> <span class="k">FROM</span> <span class="k">system</span><span class="p">.</span><span class="n">runtime</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Query one of the tables:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="k">system</span><span class="p">.</span><span class="n">runtime</span><span class="p">.</span><span class="n">nodes</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="system-connector-tables">
+<h2>System Connector Tables</h2>
+<div class="section" id="metadata-catalog">
+<h3><tt class="docutils literal"><span class="pre">metadata.catalog</span></tt></h3>
+<p>The catalogs table contains the list of available catalogs.</p>
+</div>
+<div class="section" id="metadata-table-properties">
+<h3><tt class="docutils literal"><span class="pre">metadata.table_properties</span></tt></h3>
+<p>The table properties table contains the list of available properties
+that can be set when creating a new table.</p>
+</div>
+<div class="section" id="runtime-nodes">
+<h3><tt class="docutils literal"><span class="pre">runtime.nodes</span></tt></h3>
+<p>The nodes table contains the list of visible nodes in the Presto
+cluster along with their status.</p>
+</div>
+<div class="section" id="runtime-queries">
+<h3><tt class="docutils literal"><span class="pre">runtime.queries</span></tt></h3>
+<p>The queries table contains information about currently and recently
+running queries on the Presto cluster. From this table you can find out
+the original query text (SQL), the identity of the user who ran the query
+and performance information about the query including how long the query
+was queued and analyzed.</p>
+</div>
+<div class="section" id="runtime-tasks">
+<h3><tt class="docutils literal"><span class="pre">runtime.tasks</span></tt></h3>
+<p>The tasks table contains information about the tasks involved in a
+Presto query including where they were executed and and how many rows
+and bytes each task processed.</p>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="redis.html">4.9. Redis Connector</a>
+    </span>
+    <span class="right">
+        <a href="tpch.html">4.11. TPCH Connector</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

@@ -1,0 +1,111 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.17. Release 0.108 &mdash; Presto 0.124 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.124',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.124 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.18. Release 0.107" href="release-0.107.html" />
+    <link rel="prev" title="10.16. Release 0.109" href="release-0.109.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.124 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.17. Release 0.108</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.109.html">10.16. Release 0.109</a>
+    </span>
+    <span class="right">
+        <a href="release-0.107.html">10.18. Release 0.107</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-108">
+<h1>10.17. Release 0.108</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Fix incorrect query results when a window function follows a <a class="reference internal" href="../functions/window.html#row_number" title="row_number"><tt class="xref py py-func docutils literal"><span class="pre">row_number()</span></tt></a>
+function and both are partitioned on the same column(s).</li>
+<li>Fix planning issue where queries that apply a <tt class="docutils literal"><span class="pre">false</span></tt> predicate
+to the result of a non-grouped aggregation produce incorrect results.</li>
+<li>Fix exception when <tt class="docutils literal"><span class="pre">ORDER</span> <span class="pre">BY</span></tt> clause contains duplicate columns.</li>
+<li>Fix issue where a query (read or write) that should fail can instead
+complete successfully with zero rows.</li>
+<li>Add <a class="reference internal" href="../functions/string.html#normalize" title="normalize"><tt class="xref py py-func docutils literal"><span class="pre">normalize()</span></tt></a>, <a class="reference internal" href="../functions/datetime.html#from_iso8601_timestamp" title="from_iso8601_timestamp"><tt class="xref py py-func docutils literal"><span class="pre">from_iso8601_timestamp()</span></tt></a>, <a class="reference internal" href="../functions/datetime.html#from_iso8601_date" title="from_iso8601_date"><tt class="xref py py-func docutils literal"><span class="pre">from_iso8601_date()</span></tt></a>
+and <a class="reference internal" href="../functions/datetime.html#to_iso8601" title="to_iso8601"><tt class="xref py py-func docutils literal"><span class="pre">to_iso8601()</span></tt></a> functions.</li>
+<li>Add support for <a class="reference internal" href="../functions/string.html#position" title="position"><tt class="xref py py-func docutils literal"><span class="pre">position()</span></tt></a> syntax.</li>
+<li>Add Teradata compatibility functions: <a class="reference internal" href="../functions/teradata.html#index" title="index"><tt class="xref py py-func docutils literal"><span class="pre">index()</span></tt></a>, <a class="reference internal" href="../functions/teradata.html#char2hexint" title="char2hexint"><tt class="xref py py-func docutils literal"><span class="pre">char2hexint()</span></tt></a>,
+<a class="reference internal" href="../functions/teradata.html#to_char" title="to_char"><tt class="xref py py-func docutils literal"><span class="pre">to_char()</span></tt></a>, <a class="reference internal" href="../functions/teradata.html#to_date" title="to_date"><tt class="xref py py-func docutils literal"><span class="pre">to_date()</span></tt></a> and <a class="reference internal" href="../functions/teradata.html#to_timestamp" title="to_timestamp"><tt class="xref py py-func docutils literal"><span class="pre">to_timestamp()</span></tt></a>.</li>
+<li>Make <tt class="docutils literal"><span class="pre">ctrl-C</span></tt> in CLI cancel the query (rather than a partial cancel).</li>
+<li>Allow calling <tt class="docutils literal"><span class="pre">Connection.setReadOnly(false)</span></tt> in the JDBC driver.
+The read-only status for the connection is currently ignored.</li>
+<li>Add missing <tt class="docutils literal"><span class="pre">CAST</span></tt> from <tt class="docutils literal"><span class="pre">VARCHAR</span></tt> to <tt class="docutils literal"><span class="pre">TIMESTAMP</span> <span class="pre">WITH</span> <span class="pre">TIME</span> <span class="pre">ZONE</span></tt>.</li>
+<li>Allow optional time zone in <tt class="docutils literal"><span class="pre">CAST</span></tt> from <tt class="docutils literal"><span class="pre">VARCHAR</span></tt> to <tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt> and
+<tt class="docutils literal"><span class="pre">TIMESTAMP</span> <span class="pre">WITH</span> <span class="pre">TIME</span> <span class="pre">ZONE</span></tt>.</li>
+<li>Trim values when converting from <tt class="docutils literal"><span class="pre">VARCHAR</span></tt> to date/time types.</li>
+<li>Add support for fixed time zones <tt class="docutils literal"><span class="pre">+00:00</span></tt> and <tt class="docutils literal"><span class="pre">-00:00</span></tt>.</li>
+<li>Properly account for query memory when using the <a class="reference internal" href="../functions/window.html#row_number" title="row_number"><tt class="xref py py-func docutils literal"><span class="pre">row_number()</span></tt></a> function.</li>
+<li>Skip execution of inner join when the join target is empty.</li>
+<li>Improve query detail UI page.</li>
+<li>Fix printing of table layouts in <a class="reference internal" href="../sql/explain.html"><em>EXPLAIN</em></a>.</li>
+<li>Add <a class="reference internal" href="../connector/blackhole.html"><em>Black Hole Connector</em></a>.</li>
+</ul>
+</div>
+<div class="section" id="cassandra-changes">
+<h2>Cassandra Changes</h2>
+<ul class="simple">
+<li>Randomly select Cassandra node for split generation.</li>
+<li>Fix handling of <tt class="docutils literal"><span class="pre">UUID</span></tt> partition keys.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.109.html">10.16. Release 0.109</a>
+    </span>
+    <span class="right">
+        <a href="release-0.107.html">10.18. Release 0.107</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

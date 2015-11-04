@@ -1,0 +1,103 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>9.3. Type System &mdash; Presto 0.124 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.124',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.124 Documentation" href="../index.html" />
+    <link rel="up" title="9. Developer Guide" href="../develop.html" />
+    <link rel="next" title="9.4. Functions" href="functions.html" />
+    <link rel="prev" title="9.2. Example HTTP Connector" href="example-http.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.124 Documentation</span></a></h1>
+    <h2 class="heading"><span>9.3. Type System</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="example-http.html">9.2. Example HTTP Connector</a>
+    </span>
+    <span class="right">
+        <a href="functions.html">9.4. Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="type-system">
+<h1>9.3. Type System</h1>
+<p>The <tt class="docutils literal"><span class="pre">Type</span></tt> interface in Presto is used to implement a type in the SQL language.
+Presto ships with a number of built-in types, like <tt class="docutils literal"><span class="pre">VarcharType</span></tt> and <tt class="docutils literal"><span class="pre">BigintType</span></tt>.
+A <tt class="docutils literal"><span class="pre">Plugin</span></tt> can provide new types by returning them from <tt class="docutils literal"><span class="pre">getServices()</span></tt>.
+Below is a high level overview of the <tt class="docutils literal"><span class="pre">Type</span></tt> interface, for more details see the
+JavaDocs for <tt class="docutils literal"><span class="pre">Type</span></tt>.</p>
+<ul>
+<li><p class="first">Native container type:</p>
+<p>All types define the <tt class="docutils literal"><span class="pre">getJavaType()</span></tt> method, frequently referred to as the
+&#8220;native container type&#8221;. This is the Java type used to hold values during execution
+and to store them in a <tt class="docutils literal"><span class="pre">Block</span></tt>. For example, this is the type used in
+the Java code that implements functions that produce or consume this <tt class="docutils literal"><span class="pre">Type</span></tt>.</p>
+</li>
+<li><p class="first">Native encoding:</p>
+<p>The interpretation of a value in its native container type form is defined by its
+<tt class="docutils literal"><span class="pre">Type</span></tt>. For some types, such as <tt class="docutils literal"><span class="pre">BigintType</span></tt>, it matches the Java
+interpretation of the native container type (64bit 2&#8217;s complement). However, for other
+types such as <tt class="docutils literal"><span class="pre">TimestampWithTimeZoneType</span></tt>, which also uses <tt class="docutils literal"><span class="pre">long</span></tt> for its
+native container type, the value stored in the <tt class="docutils literal"><span class="pre">long</span></tt> is a 8byte binary value
+combining the timezone and the milliseconds since the unix epoch. In particular,
+this means that you cannot compare two native values and expect a meaningful
+result, without knowing the native encoding.</p>
+</li>
+<li><p class="first">Type signature:</p>
+<p>The signature of a type defines its identity, and also encodes some general
+information about the type, such as its type parameters (if it&#8217;s parametric),
+and its literal parameters. The literal parameters are used in types like
+<tt class="docutils literal"><span class="pre">VARCHAR(10)</span></tt>.</p>
+</li>
+</ul>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="example-http.html">9.2. Example HTTP Connector</a>
+    </span>
+    <span class="right">
+        <a href="functions.html">9.4. Functions</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

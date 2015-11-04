@@ -1,0 +1,104 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.71. Release 0.54 &mdash; Presto 0.124 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.124',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.124 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="prev" title="10.70. Release 0.55" href="release-0.55.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.124 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.71. Release 0.54</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.55.html">10.70. Release 0.55</a>
+    </span>
+    <span class="right">
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-54">
+<h1>10.71. Release 0.54</h1>
+<ul>
+<li><p class="first">Restore binding for the node resource on the coordinator, which provides
+the state of all nodes as seen by the coordinator&#8217;s failure detector.
+Access <tt class="docutils literal"><span class="pre">/v1/node</span></tt> to see all nodes, or <tt class="docutils literal"><span class="pre">/v1/node/failed</span></tt> to see failed nodes.</p>
+</li>
+<li><p class="first">Prevent the <a class="reference internal" href="../installation/cli.html"><em>Command Line Interface</em></a> from hanging when the server goes away.</p>
+</li>
+<li><p class="first">Add Hive connector <tt class="docutils literal"><span class="pre">hive-hadoop1</span></tt> for Apache Hadoop 1.x.</p>
+</li>
+<li><p class="first">Add support for Snappy and LZ4 compression codecs for the <tt class="docutils literal"><span class="pre">hive-cdh4</span></tt> connector.</p>
+</li>
+<li><p class="first">Add Example HTTP connector <tt class="docutils literal"><span class="pre">example-http</span></tt> that reads CSV data via HTTP.
+The connector requires a metadata URI that returns a JSON document
+describing the table metadata and the CSV files to read.</p>
+<p>Its primary purpose is to serve as an example of how to write a connector,
+but it can also be used directly. Create <tt class="docutils literal"><span class="pre">etc/catalog/example.properties</span></tt>
+with the following contents to mount the <tt class="docutils literal"><span class="pre">example-http</span></tt> connector as the
+<tt class="docutils literal"><span class="pre">example</span></tt> catalog:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=example-http
+metadata-uri=http://s3.amazonaws.com/presto-example/v1/example-metadata.json
+</pre></div>
+</div>
+</li>
+<li><p class="first">Show correct error message when a catalog or schema does not exist.</p>
+</li>
+<li><p class="first">Verify JVM requirements on startup.</p>
+</li>
+<li><p class="first">Log an error when the JVM code cache is full.</p>
+</li>
+<li><p class="first">Upgrade the embedded Discovery server to allow using
+non-UUID values for the <tt class="docutils literal"><span class="pre">node.id</span></tt> property.</p>
+</li>
+</ul>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.55.html">10.70. Release 0.55</a>
+    </span>
+    <span class="right">
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
