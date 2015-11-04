@@ -14,12 +14,13 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 
 import java.io.File;
@@ -28,18 +29,21 @@ import java.util.Map;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.airlift.tpch.TpchTable.getTables;
 
 public final class RaptorQueryRunner
 {
+    private static final Logger log = Logger.get(RaptorQueryRunner.class);
+
     private RaptorQueryRunner() {}
 
-    public static QueryRunner createRaptorQueryRunner(TpchTable<?>... tables)
+    public static DistributedQueryRunner createRaptorQueryRunner(TpchTable<?>... tables)
             throws Exception
     {
         return createRaptorQueryRunner(ImmutableList.copyOf(tables));
     }
 
-    public static QueryRunner createRaptorQueryRunner(Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createRaptorQueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);
@@ -85,5 +89,16 @@ public final class RaptorQueryRunner
                 .setCatalog("raptor")
                 .setSchema(schema)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+        DistributedQueryRunner queryRunner = createRaptorQueryRunner(getTables());
+        Thread.sleep(10);
+        Logger log = Logger.get(RaptorQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
