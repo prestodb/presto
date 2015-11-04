@@ -61,12 +61,16 @@ against the previous release while developing Presto.</p>
     <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">),</span>
     <span class="n">test_catalog</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
     <span class="n">test_schema</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">test_prequeries</span> <span class="nb">TEXT</span><span class="p">,</span>
     <span class="n">test_query</span> <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">test_postqueries</span> <span class="nb">TEXT</span><span class="p">,</span>
     <span class="n">test_username</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">default</span> <span class="s1">&#39;verifier-test&#39;</span><span class="p">,</span>
     <span class="n">test_password</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">),</span>
     <span class="n">control_catalog</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
     <span class="n">control_schema</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">control_prequeries</span> <span class="nb">TEXT</span><span class="p">,</span>
     <span class="n">control_query</span> <span class="nb">TEXT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">control_postqueries</span> <span class="nb">TEXT</span><span class="p">,</span>
     <span class="n">control_username</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">default</span> <span class="s1">&#39;verifier-test&#39;</span><span class="p">,</span>
     <span class="n">control_password</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">256</span><span class="p">),</span>
     <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">id</span><span class="p">)</span>
