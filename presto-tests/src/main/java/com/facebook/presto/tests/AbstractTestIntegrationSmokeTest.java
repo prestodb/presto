@@ -18,6 +18,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingSession;
+import io.airlift.testing.Assertions;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -218,7 +219,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         }
         catch (AssertionError e) {
             // There is no clean exception message for authorization failure.  We simply get a 403
-            assertTrue(e.getMessage().contains("statusCode=403"), "Expected error message to contain 'statusCode=403': " + e.getMessage());
+            Assertions.assertContains(e.getMessage(), "statusCode=403");
         }
     }
 
