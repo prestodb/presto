@@ -6,4 +6,4 @@ General Changes
 ---------------
 
 * Improve handling of physical properties which can increase performance for
-queries involving window functions.
+  queries involving window functions.
