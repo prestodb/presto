@@ -507,7 +507,7 @@ public class HiveMetadata
 
         ImmutableList.Builder<FieldSchema> columns = ImmutableList.builder();
         columns.addAll(sd.getCols());
-        columns.add(new FieldSchema(column.getName(), column.getType().getDisplayName(), column.getComment()));
+        columns.add(new FieldSchema(column.getName(), toHiveType(column.getType()).getHiveTypeName(), column.getComment()));
         sd.setCols(columns.build());
 
         table.setSd(sd);
