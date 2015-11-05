@@ -67,7 +67,7 @@ public abstract class SqlScalarFunction
 
     public abstract ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
 
-    public static class SimpleSqlScalarFunction
+    private static class SimpleSqlScalarFunction
             extends SqlScalarFunction
     {
         private final MethodHandle methodHandle;
