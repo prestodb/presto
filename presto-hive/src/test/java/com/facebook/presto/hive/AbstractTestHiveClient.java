@@ -403,12 +403,12 @@ public abstract class AbstractTestHiveClient
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
-    protected void setup(String host, int port, String databaseName, String timeZone)
+    protected final void setup(String host, int port, String databaseName, String timeZone)
     {
         setup(host, port, databaseName, timeZone, "hive-test", 100, 50);
     }
 
-    protected void setup(String host, int port, String databaseName, String timeZoneId, String connectorName, int maxOutstandingSplits, int maxThreads)
+    protected final void setup(String host, int port, String databaseName, String timeZoneId, String connectorName, int maxOutstandingSplits, int maxThreads)
     {
         setupHive(connectorName, databaseName, timeZoneId);
 
