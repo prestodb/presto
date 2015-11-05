@@ -383,6 +383,24 @@ public class InMemoryHiveMetastore
     {
     }
 
+    @Override
+    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    {
+        Set<HivePrivilege> hivePrivileges = privilegeGrantInfoSet.stream()
+                .map(HivePrivilege::parsePrivilege)
+                .flatMap(Collection::stream)
+                .collect(toImmutableSet());
+
+        setTablePrivileges(grantee, USER, databaseName, tableName, hivePrivileges);
+    }
+
+    @Override
+    public boolean hasPrivilegeWithGrantOptionOnTable(String user, String databaseName, String tableName, HivePrivilege hivePrivilege)
+    {
+        //TODO: add grantOption flag information to privileges stored in cache and implement this check properly.
+        throw new UnsupportedOperationException();
+    }
+
     private static boolean isParentDir(File directory, File baseDirectory)
     {
         for (File parent = directory.getParentFile(); parent != null; parent = parent.getParentFile()) {
