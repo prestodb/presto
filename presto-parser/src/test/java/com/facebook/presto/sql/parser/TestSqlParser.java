@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
@@ -42,7 +44,9 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupingSets;
+import com.facebook.presto.sql.tree.IdentityNode;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IntervalLiteral;
@@ -59,6 +63,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.PrivilegeNode;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -96,8 +101,14 @@ import com.google.common.collect.Lists;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.security.Principal;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.security.Privilege.DELETE;
+import static com.facebook.presto.spi.security.Privilege.INSERT;
+import static com.facebook.presto.spi.security.Privilege.SELECT;
 import static com.facebook.presto.sql.QueryUtil.query;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
@@ -1047,6 +1058,27 @@ public class TestSqlParser
                 QualifiedName.of("a"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                 true));
+    }
+
+    @Test
+    public void testGrant()
+            throws Exception
+    {
+        assertStatement("GRANT INSERT, DELETE ON customer to admin",
+                new Grant(ImmutableList.of(new PrivilegeNode(INSERT),
+                        new PrivilegeNode(DELETE)),
+                        false, QualifiedName.of("customer"),
+                        new IdentityNode(new Identity("admin", Optional.<Principal>empty())), false));
+        assertStatement("GRANT SELECT ON orders to PUBLIC WITH GRANT OPTION",
+                new Grant(ImmutableList.of(new PrivilegeNode(SELECT)),
+                        false, QualifiedName.of("orders"),
+                        new IdentityNode(new Identity("PUBLIC", Optional.<Principal>empty())), true));
+        assertStatement("GRANT ALL PRIVILEGES ON nation to admin",
+                new Grant(Arrays.stream(Privilege.values())
+                                .map(PrivilegeNode::new)
+                                .collect(Collectors.toList()),
+                        false, QualifiedName.of("nation"),
+                        new IdentityNode(new Identity("admin", Optional.<Principal>empty())), false));
     }
 
     @Test

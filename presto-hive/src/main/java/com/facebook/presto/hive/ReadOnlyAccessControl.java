@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -23,6 +24,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateV
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
@@ -112,5 +114,11 @@ public class ReadOnlyAccessControl
     public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
     {
         // allow
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    {
+        denyGrantTablePrivilege(privilege.name(), tableName.toString());
     }
 }

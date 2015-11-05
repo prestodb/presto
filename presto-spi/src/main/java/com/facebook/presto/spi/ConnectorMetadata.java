@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -273,5 +275,13 @@ public interface ConnectorMetadata
     default OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Grants the specified privilege to the specified user on the specified table
+     */
+    default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, Identity identity, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants");
     }
 }

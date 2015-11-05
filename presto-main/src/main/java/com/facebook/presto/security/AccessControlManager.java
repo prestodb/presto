@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.transaction.TransactionId;
@@ -310,6 +311,19 @@ public class AccessControlManager
         CatalogAccessControlEntry entry = catalogAccessControl.get(viewName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanCreateViewWithSelectFromView(entry.getTransactionHandle(transactionId), identity, viewName.asSchemaTableName()));
+        }
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanGrantTablePrivilege(identity, privilege, tableName.asSchemaTableName()));
         }
     }
 
