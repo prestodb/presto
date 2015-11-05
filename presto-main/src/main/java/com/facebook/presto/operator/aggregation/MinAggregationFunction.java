@@ -15,15 +15,15 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.OperatorType;
 
-public class MinAggregation
-        extends AbstractMinMaxAggregation
+public class MinAggregationFunction
+        extends AbstractMinMaxAggregationFunction
 {
     private static final OperatorType OPERATOR_TYPE = OperatorType.LESS_THAN;
     private static final String NAME = "min";
 
-    public static final MinAggregation MIN_AGGREGATION = new MinAggregation();
+    public static final MinAggregationFunction MIN_AGGREGATION = new MinAggregationFunction();
 
-    public MinAggregation()
+    public MinAggregationFunction()
     {
         super(NAME, OPERATOR_TYPE);
     }

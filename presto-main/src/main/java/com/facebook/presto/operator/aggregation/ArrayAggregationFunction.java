@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregation;
+import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
@@ -42,16 +42,16 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
-public class ArrayAggregation
-        extends SqlAggregation
+public class ArrayAggregationFunction
+        extends SqlAggregationFunction
 {
-    public static final ArrayAggregation ARRAY_AGGREGATION = new ArrayAggregation();
+    public static final ArrayAggregationFunction ARRAY_AGGREGATION = new ArrayAggregationFunction();
     private static final String NAME = "array_agg";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(ArrayAggregation.class, "input", Type.class, ArrayAggregationState.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArrayAggregation.class, "combine", Type.class, ArrayAggregationState.class, ArrayAggregationState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregation.class, "output", Type.class, ArrayAggregationState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(ArrayAggregationFunction.class, "input", Type.class, ArrayAggregationState.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArrayAggregationFunction.class, "combine", Type.class, ArrayAggregationState.class, ArrayAggregationState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregationFunction.class, "output", Type.class, ArrayAggregationState.class, BlockBuilder.class);
 
-    public ArrayAggregation()
+    public ArrayAggregationFunction()
     {
         super(NAME, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("T"));
     }
@@ -71,7 +71,7 @@ public class ArrayAggregation
 
     private static InternalAggregationFunction generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ArrayAggregation.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(ArrayAggregationFunction.class.getClassLoader());
 
         AccumulatorStateSerializer<?> stateSerializer = new ArrayAggregationStateSerializer(type);
         AccumulatorStateFactory<?> stateFactory = new ArrayAggregationStateFactory();

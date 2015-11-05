@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-public class MinNAggregation
-        extends AbstractMinMaxNAggregation
+public class MaxNAggregationFunction
+        extends AbstractMinMaxNAggregationFunction
 {
-    private static final String NAME = "min";
+    private static final String NAME = "max";
 
-    public static final MinNAggregation MIN_N_AGGREGATION = new MinNAggregation();
+    public static final MaxNAggregationFunction MAX_N_AGGREGATION = new MaxNAggregationFunction();
 
-    public MinNAggregation()
+    public MaxNAggregationFunction()
     {
-        super(NAME, t -> ((leftBlock, leftIndex, rightBlock, rightIndex) -> -t.compareTo(leftBlock, leftIndex, rightBlock, rightIndex)));
+        super(NAME, t -> t::compareTo);
     }
 
     @Override
     public String getDescription()
     {
-        return "Returns the minimum values of the argument";
+        return "Returns the maximum values of the argument";
     }
 }

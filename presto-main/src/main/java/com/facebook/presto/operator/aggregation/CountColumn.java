@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregation;
+import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.LongState;
@@ -41,7 +41,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class CountColumn
-        extends SqlAggregation
+        extends SqlAggregationFunction
 {
     public static final CountColumn COUNT_COLUMN = new CountColumn();
     private static final String NAME = "count";

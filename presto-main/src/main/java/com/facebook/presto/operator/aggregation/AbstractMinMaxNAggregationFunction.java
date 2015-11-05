@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregation;
+import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.MinMaxNState;
 import com.facebook.presto.operator.aggregation.state.MinMaxNStateFactory;
 import com.facebook.presto.operator.aggregation.state.MinMaxNStateSerializer;
@@ -47,16 +47,16 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
-public abstract class AbstractMinMaxNAggregation
-        extends SqlAggregation
+public abstract class AbstractMinMaxNAggregationFunction
+        extends SqlAggregationFunction
 {
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregation.class, "input", BlockComparator.class, Type.class, MinMaxNState.class, Block.class, long.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(AbstractMinMaxNAggregation.class, "combine", MinMaxNState.class, MinMaxNState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregation.class, "output", ArrayType.class, MinMaxNState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "input", BlockComparator.class, Type.class, MinMaxNState.class, Block.class, long.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "combine", MinMaxNState.class, MinMaxNState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "output", ArrayType.class, MinMaxNState.class, BlockBuilder.class);
 
     private final Function<Type, BlockComparator> typeToComparator;
 
-    protected AbstractMinMaxNAggregation(String name, Function<Type, BlockComparator> typeToComparator)
+    protected AbstractMinMaxNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator)
     {
         super(name, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("E", StandardTypes.BIGINT));
         requireNonNull(typeToComparator);
@@ -72,7 +72,7 @@ public abstract class AbstractMinMaxNAggregation
 
     protected InternalAggregationFunction generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(AbstractMinMaxNAggregation.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(AbstractMinMaxNAggregationFunction.class.getClassLoader());
 
         BlockComparator comparator = typeToComparator.apply(type);
         List<Type> inputTypes = ImmutableList.of(type, BIGINT);
