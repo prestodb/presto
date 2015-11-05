@@ -28,11 +28,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
+import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -176,7 +178,12 @@ class TranslationMap
                 // cast expression if coercion is registered
                 Type coercion = analysis.getCoercion(node);
                 if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
+                    Type type = analysis.getType(node);
+                    rewrittenExpression = new Cast(
+                            rewrittenExpression,
+                            coercion.getTypeSignature().toString(),
+                            false,
+                            isTypeOnlyCoercion(type.getTypeSignature(), coercion.getTypeSignature()));
                 }
 
                 return rewrittenExpression;
@@ -215,12 +222,22 @@ class TranslationMap
                 // Rewrite all row field reference to function call.
                 QualifiedName mangledName = QualifiedName.of(mangleFieldReference(node.getFieldName()));
                 FunctionCall functionCall = new FunctionCall(mangledName, ImmutableList.of(node.getBase()));
+                // hackish - add type for created node to analysis object so further rewriting does not fail
+                IdentityHashMap<Expression, Type> functionType = new IdentityHashMap<>();
+                functionType.put(functionCall, analysis.getType(node));
+                analysis.addTypes(functionType);
+
                 Expression rewrittenExpression = rewriteFunctionCall(functionCall, context, treeRewriter);
 
                 // cast expression if coercion is registered
+                Type type = analysis.getType(node);
                 Type coercion = analysis.getCoercion(node);
                 if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
+                    rewrittenExpression = new Cast(
+                            rewrittenExpression,
+                            coercion.getTypeSignature().toString(),
+                            false,
+                            isTypeOnlyCoercion(type.getTypeSignature(), coercion.getTypeSignature()));
                 }
                 return rewrittenExpression;
             }

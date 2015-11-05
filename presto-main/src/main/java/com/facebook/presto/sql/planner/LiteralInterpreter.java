@@ -107,7 +107,7 @@ public final class LiteralInterpreter
             if (type.equals(UNKNOWN)) {
                 return new NullLiteral();
             }
-            return new Cast(new NullLiteral(), type.getTypeSignature().toString());
+            return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, true);
         }
 
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
@@ -136,10 +136,10 @@ public final class LiteralInterpreter
 
         if (type instanceof VarcharType) {
             if (object instanceof Slice) {
-                return new Cast(new StringLiteral(((Slice) object).toStringUtf8()), type.getTypeSignature().toString(), false);
+                return new Cast(new StringLiteral(((Slice) object).toStringUtf8()), type.getTypeSignature().toString(), false, true);
             }
             else if (object instanceof String) {
-                return new Cast(new StringLiteral((String) object), type.getTypeSignature().toString(), false);
+                return new Cast(new StringLiteral((String) object), type.getTypeSignature().toString(), false, true);
             }
 
             throw new IllegalArgumentException("object must be instance of Slice or String when type is VARCHAR");
