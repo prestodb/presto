@@ -19,6 +19,7 @@ import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
@@ -172,5 +173,12 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_privilege_set(hiveObject, userName, groupNames);
+    }
+
+    @Override
+    public boolean grantPrivileges(PrivilegeBag privilegeBag)
+            throws TException
+    {
+        return client.grant_privileges(privilegeBag);
     }
 }

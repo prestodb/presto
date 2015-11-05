@@ -22,6 +22,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.Identity;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -38,6 +39,7 @@ import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.HiveObjectType;
 import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
@@ -46,6 +48,8 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
+import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -884,6 +888,26 @@ public class CachingHiveMetastore
     public Set<HivePrivilege> getTablePrivileges(String user, String databaseName, String tableName)
     {
         return get(userTablePrivileges, new UserTableKey(user, tableName, databaseName));
+    }
+
+    @Override
+    public void grantTablePrivilege(String databaseName, String tableName, Identity identity, PrivilegeGrantInfo privilegeGrantInfo)
+    {
+        try (HiveMetastoreClient metastoreClient = clientProvider.createMetastoreClient()) {
+            HiveObjectPrivilege privilegeObject = new HiveObjectPrivilege(
+                    new HiveObjectRef(HiveObjectType.TABLE, databaseName, tableName, null, null),
+                    identity.getUser(),
+                    PrincipalType.USER, // TODO: check whether it is USER or ROLE.
+                    privilegeGrantInfo);
+            ImmutableList.Builder<HiveObjectPrivilege> privilegeBagList = ImmutableList.builder();
+            privilegeBagList.add(privilegeObject);
+
+            // Should you check whether the user already has the given privilege and if yes, return.
+            metastoreClient.grantPrivileges(new PrivilegeBag(privilegeBagList.build()));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     private Set<HivePrivilege> loadTablePrivileges(String user, String databaseName, String tableName)
