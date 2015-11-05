@@ -57,7 +57,7 @@ public class Analyzer
     {
         Analysis analysis = new Analysis();
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, queryExplainer);
-        TupleDescriptor outputDescriptor = analyzer.process(statement, new AnalysisContext());
+        RelationType outputDescriptor = analyzer.process(statement, new AnalysisContext());
         analysis.setOutputDescriptor(outputDescriptor);
         return analysis;
     }

@@ -51,8 +51,8 @@ public class Analysis
 
     private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
 
-    private TupleDescriptor outputDescriptor;
-    private final IdentityHashMap<Node, TupleDescriptor> outputDescriptors = new IdentityHashMap<>();
+    private RelationType outputDescriptor;
+    private final IdentityHashMap<Node, RelationType> outputDescriptors = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Integer> resolvedNames = new IdentityHashMap<>();
 
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> aggregates = new IdentityHashMap<>();
@@ -260,22 +260,22 @@ public class Analysis
         return windowFunctions.get(query);
     }
 
-    public void setOutputDescriptor(TupleDescriptor descriptor)
+    public void setOutputDescriptor(RelationType descriptor)
     {
         outputDescriptor = descriptor;
     }
 
-    public TupleDescriptor getOutputDescriptor()
+    public RelationType getOutputDescriptor()
     {
         return outputDescriptor;
     }
 
-    public void setOutputDescriptor(Node node, TupleDescriptor descriptor)
+    public void setOutputDescriptor(Node node, RelationType descriptor)
     {
         outputDescriptors.put(node, descriptor);
     }
 
-    public TupleDescriptor getOutputDescriptor(Node node)
+    public RelationType getOutputDescriptor(Node node)
     {
         Preconditions.checkState(outputDescriptors.containsKey(node), "Output descriptor missing for %s. Broken analysis?", node);
         return outputDescriptors.get(node);

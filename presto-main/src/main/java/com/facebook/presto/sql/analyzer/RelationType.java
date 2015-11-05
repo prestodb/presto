@@ -35,20 +35,23 @@ import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Predicates.not;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * TODO: this needs to be merged with RowType at some point (when the type system is unified)
+ */
 @Immutable
-public class TupleDescriptor
+public class RelationType
 {
     private final List<Field> visibleFields;
     private final List<Field> allFields;
 
     private final Map<Field, Integer> fieldIndexes;
 
-    public TupleDescriptor(Field... fields)
+    public RelationType(Field... fields)
     {
         this(ImmutableList.copyOf(fields));
     }
 
-    public TupleDescriptor(List<Field> fields)
+    public RelationType(List<Field> fields)
     {
         requireNonNull(fields, "fields is null");
         this.allFields = ImmutableList.copyOf(fields);
@@ -154,20 +157,20 @@ public class TupleDescriptor
      * Creates a new tuple descriptor containing all fields from this tuple descriptor
      * and all fields from the specified tuple descriptor.
      */
-    public TupleDescriptor joinWith(TupleDescriptor other)
+    public RelationType joinWith(RelationType other)
     {
         List<Field> fields = ImmutableList.<Field>builder()
                 .addAll(this.allFields)
                 .addAll(other.allFields)
                 .build();
 
-        return new TupleDescriptor(fields);
+        return new RelationType(fields);
     }
 
     /**
      * Creates a new tuple descriptor with the relation, and, optionally, the columns aliased.
      */
-    public TupleDescriptor withAlias(String relationAlias, List<String> columnAliases)
+    public RelationType withAlias(String relationAlias, List<String> columnAliases)
     {
         if (columnAliases != null) {
             checkArgument(columnAliases.size() == visibleFields.size(),
@@ -191,15 +194,15 @@ public class TupleDescriptor
             }
         }
 
-        return new TupleDescriptor(fieldsBuilder.build());
+        return new RelationType(fieldsBuilder.build());
     }
 
     /**
      * Creates a new tuple descriptor containing only the visible fields.
      */
-    public TupleDescriptor withOnlyVisibleFields()
+    public RelationType withOnlyVisibleFields()
     {
-        return new TupleDescriptor(visibleFields);
+        return new RelationType(visibleFields);
     }
 
     @Override

@@ -23,7 +23,7 @@ public class AnalysisContext
 {
     private final AnalysisContext parent;
     private final Map<String, Query> namedQueries = new HashMap<>();
-    private TupleDescriptor lateralTupleDescriptor = new TupleDescriptor();
+    private RelationType lateralTupleDescriptor = new RelationType();
     private boolean approximate;
 
     public AnalysisContext(AnalysisContext parent)
@@ -37,12 +37,12 @@ public class AnalysisContext
         parent = null;
     }
 
-    public void setLateralTupleDescriptor(TupleDescriptor lateralTupleDescriptor)
+    public void setLateralTupleDescriptor(RelationType lateralTupleDescriptor)
     {
         this.lateralTupleDescriptor = lateralTupleDescriptor;
     }
 
-    public TupleDescriptor getLateralTupleDescriptor()
+    public RelationType getLateralTupleDescriptor()
     {
         return lateralTupleDescriptor;
     }

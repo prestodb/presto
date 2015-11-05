@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -28,10 +28,10 @@ class RelationPlan
 {
     private final PlanNode root;
     private final List<Symbol> outputSymbols;
-    private final TupleDescriptor descriptor;
+    private final RelationType descriptor;
     private final Optional<Symbol> sampleWeight;
 
-    public RelationPlan(PlanNode root, TupleDescriptor descriptor, List<Symbol> outputSymbols, Optional<Symbol> sampleWeight)
+    public RelationPlan(PlanNode root, RelationType descriptor, List<Symbol> outputSymbols, Optional<Symbol> sampleWeight)
     {
         requireNonNull(root, "root is null");
         requireNonNull(outputSymbols, "outputSymbols is null");
@@ -68,7 +68,7 @@ class RelationPlan
         return outputSymbols;
     }
 
-    public TupleDescriptor getDescriptor()
+    public RelationType getDescriptor()
     {
         return descriptor;
     }

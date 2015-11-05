@@ -24,7 +24,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -182,7 +182,7 @@ class QueryPlanner
 
     public DeleteNode planDelete(Delete node)
     {
-        TupleDescriptor descriptor = analysis.getOutputDescriptor(node.getTable());
+        RelationType descriptor = analysis.getOutputDescriptor(node.getTable());
         TableHandle handle = analysis.getTableHandle(node.getTable());
         ColumnHandle rowIdHandle = metadata.getUpdateRowIdColumnHandle(session, handle);
         Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle).getType();
@@ -207,7 +207,7 @@ class QueryPlanner
 
         // create table scan
         PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols.build(), columns.build(), Optional.empty(), TupleDomain.all(), null);
-        RelationPlan relationPlan = new RelationPlan(tableScan, new TupleDescriptor(fields.build()), outputSymbols.build(), Optional.empty());
+        RelationPlan relationPlan = new RelationPlan(tableScan, new RelationType(fields.build()), outputSymbols.build(), Optional.empty());
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis);
         translations.setFieldMappings(relationPlan.getOutputSymbols());
@@ -236,7 +236,7 @@ class QueryPlanner
         List<Expression> emptyRow = ImmutableList.of();
         return new RelationPlan(
                 new ValuesNode(idAllocator.getNextId(), ImmutableList.<Symbol>of(), ImmutableList.of(emptyRow)),
-                new TupleDescriptor(),
+                new RelationType(),
                 ImmutableList.<Symbol>of(),
                 Optional.empty());
     }

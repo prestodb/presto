@@ -81,9 +81,9 @@ class AggregationAnalyzer
     private final Metadata metadata;
     private final Set<Expression> columnReferences;
 
-    private final TupleDescriptor tupleDescriptor;
+    private final RelationType tupleDescriptor;
 
-    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, TupleDescriptor tupleDescriptor, Set<Expression> columnReferences)
+    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, RelationType tupleDescriptor, Set<Expression> columnReferences)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(metadata, "metadata is null");
