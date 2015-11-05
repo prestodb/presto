@@ -115,4 +115,10 @@ public interface ConnectorAccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetCatalogSessionProperty(Identity identity, String propertyName);
+
+    /**
+     * Check if identity is allowed to grant to any other user the specified privilege on the specified table.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName);
 }

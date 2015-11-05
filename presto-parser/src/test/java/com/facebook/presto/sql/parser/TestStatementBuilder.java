@@ -198,6 +198,10 @@ public class TestStatementBuilder
 
         printStatement("call foo()");
         printStatement("call foo(123, a => 1, b => 'go', 456)");
+
+        printStatement("grant select on foo to testUser with grant option");
+        printStatement("grant all privileges on foo to testAdmin");
+        printStatement("grant delete, select on foo to public");
     }
 
     @Test
