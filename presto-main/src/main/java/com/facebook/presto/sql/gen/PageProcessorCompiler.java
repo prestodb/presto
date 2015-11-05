@@ -18,11 +18,11 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
-import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.PageProcessor;
@@ -39,22 +39,30 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeSet;
 
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.add;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.lessThan;
+import static com.facebook.presto.byteCode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
-import static java.util.Collections.nCopies;
+import static java.util.stream.Collectors.toList;
 
 public class PageProcessorCompiler
         implements BodyCompiler<PageProcessor>
@@ -69,15 +77,15 @@ public class PageProcessorCompiler
     @Override
     public void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
     {
-        generateProcessMethod(classDefinition, filter, projections);
-        generateFilterMethod(classDefinition, callSiteBinder, filter);
-
+        ImmutableList.Builder<MethodDefinition> projectionMethods = ImmutableList.builder();
         for (int i = 0; i < projections.size(); i++) {
-            generateProjectMethod(classDefinition, callSiteBinder, "project_" + i, projections.get(i));
+            projectionMethods.add(generateProjectMethod(classDefinition, callSiteBinder, "project_" + i, projections.get(i)));
         }
+        generateProcessMethod(classDefinition, filter, projections, projectionMethods.build());
+        generateFilterMethod(classDefinition, callSiteBinder, filter);
     }
 
-    private void generateProcessMethod(ClassDefinition classDefinition, RowExpression filter, List<RowExpression> projections)
+    private static void generateProcessMethod(ClassDefinition classDefinition, RowExpression filter, List<RowExpression> projections, List<MethodDefinition> projectionMethods)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
@@ -88,105 +96,56 @@ public class PageProcessorCompiler
 
         Scope scope = method.getScope();
         Variable thisVariable = method.getThis();
-        Variable position = scope.declareVariable(int.class, "position");
 
-        method.getBody()
-                .comment("int position = start;")
-                .getVariable(start)
-                .putVariable(position);
-
+        // extract blocks
         List<Integer> allInputChannels = getInputChannels(Iterables.concat(projections, ImmutableList.of(filter)));
+        ImmutableMap.Builder<Integer, Variable> channelBlockBuilder = ImmutableMap.builder();
         for (int channel : allInputChannels) {
             Variable blockVariable = scope.declareVariable(Block.class, "block_" + channel);
-            method.getBody()
-                    .comment("Block %s = page.getBlock(%s);", blockVariable.getName(), channel)
-                    .getVariable(page)
-                    .push(channel)
-                    .invokeVirtual(Page.class, "getBlock", Block.class, int.class)
-                    .putVariable(blockVariable);
+            method.getBody().append(blockVariable.set(page.invoke("getBlock", Block.class, constantInt(channel))));
+            channelBlockBuilder.put(channel, blockVariable);
         }
+        Map<Integer, Variable> channelBlock = channelBlockBuilder.build();
+        Map<RowExpression, List<Variable>> expressionInputBlocks = getExpressionInputBlocks(projections, filter, channelBlock);
 
-        //
-        // for loop loop body
-        //
-        LabelNode done = new LabelNode("done");
+        // extract block builders
+        ImmutableList.Builder<Variable> builder = ImmutableList.<Variable>builder();
+        for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
+            Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder_" + projectionIndex);
+            method.getBody().append(blockBuilder.set(pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(projectionIndex))));
+            builder.add(blockBuilder);
+        }
+        List<Variable> blockBuilders = builder.build();
 
-        ByteCodeBlock loopBody = new ByteCodeBlock();
+        // projection body
+        Variable position = scope.declareVariable(int.class, "position");
 
-        ForLoop loop = new ForLoop()
-                .initialize(NOP)
-                .condition(new ByteCodeBlock()
-                                .comment("position < end")
-                                .getVariable(position)
-                                .getVariable(end)
-                                .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
-                )
-                .update(new ByteCodeBlock()
-                        .comment("position++")
-                        .incrementVariable(position, (byte) 1))
-                .body(loopBody);
-
-        loopBody.comment("if (pageBuilder.isFull()) break;")
-                .getVariable(pageBuilder)
-                .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
-                .ifTrueGoto(done);
-
-        // if (filter(cursor))
-        IfStatement filterBlock = new IfStatement();
-        filterBlock.condition()
-                .append(thisVariable)
-                .getVariable(session)
-                .append(pushBlockVariables(scope, getInputChannels(filter)))
-                .getVariable(position)
-                .invokeVirtual(classDefinition.getType(),
-                        "filter",
-                        type(boolean.class),
-                        ImmutableList.<ParameterizedType>builder()
-                                .add(type(ConnectorSession.class))
-                                .addAll(nCopies(getInputChannels(filter).size(), type(Block.class)))
-                                .add(type(int.class))
-                                .build());
-
-        filterBlock.ifTrue()
-                .append(pageBuilder)
-                .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
+        ByteCodeBlock project = new ByteCodeBlock()
+                .append(pageBuilder.invoke("declarePosition", void.class));
 
         for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-            List<Integer> inputChannels = getInputChannels(projections.get(projectionIndex));
-
-            filterBlock.ifTrue()
-                    .append(thisVariable)
-                    .append(session)
-                    .append(pushBlockVariables(scope, inputChannels))
-                    .getVariable(position);
-
-            filterBlock.ifTrue()
-                    .comment("pageBuilder.getBlockBuilder(%d)", projectionIndex)
-                    .append(pageBuilder)
-                    .push(projectionIndex)
-                    .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
-
-            filterBlock.ifTrue()
-                    .comment("project_%d(session, block_%s, position, blockBuilder)", projectionIndex, inputChannels)
-                    .invokeVirtual(classDefinition.getType(),
-                            "project_" + projectionIndex,
-                            type(void.class),
-                            ImmutableList.<ParameterizedType>builder()
-                                    .add(type(ConnectorSession.class))
-                                    .addAll(nCopies(inputChannels.size(), type(Block.class)))
-                                    .add(type(int.class))
-                                    .add(type(BlockBuilder.class))
-                                    .build());
+            RowExpression projection = projections.get(projectionIndex);
+            project.append(invokeProject(thisVariable, session, expressionInputBlocks.get(projection), position, blockBuilders.get(projectionIndex), projectionMethods.get(projectionIndex)));
         }
+        LabelNode done = new LabelNode("done");
 
-        loopBody.append(filterBlock);
+        // for loop loop body
+        ForLoop loop = new ForLoop()
+                .initialize(position.set(start))
+                .condition(lessThan(position, end))
+                .update(position.set(add(position, constantInt(1))))
+                .body(new ByteCodeBlock()
+                        .append(new IfStatement()
+                                .condition(pageBuilder.invoke("isFull", boolean.class))
+                                .ifTrue(jump(done)))
+                        .append(new IfStatement()
+                                .condition(invokeFilter(thisVariable, session, expressionInputBlocks.get(filter), position))
+                                .ifTrue(project)));
 
         method.getBody()
                 .append(loop)
                 .visitLabel(done)
-                .comment("return position;")
-                .getVariable(position)
-                .retInt();
+                .append(position.ret());
     }
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
@@ -229,7 +188,7 @@ public class PageProcessorCompiler
                 .retBoolean();
     }
 
-    private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
+    private MethodDefinition generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
     {
         Parameter session = arg("session", ConnectorSession.class);
         List<Parameter> inputs = toBlockParameters(getInputChannels(projection));
@@ -252,8 +211,7 @@ public class PageProcessorCompiler
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
         ByteCodeBlock body = method.getBody()
-                .comment("boolean wasNull = false;")
-                .putVariable(wasNullVariable, false);
+                .append(wasNullVariable.set(constantFalse()));
 
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(callSiteBinder, position, wasNullVariable), metadata.getFunctionRegistry());
 
@@ -262,6 +220,7 @@ public class PageProcessorCompiler
                 .append(projection.accept(visitor, scope))
                 .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
+        return method;
     }
 
     private static List<Integer> getInputChannels(Iterable<RowExpression> expressions)
@@ -289,16 +248,7 @@ public class PageProcessorCompiler
         return parameters.build();
     }
 
-    private static ByteCodeNode pushBlockVariables(Scope scope, List<Integer> inputs)
-    {
-        ByteCodeBlock block = new ByteCodeBlock();
-        for (int channel : inputs) {
-            block.append(scope.getVariable("block_" + channel));
-        }
-        return block;
-    }
-
-    private RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler(final CallSiteBinder callSiteBinder, final Variable positionVariable, final Variable wasNullVariable)
+    private static RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler(final CallSiteBinder callSiteBinder, final Variable positionVariable, final Variable wasNullVariable)
     {
         return new RowExpressionVisitor<Scope, ByteCodeNode>()
         {
@@ -348,5 +298,51 @@ public class PageProcessorCompiler
                 throw new UnsupportedOperationException("not yet implemented");
             }
         };
+    }
+
+    private static Map<RowExpression, List<Variable>> getExpressionInputBlocks(List<RowExpression> projections, RowExpression filter, Map<Integer, Variable> channelBlock)
+    {
+        Map<RowExpression, List<Variable>> inputBlocksBuilder = new HashMap<>();
+
+        for (RowExpression projection : projections) {
+            List<Variable> inputBlocks = getInputChannels(projection).stream()
+                    .map(channelBlock::get)
+                    .collect(toList());
+
+            List<Variable> existingVariables = inputBlocksBuilder.get(projection);
+            // Constant expressions or expressions that are reused, should reference the same input blocks
+            checkState(existingVariables == null || existingVariables.equals(inputBlocks), "malformed RowExpression");
+            inputBlocksBuilder.put(projection, inputBlocks);
+        }
+
+        List<Variable> filterBlocks = getInputChannels(filter).stream()
+                .map(channelBlock::get)
+                .collect(toList());
+
+        inputBlocksBuilder.put(filter, filterBlocks);
+
+        return inputBlocksBuilder;
+    }
+
+    private static ByteCodeExpression invokeFilter(ByteCodeExpression objRef, ByteCodeExpression session, List<? extends ByteCodeExpression> blockVariables, ByteCodeExpression position)
+    {
+        List<ByteCodeExpression> params = ImmutableList.<ByteCodeExpression>builder()
+                .add(session)
+                .addAll(blockVariables)
+                .add(position)
+                .build();
+
+        return objRef.invoke("filter", boolean.class, params);
+    }
+
+    private static ByteCodeNode invokeProject(Variable objRef, Variable session, List<Variable> blockVariables, ByteCodeExpression position, Variable blockBuilder, MethodDefinition projectionMethod)
+    {
+        List<ByteCodeExpression> params = ImmutableList.<ByteCodeExpression>builder()
+                .add(session)
+                .addAll(blockVariables)
+                .add(position)
+                .add(blockBuilder)
+                .build();
+        return new ByteCodeBlock().append(objRef.invoke(projectionMethod, params));
     }
 }
