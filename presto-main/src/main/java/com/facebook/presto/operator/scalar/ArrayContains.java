@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BooleanType;
@@ -36,7 +36,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayContains
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     public static final ArrayContains ARRAY_CONTAINS = new ArrayContains();
     private static final String FUNCTION_NAME = "contains";

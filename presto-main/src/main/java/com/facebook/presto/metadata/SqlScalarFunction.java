@@ -28,12 +28,12 @@ import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public abstract class SqlScalar
+public abstract class SqlScalarFunction
         implements SqlFunction
 {
     private final Signature signature;
 
-    public static SqlScalar create(
+    public static SqlScalarFunction create(
             Signature signature,
             String description,
             boolean hidden,
@@ -42,15 +42,15 @@ public abstract class SqlScalar
             boolean nullable,
             List<Boolean> nullableArguments)
     {
-        return new SimpleSqlScalar(signature, description, hidden, methodHandle, deterministic, nullable, nullableArguments);
+        return new SimpleSqlScalarFunction(signature, description, hidden, methodHandle, deterministic, nullable, nullableArguments);
     }
 
-    protected SqlScalar(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes)
+    protected SqlScalarFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes)
     {
         this(name, typeParameters, returnType, argumentTypes, false);
     }
 
-    protected SqlScalar(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity)
+    protected SqlScalarFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity)
     {
         requireNonNull(name, "name is null");
         requireNonNull(typeParameters, "typeParameters is null");
@@ -67,8 +67,8 @@ public abstract class SqlScalar
 
     public abstract ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
 
-    public static class SimpleSqlScalar
-            extends SqlScalar
+    public static class SimpleSqlScalarFunction
+            extends SqlScalarFunction
     {
         private final MethodHandle methodHandle;
         private final String description;
@@ -77,7 +77,7 @@ public abstract class SqlScalar
         private final List<Boolean> nullableArguments;
         private final boolean deterministic;
 
-        public SimpleSqlScalar(
+        public SimpleSqlScalarFunction(
                 Signature signature,
                 String description,
                 boolean hidden,

@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -32,7 +32,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public final class ArrayDistinctFunction
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     public static final ArrayDistinctFunction ARRAY_DISTINCT_FUNCTION = new ArrayDistinctFunction();
     private static final String FUNCTION_NAME = "array_distinct";
