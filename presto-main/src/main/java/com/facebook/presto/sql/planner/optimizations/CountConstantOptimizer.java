@@ -36,7 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static java.util.Objects.requireNonNull;
 
 public class CountConstantOptimizer

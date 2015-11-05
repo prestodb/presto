@@ -27,8 +27,8 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;

@@ -43,7 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.metadata.FunctionType.WINDOW;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;

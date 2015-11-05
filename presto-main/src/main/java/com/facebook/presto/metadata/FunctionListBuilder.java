@@ -49,8 +49,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
-import static com.facebook.presto.metadata.FunctionType.WINDOW;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;

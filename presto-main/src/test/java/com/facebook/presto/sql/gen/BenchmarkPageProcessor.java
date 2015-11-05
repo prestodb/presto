@@ -45,7 +45,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;

@@ -86,7 +86,7 @@ import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTimestampsWithTimezoneBlock;
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createNormalSplit;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createRecordSetSplit;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;

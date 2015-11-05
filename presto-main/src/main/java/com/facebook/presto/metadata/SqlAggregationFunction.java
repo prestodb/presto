@@ -23,8 +23,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
-import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -43,14 +43,14 @@ public abstract class SqlAggregationFunction
         this(name, typeParameters, returnType, argumentTypes, AGGREGATE);
     }
 
-    protected SqlAggregationFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, FunctionType type)
+    protected SqlAggregationFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, FunctionKind kind)
     {
         requireNonNull(name, "name is null");
         requireNonNull(typeParameters, "typeParameters is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        checkArgument(type == AGGREGATE || type == APPROXIMATE_AGGREGATE, "type must be an aggregate");
-        this.signature = new Signature(name, type, ImmutableList.copyOf(typeParameters), returnType, ImmutableList.copyOf(argumentTypes), false);
+        checkArgument(kind == AGGREGATE || kind == APPROXIMATE_AGGREGATE, "kind must be an aggregate");
+        this.signature = new Signature(name, kind, ImmutableList.copyOf(typeParameters), returnType, ImmutableList.copyOf(argumentTypes), false);
     }
 
     @Override

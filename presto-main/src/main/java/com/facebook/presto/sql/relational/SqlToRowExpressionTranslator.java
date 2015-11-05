@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.FunctionType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
@@ -64,7 +64,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.IdentityHashMap;
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -108,14 +108,14 @@ public final class SqlToRowExpressionTranslator
 
     public static RowExpression translate(
             Expression expression,
-            FunctionType functionType,
+            FunctionKind functionKind,
             IdentityHashMap<Expression, Type> types,
             FunctionRegistry functionRegistry,
             TypeManager typeManager,
             Session session,
             boolean optimize)
     {
-        RowExpression result = new Visitor(functionType, types, typeManager, session.getTimeZoneKey()).process(expression, null);
+        RowExpression result = new Visitor(functionKind, types, typeManager, session.getTimeZoneKey()).process(expression, null);
 
         requireNonNull(result, "translated expression is null");
 
@@ -130,14 +130,14 @@ public final class SqlToRowExpressionTranslator
     private static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
-        private final FunctionType functionType;
+        private final FunctionKind functionKind;
         private final IdentityHashMap<Expression, Type> types;
         private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
 
-        private Visitor(FunctionType functionType, IdentityHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
+        private Visitor(FunctionKind functionKind, IdentityHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
         {
-            this.functionType = functionType;
+            this.functionKind = functionKind;
             this.types = types;
             this.typeManager = typeManager;
             this.timeZoneKey = timeZoneKey;
@@ -272,7 +272,7 @@ public final class SqlToRowExpressionTranslator
                     .map(Type::getTypeSignature)
                     .collect(toImmutableList());
 
-            Signature signature = new Signature(node.getName().getSuffix(), functionType, types.get(node).getTypeSignature(), argumentTypes);
+            Signature signature = new Signature(node.getName().getSuffix(), functionKind, types.get(node).getTypeSignature(), argumentTypes);
 
             return call(signature, types.get(node), arguments);
         }

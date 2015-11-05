@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.MultimapAggregationFunction.NAME;
