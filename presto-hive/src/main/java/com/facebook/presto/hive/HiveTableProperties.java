@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.hive.metastore.TableType;
 
 import javax.inject.Inject;
 
@@ -31,6 +32,7 @@ public class HiveTableProperties
 {
     public static final String STORAGE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
+    public static final String TABLE_TYPE_PROPERTY = "table_type";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -55,7 +57,15 @@ public class HiveTableProperties
                         false,
                         value -> ImmutableList.copyOf(((List<String>) value).stream()
                                 .map(name -> name.toLowerCase(ENGLISH))
-                                .collect(Collectors.toList()))));
+                                .collect(Collectors.toList()))),
+                new PropertyMetadata<>(
+                        TABLE_TYPE_PROPERTY,
+                        "Table type",
+                        VARCHAR,
+                        TableType.class,
+                        TableType.MANAGED_TABLE,
+                        false,
+                        value -> TableType.valueOf(((String) value).toUpperCase(ENGLISH))));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -71,5 +81,10 @@ public class HiveTableProperties
     public static List<String> getPartitionedBy(Map<String, Object> tableProperties)
     {
         return (List<String>) tableProperties.get(PARTITIONED_BY_PROPERTY);
+    }
+
+    public static TableType getHiveTableType(Map<String, Object> tableProperties)
+    {
+        return (TableType) tableProperties.get(TABLE_TYPE_PROPERTY);
     }
 }

@@ -94,6 +94,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_ERROR;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveTableProperties.getHiveTableType;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
@@ -125,6 +126,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
 public class HiveMetadata
@@ -399,7 +401,8 @@ public class HiveMetadata
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy);
+        TableType hiveTableType = getHiveTableType(tableMetadata.getProperties());
+        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, hiveTableType, partitionedBy);
     }
 
     public void createTable(String schemaName,
@@ -407,6 +410,7 @@ public class HiveMetadata
             String tableOwner,
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
+            TableType hiveTableType,
             List<String> partitionedBy)
     {
         Path targetPath = getTableDefaultLocation(metastore, hdfsEnvironment, schemaName, tableName);
@@ -417,7 +421,7 @@ public class HiveMetadata
         }
 
         createDirectory(hdfsEnvironment, targetPath);
-        createTable(schemaName, tableName, tableOwner, columnHandles, hiveStorageFormat, partitionedBy, targetPath);
+        createTable(schemaName, tableName, tableOwner, columnHandles, hiveStorageFormat, hiveTableType, partitionedBy, targetPath);
     }
 
     private Table createTable(String schemaName,
@@ -425,6 +429,7 @@ public class HiveMetadata
             String tableOwner,
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
+            TableType hiveTableType,
             List<String> partitionedBy,
             Path targetPath)
     {
@@ -471,12 +476,21 @@ public class HiveMetadata
         table.setDbName(schemaName);
         table.setTableName(tableName);
         table.setOwner(tableOwner);
-        table.setTableType(TableType.MANAGED_TABLE.toString());
+        table.setTableType(hiveTableType.toString());
         String tableComment = "Created by Presto";
         if (sampled) {
             tableComment = "Sampled table created by Presto. Only query this table from Hive if you understand how Presto implements sampling.";
         }
-        table.setParameters(ImmutableMap.of("comment", tableComment));
+        ImmutableMap.Builder<String, String> tableParameters = ImmutableMap.builder();
+        tableParameters.put("comment", tableComment);
+
+        //Setting the table type to EXTERNAL_TABLE is not enough
+        //as Hive metastore also looks for the "EXTERNAL" property
+        if (hiveTableType.equals(EXTERNAL_TABLE)) {
+            tableParameters.put("EXTERNAL", "TRUE");
+        }
+
+        table.setParameters(tableParameters.build());
         table.setPartitionKeys(partitionColumns);
         table.setSd(sd);
 
@@ -592,6 +606,7 @@ public class HiveMetadata
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
+        TableType hiveTableType = getHiveTableType(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
 
         // get the root directory for the database
@@ -621,6 +636,7 @@ public class HiveMetadata
                 randomUUID().toString(), // todo this should really be the queryId
                 writePath,
                 hiveStorageFormat,
+                hiveTableType,
                 partitionedBy,
                 tableMetadata.getOwner());
     }
@@ -661,6 +677,7 @@ public class HiveMetadata
                     handle.getTableOwner(),
                     handle.getInputColumns(),
                     handle.getHiveStorageFormat(),
+                    handle.getHiveTableType(),
                     handle.getPartitionedBy(),
                     targetPath);
 
