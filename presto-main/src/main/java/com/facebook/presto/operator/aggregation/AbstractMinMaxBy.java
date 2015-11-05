@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregation;
+import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.MaxOrMinByState;
 import com.facebook.presto.operator.aggregation.state.MaxOrMinByStateFactory;
 import com.facebook.presto.operator.aggregation.state.MaxOrMinByStateSerializer;
@@ -40,7 +40,7 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
 
 public abstract class AbstractMinMaxBy
-        extends SqlAggregation
+        extends SqlAggregationFunction
 {
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AbstractMinMaxBy.class, "output", Type.class, MaxOrMinByState.class, BlockBuilder.class);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(AbstractMinMaxBy.class, "input", boolean.class, Type.class, MaxOrMinByState.class, Block.class, Block.class, int.class);

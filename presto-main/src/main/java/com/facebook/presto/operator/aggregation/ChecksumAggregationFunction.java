@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregation;
+import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
@@ -41,18 +41,18 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static io.airlift.slice.Slices.wrappedLongArray;
 
-public class ChecksumAggregation
-        extends SqlAggregation
+public class ChecksumAggregationFunction
+        extends SqlAggregationFunction
 {
-    public static final ChecksumAggregation CHECKSUM_AGGREGATION = new ChecksumAggregation();
+    public static final ChecksumAggregationFunction CHECKSUM_AGGREGATION = new ChecksumAggregationFunction();
     @VisibleForTesting
     public static final long PRIME64 = 0x9E3779B185EBCA87L;
     private static final String NAME = "checksum";
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ChecksumAggregation.class, "output", NullableLongState.class, BlockBuilder.class);
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(ChecksumAggregation.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(ChecksumAggregation.class, "combine", NullableLongState.class, NullableLongState.class);
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "output", NullableLongState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "combine", NullableLongState.class, NullableLongState.class);
 
-    public ChecksumAggregation()
+    public ChecksumAggregationFunction()
     {
         super(NAME, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.VARBINARY, ImmutableList.of("T"));
     }
@@ -72,7 +72,7 @@ public class ChecksumAggregation
 
     private static InternalAggregationFunction generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ChecksumAggregation.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(ChecksumAggregationFunction.class.getClassLoader());
 
         List<Type> inputTypes = ImmutableList.of(type);
 

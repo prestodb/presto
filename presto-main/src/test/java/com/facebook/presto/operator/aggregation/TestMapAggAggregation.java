@@ -36,7 +36,7 @@ import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.MapAggregation.NAME;
+import static com.facebook.presto.operator.aggregation.MapAggregationFunction.NAME;
 import static com.facebook.presto.operator.scalar.TestingRowConstructor.testRowBigintBigint;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;

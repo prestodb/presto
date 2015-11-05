@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregation;
+import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.AccumulatorState;
 import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.BlockState;
@@ -44,17 +44,17 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
-public class ArbitraryAggregation
-        extends SqlAggregation
+public class ArbitraryAggregationFunction
+        extends SqlAggregationFunction
 {
-    public static final ArbitraryAggregation ARBITRARY_AGGREGATION = new ArbitraryAggregation();
+    public static final ArbitraryAggregationFunction ARBITRARY_AGGREGATION = new ArbitraryAggregationFunction();
     private static final String NAME = "arbitrary";
 
-    private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
-    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, NullableDoubleState.class, Block.class, int.class);
-    private static final MethodHandle SLICE_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, SliceState.class, Block.class, int.class);
-    private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, NullableBooleanState.class, Block.class, int.class);
-    private static final MethodHandle BLOCK_INPUT_FUNCTION = methodHandle(ArbitraryAggregation.class, "input", Type.class, BlockState.class, Block.class, int.class);
+    private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
+    private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableDoubleState.class, Block.class, int.class);
+    private static final MethodHandle SLICE_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, SliceState.class, Block.class, int.class);
+    private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableBooleanState.class, Block.class, int.class);
+    private static final MethodHandle BLOCK_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, BlockState.class, Block.class, int.class);
 
     private static final MethodHandle LONG_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
     private static final MethodHandle DOUBLE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
@@ -64,7 +64,7 @@ public class ArbitraryAggregation
 
     private static final StateCompiler compiler = new StateCompiler();
 
-    protected ArbitraryAggregation()
+    protected ArbitraryAggregationFunction()
     {
         super(NAME, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"));
     }
@@ -84,7 +84,7 @@ public class ArbitraryAggregation
 
     private static InternalAggregationFunction generateAggregation(Type type)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ArbitraryAggregation.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(ArbitraryAggregationFunction.class.getClassLoader());
 
         List<Type> inputTypes = ImmutableList.of(type);
 

@@ -13,24 +13,21 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.OperatorType;
-
-public class MaxAggregation
-        extends AbstractMinMaxAggregation
+public class MinNAggregationFunction
+        extends AbstractMinMaxNAggregationFunction
 {
-    private static final OperatorType OPERATOR_TYPE = OperatorType.GREATER_THAN;
-    private static final String NAME = "max";
+    private static final String NAME = "min";
 
-    public static final MaxAggregation MAX_AGGREGATION = new MaxAggregation();
+    public static final MinNAggregationFunction MIN_N_AGGREGATION = new MinNAggregationFunction();
 
-    public MaxAggregation()
+    public MinNAggregationFunction()
     {
-        super(NAME, OPERATOR_TYPE);
+        super(NAME, t -> ((leftBlock, leftIndex, rightBlock, rightIndex) -> -t.compareTo(leftBlock, leftIndex, rightBlock, rightIndex)));
     }
 
     @Override
     public String getDescription()
     {
-        return "Returns the maximum value of the argument";
+        return "Returns the minimum values of the argument";
     }
 }

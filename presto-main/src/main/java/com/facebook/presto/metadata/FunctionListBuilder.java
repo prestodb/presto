@@ -111,7 +111,7 @@ public class FunctionListBuilder
         name = name.toLowerCase(ENGLISH);
 
         String description = getDescription(function.getClass());
-        functions.add(SqlAggregation.create(name, description, function));
+        functions.add(SqlAggregationFunction.create(name, description, function));
         return this;
     }
 

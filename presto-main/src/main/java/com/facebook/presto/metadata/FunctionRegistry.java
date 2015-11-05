@@ -127,21 +127,21 @@ import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.operator.aggregation.ArbitraryAggregation.ARBITRARY_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ArrayAggregation.ARRAY_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ChecksumAggregation.CHECKSUM_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ArrayAggregationFunction.ARRAY_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
-import static com.facebook.presto.operator.aggregation.MapAggregation.MAP_AGG;
-import static com.facebook.presto.operator.aggregation.MaxAggregation.MAX_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
+import static com.facebook.presto.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
-import static com.facebook.presto.operator.aggregation.MaxByNAggregation.MAX_BY_N_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.MaxNAggregation.MAX_N_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.MinAggregation.MIN_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.MaxNAggregationFunction.MAX_N_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinBy.MIN_BY;
-import static com.facebook.presto.operator.aggregation.MinByNAggregation.MIN_BY_N_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.MinNAggregation.MIN_N_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.MultimapAggregation.MULTIMAP_AGG;
+import static com.facebook.presto.operator.aggregation.MinByNAggregationFunction.MIN_BY_N_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.MinNAggregationFunction.MIN_N_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.MultimapAggregationFunction.MULTIMAP_AGG;
 import static com.facebook.presto.operator.scalar.ArrayCardinalityFunction.ARRAY_CARDINALITY;
 import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
@@ -260,7 +260,7 @@ public class FunctionRegistry
                     public InternalAggregationFunction load(SpecializedFunctionKey key)
                             throws Exception
                     {
-                        SqlAggregation aggregationFunction = checkType(key.getFunction(), SqlAggregation.class, "function");
+                        SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
                         return aggregationFunction.specialize(key.getBoundTypeParameters(), key.getArity(), typeManager, FunctionRegistry.this);
                     }
                 });
@@ -273,8 +273,8 @@ public class FunctionRegistry
                     public WindowFunctionSupplier load(SpecializedFunctionKey key)
                             throws Exception
                     {
-                        if (key.getFunction() instanceof SqlAggregation) {
-                            SqlAggregation aggregationFunction = checkType(key.getFunction(), SqlAggregation.class, "function");
+                        if (key.getFunction() instanceof SqlAggregationFunction) {
+                            SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
                             return supplier(aggregationFunction.getSignature(), specializedAggregationCache.getUnchecked(key));
                         }
                         else {

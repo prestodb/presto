@@ -28,22 +28,22 @@ import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public abstract class SqlAggregation
+public abstract class SqlAggregationFunction
         implements SqlFunction
 {
     private final Signature signature;
 
-    public static SqlAggregation create(String name, String description, InternalAggregationFunction function)
+    public static SqlAggregationFunction create(String name, String description, InternalAggregationFunction function)
     {
-        return new SimpleSqlAggregation(name, description, function);
+        return new SimpleSqlAggregationFunction(name, description, function);
     }
 
-    protected SqlAggregation(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes)
+    protected SqlAggregationFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes)
     {
         this(name, typeParameters, returnType, argumentTypes, AGGREGATE);
     }
 
-    protected SqlAggregation(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, FunctionType type)
+    protected SqlAggregationFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, FunctionType type)
     {
         requireNonNull(name, "name is null");
         requireNonNull(typeParameters, "typeParameters is null");
@@ -73,13 +73,13 @@ public abstract class SqlAggregation
 
     public abstract InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
 
-    public static class SimpleSqlAggregation
-            extends SqlAggregation
+    public static class SimpleSqlAggregationFunction
+            extends SqlAggregationFunction
     {
         private final InternalAggregationFunction function;
         private final String description;
 
-        public SimpleSqlAggregation(
+        public SimpleSqlAggregationFunction(
                 String name,
                 String description,
                 InternalAggregationFunction function)

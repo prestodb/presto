@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.byteCode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregation;
+import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairStateSerializer;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsState;
 import com.facebook.presto.operator.aggregation.state.KeyValuePairsStateFactory;
@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 
@@ -44,24 +45,24 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
-public class MapAggregation
-        extends SqlAggregation
+public class MultimapAggregationFunction
+        extends SqlAggregationFunction
 {
-    public static final MapAggregation MAP_AGG = new MapAggregation();
-    public static final String NAME = "map_agg";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(MapAggregation.class, "input", Type.class, Type.class, KeyValuePairsState.class, Block.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(MapAggregation.class, "combine", KeyValuePairsState.class, KeyValuePairsState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MapAggregation.class, "output", KeyValuePairsState.class, BlockBuilder.class);
+    public static final MultimapAggregationFunction MULTIMAP_AGG = new MultimapAggregationFunction();
+    public static final String NAME = "multimap_agg";
+    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MultimapAggregationFunction.class, "output", KeyValuePairsState.class, BlockBuilder.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(MultimapAggregationFunction.class, "input", KeyValuePairsState.class, Block.class, Block.class, int.class);
+    private static final MethodHandle COMBINE_FUNCTION = methodHandle(MultimapAggregationFunction.class, "combine", KeyValuePairsState.class, KeyValuePairsState.class);
 
-    public MapAggregation()
+    public MultimapAggregationFunction()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map<K,V>", ImmutableList.of("K", "V"));
+        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map<K,array<V>>", ImmutableList.of("K", "V"));
     }
 
     @Override
     public String getDescription()
     {
-        return "Aggregates all the rows (key/value pairs) into a single map";
+        return "Aggregates all the rows (key/value pairs) into a single multimap";
     }
 
     @Override
@@ -74,16 +75,16 @@ public class MapAggregation
 
     private static InternalAggregationFunction generateAggregation(Type keyType, Type valueType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(MapAggregation.class.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(MultimapAggregationFunction.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(keyType, valueType);
-        Type outputType = new MapType(keyType, valueType);
-        KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(keyType, valueType, false);
+        Type outputType = new MapType(keyType, new ArrayType(valueType));
+        KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(keyType, valueType, true);
         Type intermediateType = stateSerializer.getSerializedType();
 
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, outputType, inputTypes),
                 createInputParameterMetadata(keyType, valueType),
-                INPUT_FUNCTION.bindTo(keyType).bindTo(valueType),
+                INPUT_FUNCTION,
                 null,
                 null,
                 COMBINE_FUNCTION,
@@ -101,16 +102,16 @@ public class MapAggregation
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType, Type valueType)
     {
         return ImmutableList.of(new ParameterMetadata(STATE),
-                                new ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
-                                new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
-                                new ParameterMetadata(BLOCK_INDEX));
+                new ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
+                new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
+                new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(Type keyType, Type valueType, KeyValuePairsState state, Block key, Block value, int position)
+    public static void input(KeyValuePairsState state, Block key, Block value, int position)
     {
         KeyValuePairs pairs = state.get();
         if (pairs == null) {
-            pairs = new KeyValuePairs(keyType, valueType);
+            pairs = new KeyValuePairs(state.getKeyType(), state.getValueType(), true);
             state.set(pairs);
         }
 
@@ -153,7 +154,7 @@ public class MapAggregation
             out.appendNull();
         }
         else {
-            Block block = pairs.toMapNativeEncoding();
+            Block block = pairs.toMultimapNativeEncoding();
             out.writeObject(block);
             out.closeEntry();
         }
