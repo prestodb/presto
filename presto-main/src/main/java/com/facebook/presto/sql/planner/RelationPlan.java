@@ -24,7 +24,8 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-class RelationPlan
+class
+RelationPlan
 {
     private final PlanNode root;
     private final List<Symbol> outputSymbols;

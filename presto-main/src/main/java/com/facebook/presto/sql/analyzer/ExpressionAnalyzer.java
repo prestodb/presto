@@ -120,7 +120,6 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.RowType.RowField;
 import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.type.TypeRegistry.getCommonSuperTypeSignature;
-import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
@@ -966,7 +965,7 @@ public class ExpressionAnalyzer
             // verify all expressions can be coerced to the superType
             for (Expression expression : expressions) {
                 Type type = process(expression, context);
-                if (!type.equals(superType) && !isTypeOnlyCoercion(type, superType)) {
+                if (!type.equals(superType)) {
                     if (!canCoerce(type, superType)) {
                         throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
                     }

@@ -233,6 +233,7 @@ public class TestArrayOperators
     public void testArrayContains()
             throws Exception
     {
+        assertFunction("CONTAINS(ARRAY ['puppies', 'dogs'], 'dogs')", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [1, 2, 3], 2)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [1, 2, 3], 5)", BOOLEAN, false);
         assertFunction("CONTAINS(ARRAY [1, NULL, 3], 1)", BOOLEAN, true);
@@ -240,8 +241,8 @@ public class TestArrayOperators
         assertFunction("CONTAINS(ARRAY [NULL, 2, 3], NULL)", BOOLEAN, null);
         assertFunction("CONTAINS(ARRAY [1, 2.0, 3], 3.0)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [1.0, 2.5, 3.0], 2.2)", BOOLEAN, false);
-        assertFunction("CONTAINS(ARRAY ['puppies', 'kittens'], 'kittens')", BOOLEAN, true);
-        assertFunction("CONTAINS(ARRAY ['puppies', 'kittens'], 'lizards')", BOOLEAN, false);
+        assertFunction("CONTAINS(ARRAY ['puppies', 'dogs'], 'dogs')", BOOLEAN, true);
+        assertFunction("CONTAINS(ARRAY ['puppies', 'dogs'], 'sharks')", BOOLEAN, false);
         assertFunction("CONTAINS(ARRAY [TRUE, FALSE], TRUE)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [FALSE], TRUE)", BOOLEAN, false);
         assertFunction("CONTAINS(ARRAY [ARRAY [1, 2], ARRAY [3, 4]], ARRAY [3, 4])", BOOLEAN, true);

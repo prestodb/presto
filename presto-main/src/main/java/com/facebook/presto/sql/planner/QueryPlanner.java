@@ -55,6 +55,7 @@ import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -286,11 +287,12 @@ class QueryPlanner
         ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
 
         for (Expression expression : expressions) {
+            Type type = analysis.getType(expression);
             Type coercion = analysis.getCoercion(expression);
-            Symbol symbol = symbolAllocator.newSymbol(expression, firstNonNull(coercion, analysis.getType(expression)));
+            Symbol symbol = symbolAllocator.newSymbol(expression, firstNonNull(coercion, type));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
-                rewritten = new Cast(rewritten, coercion.getTypeSignature().toString());
+                rewritten = new Cast(rewritten, coercion.getTypeSignature().toString(), false, TypeRegistry.isTypeOnlyCoercion(type, coercion));
             }
             projections.put(symbol, rewritten);
             translations.put(expression, symbol);
