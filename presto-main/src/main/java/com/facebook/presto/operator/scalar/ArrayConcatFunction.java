@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -27,7 +27,7 @@ import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayConcatFunction
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     public static final ArrayConcatFunction ARRAY_CONCAT_FUNCTION = new ArrayConcatFunction();
     private static final String FUNCTION_NAME = "concat";

@@ -247,7 +247,7 @@ public class FunctionRegistry
                             throws Exception
                     {
                         // TODO the function map should be updated, so that this cast can be removed
-                        SqlScalar scalarFunction = checkType(key.getFunction(), SqlScalar.class, "function");
+                        SqlScalarFunction scalarFunction = checkType(key.getFunction(), SqlScalarFunction.class, "function");
                         return scalarFunction.specialize(key.getBoundTypeParameters(), key.getArity(), typeManager, FunctionRegistry.this);
                     }
                 });

@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -30,7 +30,7 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class MapKeys
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     public static final MapKeys MAP_KEYS = new MapKeys();
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapKeys.class, "getKeys", Type.class, Block.class);

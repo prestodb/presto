@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -36,7 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 
 public abstract class AbstractArrayMinMaxFunction
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     private final OperatorType operatorType;
     private final String description;

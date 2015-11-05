@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -41,7 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public final class ArrayRemoveFunction
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     public static final ArrayRemoveFunction ARRAY_REMOVE_FUNCTION = new ArrayRemoveFunction();
     private static final String FUNCTION_NAME = "array_remove";

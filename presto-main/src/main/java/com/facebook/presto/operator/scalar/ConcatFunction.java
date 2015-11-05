@@ -22,7 +22,7 @@ import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -56,7 +56,7 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.Math.addExact;
 
 public final class ConcatFunction
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     public static final ConcatFunction CONCAT = new ConcatFunction();
 

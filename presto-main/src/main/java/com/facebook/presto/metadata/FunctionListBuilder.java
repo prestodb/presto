@@ -123,7 +123,7 @@ public class FunctionListBuilder
 
     public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, String description, boolean hidden, boolean nullable, List<Boolean> nullableArguments)
     {
-        functions.add(SqlScalar.create(signature, description, hidden, function, deterministic, nullable, nullableArguments));
+        functions.add(SqlScalarFunction.create(signature, description, hidden, function, deterministic, nullable, nullableArguments));
         return this;
     }
 

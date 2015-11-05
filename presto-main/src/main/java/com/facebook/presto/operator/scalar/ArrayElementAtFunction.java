@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -34,7 +34,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayElementAtFunction
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     public static final ArrayElementAtFunction ARRAY_ELEMENT_AT_FUNCTION = new ArrayElementAtFunction();
     private static final String FUNCTION_NAME = "element_at";

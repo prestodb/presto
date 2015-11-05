@@ -28,7 +28,7 @@ import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static java.util.Objects.requireNonNull;
 
 public abstract class SqlOperator
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     public static SqlOperator create(
             OperatorType operatorType,

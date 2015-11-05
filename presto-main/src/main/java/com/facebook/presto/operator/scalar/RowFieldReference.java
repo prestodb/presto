@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -31,7 +31,7 @@ import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 import static java.util.Objects.requireNonNull;
 
 public class RowFieldReference
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     private static final Map<String, MethodHandle> METHOD_HANDLE_MAP;
 

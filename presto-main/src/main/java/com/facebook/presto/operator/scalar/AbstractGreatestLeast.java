@@ -23,7 +23,7 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.SqlScalar;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -59,7 +59,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public abstract class AbstractGreatestLeast
-        extends SqlScalar
+        extends SqlScalarFunction
 {
     private static final MethodHandle CHECK_NOT_NAN = methodHandle(AbstractGreatestLeast.class, "checkNotNaN", String.class, double.class);
 
