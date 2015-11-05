@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.FunctionType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -125,10 +125,10 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
-import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
-import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -412,7 +412,7 @@ class StatementAnalyzer
     {
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (SqlFunction function : metadata.listFunctions()) {
-            if (function.getSignature().getType() == APPROXIMATE_AGGREGATE) {
+            if (function.getSignature().getKind() == APPROXIMATE_AGGREGATE) {
                 continue;
             }
             rows.add(row(
@@ -449,8 +449,8 @@ class StatementAnalyzer
 
     private static String getFunctionType(SqlFunction function)
     {
-        FunctionType type = function.getSignature().getType();
-        switch (type) {
+        FunctionKind kind = function.getSignature().getKind();
+        switch (kind) {
             case AGGREGATE:
             case APPROXIMATE_AGGREGATE:
                 return "aggregate";
@@ -459,7 +459,7 @@ class StatementAnalyzer
             case SCALAR:
                 return "scalar";
         }
-        throw new IllegalArgumentException("Unsupported function type: " + type);
+        throw new IllegalArgumentException("Unsupported function kind: " + kind);
     }
 
     @Override
@@ -1242,8 +1242,8 @@ class StatementAnalyzer
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
-            FunctionType type = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes, false).getType();
-            if (type != AGGREGATE && type != APPROXIMATE_AGGREGATE && type != WINDOW) {
+            FunctionKind kind = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes, false).getKind();
+            if (kind != AGGREGATE && kind != APPROXIMATE_AGGREGATE && kind != WINDOW) {
                 throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }
         }

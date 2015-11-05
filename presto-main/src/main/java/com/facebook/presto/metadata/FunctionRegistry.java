@@ -122,10 +122,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
-import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
-import static com.facebook.presto.metadata.FunctionType.WINDOW;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ArrayAggregationFunction.ARRAY_AGGREGATION;
@@ -403,7 +403,7 @@ public class FunctionRegistry
                 boundArguments.add(lastArgument);
             }
         }
-        return new Signature(signature.getName(), signature.getType(), bindParameters(signature.getReturnType(), boundParameters), boundArguments.build());
+        return new Signature(signature.getName(), signature.getKind(), bindParameters(signature.getReturnType(), boundParameters), boundArguments.build());
     }
 
     private static TypeSignature bindParameters(TypeSignature typeSignature, Map<String, Type> boundParameters)
@@ -436,13 +436,13 @@ public class FunctionRegistry
 
     public boolean isAggregationFunction(QualifiedName name)
     {
-        return Iterables.any(functions.get(name), function -> function.getSignature().getType() == AGGREGATE || function.getSignature().getType() == APPROXIMATE_AGGREGATE);
+        return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE || function.getSignature().getKind() == APPROXIMATE_AGGREGATE);
     }
 
     public Signature resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
     {
         List<SqlFunction> candidates = functions.get(name).stream()
-                .filter(function -> function.getSignature().getType() == SCALAR || (function.getSignature().getType() == APPROXIMATE_AGGREGATE) == approximate)
+                .filter(function -> function.getSignature().getKind() == SCALAR || (function.getSignature().getKind() == APPROXIMATE_AGGREGATE) == approximate)
                 .collect(toImmutableList());
 
         List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
@@ -529,7 +529,7 @@ public class FunctionRegistry
 
     public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
     {
-        checkArgument(signature.getType() == WINDOW || signature.getType() == AGGREGATE, "%s is not a window function", signature);
+        checkArgument(signature.getKind() == WINDOW || signature.getKind() == AGGREGATE, "%s is not a window function", signature);
         checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
@@ -551,7 +551,7 @@ public class FunctionRegistry
 
     public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
     {
-        checkArgument(signature.getType() == AGGREGATE || signature.getType() == APPROXIMATE_AGGREGATE, "%s is not an aggregate function", signature);
+        checkArgument(signature.getKind() == AGGREGATE || signature.getKind() == APPROXIMATE_AGGREGATE, "%s is not an aggregate function", signature);
         checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
@@ -573,7 +573,7 @@ public class FunctionRegistry
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
     {
-        checkArgument(signature.getType() == SCALAR, "%s is not a scalar function", signature);
+        checkArgument(signature.getKind() == SCALAR, "%s is not a scalar function", signature);
         checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
@@ -900,8 +900,8 @@ public class FunctionRegistry
             for (Map.Entry<QualifiedName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
                 Collection<SqlFunction> values = entry.getValue();
                 long aggregations = values.stream()
-                        .map(function -> function.getSignature().getType())
-                        .filter(type -> type == AGGREGATE || type == APPROXIMATE_AGGREGATE)
+                        .map(function -> function.getSignature().getKind())
+                        .filter(kind -> kind == AGGREGATE || kind == APPROXIMATE_AGGREGATE)
                         .count();
                 checkState(aggregations == 0 || aggregations == values.size(), "'%s' is both an aggregation and a scalar function", entry.getKey());
             }

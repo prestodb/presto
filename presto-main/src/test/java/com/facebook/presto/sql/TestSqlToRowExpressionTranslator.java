@@ -27,7 +27,7 @@ import org.testng.annotations.Test;
 import java.util.IdentityHashMap;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestSqlToRowExpressionTranslator

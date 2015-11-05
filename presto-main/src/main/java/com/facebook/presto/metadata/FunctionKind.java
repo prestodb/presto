@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-public enum FunctionType
+public enum FunctionKind
 {
     SCALAR,
     AGGREGATE,
