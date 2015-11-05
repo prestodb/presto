@@ -42,7 +42,6 @@ import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -855,13 +854,8 @@ class StatementAnalyzer
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, ImmutableMap.<Symbol, Type>of(), relation.getSamplePercentage());
         ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
 
-        Object samplePercentageObject = samplePercentageEval.optimize(new SymbolResolver()
-        {
-            @Override
-            public Object getValue(Symbol symbol)
-            {
-                throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
-            }
+        Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
+            throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
         });
 
         if (!(samplePercentageObject instanceof Number)) {
@@ -935,7 +929,7 @@ class StatementAnalyzer
                 .map(relation -> process(relation, context).withOnlyVisibleFields())
                 .toArray(TupleDescriptor[]::new);
         Type[] outputFieldTypes = descriptors[0].getVisibleFields().stream()
-                .map(field -> field.getType())
+                .map(Field::getType)
                 .toArray(Type[]::new);
         for (TupleDescriptor descriptor : descriptors) {
             int outputFieldSize = outputFieldTypes.length;
@@ -1090,11 +1084,11 @@ class StatementAnalyzer
 
                 Expression leftExpression;
                 Expression rightExpression;
-                if (Iterables.all(firstDependencies, left.canResolvePredicate()) && Iterables.all(secondDependencies, right.canResolvePredicate())) {
+                if (firstDependencies.stream().allMatch(left.canResolvePredicate()) && secondDependencies.stream().allMatch(right.canResolvePredicate())) {
                     leftExpression = comparison.getLeft();
                     rightExpression = comparison.getRight();
                 }
-                else if (Iterables.all(firstDependencies, right.canResolvePredicate()) && Iterables.all(secondDependencies, left.canResolvePredicate())) {
+                else if (firstDependencies.stream().allMatch(right.canResolvePredicate()) && secondDependencies.stream().allMatch(left.canResolvePredicate())) {
                     leftExpression = comparison.getRight();
                     rightExpression = comparison.getLeft();
                 }
@@ -1567,7 +1561,7 @@ class StatementAnalyzer
         List<FunctionCall> aggregates = extractAggregates(node);
 
         if (context.isApproximate()) {
-            if (Iterables.any(aggregates, FunctionCall::isDistinct)) {
+            if (aggregates.stream().anyMatch(FunctionCall::isDistinct)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT aggregations not supported for approximate queries");
             }
         }
