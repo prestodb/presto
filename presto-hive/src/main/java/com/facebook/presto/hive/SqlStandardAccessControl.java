@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.HivePrivilege;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
@@ -35,6 +36,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateV
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
@@ -174,6 +176,14 @@ public class SqlStandardAccessControl
     {
         if (!metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME)) {
             denySetCatalogSessionProperty(connectorId, propertyName);
+        }
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+            denyGrantTablePrivilege(privilege.toString(), tableName.toString());
         }
     }
 

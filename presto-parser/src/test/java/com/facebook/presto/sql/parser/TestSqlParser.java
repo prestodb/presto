@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IntervalLiteral;
@@ -52,6 +53,8 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.PrestoIdentity;
+import com.facebook.presto.sql.tree.PrestoPrivilege;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -904,6 +907,18 @@ public class TestSqlParser
                 QualifiedName.of("a"),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                 true));
+    }
+
+    @Test
+    public void testGrant()
+            throws Exception
+    {
+        assertStatement("GRANT INSERT ON customer to admin",
+                new Grant(new PrestoPrivilege(PrestoPrivilege.Type.INSERT), false, QualifiedName.of("customer"),
+                        new PrestoIdentity(QualifiedName.of("admin")), false));
+        assertStatement("GRANT SELECT ON orders to PUBLIC WITH GRANT OPTION",
+                new Grant(new PrestoPrivilege(PrestoPrivilege.Type.SELECT), false, QualifiedName.of("orders"),
+                        new PrestoIdentity(QualifiedName.of("PUBLIC")), true));
     }
 
     @Test

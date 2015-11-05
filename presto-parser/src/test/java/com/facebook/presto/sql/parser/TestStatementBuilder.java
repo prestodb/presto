@@ -177,6 +177,10 @@ public class TestStatementBuilder
         printStatement("create or replace view foo as select 123 from t");
 
         printStatement("drop view foo");
+
+        printStatement("grant select on foo to testUser with grant option");
+        printStatement("grant insert on foo to testUser");
+        printStatement("grant delete on foo to public");
     }
 
     @Test

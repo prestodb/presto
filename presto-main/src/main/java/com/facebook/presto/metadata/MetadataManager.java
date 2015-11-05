@@ -37,6 +37,8 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -663,6 +665,15 @@ public class MetadataManager
         ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(viewName.getCatalogName());
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", viewName.getCatalogName());
         connectorMetadata.getMetadata().dropView(session.toConnectorSession(connectorMetadata.getCatalog()), viewName.asSchemaTableName());
+    }
+
+    @Override
+    public void grantTablePrivilege(Session session, QualifiedTableName tableName, Privilege privilege, Identity identity, boolean grantOption)
+    {
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(tableName.getCatalogName());
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", tableName.getCatalogName());
+        connectorMetadata.getMetadata().grantTablePrivilege(session.toConnectorSession(connectorMetadata.getCatalog()),
+                tableName.asSchemaTableName(), privilege, identity, grantOption);
     }
 
     @Override

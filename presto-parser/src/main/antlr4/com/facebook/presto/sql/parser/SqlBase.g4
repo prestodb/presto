@@ -46,6 +46,9 @@ statement
         ADD COLUMN column=tableElement                                 #addColumn
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
+    | GRANT privilege
+        ON (TABLE)? qualifiedName TO (userList | PUBLIC)
+        (WITH GRANT OPTION)?                                           #grant
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
     | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)?  #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?                           #showSchemas
@@ -318,6 +321,14 @@ explainOption
     | TYPE value=(LOGICAL | DISTRIBUTED)     #explainType
     ;
 
+privilege
+    : value=(SELECT | INSERT | DELETE )      #prestoPrivilege
+    ;
+
+userList
+    : qualifiedName
+    ;
+
 qualifiedName
     : identifier ('.' identifier)*
     ;
@@ -451,6 +462,9 @@ DELETE: 'DELETE';
 INTO: 'INTO';
 CONSTRAINT: 'CONSTRAINT';
 DESCRIBE: 'DESCRIBE';
+GRANT: 'GRANT';
+PUBLIC: 'PUBLIC';
+OPTION: 'OPTION';
 EXPLAIN: 'EXPLAIN';
 FORMAT: 'FORMAT';
 TYPE: 'TYPE';

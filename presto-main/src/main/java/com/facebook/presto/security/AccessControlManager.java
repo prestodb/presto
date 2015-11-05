@@ -17,8 +17,10 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.sql.tree.PrestoPrivilege;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -304,6 +306,18 @@ public class AccessControlManager
         ConnectorAccessControl accessControl = catalogAccessControl.get(viewName.getCatalogName());
         if (accessControl != null) {
             authorizationCheck(() -> accessControl.checkCanCreateViewWithSelectFromView(identity, viewName.asSchemaTableName()));
+        }
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(Identity identity, PrestoPrivilege privilege, QualifiedTableName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(privilege, "privilege is null");
+
+        ConnectorAccessControl accessControl = catalogAccessControl.get(tableName.getCatalogName());
+        if (accessControl != null) {
+            accessControl.checkCanGrantTablePrivilege(identity, new Privilege(privilege.getTypeString()), tableName.asSchemaTableName());
         }
     }
 

@@ -18,6 +18,8 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -236,6 +238,11 @@ public interface Metadata
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedTableName viewName);
+
+    /**
+     * Grants the specified privilege to the specified user on the specified table
+     */
+    void grantTablePrivilege(Session session, QualifiedTableName tableName, Privilege privilege, Identity identity, boolean grantOption);
 
     FunctionRegistry getFunctionRegistry();
 

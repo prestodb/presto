@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -68,6 +69,8 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.PrestoIdentity;
+import com.facebook.presto.sql.tree.PrestoPrivilege;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -464,6 +467,43 @@ class AstBuilder
     public Node visitResetSession(SqlBaseParser.ResetSessionContext context)
     {
         return new ResetSession(getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitGrant(SqlBaseParser.GrantContext context)
+    {
+        PrestoIdentity prestoIdentity;
+        if (context.PUBLIC() != null) {
+            prestoIdentity = new PrestoIdentity(new QualifiedName("PUBLIC"));
+        }
+        else {
+            prestoIdentity = processIdentity(context.userList());
+        }
+        return new Grant(
+                (PrestoPrivilege) visit(context.privilege()),
+                context.TABLE() != null,
+                getQualifiedName(context.qualifiedName()),
+                prestoIdentity,
+                context.OPTION() != null);
+    }
+
+    @Override
+    public Node visitPrestoPrivilege(SqlBaseParser.PrestoPrivilegeContext context)
+    {
+        switch (context.value.getType()) {
+            case SqlBaseLexer.SELECT:
+                return new PrestoPrivilege(PrestoPrivilege.Type.SELECT);
+            case SqlBaseLexer.INSERT:
+                return new PrestoPrivilege(PrestoPrivilege.Type.INSERT);
+            case SqlBaseLexer.DELETE:
+                return new PrestoPrivilege(PrestoPrivilege.Type.DELETE);
+        }
+        throw new IllegalArgumentException("Unsupported Privilege: " + context.value.toString());
+    }
+
+    private PrestoIdentity processIdentity(SqlBaseParser.UserListContext context)
+    {
+        return new PrestoIdentity(getQualifiedName(context.qualifiedName()));
     }
 
     // ***************** boolean expressions ******************

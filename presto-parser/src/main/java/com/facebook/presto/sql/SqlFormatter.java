@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -726,6 +727,25 @@ public final class SqlFormatter
         {
             builder.append("RESET SESSION ")
                     .append(node.getName());
+
+            return null;
+        }
+
+        @Override
+        public Void visitGrant(Grant node, Integer indent)
+        {
+            builder.append("GRANT ")
+                    .append(node.getPrestoPrivilege().getTypeString())
+                    .append(" ON ");
+            if (node.isTable()) {
+                builder.append("TABLE ");
+            }
+            builder.append(node.getTableName())
+                    .append(" TO ")
+                    .append(node.getPrestoIdentity().getName());
+            if (node.isOption()) {
+                builder.append(" WITH GRANT OPTION");
+            }
 
             return null;
         }
