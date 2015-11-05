@@ -23,9 +23,8 @@ public class TestHiveClient
 {
     @Parameters({"hive.hadoop2.metastoreHost", "hive.hadoop2.metastorePort", "hive.hadoop2.databaseName", "hive.hadoop2.timeZone"})
     @BeforeClass
-    @Override
-    public void setup(String host, int port, String databaseName, String timeZone)
+    public void initialize(String host, int port, String databaseName, String timeZone)
     {
-        super.setup(host, port, databaseName, timeZone);
+        setup(host, port, databaseName, timeZone);
     }
 }
