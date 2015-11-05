@@ -423,10 +423,11 @@ public class TestArrayOperators
         assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], -1) , 1)", BIGINT, 3);
         assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], 2) , -1)", BIGINT, 3);
         assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], -1) , -1)", BIGINT, 3);
-        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens'], 2)", VARCHAR, "kittens");
-        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens'], -1)", VARCHAR, "kittens");
-        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens', NULL], 3)", VARCHAR, null);
-        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens', NULL], -1)", VARCHAR, null);
+        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens'], 2)", createVarcharType(7), "kittens");
+        assertFunction("ELEMENT_AT(ARRAY ['crocodiles', 'kittens'], 2)", createVarcharType(10), "kittens");
+        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens'], -1)", createVarcharType(7), "kittens");
+        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens', NULL], 3)", createVarcharType(7), null);
+        assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens', NULL], -1)", createVarcharType(7), null);
         assertFunction("ELEMENT_AT(ARRAY [TRUE, FALSE], 2)", BOOLEAN, false);
         assertFunction("ELEMENT_AT(ARRAY [TRUE, FALSE], -1)", BOOLEAN, false);
         assertFunction("ELEMENT_AT(ARRAY [from_unixtime(1), from_unixtime(100)], 1)", TIMESTAMP, sqlTimestamp(1000));
@@ -703,7 +704,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_REMOVE(ARRAY [TRUE, FALSE, TRUE], TRUE)", new ArrayType(BOOLEAN), ImmutableList.of(false));
         assertFunction("ARRAY_REMOVE(ARRAY [TRUE, FALSE, TRUE], FALSE)", new ArrayType(BOOLEAN), ImmutableList.of(true, true));
         assertFunction("ARRAY_REMOVE(ARRAY [NULL, FALSE, TRUE], TRUE)", new ArrayType(BOOLEAN), asList(null, false));
-        assertFunction("ARRAY_REMOVE(ARRAY [ARRAY ['foo'], ARRAY ['bar'], ARRAY ['baz']], ARRAY ['bar'])", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(ImmutableList.of("foo"), ImmutableList.of("baz")));
+        assertFunction("ARRAY_REMOVE(ARRAY [ARRAY ['foo'], ARRAY ['bar'], ARRAY ['baz']], ARRAY ['bar'])", new ArrayType(new ArrayType(createVarcharType(3))), ImmutableList.of(ImmutableList.of("foo"), ImmutableList.of("baz")));
     }
 
     public void assertInvalidFunction(String projection, SemanticErrorCode errorCode)
