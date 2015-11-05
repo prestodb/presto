@@ -75,16 +75,16 @@ public final class ApproximateLongPercentileAggregations
     }
 
     @InputFunction
-    public static void weightedInputWithAccuracy(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
         QuantileDigest digest = state.getDigest();
 
         if (digest == null) {
-            if (accuracy > 0.) {
+            if (accuracy > 0 && accuracy < 1) {
                 digest = new QuantileDigest(accuracy);
             }
             else {
-                digest = new QuantileDigest(0.01);
+                throw new IllegalArgumentException("Percentile accuracy must be strictly between 0 and 1");
             }
             state.setDigest(digest);
             state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());

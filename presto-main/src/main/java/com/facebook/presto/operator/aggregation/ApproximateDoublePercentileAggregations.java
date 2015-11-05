@@ -51,9 +51,9 @@ public final class ApproximateDoublePercentileAggregations
     }
 
     @InputFunction
-    public static void weightedInputWithAccuracy(DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
-        ApproximateLongPercentileAggregations.weightedInputWithAccuracy(state, doubleToSortableLong(value), weight, percentile, accuracy);
+        ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile, accuracy);
     }
 
     @CombineFunction
