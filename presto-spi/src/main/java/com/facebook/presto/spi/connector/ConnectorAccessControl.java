@@ -15,6 +15,7 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 
 public interface ConnectorAccessControl
 {
@@ -115,4 +116,11 @@ public interface ConnectorAccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetCatalogSessionProperty(Identity identity, String propertyName);
+
+    /**
+     * Check if identity is allowed to grant to any other user the specified privilege on the specified table.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName);
 }

@@ -36,6 +36,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -695,6 +696,15 @@ public class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
         Optional<ConnectorResolvedIndex> resolvedIndex = metadata.resolveIndex(connectorSession, tableHandle.getConnectorHandle(), indexableColumns, outputColumns, tupleDomain);
         return resolvedIndex.map(resolved -> new ResolvedIndex(tableHandle.getConnectorId(), transaction, resolved));
+    }
+
+    @Override
+    public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        ConnectorEntry entry = connectorsByCatalog.get(tableName.getCatalogName());
+        checkArgument(entry != null, "Catalog %s does not exist", tableName.getCatalogName());
+        ConnectorMetadata metadata = entry.getMetadata(session);
+        metadata.grantTablePrivileges(session.toConnectorSession(entry.getCatalog()), tableName.asSchemaTableName(), privileges, grantee, grantOption);
     }
 
     @Override

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -273,6 +274,12 @@ public class TestAccessControlManager
 
         @Override
         public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
