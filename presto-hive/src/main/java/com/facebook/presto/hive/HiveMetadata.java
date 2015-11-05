@@ -36,6 +36,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -120,6 +121,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
 public class HiveMetadata
@@ -1278,6 +1280,20 @@ public class HiveMetadata
                 Optional.empty(),
                 discretePredicates,
                 ImmutableList.of());
+    }
+
+    @Override
+    public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        String schemaName = schemaTableName.getSchemaName();
+
+        String tableName = schemaTableName.getTableName();
+
+        Set<PrivilegeGrantInfo> privilegeGrantInfoSet = privileges.stream()
+                .map(privilege -> new PrivilegeGrantInfo(privilege.name().toLowerCase(), 0, session.getUser(), PrincipalType.USER, grantOption))
+                .collect(toSet());
+
+        metastore.grantTablePrivileges(schemaName, tableName, grantee, privilegeGrantInfoSet);
     }
 
     @Override

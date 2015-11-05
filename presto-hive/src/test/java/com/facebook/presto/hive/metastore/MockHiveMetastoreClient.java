@@ -26,6 +26,7 @@ import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
@@ -221,6 +222,18 @@ public class MockHiveMetastoreClient
 
     @Override
     public PrincipalPrivilegeSet getPrivilegeSet(HiveObjectRef hiveObject, String userName, List<String> groupNames)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<String> getRoleNames()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean grantPrivileges(PrivilegeBag privilegeBag)
     {
         throw new UnsupportedOperationException();
     }

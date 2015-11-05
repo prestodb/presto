@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.spi.security.Privilege;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
@@ -42,5 +43,18 @@ public enum HivePrivilege
                 return ImmutableSet.of(OWNERSHIP);
         }
         return ImmutableSet.of();
+    }
+
+    public static HivePrivilege toHivePrivilege(Privilege privilege)
+    {
+        switch (privilege) {
+            case SELECT:
+                return SELECT;
+            case INSERT:
+                return INSERT;
+            case DELETE:
+                return DELETE;
+        }
+        return null;
     }
 }
