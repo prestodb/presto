@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.FIELDS_LENGTH_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
@@ -130,8 +129,7 @@ public class BlackHoleMetadata
                 oldTableHandle.getColumnHandles(),
                 oldTableHandle.getSplitCount(),
                 oldTableHandle.getPagesPerSplit(),
-                oldTableHandle.getRowsPerPage(),
-                oldTableHandle.getFieldsLength()
+                oldTableHandle.getRowsPerPage()
         );
         tables.remove(oldTableHandle.getTableName());
         tables.put(newTableName.getTableName(), newTableHandle);
@@ -150,7 +148,6 @@ public class BlackHoleMetadata
         int splitCount = (Integer) tableMetadata.getProperties().get(SPLIT_COUNT_PROPERTY);
         int pagesPerSplit = (Integer) tableMetadata.getProperties().get(PAGES_PER_SPLIT_PROPERTY);
         int rowsPerPage = (Integer) tableMetadata.getProperties().get(ROWS_PER_PAGE_PROPERTY);
-        int fieldsLength = (Integer) tableMetadata.getProperties().get(FIELDS_LENGTH_PROPERTY);
 
         if (splitCount < 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, SPLIT_COUNT_PROPERTY + " property is negative");
@@ -172,8 +169,7 @@ public class BlackHoleMetadata
                 tableMetadata,
                 splitCount,
                 pagesPerSplit,
-                rowsPerPage,
-                fieldsLength));
+                rowsPerPage));
     }
 
     @Override
@@ -209,8 +205,7 @@ public class BlackHoleMetadata
         BlackHoleTableLayoutHandle layoutHandle = new BlackHoleTableLayoutHandle(
                 blackHoleHandle.getSplitCount(),
                 blackHoleHandle.getPagesPerSplit(),
-                blackHoleHandle.getRowsPerPage(),
-                blackHoleHandle.getFieldsLength());
+                blackHoleHandle.getRowsPerPage());
         return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), TupleDomain.all()));
     }
 

@@ -34,14 +34,12 @@ public final class BlackHoleTableHandle
     private final int splitCount;
     private final int pagesPerSplit;
     private final int rowsPerPage;
-    private final int fieldsLength;
 
     public BlackHoleTableHandle(
             ConnectorTableMetadata tableMetadata,
             int splitCount,
             int pagesPerSplit,
-            int rowsPerPage,
-            int fieldsLength)
+            int rowsPerPage)
     {
         this(tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
@@ -50,8 +48,7 @@ public final class BlackHoleTableHandle
                         .collect(toList()),
                 splitCount,
                 pagesPerSplit,
-                rowsPerPage,
-                fieldsLength);
+                rowsPerPage);
     }
 
     @JsonCreator
@@ -61,8 +58,7 @@ public final class BlackHoleTableHandle
             @JsonProperty("columnHandles") List<BlackHoleColumnHandle> columnHandles,
             @JsonProperty("splitCount") int splitCount,
             @JsonProperty("pagesPerSplit") int pagesPerSplit,
-            @JsonProperty("rowsPerPage") int rowsPerPage,
-            @JsonProperty("fieldsLength") int fieldsLength)
+            @JsonProperty("rowsPerPage") int rowsPerPage)
     {
         this.schemaName = schemaName;
         this.tableName = tableName;
@@ -70,7 +66,6 @@ public final class BlackHoleTableHandle
         this.splitCount = splitCount;
         this.pagesPerSplit = pagesPerSplit;
         this.rowsPerPage = rowsPerPage;
-        this.fieldsLength = fieldsLength;
     }
 
     @JsonProperty
@@ -107,12 +102,6 @@ public final class BlackHoleTableHandle
     public int getRowsPerPage()
     {
         return rowsPerPage;
-    }
-
-    @JsonProperty
-    public int getFieldsLength()
-    {
-        return fieldsLength;
     }
 
     public ConnectorTableMetadata toTableMetadata()
