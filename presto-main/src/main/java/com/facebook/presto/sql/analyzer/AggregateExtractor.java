@@ -22,7 +22,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class AggregateExtractor
+class AggregateExtractor
         extends DefaultExpressionTraversalVisitor<Void, Void>
 {
     private final Metadata metadata;

@@ -21,7 +21,7 @@ import static com.facebook.presto.metadata.FunctionType.WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static java.util.Objects.requireNonNull;
 
-public class WindowFunctionValidator
+class WindowFunctionValidator
         extends DefaultExpressionTraversalVisitor<Void, Analysis>
 {
     @Override

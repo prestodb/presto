@@ -72,7 +72,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Checks whether an expression is constant with respect to the group
  */
-public class AggregationAnalyzer
+class AggregationAnalyzer
 {
     // fields and expressions in the group by clause
     private final List<Integer> fieldIndexes;
