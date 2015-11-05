@@ -178,7 +178,7 @@ public class ExpressionAnalyzer
      * @param tupleDescriptor the tuple descriptor to use to resolve QualifiedNames
      * @param context the namespace context of the surrounding query
      */
-    public Type analyze(Expression expression, TupleDescriptor tupleDescriptor, AnalysisContext context)
+    public Type analyze(Expression expression, RelationType tupleDescriptor, AnalysisContext context)
     {
         ScalarSubqueryDetector scalarSubqueryDetector = new ScalarSubqueryDetector();
         expression.accept(scalarSubqueryDetector, null);
@@ -214,9 +214,9 @@ public class ExpressionAnalyzer
     private class Visitor
             extends AstVisitor<Type, AnalysisContext>
     {
-        private final TupleDescriptor tupleDescriptor;
+        private final RelationType tupleDescriptor;
 
-        private Visitor(TupleDescriptor tupleDescriptor)
+        private Visitor(RelationType tupleDescriptor)
         {
             this.tupleDescriptor = requireNonNull(tupleDescriptor, "tupleDescriptor is null");
         }
@@ -806,7 +806,7 @@ public class ExpressionAnalyzer
         protected Type visitSubqueryExpression(SubqueryExpression node, AnalysisContext context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
+            RelationType descriptor = analyzer.process(node.getQuery(), context);
 
             // Scalar subqueries should only produce one column
             if (descriptor.getVisibleFieldCount() != 1) {
@@ -989,7 +989,7 @@ public class ExpressionAnalyzer
                 })
                 .collect(toImmutableList());
 
-        return analyzeExpressions(session, metadata, sqlParser, new TupleDescriptor(fields), expressions);
+        return analyzeExpressions(session, metadata, sqlParser, new RelationType(fields), expressions);
     }
 
     private static ExpressionAnalysis analyzeExpressionsWithInputs(
@@ -1003,7 +1003,7 @@ public class ExpressionAnalyzer
         for (Entry<Integer, Type> entry : types.entrySet()) {
             fields[entry.getKey()] = Field.newUnqualified(Optional.empty(), entry.getValue());
         }
-        TupleDescriptor tupleDescriptor = new TupleDescriptor(fields);
+        RelationType tupleDescriptor = new RelationType(fields);
 
         return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, expressions);
     }
@@ -1012,7 +1012,7 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            TupleDescriptor tupleDescriptor,
+            RelationType tupleDescriptor,
             Iterable<? extends Expression> expressions)
     {
         // expressions at this point can not have sub queries so deny all access checks
@@ -1034,7 +1034,7 @@ public class ExpressionAnalyzer
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
-            TupleDescriptor tupleDescriptor,
+            RelationType tupleDescriptor,
             Analysis analysis,
             boolean approximateQueriesEnabled,
             AnalysisContext context,

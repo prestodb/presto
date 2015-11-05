@@ -206,7 +206,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 class StatementAnalyzer
-        extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
+        extends DefaultTraversalVisitor<RelationType, AnalysisContext>
 {
     private final Analysis analysis;
     private final Metadata metadata;
@@ -234,7 +234,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowTables(ShowTables showTables, AnalysisContext context)
+    protected RelationType visitShowTables(ShowTables showTables, AnalysisContext context)
     {
         String catalogName = session.getCatalog().orElse(null);
         String schemaName = session.getSchema().orElse(null);
@@ -280,7 +280,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowSchemas(ShowSchemas node, AnalysisContext context)
+    protected RelationType visitShowSchemas(ShowSchemas node, AnalysisContext context)
     {
         if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
             throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
@@ -295,7 +295,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowCatalogs(ShowCatalogs node, AnalysisContext context)
+    protected RelationType visitShowCatalogs(ShowCatalogs node, AnalysisContext context)
     {
         List<Expression> rows = metadata.getCatalogNames().keySet().stream()
                 .map(name -> row(new StringLiteral(name)))
@@ -309,7 +309,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowColumns(ShowColumns showColumns, AnalysisContext context)
+    protected RelationType visitShowColumns(ShowColumns showColumns, AnalysisContext context)
     {
         QualifiedTableName tableName = createQualifiedTableName(session, showColumns, showColumns.getTable());
 
@@ -335,14 +335,14 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitUse(Use node, AnalysisContext context)
+    protected RelationType visitUse(Use node, AnalysisContext context)
     {
         analysis.setUpdateType("USE");
         throw new SemanticException(NOT_SUPPORTED, node, "USE statement is not supported");
     }
 
     @Override
-    protected TupleDescriptor visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
+    protected RelationType visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
     {
         QualifiedTableName table = createQualifiedTableName(session, showPartitions, showPartitions.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, table);
@@ -408,7 +408,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowFunctions(ShowFunctions node, AnalysisContext context)
+    protected RelationType visitShowFunctions(ShowFunctions node, AnalysisContext context)
     {
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (SqlFunction function : metadata.listFunctions()) {
@@ -463,7 +463,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitShowSession(ShowSession node, AnalysisContext context)
+    protected RelationType visitShowSession(ShowSession node, AnalysisContext context)
     {
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session);
@@ -500,7 +500,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitInsert(Insert insert, AnalysisContext context)
+    protected RelationType visitInsert(Insert insert, AnalysisContext context)
     {
         QualifiedTableName targetTable = createQualifiedTableName(session, insert, insert.getTarget());
         if (metadata.getView(session, targetTable).isPresent()) {
@@ -510,7 +510,7 @@ class StatementAnalyzer
         analysis.setUpdateType("INSERT");
 
         // analyze the query that creates the data
-        TupleDescriptor descriptor = process(insert.getQuery(), context);
+        RelationType descriptor = process(insert.getQuery(), context);
 
         // verify the insert destination columns match the query
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -534,11 +534,11 @@ class StatementAnalyzer
                     "Query: (" + Joiner.on(", ").join(queryTypes) + ")");
         }
 
-        return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
+        return new RelationType(Field.newUnqualified("rows", BIGINT));
     }
 
     @Override
-    protected TupleDescriptor visitDelete(Delete node, AnalysisContext context)
+    protected RelationType visitDelete(Delete node, AnalysisContext context)
     {
         Table table = node.getTable();
         QualifiedTableName tableName = createQualifiedTableName(session, table, table.getName());
@@ -561,16 +561,16 @@ class StatementAnalyzer
                 experimentalSyntaxEnabled,
                 queryExplainer);
 
-        TupleDescriptor descriptor = analyzer.process(table, context);
+        RelationType descriptor = analyzer.process(table, context);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, descriptor, context, where));
 
         accessControl.checkCanDeleteFromTable(session.getIdentity(), tableName);
 
-        return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
+        return new RelationType(Field.newUnqualified("rows", BIGINT));
     }
 
     @Override
-    protected TupleDescriptor visitCreateTableAsSelect(CreateTableAsSelect node, AnalysisContext context)
+    protected RelationType visitCreateTableAsSelect(CreateTableAsSelect node, AnalysisContext context)
     {
         analysis.setUpdateType("CREATE TABLE");
 
@@ -581,7 +581,7 @@ class StatementAnalyzer
         for (Expression expression : node.getProperties().values()) {
             // analyze table property value expressions which must be constant
             createConstantAnalyzer(metadata, session)
-                    .analyze(expression, new TupleDescriptor(), context);
+                    .analyze(expression, new RelationType(), context);
         }
         analysis.setCreateTableProperties(node.getProperties());
 
@@ -594,15 +594,15 @@ class StatementAnalyzer
         analysis.setCreateTableAsSelectWithData(node.isWithData());
 
         // analyze the query that creates the table
-        TupleDescriptor descriptor = process(node.getQuery(), context);
+        RelationType descriptor = process(node.getQuery(), context);
 
         validateColumnNames(node, descriptor);
 
-        return new TupleDescriptor(Field.newUnqualified("rows", BIGINT));
+        return new RelationType(Field.newUnqualified("rows", BIGINT));
     }
 
     @Override
-    protected TupleDescriptor visitCreateView(CreateView node, AnalysisContext context)
+    protected RelationType visitCreateView(CreateView node, AnalysisContext context)
     {
         analysis.setUpdateType("CREATE VIEW");
 
@@ -615,7 +615,7 @@ class StatementAnalyzer
                 session,
                 experimentalSyntaxEnabled,
                 queryExplainer);
-        TupleDescriptor descriptor = analyzer.process(node.getQuery(), new AnalysisContext());
+        RelationType descriptor = analyzer.process(node.getQuery(), new AnalysisContext());
 
         QualifiedTableName viewName = createQualifiedTableName(session, node, node.getName());
         accessControl.checkCanCreateView(session.getIdentity(), viewName);
@@ -625,7 +625,7 @@ class StatementAnalyzer
         return descriptor;
     }
 
-    private static void validateColumnNames(Statement node, TupleDescriptor descriptor)
+    private static void validateColumnNames(Statement node, RelationType descriptor)
     {
         // verify that all column names are specified and unique
         // TODO: collect errors and return them all at once
@@ -642,7 +642,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitExplain(Explain node, AnalysisContext context)
+    protected RelationType visitExplain(Explain node, AnalysisContext context)
             throws SemanticException
     {
         checkState(queryExplainer.isPresent(), "query explainer not available");
@@ -689,7 +689,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitQuery(Query node, AnalysisContext parentContext)
+    protected RelationType visitQuery(Query node, AnalysisContext parentContext)
     {
         AnalysisContext context = new AnalysisContext(parentContext);
 
@@ -702,7 +702,7 @@ class StatementAnalyzer
 
         analyzeWith(node, context);
 
-        TupleDescriptor descriptor = process(node.getQueryBody(), context);
+        RelationType descriptor = process(node.getQueryBody(), context);
         analyzeOrderBy(node, descriptor, context);
 
         // Input fields == Output fields
@@ -714,7 +714,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitUnnest(Unnest node, AnalysisContext context)
+    protected RelationType visitUnnest(Unnest node, AnalysisContext context)
     {
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
         for (Expression expression : node.getExpressions()) {
@@ -734,13 +734,13 @@ class StatementAnalyzer
         if (node.isWithOrdinality()) {
             outputFields.add(Field.newUnqualified(Optional.empty(), BigintType.BIGINT));
         }
-        TupleDescriptor descriptor = new TupleDescriptor(outputFields.build());
+        RelationType descriptor = new RelationType(outputFields.build());
         analysis.setOutputDescriptor(node, descriptor);
         return descriptor;
     }
 
     @Override
-    protected TupleDescriptor visitTable(Table table, AnalysisContext context)
+    protected RelationType visitTable(Table table, AnalysisContext context)
     {
         if (!table.getName().getPrefix().isPresent()) {
             // is this a reference to a WITH query?
@@ -751,13 +751,13 @@ class StatementAnalyzer
                 analysis.registerNamedQuery(table, query);
 
                 // re-alias the fields with the name assigned to the query in the WITH declaration
-                TupleDescriptor queryDescriptor = analysis.getOutputDescriptor(query);
+                RelationType queryDescriptor = analysis.getOutputDescriptor(query);
                 ImmutableList.Builder<Field> fields = ImmutableList.builder();
                 for (Field field : queryDescriptor.getAllFields()) {
                     fields.add(Field.newQualified(QualifiedName.of(name), field.getName(), field.getType(), false));
                 }
 
-                TupleDescriptor descriptor = new TupleDescriptor(fields.build());
+                RelationType descriptor = new RelationType(fields.build());
                 analysis.setOutputDescriptor(table, descriptor);
                 return descriptor;
             }
@@ -774,7 +774,7 @@ class StatementAnalyzer
             analysis.registerNamedQuery(table, query);
 
             accessControl.checkCanSelectFromView(session.getIdentity(), name);
-            TupleDescriptor descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
+            RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
 
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
@@ -816,15 +816,15 @@ class StatementAnalyzer
 
         analysis.registerTable(table, tableHandle.get());
 
-        TupleDescriptor descriptor = new TupleDescriptor(fields.build());
+        RelationType descriptor = new RelationType(fields.build());
         analysis.setOutputDescriptor(table, descriptor);
         return descriptor;
     }
 
     @Override
-    protected TupleDescriptor visitAliasedRelation(AliasedRelation relation, AnalysisContext context)
+    protected RelationType visitAliasedRelation(AliasedRelation relation, AnalysisContext context)
     {
-        TupleDescriptor child = process(relation.getRelation(), context);
+        RelationType child = process(relation.getRelation(), context);
 
         // todo this check should be inside of TupleDescriptor.withAlias, but the exception needs the node object
         if (relation.getColumnNames() != null) {
@@ -834,14 +834,14 @@ class StatementAnalyzer
             }
         }
 
-        TupleDescriptor descriptor = child.withAlias(relation.getAlias(), relation.getColumnNames());
+        RelationType descriptor = child.withAlias(relation.getAlias(), relation.getColumnNames());
 
         analysis.setOutputDescriptor(relation, descriptor);
         return descriptor;
     }
 
     @Override
-    protected TupleDescriptor visitSampledRelation(final SampledRelation relation, AnalysisContext context)
+    protected RelationType visitSampledRelation(final SampledRelation relation, AnalysisContext context)
     {
         if (relation.getColumnsToStratifyOn().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
@@ -875,7 +875,7 @@ class StatementAnalyzer
             throw new SemanticException(NOT_SUPPORTED, relation, "Rescaling is not enabled");
         }
 
-        TupleDescriptor descriptor = process(relation.getRelation(), context);
+        RelationType descriptor = process(relation.getRelation(), context);
 
         analysis.setOutputDescriptor(relation, descriptor);
         analysis.setSampleRatio(relation, samplePercentageValue / 100);
@@ -884,10 +884,10 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitTableSubquery(TableSubquery node, AnalysisContext context)
+    protected RelationType visitTableSubquery(TableSubquery node, AnalysisContext context)
     {
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, Optional.empty());
-        TupleDescriptor descriptor = analyzer.process(node.getQuery(), context);
+        RelationType descriptor = analyzer.process(node.getQuery(), context);
 
         analysis.setOutputDescriptor(node, descriptor);
 
@@ -895,14 +895,14 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitQuerySpecification(QuerySpecification node, AnalysisContext parentContext)
+    protected RelationType visitQuerySpecification(QuerySpecification node, AnalysisContext parentContext)
     {
         // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
         // to pass down to analyzeFrom
 
         AnalysisContext context = new AnalysisContext(parentContext);
 
-        TupleDescriptor tupleDescriptor = analyzeFrom(node, context);
+        RelationType tupleDescriptor = analyzeFrom(node, context);
 
         node.getWhere().ifPresent(where -> analyzeWhere(node, tupleDescriptor, context, where));
 
@@ -914,24 +914,24 @@ class StatementAnalyzer
         analyzeAggregations(node, tupleDescriptor, groupByExpressions, outputExpressions, orderByExpressions, context, analysis.getColumnReferences());
         analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
-        TupleDescriptor descriptor = computeOutputDescriptor(node, tupleDescriptor);
+        RelationType descriptor = computeOutputDescriptor(node, tupleDescriptor);
         analysis.setOutputDescriptor(node, descriptor);
 
         return descriptor;
     }
 
     @Override
-    protected TupleDescriptor visitUnion(Union node, AnalysisContext context)
+    protected RelationType visitUnion(Union node, AnalysisContext context)
     {
         checkState(node.getRelations().size() >= 2);
 
-        TupleDescriptor[] descriptors = node.getRelations().stream()
+        RelationType[] descriptors = node.getRelations().stream()
                 .map(relation -> process(relation, context).withOnlyVisibleFields())
-                .toArray(TupleDescriptor[]::new);
+                .toArray(RelationType[]::new);
         Type[] outputFieldTypes = descriptors[0].getVisibleFields().stream()
                 .map(Field::getType)
                 .toArray(Type[]::new);
-        for (TupleDescriptor descriptor : descriptors) {
+        for (RelationType descriptor : descriptors) {
             int outputFieldSize = outputFieldTypes.length;
             int descFieldSize = descriptor.getVisibleFields().size();
             if (outputFieldSize != descFieldSize) {
@@ -954,17 +954,17 @@ class StatementAnalyzer
         }
 
         Field[] outputDescriptorFields = new Field[outputFieldTypes.length];
-        TupleDescriptor firstDescriptor = descriptors[0].withOnlyVisibleFields();
+        RelationType firstDescriptor = descriptors[0].withOnlyVisibleFields();
         for (int i = 0; i < outputFieldTypes.length; i++) {
             Field oldField = firstDescriptor.getFieldByIndex(i);
             outputDescriptorFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), outputFieldTypes[i], oldField.isHidden());
         }
-        TupleDescriptor outputDescriptor = new TupleDescriptor(outputDescriptorFields);
+        RelationType outputDescriptor = new RelationType(outputDescriptorFields);
         analysis.setOutputDescriptor(node, outputDescriptor);
 
         for (int i = 0; i < node.getRelations().size(); i++) {
             Relation relation = node.getRelations().get(i);
-            TupleDescriptor descriptor = descriptors[i];
+            RelationType descriptor = descriptors[i];
             for (int j = 0; j < descriptor.getVisibleFields().size(); j++) {
                 Type outputFieldType = outputFieldTypes[j];
                 Type descFieldType = descriptor.getFieldByIndex(j).getType();
@@ -979,19 +979,19 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitIntersect(Intersect node, AnalysisContext context)
+    protected RelationType visitIntersect(Intersect node, AnalysisContext context)
     {
         throw new SemanticException(NOT_SUPPORTED, node, "INTERSECT not yet implemented");
     }
 
     @Override
-    protected TupleDescriptor visitExcept(Except node, AnalysisContext context)
+    protected RelationType visitExcept(Except node, AnalysisContext context)
     {
         throw new SemanticException(NOT_SUPPORTED, node, "EXCEPT not yet implemented");
     }
 
     @Override
-    protected TupleDescriptor visitJoin(Join node, AnalysisContext context)
+    protected RelationType visitJoin(Join node, AnalysisContext context)
     {
         JoinCriteria criteria = node.getCriteria().orElse(null);
         if (criteria instanceof NaturalJoin) {
@@ -999,9 +999,9 @@ class StatementAnalyzer
         }
 
         AnalysisContext leftContext = new AnalysisContext(context);
-        TupleDescriptor left = process(node.getLeft(), context);
+        RelationType left = process(node.getLeft(), context);
         leftContext.setLateralTupleDescriptor(left);
-        TupleDescriptor right = process(node.getRight(), leftContext);
+        RelationType right = process(node.getRight(), leftContext);
 
         // todo this check should be inside of TupleDescriptor.join and then remove the public getRelationAlias method, but the exception needs the node object
         Sets.SetView<QualifiedName> duplicateAliases = Sets.intersection(left.getRelationAliases(), right.getRelationAliases());
@@ -1009,7 +1009,7 @@ class StatementAnalyzer
             throw new SemanticException(DUPLICATE_RELATION, node, "Relations appear more than once: %s", duplicateAliases);
         }
 
-        TupleDescriptor output = left.joinWith(right);
+        RelationType output = left.joinWith(right);
 
         if (node.getType() == Join.Type.CROSS || node.getType() == Join.Type.IMPLICIT) {
             analysis.setOutputDescriptor(node, output);
@@ -1131,13 +1131,13 @@ class StatementAnalyzer
     }
 
     @Override
-    protected TupleDescriptor visitValues(Values node, AnalysisContext context)
+    protected RelationType visitValues(Values node, AnalysisContext context)
     {
         checkState(node.getRows().size() >= 1);
 
         // get unique row types
         Set<List<Type>> rowTypes = node.getRows().stream()
-                .map(row -> analyzeExpression(row, new TupleDescriptor(), context).getType(row))
+                .map(row -> analyzeExpression(row, new RelationType(), context).getType(row))
                 .map(type -> {
                     if (type instanceof RowType) {
                         return type.getTypeParameters();
@@ -1185,7 +1185,7 @@ class StatementAnalyzer
             }
         }
 
-        TupleDescriptor descriptor = new TupleDescriptor(fieldTypes.stream()
+        RelationType descriptor = new RelationType(fieldTypes.stream()
                 .map(valueType -> Field.newUnqualified(Optional.empty(), valueType))
                 .collect(toImmutableList()));
 
@@ -1279,7 +1279,7 @@ class StatementAnalyzer
         }
     }
 
-    private void analyzeHaving(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context)
+    private void analyzeHaving(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context)
     {
         if (node.getHaving().isPresent()) {
             Expression predicate = node.getHaving().get();
@@ -1296,7 +1296,7 @@ class StatementAnalyzer
         }
     }
 
-    private List<FieldOrExpression> analyzeOrderBy(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    private List<FieldOrExpression> analyzeOrderBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
         List<SortItem> items = node.getOrderBy();
 
@@ -1385,7 +1385,7 @@ class StatementAnalyzer
         return orderByExpressions;
     }
 
-    private List<FieldOrExpression> analyzeGroupBy(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    private List<FieldOrExpression> analyzeGroupBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
         ImmutableList.Builder<FieldOrExpression> groupByExpressionsBuilder = ImmutableList.builder();
         if (!node.getGroupBy().isEmpty()) {
@@ -1429,7 +1429,7 @@ class StatementAnalyzer
         return groupByExpressions;
     }
 
-    private TupleDescriptor computeOutputDescriptor(QuerySpecification node, TupleDescriptor inputTupleDescriptor)
+    private RelationType computeOutputDescriptor(QuerySpecification node, RelationType inputTupleDescriptor)
     {
         ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
 
@@ -1467,10 +1467,10 @@ class StatementAnalyzer
             }
         }
 
-        return new TupleDescriptor(outputFields.build());
+        return new RelationType(outputFields.build());
     }
 
-    private List<FieldOrExpression> analyzeSelect(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context)
+    private List<FieldOrExpression> analyzeSelect(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context)
     {
         ImmutableList.Builder<FieldOrExpression> outputExpressionBuilder = ImmutableList.builder();
 
@@ -1520,7 +1520,7 @@ class StatementAnalyzer
         return result;
     }
 
-    public void analyzeWhere(Node node, TupleDescriptor tupleDescriptor, AnalysisContext context, Expression predicate)
+    public void analyzeWhere(Node node, RelationType tupleDescriptor, AnalysisContext context, Expression predicate)
     {
         Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
 
@@ -1539,9 +1539,9 @@ class StatementAnalyzer
         analysis.setWhere(node, predicate);
     }
 
-    private TupleDescriptor analyzeFrom(QuerySpecification node, AnalysisContext context)
+    private RelationType analyzeFrom(QuerySpecification node, AnalysisContext context)
     {
-        TupleDescriptor fromDescriptor = new TupleDescriptor();
+        RelationType fromDescriptor = new RelationType();
 
         if (node.getFrom().isPresent()) {
             fromDescriptor = process(node.getFrom().get(), context);
@@ -1551,7 +1551,7 @@ class StatementAnalyzer
     }
 
     private void analyzeAggregations(QuerySpecification node,
-            TupleDescriptor tupleDescriptor,
+            RelationType tupleDescriptor,
             List<FieldOrExpression> groupByExpressions,
             List<FieldOrExpression> outputExpressions,
             List<FieldOrExpression> orderByExpressions,
@@ -1609,7 +1609,7 @@ class StatementAnalyzer
     private void verifyAggregations(
             QuerySpecification node,
             List<FieldOrExpression> groupByExpressions,
-            TupleDescriptor tupleDescriptor,
+            RelationType tupleDescriptor,
             FieldOrExpression fieldOrExpression,
             Set<Expression> columnReferences)
     {
@@ -1643,7 +1643,7 @@ class StatementAnalyzer
         }
     }
 
-    private TupleDescriptor analyzeView(Query query, QualifiedTableName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)
+    private RelationType analyzeView(Query query, QualifiedTableName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)
     {
         try {
             // run view as view owner if set; otherwise, run as session user
@@ -1709,7 +1709,7 @@ class StatementAnalyzer
         return false;
     }
 
-    private ExpressionAnalysis analyzeExpression(Expression expression, TupleDescriptor tupleDescriptor, AnalysisContext context)
+    private ExpressionAnalysis analyzeExpression(Expression expression, RelationType tupleDescriptor, AnalysisContext context)
     {
         return ExpressionAnalyzer.analyzeExpression(
                 session,
@@ -1722,7 +1722,7 @@ class StatementAnalyzer
                 expression);
     }
 
-    private static List<FieldOrExpression> descriptorToFields(TupleDescriptor tupleDescriptor)
+    private static List<FieldOrExpression> descriptorToFields(RelationType tupleDescriptor)
     {
         ImmutableList.Builder<FieldOrExpression> builder = ImmutableList.builder();
         for (int fieldIndex = 0; fieldIndex < tupleDescriptor.getAllFieldCount(); fieldIndex++) {
@@ -1760,7 +1760,7 @@ class StatementAnalyzer
         }
     }
 
-    private void analyzeOrderBy(Query node, TupleDescriptor tupleDescriptor, AnalysisContext context)
+    private void analyzeOrderBy(Query node, RelationType tupleDescriptor, AnalysisContext context)
     {
         List<SortItem> items = node.getOrderBy();
 

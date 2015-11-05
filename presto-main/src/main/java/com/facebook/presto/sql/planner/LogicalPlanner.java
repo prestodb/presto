@@ -23,7 +23,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -183,7 +183,7 @@ public class LogicalPlanner
         ImmutableList.Builder<String> names = ImmutableList.builder();
 
         int columnNumber = 0;
-        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor();
+        RelationType outputDescriptor = analysis.getOutputDescriptor();
         for (Field field : outputDescriptor.getVisibleFields()) {
             String name = field.getName().orElse("_col" + columnNumber);
             names.add(name);
