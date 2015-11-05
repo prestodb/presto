@@ -1215,7 +1215,6 @@ public class HiveMetadata
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         HiveTableLayoutHandle layoutHandle = checkType(tableLayoutHandle, HiveTableLayoutHandle.class, "tableLayoutHandle");
 
-        //for (HivePartition hivePartition : layoutHandle.getOrComputePartitions(this, session, tableHandle)) {
         for (HivePartition hivePartition : getOrComputePartitions(layoutHandle, session, tableHandle)) {
             metastore.dropPartitionByName(handle.getSchemaName(), handle.getTableName(), hivePartition.getPartitionId());
         }

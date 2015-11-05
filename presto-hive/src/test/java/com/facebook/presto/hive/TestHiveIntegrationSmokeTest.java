@@ -369,13 +369,13 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_metadata_delete " +
                 "(" +
-                "  ORDER_STATUS VARCHAR," +
-                "  SHIP_PRIORITY BIGINT," +
+                "  LINE_STATUS VARCHAR," +
+                "  LINE_NUMBER BIGINT," +
                 "  ORDER_KEY BIGINT" +
                 ") " +
                 "WITH (" +
                 STORAGE_FORMAT_PROPERTY + " = '" + storageFormat + "', " +
-                PARTITIONED_BY_PROPERTY + " = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
+                PARTITIONED_BY_PROPERTY + " = ARRAY[ 'LINE_NUMBER', 'LINE_STATUS' ]" +
                 ") ";
 
         assertQuery(createTable, "SELECT 1");
@@ -383,15 +383,19 @@ public class TestHiveIntegrationSmokeTest
         // Hive will reorder the partition keys, so we must insert into the table assuming the partition keys have been moved to the end
         assertQuery("" +
                         "INSERT INTO test_metadata_delete " +
-                        "SELECT orderkey, shippriority, orderstatus " +
-                        "FROM tpch.tiny.orders",
-                "SELECT count(*) from orders");
+                        "SELECT orderkey, linenumber, linestatus " +
+                        "FROM tpch.tiny.lineitem",
+                "SELECT count(*) from lineitem");
 
         // Delete returns number of rows deleted, or null if obtaining the number is hard or impossible.
         // Currently, Hive implementation always returns null.
-        assertQuery("DELETE FROM test_metadata_delete WHERE ORDER_STATUS='O'", "SELECT null");
+        assertQuery("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' and LINE_NUMBER=3", "SELECT null");
 
-        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, shippriority, orderstatus FROM orders WHERE orderstatus<>'O'");
+        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'F' or linenumber<>3");
+
+        assertQuery("DELETE FROM test_metadata_delete WHERE LINE_STATUS='O'", "SELECT null");
+
+        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
 
         try {
             queryRunner.execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
@@ -401,7 +405,7 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
         }
 
-        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, shippriority, orderstatus FROM orders WHERE orderstatus<>'O'");
+        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
 
         assertQueryTrue("DROP TABLE test_metadata_delete");
 
