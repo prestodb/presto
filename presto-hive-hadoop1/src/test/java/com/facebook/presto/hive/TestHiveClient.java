@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.hive;
 
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.hive.TestingFixture.CONNECTOR_ID;
 
 @Test
 public class TestHiveClient
         extends AbstractTestHiveClient
 {
     @Parameters({"hive.hadoop1.metastoreHost", "hive.hadoop1.metastorePort", "hive.hadoop1.databaseName", "hive.hadoop1.timeZone"})
-    @BeforeClass
-    public void initialize(String host, int port, String databaseName, String timeZone)
+    public TestHiveClient(String host, int port, String database, String timeZone)
     {
-        setup(host, port, databaseName, timeZone);
+        super(HiveTestingEnvironment.newInstance(CONNECTOR_ID, host, port, timeZone), TestingFixture.newInstance(CONNECTOR_ID, database));
     }
 }
