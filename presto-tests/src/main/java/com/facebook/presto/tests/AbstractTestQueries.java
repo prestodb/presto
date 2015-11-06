@@ -287,7 +287,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("" +
-                        "SELECT t.a.col1, custkey, orderkey  FROM " +
+                        "SELECT t.a.col1, custkey, orderkey FROM " +
                         "(VALUES " +
                         "(ROW(test_row(1, 11))), " +
                         "(ROW(test_row(2, 22))), " +

@@ -316,6 +316,8 @@ public class ExpressionAnalyzer
                     expressionTypes.put(node, field.getType());
                     return field.getType();
                 }
+
+                assertColumnPrefix(qualifiedName, node);
             }
 
             Type baseType = process(node.getBase(), context);
@@ -338,6 +340,21 @@ public class ExpressionAnalyzer
 
             expressionTypes.put(node, rowFieldType);
             return rowFieldType;
+        }
+
+        private void assertColumnPrefix(QualifiedName qualifiedName, Expression node)
+        {
+            // Recursively check if its prefix is a column.
+            while (qualifiedName.getPrefix().isPresent()) {
+                qualifiedName = qualifiedName.getPrefix().get();
+                List<Field> matches = tupleDescriptor.resolveFields(qualifiedName);
+                if (matches.size() > 0) {
+                    // The AMBIGUOUS_ATTRIBUTE exception will be thrown later with the right node if matches.size() > 1
+                    return;
+                }
+            }
+
+            throw createMissingAttributeException(node);
         }
 
         private SemanticException createMissingAttributeException(Expression node)
