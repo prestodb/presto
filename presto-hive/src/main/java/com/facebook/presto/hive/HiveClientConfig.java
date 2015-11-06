@@ -495,7 +495,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.immutable-partitions")
-    @ConfigDescription("Can new data be inserted into existing partitions")
+    @ConfigDescription("Can new data be inserted into existing partitions or existing unpartitioned tables")
     public HiveClientConfig setImmutablePartitions(boolean immutablePartitions)
     {
         this.immutablePartitions = immutablePartitions;
