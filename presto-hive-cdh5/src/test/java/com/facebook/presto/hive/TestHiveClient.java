@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
@@ -22,9 +21,8 @@ public class TestHiveClient
         extends AbstractTestHiveClient
 {
     @Parameters({"hive.cdh5.metastoreHost", "hive.cdh5.metastorePort", "hive.cdh5.databaseName", "hive.cdh5.timeZone"})
-    @BeforeClass
-    public void initialize(String host, int port, String databaseName, String timeZone)
+    public TestHiveClient(String host, int port, String database, String timeZone)
     {
-        setup(host, port, databaseName, timeZone);
+        super(HiveTestingEnvironment.newInstance(host, port, timeZone), TestingFixture.newInstance("hive-test", database));
     }
 }

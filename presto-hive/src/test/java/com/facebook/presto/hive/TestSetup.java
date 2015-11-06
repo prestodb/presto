@@ -13,16 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
-
-@Test
-public class TestHiveClient
-        extends AbstractTestHiveClient
+public class TestSetup
 {
-    @Parameters({"hive.cdh4.metastoreHost", "hive.cdh4.metastorePort", "hive.cdh4.databaseName", "hive.cdh4.timeZone"})
-    public TestHiveClient(String host, int port, String database, String timeZone)
-    {
-        super(HiveTestingEnvironment.newInstance(host, port, timeZone), TestingFixture.newInstance("hive-test", database));
-    }
 }
