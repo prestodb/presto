@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -68,6 +69,7 @@ import java.util.Set;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
@@ -389,6 +391,19 @@ public class PruneUnreferencedOutputs
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
             return new FilterNode(node.getId(), source, node.getPredicate());
+        }
+
+        @Override
+        public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Set<Symbol>> context)
+        {
+            checkState(node.getDistinctGroupingColumns().stream().allMatch(column -> context.get().contains(column)));
+
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(context.get()));
+            List<Symbol> requiredSymbols = context.get().stream()
+                    .filter(symbol -> !symbol.equals(node.getGroupIdSymbol()))
+                    .collect(toImmutableList());
+
+            return new GroupIdNode(node.getId(), source, requiredSymbols, node.getGroupingSets(), node.getGroupIdSymbol());
         }
 
         @Override

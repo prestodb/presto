@@ -204,8 +204,8 @@ public final class SqlFormatter
                         .append('\n');
             }
 
-            if (!node.getGroupBy().isEmpty()) {
-                append(indent, "GROUP BY " + formatGroupBy(node.getGroupBy())).append('\n');
+            if (node.getGroupBy().isPresent()) {
+                append(indent, "GROUP BY " + (node.getGroupBy().get().isDistinct() ? " DISTINCT " : "") + formatGroupBy(node.getGroupBy().get().getGroupingElements())).append('\n');
             }
 
             if (node.getHaving().isPresent()) {

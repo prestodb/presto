@@ -14,50 +14,45 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
 
-public class Cube
-        extends GroupingElement
+public class GroupBy
+        extends Node
 {
-    private final List<QualifiedName> columns;
+    private final boolean isDistinct;
+    private final List<GroupingElement> groupingElements;
 
-    public Cube(List<QualifiedName> columns)
+    public GroupBy(boolean isDistinct, List<GroupingElement> groupingElements)
     {
-        this(Optional.empty(), columns);
+        this(Optional.empty(), isDistinct, groupingElements);
     }
 
-    public Cube(NodeLocation location, List<QualifiedName> columns)
+    public GroupBy(NodeLocation location, boolean isDistinct, List<GroupingElement> groupingElements)
     {
-        this(Optional.of(location), columns);
+        this(Optional.of(location), isDistinct, groupingElements);
     }
 
-    private Cube(Optional<NodeLocation> location, List<QualifiedName> columns)
+    private GroupBy(Optional<NodeLocation> location, boolean isDistinct, List<GroupingElement> groupingElements)
     {
         super(location);
-        requireNonNull(columns, "columns is null");
-        this.columns = columns;
+        this.isDistinct = isDistinct;
+        this.groupingElements = ImmutableList.copyOf(requireNonNull(groupingElements));
     }
 
-    public List<QualifiedName> getColumns()
+    public boolean isDistinct()
     {
-        return columns;
+        return isDistinct;
     }
 
-    @Override
-    public List<Set<Expression>> enumerateGroupingSets()
+    public List<GroupingElement> getGroupingElements()
     {
-        return ImmutableList.copyOf(Sets.powerSet(columns.stream()
-                .map(QualifiedNameReference::new)
-                .collect(toSet())));
+        return groupingElements;
     }
 
     @Override
@@ -69,21 +64,23 @@ public class Cube
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Cube cube = (Cube) o;
-        return Objects.equals(columns, cube.columns);
+        GroupBy groupBy = (GroupBy) o;
+        return isDistinct == groupBy.isDistinct &&
+                Objects.equals(groupingElements, groupBy.groupingElements);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columns);
+        return Objects.hash(isDistinct, groupingElements);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("columns", columns)
+                .add("isDistinct", isDistinct)
+                .add("groupingElements", groupingElements)
                 .toString();
     }
 }

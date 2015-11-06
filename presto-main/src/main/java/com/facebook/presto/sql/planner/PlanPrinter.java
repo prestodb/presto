@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -315,6 +316,13 @@ public class PlanPrinter
                 }
             }
 
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitGroupId(GroupIdNode node, Integer indent)
+        {
+            print(indent, "- GroupId%s => [%s]", node.getGroupingSets(), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
         }
 

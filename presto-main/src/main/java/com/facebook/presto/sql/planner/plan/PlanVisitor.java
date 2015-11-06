@@ -140,6 +140,11 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitGroupId(GroupIdNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitRowNumber(RowNumberNode node, C context)
     {
         return visitPlan(node, context);

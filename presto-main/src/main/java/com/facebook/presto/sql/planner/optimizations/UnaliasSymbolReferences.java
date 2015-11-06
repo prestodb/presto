@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -75,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -142,6 +144,17 @@ public class UnaliasSymbolReferences
                     canonicalize(node.getSampleWeight()),
                     node.getConfidence(),
                     canonicalize(node.getHashSymbol()));
+        }
+
+        @Override
+        public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            List<List<Symbol>> groupingSetsSymbols = node.getGroupingSets().stream()
+                    .map(this::canonicalize)
+                    .collect(Collectors.toList());
+
+            return new GroupIdNode(node.getId(), source, canonicalize(node.getInputSymbols()), groupingSetsSymbols, canonicalize(node.getGroupIdSymbol()));
         }
 
         @Override

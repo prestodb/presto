@@ -120,8 +120,12 @@ querySpecification
     : SELECT setQuantifier? selectItem (',' selectItem)*
       (FROM relation (',' relation)*)?
       (WHERE where=booleanExpression)?
-      (GROUP BY groupingElement (',' groupingElement)*)?
+      (GROUP BY groupBy)?
       (HAVING having=booleanExpression)?
+    ;
+
+groupBy
+    : setQuantifier? groupingElement (',' groupingElement)*
     ;
 
 groupingElement

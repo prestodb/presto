@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -210,6 +211,13 @@ public class PredicatePushDown
             }
 
             return rewrittenNode;
+        }
+
+        @Override
+        public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Expression> context)
+        {
+            checkState(!DependencyExtractor.extractUnique(context.get()).contains(node.getGroupIdSymbol()), "groupId symbol cannot be referenced in predicate");
+            return context.defaultRewrite(node, context.get());
         }
 
         @Override
@@ -759,7 +767,7 @@ public class PredicatePushDown
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Expression> context)
         {
             if (node.getGroupBy().isEmpty()) {
-                // cannot push down through non-grouped aggregation
+                // cannot push predicates down through aggregations without any grouping columns
                 return visitPlan(node, context);
             }
 

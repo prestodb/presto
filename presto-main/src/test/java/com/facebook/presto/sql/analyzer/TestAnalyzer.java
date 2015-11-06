@@ -737,7 +737,20 @@ public class TestAnalyzer
         analyze("SELECT SUM(b) FROM t1 GROUP BY ()");
         analyze("SELECT SUM(b) FROM t1 GROUP BY GROUPING SETS (())");
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b))");
+    }
+
+    @Test
+    public void testMultipleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        // TODO: validate output
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b), (c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY a, b, GROUPING SETS ((c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a), (c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b)), ROLLUP (c, d)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b)), CUBE (c, d)");
     }
 
     @Test

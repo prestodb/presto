@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class SimpleGroupBy
     extends GroupingElement
@@ -40,7 +42,7 @@ public class SimpleGroupBy
     private SimpleGroupBy(Optional<NodeLocation> location, List<Expression> simpleGroupByExpressions)
     {
         super(location);
-        this.columns = simpleGroupByExpressions;
+        this.columns = requireNonNull(simpleGroupByExpressions);
     }
 
     public List<Expression> getColumnExpressions()
@@ -49,9 +51,9 @@ public class SimpleGroupBy
     }
 
     @Override
-    public Set<Set<Expression>> enumerateGroupingSets()
+    public List<Set<Expression>> enumerateGroupingSets()
     {
-        return ImmutableSet.of(ImmutableSet.copyOf(columns));
+        return ImmutableList.of(ImmutableSet.copyOf(columns));
     }
 
     @Override

@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
+import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -368,7 +369,7 @@ public class TestSqlParser
                 selectList(new LongLiteral("123")),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty()
@@ -394,7 +395,7 @@ public class TestSqlParser
                 simpleQuery(selectList(new AllColumns()),
                         subquery(valuesQuery),
                         Optional.empty(),
-                        ImmutableList.of(),
+                        Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(),
                         Optional.of("ALL")));
@@ -769,7 +770,7 @@ public class TestSqlParser
                                 selectList(new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2")))),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -784,7 +785,7 @@ public class TestSqlParser
                                 selectList(new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3")))),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -804,7 +805,7 @@ public class TestSqlParser
                                 selectList(new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2")))),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -819,7 +820,7 @@ public class TestSqlParser
                                 selectList(new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3")))),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -843,7 +844,7 @@ public class TestSqlParser
                                                 new DereferenceExpression(new DereferenceExpression(new QualifiedNameReference(QualifiedName.of("col3")), "f1"), "f2"), "f3")),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -863,7 +864,7 @@ public class TestSqlParser
                                 ),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -880,7 +881,7 @@ public class TestSqlParser
                                 ),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(),
+                                Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -900,7 +901,7 @@ public class TestSqlParser
                                 selectList(new AllColumns()),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                ImmutableList.of(new SimpleGroupBy(ImmutableList.of(new QualifiedNameReference(QualifiedName.of("a"))))),
+                                Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(new QualifiedNameReference(QualifiedName.of("a"))))))),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -915,9 +916,9 @@ public class TestSqlParser
                                 selectList(new AllColumns()),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                ImmutableList.of(
+                                Optional.of(new GroupBy(false, ImmutableList.of(
                                         new SimpleGroupBy(ImmutableList.of(new QualifiedNameReference(QualifiedName.of("a")))),
-                                        new SimpleGroupBy(ImmutableList.of(new QualifiedNameReference(QualifiedName.of("b"))))),
+                                        new SimpleGroupBy(ImmutableList.of(new QualifiedNameReference(QualifiedName.of("b"))))))),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -932,7 +933,7 @@ public class TestSqlParser
                                 selectList(new AllColumns()),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                ImmutableList.of(new SimpleGroupBy(ImmutableList.of())),
+                                Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of())))),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -947,7 +948,7 @@ public class TestSqlParser
                                 selectList(new AllColumns()),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(QualifiedName.of("a"))))),
+                                Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(QualifiedName.of("a"))))))),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
@@ -955,20 +956,41 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty()));
 
-        assertStatement("SELECT * FROM table1 GROUP BY GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
+        assertStatement("SELECT * FROM table1 GROUP BY ALL GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
                 new Query(
                         Optional.empty(),
                         new QuerySpecification(
                                 selectList(new AllColumns()),
                                 Optional.of(new Table(QualifiedName.of("table1"))),
                                 Optional.empty(),
-                                ImmutableList.of(
+                                Optional.of(new GroupBy(false, ImmutableList.of(
                                         new GroupingSets(
                                                 ImmutableList.of(ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")),
                                                 ImmutableList.of(QualifiedName.of("a")),
                                                 ImmutableList.of())),
                                         new Cube(ImmutableList.of(QualifiedName.of("c"))),
-                                        new Rollup(ImmutableList.of(QualifiedName.of("d")))),
+                                        new Rollup(ImmutableList.of(QualifiedName.of("d")))))),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY DISTINCT GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(true, ImmutableList.of(
+                                        new GroupingSets(
+                                                ImmutableList.of(ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")),
+                                                        ImmutableList.of(QualifiedName.of("a")),
+                                                        ImmutableList.of())),
+                                        new Cube(ImmutableList.of(QualifiedName.of("c"))),
+                                        new Rollup(ImmutableList.of(QualifiedName.of("d")))))),
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),

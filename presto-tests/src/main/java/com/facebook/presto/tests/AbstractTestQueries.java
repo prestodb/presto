@@ -1236,7 +1236,15 @@ public abstract class AbstractTestQueries
     public void testGroupBySum()
             throws Exception
     {
-        assertQuery("SELECT orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus");
+        assertQuery("SELECT suppkey, SUM(quantity) FROM lineitem GROUP BY suppkey");
+    }
+
+    @Test
+    public void testGroupByEmptyGroupingSet()
+            throws Exception
+    {
+        assertQuery("SELECT SUM(quantity) FROM lineitem GROUP BY ()",
+                "SELECT SUM(quantity) FROM lineitem");
     }
 
     @Test
@@ -1247,53 +1255,162 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testSingleEmptyGroupBy()
-            throws Exception
-    {
-        assertQuery(
-                "SELECT SUM(quantity) " +
-                        "FROM lineitem " +
-                        "GROUP BY ()",
-                "SELECT SUM(quantity) " +
-                        "FROM lineitem");
-    }
-
-    @Test
-    public void testSingleEmptyGroupingSet()
-            throws Exception
-    {
-        assertQuery(
-                "SELECT SUM(quantity) " +
-                        "FROM lineitem " +
-                        "GROUP BY GROUPING SETS (())",
-                "SELECT SUM(quantity) " +
-                        "FROM lineitem");
-    }
-
-    @Test
     public void testSingleGroupingSet()
             throws Exception
     {
         assertQuery(
-                "SELECT suppkey, SUM(quantity) " +
+                "SELECT linenumber, SUM(quantity) " +
                         "FROM lineitem " +
-                        "GROUP BY GROUPING SETS (suppkey) ",
-                "SELECT suppkey, SUM(quantity) " +
+                        "GROUP BY GROUPING SETS (linenumber)",
+                "SELECT linenumber, SUM(quantity) " +
                         "FROM lineitem " +
-                        "GROUP BY suppkey");
+                        "GROUP BY linenumber");
     }
 
     @Test
-    public void testSingleGroupingSetMultipleColumns()
+    public void testGroupingSets()
             throws Exception
     {
-        assertQuery(
-                "SELECT linenumber, suppkey, SUM(quantity) " +
-                        "FROM lineitem " +
-                        "GROUP BY GROUPING SETS ((linenumber, suppkey)) ",
-                "SELECT linenumber, suppkey, SUM(quantity) " +
-                        "FROM lineitem " +
-                        "GROUP BY linenumber, suppkey");
+        assertQuery("SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+                "SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY linenumber, suppkey UNION " +
+                        "SELECT NULL, suppkey, SUM(quantity) FROM lineitem GROUP BY suppkey");
+    }
+
+    @Test
+    public void testGroupingSetsWithSingleDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(DISTINCT quantity) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+                "SELECT linenumber, suppkey, SUM(DISTINCT quantity) FROM lineitem GROUP BY linenumber, suppkey UNION " +
+                        "SELECT NULL, suppkey, SUM(DISTINCT quantity) FROM lineitem GROUP BY suppkey");
+    }
+
+    @Test
+    public void testGroupingSetsWithMultipleDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(DISTINCT quantity), COUNT(DISTINCT linestatus) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+                "SELECT linenumber, suppkey, SUM(DISTINCT quantity), COUNT(DISTINCT linestatus) FROM lineitem GROUP BY linenumber, suppkey UNION " +
+                        "SELECT NULL, suppkey, SUM(DISTINCT quantity), COUNT(DISTINCT linestatus) FROM lineitem GROUP BY suppkey");
+    }
+
+    @Test
+    public void testGroupingSetsGrandTotalSet()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), ())",
+                "SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY linenumber, suppkey UNION " +
+                        "SELECT NULL, NULL, SUM(quantity) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsRepeatedSetsAll()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY GROUPING SETS ((), (linenumber, suppkey), (), (linenumber, suppkey))",
+                "SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY linenumber, suppkey UNION ALL " +
+                        "SELECT NULL, NULL, SUM(quantity) FROM lineitem UNION ALL " +
+                        "SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY linenumber, suppkey UNION ALL " +
+                        "SELECT NULL, NULL, SUM(quantity) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsRepeatedSetsDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY DISTINCT GROUPING SETS ((), (linenumber, suppkey), (), (linenumber, suppkey))",
+                "SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY linenumber, suppkey UNION ALL " +
+                        "SELECT NULL, NULL, SUM(quantity) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsGrandTotalSetFirst()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY GROUPING SETS ((), (linenumber), (linenumber, suppkey))",
+                "SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY linenumber, suppkey UNION ALL " +
+                        "SELECT linenumber, NULL, SUM(quantity) FROM lineitem GROUP BY linenumber UNION ALL " +
+                        "SELECT NULL, NULL, SUM(quantity) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsOnlyGrandTotalSet()
+            throws Exception
+    {
+        assertQuery("SELECT SUM(quantity) FROM lineitem GROUP BY GROUPING SETS (())",
+                "SELECT SUM(quantity) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsMultipleGrandTotalSets()
+            throws Exception
+    {
+        assertQuery("SELECT SUM(quantity) FROM lineitem GROUP BY GROUPING SETS ((), ())",
+                "SELECT SUM(quantity) FROM lineitem UNION ALL " +
+                        "SELECT SUM(quantity) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetMixedExpressionAndColumn()
+            throws Exception
+    {
+        assertQuery("SELECT suppkey, month(shipdate), SUM(quantity) FROM lineitem GROUP BY month(shipdate), ROLLUP(suppkey)",
+                "SELECT suppkey, month(shipdate), SUM(quantity) FROM lineitem GROUP BY month(shipdate), suppkey UNION ALL " +
+                        "SELECT NULL, month(shipdate), SUM(quantity) FROM lineitem GROUP BY month(shipdate)");
+    }
+
+    @Test
+    public void testGroupingSetMixedExpressionAndOrdinal()
+            throws Exception
+    {
+        assertQuery("SELECT suppkey, month(shipdate), SUM(quantity) FROM lineitem GROUP BY 2, ROLLUP(suppkey)",
+                "SELECT suppkey, month(shipdate), SUM(quantity) FROM lineitem GROUP BY month(shipdate), suppkey UNION ALL " +
+                        "SELECT NULL, month(shipdate), SUM(quantity) FROM lineitem GROUP BY month(shipdate)");
+    }
+
+    @Test
+    public void testRollup()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY ROLLUP (linenumber, suppkey)",
+                "SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY linenumber, suppkey UNION ALL " +
+                        "SELECT linenumber, NULL, SUM(quantity) FROM lineitem GROUP BY linenumber UNION ALL " +
+                        "SELECT NULL, NULL, SUM(quantity) FROM lineitem");
+    }
+
+    @Test
+    public void testCube()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY CUBE (linenumber, suppkey)",
+                "SELECT linenumber, suppkey, SUM(quantity) FROM lineitem GROUP BY linenumber, suppkey UNION ALL " +
+                        "SELECT linenumber, NULL, SUM(quantity) FROM lineitem GROUP BY linenumber UNION ALL " +
+                        "SELECT NULL, suppkey, SUM(quantity) FROM lineitem GROUP BY suppkey UNION ALL " +
+                        "SELECT NULL, NULL, SUM(quantity) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingCombinationsAll()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey, partkey, suppkey, linenumber, SUM(quantity) FROM lineitem GROUP BY orderkey, partkey, ROLLUP (suppkey, linenumber), CUBE (linenumber)",
+                "SELECT orderkey, partkey, suppkey, linenumber, SUM(quantity) FROM lineitem GROUP BY orderkey, suppkey, linenumber UNION ALL " +
+                        "SELECT orderkey, partkey, suppkey, linenumber, SUM(quantity) FROM lineitem GROUP BY orderkey, partkey, suppkey, linenumber UNION ALL " +
+                        "SELECT orderkey, partkey, NULL, linenumber, SUM(quantity) FROM lineitem GROUP BY orderkey, partkey, linenumber UNION ALL " +
+                        "SELECT orderkey, partkey, suppkey, linenumber, SUM(quantity) FROM lineitem GROUP BY orderkey, partkey, suppkey, linenumber UNION ALL " +
+                        "SELECT orderkey, partkey, suppkey, NULL, SUM(quantity) FROM lineitem GROUP BY orderkey, partkey, suppkey UNION ALL " +
+                        "SELECT orderkey, partkey, NULL, NULL, SUM(quantity) FROM lineitem GROUP BY orderkey, partkey");
+    }
+
+    @Test
+    public void testGroupingCombinationsDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey, partkey, suppkey, linenumber, SUM(quantity) FROM lineitem GROUP BY DISTINCT orderkey, partkey, ROLLUP (suppkey, linenumber), CUBE (linenumber)",
+                "SELECT orderkey, partkey, suppkey, linenumber, SUM(quantity) FROM lineitem GROUP BY orderkey, suppkey, linenumber UNION ALL " +
+                        "SELECT orderkey, partkey, NULL, linenumber, SUM(quantity) FROM lineitem GROUP BY orderkey, partkey, linenumber UNION ALL " +
+                        "SELECT orderkey, partkey, suppkey, NULL, SUM(quantity) FROM lineitem GROUP BY orderkey, partkey, suppkey UNION ALL " +
+                        "SELECT orderkey, partkey, NULL, NULL, SUM(quantity) FROM lineitem GROUP BY orderkey, partkey");
     }
 
     @Test
