@@ -269,6 +269,13 @@ public class TestAnalyzer
         assertFails(MISSING_ATTRIBUTE, "SELECT * FROM t1 WHERE f > 1");
     }
 
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "Column '\"t\".\"y\"' cannot be resolved")
+    public void testInvalidAttributeCorrectErrorMessage()
+            throws Exception
+    {
+        analyze("SELECT t.y FROM (VALUES 1) t(x)");
+    }
+
     @Test
     public void testOrderByMustAppearInSelectWithDistinct()
             throws Exception
@@ -626,6 +633,10 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT * FROM t1 WHERE 1 IN ('a')");
         assertFails(TYPE_MISMATCH, "SELECT * FROM t1 WHERE 'a' IN (1)");
         assertFails(TYPE_MISMATCH, "SELECT * FROM t1 WHERE 'a' IN (1, 'b')");
+
+        // row type
+        assertFails(TYPE_MISMATCH, "SELECT t.x.f1 FROM (VALUES 1) t(x)");
+        assertFails(TYPE_MISMATCH, "SELECT x.f1 FROM (VALUES 1) t(x)");
     }
 
     @Test(enabled = false) // TODO: need to support widening conversion for numbers
