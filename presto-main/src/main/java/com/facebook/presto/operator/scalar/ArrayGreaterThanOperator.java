@@ -67,4 +67,40 @@ public final class ArrayGreaterThanOperator
 
         return leftArray.getPositionCount() > rightArray.getPositionCount();
     }
+
+    @TypeParameter("T")
+    @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean greaterThanLong(
+            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
+            @TypeParameter("T") Type type,
+            @SqlType("array(T)") Block leftArray,
+            @SqlType("array(T)") Block rightArray)
+    {
+        int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
+        int index = 0;
+        while (index < len) {
+            checkElementNotNull(leftArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
+            long leftElement = type.getLong(leftArray, index);
+            long rightElement = type.getLong(rightArray, index);
+            try {
+                if ((boolean) greaterThanFunction.invokeExact(leftElement, rightElement)) {
+                    return true;
+                }
+                if ((boolean) greaterThanFunction.invokeExact(rightElement, leftElement)) {
+                    return false;
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+            index++;
+        }
+
+        return leftArray.getPositionCount() > rightArray.getPositionCount();
+    }
 }
