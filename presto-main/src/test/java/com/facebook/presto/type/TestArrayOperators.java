@@ -458,7 +458,8 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY_SORT(ARRAY[color('red'), color('blue')])", FUNCTION_NOT_FOUND);
     }
 
-    @Test void testDistinct()
+    @Test
+    public void testDistinct()
             throws Exception
     {
         assertFunction("ARRAY_DISTINCT(ARRAY [])", new ArrayType(UNKNOWN), ImmutableList.of());
