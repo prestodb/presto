@@ -342,8 +342,10 @@ public abstract class DefaultTraversalVisitor<R, C>
         if (node.getWhere().isPresent()) {
             process(node.getWhere().get(), context);
         }
-        for (GroupingElement groupingElement : node.getGroupBy()) {
-            process(groupingElement, context);
+        if (node.getGroupBy().isPresent()) {
+            for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
+                process(groupingElement, context);
+            }
         }
         if (node.getHaving().isPresent()) {
             process(node.getHaving().get(), context);

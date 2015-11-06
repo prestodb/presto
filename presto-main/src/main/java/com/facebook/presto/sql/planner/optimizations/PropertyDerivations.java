@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -177,6 +178,12 @@ class PropertyDerivations
             return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.normalizeAndPrune(localProperties.build()))
                     .build();
+        }
+
+        @Override
+        public ActualProperties visitGroupId(GroupIdNode node, List<ActualProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties);
         }
 
         @Override

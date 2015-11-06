@@ -32,6 +32,7 @@ import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.GenericCursorProcessor;
 import com.facebook.presto.operator.GenericPageProcessor;
+import com.facebook.presto.operator.GroupIdOperator;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.HashPartitionMaskOperator.HashPartitionMaskOperatorFactory;
@@ -98,6 +99,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -834,6 +836,30 @@ public class LocalExecutionPlanner
                     node.getLimit(),
                     hashChannel);
             return new PhysicalOperation(operatorFactory, source.getLayout(), source);
+        }
+
+        @Override
+        public PhysicalOperation visitGroupId(GroupIdNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            // add groupId to the layout
+            int groupIdChannel = source.getLayout().values().stream()
+                    .mapToInt(Integer::intValue)
+                    .max()
+                    .orElse(-1) + 1;
+
+            Map<Symbol, Integer> newLayout = ImmutableMap.<Symbol, Integer>builder()
+                    .putAll(source.getLayout())
+                    .put(node.getGroupIdSymbol(), groupIdChannel)
+                    .build();
+
+            List<List<Integer>> groupingSetChannels = node.getGroupingSets().stream()
+                    .map(groupingSet -> getChannelsForSymbols(groupingSet, source.getLayout()))
+                    .collect(toImmutableList());
+
+            OperatorFactory groupIdOperatorFactory = new GroupIdOperator.GroupIdOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), groupingSetChannels);
+            return new PhysicalOperation(groupIdOperatorFactory, newLayout, source);
         }
 
         @Override

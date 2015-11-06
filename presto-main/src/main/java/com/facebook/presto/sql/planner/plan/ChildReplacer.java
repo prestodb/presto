@@ -165,6 +165,12 @@ public class ChildReplacer
     }
 
     @Override
+    public PlanNode visitGroupId(GroupIdNode node, List<PlanNode> newChildren)
+    {
+        return new GroupIdNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getInputSymbols(), node.getGroupingSets(), node.getGroupIdSymbol());
+    }
+
+    @Override
     public PlanNode visitMarkDistinct(MarkDistinctNode node, List<PlanNode> newChildren)
     {
         return new MarkDistinctNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getMarkerSymbol(), node.getDistinctSymbols(), node.getHashSymbol());

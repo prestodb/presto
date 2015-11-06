@@ -61,6 +61,7 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Insert;
@@ -111,6 +112,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -403,7 +405,7 @@ class StatementAnalyzer
                 Optional.of(logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(table.getSchemaName())),
                         equal(nameReference("table_name"), new StringLiteral(table.getObjectName())))),
-                ImmutableList.of(new SimpleGroupBy(ImmutableList.of(nameReference("partition_number")))),
+                Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(nameReference("partition_number")))))),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
@@ -412,7 +414,7 @@ class StatementAnalyzer
                 selectAll(wrappedList.build()),
                 subquery(query),
                 showPartitions.getWhere(),
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.<SortItem>builder()
                         .addAll(showPartitions.getOrderBy())
@@ -1515,30 +1517,20 @@ class StatementAnalyzer
 
     private List<List<FieldOrExpression>> analyzeGroupBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
-        List<Set<Set<Expression>>> enumeratedGroupingSets = node.getGroupBy().stream()
-                .map(GroupingElement::enumerateGroupingSets)
-                .distinct()
-                .collect(toImmutableList());
+        List<Set<Expression>> computedGroupingSets = ImmutableList.of(); // empty list = no aggregations
 
-        // compute cross product of enumerated grouping sets, if there are any
-        List<List<Expression>> computedGroupingSets = ImmutableList.of();
-        if (!enumeratedGroupingSets.isEmpty()) {
-            computedGroupingSets = Sets.cartesianProduct(enumeratedGroupingSets).stream()
-                    .map(groupingSetList -> groupingSetList.stream()
-                            .flatMap(Collection::stream)
-                            .distinct()
-                            .collect(toImmutableList()))
-                    .distinct()
+        if (node.getGroupBy().isPresent()) {
+            List<List<Set<Expression>>> enumeratedGroupingSets = node.getGroupBy().get().getGroupingElements().stream()
+                    .map(GroupingElement::enumerateGroupingSets)
                     .collect(toImmutableList());
-        }
 
-        // if there are aggregates, but no grouping columns, create a grand total grouping set
-        if (computedGroupingSets.isEmpty() && !extractAggregates(node).isEmpty()) {
-            computedGroupingSets = ImmutableList.of(ImmutableList.of());
+            // compute cross product of enumerated grouping sets, if there are any
+            computedGroupingSets = computeGroupingSetsCrossProduct(enumeratedGroupingSets, node.getGroupBy().get().isDistinct());
+            checkState(!computedGroupingSets.isEmpty(), "computed grouping sets cannot be empty");
         }
-
-        if (computedGroupingSets.size() > 1) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Grouping by multiple sets of columns is not yet supported");
+        else if (!extractAggregates(node).isEmpty()) {
+            // if there are aggregates, but no group by, create a grand total grouping set (global aggregation)
+            computedGroupingSets = ImmutableList.of(ImmutableSet.of());
         }
 
         List<List<FieldOrExpression>> analyzedGroupingSets = computedGroupingSets.stream()
@@ -1549,7 +1541,39 @@ class StatementAnalyzer
         return analyzedGroupingSets;
     }
 
-    private List<FieldOrExpression> analyzeGroupingColumns(List<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    private List<Set<Expression>> computeGroupingSetsCrossProduct(List<List<Set<Expression>>> enumeratedGroupingSets, boolean isDistinct)
+    {
+        checkState(!enumeratedGroupingSets.isEmpty(), "enumeratedGroupingSets cannot be empty");
+
+        List<Set<Expression>> groupingSetsCrossProduct = new ArrayList<>();
+        enumeratedGroupingSets.get(0)
+                .stream()
+                .map(ImmutableSet::copyOf)
+                .forEach(groupingSetsCrossProduct::add);
+
+        for (int i = 1; i < enumeratedGroupingSets.size(); i++) {
+            List<Set<Expression>> groupingSets = enumeratedGroupingSets.get(i);
+            List<Set<Expression>> oldGroupingSetsCrossProduct = ImmutableList.copyOf(groupingSetsCrossProduct);
+            groupingSetsCrossProduct.clear();
+            for (Set<Expression> existingSet : oldGroupingSetsCrossProduct) {
+                for (Set<Expression> groupingSet : groupingSets) {
+                    Set<Expression> concatenatedSet = ImmutableSet.<Expression>builder()
+                            .addAll(existingSet)
+                            .addAll(groupingSet)
+                            .build();
+                    groupingSetsCrossProduct.add(concatenatedSet);
+                }
+            }
+        }
+
+        if (isDistinct) {
+            return ImmutableList.copyOf(ImmutableSet.copyOf(groupingSetsCrossProduct));
+        }
+
+        return groupingSetsCrossProduct;
+    }
+
+    private List<FieldOrExpression> analyzeGroupingColumns(Set<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
         ImmutableList.Builder<FieldOrExpression> groupingColumnsBuilder = ImmutableList.builder();
         for (Expression groupingColumn : groupingColumns) {
@@ -1722,11 +1746,6 @@ class StatementAnalyzer
             }
         }
 
-        ImmutableList<FieldOrExpression> allGroupingColumns = groupingSets.stream()
-                .flatMap(Collection::stream)
-                .distinct()
-                .collect(toImmutableList());
-
         // is this an aggregation query?
         if (!groupingSets.isEmpty()) {
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group
@@ -1734,13 +1753,17 @@ class StatementAnalyzer
             //     SELECT f(a) GROUP BY a
             //     SELECT f(a + 1) GROUP BY a + 1
             //     SELECT a + sum(b) GROUP BY a
+            ImmutableList<FieldOrExpression> distinctGroupingColumns = groupingSets.stream()
+                    .flatMap(Collection::stream)
+                    .distinct()
+                    .collect(toImmutableList());
 
             for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
-                verifyAggregations(node, allGroupingColumns, tupleDescriptor, fieldOrExpression, columnReferences);
+                verifyAggregations(node, distinctGroupingColumns, tupleDescriptor, fieldOrExpression, columnReferences);
             }
 
             if (node.getHaving().isPresent()) {
-                verifyAggregations(node, allGroupingColumns, tupleDescriptor, new FieldOrExpression(node.getHaving().get()), columnReferences);
+                verifyAggregations(node, distinctGroupingColumns, tupleDescriptor, new FieldOrExpression(node.getHaving().get()), columnReferences);
             }
         }
     }

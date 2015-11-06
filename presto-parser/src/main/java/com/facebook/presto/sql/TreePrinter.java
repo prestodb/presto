@@ -121,9 +121,14 @@ public class TreePrinter
                     process(node.getWhere().get(), indentLevel + 1);
                 }
 
-                if (!node.getGroupBy().isEmpty()) {
-                    for (GroupingElement groupingElement : node.getGroupBy()) {
-                        print(indentLevel, "GroupBy");
+                if (node.getGroupBy().isPresent()) {
+                    String distinct = "";
+                    if (node.getGroupBy().get().isDistinct()) {
+                        distinct = "[DISTINCT]";
+                    }
+                    print(indentLevel, "GroupBy" + distinct);
+                    for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
+                        print(indentLevel, "SimpleGroupBy");
                         if (groupingElement instanceof SimpleGroupBy) {
                             for (Expression column : ((SimpleGroupBy) groupingElement).getColumnExpressions()) {
                                 process(column, indentLevel + 1);

@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -63,10 +64,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -359,11 +360,10 @@ class QueryPlanner
             return subPlan;
         }
 
-        return aggregateGroupingSet(getOnlyElement(groupingSets), subPlan, node);
-    }
+        Set<FieldOrExpression> distinctGroupingColumns = groupingSets.stream()
+                .flatMap(Collection::stream)
+                .collect(toImmutableSet());
 
-    private PlanBuilder aggregateGroupingSet(List<FieldOrExpression> groupingSet, PlanBuilder subPlan, QuerySpecification node)
-    {
         List<FieldOrExpression> arguments = analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
@@ -371,7 +371,7 @@ class QueryPlanner
                 .collect(toImmutableList());
 
         // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
-        Iterable<FieldOrExpression> inputs = Iterables.concat(groupingSet, arguments);
+        Iterable<FieldOrExpression> inputs = Iterables.concat(distinctGroupingColumns, arguments);
 
         subPlan = handleSubqueries(subPlan, node, inputs);
 
@@ -403,14 +403,29 @@ class QueryPlanner
         }
 
         // 2.b. Rewrite group by expressions in terms of pre-projected inputs
-        Set<Symbol> groupBySymbols = new LinkedHashSet<>();
-        for (FieldOrExpression fieldOrExpression : groupingSet) {
-            Symbol symbol = subPlan.translate(fieldOrExpression);
-            groupBySymbols.add(symbol);
-            translations.put(fieldOrExpression, symbol);
+        ImmutableList.Builder<List<Symbol>> groupingSetsSymbolsBuilder = ImmutableList.builder();
+        ImmutableSet.Builder<Symbol> distinctGroupingSymbolsBuilder = ImmutableSet.builder();
+        for (List<FieldOrExpression> groupingSet : groupingSets) {
+            ImmutableList.Builder<Symbol> groupingColumns = ImmutableList.builder();
+            for (FieldOrExpression fieldOrExpression : groupingSet) {
+                Symbol symbol = subPlan.translate(fieldOrExpression);
+                groupingColumns.add(symbol);
+                distinctGroupingSymbolsBuilder.add(symbol);
+                translations.put(fieldOrExpression, symbol);
+            }
+            groupingSetsSymbolsBuilder.add(groupingColumns.build());
         }
 
-        // 2.c. Mark distinct rows for each aggregate that has DISTINCT
+        // 2.c. Add a groupIdNode and groupIdSymbol if there are multiple grouping sets
+        if (groupingSets.size() > 1) {
+            Symbol groupIdSymbol = symbolAllocator.newSymbol("groupId", BIGINT);
+            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), subPlan.getRoot().getOutputSymbols(), groupingSetsSymbolsBuilder.build(), groupIdSymbol);
+            subPlan = new PlanBuilder(subPlan.getTranslations(), groupId, subPlan.getSampleWeight());
+            distinctGroupingSymbolsBuilder.add(groupIdSymbol);
+        }
+        List<Symbol> distinctGroupingSymbols = distinctGroupingSymbolsBuilder.build().asList();
+
+        // 2.d. Mark distinct rows for each aggregate that has DISTINCT
         // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
         Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         // Map from aggregate functions to marker symbols
@@ -434,7 +449,7 @@ class QueryPlanner
 
         for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
             ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-            builder.addAll(groupBySymbols);
+            builder.addAll(distinctGroupingSymbols);
             for (Expression expression : entry.getKey()) {
                 builder.add(subPlan.translate(expression));
             }
@@ -451,7 +466,7 @@ class QueryPlanner
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                ImmutableList.copyOf(groupBySymbols),
+                distinctGroupingSymbols,
                 aggregationAssignments.build(),
                 functions.build(),
                 masks,
@@ -466,7 +481,7 @@ class QueryPlanner
         // Add back the implicit casts that we removed in 2.a
         // TODO: this is a hack, we should change type coercions to coerce the inputs to functions/operators instead of coercing the output
         if (needPostProjectionCoercion) {
-            return explicitCoercionFields(subPlan, groupingSet, analysis.getAggregates(node));
+            return explicitCoercionFields(subPlan, distinctGroupingColumns, analysis.getAggregates(node));
         }
         return subPlan;
     }
