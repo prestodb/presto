@@ -307,7 +307,8 @@ public class HivePageSink
             String outputFormat;
             String serDe;
             if (table == null) {
-                // Write new table either in a new partition or directly for an unpartitioned table
+                // Write to: a new partition in a new partitioned table,
+                //           or a new unpartitioned table.
                 schema = new Properties();
                 schema.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(dataColumnNames));
                 schema.setProperty(META_TABLE_COLUMN_TYPES, dataColumnTypes.stream()
@@ -332,8 +333,11 @@ public class HivePageSink
                 serDe = tableStorageFormat.getSerDe();
             }
             else {
-                // Write new partition in a partitioned table, or append to an existing unpartitioned table
-                // TODO: fail appending to existing unpartitioned table when immutablePartitions is set
+                // Write to: a new partition in an existing partitioned table,
+                //           or an existing unpartitioned table
+                if (!partitionName.isPresent() && immutablePartitions) {
+                    throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
+                }
                 schema = MetaStoreUtils.getSchema(
                         table.getSd(),
                         table.getSd(),
@@ -370,6 +374,7 @@ public class HivePageSink
                     conf);
         }
         else {
+            // Write to: an existing partition in an existing partitioned table,
             if (immutablePartitions) {
                 throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Hive partitions are immutable");
             }
