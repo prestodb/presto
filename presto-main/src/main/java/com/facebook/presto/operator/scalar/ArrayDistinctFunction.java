@@ -22,8 +22,12 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.SqlType;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 
 import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 @ScalarFunction("array_distinct")
 @Description("Remove duplicate values from the given array")
@@ -57,6 +61,31 @@ public final class ArrayDistinctFunction
             if (!typedSet.contains(array, i)) {
                 typedSet.add(array, i);
                 type.appendTo(array, i, distinctElementBlockBuilder);
+            }
+        }
+
+        return distinctElementBlockBuilder.build();
+    }
+
+    @SqlType("array(bigint)")
+    public static Block bigintDistinct(@SqlType("array(bigint)") Block array)
+    {
+        if (array.getPositionCount() == 0) {
+            return array;
+        }
+
+        boolean containsNull = false;
+        LongSet set = new LongOpenHashSet(array.getPositionCount());
+        BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            if (!containsNull && array.isNull(i)) {
+                containsNull = true;
+                distinctElementBlockBuilder.appendNull();
+                continue;
+            }
+            long value = BIGINT.getLong(array, i);
+            if (set.add(value)) {
+                BIGINT.writeLong(distinctElementBlockBuilder, value);
             }
         }
 
