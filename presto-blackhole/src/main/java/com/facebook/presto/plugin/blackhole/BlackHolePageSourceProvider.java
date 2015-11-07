@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -75,9 +74,11 @@ public final class BlackHolePageSourceProvider
         }
         List<Type> types = builder.build();
 
-        return new FixedPageSource(Iterables.limit(
+        Iterable<Page> pages = Iterables.limit(
                 Iterables.cycle(generateZeroPage(types, blackHoleSplit.getRowsPerPage(), blackHoleSplit.getFieldsLength())),
-                blackHoleSplit.getPagesCount()));
+                blackHoleSplit.getPagesCount()
+        );
+        return new DelayPageSource(pages, blackHoleSplit.getPageProcessingDelay());
     }
 
     private Page generateZeroPage(List<Type> types, int rowsCount, int fieldLength)

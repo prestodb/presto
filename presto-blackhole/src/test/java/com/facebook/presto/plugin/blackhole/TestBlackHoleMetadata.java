@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -36,7 +38,8 @@ public class TestBlackHoleMetadata
             BlackHoleConnector.SPLIT_COUNT_PROPERTY, 0,
             BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY, 0,
             BlackHoleConnector.ROWS_PER_PAGE_PROPERTY, 0,
-            BlackHoleConnector.FIELD_LENGTH_PROPERTY, 16);
+            BlackHoleConnector.FIELD_LENGTH_PROPERTY, 16,
+            BlackHoleConnector.PAGE_PROCESSING_DELAY, new Duration(0, SECONDS));
 
     @Test
     public void tableIsCreatedAfterCommits()
