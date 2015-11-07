@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
@@ -29,11 +30,13 @@ import java.util.List;
 
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
+import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleQueryRunner.createQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -181,6 +184,39 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(1), "********");
         assertEquals(row.getField(2), 0L);
         assertEquals(row.getField(3), "********");
+
+        assertThatQueryReturnsValue("DROP TABLE nation", true);
+    }
+
+    @Test
+    public void pageProcessingDelay()
+            throws Exception
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("blackhole")
+                .setSchema("default")
+                .build();
+
+        int pageProcessingDelayMills = 2000;
+
+        assertThatQueryReturnsValue(
+                format("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1, %s = '%dms' ) as SELECT * FROM tpch.tiny.nation",
+                        FIELD_LENGTH_PROPERTY,
+                        ROWS_PER_PAGE_PROPERTY,
+                        PAGES_PER_SPLIT_PROPERTY,
+                        SPLIT_COUNT_PROPERTY,
+                        PAGE_PROCESSING_DELAY,
+                        pageProcessingDelayMills),
+                25L,
+                session);
+
+        Stopwatch stopwatch = Stopwatch.createStarted();
+
+        assertEquals(queryRunner.execute(session, "SELECT * FROM nation").getRowCount(), 1);
+        queryRunner.execute(session, "INSERT INTO nation SELECT CAST(null AS BIGINT), CAST(null AS VARCHAR), CAST(null AS BIGINT), CAST(null AS VARCHAR)");
+
+        stopwatch.stop();
+        assertTrue(stopwatch.elapsed(MILLISECONDS) > pageProcessingDelayMills * 2);
 
         assertThatQueryReturnsValue("DROP TABLE nation", true);
     }

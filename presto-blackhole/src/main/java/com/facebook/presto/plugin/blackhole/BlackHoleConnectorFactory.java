@@ -19,10 +19,13 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 
 import java.util.Map;
 
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class BlackHoleConnectorFactory
         implements ConnectorFactory
@@ -51,12 +54,14 @@ public class BlackHoleConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> requiredConfig)
     {
+        ListeningScheduledExecutorService executorService = listeningDecorator(newSingleThreadScheduledExecutor());
         return new BlackHoleConnector(
                 new BlackHoleMetadata(),
                 new BlackHoleSplitManager(),
                 new BlackHolePageSourceProvider(),
-                new BlackHolePageSinkProvider(),
+                new BlackHolePageSinkProvider(executorService),
                 new BlackHoleNodePartitioningProvider(connectorId, nodeManager),
-                typeManager);
+                typeManager,
+                executorService);
     }
 }

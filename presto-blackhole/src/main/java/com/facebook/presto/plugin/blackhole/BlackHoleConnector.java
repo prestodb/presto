@@ -25,14 +25,18 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class BlackHoleConnector
         implements Connector
@@ -42,6 +46,7 @@ public class BlackHoleConnector
     public static final String ROWS_PER_PAGE_PROPERTY = "rows_per_page";
     public static final String FIELD_LENGTH_PROPERTY = "field_length";
     public static final String DISTRIBUTED_ON = "distributed_on";
+    public static final String PAGE_PROCESSING_DELAY = "page_processing_delay";
 
     private final BlackHoleMetadata metadata;
     private final BlackHoleSplitManager splitManager;
@@ -49,13 +54,16 @@ public class BlackHoleConnector
     private final BlackHolePageSinkProvider pageSinkProvider;
     private final BlackHoleNodePartitioningProvider partitioningProvider;
     private final TypeManager typeManager;
+    private final ExecutorService executorService;
 
-    public BlackHoleConnector(BlackHoleMetadata metadata,
+    public BlackHoleConnector(
+            BlackHoleMetadata metadata,
             BlackHoleSplitManager splitManager,
             BlackHolePageSourceProvider pageSourceProvider,
             BlackHolePageSinkProvider pageSinkProvider,
             BlackHoleNodePartitioningProvider partitioningProvider,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            ExecutorService executorService)
     {
         this.metadata = metadata;
         this.splitManager = splitManager;
@@ -63,6 +71,7 @@ public class BlackHoleConnector
         this.pageSinkProvider = pageSinkProvider;
         this.partitioningProvider = partitioningProvider;
         this.typeManager = typeManager;
+        this.executorService = executorService;
     }
 
     @Override
@@ -135,12 +144,26 @@ public class BlackHoleConnector
                         false,
                         value -> ImmutableList.copyOf(((List<String>) value).stream()
                                 .map(name -> name.toLowerCase(ENGLISH))
-                                .collect(Collectors.toList()))));
+                                .collect(Collectors.toList()))),
+                new PropertyMetadata<>(
+                        PAGE_PROCESSING_DELAY,
+                        "Sleep duration before processing the page",
+                        VARCHAR,
+                        Duration.class,
+                        Duration.valueOf("0s"),
+                        false,
+                        value -> Duration.valueOf((String) value)));
     }
 
     @Override
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         return partitioningProvider;
+    }
+
+    @Override
+    public void shutdown()
+    {
+        shutdownAndAwaitTermination(executorService, 10, SECONDS);
     }
 }

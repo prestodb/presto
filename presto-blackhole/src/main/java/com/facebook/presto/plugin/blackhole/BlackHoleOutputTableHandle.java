@@ -17,21 +17,32 @@ package com.facebook.presto.plugin.blackhole;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.units.Duration;
 
 public final class BlackHoleOutputTableHandle
         implements ConnectorOutputTableHandle
 {
     private final BlackHoleTableHandle table;
+    private final Duration pageProcessingDelay;
 
     @JsonCreator
-    public BlackHoleOutputTableHandle(@JsonProperty("table") BlackHoleTableHandle table)
+    public BlackHoleOutputTableHandle(
+            @JsonProperty("table") BlackHoleTableHandle table,
+            @JsonProperty("pageProcessingDelay") Duration pageProcessingDelay)
     {
         this.table = table;
+        this.pageProcessingDelay = pageProcessingDelay;
     }
 
     @JsonProperty
     public BlackHoleTableHandle getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public Duration getPageProcessingDelay()
+    {
+        return pageProcessingDelay;
     }
 }
