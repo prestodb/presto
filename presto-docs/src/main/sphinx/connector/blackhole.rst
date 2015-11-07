@@ -2,9 +2,11 @@
 Black Hole Connector
 ====================
 
-The Black Hole connector works like the ``/dev/null`` device on Unix-like
+Primarily Black Hole connector is designed for high performance testing of
+other components. It works like the ``/dev/null`` device on Unix-like
 operating systems for data writing and like ``/dev/null`` or ``/dev/zero``
-for data reading. Metadata for any tables created via this connector
+for data reading. However, it also has some other features that allow testing Presto
+in a more controlled manner. Metadata for any tables created via this connector
 is kept in memory on the coordinator and discarded when Presto restarts.
 Created tables are by default always empty, and any data written to them
 will be ignored and data reads will return no rows.
@@ -79,3 +81,19 @@ table property (default value is equal to 16)::
       rows_per_page = 2000,
       field_length = 100
     );
+
+The consuming and producing rate can be slowed down
+using the ``page_processing_delay`` table property.
+Setting this property to ``5s`` will lead to a 5 second
+delay before consuming or producing a new page::
+
+    CREATE TABLE blackhole.test.delay (
+      dummy bigint
+    )
+    WITH (
+      split_count = 1,
+      pages_per_split = 1,
+      rows_per_page = 1,
+      page_processing_delay = '5s'
+    );
+

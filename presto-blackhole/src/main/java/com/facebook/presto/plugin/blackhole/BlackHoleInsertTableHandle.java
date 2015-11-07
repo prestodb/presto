@@ -15,10 +15,26 @@
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.units.Duration;
 
-// HACK: this class is an enum to make this class to be auto serializable
-public enum BlackHoleInsertTableHandle
+import static java.util.Objects.requireNonNull;
+
+public final class BlackHoleInsertTableHandle
         implements ConnectorInsertTableHandle
 {
-    BLACK_HOLE_INSERT_TABLE_HANDLE
+    private final Duration pageProcessingDelay;
+
+    @JsonCreator
+    public BlackHoleInsertTableHandle(@JsonProperty("pageProcessingDelay") Duration pageProcessingDelay)
+    {
+        this.pageProcessingDelay = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null");
+    }
+
+    @JsonProperty
+    public Duration getPageProcessingDelay()
+    {
+        return pageProcessingDelay;
+    }
 }
