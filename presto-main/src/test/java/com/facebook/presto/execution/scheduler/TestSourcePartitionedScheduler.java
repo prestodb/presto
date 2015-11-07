@@ -119,6 +119,8 @@ public class TestSourcePartitionedScheduler
         assertTrue(scheduleResult.isFinished());
         assertTrue(scheduleResult.getBlocked().isDone());
         assertTrue(scheduleResult.getNewTasks().isEmpty());
+
+        stage.abort();
     }
 
     @Test
@@ -150,6 +152,8 @@ public class TestSourcePartitionedScheduler
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
         }
+
+        stage.abort();
     }
 
     @Test
@@ -181,6 +185,8 @@ public class TestSourcePartitionedScheduler
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
         }
+
+        stage.abort();
     }
 
     @Test
@@ -239,6 +245,8 @@ public class TestSourcePartitionedScheduler
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
         }
+
+        stage.abort();
     }
 
     @Test
@@ -331,6 +339,9 @@ public class TestSourcePartitionedScheduler
         assertEquals(secondStage.getAllTasks().size(), 1);
         RemoteTask task = secondStage.getAllTasks().get(0);
         assertEquals(task.getPartitionedSplitCount(), 5);
+
+        firstStage.abort();
+        secondStage.abort();
     }
 
     @Test
@@ -366,6 +377,9 @@ public class TestSourcePartitionedScheduler
         for (RemoteTask remoteTask : secondStage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 0);
         }
+
+        firstStage.abort();
+        secondStage.abort();
     }
 
     private static void assertPartitionedSplitCount(SqlStageExecution stage, int expectedPartitionedSplitCount)
