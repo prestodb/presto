@@ -16,8 +16,13 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.type.Type;
+
+import java.util.List;
 
 public interface PageProcessor
 {
     int process(ConnectorSession session, Page page, int start, int end, PageBuilder pageBuilder);
+
+    Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types);
 }

@@ -30,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Filters out rows that do not match the values from the specified tuple
  */
+@SuppressWarnings("ALL")
 public class TupleFilterProcessor
         implements PageProcessor
 {
@@ -69,6 +70,32 @@ public class TupleFilterProcessor
         }
 
         return end;
+    }
+
+    @Override
+    public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
+    {
+        PageBuilder pageBuilder = new PageBuilder(types);
+        int positionCount = page.getPositionCount();
+
+        int[] selectedPositions = new int[positionCount];
+        int selectedCount = 0;
+        for (int i = 0; i < positionCount; i++) {
+            if (matches(i, page)) {
+                selectedPositions[selectedCount++] = i;
+            }
+        }
+
+        for (int position : selectedPositions) {
+            for (int i = 0; i < outputTypes.size(); i++) {
+                Type type = outputTypes.get(i);
+                Block block = page.getBlock(i);
+                BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
+                type.appendTo(block, position, blockBuilder);
+            }
+        }
+        pageBuilder.declarePositions(selectedCount);
+        return pageBuilder.build();
     }
 
     private boolean matches(int position, Page page)

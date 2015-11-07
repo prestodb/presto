@@ -48,6 +48,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String EXECUTION_POLICY = "execution_policy";
+    public static final String COLUMNAR_PROCESSING = "columnar_processing";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -144,7 +145,12 @@ public final class SystemSessionProperties
                         DataSize.class,
                         memoryManagerConfig.getMaxQueryMemory(),
                         true,
-                        value -> DataSize.valueOf((String) value)));
+                        value -> DataSize.valueOf((String) value)),
+                booleanSessionProperty(
+                        COLUMNAR_PROCESSING,
+                        "Use columnar processing for dictionary encoded blocks",
+                        false,
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -210,6 +216,11 @@ public final class SystemSessionProperties
     public static boolean isIntermediateAggregation(Session session)
     {
         return session.getProperty(TASK_INTERMEDIATE_AGGREGATION, Boolean.class);
+    }
+
+    public static boolean isColumnarProcessingEnabled(Session session)
+    {
+        return session.getProperty(COLUMNAR_PROCESSING, Boolean.class);
     }
 
     public static DataSize getQueryMaxMemory(Session session)

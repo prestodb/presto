@@ -73,6 +73,7 @@ import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
@@ -165,7 +166,6 @@ import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
-import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
@@ -920,7 +920,7 @@ public class LocalExecutionPlanner
             }
             catch (RuntimeException e) {
                 if (!interpreterEnabled) {
-                    throw new PrestoException(COMPILER_ERROR, "Compiler failed and interpreter is disabled", e);
+                    throw new PrestoException(StandardErrorCode.COMPILER_ERROR, "Compiler failed and interpreter is disabled", e);
                 }
 
                 // compilation failed, use interpreter

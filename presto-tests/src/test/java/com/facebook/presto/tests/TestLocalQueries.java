@@ -64,6 +64,7 @@ public class TestLocalQueries
         return testSessionBuilder()
                 .setCatalog(TPCH_SAMPLED_SCHEMA)
                 .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperties(ImmutableMap.of("columnar_processing", "true"))
                 .build();
     }
 }
