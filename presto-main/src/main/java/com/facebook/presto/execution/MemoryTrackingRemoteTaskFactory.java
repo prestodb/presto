@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.NodeTaskMap.SplitCountChangeListener;
+import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
@@ -44,7 +44,7 @@ public class MemoryTrackingRemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            SplitCountChangeListener splitCountChangeListener)
+            PartitionedSplitCountTracker partitionedSplitCountTracker)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
@@ -52,7 +52,7 @@ public class MemoryTrackingRemoteTaskFactory
                 fragment,
                 initialSplits,
                 outputBuffers,
-                splitCountChangeListener);
+                partitionedSplitCountTracker);
 
         task.addStateChangeListener(new UpdatePeakMemory(stateMachine));
         return task;

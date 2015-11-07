@@ -16,7 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
-import com.facebook.presto.execution.NodeTaskMap.SplitCountChangeListener;
+import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
@@ -96,7 +96,7 @@ public class HttpRemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            SplitCountChangeListener splitCountChangeListener)
+            PartitionedSplitCountTracker partitionedSplitCountTracker)
     {
         return new HttpRemoteTask(session,
                 taskId,
@@ -112,7 +112,7 @@ public class HttpRemoteTaskFactory
                 taskInfoRefreshMaxWait,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
-                splitCountChangeListener
+                partitionedSplitCountTracker
         );
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.Sets;
+import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -22,9 +23,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static java.util.Objects.requireNonNull;
+
 @ThreadSafe
 public class NodeTaskMap
 {
+    private static final Logger log = Logger.get(NodeTaskMap.class);
     private final ConcurrentHashMap<Node, NodeTasks> nodeTasksMap = new ConcurrentHashMap<>();
 
     public void addTask(Node node, RemoteTask task)
@@ -37,9 +41,9 @@ public class NodeTaskMap
         return createOrGetNodeTasks(node).getPartitionedSplitCount();
     }
 
-    public SplitCountChangeListener getSplitCountChangeListener(Node node)
+    public PartitionedSplitCountTracker createPartitionedSplitCountTracker(Node node, TaskId taskId)
     {
-        return createOrGetNodeTasks(node).getSplitCountChangeListener();
+        return createOrGetNodeTasks(node).createPartitionedSplitCountTracker(taskId);
     }
 
     private NodeTasks createOrGetNodeTasks(Node node)
@@ -64,12 +68,11 @@ public class NodeTaskMap
     private static class NodeTasks
     {
         private final Set<RemoteTask> remoteTasks = Sets.newConcurrentHashSet();
-        private final AtomicInteger partitionedSplitCount = new AtomicInteger();
-        private final SplitCountChangeListener splitCountChangeListener = partitionedSplitCount::addAndGet;
+        private final AtomicInteger nodeTotalPartitionedSplitCount = new AtomicInteger();
 
         private int getPartitionedSplitCount()
         {
-            return partitionedSplitCount.get();
+            return nodeTotalPartitionedSplitCount.get();
         }
 
         private void addTask(RemoteTask task)
@@ -88,14 +91,57 @@ public class NodeTaskMap
             }
         }
 
-        public SplitCountChangeListener getSplitCountChangeListener()
+        public PartitionedSplitCountTracker createPartitionedSplitCountTracker(TaskId taskId)
         {
-            return splitCountChangeListener;
+            return new TaskPartitionedSplitCountTracker(taskId);
+        }
+
+        @ThreadSafe
+        private class TaskPartitionedSplitCountTracker
+                implements PartitionedSplitCountTracker
+        {
+            private final TaskId taskId;
+            private int localPartitionedSplitCount;
+
+            public TaskPartitionedSplitCountTracker(TaskId taskId)
+            {
+                this.taskId = requireNonNull(taskId, "taskId is null");
+            }
+
+            @Override
+            public synchronized void setPartitionedSplitCount(int partitionedSplitCount)
+            {
+                if (partitionedSplitCount < 0) {
+                    nodeTotalPartitionedSplitCount.addAndGet(-localPartitionedSplitCount);
+                    localPartitionedSplitCount = 0;
+                    throw new IllegalArgumentException("partitionedSplitCount is negative");
+                }
+
+                int delta = partitionedSplitCount - localPartitionedSplitCount;
+                nodeTotalPartitionedSplitCount.addAndGet(delta);
+                localPartitionedSplitCount = partitionedSplitCount;
+            }
+
+            @Override
+            protected synchronized void finalize()
+            {
+                if (localPartitionedSplitCount == 0) {
+                    return;
+                }
+
+                log.error("BUG! %s for %s leaked with %s splits.  Cleaning up so server can continue to function.",
+                        getClass().getName(),
+                        taskId,
+                        localPartitionedSplitCount);
+
+                nodeTotalPartitionedSplitCount.addAndGet(-localPartitionedSplitCount);
+                localPartitionedSplitCount = 0;
+            }
         }
     }
 
-    public interface SplitCountChangeListener
+    public interface PartitionedSplitCountTracker
     {
-        void splitCountChanged(int delta);
+        void setPartitionedSplitCount(int partitionedSplitCount);
     }
 }

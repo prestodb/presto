@@ -313,7 +313,7 @@ public final class SqlStageExecution
                 stateMachine.getFragment(),
                 initialSplits.build(),
                 outputBuffers.get(),
-                nodeTaskMap.getSplitCountChangeListener(node));
+                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
 
         completeSources.forEach(task::noMoreSplits);
 
