@@ -4264,6 +4264,25 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) a, " +
                 "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) b, " +
                 "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) c ");
+
+        // Inner Join converted to cross join because all join conditions are pushed down.
+        assertQuery("" +
+                "SELECT l.orderkey, l.linenumber " +
+                "FROM orders o INNER JOIN lineitem l " +
+                "ON o.custkey = l.linenumber " +
+                "WHERE o.custkey IN (5) AND l.orderkey IN (7522)");
+
+        assertQuery("" +
+                "SELECT o.custkey " +
+                "FROM orders o INNER JOIN lineitem l " +
+                "ON o.custkey = l.linenumber " +
+                "WHERE o.custkey IN (5) AND l.orderkey IN (7522)");
+
+        assertQuery("" +
+                "SELECT COUNT(*) " +
+                "FROM orders o INNER JOIN lineitem l " +
+                "ON o.custkey = l.linenumber " +
+                "WHERE o.custkey IN (5) AND l.orderkey IN (7522)");
     }
 
     @Test
