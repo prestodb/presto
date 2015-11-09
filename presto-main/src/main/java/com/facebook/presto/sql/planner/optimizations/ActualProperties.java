@@ -56,23 +56,23 @@ class ActualProperties
 
         this.global = global;
 
-        // There is some overlap between the localProperties (ConstantProperty) and constants fields.
-        // Let's normalize both of those structures here so that they are consistent with each other
-        Set<Symbol> propertyConstants = LocalProperties.extractLeadingConstants(localProperties);
+        // The constants field implies a ConstantProperty in localProperties (but not vice versa).
+        // Let's make sure to include the constants into the local constant properties.
+        Set<Symbol> localConstants = LocalProperties.extractLeadingConstants(localProperties);
         localProperties = LocalProperties.stripLeadingConstants(localProperties);
 
-        Map<Symbol, Object> updatedConstants = new HashMap<>();
-        propertyConstants.stream()
-                .forEach(symbol -> updatedConstants.put(symbol, new Object()));
-        updatedConstants.putAll(constants);
+        Set<Symbol> updatedLocalConstants = ImmutableSet.<Symbol>builder()
+                .addAll(localConstants)
+                .addAll(constants.keySet())
+                .build();
 
         List<LocalProperty<Symbol>> updatedLocalProperties = LocalProperties.normalizeAndPrune(ImmutableList.<LocalProperty<Symbol>>builder()
-                .addAll(transform(updatedConstants.keySet(), ConstantProperty::new))
+                .addAll(transform(updatedLocalConstants, ConstantProperty::new))
                 .addAll(localProperties)
                 .build());
 
         this.localProperties = ImmutableList.copyOf(updatedLocalProperties);
-        this.constants = ImmutableMap.copyOf(updatedConstants);
+        this.constants = ImmutableMap.copyOf(constants);
     }
 
     public static ActualProperties distributed()
