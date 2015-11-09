@@ -1785,21 +1785,25 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT DISTINCT a.orderkey FROM " +
-                        "(SELECT CASE WHEN orderkey > 10 THEN orderkey END orderkey FROM orders) a " +
-                        "RIGHT OUTER JOIN orders b ON a.orderkey = b.orderkey");
+                        "(SELECT CASE WHEN orderkey > 10 THEN orderkey END orderkey FROM orders WHERE orderkey < 100) a " +
+                        "RIGHT OUTER JOIN " +
+                        "(SELECT * FROM orders WHERE orderkey < 100) b ON a.orderkey = b.orderkey");
 
         assertQuery(
                 "SELECT DISTINCT a.orderkey FROM " +
-                        "(SELECT CASE WHEN orderkey > 2 THEN orderkey END orderkey FROM orders) a " +
-                        "FULL OUTER JOIN orders b ON a.orderkey = b.orderkey",
+                        "(SELECT CASE WHEN orderkey > 2 THEN orderkey END orderkey FROM orders WHERE orderkey < 100) a " +
+                        "FULL OUTER JOIN " +
+                        "(SELECT * FROM orders WHERE orderkey < 100) b ON a.orderkey = b.orderkey",
                 "SELECT DISTINCT orderkey FROM (" +
                         "SELECT a.orderkey FROM " +
-                        "(SELECT CASE WHEN orderkey > 2 THEN orderkey END orderkey FROM orders) a " +
-                        "RIGHT OUTER JOIN orders b ON a.orderkey = b.orderkey " +
+                        "(SELECT CASE WHEN orderkey > 2 THEN orderkey END orderkey FROM orders WHERE orderkey < 100) a " +
+                        "RIGHT OUTER JOIN " +
+                        "(SELECT * FROM orders WHERE orderkey < 100) b ON a.orderkey = b.orderkey " +
                         "UNION ALL " +
                         "SELECT a.orderkey FROM" +
-                        "(SELECT CASE WHEN orderkey > 2 THEN orderkey END orderkey FROM orders) a " +
-                        "LEFT OUTER JOIN orders b ON a.orderkey = b.orderkey " +
+                        "(SELECT CASE WHEN orderkey > 2 THEN orderkey END orderkey FROM orders WHERE orderkey < 100) a " +
+                        "LEFT OUTER JOIN " +
+                        "(SELECT * FROM orders WHERE orderkey < 100) b ON a.orderkey = b.orderkey " +
                         "WHERE a.orderkey IS NULL)");
     }
 
