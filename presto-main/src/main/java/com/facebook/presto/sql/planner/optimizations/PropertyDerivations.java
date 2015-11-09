@@ -493,17 +493,14 @@ class PropertyDerivations
 
             ActualProperties.Builder properties = ActualProperties.builder();
 
-            // Constant assignments
-            Map<ColumnHandle, Object> constants = new HashMap<>();
-            LocalProperties.extractLeadingConstants(layout.getLocalProperties()).stream()
-                    .forEach(column -> constants.put(column, new Object())); // Use an arbitrary object value for property constants b/c we don't know its actual value
-            // Do predicate constants after property constants so that we can override with known real predicate values (if they exist)
+            // Globally constant assignments
+            Map<ColumnHandle, Object> globalConstants = new HashMap<>();
             extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
                     .entrySet().stream()
                     .filter(entry -> !entry.getValue().isNull())
-                    .forEach(entry -> constants.put(entry.getKey(), entry.getValue()));
+                    .forEach(entry -> globalConstants.put(entry.getKey(), entry.getValue()));
 
-            Map<Symbol, Object> symbolConstants = constants.entrySet().stream()
+            Map<Symbol, Object> symbolConstants = globalConstants.entrySet().stream()
                     .filter(entry -> assignments.containsKey(entry.getKey()))
                     .collect(toMap(entry -> assignments.get(entry.getKey()), Map.Entry::getValue));
             properties.constants(symbolConstants);
@@ -511,9 +508,9 @@ class PropertyDerivations
             // Partitioning properties
             Optional<List<Symbol>> partitioningColumns = Optional.empty();
             if (layout.getPartitioningColumns().isPresent()) {
-                // Strip off the constants from the partitioning columns (since those are not required for translation)
+                // Strip off the global constants from the partitioning columns (since those are not required for translation)
                 Set<ColumnHandle> constantsStrippedPartitionColumns = layout.getPartitioningColumns().get().stream()
-                        .filter(column -> !constants.containsKey(column))
+                        .filter(column -> !globalConstants.containsKey(column))
                         .collect(toImmutableSet());
                 partitioningColumns = translate(constantsStrippedPartitionColumns, assignments);
             }
@@ -525,9 +522,9 @@ class PropertyDerivations
                 properties.global(distributed());
             }
 
-            // Append the constants onto the local properties to maximize their translation potential
+            // Append the global constants onto the local properties to maximize their translation potential
             List<LocalProperty<ColumnHandle>> constantAppendedLocalProperties = ImmutableList.<LocalProperty<ColumnHandle>>builder()
-                    .addAll(constants.keySet().stream().map(column -> new ConstantProperty<>(column)).iterator())
+                    .addAll(globalConstants.keySet().stream().map(column -> new ConstantProperty<>(column)).iterator())
                     .addAll(layout.getLocalProperties())
                     .build();
             properties.local(LocalProperties.translate(constantAppendedLocalProperties, column -> Optional.ofNullable(assignments.get(column))));
