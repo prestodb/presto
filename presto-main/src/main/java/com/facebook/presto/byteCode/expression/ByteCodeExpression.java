@@ -182,14 +182,29 @@ public abstract class ByteCodeExpression
                 parameters);
     }
 
+    public final ByteCodeExpression setElement(int index, ByteCodeExpression value)
+    {
+        return ArrayByteCodeExpressions.set(this, constantInt(index), value);
+    }
+
+    public final ByteCodeExpression setElement(ByteCodeExpression index, ByteCodeExpression value)
+    {
+        return ArrayByteCodeExpressions.set(this, index, value);
+    }
+
     public final ByteCodeExpression getElement(int index)
     {
-        return new GetElementByteCodeExpression(this, constantInt(index));
+        return ArrayByteCodeExpressions.get(this, constantInt(index));
     }
 
     public final ByteCodeExpression getElement(ByteCodeExpression index)
     {
-        return new GetElementByteCodeExpression(this, index);
+        return ArrayByteCodeExpressions.get(this, index);
+    }
+
+    public final ByteCodeExpression length()
+    {
+        return ArrayByteCodeExpressions.length(this);
     }
 
     public final ByteCodeExpression ret()
