@@ -20,6 +20,8 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
+import io.airlift.testing.Assertions;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -39,14 +41,25 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -62,6 +75,7 @@ public class TestDriver
     private static final String TEST_CATALOG = "test_catalog";
 
     private TestingPrestoServer server;
+    private ExecutorService executorService;
 
     @BeforeClass
     public void setup()
@@ -73,8 +87,18 @@ public class TestDriver
         server.createCatalog(TEST_CATALOG, "tpch");
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
-
+        waitForNodeRefresh(server);
         setupTestTables();
+    }
+
+    private static void waitForNodeRefresh(TestingPrestoServer server)
+            throws InterruptedException
+    {
+        long start = System.nanoTime();
+        while (server.refreshNodes().getActiveNodes().size() < 1) {
+            Assertions.assertLessThan(nanosSince(start), new Duration(10, SECONDS));
+            MILLISECONDS.sleep(10);
+        }
     }
 
     private void setupTestTables()
@@ -84,12 +108,16 @@ public class TestDriver
                 Statement statement = connection.createStatement()) {
             assertEquals(statement.executeUpdate("CREATE TABLE test_table (x bigint)"), 0);
         }
+        executorService = newCachedThreadPool();
     }
 
     @AfterClass
     public void teardown()
+            throws Exception
     {
         closeQuietly(server);
+        executorService.shutdownNow();
+        executorService.awaitTermination(1, MINUTES);
     }
 
     @Test
@@ -1209,6 +1237,77 @@ public class TestDriver
         String url = format("jdbc:presto://%s/a//", server.getAddress());
         try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
             fail("expected exception");
+        }
+    }
+
+    @Test(timeOut = 70000)
+    public void testQueryCancellation()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole");
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate("CREATE TABLE test_cancellation (key BIGINT) " +
+                    "WITH (" +
+                    "   split_count = 1, " +
+                    "   pages_per_split = 1, " +
+                    "   rows_per_page = 1, " +
+                    "   page_processing_delay = '1m'" +
+                    ")");
+        }
+
+        CountDownLatch queryStarted = new CountDownLatch(1);
+        CountDownLatch queryFinished = new CountDownLatch(1);
+        AtomicReference<String> queryId = new AtomicReference<>();
+        AtomicReference<Throwable> queryFailure = new AtomicReference<>();
+
+        Future<Void> queryFuture = executorService.submit(() -> {
+            try (Connection connection = createConnection("blackhole", "default")) {
+                try (Statement statement = connection.createStatement()) {
+                    try (ResultSet resultSet = statement.executeQuery("SELECT * FROM test_cancellation")) {
+                        queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
+                        queryStarted.countDown();
+                        try {
+                            resultSet.next();
+                        }
+                        catch (Throwable t) {
+                            queryFailure.set(t);
+                        }
+                        finally {
+                            queryFinished.countDown();
+                        }
+                    }
+                }
+            }
+            return null;
+        });
+
+        queryStarted.await(1, MINUTES);
+        assertNotNull(queryId.get());
+        assertQueryState(queryId.get(), "QUEUED", "PLANNING", "STARTING", "RUNNING");
+        queryFuture.cancel(true);
+        queryFinished.await(1, MINUTES);
+        assertNotNull(queryFailure.get());
+        assertQueryState(queryId.get(), "FAILED");
+    }
+
+    private void assertQueryState(String queryId, String... states)
+            throws SQLException
+    {
+        String queryState = getQueryState(queryId);
+        assertTrue(Arrays.asList(states).contains(queryState));
+    }
+
+    private String getQueryState(String queryId)
+            throws SQLException
+    {
+        String sql = format("select state from system.runtime.queries where query_id='%s'", queryId);
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                try (ResultSet resultSet = statement.executeQuery(sql)) {
+                    assertTrue(resultSet.next(), "Query was not found");
+                    return requireNonNull(resultSet.getString(1));
+                }
+            }
         }
     }
 
