@@ -17,6 +17,7 @@ import com.facebook.presto.cli.ClientOptions.ClientSessionProperty;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -142,16 +143,23 @@ public class TestClientOptions
         ClientSession session = options.toClientSession();
         SqlParser sqlParser = new SqlParser();
 
-        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_catalog.test_schema"), session);
+        ImmutableMap<String, String> existingProperties = ImmutableMap.of("query_max_memory", "10GB", "distributed_join", "true");
+        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_catalog.test_schema"), session, existingProperties);
         assertEquals(session.getCatalog(), "test_catalog");
         assertEquals(session.getSchema(), "test_schema");
+        assertEquals(session.getProperties().get("query_max_memory"), "10GB");
+        assertEquals(session.getProperties().get("distributed_join"), "true");
 
-        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_schema_b"), session);
+        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_schema_b"), session, existingProperties);
         assertEquals(session.getCatalog(), "test_catalog");
         assertEquals(session.getSchema(), "test_schema_b");
+        assertEquals(session.getProperties().get("query_max_memory"), "10GB");
+        assertEquals(session.getProperties().get("distributed_join"), "true");
 
-        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_catalog_2.test_schema"), session);
+        session = Console.processSessionParameterChange(sqlParser.createStatement("USE test_catalog_2.test_schema"), session, existingProperties);
         assertEquals(session.getCatalog(), "test_catalog_2");
         assertEquals(session.getSchema(), "test_schema");
+        assertEquals(session.getProperties().get("query_max_memory"), "10GB");
+        assertEquals(session.getProperties().get("distributed_join"), "true");
     }
 }
