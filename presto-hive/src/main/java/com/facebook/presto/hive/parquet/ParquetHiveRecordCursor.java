@@ -19,10 +19,10 @@ import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.hive.parquet.predicate.ParquetPredicate;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -38,7 +38,6 @@ import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.ParquetInputSplit;
 import parquet.hadoop.ParquetRecordReader;
 import parquet.hadoop.api.ReadSupport;
-import parquet.hadoop.api.ReadSupport.ReadContext;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.FileMetaData;
 import parquet.hadoop.metadata.ParquetMetadata;
@@ -61,6 +60,7 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
@@ -69,6 +69,7 @@ import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.p
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
@@ -189,6 +190,9 @@ public class ParquetHiveRecordCursor
                 }
                 else if (type.equals(TIMESTAMP)) {
                     longs[columnIndex] = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, columnName);
+                }
+                else if (type.equals(DATE)) {
+                    longs[columnIndex] = datePartitionKey(partitionKey.getValue(), columnName);
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), columnName));
@@ -362,9 +366,7 @@ public class ParquetHiveRecordCursor
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
-            MessageType schema = fileMetaData.getSchema();
-            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, schema);
-            ReadContext readContext = readSupport.init(configuration, fileMetaData.getKeyValueMetaData(), schema);
+            PrestoReadSupport readSupport = new PrestoReadSupport(useParquetColumnNames, columns, fileSchema);
 
             List<parquet.schema.Type> fields = columns.stream()
                     .filter(column -> !column.isPartitionKey())
@@ -389,15 +391,13 @@ public class ParquetHiveRecordCursor
                         .collect(toList());
             }
 
-            ParquetInputSplit split = new ParquetInputSplit(path,
-                    start,
-                    length,
-                    null,
-                    splitGroup,
-                    readContext.getRequestedSchema().toString(),
-                    schema.toString(),
-                    fileMetaData.getKeyValueMetaData(),
-                    readContext.getReadSupportMetadata());
+            long[] offsets = new long[splitGroup.size()];
+            for (int i = 0; i < splitGroup.size(); i++) {
+                BlockMetaData block = splitGroup.get(i);
+                offsets[i] = block.getStartingPos();
+            }
+
+            ParquetInputSplit split = new ParquetInputSplit(path, start, start + length, length, null, offsets);
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
             ParquetRecordReader<FakeParquetRecord> realReader = new PrestoParquetRecordReader(readSupport);

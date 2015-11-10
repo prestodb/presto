@@ -31,6 +31,7 @@ public class RaptorOutputTableHandle
         implements ConnectorOutputTableHandle
 {
     private final String connectorId;
+    private final long transactionId;
     private final String schemaName;
     private final String tableName;
     private final List<RaptorColumnHandle> columnHandles;
@@ -43,6 +44,7 @@ public class RaptorOutputTableHandle
     @JsonCreator
     public RaptorOutputTableHandle(
             @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("transactionId") long transactionId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
@@ -53,6 +55,7 @@ public class RaptorOutputTableHandle
             @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.transactionId = transactionId;
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
@@ -67,6 +70,12 @@ public class RaptorOutputTableHandle
     public String getConnectorId()
     {
         return connectorId;
+    }
+
+    @JsonProperty
+    public long getTransactionId()
+    {
+        return transactionId;
     }
 
     @JsonProperty

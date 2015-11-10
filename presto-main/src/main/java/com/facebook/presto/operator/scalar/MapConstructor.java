@@ -13,48 +13,39 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.TypeParameter;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class MapConstructor
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     public static final MapConstructor MAP_CONSTRUCTOR = new MapConstructor();
 
-    private static final Signature SIGNATURE = new Signature("map", SCALAR, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map<K,V>", ImmutableList.of("array<K>", "array<V>"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapConstructor.class, "createMap", MapType.class, Block.class, Block.class);
     private static final String DESCRIPTION = "Constructs a map from the given key/value arrays";
 
-    @Override
-    public Signature getSignature()
+    public MapConstructor()
     {
-        return SIGNATURE;
+        super("map", ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map<K,V>", ImmutableList.of("array<K>", "array<V>"));
     }
 
     @Override
@@ -76,16 +67,13 @@ public final class MapConstructor
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type keyType = types.get("K");
         Type valueType = types.get("V");
 
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(keyType.getTypeSignature(), valueType.getTypeSignature()), ImmutableList.of());
-        ImmutableList<TypeSignature> argumentTypes = ImmutableList.of(parameterizedTypeName(StandardTypes.ARRAY, keyType.getTypeSignature()), parameterizedTypeName(StandardTypes.ARRAY, valueType.getTypeSignature()));
-        Signature signature = new Signature("map", SCALAR, ImmutableList.<TypeParameter>of(), mapType.getTypeSignature(), argumentTypes, false);
-
-        return new FunctionInfo(signature, DESCRIPTION, isHidden(), METHOD_HANDLE.bindTo(mapType), isDeterministic(), false, ImmutableList.of(false, false));
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(mapType), isDeterministic());
     }
 
     public static Block createMap(MapType mapType, Block keyBlock, Block valueBlock)

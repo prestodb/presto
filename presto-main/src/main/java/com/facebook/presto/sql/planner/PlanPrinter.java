@@ -20,12 +20,11 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Marker;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Marker;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
@@ -87,6 +86,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.facebook.presto.sql.planner.PlanFragment.NullPartitioning.REPLICATE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -422,20 +422,20 @@ public class PlanPrinter
                 for (Map.Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
                     ColumnHandle column = assignment.getValue();
                     print(indent + 2, "%s := %s", assignment.getKey(), column);
-                    printConstraint(indent + 3, table, column, predicate);
+                    printConstraint(indent + 3, column, predicate);
                 }
 
                 // then, print constraints for columns that are not in the output
                 if (!predicate.isAll()) {
                     Set<ColumnHandle> outputs = ImmutableSet.copyOf(node.getAssignments().values());
 
-                    predicate.getDomains()
+                    predicate.getDomains().get()
                             .entrySet().stream()
                             .filter(entry -> !outputs.contains(entry.getKey()))
                             .forEach(entry -> {
                                 ColumnHandle column = entry.getKey();
                                 print(indent + 2, "%s", column);
-                                printConstraint(indent + 3, table, column, predicate);
+                                printConstraint(indent + 3, column, predicate);
                             });
                 }
             }
@@ -605,14 +605,16 @@ public class PlanPrinter
             return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input)));
         }
 
-        private void printConstraint(int indent, TableHandle table, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
+        private void printConstraint(int indent, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
         {
-            if (!constraint.isAll() && constraint.getDomains().containsKey(column)) {
-                print(indent, ":: %s", formatDomain(table, column, simplifyDomain(constraint.getDomains().get(column))));
+            checkArgument(!constraint.isNone());
+            Map<ColumnHandle, Domain> domains = constraint.getDomains().get();
+            if (!constraint.isAll() && domains.containsKey(column)) {
+                print(indent, ":: %s", formatDomain(simplifyDomain(domains.get(column))));
             }
         }
 
-        private String formatDomain(TableHandle table, ColumnHandle column, Domain domain)
+        private String formatDomain(Domain domain)
         {
             ImmutableList.Builder<String> parts = ImmutableList.builder();
 
@@ -620,49 +622,67 @@ public class PlanPrinter
                 parts.add("NULL");
             }
 
-            try {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, table, column);
-                Signature coercion = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
-                MethodHandle method = metadata.getFunctionRegistry().getScalarFunctionImplementation(coercion).getMethodHandle();
+            Type type = domain.getType();
 
-                for (Range range : domain.getRanges()) {
-                    StringBuilder builder = new StringBuilder();
-                    if (range.isSingleValue()) {
-                        String value = ((Slice) method.invokeWithArguments(range.getSingleValue())).toStringUtf8();
-                        builder.append('[').append(value).append(']');
-                    }
-                    else {
-                        builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+            domain.getValues().getValuesProcessor().consume(
+                    ranges -> {
+                        for (Range range : ranges.getOrderedRanges()) {
+                            StringBuilder builder = new StringBuilder();
+                            if (range.isSingleValue()) {
+                                String value = castToVarchar(type, range.getSingleValue());
+                                builder.append('[').append(value).append(']');
+                            }
+                            else {
+                                builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
 
-                        if (range.getLow().isLowerUnbounded()) {
-                            builder.append("<min>");
+                                if (range.getLow().isLowerUnbounded()) {
+                                    builder.append("<min>");
+                                }
+                                else {
+                                    builder.append(castToVarchar(type, range.getLow().getValue()));
+                                }
+
+                                builder.append(", ");
+
+                                if (range.getHigh().isUpperUnbounded()) {
+                                    builder.append("<max>");
+                                }
+                                else {
+                                    builder.append(castToVarchar(type, range.getHigh().getValue()));
+                                }
+
+                                builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+                            }
+                            parts.add(builder.toString());
                         }
-                        else {
-                            builder.append(((Slice) method.invokeWithArguments(range.getLow().getValue())).toStringUtf8());
+                    },
+                    discreteValues -> discreteValues.getValues().stream()
+                            .map(value -> castToVarchar(type, value))
+                            .sorted() // Sort so the values will be printed in predictable order
+                            .forEach(parts::add),
+                    allOrNone -> {
+                        if (allOrNone.isAll()) {
+                            parts.add("ALL VALUES");
                         }
-
-                        builder.append(", ");
-
-                        if (range.getHigh().isUpperUnbounded()) {
-                            builder.append("<max>");
-                        }
-                        else {
-                            builder.append(((Slice) method.invokeWithArguments(range.getHigh().getValue())).toStringUtf8());
-                        }
-
-                        builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
-                    }
-                    parts.add(builder.toString());
-                }
-            }
-            catch (OperatorNotFoundException e) {
-                parts.add("<UNREPRESENTABLE VALUE>");
-            }
-            catch (Throwable e) {
-                throw Throwables.propagate(e);
-            }
+                    });
 
             return "[" + Joiner.on(", ").join(parts.build()) + "]";
+        }
+
+        private String castToVarchar(Type type, Object value)
+        {
+            Signature coercion = metadata.getFunctionRegistry().getCoercion(type, VARCHAR);
+            MethodHandle method = metadata.getFunctionRegistry().getScalarFunctionImplementation(coercion).getMethodHandle();
+
+            try {
+                return ((Slice) method.invokeWithArguments(value)).toStringUtf8();
+            }
+            catch (OperatorNotFoundException e) {
+                return "<UNREPRESENTABLE VALUE>";
+            }
+            catch (Throwable throwable) {
+                throw Throwables.propagate(throwable);
+            }
         }
     }
 }

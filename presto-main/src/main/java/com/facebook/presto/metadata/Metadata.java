@@ -42,9 +42,9 @@ public interface Metadata
     boolean isAggregationFunction(QualifiedName name);
 
     @NotNull
-    List<ParametricFunction> listFunctions();
+    List<SqlFunction> listFunctions();
 
-    void addFunctions(List<? extends ParametricFunction> functions);
+    void addFunctions(List<? extends SqlFunction> functions);
 
     @NotNull
     List<String> listSchemaNames(Session session, String catalogName);

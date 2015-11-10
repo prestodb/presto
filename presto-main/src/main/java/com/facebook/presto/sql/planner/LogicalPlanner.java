@@ -16,23 +16,26 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
@@ -79,7 +82,7 @@ public class LogicalPlanner
         if (analysis.getCreateTableDestination().isPresent()) {
             plan = createTableCreationPlan(analysis);
         }
-        else if (analysis.getInsertTarget().isPresent()) {
+        else if (analysis.getInsert().isPresent()) {
             plan = createInsertPlan(analysis);
         }
         else if (analysis.getDelete().isPresent()) {
@@ -113,26 +116,55 @@ public class LogicalPlanner
 
         TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), analysis.getCreateTableProperties(), plan.getSampleWeight().isPresent());
         if (plan.getSampleWeight().isPresent() && !metadata.canCreateSampledTables(session, destination.getCatalogName())) {
-          throw new PrestoException(NOT_SUPPORTED, "Cannot write sampled data to a store that doesn't support sampling");
+            throw new PrestoException(NOT_SUPPORTED, "Cannot write sampled data to a store that doesn't support sampling");
         }
 
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new CreateName(destination.getCatalogName(), tableMetadata), getVisibleColumnNames(tableMetadata));
+                new CreateName(destination.getCatalogName(), tableMetadata), tableMetadata.getVisibleColumnNames());
     }
 
     private RelationPlan createInsertPlan(Analysis analysis)
     {
-        TableHandle target = analysis.getInsertTarget().get();
+        Analysis.Insert insert = analysis.getInsert().get();
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, target);
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, insert.getTarget());
+
+        List<String> visibleTableColumnNames = tableMetadata.getVisibleColumnNames();
+        List<ColumnMetadata> visibleTableColumns = tableMetadata.getVisibleColumns();
+
+        RelationPlan plan = createRelationPlan(analysis);
+
+        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
+        ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+        for (ColumnMetadata column : tableMetadata.getVisibleColumns()) {
+            Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
+            int index = insert.getColumns().indexOf(columns.get(column.getName()));
+            if (index < 0) {
+                assignments.put(output, new NullLiteral());
+            }
+            else {
+                assignments.put(output, plan.getSymbol(index).toQualifiedNameReference());
+            }
+        }
+        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
+
+        RelationType tupleDescriptor = new RelationType(visibleTableColumns.stream()
+                .map(column -> Field.newUnqualified(column.getName(), column.getType()))
+                .collect(toImmutableList()));
+
+        plan = new RelationPlan(
+                projectNode,
+                tupleDescriptor,
+                projectNode.getOutputSymbols(),
+                plan.getSampleWeight());
 
         return createTableWriterPlan(
                 analysis,
-                createRelationPlan(analysis),
-                new InsertReference(target),
-                getVisibleColumnNames(tableMetadata));
+                plan,
+                new InsertReference(insert.getTarget()),
+                visibleTableColumnNames);
     }
 
     private RelationPlan createTableWriterPlan(Analysis analysis, RelationPlan plan, WriterTarget target, List<String> columnNames)
@@ -183,7 +215,7 @@ public class LogicalPlanner
         ImmutableList.Builder<String> names = ImmutableList.builder();
 
         int columnNumber = 0;
-        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor();
+        RelationType outputDescriptor = analysis.getOutputDescriptor();
         for (Field field : outputDescriptor.getVisibleFields()) {
             String name = field.getName().orElse("_col" + columnNumber);
             names.add(name);
@@ -226,13 +258,5 @@ public class LogicalPlanner
             columns.add(new ColumnMetadata(field.getName().get(), field.getType(), false));
         }
         return columns.build();
-    }
-
-    private static List<String> getVisibleColumnNames(TableMetadata tableMetadata)
-    {
-        return tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
     }
 }

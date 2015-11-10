@@ -24,14 +24,14 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.AnalysisContext;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.analyzer.RelationType;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -143,11 +143,11 @@ public class ExpressionInterpreter
         requireNonNull(columnReferences, "columnReferences is null");
 
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session);
-        analyzer.analyze(expression, new TupleDescriptor(), new AnalysisContext());
+        analyzer.analyze(expression, new RelationType(), new AnalysisContext());
 
         Type actualType = analyzer.getExpressionTypes().get(expression);
         if (!canCoerce(actualType, expectedType)) {
-            throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY, String.format("Can not set property of type %s to %s",
+            throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, String.format("Cannot cast type %s to %s",
                     expectedType.getTypeSignature(),
                     actualType.getTypeSignature()));
         }
@@ -214,7 +214,7 @@ public class ExpressionInterpreter
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session);
-        analyzer.analyze(canonicalized, new TupleDescriptor(), new AnalysisContext());
+        analyzer.analyze(canonicalized, new RelationType(), new AnalysisContext());
 
         // evaluate the expression
         Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);

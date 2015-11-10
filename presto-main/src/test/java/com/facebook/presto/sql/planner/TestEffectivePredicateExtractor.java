@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionType;
+import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -67,7 +67,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -334,7 +334,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 Optional.empty(),
-                TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(1L))),
+                TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L))),
                 null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(1L), AE)));
@@ -346,8 +346,8 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        scanAssignments.get(A), Domain.singleValue(1L),
-                        scanAssignments.get(B), Domain.singleValue(2L))),
+                        scanAssignments.get(A), Domain.singleValue(BIGINT, 1L),
+                        scanAssignments.get(B), Domain.singleValue(BIGINT, 2L))),
                 null);
         effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
         Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(2L), BE), equals(number(1L), AE)));
@@ -618,9 +618,9 @@ public class TestEffectivePredicateExtractor
         return new FunctionCall(QualifiedName.of("test"), ImmutableList.<Expression>of());
     }
 
-    private static Signature fakeFunctionHandle(String name, FunctionType type)
+    private static Signature fakeFunctionHandle(String name, FunctionKind kind)
     {
-        return new Signature(name, type, UnknownType.NAME, ImmutableList.<String>of());
+        return new Signature(name, kind, UnknownType.NAME, ImmutableList.<String>of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

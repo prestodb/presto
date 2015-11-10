@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.systemtables;
 
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -40,12 +40,11 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.limit;
 import static java.lang.String.format;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
+import static java.util.Collections.nCopies;
 import static java.util.UUID.fromString;
 
 public class PreparedStatementBuilder
@@ -90,7 +89,7 @@ public class PreparedStatementBuilder
         }
 
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
-        Map<Integer, Domain> domainMap = tupleDomain.getDomains();
+        Map<Integer, Domain> domainMap = tupleDomain.getDomains().get();
         for (Map.Entry<Integer, Domain> entry : domainMap.entrySet()) {
             int index = entry.getKey();
             String columnName = columnNames.get(index);
@@ -114,83 +113,103 @@ public class PreparedStatementBuilder
             Set<Integer> uuidColumnIndexes,
             List<ValueBuffer> bindValues)
     {
-        if (domain.getRanges().isNone() && domain.isNullAllowed()) {
-            return columnName + " IS NULL";
+        if (domain.getValues().isAll()) {
+            return domain.isNullAllowed() ? "TRUE" : columnName + " IS NOT NULL";
+        }
+        if (domain.getValues().isNone()) {
+            return domain.isNullAllowed() ? columnName + " IS NULL" : "FALSE";
         }
 
-        if (domain.getRanges().isAll() && !domain.isNullAllowed()) {
-            return columnName + " IS NOT NULL";
-        }
+        return domain.getValues().getValuesProcessor().transform(
+                ranges -> {
+                    // Add disjuncts for ranges
+                    List<String> disjuncts = new ArrayList<>();
+                    List<Object> singleValues = new ArrayList<>();
 
-        // Add disjuncts for ranges
-        List<String> disjuncts = new ArrayList<>();
-        List<Comparable<?>> singleValues = new ArrayList<>();
-        for (Range range : domain.getRanges()) {
-            checkState(!range.isAll()); // Already checked
-            if (range.isSingleValue()) {
-                singleValues.add(range.getLow().getValue());
-            }
-            else {
-                List<String> rangeConjuncts = new ArrayList<>();
-                if (!range.getLow().isLowerUnbounded()) {
-                    Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getLow().getValue());
-                    switch (range.getLow().getBound()) {
-                        case ABOVE:
-                            rangeConjuncts.add(toBindPredicate(columnName, ">"));
-                            bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
-                            break;
-                        case EXACTLY:
-                            rangeConjuncts.add(toBindPredicate(columnName, ">="));
-                            bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
-                            break;
-                        case BELOW:
-                            throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
+                    // Add disjuncts for ranges
+                    for (Range range : ranges.getOrderedRanges()) {
+                        checkState(!range.isAll()); // Already checked
+                        if (range.isSingleValue()) {
+                            singleValues.add(range.getLow().getValue());
+                        }
+                        else {
+                            List<String> rangeConjuncts = new ArrayList<>();
+                            if (!range.getLow().isLowerUnbounded()) {
+                                Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getLow().getValue());
+                                switch (range.getLow().getBound()) {
+                                    case ABOVE:
+                                        rangeConjuncts.add(toBindPredicate(columnName, ">"));
+                                        bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                                        break;
+                                    case EXACTLY:
+                                        rangeConjuncts.add(toBindPredicate(columnName, ">="));
+                                        bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                                        break;
+                                    case BELOW:
+                                        throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
+                                    default:
+                                        throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
+                                }
+                            }
+                            if (!range.getHigh().isUpperUnbounded()) {
+                                Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getHigh().getValue());
+                                switch (range.getHigh().getBound()) {
+                                    case ABOVE:
+                                        throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
+                                    case EXACTLY:
+                                        rangeConjuncts.add(toBindPredicate(columnName, "<="));
+                                        bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                                        break;
+                                    case BELOW:
+                                        rangeConjuncts.add(toBindPredicate(columnName, "<"));
+                                        bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
+                                        break;
+                                    default:
+                                        throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
+                                }
+                            }
+                            // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
+                            checkState(!rangeConjuncts.isEmpty());
+                            disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
+                        }
                     }
-                }
-                if (!range.getHigh().isUpperUnbounded()) {
-                    Object bindValue = getBindValue(columnIndex, uuidColumnIndexes, range.getHigh().getValue());
-                    switch (range.getHigh().getBound()) {
-                        case ABOVE:
-                            throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
-                        case EXACTLY:
-                            rangeConjuncts.add(toBindPredicate(columnName, "<="));
-                            bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
-                            break;
-                        case BELOW:
-                            rangeConjuncts.add(toBindPredicate(columnName, "<"));
-                            bindValues.add(ValueBuffer.create(columnIndex, type, bindValue));
-                            break;
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
+
+                    // Add back all of the possible single values either as an equality or an IN predicate
+                    if (singleValues.size() == 1) {
+                        disjuncts.add(toBindPredicate(columnName, "="));
+                        bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, uuidColumnIndexes, getOnlyElement(singleValues))));
                     }
-                }
-                // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
-                checkState(!rangeConjuncts.isEmpty());
-                disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
-            }
-        }
+                    else if (singleValues.size() > 1) {
+                        disjuncts.add(columnName + " IN (" + Joiner.on(",").join(nCopies(singleValues.size(), "?")) + ")");
+                        for (Object singleValue : singleValues) {
+                            bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, uuidColumnIndexes, singleValue)));
+                        }
+                    }
 
-        // Add back all of the possible single values either as an equality or an IN predicate
-        if (singleValues.size() == 1) {
-            disjuncts.add(toBindPredicate(columnName, "="));
-            bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, uuidColumnIndexes, getOnlyElement(singleValues))));
-        }
-        else if (singleValues.size() > 1) {
-            disjuncts.add(columnName + " IN (" + Joiner.on(",").join(limit(cycle("?"), singleValues.size())) + ")");
-            for (Comparable<?> singleValue : singleValues) {
-                bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, uuidColumnIndexes, singleValue)));
-            }
-        }
+                    // Add nullability disjuncts
+                    checkState(!disjuncts.isEmpty());
+                    if (domain.isNullAllowed()) {
+                        disjuncts.add(columnName + " IS NULL");
+                    }
 
-        // Add nullability disjuncts
-        checkState(!disjuncts.isEmpty());
-        if (domain.isNullAllowed()) {
-            disjuncts.add(columnName + " IS NULL");
-        }
+                    return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
+                },
 
-        return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
+                discreteValues -> {
+                    String values = Joiner.on(",").join(nCopies(discreteValues.getValues().size(), "?"));
+                    String predicate = columnName + (discreteValues.isWhiteList() ? "" : " NOT") + " IN (" + values + ")";
+                    for (Object value : discreteValues.getValues()) {
+                        bindValues.add(ValueBuffer.create(columnIndex, type, getBindValue(columnIndex, uuidColumnIndexes, value)));
+                    }
+                    if (domain.isNullAllowed()) {
+                        predicate = "(" + predicate + " OR " + columnName + " IS NULL)";
+                    }
+                    return predicate;
+                },
+
+                allOrNone -> {
+                    throw new IllegalStateException("Case should not be reachable");
+                });
     }
 
     private static Object getBindValue(int columnIndex, Set<Integer> uuidColumnIndexes, Object value)

@@ -13,12 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -26,24 +23,18 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
 
 public final class ArrayCardinalityFunction
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     public static final ArrayCardinalityFunction ARRAY_CARDINALITY = new ArrayCardinalityFunction();
-    private static final Signature SIGNATURE = new Signature("cardinality", SCALAR, ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array<E>"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayCardinalityFunction.class, "arrayLength", Block.class);
 
-    @Override
-    public Signature getSignature()
+    public ArrayCardinalityFunction()
     {
-        return SIGNATURE;
+        super("cardinality", ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array<E>"));
     }
 
     @Override
@@ -65,11 +56,9 @@ public final class ArrayCardinalityFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(types.size() == 1, "Cardinality expects only one argument");
-        Type type = types.get("E");
-        return new FunctionInfo(new Signature("cardinality", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("array", type.getTypeSignature())), getDescription(), isHidden(), METHOD_HANDLE, isDeterministic(), false, ImmutableList.of(false));
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false), METHOD_HANDLE, isDeterministic());
     }
 
     public static long arrayLength(Block block)

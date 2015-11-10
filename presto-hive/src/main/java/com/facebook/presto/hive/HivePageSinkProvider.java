@@ -22,7 +22,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.json.JsonCodec;
-import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
@@ -39,6 +38,7 @@ public class HivePageSinkProvider
     private final boolean respectTableFormat;
     private final int maxOpenPartitions;
     private final boolean immutablePartitions;
+    private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     @Inject
@@ -48,6 +48,7 @@ public class HivePageSinkProvider
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HiveClientConfig config,
+            LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -57,6 +58,7 @@ public class HivePageSinkProvider
         this.respectTableFormat = config.isRespectTableFormat();
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.immutablePartitions = config.isImmutablePartitions();
+        this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
     }
 
@@ -82,7 +84,8 @@ public class HivePageSinkProvider
                 isCreateTable,
                 handle.getInputColumns(),
                 handle.getHiveStorageFormat(),
-                handle.getWritePath().map(Path::new),
+                handle.getLocationHandle(),
+                locationService,
                 handle.getFilePrefix(),
                 metastore,
                 pageIndexerFactory,

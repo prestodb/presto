@@ -32,6 +32,7 @@ public final class ApproximateLongPercentileAggregations
 {
     public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateLongPercentileAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT, DOUBLE));
     public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = new AggregationCompiler().generateAggregationFunction(ApproximateLongPercentileAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, DOUBLE));
+    public static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = new AggregationCompiler().generateAggregationFunction(ApproximateLongPercentileAggregations.class, BIGINT, ImmutableList.<Type>of(BIGINT, BIGINT, DOUBLE, DOUBLE));
 
     private ApproximateLongPercentileAggregations() {}
 
@@ -61,6 +62,30 @@ public final class ApproximateLongPercentileAggregations
 
         if (digest == null) {
             digest = new QuantileDigest(0.01);
+            state.setDigest(digest);
+            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+        }
+
+        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
+        digest.add(value, weight);
+        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+
+        // use last percentile
+        state.setPercentile(percentile);
+    }
+
+    @InputFunction
+    public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        QuantileDigest digest = state.getDigest();
+
+        if (digest == null) {
+            if (accuracy > 0 && accuracy < 1) {
+                digest = new QuantileDigest(accuracy);
+            }
+            else {
+                throw new IllegalArgumentException("Percentile accuracy must be strictly between 0 and 1");
+            }
             state.setDigest(digest);
             state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
         }

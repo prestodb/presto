@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.optimizations.PickLayout;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.ProjectionPushDown;
+import com.facebook.presto.sql.planner.optimizations.PruneIdentityProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
@@ -66,7 +67,7 @@ public class PlanOptimizersFactory
                 new CanonicalizeExpressions(),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),
-                new PruneRedundantProjections(),
+                new PruneIdentityProjections(),
                 new SetFlatteningOptimizer(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PredicatePushDown(metadata, sqlParser),
@@ -81,7 +82,7 @@ public class PlanOptimizersFactory
                 new HashGenerationOptimizer(), // This must run after all other optimizers have run to that all the PlanNodes are created
                 new MergeProjections(),
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
-                new PruneRedundantProjections()); // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
+                new PruneIdentityProjections()); // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
 
         if (featuresConfig.isOptimizeMetadataQueries()) {
             builder.add(new MetadataQueryOptimizer(metadata));
@@ -100,11 +101,12 @@ public class PlanOptimizersFactory
         builder.add(new PickLayout(metadata));
 
         builder.add(new PredicatePushDown(metadata, sqlParser)); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        builder.add(new PruneRedundantProjections());
         builder.add(new ProjectionPushDown());
         builder.add(new MergeProjections());
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
-        builder.add(new PruneRedundantProjections());
+        builder.add(new PruneIdentityProjections());
 
         builder.add(new MetadataDeleteOptimizer(metadata));
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite

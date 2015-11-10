@@ -32,7 +32,8 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -303,7 +304,7 @@ public class CassandraSession
         return new CassandraColumnHandle(connectorId, columnMeta.getName(), ordinalPosition, cassandraType, typeArguments, partitionKey, clusteringKey, indexed, hidden);
     }
 
-    public List<CassandraPartition> getPartitions(CassandraTable table, List<Comparable<?>> filterPrefix)
+    public List<CassandraPartition> getPartitions(CassandraTable table, List<Object> filterPrefix)
     {
         Iterable<Row> rows = queryPartitionKeys(table, filterPrefix);
         if (rows == null) {
@@ -314,7 +315,7 @@ public class CassandraSession
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         ByteBuffer buffer = ByteBuffer.allocate(1000);
-        HashMap<ColumnHandle, Comparable<?>> map = new HashMap<>();
+        HashMap<ColumnHandle, NullableValue> map = new HashMap<>();
         Set<String> uniquePartitionIds = new HashSet<>();
         StringBuilder stringBuilder = new StringBuilder();
 
@@ -338,7 +339,7 @@ public class CassandraSession
                     buffer.put(component);
                 }
                 CassandraColumnHandle columnHandle = partitionKeyColumns.get(i);
-                Comparable<?> keyPart = CassandraType.getColumnValueForPartitionKey(row, i, columnHandle.getCassandraType(), columnHandle.getTypeArguments());
+                NullableValue keyPart = CassandraType.getColumnValueForPartitionKey(row, i, columnHandle.getCassandraType(), columnHandle.getTypeArguments());
                 map.put(columnHandle, keyPart);
                 if (i > 0) {
                     stringBuilder.append(" AND ");
@@ -350,7 +351,7 @@ public class CassandraSession
             buffer.flip();
             byte[] key = new byte[buffer.limit()];
             buffer.get(key);
-            TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withFixedValues(map);
+            TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(map);
             String partitionId = stringBuilder.toString();
             if (uniquePartitionIds.add(partitionId)) {
                 partitions.add(new CassandraPartition(key, partitionId, tupleDomain, false));
@@ -359,7 +360,7 @@ public class CassandraSession
         return partitions.build();
     }
 
-    protected Iterable<Row> queryPartitionKeys(CassandraTable table, List<Comparable<?>> filterPrefix)
+    protected Iterable<Row> queryPartitionKeys(CassandraTable table, List<Object> filterPrefix)
     {
         CassandraTableHandle tableHandle = table.getTableHandle();
         String schemaName = tableHandle.getSchemaName();
@@ -388,8 +389,8 @@ public class CassandraSession
         partitionKeys.setFetchSize(fetchSizeForPartitionKeySelect);
 
         if (!fullPartitionKey) {
-            addWhereClause(partitionKeys.where(), partitionKeyColumns, new ArrayList<Comparable<?>>());
-            ResultSetFuture partitionKeyFuture =  executeWithSession(schemaName, new SessionCallable<ResultSetFuture>() {
+            addWhereClause(partitionKeys.where(), partitionKeyColumns, new ArrayList<>());
+            ResultSetFuture partitionKeyFuture = executeWithSession(schemaName, new SessionCallable<ResultSetFuture>() {
                 @Override
                 public ResultSetFuture executeWithSession(Session session)
                 {
@@ -443,7 +444,7 @@ public class CassandraSession
         T executeWithSession(Session session);
     }
 
-    private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Comparable<?>> filterPrefix)
+    private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
     {
         for (int i = 0; i < filterPrefix.size(); i++) {
             CassandraColumnHandle column = partitionKeyColumns.get(i);

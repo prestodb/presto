@@ -13,17 +13,15 @@
  */
 package com.facebook.presto.hive.parquet.predicate;
 
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import parquet.column.ColumnDescriptor;
 import parquet.column.Dictionary;
@@ -43,6 +41,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +65,6 @@ public class TupleDomainParquetPredicate<C>
     {
         if (numberOfRows == 0) {
             return false;
-
         }
         ImmutableMap.Builder<C, Domain> domains = ImmutableMap.builder();
 
@@ -99,33 +100,32 @@ public class TupleDomainParquetPredicate<C>
     @VisibleForTesting
     public static Domain getDomain(Type type, long rowCount, Statistics<?> statistics)
     {
-        Class<?> boxedJavaType = Primitives.wrap(type.getJavaType());
         if (statistics == null || statistics.isEmpty() || !(Comparable.class.isAssignableFrom(type.getJavaType()))) {
             return null;
         }
 
         if (statistics.getNumNulls() == rowCount) {
-            return Domain.onlyNull(boxedJavaType);
+            return Domain.onlyNull(type);
         }
 
         boolean hasNullValue = statistics.getNumNulls() != 0L;
 
-        if (boxedJavaType == Boolean.class && statistics instanceof BooleanStatistics) {
+        if (type.equals(BOOLEAN) && statistics instanceof BooleanStatistics) {
             BooleanStatistics booleanStatistics = (BooleanStatistics) statistics;
 
             boolean hasTrueValues = !(booleanStatistics.getMax() == false && booleanStatistics.getMin() == false);
             boolean hasFalseValues = !(booleanStatistics.getMax() == true && booleanStatistics.getMin() == true);
             if (hasTrueValues && hasFalseValues) {
-                return Domain.all(Boolean.class);
+                return Domain.all(type);
             }
             if (hasTrueValues) {
-                return Domain.create(SortedRangeSet.singleValue(true), hasNullValue);
+                return Domain.create(ValueSet.of(type, true), hasNullValue);
             }
             if (hasFalseValues) {
-                return Domain.create(SortedRangeSet.singleValue(false), hasNullValue);
+                return Domain.create(ValueSet.of(type, false), hasNullValue);
             }
         }
-        else if (boxedJavaType == Long.class && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
+        else if (type.equals(BIGINT) && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
             ParquetIntegerStatistics parquetIntegerStatistics;
             if (statistics instanceof LongStatistics) {
                 LongStatistics longStatistics = (LongStatistics) statistics;
@@ -135,9 +135,9 @@ public class TupleDomainParquetPredicate<C>
                 IntStatistics intStatistics = (IntStatistics) statistics;
                 parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
             }
-            return createDomain(boxedJavaType, hasNullValue, parquetIntegerStatistics);
+            return createDomain(type, hasNullValue, parquetIntegerStatistics);
         }
-        else if (boxedJavaType == Double.class && (statistics instanceof DoubleStatistics || statistics instanceof FloatStatistics)) {
+        else if (type.equals(DOUBLE) && (statistics instanceof DoubleStatistics || statistics instanceof FloatStatistics)) {
             ParquetDoubleStatistics parquetDoubleStatistics;
             if (statistics instanceof DoubleStatistics) {
                 DoubleStatistics doubleStatistics = (DoubleStatistics) statistics;
@@ -147,22 +147,21 @@ public class TupleDomainParquetPredicate<C>
                 FloatStatistics floatStatistics = (FloatStatistics) statistics;
                 parquetDoubleStatistics = new ParquetDoubleStatistics((double) floatStatistics.getMin(), (double) floatStatistics.getMax());
             }
-            return createDomain(boxedJavaType, hasNullValue, parquetDoubleStatistics);
+            return createDomain(type, hasNullValue, parquetDoubleStatistics);
         }
-        else if (boxedJavaType == Slice.class && statistics instanceof BinaryStatistics) {
+        else if (type.equals(VARCHAR) && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
             ParquetStringStatistics parquetStringStatistics = new ParquetStringStatistics(
                     Slices.wrappedBuffer(binaryStatistics.getMin().getBytes()),
                     Slices.wrappedBuffer(binaryStatistics.getMax().getBytes()));
-            return createDomain(boxedJavaType, hasNullValue, parquetStringStatistics);
+            return createDomain(type, hasNullValue, parquetStringStatistics);
         }
-        return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
+        return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
     @VisibleForTesting
     public static Domain getDomain(Type type, ParquetDictionaryDescriptor dictionaryDescriptor)
     {
-        Class<?> boxedJavaType = Primitives.wrap(type.getJavaType());
         if (dictionaryDescriptor == null) {
             return null;
         }
@@ -182,50 +181,55 @@ public class TupleDomainParquetPredicate<C>
         }
 
         int dictionarySize = dictionaryPage.getDictionarySize();
-        if (boxedJavaType == Long.class && columnDescriptor.getType() == PrimitiveTypeName.INT64) {
+        if (type.equals(BIGINT) && columnDescriptor.getType() == PrimitiveTypeName.INT64) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(dictionary.decodeToLong(i)));
+                domains.add(Domain.singleValue(type, dictionary.decodeToLong(i)));
             }
-            return Domain.create(Domain.union(domains).getRanges(), true);
+            domains.add(Domain.onlyNull(type));
+            return Domain.union(domains);
         }
-        else if (boxedJavaType == Long.class && columnDescriptor.getType() == PrimitiveTypeName.INT32) {
+        else if (type.equals(BIGINT) && columnDescriptor.getType() == PrimitiveTypeName.INT32) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue((long) dictionary.decodeToInt(i)));
+                domains.add(Domain.singleValue(type, (long) dictionary.decodeToInt(i)));
             }
-            return Domain.create(Domain.union(domains).getRanges(), true);
+            domains.add(Domain.onlyNull(type));
+            return Domain.union(domains);
         }
-        else if (boxedJavaType == Double.class && columnDescriptor.getType() == PrimitiveTypeName.DOUBLE) {
+        else if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.DOUBLE) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(dictionary.decodeToDouble(i)));
+                domains.add(Domain.singleValue(type, dictionary.decodeToDouble(i)));
             }
-            return Domain.create(Domain.union(domains).getRanges(), true);
+            domains.add(Domain.onlyNull(type));
+            return Domain.union(domains);
         }
-        else if (boxedJavaType == Double.class && columnDescriptor.getType() == PrimitiveTypeName.FLOAT) {
+        else if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.FLOAT) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue((double) dictionary.decodeToFloat(i)));
+                domains.add(Domain.singleValue(type, (double) dictionary.decodeToFloat(i)));
             }
-            return Domain.create(Domain.union(domains).getRanges(), true);
+            domains.add(Domain.onlyNull(type));
+            return Domain.union(domains);
         }
-        else if (boxedJavaType == Slice.class && columnDescriptor.getType() == PrimitiveTypeName.BINARY) {
+        else if (type.equals(VARCHAR) && columnDescriptor.getType() == PrimitiveTypeName.BINARY) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(Slices.wrappedBuffer(dictionary.decodeToBinary(i).getBytes())));
+                domains.add(Domain.singleValue(type, Slices.wrappedBuffer(dictionary.decodeToBinary(i).getBytes())));
             }
-            return Domain.create(Domain.union(domains).getRanges(), true);
+            domains.add(Domain.onlyNull(type));
+            return Domain.union(domains);
         }
         return null;
     }
 
-    private static <T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, ParquetRangeStatistics<T> rangeStatistics)
+    private static <T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, ParquetRangeStatistics<T> rangeStatistics)
     {
-        return createDomain(boxedJavaType, hasNullValue, rangeStatistics, value -> value);
+        return createDomain(type, hasNullValue, rangeStatistics, value -> value);
     }
 
-    private static <F, T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType,
+    private static <F, T extends Comparable<T>> Domain createDomain(Type type,
             boolean hasNullValue,
             ParquetRangeStatistics<F> rangeStatistics,
             Function<F, T> function)
@@ -234,15 +238,15 @@ public class TupleDomainParquetPredicate<C>
         F max = rangeStatistics.getMax();
 
         if (min != null && max != null) {
-            return Domain.create(SortedRangeSet.of(Range.range(function.apply(min), true, function.apply(max), true)), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.range(type, function.apply(min), true, function.apply(max), true)), hasNullValue);
         }
         if (max != null) {
-            return Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(function.apply(max))), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, function.apply(max))), hasNullValue);
         }
         if (min != null) {
-            return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(function.apply(min))), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, function.apply(min))), hasNullValue);
         }
-        return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
+        return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
     public static class ColumnReference<C>

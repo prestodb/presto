@@ -385,18 +385,32 @@ public class ShardCompactionManager
         private void compactShards(long tableId, Set<UUID> shardUuids)
                 throws IOException
         {
-            TableMetadata metadata = getTableMetadata(tableId);
-            List<ShardInfo> newShards = performCompaction(shardUuids, metadata);
-            shardManager.replaceShardUuids(tableId, metadata.getColumns(), shardUuids, newShards);
+            long transactionId = shardManager.beginTransaction();
+            try {
+                compactShards(transactionId, tableId, shardUuids);
+            }
+            catch (Throwable e) {
+                shardManager.rollbackTransaction(transactionId);
+                throw e;
+            }
         }
 
-        private List<ShardInfo> performCompaction(Set<UUID> shardUuids, TableMetadata tableMetadata)
+        private void compactShards(long transactionId, long tableId, Set<UUID> shardUuids)
+                throws IOException
+        {
+            TableMetadata metadata = getTableMetadata(tableId);
+            List<ShardInfo> newShards = performCompaction(transactionId, shardUuids, metadata);
+            shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
+        }
+
+        private List<ShardInfo> performCompaction(long transactionId, Set<UUID> shardUuids, TableMetadata tableMetadata)
                 throws IOException
         {
             if (tableMetadata.getSortColumnIds().isEmpty()) {
-                return compactor.compact(shardUuids, tableMetadata.getColumns());
+                return compactor.compact(transactionId, shardUuids, tableMetadata.getColumns());
             }
             return compactor.compactSorted(
+                    transactionId,
                     shardUuids,
                     tableMetadata.getColumns(),
                     tableMetadata.getSortColumnIds(),

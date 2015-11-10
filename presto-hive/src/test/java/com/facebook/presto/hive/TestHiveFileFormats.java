@@ -23,7 +23,7 @@ import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
@@ -332,7 +332,7 @@ public class TestHiveFileFormats
         return TEST_COLUMNS.stream()
                 .filter(column -> !ImmutableSet.of("t_array_empty", "t_map_null_key", "t_map_null_key_complex_value", "t_map_null_key_complex_key_value")
                         .contains(column.getName()))
-                .filter(column -> !hasType(column.getObjectInspector(), PrimitiveCategory.DATE))
+                .filter(column -> column.isPartitionKey() || !hasType(column.getObjectInspector(), PrimitiveCategory.DATE))
                 .collect(toList());
     }
 

@@ -34,8 +34,9 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -88,11 +89,13 @@ import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Maps.transformValues;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -242,13 +245,13 @@ public class MetadataManager
     }
 
     @Override
-    public List<ParametricFunction> listFunctions()
+    public List<SqlFunction> listFunctions()
     {
         return functions.list();
     }
 
     @Override
-    public void addFunctions(List<? extends ParametricFunction> functionInfos)
+    public void addFunctions(List<? extends SqlFunction> functionInfos)
     {
         functions.addFunctions(functionInfos);
     }
@@ -305,7 +308,8 @@ public class MetadataManager
             ConnectorPartitionResult result = connectorSplitManager.getPartitions(connectorSession, connectorTable, summary);
 
             List<ConnectorPartition> partitions = result.getPartitions().stream()
-                    .filter(partition -> predicate.test(partition.getTupleDomain().extractFixedValues()))
+                    .filter(partition -> !partition.getTupleDomain().isNone())
+                    .filter(partition -> predicate.test(transformValues(extractFixedValues(partition.getTupleDomain()).get(), NullableValue::getValue)))
                     .collect(toImmutableList());
 
             List<TupleDomain<ColumnHandle>> partitionDomains = partitions.stream()

@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -33,7 +32,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeParameter;
@@ -45,7 +44,7 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
 public final class ArrayJoin
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     public static final ArrayJoin ARRAY_JOIN = new ArrayJoin();
     public static final ArrayJoinWithNullReplacement ARRAY_JOIN_WITH_NULL_REPLACEMENT = new ArrayJoinWithNullReplacement();
@@ -53,19 +52,16 @@ public final class ArrayJoin
     private static final TypeSignature VARCHAR_TYPE_SIGNATURE = VARCHAR.getTypeSignature();
     private static final String FUNCTION_NAME = "array_join";
     private static final String DESCRIPTION = "Concatenates the elements of the given array using a delimiter and an optional string to replace nulls";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", MethodHandle.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
 
     public static class ArrayJoinWithNullReplacement
-            implements ParametricFunction
+            extends SqlScalarFunction
     {
-        private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR, StandardTypes.VARCHAR), false);
         private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayJoin.class, "arrayJoin", MethodHandle.class, Type.class, ConnectorSession.class, Block.class, Slice.class, Slice.class);
 
-        @Override
-        public Signature getSignature()
+        public ArrayJoinWithNullReplacement()
         {
-            return SIGNATURE;
+            super(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR, StandardTypes.VARCHAR));
         }
 
         @Override
@@ -87,7 +83,7 @@ public final class ArrayJoin
         }
 
         @Override
-        public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
             Type type = types.get("T");
             TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, type.getTypeSignature());
@@ -96,10 +92,9 @@ public final class ArrayJoin
         }
     }
 
-    @Override
-    public Signature getSignature()
+    public ArrayJoin()
     {
-        return SIGNATURE;
+        super(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR));
     }
 
     @Override
@@ -121,7 +116,7 @@ public final class ArrayJoin
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("T");
         TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, type.getTypeSignature());
@@ -129,16 +124,16 @@ public final class ArrayJoin
         return specializeArrayJoin(types, functionRegistry, ImmutableList.of(false, false), signature, METHOD_HANDLE);
     }
 
-    private static FunctionInfo specializeArrayJoin(Map<String, Type> types, FunctionRegistry functionRegistry, List<Boolean> nullableArguments, Signature signature, MethodHandle methodHandle)
+    private static ScalarFunctionImplementation specializeArrayJoin(Map<String, Type> types, FunctionRegistry functionRegistry, List<Boolean> nullableArguments, Signature signature, MethodHandle methodHandle)
     {
         Type type = types.get("T");
         if (type instanceof UnknownType) {
-            return new FunctionInfo(signature, DESCRIPTION, false, methodHandle.bindTo(null).bindTo(type), true, false, nullableArguments);
+            return new ScalarFunctionImplementation(false, nullableArguments, methodHandle.bindTo(null).bindTo(type), true);
         }
         else {
             try {
                 ScalarFunctionImplementation castFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(CAST.name(), VARCHAR_TYPE_SIGNATURE, ImmutableList.of(type.getTypeSignature())));
-                return new FunctionInfo(signature, DESCRIPTION, false, methodHandle.bindTo(castFunction.getMethodHandle()).bindTo(type), true, false, nullableArguments);
+                return new ScalarFunctionImplementation(false, nullableArguments, methodHandle.bindTo(castFunction.getMethodHandle()).bindTo(type), true);
             }
             catch (PrestoException e) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);

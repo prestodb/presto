@@ -18,14 +18,14 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
+import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -124,7 +124,7 @@ class RelationPlanner
             return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), subPlan.getOutputSymbols(), subPlan.getSampleWeight());
         }
 
-        TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
+        RelationType descriptor = analysis.getOutputDescriptor(node);
         TableHandle handle = analysis.getTableHandle(node);
 
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
@@ -155,7 +155,7 @@ class RelationPlanner
     {
         RelationPlan subPlan = process(node.getRelation(), context);
 
-        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
+        RelationType outputDescriptor = analysis.getOutputDescriptor(node);
 
         return new RelationPlan(subPlan.getRoot(), outputDescriptor, subPlan.getOutputSymbols(), subPlan.getSampleWeight());
     }
@@ -169,7 +169,7 @@ class RelationPlanner
 
         RelationPlan subPlan = process(node.getRelation(), context);
 
-        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
+        RelationType outputDescriptor = analysis.getOutputDescriptor(node);
         double ratio = analysis.getSampleRatio(node);
         Symbol sampleWeightSymbol = null;
         if (node.getType() == SampledRelation.Type.POISSONIZED) {
@@ -210,7 +210,7 @@ class RelationPlanner
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
-        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(node);
+        RelationType outputDescriptor = analysis.getOutputDescriptor(node);
 
         // NOTE: symbols must be in the same order as the outputDescriptor
         List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
@@ -223,8 +223,8 @@ class RelationPlanner
         if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
             Expression criteria = analysis.getJoinCriteria(node);
 
-            TupleDescriptor left = analysis.getOutputDescriptor(node.getLeft());
-            TupleDescriptor right = analysis.getOutputDescriptor(node.getRight());
+            RelationType left = analysis.getOutputDescriptor(node.getLeft());
+            RelationType right = analysis.getOutputDescriptor(node.getRight());
             List<Expression> leftExpressions = new ArrayList<>();
             List<Expression> rightExpressions = new ArrayList<>();
             List<ComparisonExpression.Type> comparisonTypes = new ArrayList<>();
@@ -244,11 +244,11 @@ class RelationPlanner
 
                 Expression leftExpression;
                 Expression rightExpression;
-                if (Iterables.all(firstDependencies, left.canResolvePredicate()) && Iterables.all(secondDependencies, right.canResolvePredicate())) {
+                if (firstDependencies.stream().allMatch(left.canResolvePredicate()) && secondDependencies.stream().allMatch(right.canResolvePredicate())) {
                     leftExpression = comparison.getLeft();
                     rightExpression = comparison.getRight();
                 }
-                else if (Iterables.all(firstDependencies, right.canResolvePredicate()) && Iterables.all(secondDependencies, left.canResolvePredicate())) {
+                else if (firstDependencies.stream().allMatch(right.canResolvePredicate()) && secondDependencies.stream().allMatch(left.canResolvePredicate())) {
                     leftExpression = comparison.getRight();
                     rightExpression = comparison.getLeft();
                     comparisonType = flipComparison(comparisonType);
@@ -321,8 +321,8 @@ class RelationPlanner
 
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
     {
-        TupleDescriptor outputDescriptor = analysis.getOutputDescriptor(joinNode);
-        TupleDescriptor unnestOutputDescriptor = analysis.getOutputDescriptor(node);
+        RelationType outputDescriptor = analysis.getOutputDescriptor(joinNode);
+        RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
         // Create symbols for the result of unnesting
         ImmutableList.Builder<Symbol> unnestedSymbolsBuilder = ImmutableList.builder();
         for (Field field : unnestOutputDescriptor.getVisibleFields()) {
@@ -404,7 +404,7 @@ class RelationPlanner
     @Override
     protected RelationPlan visitValues(Values node, Void context)
     {
-        TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
+        RelationType descriptor = analysis.getOutputDescriptor(node);
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
         for (Field field : descriptor.getVisibleFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field);
@@ -437,7 +437,7 @@ class RelationPlanner
     @Override
     protected RelationPlan visitUnnest(Unnest node, Void context)
     {
-        TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
+        RelationType descriptor = analysis.getOutputDescriptor(node);
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
         for (Field field : descriptor.getVisibleFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field);
@@ -485,7 +485,7 @@ class RelationPlanner
         }
 
         List<Symbol> oldSymbols = plan.getOutputSymbols();
-        TupleDescriptor oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
+        RelationType oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
         verify(coerceToTypes.length == oldSymbols.size());
         ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
         Field[] newFields = new Field[coerceToTypes.length];
@@ -510,7 +510,7 @@ class RelationPlanner
             newFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), coerceToTypes[i], oldField.isHidden());
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
-        return new RelationPlan(projectNode, new TupleDescriptor(newFields), newSymbols.build(), plan.getSampleWeight());
+        return new RelationPlan(projectNode, new RelationType(newFields), newSymbols.build(), plan.getSampleWeight());
     }
 
     @Override
@@ -542,7 +542,7 @@ class RelationPlanner
             List<Symbol> childOutputSymbols = relationPlan.getOutputSymbols();
             if (unionOutputSymbols == null) {
                 // Use the first Relation to derive output symbol names
-                TupleDescriptor descriptor = relationPlan.getDescriptor();
+                RelationType descriptor = relationPlan.getDescriptor();
                 ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
                 for (Field field : descriptor.getVisibleFields()) {
                     int fieldIndex = descriptor.indexOf(field);
@@ -553,7 +553,7 @@ class RelationPlanner
                 outputSampleWeight = relationPlan.getSampleWeight();
             }
 
-            TupleDescriptor descriptor = relationPlan.getDescriptor();
+            RelationType descriptor = relationPlan.getDescriptor();
             checkArgument(descriptor.getVisibleFieldCount() == unionOutputSymbols.size(),
                     "Expected relation to have %s symbols but has %s symbols",
                     descriptor.getVisibleFieldCount(),

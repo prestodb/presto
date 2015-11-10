@@ -38,9 +38,17 @@ public class ChildReplacer
 {
     private static final ChildReplacer INSTANCE = new ChildReplacer();
 
+    /**
+     * Return an identical copy of the given node with its children replaced
+     */
     public static PlanNode replaceChildren(PlanNode node, List<PlanNode> children)
     {
-        return node.accept(INSTANCE, children);
+        for (int i = 0; i < node.getSources().size(); i++) {
+            if (children.get(i) != node.getSources().get(i)) {
+                return node.accept(INSTANCE, children);
+            }
+        }
+        return node;
     }
 
     @Override

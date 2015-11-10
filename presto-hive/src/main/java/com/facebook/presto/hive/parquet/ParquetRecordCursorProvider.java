@@ -20,10 +20,8 @@ import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -38,9 +36,8 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetPredicatePushdownEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class ParquetRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -83,7 +80,10 @@ public class ParquetRecordCursorProvider
         }
 
         // are all columns supported by Parquet code
-        List<HiveColumnHandle> unsupportedColumns = ImmutableList.copyOf(filter(columns, not(isParquetSupportedType())));
+        List<HiveColumnHandle> unsupportedColumns = columns.stream()
+                .filter(columnHandle -> !columnHandle.isPartitionKey())
+                .filter(columnHandle -> columnHandle.getHiveType().equals(HiveType.HIVE_DATE))
+                .collect(toList());
         if (!unsupportedColumns.isEmpty()) {
             throw new IllegalArgumentException("Can not read Parquet column: " + unsupportedColumns);
         }
@@ -102,13 +102,5 @@ public class ParquetRecordCursorProvider
                 isParquetPredicatePushdownEnabled(session),
                 effectivePredicate
         ));
-    }
-
-    private static Predicate<HiveColumnHandle> isParquetSupportedType()
-    {
-        return columnHandle -> {
-            HiveType hiveType = columnHandle.getHiveType();
-            return !hiveType.equals(HiveType.HIVE_DATE);
-        };
     }
 }

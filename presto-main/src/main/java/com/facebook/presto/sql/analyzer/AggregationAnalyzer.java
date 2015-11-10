@@ -72,7 +72,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Checks whether an expression is constant with respect to the group
  */
-public class AggregationAnalyzer
+class AggregationAnalyzer
 {
     // fields and expressions in the group by clause
     private final List<Integer> fieldIndexes;
@@ -81,9 +81,9 @@ public class AggregationAnalyzer
     private final Metadata metadata;
     private final Set<Expression> columnReferences;
 
-    private final TupleDescriptor tupleDescriptor;
+    private final RelationType tupleDescriptor;
 
-    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, TupleDescriptor tupleDescriptor, Set<Expression> columnReferences)
+    public AggregationAnalyzer(List<FieldOrExpression> groupByExpressions, Metadata metadata, RelationType tupleDescriptor, Set<Expression> columnReferences)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(metadata, "metadata is null");

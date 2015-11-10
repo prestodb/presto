@@ -16,6 +16,8 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -25,6 +27,7 @@ import com.facebook.presto.sql.tree.SetSession;
 import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static com.facebook.presto.metadata.SessionPropertyManager.serializeSessionProperty;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
+import static java.lang.String.format;
 
 public class SetSessionTask
         implements DataDefinitionTask<SetSession>
@@ -53,13 +56,20 @@ public class SetSessionTask
         }
 
         Type type = propertyMetadata.getSqlType();
+        Object objectValue;
 
-        Object objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata);
+        try {
+            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata);
+        }
+        catch (SemanticException e) {
+            throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY,
+                    format("Unable to set session property '%s' to '%s': %s", propertyName, statement.getValue(), e.getMessage()));
+        }
+
         String value = serializeSessionProperty(type, objectValue);
 
         // verify the SQL value can be decoded by the property
         metadata.getSessionPropertyManager().decodeProperty(propertyName.toString(), value, propertyMetadata.getJavaType());
-
         stateMachine.addSetSessionProperties(propertyName.toString(), value);
     }
 }

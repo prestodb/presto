@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.ResultIterator;
 
 import java.util.Collection;
@@ -44,12 +44,12 @@ public interface ShardManager
     /**
      * Commit data for a table.
      */
-    void commitShards(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId);
+    void commitShards(long transactionId, long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Optional<String> externalBatchId);
 
     /**
      * Replace oldShardsUuids with newShards.
      */
-    void replaceShardUuids(long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards);
+    void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards);
 
     /**
      * Get shard metadata for shards on a given node.
@@ -75,4 +75,16 @@ public interface ShardManager
      * Get the number of bytes used by assigned shards per node.
      */
     Map<String, Long> getNodeBytes();
+
+    /**
+     * Begin a transaction for creating shards.
+     *
+     * @return transaction ID
+     */
+    long beginTransaction();
+
+    /**
+     * Rollback a transaction.
+     */
+    void rollbackTransaction(long transactionId);
 }

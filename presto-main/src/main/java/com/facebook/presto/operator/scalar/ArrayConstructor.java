@@ -22,10 +22,8 @@ import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -55,26 +53,21 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.consta
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantNull;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.equal;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.newInstance;
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
-import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public final class ArrayConstructor
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     public static final ArrayConstructor ARRAY_CONSTRUCTOR = new ArrayConstructor();
-    private static final Signature SIGNATURE = new Signature("array_constructor", SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "E"), true);
 
-    @Override
-    public Signature getSignature()
+    public ArrayConstructor()
     {
-        return SIGNATURE;
+        super("array_constructor", ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "E"), true);
     }
 
     @Override
@@ -93,11 +86,11 @@ public final class ArrayConstructor
     public String getDescription()
     {
         // Internal function, doesn't need a description
-        return "";
+        return null;
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         checkArgument(types.size() == 1, "Can only construct arrays from exactly matching types");
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
@@ -121,7 +114,7 @@ public final class ArrayConstructor
             throw Throwables.propagate(e);
         }
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(stackTypes.size(), true));
-        return new FunctionInfo(arrayConstructorSignature(parameterizedTypeName("array", type.getTypeSignature()), Collections.nCopies(arity, type.getTypeSignature())), "Constructs an array of the given elements", true, methodHandle, true, false, nullableParameters);
+        return new ScalarFunctionImplementation(false, nullableParameters, methodHandle, isDeterministic());
     }
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)

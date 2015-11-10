@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SerializableNativeValue;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
@@ -84,6 +84,12 @@ import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -342,61 +348,60 @@ public final class HiveUtil
         return bytes.length == 2 && bytes[0] == '\\' && bytes[1] == 'N';
     }
 
-    public static SerializableNativeValue parsePartitionValue(String partitionName, String value, HiveType hiveType, DateTimeZone timeZone)
+    public static NullableValue parsePartitionValue(String partitionName, String value, HiveType hiveType, DateTimeZone timeZone)
     {
         try {
             boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
             if (HIVE_BOOLEAN.equals(hiveType)) {
                 if (isNull) {
-                    return new SerializableNativeValue(Boolean.class, null);
+                    return NullableValue.asNull(BOOLEAN);
                 }
                 if (value.isEmpty()) {
-                    return new SerializableNativeValue(Boolean.class, false);
+                    return NullableValue.of(BOOLEAN, false);
                 }
-                return new SerializableNativeValue(Boolean.class, parseBoolean(value));
+                return NullableValue.of(BOOLEAN, parseBoolean(value));
             }
 
             if (HIVE_BYTE.equals(hiveType) || HIVE_SHORT.equals(hiveType) || HIVE_INT.equals(hiveType) || HIVE_LONG.equals(hiveType)) {
                 if (isNull) {
-                    return new SerializableNativeValue(Long.class, null);
+                    return NullableValue.asNull(BIGINT);
                 }
                 if (value.isEmpty()) {
-                    return new SerializableNativeValue(Long.class, 0L);
+                    return NullableValue.of(BIGINT, 0L);
                 }
-                return new SerializableNativeValue(Long.class, parseLong(value));
+                return NullableValue.of(BIGINT, parseLong(value));
             }
 
             if (HIVE_DATE.equals(hiveType)) {
                 if (isNull) {
-                    return new SerializableNativeValue(Long.class, null);
+                    return NullableValue.asNull(DATE);
                 }
-                long dateInMillis = parseHiveDate(value);
-                return new SerializableNativeValue(Long.class, dateInMillis);
+                return NullableValue.of(DATE, parseHiveDate(value));
             }
 
             if (HIVE_TIMESTAMP.equals(hiveType)) {
                 if (isNull) {
-                    return new SerializableNativeValue(Long.class, null);
+                    return NullableValue.asNull(TIMESTAMP);
                 }
-                return new SerializableNativeValue(Long.class, parseHiveTimestamp(value, timeZone));
+                return NullableValue.of(TIMESTAMP, parseHiveTimestamp(value, timeZone));
             }
 
             if (HIVE_FLOAT.equals(hiveType) || HIVE_DOUBLE.equals(hiveType)) {
                 if (isNull) {
-                    return new SerializableNativeValue(Double.class, null);
+                    return NullableValue.asNull(DOUBLE);
                 }
                 if (value.isEmpty()) {
-                    return new SerializableNativeValue(Double.class, 0.0);
+                    return NullableValue.of(DOUBLE, 0.0);
                 }
-                return new SerializableNativeValue(Double.class, parseDouble(value));
+                return NullableValue.of(DOUBLE, parseDouble(value));
             }
 
             if (HIVE_STRING.equals(hiveType)) {
                 if (isNull) {
-                    return new SerializableNativeValue(Slice.class, null);
+                    return NullableValue.asNull(VARCHAR);
                 }
-                return new SerializableNativeValue(Slice.class, utf8Slice(value));
+                return NullableValue.of(VARCHAR, utf8Slice(value));
             }
         }
         catch (RuntimeException e) {

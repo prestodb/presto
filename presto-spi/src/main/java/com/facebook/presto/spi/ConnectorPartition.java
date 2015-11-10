@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.predicate.TupleDomain;
+
 @Deprecated
 public interface ConnectorPartition
 {

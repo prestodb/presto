@@ -13,45 +13,38 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayContains
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     public static final ArrayContains ARRAY_CONTAINS = new ArrayContains();
-    private static final TypeSignature RETURN_TYPE = parseTypeSignature(StandardTypes.BOOLEAN);
     private static final String FUNCTION_NAME = "contains";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array<T>", "T"), false);
+    private static final MethodHandle METHOD_HANDLE_UNKNOWN = methodHandle(ArrayContains.class, "arrayWithUnknownType", Type.class, MethodHandle.class, Block.class, Void.class);
 
-    @Override
-    public Signature getSignature()
+    public ArrayContains()
     {
-        return SIGNATURE;
+        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array<T>", "T"));
     }
 
     @Override
@@ -73,16 +66,29 @@ public final class ArrayContains
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("T");
-        TypeSignature valueType = type.getTypeSignature();
-        TypeSignature arrayType = parameterizedTypeName(StandardTypes.ARRAY, valueType);
-        MethodHandle methodHandle = methodHandle(ArrayContains.class, "contains", Type.class, MethodHandle.class, Block.class, type.getJavaType());
-        MethodHandle equalsHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
-        Signature signature = new Signature(FUNCTION_NAME, SCALAR, RETURN_TYPE, arrayType, valueType);
 
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle.bindTo(type).bindTo(equalsHandle), isDeterministic(), true, ImmutableList.of(false, false));
+        MethodHandle methodHandle;
+        MethodHandle equalsHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
+
+        List<Boolean> nullableArguments;
+        if (type.getJavaType() == void.class) {
+            nullableArguments = ImmutableList.of(false, true);
+            methodHandle = METHOD_HANDLE_UNKNOWN;
+        }
+        else {
+            nullableArguments = ImmutableList.of(false, false);
+            methodHandle = methodHandle(ArrayContains.class, "contains", Type.class, MethodHandle.class, Block.class, type.getJavaType());
+        }
+
+        return new ScalarFunctionImplementation(true, nullableArguments, methodHandle.bindTo(type).bindTo(equalsHandle), isDeterministic());
+    }
+
+    public static Boolean arrayWithUnknownType(Type elementType, MethodHandle equals, Block arrayBlock, Void value)
+    {
+        return null;
     }
 
     public static Boolean contains(Type elementType, MethodHandle equals, Block arrayBlock, Block value)

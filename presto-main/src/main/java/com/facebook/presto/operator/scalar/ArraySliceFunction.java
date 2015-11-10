@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
@@ -26,26 +24,21 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArraySliceFunction
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     public static final ArraySliceFunction ARRAY_SLICE_FUNCTION = new ArraySliceFunction();
     private static final String FUNCTION_NAME = "slice";
-    private static final Signature SIGNATURE = new Signature(FUNCTION_NAME, SCALAR, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "bigint", "bigint"), false);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySliceFunction.class, "slice", Type.class, Block.class, long.class, long.class);
 
-    @Override
-    public Signature getSignature()
+    public ArraySliceFunction()
     {
-        return SIGNATURE;
+        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "bigint", "bigint"));
     }
 
     @Override
@@ -67,15 +60,11 @@ public final class ArraySliceFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("E");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
-        Signature signature = new Signature(FUNCTION_NAME,
-                SCALAR,
-                parameterizedTypeName("array", type.getTypeSignature()),
-                parameterizedTypeName("array", type.getTypeSignature()), parseTypeSignature("bigint"), parseTypeSignature("bigint"));
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, ImmutableList.of(false, false, false));
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false, false), methodHandle, isDeterministic());
     }
 
     public static Block slice(Type type, Block array, long fromIndex, long length)

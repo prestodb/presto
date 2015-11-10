@@ -14,9 +14,9 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -76,7 +77,7 @@ public class QueryBuilder
         for (JdbcColumnHandle column : columns) {
             Type type = column.getColumnType();
             if (type.equals(BigintType.BIGINT) || type.equals(DoubleType.DOUBLE) || type.equals(BooleanType.BOOLEAN)) {
-                Domain domain = tupleDomain.getDomains().get(column);
+                Domain domain = tupleDomain.getDomains().get().get(column);
                 if (domain != null) {
                     builder.add(toPredicate(column.getColumnName(), domain));
                 }
@@ -87,18 +88,19 @@ public class QueryBuilder
 
     private String toPredicate(String columnName, Domain domain)
     {
-        if (domain.getRanges().isNone() && domain.isNullAllowed()) {
-            return quote(columnName) + " IS NULL";
+        checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
+
+        if (domain.getValues().isNone()) {
+            return domain.isNullAllowed() ? quote(columnName) + " IS NULL" : "FALSE";
         }
 
-        if (domain.getRanges().isAll() && !domain.isNullAllowed()) {
-            return quote(columnName) + " IS NOT NULL";
+        if (domain.getValues().isAll()) {
+            return domain.isNullAllowed() ? "TRUE" : quote(columnName) + " IS NOT NULL";
         }
 
-        // Add disjuncts for ranges
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
-        for (Range range : domain.getRanges()) {
+        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
                 singleValues.add(range.getLow().getValue());

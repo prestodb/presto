@@ -179,4 +179,7 @@ public interface MetadataDao
 
     @SqlQuery("SELECT compaction_enabled FROM tables WHERE table_id = :tableId")
     boolean isCompactionEnabled(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT table_id FROM tables WHERE table_id = :tableId FOR UPDATE")
+    Long getLockedTableId(@Bind("tableId") long tableId);
 }

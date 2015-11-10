@@ -23,9 +23,9 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -52,7 +52,7 @@ public class LimitPushDown
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
     }
 
     private static class LimitContext
@@ -71,7 +71,7 @@ public class LimitPushDown
     }
 
     private static class Rewriter
-            extends PlanRewriter<LimitContext>
+            extends SimplePlanRewriter<LimitContext>
     {
         private final PlanNodeIdAllocator idAllocator;
 

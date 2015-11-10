@@ -23,8 +23,8 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -52,7 +52,7 @@ public class PlanFragmenter
         Fragmenter fragmenter = new Fragmenter(plan.getSymbolAllocator().getTypes());
 
         FragmentProperties properties = new FragmentProperties();
-        PlanNode root = PlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
+        PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan result = fragmenter.buildRootFragment(root, properties);
         result.sanityCheck();
@@ -61,7 +61,7 @@ public class PlanFragmenter
     }
 
     private static class Fragmenter
-            extends PlanRewriter<FragmentProperties>
+            extends SimplePlanRewriter<FragmentProperties>
     {
         private static final int ROOT_FRAGMENT_ID = 0;
 

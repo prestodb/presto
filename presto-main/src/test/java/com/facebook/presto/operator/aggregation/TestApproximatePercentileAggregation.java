@@ -20,15 +20,20 @@ import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY;
 import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations.DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations.DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY;
 import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAggregations.LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAggregations.LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -156,6 +161,15 @@ public class TestApproximatePercentileAggregation
                 createLongsBlock(1L, null, 2L, null, 2L, null, 2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
                 createLongsBlock(1L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L),
                 createRLEBlock(0.5, 17));
+
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY,
+                1.0,
+                9900L,
+                createLongSequenceBlock(0, 10000),
+                createLongRepeatBlock(1, 10000),
+                createRLEBlock(0.99, 10000),
+                createRLEBlock(0.001, 10000));
 
         // weighted + array of approx_percentile
         assertAggregation(
@@ -290,6 +304,15 @@ public class TestApproximatePercentileAggregation
                 createDoublesBlock(1.0, null, 2.0, null, 2.0, null, 2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
                 createLongsBlock(1L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L),
                 createRLEBlock(0.5, 17));
+
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY,
+                1.0,
+                9900.0,
+                createDoubleSequenceBlock(0, 10000),
+                createLongRepeatBlock(1, 10000),
+                createRLEBlock(0.99, 10000),
+                createRLEBlock(0.001, 10000));
 
         // weighted + array of approx_percentile
         assertAggregation(

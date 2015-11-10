@@ -20,8 +20,8 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -46,11 +47,11 @@ public class MergeProjections
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan);
     }
 
     private static class Rewriter
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
@@ -67,7 +68,7 @@ public class MergeProjections
                 return new ProjectNode(node.getId(), ((ProjectNode) source).getSource(), projections.build());
             }
 
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
     }
 }

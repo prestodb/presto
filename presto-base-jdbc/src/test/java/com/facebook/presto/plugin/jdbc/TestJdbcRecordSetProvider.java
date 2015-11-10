@@ -16,13 +16,13 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -33,9 +33,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -103,54 +106,54 @@ public class TestJdbcRecordSetProvider
     {
         // single value
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.singleValue("foo"))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.singleValue(VARCHAR, utf8Slice("foo")))
         ));
 
         // multiple values (string)
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue("foo"), Domain.singleValue("bar"))))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue(VARCHAR, utf8Slice("foo")), Domain.singleValue(VARCHAR, utf8Slice("bar")))))
         ));
 
         // inequality (string)
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.greaterThan("foo")), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("foo"))), false))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.greaterThan("foo")), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("foo"))), false))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.lessThanOrEqual("foo")), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(VARCHAR, utf8Slice("foo"))), false))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.lessThan("foo")), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(ValueSet.ofRanges(Range.lessThan(VARCHAR, utf8Slice("foo"))), false))
         ));
 
         // is null
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.onlyNull(String.class))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.onlyNull(VARCHAR))
         ));
 
         // not null
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.notNull(String.class))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.notNull(VARCHAR))
         ));
 
         // specific value or null
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue("foo"), Domain.onlyNull(String.class))))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue(VARCHAR, utf8Slice("foo")), Domain.onlyNull(VARCHAR))))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(Range.range("bar", true, "foo", true)), false))
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true)), false))
         ));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
-                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(SortedRangeSet.of(
-                                Range.range("bar", true, "foo", true),
-                                Range.range("hello", false, "world", false)),
+                ImmutableMap.<ColumnHandle, Domain>of(textColumn, Domain.create(ValueSet.ofRanges(
+                                Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false)),
                         false
                 ))
         ));
@@ -158,19 +161,19 @@ public class TestJdbcRecordSetProvider
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>of(
                         textColumn,
-                        Domain.create(SortedRangeSet.of(
-                                        Range.range("bar", true, "foo", true),
-                                        Range.range("hello", false, "world", false),
-                                        Range.equal("apple"),
-                                        Range.equal("banana"),
-                                        Range.equal("zoo")),
+                        Domain.create(ValueSet.ofRanges(
+                                        Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                        Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false),
+                                        Range.equal(VARCHAR, utf8Slice("apple")),
+                                        Range.equal(VARCHAR, utf8Slice("banana")),
+                                        Range.equal(VARCHAR, utf8Slice("zoo"))),
                                 false
                         ),
 
                         valueColumn,
-                        Domain.create(SortedRangeSet.of(
-                                        Range.range(1, true, 5, true),
-                                        Range.range(10, false, 20, false)),
+                        Domain.create(ValueSet.ofRanges(
+                                        Range.range(BIGINT, 1L, true, 5L, true),
+                                        Range.range(BIGINT, 10L, false, 20L, false)),
                                 true
                         )
                 )

@@ -30,7 +30,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -116,7 +116,8 @@ public class TestRaptorSplitManager
                 .map(ColumnInfo::fromHandle)
                 .collect(toList());
 
-        shardManager.commitShards(tableId, columns, shards, Optional.empty());
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeManager, shardManager, false);
     }

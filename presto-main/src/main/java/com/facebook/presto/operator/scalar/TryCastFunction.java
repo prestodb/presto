@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -25,8 +24,6 @@ import com.google.common.primitives.Primitives;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -35,16 +32,13 @@ import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodType.methodType;
 
 public class TryCastFunction
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     public static final TryCastFunction TRY_CAST = new TryCastFunction();
 
-    private static final Signature SIGNATURE = new Signature("TRY_CAST", SCALAR, ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"), false);
-
-    @Override
-    public Signature getSignature()
+    public TryCastFunction()
     {
-        return SIGNATURE;
+        super("TRY_CAST", ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"));
     }
 
     @Override
@@ -66,7 +60,7 @@ public class TryCastFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type fromType = types.get("F");
         Type toType = types.get("T");
@@ -87,13 +81,6 @@ public class TryCastFunction
             tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
         }
 
-        return new FunctionInfo(
-                internalScalarFunction(SIGNATURE.getName(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())),
-                getDescription(),
-                isHidden(),
-                tryCastHandle,
-                isDeterministic(),
-                true,
-                ImmutableList.of(true));
+        return new ScalarFunctionImplementation(true, ImmutableList.of(true), tryCastHandle, isDeterministic());
     }
 }

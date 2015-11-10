@@ -19,8 +19,8 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.operator.window.ParametricWindowFunction;
 import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
+import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.ValueWindowFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.SqlType;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -48,11 +49,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
-import static com.facebook.presto.metadata.FunctionType.AGGREGATE;
-import static com.facebook.presto.metadata.FunctionType.APPROXIMATE_AGGREGATE;
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
-import static com.facebook.presto.metadata.FunctionType.WINDOW;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -74,7 +72,7 @@ public class FunctionListBuilder
             Regex.class,
             JsonPath.class);
 
-    private final List<ParametricFunction> functions = new ArrayList<>();
+    private final List<SqlFunction> functions = new ArrayList<>();
     private final TypeManager typeManager;
 
     public FunctionListBuilder(TypeManager typeManager)
@@ -88,14 +86,14 @@ public class FunctionListBuilder
                 new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(ImmutableList.copyOf(argumentTypes), Type::getTypeSignature)),
                 functionClass);
 
-        functions.add(new FunctionInfo(windowFunctionSupplier.getSignature(), windowFunctionSupplier.getDescription(), windowFunctionSupplier));
+        functions.add(new SqlWindowFunction(windowFunctionSupplier));
         return this;
     }
 
     public FunctionListBuilder window(String name, Class<? extends ValueWindowFunction> clazz, String typeVariable, String... argumentTypes)
     {
         Signature signature = new Signature(name, WINDOW, ImmutableList.of(typeParameter(typeVariable)), typeVariable, ImmutableList.copyOf(argumentTypes), false);
-        functions.add(new ParametricWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz)));
+        functions.add(new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz)));
         return this;
     }
 
@@ -113,8 +111,7 @@ public class FunctionListBuilder
         name = name.toLowerCase(ENGLISH);
 
         String description = getDescription(function.getClass());
-        Signature signature = new Signature(name, function.isApproximate() ? APPROXIMATE_AGGREGATE : AGGREGATE, function.getFinalType().getTypeSignature(), Lists.transform(ImmutableList.copyOf(function.getParameterTypes()), Type::getTypeSignature));
-        functions.add(new FunctionInfo(signature, description, function));
+        functions.add(SqlAggregationFunction.create(name, description, function));
         return this;
     }
 
@@ -126,14 +123,18 @@ public class FunctionListBuilder
 
     public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, String description, boolean hidden, boolean nullable, List<Boolean> nullableArguments)
     {
-        functions.add(new FunctionInfo(signature, description, hidden, function, deterministic, nullable, nullableArguments));
+        functions.add(SqlScalarFunction.create(signature, description, hidden, function, deterministic, nullable, nullableArguments));
         return this;
     }
 
     private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable, List<Boolean> nullableArguments)
     {
-        FunctionInfo operatorInfo = operatorInfo(operatorType, returnType.getTypeSignature(), Lists.transform(parameterTypes, Type::getTypeSignature), function, nullable, nullableArguments);
-        functions.add(operatorInfo);
+        TypeSignature returnTypeSignature = returnType.getTypeSignature();
+        List<TypeSignature> argumentTypes = parameterTypes.stream()
+                .map(Type::getTypeSignature)
+                .collect(ImmutableCollectors.toImmutableList());
+        operatorType.validateSignature(returnTypeSignature, argumentTypes);
+        functions.add(SqlOperator.create(operatorType, argumentTypes, returnTypeSignature, function, nullable, nullableArguments));
         return this;
     }
 
@@ -153,18 +154,18 @@ public class FunctionListBuilder
         return this;
     }
 
-    public FunctionListBuilder functions(ParametricFunction ... parametricFunctions)
+    public FunctionListBuilder functions(SqlFunction... sqlFunctions)
     {
-        for (ParametricFunction parametricFunction : parametricFunctions) {
-            function(parametricFunction);
+        for (SqlFunction sqlFunction : sqlFunctions) {
+            function(sqlFunction);
         }
         return this;
     }
 
-    public FunctionListBuilder function(ParametricFunction parametricFunction)
+    public FunctionListBuilder function(SqlFunction sqlFunction)
     {
-        requireNonNull(parametricFunction, "parametricFunction is null");
-        functions.add(parametricFunction);
+        requireNonNull(sqlFunction, "parametricFunction is null");
+        functions.add(sqlFunction);
         return this;
     }
 
@@ -357,7 +358,7 @@ public class FunctionListBuilder
         return parameterTypes;
     }
 
-    public List<ParametricFunction> getFunctions()
+    public List<SqlFunction> getFunctions()
     {
         return ImmutableList.copyOf(functions);
     }

@@ -14,9 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -176,9 +175,7 @@ public class EffectivePredicateExtractor
     public Expression visitTableScan(TableScanNode node, Void context)
     {
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
-        return DomainTranslator.toPredicate(
-                spanTupleDomain(node.getCurrentConstraint()).transform(assignments::get),
-                symbolTypes);
+        return DomainTranslator.toPredicate(spanTupleDomain(node.getCurrentConstraint()).transform(assignments::get));
     }
 
     private static TupleDomain<ColumnHandle> spanTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
@@ -187,15 +184,10 @@ public class EffectivePredicateExtractor
             return tupleDomain;
         }
 
-        // Retain nullability, but collapse each SortedRangeSet into a single span
-        Map<ColumnHandle, Domain> spannedDomains = Maps.transformValues(tupleDomain.getDomains(), domain -> Domain.create(getSortedRangeSpan(domain.getRanges()), domain.isNullAllowed()));
+        // Simplify domains if they get too complex
+        Map<ColumnHandle, Domain> spannedDomains = Maps.transformValues(tupleDomain.getDomains().get(), DomainUtils::simplifyDomain);
 
         return TupleDomain.withColumnDomains(spannedDomains);
-    }
-
-    private static SortedRangeSet getSortedRangeSpan(SortedRangeSet rangeSet)
-    {
-        return rangeSet.isNone() ? SortedRangeSet.none(rangeSet.getType()) : SortedRangeSet.of(rangeSet.getSpan());
     }
 
     @Override

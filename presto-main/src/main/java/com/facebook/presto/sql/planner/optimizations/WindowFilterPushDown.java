@@ -16,10 +16,10 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -29,8 +29,8 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -43,11 +43,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.metadata.FunctionType.WINDOW;
-import static com.facebook.presto.spi.Marker.Bound.BELOW;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
+import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.DomainTranslator.toPredicate;
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -74,11 +76,11 @@ public class WindowFilterPushDown
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, session, types), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, session, types), plan, null);
     }
 
     private static class Rewriter
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
@@ -106,7 +108,7 @@ public class WindowFilterPushDown
                         Optional.empty(),
                         Optional.empty());
             }
-            return context.replaceChildren(node, ImmutableList.of(rewrittenSource));
+            return replaceChildren(node, ImmutableList.of(rewrittenSource));
         }
 
         @Override
@@ -136,7 +138,7 @@ public class WindowFilterPushDown
                 }
                 source = topNRowNumberNode;
             }
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
 
         @Override
@@ -165,7 +167,7 @@ public class WindowFilterPushDown
                     return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
                 }
             }
-            return context.replaceChildren(node, ImmutableList.of(source));
+            return replaceChildren(node, ImmutableList.of(source));
         }
 
         private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rowNumberSymbol, int upperBound)
@@ -178,7 +180,7 @@ public class WindowFilterPushDown
             }
 
             // Remove the row number domain because it is absorbed into the node
-            Map<Symbol, Domain> newDomains = tupleDomain.getDomains().entrySet().stream()
+            Map<Symbol, Domain> newDomains = tupleDomain.getDomains().get().entrySet().stream()
                     .filter(entry -> !entry.getKey().equals(rowNumberSymbol))
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -186,7 +188,7 @@ public class WindowFilterPushDown
             TupleDomain<Symbol> newTupleDomain = TupleDomain.withColumnDomains(newDomains);
             Expression newPredicate = ExpressionUtils.combineConjuncts(
                     extractionResult.getRemainingExpression(),
-                    toPredicate(newTupleDomain, types));
+                    toPredicate(newTupleDomain));
 
             if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 return source;
@@ -199,7 +201,8 @@ public class WindowFilterPushDown
             if (tupleDomain.isNone()) {
                 return false;
             }
-            return tupleDomain.getDomains().get(symbol).getRanges().equals(SortedRangeSet.of(Range.lessThanOrEqual(upperBound)));
+            Domain domain = tupleDomain.getDomains().get().get(symbol);
+            return domain.getValues().equals(ValueSet.ofRanges(Range.lessThanOrEqual(domain.getType(), upperBound)));
         }
 
         private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, Symbol symbol)
@@ -208,23 +211,22 @@ public class WindowFilterPushDown
                 return OptionalInt.empty();
             }
 
-            Domain rowNumberDomain = tupleDomain.getDomains().get(symbol);
+            Domain rowNumberDomain = tupleDomain.getDomains().get().get(symbol);
             if (rowNumberDomain == null) {
                 return OptionalInt.empty();
             }
-
-            SortedRangeSet ranges = rowNumberDomain.getRanges();
-            if (ranges.isAll() || ranges.isNone() || ranges.getRangeCount() <= 0) {
+            ValueSet values = rowNumberDomain.getValues();
+            if (values.isAll() || values.isNone() || values.getRanges().getRangeCount() <= 0) {
                 return OptionalInt.empty();
             }
 
-            Range span = ranges.getSpan();
+            Range span = values.getRanges().getSpan();
 
             if (span.getHigh().isUpperUnbounded()) {
                 return OptionalInt.empty();
             }
 
-            verify(rowNumberDomain.getType().equals(Long.class));
+            verify(rowNumberDomain.getType().equals(BIGINT));
             long upperBound = (Long) span.getHigh().getValue();
             if (span.getHigh().getBound() == BELOW) {
                 upperBound--;

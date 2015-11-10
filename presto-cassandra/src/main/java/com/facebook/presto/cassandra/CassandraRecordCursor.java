@@ -16,13 +16,13 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
 
 public class CassandraRecordCursor
         implements RecordCursor
@@ -119,14 +119,11 @@ public class CassandraRecordCursor
     @Override
     public Slice getSlice(int i)
     {
-        Object value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
-        switch (getCassandraType(i)) {
-            case BLOB:
-            case CUSTOM:
-                return wrappedBuffer((java.nio.ByteBuffer) value);
-            default:
-                return utf8Slice(value.toString());
+        NullableValue value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
+        if (value.getValue() instanceof Slice) {
+            return (Slice) value.getValue();
         }
+        return utf8Slice(value.getValue().toString());
     }
 
     @Override

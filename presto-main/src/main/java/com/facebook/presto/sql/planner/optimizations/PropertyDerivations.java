@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
@@ -59,6 +60,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
@@ -69,6 +71,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorOnly;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.distributed;
@@ -80,6 +83,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Maps.filterValues;
 import static java.util.stream.Collectors.toMap;
 
 class PropertyDerivations
@@ -141,6 +145,20 @@ class PropertyDerivations
             }
 
             ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+
+            // If the WindowNode has pre-partitioned inputs, then it will not change the order of those inputs at output,
+            // so we should just propagate those underlying local properties that guarantee the pre-partitioning.
+            // TODO: come up with a more general form of this operation for other streaming operators
+            if (!node.getPrePartitionedInputs().isEmpty()) {
+                GroupingProperty<Symbol> prePartitionedProperty = new GroupingProperty<>(node.getPrePartitionedInputs());
+                for (LocalProperty<Symbol> localProperty : properties.getLocalProperties()) {
+                    if (!prePartitionedProperty.isSimplifiedBy(localProperty)) {
+                        break;
+                    }
+                    localProperties.add(localProperty);
+                }
+            }
+
             if (!node.getPartitionBy().isEmpty()) {
                 localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
@@ -149,7 +167,7 @@ class PropertyDerivations
             }
 
             return ActualProperties.builderFrom(properties)
-                    .local(localProperties.build())
+                    .local(LocalProperties.normalizeAndPrune(localProperties.build()))
                     .build();
         }
 
@@ -385,7 +403,8 @@ class PropertyDerivations
                     types);
 
             Map<Symbol, Object> constants = new HashMap<>(properties.getConstants());
-            constants.putAll(decomposedPredicate.getTupleDomain().extractFixedValues());
+            Map<Symbol, NullableValue> fixedValues = extractFixedValues(decomposedPredicate.getTupleDomain()).orElse(ImmutableMap.of());
+            constants.putAll(Maps.transformValues(filterValues(fixedValues, value -> !value.isNull()), NullableValue::getValue));
 
             return ActualProperties.builderFrom(properties)
                     .constants(constants)
@@ -474,15 +493,14 @@ class PropertyDerivations
 
             ActualProperties.Builder properties = ActualProperties.builder();
 
-            // Constant assignments
-            Map<ColumnHandle, Object> constants = new HashMap<>();
-            LocalProperties.extractLeadingConstants(layout.getLocalProperties()).stream()
-                    .forEach(column -> constants.put(column, new Object())); // Use an arbitrary object value for property constants b/c we don't know its actual value
-            // Do predicate constants after property constants so that we can override with known real predicate values (if they exist)
-            node.getCurrentConstraint().extractFixedValues().entrySet().stream()
-                    .forEach(entry -> constants.put(entry.getKey(), entry.getValue()));
+            // Globally constant assignments
+            Map<ColumnHandle, Object> globalConstants = new HashMap<>();
+            extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
+                    .entrySet().stream()
+                    .filter(entry -> !entry.getValue().isNull())
+                    .forEach(entry -> globalConstants.put(entry.getKey(), entry.getValue()));
 
-            Map<Symbol, Object> symbolConstants = constants.entrySet().stream()
+            Map<Symbol, Object> symbolConstants = globalConstants.entrySet().stream()
                     .filter(entry -> assignments.containsKey(entry.getKey()))
                     .collect(toMap(entry -> assignments.get(entry.getKey()), Map.Entry::getValue));
             properties.constants(symbolConstants);
@@ -490,9 +508,9 @@ class PropertyDerivations
             // Partitioning properties
             Optional<List<Symbol>> partitioningColumns = Optional.empty();
             if (layout.getPartitioningColumns().isPresent()) {
-                // Strip off the constants from the partitioning columns (since those are not required for translation)
+                // Strip off the global constants from the partitioning columns (since those are not required for translation)
                 Set<ColumnHandle> constantsStrippedPartitionColumns = layout.getPartitioningColumns().get().stream()
-                        .filter(column -> !constants.containsKey(column))
+                        .filter(column -> !globalConstants.containsKey(column))
                         .collect(toImmutableSet());
                 partitioningColumns = translate(constantsStrippedPartitionColumns, assignments);
             }
@@ -504,9 +522,9 @@ class PropertyDerivations
                 properties.global(distributed());
             }
 
-            // Append the constants onto the local properties to maximize their translation potential
+            // Append the global constants onto the local properties to maximize their translation potential
             List<LocalProperty<ColumnHandle>> constantAppendedLocalProperties = ImmutableList.<LocalProperty<ColumnHandle>>builder()
-                    .addAll(constants.keySet().stream().map(column -> new ConstantProperty<>(column)).iterator())
+                    .addAll(globalConstants.keySet().stream().map(column -> new ConstantProperty<>(column)).iterator())
                     .addAll(layout.getLocalProperties())
                     .build();
             properties.local(LocalProperties.translate(constantAppendedLocalProperties, column -> Optional.ofNullable(assignments.get(column))));

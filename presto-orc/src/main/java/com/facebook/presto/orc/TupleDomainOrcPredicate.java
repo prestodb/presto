@@ -16,23 +16,23 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.BooleanStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.RangeStatistics;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -59,7 +59,7 @@ public class TupleDomainOrcPredicate<C>
             Domain domain;
             if (columnStatistics == null) {
                 // no stats for column
-                domain = Domain.all(Primitives.wrap(columnReference.getType().getJavaType()));
+                domain = Domain.all(columnReference.getType());
             }
             else {
                 domain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
@@ -74,71 +74,70 @@ public class TupleDomainOrcPredicate<C>
     @VisibleForTesting
     public static Domain getDomain(Type type, long rowCount, ColumnStatistics columnStatistics)
     {
-        Class<?> boxedJavaType = Primitives.wrap(type.getJavaType());
         if (rowCount == 0) {
-            return Domain.none(boxedJavaType);
+            return Domain.none(type);
         }
 
         if (columnStatistics == null) {
-            return Domain.all(boxedJavaType);
+            return Domain.all(type);
         }
 
         if (columnStatistics.hasNumberOfValues() && columnStatistics.getNumberOfValues() == 0) {
-            return Domain.onlyNull(boxedJavaType);
+            return Domain.onlyNull(type);
         }
 
         boolean hasNullValue = columnStatistics.getNumberOfValues() != rowCount;
 
-        if (boxedJavaType == Boolean.class && columnStatistics.getBooleanStatistics() != null) {
+        if (type.getJavaType() == boolean.class && columnStatistics.getBooleanStatistics() != null) {
             BooleanStatistics booleanStatistics = columnStatistics.getBooleanStatistics();
 
             boolean hasTrueValues = (booleanStatistics.getTrueValueCount() != 0);
             boolean hasFalseValues = (columnStatistics.getNumberOfValues() != booleanStatistics.getTrueValueCount());
             if (hasTrueValues && hasFalseValues) {
-                return Domain.all(Boolean.class);
+                return Domain.all(BOOLEAN);
             }
             if (hasTrueValues) {
-                return Domain.create(SortedRangeSet.singleValue(true), hasNullValue);
+                return Domain.create(ValueSet.of(BOOLEAN, true), hasNullValue);
             }
             if (hasFalseValues) {
-                return Domain.create(SortedRangeSet.singleValue(false), hasNullValue);
+                return Domain.create(ValueSet.of(BOOLEAN, false), hasNullValue);
             }
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
+            return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
-        else if (boxedJavaType == Long.class && columnStatistics.getIntegerStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getIntegerStatistics());
+        else if (type.getJavaType() == long.class && columnStatistics.getIntegerStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getIntegerStatistics());
         }
-        else if (boxedJavaType == Double.class && columnStatistics.getDoubleStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getDoubleStatistics());
+        else if (type.getJavaType() == double.class && columnStatistics.getDoubleStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getDoubleStatistics());
         }
-        else if (boxedJavaType == Slice.class && columnStatistics.getStringStatistics() != null) {
-            return createDomain(boxedJavaType, hasNullValue, columnStatistics.getStringStatistics());
+        else if (type.getJavaType() == Slice.class && columnStatistics.getStringStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());
         }
-        return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
+        return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
-    private static <T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, RangeStatistics<T> rangeStatistics)
+    private static <T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<T> rangeStatistics)
     {
-        return createDomain(boxedJavaType, hasNullValue, rangeStatistics, value -> value);
+        return createDomain(type, hasNullValue, rangeStatistics, value -> value);
     }
 
-    private static <F, T extends Comparable<T>> Domain createDomain(Class<?> boxedJavaType, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> function)
+    private static <F, T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> function)
     {
         F min = rangeStatistics.getMin();
         F max = rangeStatistics.getMax();
 
         if (min != null && max != null) {
-            return Domain.create(SortedRangeSet.of(Range.range(function.apply(min), true, function.apply(max), true)), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.range(type, function.apply(min), true, function.apply(max), true)), hasNullValue);
         }
         if (max != null) {
-            return Domain.create(SortedRangeSet.of(Range.lessThanOrEqual(function.apply(max))), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, function.apply(max))), hasNullValue);
         }
         if (min != null) {
-            return Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(function.apply(min))), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, function.apply(min))), hasNullValue);
         }
-        return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
+        return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
     public static class ColumnReference<C>

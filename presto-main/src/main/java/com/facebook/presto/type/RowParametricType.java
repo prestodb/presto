@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.metadata.ParametricFunction;
+import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.operator.scalar.RowFieldReference;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -59,13 +59,16 @@ public final class RowParametricType
         return new RowType(types, Optional.of(builder.build()));
     }
 
-    public List<ParametricFunction> createFunctions(Type type)
+    public List<SqlFunction> createFunctions(Type type)
     {
         RowType rowType = checkType(type, RowType.class, "type");
-        ImmutableList.Builder<ParametricFunction> builder = ImmutableList.builder();
-        for (RowField field : rowType.getFields()) {
+        ImmutableList.Builder<SqlFunction> builder = ImmutableList.builder();
+        List<RowField> fields = rowType.getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            RowField field = fields.get(i);
+            int index = i;
             field.getName()
-                    .ifPresent(name -> builder.add(new RowFieldReference(rowType, field.getName().get())));
+                    .ifPresent(name -> builder.add(new RowFieldReference(rowType, field.getType(), index, field.getName().get())));
         }
         return builder.build();
     }

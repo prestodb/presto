@@ -23,7 +23,7 @@ import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -119,7 +119,9 @@ public class TestShardEjector
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, shards, Optional.empty());
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
         for (ShardInfo shard : shards.subList(0, 8)) {
             File file = storageService.getStorageFile(shard.getShardUuid());

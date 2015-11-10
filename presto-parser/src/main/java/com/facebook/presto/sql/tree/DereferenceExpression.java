@@ -17,6 +17,7 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -28,6 +29,17 @@ public class DereferenceExpression
 
     public DereferenceExpression(Expression base, String fieldName)
     {
+        this(Optional.empty(), base, fieldName);
+    }
+
+    public DereferenceExpression(NodeLocation location, Expression base, String fieldName)
+    {
+        this(Optional.of(location), base, fieldName);
+    }
+
+    private DereferenceExpression(Optional<NodeLocation> location, Expression base, String fieldName)
+    {
+        super(location);
         checkArgument(base != null, "base is null");
         checkArgument(fieldName != null, "fieldName is null");
         this.base = base;

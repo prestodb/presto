@@ -15,15 +15,32 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.UUID;
 
 public interface StorageManager
 {
-    ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain<RaptorColumnHandle> effectivePredicate, ReaderAttributes readerAttributes);
+    default ConnectorPageSource getPageSource(
+            UUID shardUuid,
+            List<Long> columnIds,
+            List<Type> columnTypes,
+            TupleDomain<RaptorColumnHandle> effectivePredicate,
+            ReaderAttributes readerAttributes)
+    {
+        return getPageSource(shardUuid, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty());
+    }
 
-    StoragePageSink createStoragePageSink(List<Long> columnIds, List<Type> columnTypes);
+    ConnectorPageSource getPageSource(
+            UUID shardUuid,
+            List<Long> columnIds,
+            List<Type> columnTypes,
+            TupleDomain<RaptorColumnHandle> effectivePredicate,
+            ReaderAttributes readerAttributes,
+            OptionalLong transactionId);
+
+    StoragePageSink createStoragePageSink(long transactionId, List<Long> columnIds, List<Type> columnTypes);
 }

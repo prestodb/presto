@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 import java.sql.SQLException;
 import java.util.List;
 
+import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
@@ -91,7 +92,7 @@ public class BlackHoleSmokeTest
             fail("Expected exception to be thrown here!");
         }
         catch (RuntimeException ex) { // it has to RuntimeException as FailureInfo$FailureException is private
-            assertTrue(ex.getMessage().equals("Destination table 'blackhole.default.nation' already exists"));
+            assertTrue(ex.getMessage().equals("line 1:1: Destination table 'blackhole.default.nation' already exists"));
         }
         finally {
             assertThatQueryReturnsValue("DROP TABLE nation", true);
@@ -166,6 +167,35 @@ public class BlackHoleSmokeTest
         assertEquals(row.getField(1), "****************");
         assertEquals(row.getField(2), 0L);
         assertEquals(row.getField(3), "****************");
+
+        assertThatQueryReturnsValue("DROP TABLE nation", true);
+    }
+
+    @Test
+    public void fieldLength()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("blackhole")
+                .setSchema("default")
+                .build();
+
+        assertThatQueryReturnsValue(
+                format("CREATE TABLE nation WITH ( %s = 8, %s = 1, %s = 1, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
+                        FIELD_LENGTH_PROPERTY,
+                        ROWS_PER_PAGE_PROPERTY,
+                        PAGES_PER_SPLIT_PROPERTY,
+                        SPLIT_COUNT_PROPERTY),
+                25L,
+                session);
+
+        MaterializedResult rows = queryRunner.execute(session, "SELECT * FROM nation");
+        assertEquals(rows.getRowCount(), 1);
+        MaterializedRow row = Iterables.getOnlyElement(rows);
+        assertEquals(row.getFieldCount(), 4);
+        assertEquals(row.getField(0), 0L);
+        assertEquals(row.getField(1), "********");
+        assertEquals(row.getField(2), 0L);
+        assertEquals(row.getField(3), "********");
 
         assertThatQueryReturnsValue("DROP TABLE nation", true);
     }

@@ -31,7 +31,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.TypeRegistry;
@@ -58,6 +58,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
+import static com.facebook.presto.hive.AbstractTestHiveClient.listAllDataPaths;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -91,6 +92,7 @@ public abstract class AbstractTestHiveClientS3
     protected SchemaTableName temporaryCreateTable;
 
     protected HdfsEnvironment hdfsEnvironment;
+    protected LocationService locationService;
     protected TestingHiveMetastore metastoreClient;
     protected HiveMetadata metadata;
     protected ConnectorSplitManager splitManager;
@@ -147,6 +149,7 @@ public abstract class AbstractTestHiveClientS3
         HivePartitionManager hivePartitionManager = new HivePartitionManager(connectorId, hiveClientConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
+        locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
         metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket, hdfsEnvironment);
         TypeRegistry typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
@@ -158,6 +161,7 @@ public abstract class AbstractTestHiveClientS3
                 hivePartitionManager,
                 newDirectExecutorService(),
                 typeManager,
+                locationService,
                 partitionUpdateCodec);
         splitManager = new HiveSplitManager(
                 connectorId,
@@ -167,7 +171,7 @@ public abstract class AbstractTestHiveClientS3
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 executor);
-        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), partitionUpdateCodec);
+        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), locationService, partitionUpdateCodec);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
 
@@ -325,7 +329,7 @@ public abstract class AbstractTestHiveClientS3
         // table, which fails without explicit configuration for S3.
         // We work around that by using a dummy location when creating the
         // table and update it here to the correct S3 location.
-        metastoreClient.updateTableLocation(database, tableName.getTableName(), outputHandle.getWritePath().get());
+        metastoreClient.updateTableLocation(database, tableName.getTableName(), locationService.writePath(outputHandle.getLocationHandle(), Optional.empty()).get().toString());
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(tableName);
@@ -429,7 +433,7 @@ public abstract class AbstractTestHiveClientS3
                 }
 
                 // hack to work around the metastore not being configured for S3
-                Path path = new Path(table.get().getSd().getLocation());
+                List<String> locations = listAllDataPaths(this, databaseName, tableName);
                 table.get().getSd().setLocation("/");
 
                 // drop table
@@ -439,7 +443,10 @@ public abstract class AbstractTestHiveClientS3
                 }
 
                 // drop data
-                hdfsEnvironment.getFileSystem(path).delete(path, true);
+                for (String location : locations) {
+                    Path path = new Path(location);
+                    hdfsEnvironment.getFileSystem(path).delete(path, true);
+                }
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);

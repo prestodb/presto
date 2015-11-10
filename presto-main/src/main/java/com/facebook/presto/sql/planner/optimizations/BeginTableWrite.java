@@ -27,9 +27,9 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Verify.verify;
 
 /*
@@ -64,11 +65,11 @@ public class BeginTableWrite
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return PlanRewriter.rewriteWith(new Rewriter(session), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan);
     }
 
     private class Rewriter
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final Session session;
 
@@ -169,15 +170,15 @@ public class BeginTableWrite
 
             if (node instanceof FilterNode) {
                 PlanNode source = rewriteDeleteTableScan(((FilterNode) node).getSource(), handle, context);
-                return context.replaceChildren(node, ImmutableList.of(source));
+                return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof ProjectNode) {
                 PlanNode source = rewriteDeleteTableScan(((ProjectNode) node).getSource(), handle, context);
-                return context.replaceChildren(node, ImmutableList.of(source));
+                return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof SemiJoinNode) {
                 PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle, context);
-                return context.replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
+                return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
         }

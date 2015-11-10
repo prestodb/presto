@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
+import org.skife.jdbi.v2.TransactionIsolationLevel;
 import org.skife.jdbi.v2.exceptions.DBIException;
 
 import java.lang.reflect.InvocationTargetException;
@@ -49,6 +50,17 @@ public final class DatabaseUtil
     {
         try {
             return dbi.inTransaction(callback);
+        }
+        catch (DBIException e) {
+            propagateIfInstanceOf(e.getCause(), PrestoException.class);
+            throw metadataError(e);
+        }
+    }
+
+    public static <T> T runTransaction(IDBI dbi, TransactionIsolationLevel isolation, TransactionCallback<T> callback)
+    {
+        try {
+            return dbi.inTransaction(isolation, callback);
         }
         catch (DBIException e) {
             propagateIfInstanceOf(e.getCause(), PrestoException.class);

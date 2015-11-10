@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -28,20 +26,15 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
-import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
-import static com.facebook.presto.type.RowType.RowField;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RowFieldReference
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     private static final Map<String, MethodHandle> METHOD_HANDLE_MAP;
 
-    private final Signature signature;
     private final MethodHandle methodHandle;
 
     static {
@@ -55,19 +48,9 @@ public class RowFieldReference
 
     private static final MethodHandle METHOD_HANDLE_OBJECT = Reflection.methodHandle(RowFieldReference.class, "objectAccessor", Type.class, Integer.class, Block.class);
 
-    public RowFieldReference(RowType type, String fieldName)
+    public RowFieldReference(RowType type, Type returnType, int index, String fieldName)
     {
-        Type returnType = null;
-        int index = 0;
-        for (RowField field : type.getFields()) {
-            if (field.getName().equals(Optional.of(fieldName))) {
-                returnType = field.getType();
-                break;
-            }
-            index++;
-        }
-        requireNonNull(returnType, format("%s not found in row type %s", fieldName, type));
-        signature = new Signature(mangleFieldReference(fieldName), SCALAR, returnType.getTypeSignature(), type.getTypeSignature());
+        super(mangleFieldReference(fieldName), ImmutableList.of(), returnType.getTypeSignature().toString(), ImmutableList.of(type.getTypeSignature().toString()));
 
         String stackType = returnType.getJavaType().getSimpleName().toLowerCase();
         MethodHandle methodHandle;
@@ -78,12 +61,6 @@ public class RowFieldReference
             methodHandle = METHOD_HANDLE_OBJECT;
         }
         this.methodHandle = methodHandle.bindTo(returnType).bindTo(index);
-    }
-
-    @Override
-    public Signature getSignature()
-    {
-        return signature;
     }
 
     @Override
@@ -105,10 +82,10 @@ public class RowFieldReference
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         requireNonNull(methodHandle, "methodHandle is null");
-        return new FunctionInfo(signature, getDescription(), isHidden(), methodHandle, isDeterministic(), true, ImmutableList.of(false));
+        return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());
     }
 
     public static Long longAccessor(Type type, Integer field, Block row)

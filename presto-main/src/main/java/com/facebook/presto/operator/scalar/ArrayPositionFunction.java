@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -29,31 +26,26 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayPositionFunction
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     public static final ArrayPositionFunction ARRAY_POSITION = new ArrayPositionFunction();
-    private static final Signature SIGNATURE = new Signature("array_position", SCALAR, ImmutableList.of(comparableTypeParameter("E")), "bigint", ImmutableList.of("array<E>", "E"), false);
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, boolean.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, double.class);
     private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, Slice.class);
     private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(ArrayPositionFunction.class, "arrayPosition", Type.class, MethodHandle.class, Block.class, Object.class);
 
-    @Override
-    public Signature getSignature()
+    public ArrayPositionFunction()
     {
-        return SIGNATURE;
+        super("array_position", ImmutableList.of(comparableTypeParameter("E")), "bigint", ImmutableList.of("array<E>", "E"));
     }
 
     @Override
@@ -75,7 +67,7 @@ public final class ArrayPositionFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("E");
         MethodHandle equalMethodHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
@@ -95,14 +87,7 @@ public final class ArrayPositionFunction
         else {
             arrayPositionMethodHandle = METHOD_HANDLE_OBJECT;
         }
-        return new FunctionInfo(
-                new Signature("array_position", SCALAR, parseTypeSignature(StandardTypes.BIGINT), parameterizedTypeName("array", type.getTypeSignature()), type.getTypeSignature()),
-                getDescription(),
-                isHidden(),
-                arrayPositionMethodHandle.bindTo(type).bindTo(equalMethodHandle),
-                isDeterministic(),
-                false,
-                ImmutableList.of(false, false));
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), arrayPositionMethodHandle.bindTo(type).bindTo(equalMethodHandle), isDeterministic());
     }
 
     public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, boolean element)

@@ -15,9 +15,14 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 import java.util.List;
@@ -25,10 +30,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TablePropertyManager
@@ -52,25 +59,52 @@ public class TablePropertyManager
             Session session,
             Metadata metadata)
     {
-        Map<String, PropertyMetadata<?>> tableProperties = catalogTableProperties.get(catalog);
-        if (tableProperties == null) {
+        Map<String, PropertyMetadata<?>> supportedTableProperties = catalogTableProperties.get(catalog);
+        if (supportedTableProperties == null) {
             throw new PrestoException(NOT_FOUND, "Catalog not found: " + catalog);
         }
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        for (PropertyMetadata<?> tableProperty : tableProperties.values()) {
-            Expression expression = sqlPropertyValues.get(tableProperty.getName());
+
+        // Fill in user-specified properties
+        for (Map.Entry<String, Expression> sqlProperty : sqlPropertyValues.entrySet()) {
+            PropertyMetadata<?> tableProperty = supportedTableProperties.get(sqlProperty.getKey());
+            if (tableProperty == null) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Catalog '%s' does not support table property '%s'", catalog, sqlProperty.getKey()));
+            }
+
+            Object sqlObjectValue;
+            try {
+                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), tableProperty.getSqlType(), session, metadata);
+            }
+            catch (SemanticException e) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY,
+                        format("Invalid value for table property '%s': Cannot convert '%s' to %s",
+                                tableProperty.getName(),
+                                sqlProperty.getValue(),
+                                tableProperty.getSqlType()), e);
+            }
+
             Object value;
-            if (expression != null) {
-                Object sqlObjectValue = evaluatePropertyValue(expression, tableProperty.getSqlType(), session, metadata);
+            try {
                 value = tableProperty.decode(sqlObjectValue);
             }
-            else {
-                value = tableProperty.getDefaultValue();
+            catch (Exception e) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY,
+                        format("Unable to set table property '%s' to '%s': %s", tableProperty.getName(), sqlProperty.getValue(), e.getMessage()), e);
             }
-            // do not include default properties that are null
-            if (value != null) {
-                properties.put(tableProperty.getName(), value);
+
+            properties.put(tableProperty.getName(), value);
+        }
+        Map<String, Object> userSpecifiedProperties = properties.build();
+
+        // Fill in the remaining properties with non-null defaults
+        for (PropertyMetadata<?> tableProperty : supportedTableProperties.values()) {
+            if (!userSpecifiedProperties.containsKey(tableProperty.getName())) {
+                Object value = tableProperty.getDefaultValue();
+                if (value != null) {
+                    properties.put(tableProperty.getName(), value);
+                }
             }
         }
         return properties.build();
@@ -79,5 +113,20 @@ public class TablePropertyManager
     public Map<String, Map<String, PropertyMetadata<?>>> getAllTableProperties()
     {
         return ImmutableMap.copyOf(catalogTableProperties);
+    }
+
+    private static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata)
+    {
+        Object value = evaluateConstantExpression(expression, expectedType, metadata, session, ImmutableSet.of());
+
+        // convert to object value type of SQL type
+        BlockBuilder blockBuilder = expectedType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        blockBuilder.write(expectedType, value);
+        Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
+
+        if (objectValue == null) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "Table property value cannot be null");
+        }
+        return objectValue;
     }
 }

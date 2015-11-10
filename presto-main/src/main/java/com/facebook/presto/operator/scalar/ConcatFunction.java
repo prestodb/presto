@@ -21,10 +21,8 @@ import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.expression.ByteCodeExpression;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.ParametricFunction;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -51,26 +49,20 @@ import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.add;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
-import static com.facebook.presto.metadata.FunctionType.SCALAR;
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.Math.addExact;
 
 public final class ConcatFunction
-        implements ParametricFunction
+        extends SqlScalarFunction
 {
     public static final ConcatFunction CONCAT = new ConcatFunction();
 
-    private static final Signature SIGNATURE = new Signature("concat", SCALAR, ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of(StandardTypes.VARCHAR), true);
-
-    @Override
-    public Signature getSignature()
+    public ConcatFunction()
     {
-        return SIGNATURE;
+        super("concat", ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of(StandardTypes.VARCHAR), true);
     }
 
     @Override
@@ -92,7 +84,7 @@ public final class ConcatFunction
     }
 
     @Override
-    public FunctionInfo specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         if (arity < 2) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments");
@@ -102,8 +94,7 @@ public final class ConcatFunction
         MethodHandle methodHandle = methodHandle(clazz, "concat", Collections.nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
         List<Boolean> nullableParameters = ImmutableList.copyOf(Collections.nCopies(arity, false));
 
-        Signature specializedSignature = internalScalarFunction(SIGNATURE.getName(), VARCHAR.getTypeSignature(), Collections.nCopies(arity, VARCHAR.getTypeSignature()));
-        return new FunctionInfo(specializedSignature, getDescription(), isHidden(), methodHandle, isDeterministic(), false, nullableParameters);
+        return new ScalarFunctionImplementation(false, nullableParameters, methodHandle, isDeterministic());
     }
 
     private static Class<?> generateConcat(int arity)

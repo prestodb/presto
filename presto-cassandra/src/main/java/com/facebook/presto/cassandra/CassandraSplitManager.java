@@ -24,12 +24,12 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -115,13 +115,13 @@ public class CassandraSplitManager
             else {
                 @SuppressWarnings({"rawtypes", "unchecked"})
                 List<ColumnHandle> partitionColumns = (List) partitionKeys;
-                remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(partitionColumns))));
+                remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().get(), not(in(partitionColumns))));
             }
         }
 
         // push down indexed column fixed value predicates only for unpartitioned partition which uses token range query
         if (partitions.size() == 1 && ((CassandraPartition) partitions.get(0)).isUnpartitioned()) {
-            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains();
+            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().get();
             List<ColumnHandle> indexedColumns = new ArrayList<>();
             // compose partitionId by using indexed column
             StringBuilder sb = new StringBuilder();
@@ -130,8 +130,8 @@ public class CassandraSplitManager
                 Domain domain = entry.getValue();
                 if (column.isIndexed() && domain.isSingleValue()) {
                     sb.append(CassandraCqlUtils.validColumnName(column.getName()))
-                      .append(" = ")
-                      .append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(entry.getValue().getSingleValue()), column.getCassandraType()));
+                            .append(" = ")
+                            .append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(entry.getValue().getSingleValue()), column.getCassandraType()));
                     indexedColumns.add(column);
                     // Only one indexed column predicate can be pushed down.
                     break;
@@ -139,7 +139,7 @@ public class CassandraSplitManager
             }
             if (sb.length() > 0) {
                 CassandraPartition partition = (CassandraPartition) partitions.get(0);
-                TupleDomain<ColumnHandle> filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains(), not(in(indexedColumns))));
+                TupleDomain<ColumnHandle> filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains().get(), not(in(indexedColumns))));
                 partitions = new ArrayList<>();
                 partitions.add(new CassandraPartition(partition.getKey(), sb.toString(), filterIndexedColumn, true));
                 return new ConnectorPartitionResult(partitions, filterIndexedColumn);
@@ -154,7 +154,7 @@ public class CassandraSplitManager
             return ImmutableList.of();
         }
 
-        Set<List<Comparable<?>>> partitionKeysSet = getPartitionKeysSet(table, tupleDomain);
+        Set<List<Object>> partitionKeysSet = getPartitionKeysSet(table, tupleDomain);
 
         // empty filter means, all partitions
         if (partitionKeysSet.isEmpty()) {
@@ -162,7 +162,7 @@ public class CassandraSplitManager
         }
 
         ImmutableList.Builder<ListenableFuture<List<CassandraPartition>>> getPartitionResults = ImmutableList.builder();
-        for (List<Comparable<?>> partitionKeys : partitionKeysSet) {
+        for (List<Object> partitionKeys : partitionKeysSet) {
             getPartitionResults.add(executor.submit(() -> schemaProvider.getPartitions(table, partitionKeys)));
         }
 
@@ -183,11 +183,11 @@ public class CassandraSplitManager
         return partitions.build();
     }
 
-    private static Set<List<Comparable<?>>> getPartitionKeysSet(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
+    private static Set<List<Object>> getPartitionKeysSet(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
-        ImmutableList.Builder<Set<Comparable<?>>> partitionColumnValues = ImmutableList.builder();
+        ImmutableList.Builder<Set<Object>> partitionColumnValues = ImmutableList.builder();
         for (CassandraColumnHandle columnHandle : table.getPartitionKeyColumns()) {
-            Domain domain = tupleDomain.getDomains().get(columnHandle);
+            Domain domain = tupleDomain.getDomains().get().get(columnHandle);
 
             // if there is no constraint on a partition key, return an empty set
             if (domain == null) {
@@ -199,19 +199,29 @@ public class CassandraSplitManager
                 return ImmutableSet.of();
             }
 
-            ImmutableSet.Builder<Comparable<?>> columnValues = ImmutableSet.builder();
-            for (Range range : domain.getRanges()) {
-                // if the range is not a single value, we can not perform partition pruning
-                if (!range.isSingleValue()) {
-                    return ImmutableSet.of();
-                }
-                Comparable<?> value = range.getSingleValue();
+            Set<Object> values = domain.getValues().getValuesProcessor().transform(
+                    ranges -> {
+                        ImmutableSet.Builder<Object> columnValues = ImmutableSet.builder();
+                        for (Range range : ranges.getOrderedRanges()) {
+                            // if the range is not a single value, we can not perform partition pruning
+                            if (!range.isSingleValue()) {
+                                return ImmutableSet.of();
+                            }
+                            Object value = range.getSingleValue();
 
-                CassandraType valueType = columnHandle.getCassandraType();
-                columnValues.add(valueType.getValueForPartitionKey(value));
-
-            }
-            partitionColumnValues.add(columnValues.build());
+                            CassandraType valueType = columnHandle.getCassandraType();
+                            columnValues.add(valueType.validatePartitionKey(value));
+                        }
+                        return columnValues.build();
+                    },
+                    discreteValues -> {
+                        if (discreteValues.isWhiteList()) {
+                            return ImmutableSet.copyOf(discreteValues.getValues());
+                        }
+                        return ImmutableSet.of();
+                    },
+                    allOrNone -> ImmutableSet.of());
+            partitionColumnValues.add(values);
         }
         return Sets.cartesianProduct(partitionColumnValues.build());
     }
@@ -285,7 +295,7 @@ public class CassandraSplitManager
         boolean singlePartitionKeyColumn = true;
         String partitionKeyColumnName = null;
         if (!partitions.isEmpty()) {
-            singlePartitionKeyColumn = partitions.get(0).getTupleDomain().getNullableColumnDomains().size() == 1;
+            singlePartitionKeyColumn = partitions.get(0).getTupleDomain().getDomains().get().size() == 1;
             if (singlePartitionKeyColumn) {
                 String partitionId = partitions.get(0).getPartitionId();
                 partitionKeyColumnName = partitionId.substring(0, partitionId.lastIndexOf('=') - 1);

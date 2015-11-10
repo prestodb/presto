@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -23,16 +25,29 @@ public final class Insert
 {
     private final QualifiedName target;
     private final Query query;
+    private final Optional<List<String>> columns;
 
-    public Insert(QualifiedName target, Query query)
+    public Insert(QualifiedName target, Optional<List<String>> columns, Query query)
     {
+        this(Optional.empty(), columns, target, query);
+    }
+
+    private Insert(Optional<NodeLocation> location, Optional<List<String>> columns, QualifiedName target, Query query)
+    {
+        super(location);
         this.target = requireNonNull(target, "target is null");
+        this.columns = requireNonNull(columns, "columns is null");
         this.query = requireNonNull(query, "query is null");
     }
 
     public QualifiedName getTarget()
     {
         return target;
+    }
+
+    public Optional<List<String>> getColumns()
+    {
+        return columns;
     }
 
     public Query getQuery()
@@ -49,7 +64,7 @@ public final class Insert
     @Override
     public int hashCode()
     {
-        return Objects.hash(target, query);
+        return Objects.hash(target, columns, query);
     }
 
     @Override
@@ -63,6 +78,7 @@ public final class Insert
         }
         Insert o = (Insert) obj;
         return Objects.equals(target, o.target) &&
+                Objects.equals(columns, o.columns) &&
                 Objects.equals(query, o.query);
     }
 
@@ -71,6 +87,7 @@ public final class Insert
     {
         return toStringHelper(this)
                 .add("target", target)
+                .add("columns", columns)
                 .add("query", query)
                 .toString();
     }

@@ -18,7 +18,7 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -29,9 +29,9 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -82,11 +82,11 @@ public class IndexJoinOptimizer
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, indexManager, metadata, session), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, indexManager, metadata, session), plan, null);
     }
 
     private static class Rewriter
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final IndexManager indexManager;
         private final SymbolAllocator symbolAllocator;
@@ -199,7 +199,7 @@ public class IndexJoinOptimizer
      * Tries to rewrite a PlanNode tree with an IndexSource instead of a TableScan
      */
     private static class IndexSourceRewriter
-            extends PlanRewriter<IndexSourceRewriter.Context>
+            extends SimplePlanRewriter<IndexSourceRewriter.Context>
     {
         private final IndexManager indexManager;
         private final SymbolAllocator symbolAllocator;
@@ -227,7 +227,7 @@ public class IndexJoinOptimizer
         {
             AtomicBoolean success = new AtomicBoolean();
             IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(indexManager, symbolAllocator, idAllocator, metadata, session);
-            PlanNode rewritten = PlanRewriter.rewriteWith(indexSourceRewriter, planNode, new Context(lookupSymbols, success));
+            PlanNode rewritten = SimplePlanRewriter.rewriteWith(indexSourceRewriter, planNode, new Context(lookupSymbols, success));
             if (success.get()) {
                 return Optional.of(rewritten);
             }
@@ -287,9 +287,7 @@ public class IndexJoinOptimizer
                     simplifiedConstraint);
 
             Expression resultingPredicate = combineConjuncts(
-                    DomainTranslator.toPredicate(
-                            resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get),
-                            symbolAllocator.getTypes()),
+                    DomainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
             if (!resultingPredicate.equals(TRUE_LITERAL)) {

@@ -14,11 +14,12 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,10 +49,10 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
-import static com.facebook.presto.spi.Range.greaterThan;
-import static com.facebook.presto.spi.Range.greaterThanOrEqual;
-import static com.facebook.presto.spi.Range.lessThan;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static com.facebook.presto.spi.predicate.Range.greaterThan;
+import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
+import static com.facebook.presto.spi.predicate.Range.lessThan;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -106,10 +107,33 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, shards, Optional.empty());
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
         Set<ShardNodes> actual = getShardNodes(tableId, TupleDomain.all());
         assertEquals(actual, toShardNodes(shards));
+    }
+
+    @Test
+    public void testRollback()
+    {
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        List<ShardInfo> shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
+
+        shardManager.createTable(tableId, columns);
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.rollbackTransaction(transactionId);
+
+        try {
+            shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+        }
     }
 
     @Test
@@ -121,7 +145,9 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, shardNodes, Optional.empty());
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty());
 
         ShardNodes actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
@@ -158,7 +184,9 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, shardNodes, Optional.empty());
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty());
 
         assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
                 new ShardNodes(shard1, ImmutableSet.of("node1")),
@@ -192,7 +220,9 @@ public class TestDatabaseShardManager
         }
 
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, inputShards.build(), Optional.empty());
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, inputShards.build(), Optional.empty());
 
         for (String node : nodes) {
             Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(node);
@@ -218,7 +248,9 @@ public class TestDatabaseShardManager
                 .build();
 
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, oldShards, Optional.empty());
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, oldShards, Optional.empty());
 
         List<UUID> expectedUuids = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID());
         List<ShardInfo> newShards = ImmutableList.<ShardInfo>builder()
@@ -229,7 +261,8 @@ public class TestDatabaseShardManager
         Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(nodes.get(0));
         Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
 
-        shardManager.replaceShardUuids(tableId, columns, replacedUuids, newShards);
+        transactionId = shardManager.beginTransaction();
+        shardManager.replaceShardUuids(transactionId, tableId, columns, replacedUuids, newShards);
 
         shardMetadata = shardManager.getNodeShards(nodes.get(0));
         Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
@@ -248,7 +281,8 @@ public class TestDatabaseShardManager
         // verify that conflicting updates are handled
         newShards = ImmutableList.of(shardInfo(UUID.randomUUID(), nodes.get(0)));
         try {
-            shardManager.replaceShardUuids(tableId, columns, replacedUuids, newShards);
+            transactionId = shardManager.beginTransaction();
+            shardManager.replaceShardUuids(transactionId, tableId, columns, replacedUuids, newShards);
             fail("expected exception");
         }
         catch (PrestoException e) {
@@ -267,12 +301,15 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, shards, externalBatchId);
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId);
 
         shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
 
         try {
-            shardManager.commitShards(tableId, columns, shards, externalBatchId);
+            transactionId = shardManager.beginTransaction();
+            shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId);
             fail("expected external batch exception");
         }
         catch (PrestoException e) {
@@ -345,67 +382,69 @@ public class TestDatabaseShardManager
 
         long tableId = createTable("test");
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, shards, Optional.empty());
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
         shardAssertion(tableId).expected(shards);
 
-        shardAssertion(tableId).equal(c1, 3).expected(shard2);
-        shardAssertion(tableId).equal(c1, 8).expected(shard1, shard2);
-        shardAssertion(tableId).equal(c1, 9).expected(shard1);
-        shardAssertion(tableId).equal(c1, 13).expected();
-        shardAssertion(tableId).between(c1, 8, 14).expected(shard1, shard2);
-        shardAssertion(tableId).between(c1, 8, 15).expected(shards);
-        shardAssertion(tableId).between(c1, 8, 16).expected(shards);
-        shardAssertion(tableId).between(c1, 12, 14).expected();
-        shardAssertion(tableId).between(c1, 5, 10).expected(shard1, shard2);
-        shardAssertion(tableId).between(c1, 16, 18).expected(shard3);
-        shardAssertion(tableId).between(c1, 1, 25).expected(shards);
-        shardAssertion(tableId).between(c1, 4, 12).expected(shard1, shard2);
-        shardAssertion(tableId).range(c1, lessThan(5)).expected(shard1, shard2);
-        shardAssertion(tableId).range(c1, lessThan(4)).expected(shard2);
-        shardAssertion(tableId).range(c1, lessThan(11)).expected(shard1, shard2);
-        shardAssertion(tableId).range(c1, lessThan(25)).expected(shards);
-        shardAssertion(tableId).range(c1, greaterThan(1)).expected(shards);
-        shardAssertion(tableId).range(c1, greaterThan(8)).expected(shards);
-        shardAssertion(tableId).range(c1, greaterThan(9)).expected(shard1, shard3);
+        shardAssertion(tableId).equal(c1, BIGINT, 3L).expected(shard2);
+        shardAssertion(tableId).equal(c1, BIGINT, 8L).expected(shard1, shard2);
+        shardAssertion(tableId).equal(c1, BIGINT, 9L).expected(shard1);
+        shardAssertion(tableId).equal(c1, BIGINT, 13L).expected();
+        shardAssertion(tableId).between(c1, BIGINT, 8L, 14L).expected(shard1, shard2);
+        shardAssertion(tableId).between(c1, BIGINT, 8L, 15L).expected(shards);
+        shardAssertion(tableId).between(c1, BIGINT, 8L, 16L).expected(shards);
+        shardAssertion(tableId).between(c1, BIGINT, 12L, 14L).expected();
+        shardAssertion(tableId).between(c1, BIGINT, 5L, 10L).expected(shard1, shard2);
+        shardAssertion(tableId).between(c1, BIGINT, 16L, 18L).expected(shard3);
+        shardAssertion(tableId).between(c1, BIGINT, 1L, 25L).expected(shards);
+        shardAssertion(tableId).between(c1, BIGINT, 4L, 12L).expected(shard1, shard2);
+        shardAssertion(tableId).range(c1, lessThan(BIGINT, 5L)).expected(shard1, shard2);
+        shardAssertion(tableId).range(c1, lessThan(BIGINT, 4L)).expected(shard2);
+        shardAssertion(tableId).range(c1, lessThan(BIGINT, 11L)).expected(shard1, shard2);
+        shardAssertion(tableId).range(c1, lessThan(BIGINT, 25L)).expected(shards);
+        shardAssertion(tableId).range(c1, greaterThan(BIGINT, 1L)).expected(shards);
+        shardAssertion(tableId).range(c1, greaterThan(BIGINT, 8L)).expected(shards);
+        shardAssertion(tableId).range(c1, greaterThan(BIGINT, 9L)).expected(shard1, shard3);
 
         shardAssertion(tableId)
-                .between(c1, -25, 25)
-                .between(c2, -1000.0, 1000.0)
-                .between(c3, 0, 50000)
-                .between(c4, 0L, timestamp(2015, 1, 2, 3, 4, 5))
-                .between(c5, utf8Slice("a"), utf8Slice("zzzzz"))
-                .between(c6, false, true)
+                .between(c1, BIGINT, -25L, 25L)
+                .between(c2, DOUBLE, -1000.0, 1000.0)
+                .between(c3, BIGINT, 0L, 50000L)
+                .between(c4, TIMESTAMP, 0L, timestamp(2015, 1, 2, 3, 4, 5))
+                .between(c5, VARCHAR, utf8Slice("a"), utf8Slice("zzzzz"))
+                .between(c6, BOOLEAN, false, true)
                 .expected(shards);
 
         shardAssertion(tableId)
-                .between(c1, 4, 12)
-                .between(c3, date(2013, 3, 3), date(2013, 5, 25))
+                .between(c1, BIGINT, 4L, 12L)
+                .between(c3, DATE, date(2013, 3, 3), date(2013, 5, 25))
                 .expected(shard1);
 
-        shardAssertion(tableId).equal(c2, 25.0).expected(shard2, shard3);
-        shardAssertion(tableId).equal(c2, 50.1).expected(shard3);
+        shardAssertion(tableId).equal(c2, DOUBLE, 25.0).expected(shard2, shard3);
+        shardAssertion(tableId).equal(c2, DOUBLE, 50.1).expected(shard3);
 
-        shardAssertion(tableId).equal(c3, date(2013, 5, 12)).expected(shard1, shard3);
+        shardAssertion(tableId).equal(c3, DATE, date(2013, 5, 12)).expected(shard1, shard3);
 
-        shardAssertion(tableId).range(c4, greaterThan(timestamp(2013, 1, 1, 0, 0, 0))).expected(shard1, shard3);
+        shardAssertion(tableId).range(c4, greaterThan(TIMESTAMP, timestamp(2013, 1, 1, 0, 0, 0))).expected(shard1, shard3);
 
-        shardAssertion(tableId).between(c5, utf8Slice("cow"), utf8Slice("milk")).expected(shards);
-        shardAssertion(tableId).equal(c5, utf8Slice("fruit")).expected();
-        shardAssertion(tableId).equal(c5, utf8Slice("pear")).expected(shard1);
-        shardAssertion(tableId).equal(c5, utf8Slice("cat")).expected(shard2);
-        shardAssertion(tableId).range(c5, greaterThan(utf8Slice("gum"))).expected(shard1, shard3);
-        shardAssertion(tableId).range(c5, lessThan(utf8Slice("air"))).expected();
+        shardAssertion(tableId).between(c5, VARCHAR, utf8Slice("cow"), utf8Slice("milk")).expected(shards);
+        shardAssertion(tableId).equal(c5, VARCHAR, utf8Slice("fruit")).expected();
+        shardAssertion(tableId).equal(c5, VARCHAR, utf8Slice("pear")).expected(shard1);
+        shardAssertion(tableId).equal(c5, VARCHAR, utf8Slice("cat")).expected(shard2);
+        shardAssertion(tableId).range(c5, greaterThan(VARCHAR, utf8Slice("gum"))).expected(shard1, shard3);
+        shardAssertion(tableId).range(c5, lessThan(VARCHAR, utf8Slice("air"))).expected();
 
-        shardAssertion(tableId).equal(c6, true).expected(shard1, shard2);
-        shardAssertion(tableId).equal(c6, false).expected(shard1, shard3);
-        shardAssertion(tableId).range(c6, greaterThanOrEqual(false)).expected(shards);
-        shardAssertion(tableId).range(c6, lessThan(true)).expected(shards);
-        shardAssertion(tableId).range(c6, lessThan(false)).expected(shard1, shard3);
+        shardAssertion(tableId).equal(c6, BOOLEAN, true).expected(shard1, shard2);
+        shardAssertion(tableId).equal(c6, BOOLEAN, false).expected(shard1, shard3);
+        shardAssertion(tableId).range(c6, greaterThanOrEqual(BOOLEAN, false)).expected(shards);
+        shardAssertion(tableId).range(c6, lessThan(BOOLEAN, true)).expected(shards);
+        shardAssertion(tableId).range(c6, lessThan(BOOLEAN, false)).expected(shard1, shard3);
 
         // TODO: support multiple ranges
         shardAssertion(tableId)
-                .domain(c1, createDomain(lessThan(0), greaterThan(25)))
+                .domain(c1, createDomain(lessThan(BIGINT, 0L), greaterThan(BIGINT, 25L)))
                 .expected(shards);
     }
 
@@ -425,26 +464,28 @@ public class TestDatabaseShardManager
 
         long tableId = createTable("test");
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, shards, Optional.empty());
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
         shardAssertion(tableId).expected(shards);
-        shardAssertion(tableId).equal(c1, utf8Slice(prefix)).expected(shards);
-        shardAssertion(tableId).equal(c1, utf8Slice(prefix + "c")).expected(shards);
-        shardAssertion(tableId).range(c1, lessThan(utf8Slice(prefix + "c"))).expected(shards);
-        shardAssertion(tableId).range(c1, greaterThan(utf8Slice(prefix + "zzz"))).expected(shards);
+        shardAssertion(tableId).equal(c1, VARCHAR, utf8Slice(prefix)).expected(shards);
+        shardAssertion(tableId).equal(c1, VARCHAR, utf8Slice(prefix + "c")).expected(shards);
+        shardAssertion(tableId).range(c1, lessThan(VARCHAR, utf8Slice(prefix + "c"))).expected(shards);
+        shardAssertion(tableId).range(c1, greaterThan(VARCHAR, utf8Slice(prefix + "zzz"))).expected(shards);
 
-        shardAssertion(tableId).between(c1, utf8Slice("w"), utf8Slice("y")).expected(shards);
-        shardAssertion(tableId).range(c1, greaterThan(utf8Slice("x"))).expected(shards);
+        shardAssertion(tableId).between(c1, VARCHAR, utf8Slice("w"), utf8Slice("y")).expected(shards);
+        shardAssertion(tableId).range(c1, greaterThan(VARCHAR, utf8Slice("x"))).expected(shards);
 
-        shardAssertion(tableId).between(c1, utf8Slice("x"), utf8Slice("x")).expected();
-        shardAssertion(tableId).range(c1, lessThan(utf8Slice("w"))).expected();
-        shardAssertion(tableId).range(c1, lessThan(utf8Slice("x"))).expected();
-        shardAssertion(tableId).range(c1, greaterThan(utf8Slice("y"))).expected();
+        shardAssertion(tableId).between(c1, VARCHAR, utf8Slice("x"), utf8Slice("x")).expected();
+        shardAssertion(tableId).range(c1, lessThan(VARCHAR, utf8Slice("w"))).expected();
+        shardAssertion(tableId).range(c1, lessThan(VARCHAR, utf8Slice("x"))).expected();
+        shardAssertion(tableId).range(c1, greaterThan(VARCHAR, utf8Slice("y"))).expected();
 
         Slice shorter = utf8Slice(prefix.substring(0, prefix.length() - 1));
-        shardAssertion(tableId).equal(c1, shorter).expected();
-        shardAssertion(tableId).range(c1, lessThan(shorter)).expected();
-        shardAssertion(tableId).range(c1, greaterThan(shorter)).expected(shards);
+        shardAssertion(tableId).equal(c1, VARCHAR, shorter).expected();
+        shardAssertion(tableId).range(c1, lessThan(VARCHAR, shorter)).expected();
+        shardAssertion(tableId).range(c1, greaterThan(VARCHAR, shorter)).expected(shards);
     }
 
     @Test
@@ -459,10 +500,12 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, BIGINT);
 
         shardManager.createTable(tableId, columns);
-        shardManager.commitShards(tableId, columns, shards, Optional.empty());
+
+        long transactionId = shardManager.beginTransaction();
+        shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
 
         shardAssertion(tableId).expected(shards);
-        shardAssertion(tableId).equal(c1, 3).expected(shards);
+        shardAssertion(tableId).equal(c1, BIGINT, 3L).expected(shards);
     }
 
     private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
@@ -496,7 +539,7 @@ public class TestDatabaseShardManager
 
     private static Domain createDomain(Range first, Range... ranges)
     {
-        return Domain.create(SortedRangeSet.of(first, ranges), false);
+        return Domain.create(ValueSet.ofRanges(first, ranges), false);
     }
 
     private ShardAssertion shardAssertion(long tableId)
@@ -525,14 +568,14 @@ public class TestDatabaseShardManager
             return domain(column, createDomain(range));
         }
 
-        public ShardAssertion equal(RaptorColumnHandle column, Comparable<?> value)
+        public ShardAssertion equal(RaptorColumnHandle column, Type type, Object value)
         {
-            return domain(column, Domain.singleValue(value));
+            return domain(column, Domain.singleValue(type, value));
         }
 
-        public <T> ShardAssertion between(RaptorColumnHandle column, Comparable<T> low, Comparable<T> high)
+        public ShardAssertion between(RaptorColumnHandle column, Type type, Object low, Object high)
         {
-            return range(column, Range.range(low, true, high, true));
+            return range(column, Range.range(type, low, true, high, true));
         }
 
         public void expected(ShardInfo... shards)

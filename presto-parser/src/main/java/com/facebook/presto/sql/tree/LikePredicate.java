@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class LikePredicate
@@ -24,6 +26,17 @@ public class LikePredicate
 
     public LikePredicate(Expression value, Expression pattern, Expression escape)
     {
+        this(Optional.empty(), value, pattern, escape);
+    }
+
+    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Expression escape)
+    {
+        this(Optional.of(location), value, pattern, escape);
+    }
+
+    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Expression escape)
+    {
+        super(location);
         requireNonNull(value, "value is null");
         requireNonNull(pattern, "pattern is null");
 

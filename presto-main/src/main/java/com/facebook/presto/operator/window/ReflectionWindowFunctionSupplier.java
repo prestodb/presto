@@ -24,7 +24,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionType.WINDOW;
+import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>

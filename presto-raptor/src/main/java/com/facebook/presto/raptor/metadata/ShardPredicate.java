@@ -14,11 +14,11 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Range;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.Ranges;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -91,7 +91,7 @@ class ShardPredicate
         ImmutableList.Builder<JDBCType> types = ImmutableList.builder();
         ImmutableList.Builder<Object> values = ImmutableList.builder();
 
-        for (Entry<RaptorColumnHandle, Domain> entry : tupleDomain.getDomains().entrySet()) {
+        for (Entry<RaptorColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             Domain domain = entry.getValue();
             if (domain.isNullAllowed() || domain.isAll()) {
                 continue;
@@ -115,12 +115,17 @@ class ShardPredicate
                 continue;
             }
 
+            if (!domain.getType().isOrderable()) {
+                continue;
+            }
+
+            Ranges ranges = domain.getValues().getRanges();
+
             // TODO: support multiple ranges
-            SortedRangeSet ranges = domain.getRanges();
             if (ranges.getRangeCount() != 1) {
                 continue;
             }
-            Range range = getOnlyElement(ranges.getRanges());
+            Range range = getOnlyElement(ranges.getOrderedRanges());
 
             Object minValue = null;
             Object maxValue = null;

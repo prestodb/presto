@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -26,7 +26,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -60,11 +60,11 @@ public class PickLayout
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return PlanRewriter.rewriteWith(new Rewriter(metadata, session, symbolAllocator, idAllocator), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, session, symbolAllocator, idAllocator), plan);
     }
 
     private static class Rewriter
-            extends PlanRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         private final Metadata metadata;
         private final Session session;
@@ -140,9 +140,7 @@ public class PickLayout
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
             Expression resultingPredicate = combineConjuncts(
                     decomposedPredicate.getRemainingExpression(),
-                    DomainTranslator.toPredicate(
-                            layout.getUnenforcedConstraint().transform(assignments::get),
-                            symbolAllocator.getTypes()));
+                    DomainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)));
 
             if (!BooleanLiteral.TRUE_LITERAL.equals(resultingPredicate)) {
                 return new FilterNode(idAllocator.getNextId(), result, resultingPredicate);

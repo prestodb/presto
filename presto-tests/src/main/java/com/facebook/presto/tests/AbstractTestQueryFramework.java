@@ -53,7 +53,7 @@ public abstract class AbstractTestQueryFramework
     }
 
     @AfterClass(alwaysRun = true)
-    private void close()
+    public void close()
             throws Exception
     {
         try {
