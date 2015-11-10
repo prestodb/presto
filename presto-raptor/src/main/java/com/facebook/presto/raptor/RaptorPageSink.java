@@ -115,7 +115,6 @@ public class RaptorPageSink
     public void rollback()
     {
         storagePageSink.rollback();
-        // TODO: clean up any written files
     }
 
     /**
