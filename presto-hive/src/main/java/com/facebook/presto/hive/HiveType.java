@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
@@ -214,7 +215,7 @@ public final class HiveType
         if (DOUBLE.equals(type)) {
             return HIVE_DOUBLE.typeInfo;
         }
-        if (VARCHAR.equals(type)) {
+        if (type instanceof VarcharType) {
             return HIVE_STRING.typeInfo;
         }
         if (VARBINARY.equals(type)) {

@@ -20,9 +20,11 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
@@ -60,7 +62,9 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -129,7 +133,7 @@ public final class HiveUtil
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSS").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSSSS").getParser(),
-        };
+                };
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter();
         HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
     }
@@ -203,7 +207,7 @@ public final class HiveUtil
     {
         // CDH uses different names for Parquet
         if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName) ||
-            "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
+                "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
             return MapredParquetInputFormat.class;
         }
 
@@ -468,6 +472,46 @@ public final class HiveUtil
             return false;
         }
         throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for BOOLEAN partition key: %s", value, name));
+    }
+
+    // this is hacky implementation
+    // proper coercion must be supported in type system
+    public static boolean typesMatchForInsert(Iterable<Type> columnTypes, Iterable<Type> valuesTypes)
+    {
+        if (Iterables.size(columnTypes) != Iterables.size(valuesTypes)) {
+            return false;
+        }
+        Iterator<Type> tableTypesIterator = columnTypes.iterator();
+        Iterator<Type> queryTypesIterator = valuesTypes.iterator();
+        while (tableTypesIterator.hasNext()) {
+            Type tableType = tableTypesIterator.next();
+            Type queryType = queryTypesIterator.next();
+
+            if (isStructuralType(tableType)) {
+                if (!tableType.getTypeSignature().getBase().equals(queryType.getTypeSignature().getBase())) {
+                    return false;
+                }
+                if (!typesMatchForInsert(tableType.getTypeParameters(), queryType.getTypeParameters())) {
+                    return false;
+                }
+            }
+            else if (!Objects.equals(tableType, queryType) && !varcharTypesMatchForInsert(tableType, queryType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean varcharTypesMatchForInsert(Type tableType, Type queryType)
+    {
+        return tableType instanceof VarcharType
+                && queryType instanceof VarcharType
+                && ((VarcharType) tableType).getLength() >= ((VarcharType) queryType).getLength();
+    }
+
+    public static boolean typesMatchForInsert(Type columnType, Type valueType)
+    {
+        return typesMatchForInsert(ImmutableList.of(columnType), ImmutableList.of(valueType));
     }
 
     public static long bigintPartitionKey(String value, String name)
