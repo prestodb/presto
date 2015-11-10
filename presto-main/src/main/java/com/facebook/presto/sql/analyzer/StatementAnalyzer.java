@@ -32,6 +32,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -579,11 +580,28 @@ class StatementAnalyzer
         while (tableTypesIterator.hasNext()) {
             Type tableType = tableTypesIterator.next();
             Type queryType = queryTypesIterator.next();
-            if (!Objects.equals(tableType, queryType) && !TypeRegistry.isTypeOnlyCoercion(queryType, tableType)) {
-                return false;
+
+            if (isStructuralType(tableType)) {
+                if (!tableType.getTypeSignature().getBase().equals(queryType.getTypeSignature().getBase())) {
+                    return false;
+                }
+                if (!typesMatchForInsert(tableType.getTypeParameters(), queryType.getTypeParameters())) {
+                    return false;
+                }
+            }
+            else {
+                if (!Objects.equals(tableType, queryType) && !TypeRegistry.isTypeOnlyCoercion(queryType, tableType)) {
+                    return false;
+                }
             }
         }
         return true;
+    }
+
+    private static boolean isStructuralType(Type type)
+    {
+        String baseName = type.getTypeSignature().getBase();
+        return baseName.equals(StandardTypes.MAP) || baseName.equals(StandardTypes.ARRAY) || baseName.equals(StandardTypes.ROW);
     }
 
     @Override
