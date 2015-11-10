@@ -68,6 +68,26 @@ public final class ShardCompactor
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
         StoragePageSink storagePageSink = storageManager.createStoragePageSink(transactionId, columnIds, columnTypes);
+
+        List<ShardInfo> shardInfos;
+        try {
+            shardInfos = compact(storagePageSink, uuids, columnIds, columnTypes);
+        }
+        catch (IOException | RuntimeException e) {
+            storagePageSink.rollback();
+            throw e;
+        }
+
+        inputShardsPerCompaction.add(uuids.size());
+        outputShardsPerCompaction.add(shardInfos.size());
+        compactionLatencyMillis.add(Duration.nanosSince(start).toMillis());
+
+        return shardInfos;
+    }
+
+    private List<ShardInfo> compact(StoragePageSink storagePageSink, Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
+            throws IOException
+    {
         for (UUID uuid : uuids) {
             try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
                 while (!pageSource.isFinished()) {
@@ -82,13 +102,7 @@ public final class ShardCompactor
                 }
             }
         }
-        List<ShardInfo> shardInfos = storagePageSink.commit();
-
-        inputShardsPerCompaction.add(uuids.size());
-        outputShardsPerCompaction.add(shardInfos.size());
-        compactionLatencyMillis.add(Duration.nanosSince(start).toMillis());
-
-        return shardInfos;
+        return storagePageSink.commit();
     }
 
     public List<ShardInfo> compactSorted(long transactionId, Set<UUID> uuids, List<ColumnInfo> columns, List<Long> sortColumnIds, List<SortOrder> sortOrders)
@@ -136,8 +150,11 @@ public final class ShardCompactor
 
             return shardInfos;
         }
+        catch (IOException | RuntimeException e) {
+            outputPageSink.rollback();
+            throw e;
+        }
         finally {
-            outputPageSink.flush();
             rowSources.stream().forEach(SortedRowSource::closeQuietly);
         }
     }

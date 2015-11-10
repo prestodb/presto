@@ -465,6 +465,7 @@ public class OrcStorageManager
         private final List<Long> columnIds;
         private final List<Type> columnTypes;
 
+        private final List<File> stagingFiles = new ArrayList<>();
         private final List<ShardInfo> shards = new ArrayList<>();
         private final List<CompletableFuture<?>> futures = new ArrayList<>();
 
@@ -548,12 +549,20 @@ public class OrcStorageManager
             return ImmutableList.copyOf(shards);
         }
 
+        @SuppressWarnings("ResultOfMethodCallIgnored")
         @Override
         public void rollback()
         {
-            if (writer != null) {
-                writer.close();
-                writer = null;
+            try {
+                if (writer != null) {
+                    writer.close();
+                    writer = null;
+                }
+            }
+            finally {
+                for (File file : stagingFiles) {
+                    file.delete();
+                }
             }
         }
 
@@ -563,6 +572,7 @@ public class OrcStorageManager
                 shardUuid = UUID.randomUUID();
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
+                stagingFiles.add(stagingFile);
                 writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
             }
         }

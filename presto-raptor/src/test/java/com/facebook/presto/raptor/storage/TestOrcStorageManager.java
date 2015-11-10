@@ -369,6 +369,40 @@ public class TestOrcStorageManager
     }
 
     @Test
+    public void testWriterRollback()
+            throws Exception
+    {
+        // verify staging directory does not exist
+        File staging = new File(new File(temporary, "data"), "staging");
+        assertFalse(staging.exists());
+
+        // create a shard in staging
+        OrcStorageManager manager = createOrcStorageManager();
+
+        List<Long> columnIds = ImmutableList.of(3L, 7L);
+        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
+
+        StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
+        List<Page> pages = rowPagesBuilder(columnTypes)
+                .row(123, "hello")
+                .row(456, "bye")
+                .build();
+        sink.appendPages(pages);
+
+        sink.flush();
+
+        // verify shard exists in staging
+        String[] files = staging.list();
+        assertEquals(files.length, 1);
+        assertTrue(files[0].endsWith(".orc"));
+
+        // rollback should cleanup staging files
+        sink.rollback();
+
+        assertEquals(staging.list(), new String[] {});
+    }
+
+    @Test
     public void testShardStatsBigint()
     {
         List<ColumnStats> stats = columnStats(types(BIGINT),
