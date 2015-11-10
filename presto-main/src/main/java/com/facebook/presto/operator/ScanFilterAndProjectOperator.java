@@ -78,7 +78,7 @@ public class ScanFilterAndProjectOperator
         this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(sourceId, "sourceId is null");
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceManager is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
 
