@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import io.airlift.log.Logger;
-import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -40,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.NodeState.ACTIVE;
@@ -55,8 +53,6 @@ public class NodeScheduler
     private static final Logger log = Logger.get(NodeScheduler.class);
 
     private final NodeManager nodeManager;
-    private final AtomicLong scheduleLocal = new AtomicLong();
-    private final AtomicLong scheduleRandom = new AtomicLong();
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
@@ -75,25 +71,6 @@ public class NodeScheduler
         this.maxSplitsPerNodePerTaskWhenFull = config.getMaxPendingSplitsPerNodePerTask();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode > maxSplitsPerNodePerTaskWhenFull, "maxSplitsPerNode must be > maxSplitsPerNodePerTaskWhenFull");
-    }
-
-    @Managed
-    public long getScheduleLocal()
-    {
-        return scheduleLocal.get();
-    }
-
-    @Managed
-    public long getScheduleRandom()
-    {
-        return scheduleRandom.get();
-    }
-
-    @Managed
-    public void reset()
-    {
-        scheduleLocal.set(0);
-        scheduleRandom.set(0);
     }
 
     public NodeSelector createNodeSelector(String dataSourceName)
@@ -286,8 +263,7 @@ public class NodeScheduler
             for (HostAddress hint : addresses) {
                 nodeMap.getNodesByHostAndPort().get(hint).stream()
                         .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
-                        .filter(chosen::add)
-                        .forEach(node -> scheduleLocal.incrementAndGet());
+                        .forEach(chosen::add);
 
                 InetAddress address;
                 try {
@@ -302,8 +278,7 @@ public class NodeScheduler
                 if (!hint.hasPort()) {
                     nodeMap.getNodesByHost().get(address).stream()
                             .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
-                            .filter(chosen::add)
-                            .forEach(node -> scheduleLocal.incrementAndGet());
+                            .forEach(chosen::add);
                 }
             }
 
