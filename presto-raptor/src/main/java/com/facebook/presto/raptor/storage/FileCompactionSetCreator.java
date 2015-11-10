@@ -46,6 +46,7 @@ public final class FileCompactionSetCreator
         // Filter out shards larger than allowed size and sort in descending order of data size
         List<ShardMetadata> shards = shardMetadata.stream()
                 .filter(shard -> shard.getUncompressedSize() < maxShardSize.toBytes())
+                .filter(shard -> shard.getRowCount() < maxShardRows)
                 .sorted(comparing(ShardMetadata::getUncompressedSize).reversed())
                 .collect(toCollection(ArrayList::new));
 

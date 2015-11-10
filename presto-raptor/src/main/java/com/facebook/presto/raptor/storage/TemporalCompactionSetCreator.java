@@ -66,6 +66,7 @@ public class TemporalCompactionSetCreator
         for (Collection<ShardMetadata> shardSet : shardsByDays.asMap().values()) {
             List<ShardMetadata> shards = shardSet.stream()
                     .filter(shard -> shard.getUncompressedSize() < maxShardSizeBytes)
+                    .filter(shard -> shard.getRowCount() < maxShardRows)
                     .sorted(new ShardSorter())
                     .collect(toList());
 
