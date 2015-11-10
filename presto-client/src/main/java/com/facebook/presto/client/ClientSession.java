@@ -53,6 +53,28 @@ public class ClientSession
                 session.isDebug());
     }
 
+    public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema, Map<String, String> additionalProperties)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.putAll(session.getProperties());
+        for (Entry<String, String> sessionProperty : additionalProperties.entrySet()) {
+            if (!session.getProperties().containsKey(sessionProperty.getKey())) {
+                builder.put(sessionProperty);
+            }
+        }
+
+        return new ClientSession(
+                session.getServer(),
+                session.getUser(),
+                session.getSource(),
+                catalog,
+                schema,
+                session.getTimeZoneId(),
+                session.getLocale(),
+                builder.build(),
+                session.isDebug());
+    }
+
     public static ClientSession withSessionProperties(ClientSession session, Map<String, String> sessionProperties)
     {
         Map<String, String> properties = new HashMap<>(session.getProperties());
