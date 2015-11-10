@@ -49,7 +49,9 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.cli.Completion.commandCompleter;
 import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
+import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
 import static com.facebook.presto.client.ClientSession.withProperties;
+import static com.facebook.presto.client.ClientSession.withSessionProperties;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
@@ -208,7 +210,8 @@ public class Console
                 for (Statement split : splitter.getCompleteStatements()) {
                     Optional<Object> statement = getParsedStatement(split.statement());
                     if (statement.isPresent() && isSessionParameterChange(statement.get())) {
-                        session = processSessionParameterChange(statement.get(), session);
+                        Map<String, String> properties = queryRunner.getSession().getProperties();
+                        session = processSessionParameterChange(statement.get(), session, properties);
                         queryRunner.setSession(session);
                         tableNameCompleter.populateCache();
                     }
@@ -246,11 +249,12 @@ public class Console
         }
     }
 
-    static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session)
+    static ClientSession processSessionParameterChange(Object parsedStatement, ClientSession session, Map<String, String> existingProperties)
     {
         if (parsedStatement instanceof Use) {
             Use use = (Use) parsedStatement;
-            return ClientSession.withCatalogAndSchema(session, use.getCatalog().orElse(session.getCatalog()), use.getSchema());
+            session = withCatalogAndSchema(session, use.getCatalog().orElse(session.getCatalog()), use.getSchema());
+            session = withSessionProperties(session, existingProperties);
         }
         return session;
     }
