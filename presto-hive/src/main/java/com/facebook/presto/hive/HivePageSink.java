@@ -23,7 +23,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -72,6 +71,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_ERROR;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
+import static com.facebook.presto.hive.HiveUtil.typesMatchForInsert;
 import static com.facebook.presto.hive.HiveWriteUtils.createFieldSetter;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
 import static com.facebook.presto.hive.HiveWriteUtils.getRowColumnInspectors;
@@ -515,7 +515,7 @@ public class HivePageSink
                 Type inputType = inputColumnTypes.get(inputIndex);
 
                 // HACK: solve coercion in generic way
-                if (!inputType.equals(fileColumnType) && !(inputType instanceof VarcharType)) {
+                if (!typesMatchForInsert(fileColumnType, inputType)) {
                     // todo this should be moved to a helper
                     throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
                                     "There is a mismatch between the table and partition schemas. " +
