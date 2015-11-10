@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -26,6 +27,17 @@ public class AddColumn
 
     public AddColumn(QualifiedName name, TableElement column)
     {
+        this(Optional.empty(), name, column);
+    }
+
+    public AddColumn(NodeLocation location, QualifiedName name, TableElement column)
+    {
+        this(Optional.of(location), name, column);
+    }
+
+    private AddColumn(Optional<NodeLocation> location, QualifiedName name, TableElement column)
+    {
+        super(location);
         this.name = requireNonNull(name, "table is null");
         this.column = requireNonNull(column, "column is null");
     }

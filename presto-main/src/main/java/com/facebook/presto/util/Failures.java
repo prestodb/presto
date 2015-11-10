@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.tree.NodeLocation;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
@@ -90,6 +91,13 @@ public final class Failures
         if (throwable instanceof ParsingException) {
             ParsingException e = (ParsingException) throwable;
             return new ErrorLocation(e.getLineNumber(), e.getColumnNumber());
+        }
+        else if (throwable instanceof SemanticException) {
+            SemanticException e = (SemanticException) throwable;
+            if (e.getNode().getLocation().isPresent()) {
+                NodeLocation nodeLocation = e.getNode().getLocation().get();
+                return new ErrorLocation(nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
+            }
         }
         return null;
     }

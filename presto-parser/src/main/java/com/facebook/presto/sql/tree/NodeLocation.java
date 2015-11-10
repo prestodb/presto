@@ -11,29 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.sql.ExpressionFormatter;
-
-import java.util.Optional;
-
-public abstract class Expression
-        extends Node
+public final class NodeLocation
 {
-    public Expression(Optional<NodeLocation> location)
+    private final int line;
+    private final int charPositionInLine;
+
+    public NodeLocation(int line, int charPositionInLine)
     {
-        super(location);
+        this.line = line;
+        this.charPositionInLine = charPositionInLine;
     }
 
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    public int getLineNumber()
     {
-        return visitor.visitExpression(this, context);
+        return line;
     }
 
-    @Override
-    public final String toString()
+    public int getColumnNumber()
     {
-        return ExpressionFormatter.formatExpression(this);
+        return charPositionInLine + 1;
     }
 }

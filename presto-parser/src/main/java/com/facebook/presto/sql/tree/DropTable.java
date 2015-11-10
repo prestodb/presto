@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -25,6 +26,17 @@ public class DropTable
 
     public DropTable(QualifiedName tableName, boolean exists)
     {
+        this(Optional.empty(), tableName, exists);
+    }
+
+    public DropTable(NodeLocation location, QualifiedName tableName, boolean exists)
+    {
+        this(Optional.of(location), tableName, exists);
+    }
+
+    private DropTable(Optional<NodeLocation> location, QualifiedName tableName, boolean exists)
+    {
+        super(location);
         this.tableName = tableName;
         this.exists = exists;
     }
