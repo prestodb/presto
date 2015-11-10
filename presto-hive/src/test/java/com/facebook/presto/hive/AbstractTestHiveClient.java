@@ -233,6 +233,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tablePartitionSchemaChangeNonCanonical;
 
     protected SchemaTableName temporaryCreateTable;
+    protected SchemaTableName temporaryCreateRollbackTable;
     protected SchemaTableName temporaryCreateSampledTable;
     protected SchemaTableName temporaryCreateEmptyTable;
     protected SchemaTableName temporaryInsertTable;
@@ -309,6 +310,7 @@ public abstract class AbstractTestHiveClient
         tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
 
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
+        temporaryCreateRollbackTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryCreateSampledTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryCreateEmptyTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryInsertTable = new SchemaTableName(database, "tmp_presto_test_insert_" + randomName());
@@ -1300,7 +1302,7 @@ public abstract class AbstractTestHiveClient
             ConnectorSession session = newSession();
 
             // begin creating the table
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateTable, CREATE_TABLE_COLUMNS, createTableProperties(RCBINARY), session.getUser());
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateRollbackTable, CREATE_TABLE_COLUMNS, createTableProperties(RCBINARY), session.getUser());
 
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata);
 
@@ -1319,10 +1321,10 @@ public abstract class AbstractTestHiveClient
             assertTrue(listAllDataFiles(outputHandle).isEmpty());
 
             // verify table is not in the metastore
-            assertNull(metadata.getTableHandle(session, temporaryCreateTable));
+            assertNull(metadata.getTableHandle(session, temporaryCreateRollbackTable));
         }
         finally {
-            dropTable(temporaryCreateTable);
+            dropTable(temporaryCreateRollbackTable);
         }
     }
 
