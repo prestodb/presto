@@ -95,7 +95,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
-import static com.google.common.collect.Maps.transformValues;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -295,7 +294,7 @@ public class MetadataManager
         TupleDomain<ColumnHandle> summary = constraint.getSummary();
         String connectorId = table.getConnectorId();
         ConnectorTableHandle connectorTable = table.getConnectorHandle();
-        Predicate<Map<ColumnHandle, ?>> predicate = constraint.predicate();
+        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate();
 
         List<ConnectorTableLayoutResult> layouts;
         ConnectorMetadataEntry entry = getConnectorMetadata(connectorId);
@@ -309,7 +308,7 @@ public class MetadataManager
 
             List<ConnectorPartition> partitions = result.getPartitions().stream()
                     .filter(partition -> !partition.getTupleDomain().isNone())
-                    .filter(partition -> predicate.test(transformValues(extractFixedValues(partition.getTupleDomain()).get(), NullableValue::getValue)))
+                    .filter(partition -> predicate.test(extractFixedValues(partition.getTupleDomain()).get()))
                     .collect(toImmutableList());
 
             List<TupleDomain<ColumnHandle>> partitionDomains = partitions.stream()
