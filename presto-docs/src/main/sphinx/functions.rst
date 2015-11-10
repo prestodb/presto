@@ -22,3 +22,4 @@ Functions and Operators
     functions/array
     functions/map
     functions/teradata
+    functions/system
