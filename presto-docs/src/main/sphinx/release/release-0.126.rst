@@ -5,6 +5,7 @@ Release 0.126
 General Changes
 ---------------
 
+* Add error location information (line and column number) for semantic errors.
 * Fix a CLI crash during tab-completion when no schema is currently selected.
 * Fix reset of session properties in CLI when running :doc:`/sql/use`.
 * Fix occasional query planning failure due to a bug in the projection
