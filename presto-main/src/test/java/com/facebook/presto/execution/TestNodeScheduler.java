@@ -293,7 +293,7 @@ public class TestNodeScheduler
         assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
     }
 
-    private class TestSplitLocal
+    private static class TestSplitLocal
             implements ConnectorSplit
     {
         @Override
@@ -315,7 +315,7 @@ public class TestNodeScheduler
         }
     }
 
-    private class TestSplitRemote
+    private static class TestSplitRemote
             implements ConnectorSplit
     {
         @Override
