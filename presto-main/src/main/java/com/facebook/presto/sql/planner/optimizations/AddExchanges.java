@@ -293,10 +293,15 @@ public class AddExchanges
                 }
                 else {
                     if (decomposable) {
-                        return splitAggregation(
-                                node,
-                                child,
-                                partial -> partitionedExchange(idAllocator.getNextId(), partial, node.getGroupBy(), node.getHashSymbol()));
+                        Function<PlanNode, PlanNode> exchanger = null;
+                        if (!child.getProperties().isNodePartitionedOn(node.getGroupBy())) {
+                            exchanger = partial -> partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    partial,
+                                    node.getGroupBy(),
+                                    node.getHashSymbol());
+                        }
+                        return splitAggregation(node, child, exchanger);
                     }
                     else {
                         child = withDerivedProperties(
@@ -347,12 +352,15 @@ public class AddExchanges
                             node.getHashSymbol()),
                     newChild.getProperties());
 
-            PlanNode exchange = exchanger.apply(partial.getNode());
+            PlanNode source = partial.getNode();
+            if (exchanger != null) {
+                source = exchanger.apply(source);
+            }
 
             return withDerivedProperties(
                     new AggregationNode(
                             node.getId(),
-                            exchange,
+                            source,
                             node.getGroupBy(),
                             finalCalls,
                             node.getFunctions(),
@@ -361,7 +369,7 @@ public class AddExchanges
                             Optional.empty(),
                             node.getConfidence(),
                             node.getHashSymbol()),
-                    deriveProperties(exchange, partial.getProperties()));
+                    deriveProperties(source, partial.getProperties()));
         }
 
         @Override

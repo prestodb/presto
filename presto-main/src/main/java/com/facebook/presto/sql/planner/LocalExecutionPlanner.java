@@ -825,7 +825,7 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
             }
 
-            if (node.getStep() == Step.INTERMEDIATE) {
+            if (needsLocalGather(node)) {
                 LocalExecutionPlanContext intermediateContext = context.createSubContext();
                 intermediateContext.setInputDriver(context.isInputDriver());
 
@@ -892,6 +892,22 @@ public class LocalExecutionPlanner
             operation = addInMemoryExchange(context, node.getId(), operation, parallelContext);
 
             return operation;
+        }
+
+        private boolean needsLocalGather(AggregationNode node)
+        {
+            // intermediate is used for node local aggregations
+            if (node.getStep() == Step.INTERMEDIATE) {
+                return true;
+            }
+
+            // a final aggregation with a partial as a source needs is used to signal a plan that is
+            // distributed on the grouped keys but not partitioned on the group keys.
+            if (node.getStep() != Step.FINAL || node.getSources().size() != 1) {
+                return false;
+            }
+            PlanNode source = node.getSources().get(0);
+            return source instanceof AggregationNode && ((AggregationNode) source).getStep() == Step.PARTIAL;
         }
 
         @Override
