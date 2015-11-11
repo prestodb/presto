@@ -11,17 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.testing;
+package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
+import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RunLengthEncodedBlock
@@ -32,13 +29,21 @@ public class RunLengthEncodedBlock
 
     public RunLengthEncodedBlock(Block value, int positionCount)
     {
-        this.value = requireNonNull(value, "value is null");
-        checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %s positions", value.getPositionCount());
+        requireNonNull(value, "value is null");
+        if (value.getPositionCount() != 1) {
+            throw new IllegalArgumentException(format("Expected value to contain a single position but has %s positions", value.getPositionCount()));
+        }
 
         // value can not be a RunLengthEncodedBlock because this could cause stack overflow in some of the methods
-        checkArgument(!(value instanceof RunLengthEncodedBlock), "Value can not be an instance of a %s", getClass().getName());
+        if (value instanceof RunLengthEncodedBlock) {
+            throw new IllegalArgumentException(format("Value can not be an instance of a %s", getClass().getName()));
+        }
 
-        checkArgument(positionCount >= 0, "positionCount is negative");
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
+
+        this.value = value;
         this.positionCount = positionCount;
     }
 
@@ -74,20 +79,21 @@ public class RunLengthEncodedBlock
     @Override
     public Block copyPositions(List<Integer> positions)
     {
+        checkValidPositions(positions, positionCount);
         return new RunLengthEncodedBlock(value.copyRegion(0, 1), positions.size());
     }
 
     @Override
     public Block getRegion(int positionOffset, int length)
     {
-        checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        checkPositionIndexes(positionOffset, length);
         return new RunLengthEncodedBlock(value, length);
     }
 
     @Override
     public Block copyRegion(int positionOffset, int length)
     {
-        checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        checkPositionIndexes(positionOffset, length);
         return new RunLengthEncodedBlock(value.copyRegion(0, 1), length);
     }
 
@@ -204,10 +210,11 @@ public class RunLengthEncodedBlock
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("value", value)
-                .add("positionCount", positionCount)
-                .toString();
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName());
+        sb.append("positionCount=").append(positionCount);
+        sb.append(", value=").append(value);
+        sb.append('}');
+        return sb.toString();
     }
 
     @Override
@@ -216,8 +223,17 @@ public class RunLengthEncodedBlock
         value.assureLoaded();
     }
 
+    private void checkPositionIndexes(int positionOffset, int length)
+    {
+        if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
+            throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
+        }
+    }
+
     private void checkReadablePosition(int position)
     {
-        checkArgument(position >= 0 && position < positionCount, "position is not valid");
+        if (position < 0  || position >= positionCount) {
+            throw new IllegalArgumentException("position is not valid");
+        }
     }
 }
