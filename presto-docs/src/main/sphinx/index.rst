@@ -15,5 +15,4 @@ Presto Documentation
     sql
     migration
     develop
-    tableau
     release
