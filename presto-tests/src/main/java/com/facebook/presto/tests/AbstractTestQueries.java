@@ -3973,6 +3973,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinProjectionPushDown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM\n" +
+                "  (SELECT orderkey, abs(orderkey) a FROM orders) t\n" +
+                "JOIN\n" +
+                "  (SELECT orderkey, abs(orderkey) a FROM orders) u\n" +
+                "ON\n" +
+                "  t.orderkey = u.orderkey");
+    }
+
+    @Test
     public void testUnion()
             throws Exception
     {

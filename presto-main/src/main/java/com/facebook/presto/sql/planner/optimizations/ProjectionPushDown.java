@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -117,26 +116,37 @@ public class ProjectionPushDown
         private PlanNode pushProjectionThrough(ProjectNode node, ExchangeNode exchange)
         {
             ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
+            ImmutableList.Builder<List<Symbol>> inputsBuilder = ImmutableList.builder();
             for (int i = 0; i < exchange.getSources().size(); i++) {
                 Map<Symbol, QualifiedNameReference> outputToInputMap = extractExchangeOutputToInput(exchange, i);
 
                 Map<Symbol, Expression> projections = new LinkedHashMap<>(); // Use LinkedHashMap to make output symbol order deterministic
+                ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
                 if (exchange.getPartitionKeys().isPresent()) {
                     // Need to retain the partition keys for the exchange
                     exchange.getPartitionKeys().get().stream()
                             .map(outputToInputMap::get)
-                            .forEach(nameReference -> projections.put(Symbol.fromQualifiedName(nameReference.getName()), nameReference));
+                            .forEach(nameReference -> {
+                                Symbol symbol = Symbol.fromQualifiedName(nameReference.getName());
+                                projections.put(symbol, nameReference);
+                                inputs.add(symbol);
+                            });
+
                 }
                 if (exchange.getHashSymbol().isPresent()) {
                     // Need to retain the hash symbol for the exchange
                     projections.put(exchange.getHashSymbol().get(), exchange.getHashSymbol().get().toQualifiedNameReference());
+                    inputs.add(exchange.getHashSymbol().get());
                 }
                 for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
                     Expression translatedExpression = translateExpression(projection.getValue(), outputToInputMap);
                     Type type = symbolAllocator.getTypes().get(projection.getKey());
-                    projections.put(symbolAllocator.newSymbol(translatedExpression, type), translatedExpression);
+                    Symbol symbol = symbolAllocator.newSymbol(translatedExpression, type);
+                    projections.put(symbol, translatedExpression);
+                    inputs.add(symbol);
                 }
                 newSourceBuilder.add(new ProjectNode(idAllocator.getNextId(), exchange.getSources().get(i), projections));
+                inputsBuilder.add(inputs.build());
             }
 
             // Construct the output symbols in the same order as the sources
@@ -152,17 +162,14 @@ public class ProjectionPushDown
                 outputBuilder.add(projection.getKey());
             }
 
-            List<PlanNode> newSources = newSourceBuilder.build();
             return new ExchangeNode(
                     exchange.getId(),
                     exchange.getType(),
                     exchange.getPartitionKeys(),
                     exchange.getHashSymbol(),
-                    newSources,
+                    newSourceBuilder.build(),
                     outputBuilder.build(),
-                    newSources.stream()
-                            .map(PlanNode::getOutputSymbols)
-                            .collect(ImmutableCollectors.toImmutableList()));
+                    inputsBuilder.build());
         }
     }
 
