@@ -61,12 +61,12 @@ public class TestInCodeGenerator
         ));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
 
-        for  (long i = 6; i <= 1000; ++i) {
+        for  (long i = 6; i <= 32; ++i) {
             values.add(new ConstantExpression(i, BIGINT));
         }
         assertEquals(checkSwitchGenerationCase(BIGINT, values), DIRECT_SWITCH);
 
-        values.add(new ConstantExpression(1001L, BIGINT));
+        values.add(new ConstantExpression(33L, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), SET_CONTAINS);
     }
 
@@ -93,12 +93,12 @@ public class TestInCodeGenerator
         ));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        for  (long i = 6; i <= 1000; ++i) {
+        for  (long i = 6; i <= 32; ++i) {
             values.add(new ConstantExpression(i, BIGINT));
         }
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 
-        values.add(new ConstantExpression(1001L, BIGINT));
+        values.add(new ConstantExpression(33L, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), SET_CONTAINS);
     }
 
@@ -111,12 +111,12 @@ public class TestInCodeGenerator
         values.add(new ConstantExpression(3L, DATE));
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
 
-        for  (long i = 4; i <= 1000; ++i) {
+        for  (long i = 4; i <= 32; ++i) {
             values.add(new ConstantExpression(i, DATE));
         }
         assertEquals(checkSwitchGenerationCase(DATE, values), DIRECT_SWITCH);
 
-        values.add(new ConstantExpression(1001L, DATE));
+        values.add(new ConstantExpression(33L, DATE));
         assertEquals(checkSwitchGenerationCase(DATE, values), SET_CONTAINS);
     }
 
@@ -132,12 +132,12 @@ public class TestInCodeGenerator
         values.add(new ConstantExpression(null, DOUBLE));
         assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
 
-        for  (int i = 5; i <= 1000; ++i) {
+        for  (int i = 5; i <= 32; ++i) {
             values.add(new ConstantExpression(i + 0.5, DOUBLE));
         }
         assertEquals(checkSwitchGenerationCase(DOUBLE, values), HASH_SWITCH);
 
-        values.add(new ConstantExpression(1001.5, DOUBLE));
+        values.add(new ConstantExpression(33.5, DOUBLE));
         assertEquals(checkSwitchGenerationCase(DOUBLE, values), SET_CONTAINS);
     }
 
@@ -153,12 +153,12 @@ public class TestInCodeGenerator
         values.add(new ConstantExpression(null, VARCHAR));
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
 
-        for  (int i = 5; i <= 1000; ++i) {
+        for  (int i = 5; i <= 32; ++i) {
             values.add(new ConstantExpression(Slices.utf8Slice(String.valueOf(i)), VARCHAR));
         }
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
 
-        values.add(new ConstantExpression(Slices.utf8Slice("1001"), VARCHAR));
+        values.add(new ConstantExpression(Slices.utf8Slice("33"), VARCHAR));
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), SET_CONTAINS);
     }
 }
