@@ -85,6 +85,11 @@ class TranslationMap
         System.arraycopy(other.fieldSymbols, 0, fieldSymbols, 0, other.fieldSymbols.length);
     }
 
+    public void putExpressionMappingsFrom(TranslationMap other)
+    {
+        expressionMappings.putAll(other.expressionMappings);
+    }
+
     public Expression rewrite(Expression expression)
     {
         // first, translate names from sql-land references to plan symbols

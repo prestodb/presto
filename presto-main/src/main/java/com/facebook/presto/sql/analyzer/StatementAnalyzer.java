@@ -1184,38 +1184,47 @@ class StatementAnalyzer
             analyzer.analyze((Expression) optimizedExpression, output, context);
             analysis.addCoercions(analyzer.getExpressionCoercions());
 
+            Set<Expression> postJoinConditionConjuncts = new HashSet<>();
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 conjunct = ExpressionUtils.normalize(conjunct);
-                if (!(conjunct instanceof ComparisonExpression)) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
-                }
+                if (conjunct instanceof ComparisonExpression) {
+                    Expression conjunctFirst = ((ComparisonExpression) conjunct).getLeft();
+                    Expression conjunctSecond = ((ComparisonExpression) conjunct).getRight();
+                    Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(conjunctFirst, analyzer.getColumnReferences());
+                    Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(conjunctSecond, analyzer.getColumnReferences());
 
-                ComparisonExpression comparison = (ComparisonExpression) conjunct;
-                Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(comparison.getLeft(), analyzer.getColumnReferences());
-                Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(comparison.getRight(), analyzer.getColumnReferences());
+                    Expression leftExpression = null;
+                    Expression rightExpression = null;
+                    if (firstDependencies.stream().allMatch(left.canResolvePredicate()) && secondDependencies.stream().allMatch(right.canResolvePredicate())) {
+                        leftExpression = conjunctFirst;
+                        rightExpression = conjunctSecond;
+                    }
+                    else if (firstDependencies.stream().allMatch(right.canResolvePredicate()) && secondDependencies.stream().allMatch(left.canResolvePredicate())) {
+                        leftExpression = conjunctSecond;
+                        rightExpression = conjunctFirst;
+                    }
 
-                Expression leftExpression;
-                Expression rightExpression;
-                if (firstDependencies.stream().allMatch(left.canResolvePredicate()) && secondDependencies.stream().allMatch(right.canResolvePredicate())) {
-                    leftExpression = comparison.getLeft();
-                    rightExpression = comparison.getRight();
-                }
-                else if (firstDependencies.stream().allMatch(right.canResolvePredicate()) && secondDependencies.stream().allMatch(left.canResolvePredicate())) {
-                    leftExpression = comparison.getRight();
-                    rightExpression = comparison.getLeft();
+                    // expression on each side of comparison operator references only symbols from one side of join.
+                    // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
+                    if (rightExpression != null) {
+                        ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
+                        ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
+                        analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
+                        addCoercionForJoinCriteria(node, leftExpression, rightExpression);
+                    }
+                    else {
+                        // mixed references to both left and right join relation on one side of comparison operator.
+                        // expression will be put in post-join condition; analyze in context of output table.
+                        postJoinConditionConjuncts.add(conjunct);
+                    }
                 }
                 else {
-                    // must have a complex expression that involves both tuples on one side of the comparison expression (e.g., coalesce(left.x, right.x) = 1)
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
+                    // non-comparison expression.
+                    // expression will be put in post-join condition; analyze in context of output table.
+                    postJoinConditionConjuncts.add(conjunct);
                 }
-
-                // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
-                ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
-                ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
-                addCoercionForJoinCriteria(node, leftExpression, rightExpression);
-                analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
             }
-
+            analyzeExpression(ExpressionUtils.combineConjuncts(postJoinConditionConjuncts), output, context);
             analysis.setJoinCriteria(node, (Expression) optimizedExpression);
         }
         else {
