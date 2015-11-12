@@ -22,6 +22,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -43,6 +44,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -154,6 +156,14 @@ public class BenchmarkPageProcessor
             }
 
             return position;
+        }
+
+        @Override
+        public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
+        {
+            PageBuilder pageBuilder = new PageBuilder(types);
+            process(session, page, 0, page.getPositionCount(), pageBuilder);
+            return pageBuilder.build();
         }
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)

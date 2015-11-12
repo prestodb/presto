@@ -92,6 +92,14 @@ public class HandTpchQuery6
             return position;
         }
 
+        @Override
+        public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
+        {
+            PageBuilder pageBuilder = new PageBuilder(types);
+            process(session, page, 0, page.getPositionCount(), pageBuilder);
+            return pageBuilder.build();
+        }
+
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
         {
             if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {

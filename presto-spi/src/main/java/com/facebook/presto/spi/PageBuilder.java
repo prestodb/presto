@@ -84,6 +84,11 @@ public class PageBuilder
         declaredPositions++;
     }
 
+    public void declarePositions(int positions)
+    {
+        declaredPositions = positions;
+    }
+
     public boolean isFull()
     {
         return declaredPositions == Integer.MAX_VALUE || pageBuilderStatus.isFull();
