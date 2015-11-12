@@ -23,6 +23,7 @@ import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.NodeScheduler;
 import com.facebook.presto.execution.NodeSchedulerConfig;
+import com.facebook.presto.execution.NodeSchedulerExporter;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
@@ -105,7 +106,6 @@ public class CoordinatorModule
     public void configure(Binder binder)
     {
         // TODO: currently, this module is ALWAYS installed (even for non-coordinators)
-
         httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
 
         discoveryBinder(binder).bindSelector("presto");
@@ -140,6 +140,7 @@ public class CoordinatorModule
         binder.bind(NodeManager.class).to(Key.get(InternalNodeManager.class)).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSchedulerConfig.class);
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
+        binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
         binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 

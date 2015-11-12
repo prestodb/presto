@@ -14,6 +14,10 @@
 package com.facebook.presto.server.testing;
 
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.execution.FlatNetworkTopology;
+import com.facebook.presto.execution.LegacyNetworkTopology;
+import com.facebook.presto.execution.NetworkTopology;
+import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
@@ -74,6 +78,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
+import static com.facebook.presto.execution.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
@@ -175,6 +181,14 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerMainModule(new SqlParserOptions()))
+                .add(installModuleIf(
+                        NodeSchedulerConfig.class,
+                        config -> LEGACY_NETWORK_TOPOLOGY.equalsIgnoreCase(config.getNetworkTopology()),
+                        binder -> binder.bind(NetworkTopology.class).to(LegacyNetworkTopology.class).in(Scopes.SINGLETON)))
+                .add(installModuleIf(
+                        NodeSchedulerConfig.class,
+                        config -> "flat".equalsIgnoreCase(config.getNetworkTopology()),
+                        binder -> binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)))
                 .add(new Module() {
                     @Override
                     public void configure(Binder binder)
