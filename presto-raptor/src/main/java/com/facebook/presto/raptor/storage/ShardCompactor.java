@@ -41,10 +41,8 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.storage.Row.extractRow;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 public final class ShardCompactor
 {
@@ -156,8 +154,6 @@ public final class ShardCompactor
             inputShardsPerCompaction.add(uuids.size());
             outputShardsPerCompaction.add(shardInfos.size());
             sortedCompactionLatencyMillis.add(Duration.nanosSince(start).toMillis());
-
-            log.info(format("Compacted shards %s into %s", uuids, shardInfos.stream().map(ShardInfo::getShardUuid).collect(toSet())));
 
             return shardInfos;
         }
