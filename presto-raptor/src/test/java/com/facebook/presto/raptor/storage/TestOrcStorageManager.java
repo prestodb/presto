@@ -562,6 +562,12 @@ public class TestOrcStorageManager
     public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary)
             throws IOException
     {
+        return createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
+    }
+
+    public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary, int maxShardRows)
+            throws IOException
+    {
         File directory = new File(temporary, "data");
         StorageService storageService = new FileStorageService(directory);
         storageService.start();
@@ -584,7 +590,7 @@ public class TestOrcStorageManager
                 backupStore,
                 recoveryManager,
                 new InMemoryShardRecorder(),
-                MAX_SHARD_ROWS,
+                maxShardRows,
                 MAX_FILE_SIZE);
     }
 
