@@ -29,6 +29,11 @@ These configuration options may require tuning in specific situations:
   need to fit in distributed memory across all machines. This can also be
   specified on a per-query basis using the ``distributed_join`` session property.
 
+* ``node-scheduler.network-topology``:
+  Sets the network topology to use when scheduling splits. "legacy" will ignore
+  the topology when scheduling splits. "flat" will try to schedule splits on the same
+  host as the data is located by reserving 50% of the work queue for local splits.
+
 JVM Settings
 ------------
 

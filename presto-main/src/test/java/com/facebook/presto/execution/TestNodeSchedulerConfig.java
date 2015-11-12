@@ -19,12 +19,15 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.execution.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+
 public class TestNodeSchedulerConfig
 {
     @Test
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeSchedulerConfig.class)
+                .setNetworkTopology(LEGACY_NETWORK_TOPOLOGY)
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
                 .setMaxPendingSplitsPerNodePerTask(10)
@@ -36,6 +39,7 @@ public class TestNodeSchedulerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("node-scheduler.network-topology", "flat")
                 .put("node-scheduler.min-candidates", "11")
                 .put("node-scheduler.include-coordinator", "false")
                 .put("node-scheduler.max-pending-splits-per-node-per-task", "11")
@@ -44,6 +48,7 @@ public class TestNodeSchedulerConfig
                 .build();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
+                .setNetworkTopology("flat")
                 .setIncludeCoordinator(false)
                 .setMultipleTasksPerNodeEnabled(true)
                 .setMaxSplitsPerNode(101)
