@@ -401,6 +401,7 @@ public class ShardCompactionManager
             TableMetadata metadata = getTableMetadata(tableId);
             List<ShardInfo> newShards = performCompaction(transactionId, shardUuids, metadata);
             shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
+            log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
         }
 
         private List<ShardInfo> performCompaction(long transactionId, Set<UUID> shardUuids, TableMetadata tableMetadata)
