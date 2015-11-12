@@ -272,10 +272,8 @@ class RelationPlanner
             Analysis.JoinInPredicates joinInPredicates = analysis.getJoinInPredicates(node);
 
             // Add semi joins if necessary
-            if (joinInPredicates != null) {
-                leftPlanBuilder = appendSemiJoins(leftPlanBuilder, joinInPredicates.getLeftInPredicates());
-                rightPlanBuilder = appendSemiJoins(rightPlanBuilder, joinInPredicates.getRightInPredicates());
-            }
+            leftPlanBuilder = appendSemiJoins(leftPlanBuilder, joinInPredicates.getLeftInPredicates());
+            rightPlanBuilder = appendSemiJoins(rightPlanBuilder, joinInPredicates.getRightInPredicates());
 
             // Add projections for join criteria
             leftPlanBuilder = appendProjections(leftPlanBuilder, leftExpressions);
