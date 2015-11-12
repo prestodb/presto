@@ -20,12 +20,13 @@ import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -55,15 +56,18 @@ import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestShardCompactor
 {
+    private static final int MAX_SHARD_ROWS = 1000;
     private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter();
     private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
     private OrcStorageManager storageManager;
+    private ShardCompactor compactor;
     private File temporary;
     private Handle dummyHandle;
 
@@ -74,7 +78,8 @@ public class TestShardCompactor
         temporary = createTempDir();
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        storageManager = createOrcStorageManager(dbi, temporary);
+        storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
+        compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -91,21 +96,24 @@ public class TestShardCompactor
     public void testShardCompactor()
             throws Exception
     {
-        ShardCompactor compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
-
-        long transactionId = 1;
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, DATE, TIMESTAMP);
 
-        // MAX_SHARD_ROWS = 100, so 3 shards of 50 rows each should be compacted to 2 shards
-        List<ShardInfo> inputShards = createShards(storageManager, columnIds, columnTypes, 3, 50);
-        Set<UUID> inputUuids = ImmutableSet.copyOf(inputShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
+        List<ShardInfo> inputShards = createShards(storageManager, columnIds, columnTypes, 3);
         assertEquals(inputShards.size(), 3);
 
-        List<ShardInfo> outputShards = compactor.compact(transactionId, inputUuids, getColumnInfo(columnIds, columnTypes));
-        Set<UUID> outputUuids = ImmutableSet.copyOf(outputShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
-        assertEquals(outputShards.size(), 2);
+        long totalRows = inputShards.stream()
+                .mapToLong(ShardInfo::getRowCount)
+                .sum();
+        long expectedOutputShards = computeExpectedOutputShards(totalRows);
 
+        Set<UUID> inputUuids = inputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
+
+        long transactionId = 1;
+        List<ShardInfo> outputShards = compactor.compact(transactionId, inputUuids, getColumnInfo(columnIds, columnTypes));
+        assertEquals(outputShards.size(), expectedOutputShards);
+
+        Set<UUID> outputUuids = outputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
         assertShardEqualsIgnoreOrder(inputUuids, outputUuids, columnIds, columnTypes);
     }
 
@@ -113,70 +121,97 @@ public class TestShardCompactor
     public void testShardCompactorSorted()
             throws Exception
     {
-        ShardCompactor compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
-
-        long transactionId = 1;
+        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, DATE, TIMESTAMP, DOUBLE);
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
-        List<Type> columnTypes = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, DATE, TIMESTAMP);
-
         List<Long> sortColumnIds = ImmutableList.of(1L, 2L, 3L, 5L, 7L);
         List<SortOrder> sortOrders = nCopies(sortColumnIds.size(), ASC_NULLS_FIRST);
         List<Integer> sortIndexes = sortColumnIds.stream()
                 .map(columnIds::indexOf)
                 .collect(toList());
 
-        // MAX_SHARD_ROWS = 100, so 10 shards of 10 rows each should be compacted to 1 shard
-        List<ShardInfo> inputShards = createShardsSorted(storageManager, columnIds, columnTypes, sortIndexes, sortOrders, 10, 10);
-        Set<UUID> inputUuids = ImmutableSet.copyOf(inputShards.stream()
-                .map(ShardInfo::getShardUuid)
-                .collect(toList()));
-        assertEquals(inputShards.size(), 10);
+        List<ShardInfo> inputShards = createSortedShards(storageManager, columnIds, columnTypes, sortIndexes, sortOrders, 2);
+        assertEquals(inputShards.size(), 2);
 
+        long totalRows = inputShards.stream().mapToLong(ShardInfo::getRowCount).sum();
+        long expectedOutputShards = computeExpectedOutputShards(totalRows);
+
+        Set<UUID> inputUuids = inputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
+
+        long transactionId = 1;
         List<ShardInfo> outputShards = compactor.compactSorted(transactionId, inputUuids, getColumnInfo(columnIds, columnTypes), sortColumnIds, sortOrders);
-        Set<UUID> outputUuids = ImmutableSet.copyOf(outputShards.stream()
+        List<UUID> outputUuids = outputShards.stream()
                 .map(ShardInfo::getShardUuid)
-                .collect(toList()));
-        assertEquals(outputShards.size(), 1);
+                .collect(toList());
+        assertEquals(outputShards.size(), expectedOutputShards);
 
         assertShardEqualsSorted(inputUuids, outputUuids, columnIds, columnTypes, sortIndexes, sortOrders);
+    }
+
+    private static long computeExpectedOutputShards(long totalRows)
+    {
+        return ((totalRows % MAX_SHARD_ROWS) != 0) ? ((totalRows / MAX_SHARD_ROWS) + 1) : (totalRows / MAX_SHARD_ROWS);
     }
 
     private void assertShardEqualsIgnoreOrder(Set<UUID> inputUuids, Set<UUID> outputUuids, List<Long> columnIds, List<Type> columnTypes)
             throws IOException
     {
-        MaterializedResult inputRows = getMaterializedRows(inputUuids, columnIds, columnTypes);
-        MaterializedResult outputRows = getMaterializedRows(outputUuids, columnIds, columnTypes);
+        MaterializedResult inputRows = getMaterializedRows(ImmutableList.copyOf(inputUuids), columnIds, columnTypes);
+        MaterializedResult outputRows = getMaterializedRows(ImmutableList.copyOf(outputUuids), columnIds, columnTypes);
+
         assertEqualsIgnoreOrder(outputRows, inputRows);
     }
 
-    private void assertShardEqualsSorted(Set<UUID> inputUuids, Set<UUID> outputUuids, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders)
+    private void assertShardEqualsSorted(Set<UUID> inputUuids, List<UUID> outputUuids, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders)
             throws IOException
     {
         List<Page> inputPages = getPages(inputUuids, columnIds, columnTypes);
-        MaterializedResult inputRowsSorted = sortAndMaterialize(inputPages, columnTypes, sortIndexes, sortOrders);
-        MaterializedResult outputRows = getMaterializedRows(outputUuids, columnIds, columnTypes);
+        List<Type> sortTypes = sortIndexes.stream().map(columnTypes::get).collect(toList());
+
+        MaterializedResult inputRowsSorted = sortAndMaterialize(inputPages, columnTypes, sortIndexes, sortOrders, sortTypes);
+        MaterializedResult outputRows = extractColumns(getMaterializedRows(outputUuids, columnIds, columnTypes), sortIndexes, sortTypes);
+
         assertEquals(outputRows, inputRowsSorted);
     }
 
-    private static MaterializedResult sortAndMaterialize(List<Page> pages, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders)
+    private static MaterializedResult extractColumns(MaterializedResult materializedRows, List<Integer> indexes, List<Type> types)
+    {
+        ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+        for (MaterializedRow row : materializedRows) {
+            Object[] values = new Object[indexes.size()];
+            for (int i = 0; i < indexes.size(); i++) {
+                values[i] = row.getField(indexes.get(i));
+            }
+            rows.add(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, values));
+        }
+        return new MaterializedResult(rows.build(), types);
+    }
+
+    private static MaterializedResult sortAndMaterialize(List<Page> pages, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders, List<Type> sortTypes)
     {
         long[] orderedAddresses = PAGE_SORTER.sort(columnTypes, pages, sortIndexes, sortOrders, 10_000);
 
-        int pageIndex;
-        int positionIndex;
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION, columnTypes);
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
-
         for (long orderedAddress : orderedAddresses) {
-            pageIndex = PAGE_SORTER.decodePageIndex(orderedAddress);
-            positionIndex = PAGE_SORTER.decodePositionIndex(orderedAddress);
+            int pageIndex = PAGE_SORTER.decodePageIndex(orderedAddress);
+            int positionIndex = PAGE_SORTER.decodePositionIndex(orderedAddress);
+
             Page page = pages.get(pageIndex);
+            pageBuilder.declarePosition();
             for (int i = 0; i < columnTypes.size(); i++) {
                 columnTypes.get(i).appendTo(page.getBlock(i), positionIndex, pageBuilder.getBlockBuilder(i));
             }
-            pageBuilder.declarePosition();
         }
-        resultBuilder.page(pageBuilder.build());
+
+        // extract the sortIndexes and reorder the blocks by sort indexes (useful for debugging)
+        Block[] blocks = pageBuilder.build().getBlocks();
+        Block[] outputBlocks = new Block[blocks.length];
+
+        for (int i = 0; i < sortIndexes.size(); i++) {
+            outputBlocks[i] = blocks[sortIndexes.get(i)];
+        }
+
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION, sortTypes);
+        resultBuilder.page(new Page(outputBlocks));
 
         return resultBuilder.build();
     }
@@ -184,7 +219,7 @@ public class TestShardCompactor
     private List<Page> getPages(Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
             throws IOException
     {
-        ImmutableList.Builder<Page> builder = ImmutableList.builder();
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
         for (UUID uuid : uuids) {
             try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES)) {
                 while (!pageSource.isFinished()) {
@@ -193,50 +228,59 @@ public class TestShardCompactor
                         break;
                     }
                     outputPage.assureLoaded();
-                    builder.add(outputPage);
+                    pages.add(outputPage);
                 }
             }
         }
-        return builder.build();
+        return pages.build();
     }
 
-    private MaterializedResult getMaterializedRows(Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
+    private MaterializedResult getMaterializedRows(List<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
             throws IOException
     {
-        MaterializedResult.Builder builder = MaterializedResult.resultBuilder(SESSION, columnTypes);
+        MaterializedResult.Builder rows = MaterializedResult.resultBuilder(SESSION, columnTypes);
         for (UUID uuid : uuids) {
             try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES)) {
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
-                builder.rows(result.getMaterializedRows());
+                rows.rows(result.getMaterializedRows());
             }
         }
-        return builder.build();
+        return rows.build();
     }
 
-    private static List<ShardInfo> createShardsSorted(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int count, int length)
+    private static List<ShardInfo> createSortedShards(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int shardCount)
     {
         StoragePageSink sink = createStoragePageSink(storageManager, columnIds, columnTypes);
-        for (int numShards = 0; numShards < count; numShards++) {
-            List<Page> pages = createPages(columnTypes, 1, length);
-            long[] orderedAddresses = PAGE_SORTER.sort(columnTypes, pages, sortChannels, sortOrders, 10_000);
-            int[] orderedPageIndex = new int[orderedAddresses.length];
-            int[] orderedPositionIndex = new int[orderedAddresses.length];
-            for (int i = 0; i < orderedAddresses.length; i++) {
-                orderedPageIndex[i] = PAGE_SORTER.decodePageIndex(orderedAddresses[i]);
-                orderedPositionIndex[i] = PAGE_SORTER.decodePositionIndex(orderedAddresses[i]);
-            }
-            sink.appendPages(pages, orderedPageIndex, orderedPositionIndex);
-            sink.flush();
+        for (int shardNum = 0; shardNum < shardCount; shardNum++) {
+            createSortedShard(columnTypes, sortChannels, sortOrders, sink);
         }
         return sink.commit();
     }
 
-    private static List<ShardInfo> createShards(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, int count, int length)
+    private static void createSortedShard(List<Type> columnTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, StoragePageSink sink)
     {
-        List<Page> pages = createPages(columnTypes, count, length);
+        List<Page> pages = createPages(columnTypes);
+
+        // Sort pages
+        long[] orderedAddresses = PAGE_SORTER.sort(columnTypes, pages, sortChannels, sortOrders, 10_000);
+        int[] orderedPageIndex = new int[orderedAddresses.length];
+        int[] orderedPositionIndex = new int[orderedAddresses.length];
+
+        for (int i = 0; i < orderedAddresses.length; i++) {
+            orderedPageIndex[i] = PAGE_SORTER.decodePageIndex(orderedAddresses[i]);
+            orderedPositionIndex[i] = PAGE_SORTER.decodePositionIndex(orderedAddresses[i]);
+        }
+
+        // Append sorted pages
+        sink.appendPages(pages, orderedPageIndex, orderedPositionIndex);
+        sink.flush();
+    }
+
+    private static List<ShardInfo> createShards(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, int shardCount)
+    {
         StoragePageSink sink = createStoragePageSink(storageManager, columnIds, columnTypes);
-        for (Page page : pages) {
-            sink.appendPages(ImmutableList.of(page));
+        for (int i = 0; i < shardCount; i++) {
+            sink.appendPages(createPages(columnTypes));
             sink.flush();
         }
         return sink.commit();
@@ -248,21 +292,28 @@ public class TestShardCompactor
         return manager.createStoragePageSink(transactionId, columnIds, columnTypes);
     }
 
-    private static List<Page> createPages(List<Type> columnTypes, int count, int length)
+    private static List<Page> createPages(List<Type> columnTypes)
     {
+        // Creates 10 pages with 10 rows each
+        int rowCount = 10;
+        int pageCount = 10;
+
+        // some random values to start off the blocks
+        int[][] initialValues = { { 17, 15, 16, 18, 14 }, { 59, 55, 54, 53, 58 } };
+
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        for (int i = 0; i < count; i++) {
-            pages.add(SequencePageBuilder.createSequencePage(columnTypes, length));
+        for (int i = 0; i < pageCount; i++) {
+            pages.add(SequencePageBuilder.createSequencePage(columnTypes, rowCount, initialValues[i % 2]));
         }
         return pages.build();
     }
 
     private static List<ColumnInfo> getColumnInfo(List<Long> columnIds, List<Type> columnTypes)
     {
-        ImmutableList.Builder<ColumnInfo> columnInfoBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ColumnInfo> columnInfos = ImmutableList.builder();
         for (int i = 0; i < columnIds.size(); i++) {
-            columnInfoBuilder.add(new ColumnInfo(columnIds.get(i), columnTypes.get(i)));
+            columnInfos.add(new ColumnInfo(columnIds.get(i), columnTypes.get(i)));
         }
-        return columnInfoBuilder.build();
+        return columnInfos.build();
     }
 }
