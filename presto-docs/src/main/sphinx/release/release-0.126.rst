@@ -10,3 +10,7 @@ General Changes
 * Fix reset of session properties in CLI when running :doc:`/sql/use`.
 * Fix query planning failure that occurs in some cases with the projection
   push down optimizer.
+* Add ability to control whether index join lookups and caching are shared
+  within a task. This allows us to optimize for index cache hits or for more
+  CPU parallelism. This option is toggled by the ``task.share-index-loading``
+  config property or the ``task_share_index_loading`` session property.

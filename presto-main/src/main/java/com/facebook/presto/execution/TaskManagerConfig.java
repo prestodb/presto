@@ -35,7 +35,8 @@ public class TaskManagerConfig
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
     private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
-    private DataSize maxTaskIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
+    private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
+    private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 4;
     private Integer minDrivers;
 
@@ -115,15 +116,28 @@ public class TaskManagerConfig
     }
 
     @NotNull
-    public DataSize getMaxTaskIndexMemoryUsage()
+    public DataSize getMaxIndexMemoryUsage()
     {
-        return maxTaskIndexMemoryUsage;
+        return maxIndexMemoryUsage;
     }
 
     @Config("task.max-index-memory")
-    public TaskManagerConfig setMaxTaskIndexMemoryUsage(DataSize maxTaskIndexMemoryUsage)
+    public TaskManagerConfig setMaxIndexMemoryUsage(DataSize maxIndexMemoryUsage)
     {
-        this.maxTaskIndexMemoryUsage = maxTaskIndexMemoryUsage;
+        this.maxIndexMemoryUsage = maxIndexMemoryUsage;
+        return this;
+    }
+
+    @NotNull
+    public boolean isShareIndexLoading()
+    {
+        return shareIndexLoading;
+    }
+
+    @Config("task.share-index-loading")
+    public TaskManagerConfig setShareIndexLoading(boolean shareIndexLoading)
+    {
+        this.shareIndexLoading = shareIndexLoading;
         return this;
     }
 

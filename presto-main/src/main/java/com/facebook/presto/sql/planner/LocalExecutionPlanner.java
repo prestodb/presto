@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
@@ -223,7 +224,7 @@ public class LocalExecutionPlanner
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
         this.compiler = requireNonNull(compiler, "compiler is null");
         this.indexJoinLookupStats = requireNonNull(indexJoinLookupStats, "indexJoinLookupStats is null");
-        this.maxIndexMemorySize = requireNonNull(taskManagerConfig, "taskManagerConfig is null").getMaxTaskIndexMemoryUsage();
+        this.maxIndexMemorySize = requireNonNull(taskManagerConfig, "taskManagerConfig is null").getMaxIndexMemoryUsage();
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
 
         interpreterEnabled = compilerConfig.isInterpreterEnabled();
@@ -1239,7 +1240,8 @@ public class LocalExecutionPlanner
                     indexSource.getTypes(),
                     indexBuildDriverFactoryProvider,
                     maxIndexMemorySize,
-                    indexJoinLookupStats);
+                    indexJoinLookupStats,
+                    SystemSessionProperties.isShareIndexLoading(session));
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             outputMappings.putAll(probeSource.getLayout());
