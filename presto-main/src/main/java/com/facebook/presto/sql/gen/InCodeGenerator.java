@@ -75,33 +75,33 @@ public class InCodeGenerator
     @VisibleForTesting
     static SwitchGenerationCase checkSwitchGenerationCase(Type type, List<RowExpression> values)
     {
-        if (values.size() <= 1000) {
-            if (!(type instanceof BigintType || type instanceof DateType)) {
-                return SwitchGenerationCase.HASH_SWITCH;
-            }
-            boolean areSmallPrimitives = true;
-            for (RowExpression expression : values) {
-                // For non-constant expressions, they will be added to the default case in the generated switch code. They do not affect any of
-                // the cases other than the default one. Therefore, it's okay to skip them when choosing between DIRECT_SWITCH and HASH_SWITCH.
-                // Same argument applies for nulls.
-                if (!(expression instanceof ConstantExpression)) {
-                    continue;
-                }
-                Object constant = ((ConstantExpression) expression).getValue();
-                if (constant == null) {
-                    continue;
-                }
-                long longConstant = (Long) constant;
-                if (longConstant < Integer.MIN_VALUE || longConstant > Integer.MAX_VALUE) {
-                    areSmallPrimitives = false;
-                    break;
-                }
-            }
-            return areSmallPrimitives ? SwitchGenerationCase.DIRECT_SWITCH : SwitchGenerationCase.HASH_SWITCH;
-        }
-        else {
+        if (values.size() > 32) {
+            // 32 is chosen because
+            // * SET_CONTAINS performs worst when smaller than but close to power of 2
+            // * Benchmark shows performance of SET_CONTAINS is better at 50, but similar at 25.
             return SwitchGenerationCase.SET_CONTAINS;
         }
+
+        if (!(type instanceof BigintType || type instanceof DateType)) {
+            return SwitchGenerationCase.HASH_SWITCH;
+        }
+        for (RowExpression expression : values) {
+            // For non-constant expressions, they will be added to the default case in the generated switch code. They do not affect any of
+            // the cases other than the default one. Therefore, it's okay to skip them when choosing between DIRECT_SWITCH and HASH_SWITCH.
+            // Same argument applies for nulls.
+            if (!(expression instanceof ConstantExpression)) {
+                continue;
+            }
+            Object constant = ((ConstantExpression) expression).getValue();
+            if (constant == null) {
+                continue;
+            }
+            long longConstant = (Long) constant;
+            if (longConstant < Integer.MIN_VALUE || longConstant > Integer.MAX_VALUE) {
+                return SwitchGenerationCase.HASH_SWITCH;
+            }
+        }
+        return SwitchGenerationCase.DIRECT_SWITCH;
     }
 
     @Override
