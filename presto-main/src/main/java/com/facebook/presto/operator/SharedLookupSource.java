@@ -35,13 +35,7 @@ public final class SharedLookupSource
         requireNonNull(operatorContext, "operatorContext is null");
         this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
         this.taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
-        long transferredBytes = operatorContext.transferMemoryToTaskContext();
-        if (lookupSource.getInMemorySizeInBytes() > transferredBytes) {
-            taskContext.reserveMemory(lookupSource.getInMemorySizeInBytes() - transferredBytes);
-        }
-        else {
-            taskContext.freeMemory(transferredBytes - lookupSource.getInMemorySizeInBytes());
-        }
+        operatorContext.transferMemoryToTaskContext(lookupSource.getInMemorySizeInBytes());
     }
 
     @Override
