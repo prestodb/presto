@@ -97,8 +97,8 @@ public class FixedWidthBlockBuilder
     {
         checkValidPositions(positions, positionCount);
 
-        SliceOutput newSlice = new DynamicSliceOutput(positions.size() * fixedSize);
-        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+        SliceOutput newSlice = Slices.allocate(positions.size() * fixedSize).getOutput();
+        SliceOutput newValueIsNull = Slices.allocate(positions.size()).getOutput();
 
         for (int position : positions) {
             newValueIsNull.appendByte(valueIsNull.getUnderlyingSlice().getByte(position));
