@@ -25,20 +25,25 @@ import static java.util.Objects.requireNonNull;
 
 public class ShardNodes
 {
-    private final UUID shardUuid;
+    private final Set<UUID> shardUuids;
     private final OptionalInt bucketNumber;
     private final Set<String> nodeIdentifiers;
 
-    public ShardNodes(UUID shardUuid, OptionalInt bucketNumber, Set<String> nodeIdentifiers)
+    public ShardNodes(UUID shardUuid, Set<String> nodeIdentifiers)
     {
-        this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this(ImmutableSet.of(shardUuid), OptionalInt.empty(), nodeIdentifiers);
+    }
+
+    public ShardNodes(Set<UUID> shardUuids, OptionalInt bucketNumber, Set<String> nodeIdentifiers)
+    {
+        this.shardUuids = ImmutableSet.copyOf(requireNonNull(shardUuids, "shardUuids is null"));
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.nodeIdentifiers = ImmutableSet.copyOf(requireNonNull(nodeIdentifiers, "nodeIdentifiers is null"));
     }
 
-    public UUID getShardUuid()
+    public Set<UUID> getShardUuids()
     {
-        return shardUuid;
+        return shardUuids;
     }
 
     public OptionalInt getBucketNumber()
@@ -61,7 +66,7 @@ public class ShardNodes
             return false;
         }
         ShardNodes other = (ShardNodes) obj;
-        return Objects.equals(this.shardUuid, other.shardUuid) &&
+        return Objects.equals(this.shardUuids, other.shardUuids) &&
                 Objects.equals(this.bucketNumber, other.bucketNumber) &&
                 Objects.equals(this.nodeIdentifiers, other.nodeIdentifiers);
     }
@@ -69,14 +74,14 @@ public class ShardNodes
     @Override
     public int hashCode()
     {
-        return Objects.hash(shardUuid, bucketNumber, nodeIdentifiers);
+        return Objects.hash(shardUuids, bucketNumber, nodeIdentifiers);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("shardUuid", shardUuid)
+                .add("shardUuids", shardUuids)
                 .add("bucketNumber", bucketNumber.isPresent() ? bucketNumber.getAsInt() : null)
                 .add("nodeIdentifiers", nodeIdentifiers)
                 .omitNullValues()

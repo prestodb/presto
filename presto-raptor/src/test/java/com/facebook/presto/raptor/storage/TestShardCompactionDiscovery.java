@@ -80,7 +80,7 @@ public class TestShardCompactionDiscovery
     {
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT), new ColumnInfo(2, BIGINT));
         long tableId = createTable("test");
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
         dbi.onDemand(MetadataDao.class).updateTemporalColumnId(1, 1);
 
         Set<ShardInfo> nonTimeRangeShards = ImmutableSet.<ShardInfo>builder()
