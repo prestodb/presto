@@ -25,23 +25,17 @@ import static java.util.Objects.requireNonNull;
 public final class SharedLookupSource
         implements LookupSource
 {
-    private final TaskContext taskContext;
+    private final OperatorContext operatorContext;
     private final LookupSource lookupSource;
     @GuardedBy("this")
     private boolean freed;
 
     public SharedLookupSource(LookupSource lookupSource, OperatorContext operatorContext)
     {
-        requireNonNull(operatorContext, "operatorContext is null");
         this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
-        this.taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
-        long transferredBytes = operatorContext.transferMemoryToTaskContext();
-        if (lookupSource.getInMemorySizeInBytes() > transferredBytes) {
-            taskContext.reserveMemory(lookupSource.getInMemorySizeInBytes() - transferredBytes);
-        }
-        else {
-            taskContext.freeMemory(transferredBytes - lookupSource.getInMemorySizeInBytes());
-        }
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+
+        operatorContext.transferMemoryToTaskContext(lookupSource.getInMemorySizeInBytes());
     }
 
     @Override
@@ -90,7 +84,7 @@ public final class SharedLookupSource
     {
         checkState(!freed, "Already freed");
         freed = true;
-        taskContext.freeMemory(lookupSource.getInMemorySizeInBytes());
+        operatorContext.freeTaskContextMemory(lookupSource.getInMemorySizeInBytes());
     }
 
     @Override

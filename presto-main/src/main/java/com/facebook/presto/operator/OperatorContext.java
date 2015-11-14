@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.FutureCallback;
@@ -283,6 +284,12 @@ public class OperatorContext
         memoryReservation.getAndAdd(-bytes);
     }
 
+    public void freeTaskContextMemory(long bytes)
+    {
+        TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
+        taskContext.freeMemory(bytes);
+    }
+
     public void freeSystemMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -296,11 +303,24 @@ public class OperatorContext
         memoryFuture.get().set(null);
     }
 
-    public long transferMemoryToTaskContext()
+    public void transferMemoryToTaskContext(long newMemoryBytes)
     {
         long bytes = memoryReservation.getAndSet(0);
         driverContext.transferMemoryToTaskContext(bytes);
-        return bytes;
+
+        TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
+        if (newMemoryBytes > bytes) {
+            try {
+                taskContext.reserveMemory(newMemoryBytes - bytes);
+            }
+            catch (ExceededMemoryLimitException e) {
+                taskContext.freeMemory(bytes);
+                throw e;
+            }
+        }
+        else {
+            taskContext.freeMemory(bytes - newMemoryBytes);
+        }
     }
 
     public void setMemoryReservation(long newMemoryReservation)
