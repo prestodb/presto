@@ -37,6 +37,9 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.BaseEncoding;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -53,6 +56,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
@@ -86,6 +90,7 @@ public class TestDomainTranslator
     private static final Symbol I = new Symbol("i");
     private static final Symbol J = new Symbol("j");
     private static final Symbol K = new Symbol("k");
+    private static final Symbol L = new Symbol("l");
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(A, BIGINT)
@@ -99,6 +104,7 @@ public class TestDomainTranslator
             .put(I, DATE)
             .put(J, COLOR) // Equatable, but not orderable
             .put(K, HYPER_LOG_LOG) // Not Equatable or orderable
+            .put(L, VARBINARY)
             .build();
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -1048,6 +1054,20 @@ public class TestDomainTranslator
         assertTrue(result.getTupleDomain().isNone());
     }
 
+    @Test
+    public void testExpressionConstantFolding()
+            throws Exception
+    {
+        Expression originalExpression = comparison(GREATER_THAN, reference(L), function("from_hex", stringLiteral("123456")));
+        ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        Slice value = Slices.wrappedBuffer(BaseEncoding.base16().decode("123456"));
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(L, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARBINARY, value)), false))));
+
+        Expression expression = toPredicate(result.getTupleDomain());
+        assertEquals(expression, comparison(GREATER_THAN, reference(L), varbinaryLiteral(value)));
+    }
+
     private static ExtractionResult fromPredicate(Expression originalPredicate)
     {
         return DomainTranslator.fromPredicate(METADATA, TEST_SESSION, originalPredicate, TYPES);
@@ -1168,5 +1188,15 @@ public class TestDomainTranslator
     private static FunctionCall colorLiteral(long value)
     {
         return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName()), ImmutableList.<Expression>of(longLiteral(value)));
+    }
+
+    private static Expression varbinaryLiteral(Slice value)
+    {
+        return LiteralInterpreter.toExpression(value, VARBINARY);
+    }
+
+    private static FunctionCall function(String functionName, Expression... args)
+    {
+        return new FunctionCall(QualifiedName.of(functionName), ImmutableList.copyOf(args));
     }
 }
