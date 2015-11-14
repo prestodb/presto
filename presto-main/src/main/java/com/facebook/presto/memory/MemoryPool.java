@@ -71,7 +71,9 @@ public class MemoryPool
     public synchronized ListenableFuture<?> reserve(QueryId queryId, long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
-        queryMemoryReservations.merge(queryId, bytes, Long::sum);
+        if (bytes != 0) {
+            queryMemoryReservations.merge(queryId, bytes, Long::sum);
+        }
         freeBytes -= bytes;
         if (freeBytes <= 0) {
             if (future == null) {
@@ -93,7 +95,9 @@ public class MemoryPool
             return false;
         }
         freeBytes -= bytes;
-        queryMemoryReservations.merge(queryId, bytes, Long::sum);
+        if (bytes != 0) {
+            queryMemoryReservations.merge(queryId, bytes, Long::sum);
+        }
         return true;
     }
 
