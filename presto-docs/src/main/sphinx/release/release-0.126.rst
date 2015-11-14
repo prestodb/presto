@@ -25,6 +25,7 @@ General Changes
   config property or the ``task_share_index_loading`` session property.
 * Improve performance of queries that use an ``IN`` expression with a large
   list of constant values.
+* Enable connector predicate push down for all comparable and equatable types.
 
 Hive Changes
 ------------
