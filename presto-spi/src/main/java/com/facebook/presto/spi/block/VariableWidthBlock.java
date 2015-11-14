@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -97,9 +96,9 @@ public class VariableWidthBlock
         checkValidPositions(positions, positionCount);
 
         int finalLength = positions.stream().mapToInt(this::getLength).sum();
-        SliceOutput newSlice = new DynamicSliceOutput(finalLength);
-        SliceOutput newOffsets = new DynamicSliceOutput(positions.size() * SIZE_OF_INT);
-        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+        SliceOutput newOffsets = Slices.allocate((positions.size() * SIZE_OF_INT) + SIZE_OF_INT).getOutput();
+        SliceOutput newValueIsNull = Slices.allocate(positions.size()).getOutput();
 
         newOffsets.appendInt(0);
         for (int position : positions) {

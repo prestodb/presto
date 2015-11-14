@@ -107,9 +107,9 @@ public class VariableWidthBlockBuilder
         checkValidPositions(positions, this.positions);
 
         int finalLength = positions.stream().mapToInt(this::getLength).sum();
-        SliceOutput newSlice = new DynamicSliceOutput(finalLength);
-        SliceOutput newOffsets = new DynamicSliceOutput(positions.size() * SIZE_OF_INT);
-        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+        SliceOutput newOffsets = Slices.allocate((positions.size() * SIZE_OF_INT) + SIZE_OF_INT).getOutput();
+        SliceOutput newValueIsNull = Slices.allocate(positions.size()).getOutput();
 
         newOffsets.appendInt(0);
         for (int position : positions) {

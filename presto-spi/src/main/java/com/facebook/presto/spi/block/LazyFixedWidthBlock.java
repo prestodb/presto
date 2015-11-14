@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.block;
 
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -98,8 +97,8 @@ public class LazyFixedWidthBlock
         checkValidPositions(positions, positionCount);
 
         assureLoaded();
-        SliceOutput newSlice = new DynamicSliceOutput(positions.size() * fixedSize);
-        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+        SliceOutput newSlice = Slices.allocate(positions.size() * fixedSize).getOutput();
+        SliceOutput newValueIsNull = Slices.allocate(positions.size()).getOutput();
 
         for (int position : positions) {
             newValueIsNull.appendByte(valueIsNull[position] ? 1 : 0);
