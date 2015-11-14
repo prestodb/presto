@@ -84,7 +84,7 @@ public final class SharedLookupSource
     {
         checkState(!freed, "Already freed");
         freed = true;
-        operatorContext.freeTaskContextMemory(lookupSource.getInMemorySizeInBytes());
+        operatorContext.getTaskContext().freeMemory(lookupSource.getInMemorySizeInBytes());
     }
 
     @Override

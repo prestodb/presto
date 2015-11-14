@@ -115,6 +115,11 @@ public class OperatorContext
         return driverContext;
     }
 
+    public TaskContext getTaskContext()
+    {
+        return driverContext.getPipelineContext().getTaskContext();
+    }
+
     public Session getSession()
     {
         return driverContext.getSession();
@@ -284,12 +289,6 @@ public class OperatorContext
         memoryReservation.getAndAdd(-bytes);
     }
 
-    public void freeTaskContextMemory(long bytes)
-    {
-        TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
-        taskContext.freeMemory(bytes);
-    }
-
     public void freeSystemMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -303,15 +302,15 @@ public class OperatorContext
         memoryFuture.get().set(null);
     }
 
-    public void transferMemoryToTaskContext(long newMemoryBytes)
+    public void transferMemoryToTaskContext(long taskBytes)
     {
         long bytes = memoryReservation.getAndSet(0);
         driverContext.transferMemoryToTaskContext(bytes);
 
-        TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
-        if (newMemoryBytes > bytes) {
+        TaskContext taskContext = getTaskContext();
+        if (taskBytes > bytes) {
             try {
-                taskContext.reserveMemory(newMemoryBytes - bytes);
+                taskContext.reserveMemory(taskBytes - bytes);
             }
             catch (ExceededMemoryLimitException e) {
                 taskContext.freeMemory(bytes);
@@ -319,7 +318,7 @@ public class OperatorContext
             }
         }
         else {
-            taskContext.freeMemory(bytes - newMemoryBytes);
+            taskContext.freeMemory(bytes - taskBytes);
         }
     }
 
