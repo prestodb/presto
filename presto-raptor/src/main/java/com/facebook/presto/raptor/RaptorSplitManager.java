@@ -38,7 +38,6 @@ import javax.inject.Inject;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
@@ -51,6 +50,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHAR
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
@@ -94,7 +94,11 @@ public class RaptorSplitManager
         RaptorTableLayoutHandle handle = checkType(layout, RaptorTableLayoutHandle.class, "layout");
         RaptorTableHandle table = handle.getTable();
         TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(handle.getConstraint());
-        return new RaptorSplitSource(table.getTableId(), effectivePredicate, table.getTransactionId());
+        long tableId = table.getTableId();
+        boolean bucketed = table.getBucketCount().isPresent();
+        boolean merged = bucketed && !table.isDelete();
+        OptionalLong transactionId = table.getTransactionId();
+        return new RaptorSplitSource(tableId, bucketed, merged, effectivePredicate, transactionId);
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -133,12 +137,17 @@ public class RaptorSplitManager
         @GuardedBy("this")
         private CompletableFuture<List<ConnectorSplit>> future;
 
-        public RaptorSplitSource(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate, OptionalLong transactionId)
+        public RaptorSplitSource(
+                long tableId,
+                boolean bucketed,
+                boolean merged,
+                TupleDomain<RaptorColumnHandle> effectivePredicate,
+                OptionalLong transactionId)
         {
             this.tableId = tableId;
             this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
             this.transactionId = requireNonNull(transactionId, "transactionId is null");
-            this.iterator = new SynchronizedResultIterator<>(shardManager.getShardNodes(tableId, effectivePredicate));
+            this.iterator = new SynchronizedResultIterator<>(shardManager.getShardNodes(tableId, bucketed, merged, effectivePredicate));
         }
 
         @Override
@@ -190,18 +199,25 @@ public class RaptorSplitManager
 
         private ConnectorSplit createSplit(ShardNodes shard)
         {
-            UUID shardId = shard.getShardUuid();
-            OptionalInt bucketNumber = shard.getBucketNumber();
+            Set<UUID> shardUuids = shard.getShardUuids();
             Collection<String> nodeIds = shard.getNodeIdentifiers();
-
             List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);
+
+            if (shard.getBucketNumber().isPresent()) {
+                int bucketNumber = shard.getBucketNumber().getAsInt();
+                if (addresses.isEmpty()) {
+                    // TODO: reassign
+                    throw new PrestoException(NO_NODES_AVAILABLE, "Reassignment not yet implemented");
+                }
+                return new RaptorSplit(connectorId, shardUuids, bucketNumber, addresses, effectivePredicate, transactionId);
+            }
+
+            verify(shardUuids.size() == 1, "wrong shard count for non-bucketed table: %s", shardUuids.size());
+            UUID shardId = shardUuids.iterator().next();
 
             if (addresses.isEmpty()) {
                 if (!backupAvailable) {
                     throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, format("No host for shard %s found: %s", shardId, nodeIds));
-                }
-                if (bucketNumber.isPresent()) {
-                    throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, "No host for shard of bucketed table");
                 }
 
                 // Pick a random node and optimistically assign the shard to it.
@@ -215,7 +231,7 @@ public class RaptorSplitManager
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
-            return new RaptorSplit(connectorId, shardId, bucketNumber, addresses, effectivePredicate, transactionId);
+            return new RaptorSplit(connectorId, shardId, addresses, effectivePredicate, transactionId);
         }
     }
 }

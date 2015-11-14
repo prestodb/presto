@@ -118,7 +118,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void createTable(long tableId, List<ColumnInfo> columns)
+    public void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed)
     {
         StringJoiner tableColumns = new StringJoiner(",\n  ", "  ", ",\n").setEmptyValue("");
 
@@ -130,15 +130,30 @@ public class DatabaseShardManager
             }
         }
 
-        String sql = "" +
-                "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
-                "  shard_id BIGINT NOT NULL PRIMARY KEY,\n" +
-                "  shard_uuid BINARY(16) NOT NULL,\n" +
-                "  node_ids VARBINARY(128) NOT NULL,\n" +
-                "  bucket_number INT,\n" +
-                tableColumns +
-                "  UNIQUE (shard_uuid)\n" +
-                ")";
+        String sql;
+        if (bucketed) {
+            sql = "" +
+                    "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
+                    "  shard_id BIGINT NOT NULL,\n" +
+                    "  shard_uuid BINARY(16) NOT NULL,\n" +
+                    "  bucket_number INT NOT NULL\n," +
+                    "  node_ids VARBINARY(128) NOT NULL,\n" +
+                    tableColumns +
+                    "  PRIMARY KEY (bucket_number, shard_uuid),\n" +
+                    "  UNIQUE (shard_id),\n" +
+                    "  UNIQUE (shard_uuid)\n" +
+                    ")";
+        }
+        else {
+            sql = "" +
+                    "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
+                    "  shard_id BIGINT NOT NULL PRIMARY KEY,\n" +
+                    "  shard_uuid BINARY(16) NOT NULL,\n" +
+                    "  node_ids VARBINARY(128) NOT NULL,\n" +
+                    tableColumns +
+                    "  UNIQUE (shard_uuid)\n" +
+                    ")";
+        }
 
         try (Handle handle = dbi.open()) {
             handle.execute(sql);
@@ -361,9 +376,9 @@ public class DatabaseShardManager
     }
 
     @Override
-    public ResultIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ResultIterator<ShardNodes> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
-        return new ShardIterator(tableId, effectivePredicate, dbi);
+        return new ShardIterator(tableId, bucketed, merged, effectivePredicate, dbi);
     }
 
     @Override

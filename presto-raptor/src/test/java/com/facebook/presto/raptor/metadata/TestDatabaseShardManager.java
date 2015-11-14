@@ -39,6 +39,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -67,6 +68,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -107,7 +109,7 @@ public class TestDatabaseShardManager
 
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
@@ -123,7 +125,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         List<ShardInfo> shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
 
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.rollbackTransaction(transactionId);
@@ -141,24 +143,23 @@ public class TestDatabaseShardManager
     public void testAssignShard()
     {
         long tableId = createTable("test");
-        OptionalInt bucketNumber = OptionalInt.empty();
         UUID shard = UUID.randomUUID();
         List<ShardInfo> shardNodes = ImmutableList.of(shardInfo(shard, "node1"));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty());
 
         ShardNodes actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, bucketNumber, ImmutableSet.of("node1")));
+        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
 
         shardManager.assignShard(tableId, shard, "node2");
 
         // assign shard to another node
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, bucketNumber, ImmutableSet.of("node1", "node2")));
+        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1", "node2")));
 
         // assigning a shard should be idempotent
         shardManager.assignShard(tableId, shard, "node2");
@@ -167,7 +168,7 @@ public class TestDatabaseShardManager
         shardManager.unassignShard(tableId, shard, "node1");
 
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, bucketNumber, ImmutableSet.of("node2")));
+        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node2")));
 
         // removing an assignment should be idempotent
         shardManager.unassignShard(tableId, shard, "node1");
@@ -186,22 +187,22 @@ public class TestDatabaseShardManager
                 new ShardInfo(shard2, bucketNumber, ImmutableSet.of("node1"), ImmutableList.of(), 5, 55, 555));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty());
 
         assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
-                new ShardNodes(shard1, bucketNumber, ImmutableSet.of("node1")),
-                new ShardNodes(shard2, bucketNumber, ImmutableSet.of("node1"))));
+                new ShardNodes(shard1, ImmutableSet.of("node1")),
+                new ShardNodes(shard2, ImmutableSet.of("node1"))));
 
         assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 88L));
 
         shardManager.assignShard(tableId, shard1, "node2");
 
         assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
-                new ShardNodes(shard1, bucketNumber, ImmutableSet.of("node1", "node2")),
-                new ShardNodes(shard2, bucketNumber, ImmutableSet.of("node1"))));
+                new ShardNodes(shard1, ImmutableSet.of("node1", "node2")),
+                new ShardNodes(shard2, ImmutableSet.of("node1"))));
 
         assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 88L, "node2", 33L));
     }
@@ -222,7 +223,7 @@ public class TestDatabaseShardManager
             inputShards.add(shardInfo(uuid, node));
         }
 
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, inputShards.build(), Optional.empty());
@@ -250,7 +251,7 @@ public class TestDatabaseShardManager
                 .add(shardInfo(originalUuids.get(2), nodes.get(2)))
                 .build();
 
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, oldShards, Optional.empty());
@@ -277,8 +278,11 @@ public class TestDatabaseShardManager
         expectedAllUuids.addAll(expectedUuids);
 
         // check that shards are replaced in index table as well
-        Set<ShardNodes> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, TupleDomain.all()));
-        Set<UUID> actualAllUuids = shardNodes.stream().map(ShardNodes::getShardUuid).collect(toSet());
+        Set<ShardNodes> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, false, false, TupleDomain.all()));
+        Set<UUID> actualAllUuids = shardNodes.stream()
+                .map(ShardNodes::getShardUuids)
+                .flatMap(Collection::stream)
+                .collect(toSet());
         assertEquals(actualAllUuids, expectedAllUuids);
 
         // verify that conflicting updates are handled
@@ -303,7 +307,7 @@ public class TestDatabaseShardManager
         List<ShardInfo> shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId);
@@ -317,6 +321,30 @@ public class TestDatabaseShardManager
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testEmptyTable()
+    {
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        shardManager.createTable(tableId, columns, false);
+
+        try (ResultIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, false, false, TupleDomain.all())) {
+            assertFalse(iterator.hasNext());
+        }
+    }
+
+    @Test
+    public void testEmptyTableBucketed()
+    {
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        shardManager.createTable(tableId, columns, true);
+
+        try (ResultIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, true, true, TupleDomain.all())) {
+            assertFalse(iterator.hasNext());
         }
     }
 
@@ -384,7 +412,7 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c6 = new RaptorColumnHandle("raptor", "c6", 6, BOOLEAN);
 
         long tableId = createTable("test");
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
@@ -466,7 +494,7 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, VARCHAR);
 
         long tableId = createTable("test");
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
@@ -502,7 +530,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, BIGINT);
 
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
@@ -513,7 +541,7 @@ public class TestDatabaseShardManager
 
     private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
     {
-        try (ResultIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, predicate)) {
+        try (ResultIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, false, false, predicate)) {
             return ImmutableSet.copyOf(iterator);
         }
     }
@@ -536,7 +564,7 @@ public class TestDatabaseShardManager
     private static Set<ShardNodes> toShardNodes(List<ShardInfo> shards)
     {
         return shards.stream()
-                .map(shard -> new ShardNodes(shard.getShardUuid(), shard.getBucketNumber(), shard.getNodeIdentifiers()))
+                .map(shard -> new ShardNodes(shard.getShardUuid(), shard.getNodeIdentifiers()))
                 .collect(toSet());
     }
 

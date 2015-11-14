@@ -166,7 +166,8 @@ public class RaptorMetadata
                 table.getDistributionId(),
                 table.getBucketCount(),
                 OptionalLong.empty(),
-                Optional.ofNullable(sampleWeightColumnHandle));
+                Optional.ofNullable(sampleWeightColumnHandle),
+                false);
     }
 
     @Override
@@ -571,7 +572,7 @@ public class RaptorMetadata
         List<ColumnInfo> columns = table.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
 
         // TODO: refactor this to avoid creating an empty table on failure
-        shardManager.createTable(newTableId, columns);
+        shardManager.createTable(newTableId, columns, table.getBucketCount().isPresent());
         shardManager.commitShards(transactionId, newTableId, columns, parseFragments(fragments), Optional.empty());
 
         clearRollback();
@@ -660,7 +661,8 @@ public class RaptorMetadata
                 handle.getDistributionId(),
                 handle.getBucketCount(),
                 OptionalLong.of(transactionId),
-                handle.getSampleWeightColumnHandle());
+                handle.getSampleWeightColumnHandle(),
+                true);
     }
 
     @Override
