@@ -32,3 +32,4 @@ Hive Changes
   data outside the current region.
 * Server-side encryption is now supported for S3. To enable this feature,
   use ``hive.s3.sse.enabled=true`` in your Hive catalog properties file.
+* Add hive table property ``retention_days``.
