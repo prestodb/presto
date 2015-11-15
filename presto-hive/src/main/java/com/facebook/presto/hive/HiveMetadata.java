@@ -93,6 +93,7 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
+import static com.facebook.presto.hive.HiveTableProperties.getRetentionDays;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
@@ -400,7 +401,8 @@ public class HiveMetadata
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        createTable(session, schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy);
+        Optional<Integer> retentionDays = getRetentionDays(tableMetadata.getProperties());
+        createTable(session, schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, retentionDays);
     }
 
     public void createTable(
@@ -410,12 +412,13 @@ public class HiveMetadata
             String tableOwner,
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
-            List<String> partitionedBy)
+            List<String> partitionedBy,
+            Optional<Integer> retentionDays)
     {
         LocationHandle locationHandle = locationService.forNewTable(session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(hdfsEnvironment, targetPath);
-        createTable(schemaName, tableName, tableOwner, columnHandles, hiveStorageFormat, partitionedBy, targetPath);
+        createTable(schemaName, tableName, tableOwner, columnHandles, hiveStorageFormat, partitionedBy, retentionDays, targetPath);
     }
 
     private Table createTable(
@@ -425,6 +428,7 @@ public class HiveMetadata
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
             List<String> partitionedBy,
+            Optional<Integer> retentionDays,
             Path targetPath)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
@@ -478,6 +482,9 @@ public class HiveMetadata
         table.setParameters(ImmutableMap.of("comment", tableComment));
         table.setPartitionKeys(partitionColumns);
         table.setSd(sd);
+        if (retentionDays.isPresent()) {
+            table.setRetention(retentionDays.get());
+        }
 
         PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, tableOwner, PrincipalType.USER, true);
         table.setPrivileges(new PrincipalPrivilegeSet(
@@ -963,6 +970,7 @@ public class HiveMetadata
 
     /**
      * Attempts to remove the file or empty directory.
+     *
      * @return true if the location no longer exists
      */
     public boolean deleteIfExists(String location)
@@ -982,6 +990,7 @@ public class HiveMetadata
 
     /**
      * Attempts to remove the file or empty directory.
+     *
      * @return true if the location no longer exists
      */
     private static boolean deleteIfExists(FileSystem fileSystem, Path path)
@@ -1007,6 +1016,7 @@ public class HiveMetadata
 
     /**
      * Attempt to remove the {@code fileNames} files within {@code location}.
+     *
      * @return the files that could not be removed
      */
     private List<String> deleteFilesFrom(String location, List<String> fileNames)
@@ -1032,6 +1042,7 @@ public class HiveMetadata
 
     /**
      * Attempt to remove all files in all directories within {@code location} that start with the {@code filePrefix}.
+     *
      * @return the files starting with the {@code filePrefix} that could not be removed
      */
     private List<String> recursiveDeleteFilesStartingWith(String location, String filePrefix)
@@ -1050,6 +1061,7 @@ public class HiveMetadata
 
     /**
      * Attempt to remove all files in all directories within {@code location} that start with the {@code filePrefix}.
+     *
      * @return the files starting with the {@code filePrefix} that could not be removed
      */
     private static List<String> recursiveDeleteFilesStartingWith(FileSystem fileSystem, Path directory, String filePrefix)
