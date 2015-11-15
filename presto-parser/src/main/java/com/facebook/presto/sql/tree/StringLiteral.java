@@ -15,6 +15,7 @@ package com.facebook.presto.sql.tree;
 
 import io.airlift.slice.Slice;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -71,12 +72,7 @@ public class StringLiteral
         }
 
         StringLiteral that = (StringLiteral) o;
-
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value);
     }
 
     @Override

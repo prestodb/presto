@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -104,35 +105,19 @@ public class Join
         if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((o == null) || (getClass() != o.getClass())) {
             return false;
         }
-
         Join join = (Join) o;
-
-        if (criteria != null ? !criteria.equals(join.criteria) : join.criteria != null) {
-            return false;
-        }
-        if (!left.equals(join.left)) {
-            return false;
-        }
-        if (!right.equals(join.right)) {
-            return false;
-        }
-        if (type != join.type) {
-            return false;
-        }
-
-        return true;
+        return (type == join.type) &&
+                Objects.equals(left, join.left) &&
+                Objects.equals(right, join.right) &&
+                Objects.equals(criteria, join.criteria);
     }
 
     @Override
     public int hashCode()
     {
-        int result = type != null ? type.hashCode() : 0;
-        result = 31 * result + left.hashCode();
-        result = 31 * result + right.hashCode();
-        result = 31 * result + (criteria != null ? criteria.hashCode() : 0);
-        return result;
+        return Objects.hash(type, left, right, criteria);
     }
 }

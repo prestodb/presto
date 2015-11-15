@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -68,22 +69,13 @@ public class NullIfExpression
         }
 
         NullIfExpression that = (NullIfExpression) o;
-
-        if (!first.equals(that.first)) {
-            return false;
-        }
-        if (!second.equals(that.second)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(first, that.first) &&
+                Objects.equals(second, that.second);
     }
 
     @Override
     public int hashCode()
     {
-        int result = first.hashCode();
-        result = 31 * result + second.hashCode();
-        return result;
+        return Objects.hash(first, second);
     }
 }

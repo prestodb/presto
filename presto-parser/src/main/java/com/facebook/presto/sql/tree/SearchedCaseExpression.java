@@ -16,6 +16,7 @@ package com.facebook.presto.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -72,22 +73,13 @@ public class SearchedCaseExpression
         }
 
         SearchedCaseExpression that = (SearchedCaseExpression) o;
-
-        if (defaultValue != null ? !defaultValue.equals(that.defaultValue) : that.defaultValue != null) {
-            return false;
-        }
-        if (!whenClauses.equals(that.whenClauses)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(whenClauses, that.whenClauses) &&
+                Objects.equals(defaultValue, that.defaultValue);
     }
 
     @Override
     public int hashCode()
     {
-        int result = whenClauses.hashCode();
-        result = 31 * result + (defaultValue != null ? defaultValue.hashCode() : 0);
-        return result;
+        return Objects.hash(whenClauses, defaultValue);
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -68,12 +69,7 @@ public class Table
         }
 
         Table table = (Table) o;
-
-        if (!name.equals(table.name)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(name, table.name);
     }
 
     @Override

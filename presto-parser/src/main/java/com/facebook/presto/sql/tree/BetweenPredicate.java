@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -78,26 +79,14 @@ public class BetweenPredicate
         }
 
         BetweenPredicate that = (BetweenPredicate) o;
-
-        if (!max.equals(that.max)) {
-            return false;
-        }
-        if (!min.equals(that.min)) {
-            return false;
-        }
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value) &&
+                Objects.equals(min, that.min) &&
+                Objects.equals(max, that.max);
     }
 
     @Override
     public int hashCode()
     {
-        int result = value.hashCode();
-        result = 31 * result + min.hashCode();
-        result = 31 * result + max.hashCode();
-        return result;
+        return Objects.hash(value, min, max);
     }
 }
