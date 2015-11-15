@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -77,26 +78,14 @@ public class LikePredicate
         }
 
         LikePredicate that = (LikePredicate) o;
-
-        if (escape != null ? !escape.equals(that.escape) : that.escape != null) {
-            return false;
-        }
-        if (!pattern.equals(that.pattern)) {
-            return false;
-        }
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value) &&
+                Objects.equals(pattern, that.pattern) &&
+                Objects.equals(escape, that.escape);
     }
 
     @Override
     public int hashCode()
     {
-        int result = value.hashCode();
-        result = 31 * result + pattern.hashCode();
-        result = 31 * result + (escape != null ? escape.hashCode() : 0);
-        return result;
+        return Objects.hash(value, pattern, escape);
     }
 }

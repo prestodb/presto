@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 public class WhenClause
@@ -65,22 +66,13 @@ public class WhenClause
         }
 
         WhenClause that = (WhenClause) o;
-
-        if (!operand.equals(that.operand)) {
-            return false;
-        }
-        if (!result.equals(that.result)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(operand, that.operand) &&
+                Objects.equals(result, that.result);
     }
 
     @Override
     public int hashCode()
     {
-        int result1 = operand.hashCode();
-        result1 = 31 * result1 + result.hashCode();
-        return result1;
+        return Objects.hash(operand, result);
     }
 }
