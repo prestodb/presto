@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorTableLayout
@@ -30,6 +31,16 @@ public class ConnectorTableLayout
     private final Optional<List<TupleDomain<ColumnHandle>>> discretePredicates;
     private final Optional<Set<ColumnHandle>> partitioningColumns;
     private final List<LocalProperty<ColumnHandle>> localProperties;
+
+    public ConnectorTableLayout(ConnectorTableLayoutHandle handle)
+    {
+        this(handle,
+                Optional.empty(),
+                TupleDomain.all(),
+                Optional.empty(),
+                Optional.empty(),
+                emptyList());
+    }
 
     public ConnectorTableLayout(
             ConnectorTableLayoutHandle handle,
