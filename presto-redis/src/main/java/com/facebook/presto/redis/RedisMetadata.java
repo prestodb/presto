@@ -24,11 +24,9 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -137,16 +135,7 @@ public class RedisMetadata
     {
         RedisTableHandle tableHandle = handleResolver.convertTableHandle(table);
 
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
-        List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
-
-        ConnectorTableLayout layout = new ConnectorTableLayout(
-                new RedisTableLayoutHandle(tableHandle),
-                Optional.<List<ColumnHandle>>empty(),
-                TupleDomain.<ColumnHandle>all(),
-                partitioningColumns,
-                Optional.empty(),
-                localProperties);
+        ConnectorTableLayout layout = new ConnectorTableLayout(new RedisTableLayoutHandle(tableHandle));
 
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }

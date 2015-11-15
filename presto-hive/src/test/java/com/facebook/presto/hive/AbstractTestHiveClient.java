@@ -405,13 +405,7 @@ public abstract class AbstractTestHiveClient
                 )),
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.<HiveColumnHandle>all()));
-        unpartitionedTableLayout = new ConnectorTableLayout(
-                new HiveTableLayoutHandle(clientId, unpartitionedPartitions, TupleDomain.all()),
-                Optional.empty(),
-                TupleDomain.all(),
-                Optional.empty(),
-                Optional.of(ImmutableList.of(TupleDomain.all())),
-                ImmutableList.of());
+        unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(clientId, unpartitionedPartitions, TupleDomain.all()));
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
