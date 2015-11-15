@@ -18,19 +18,10 @@ import java.util.Optional;
 public abstract class QueryBody
         extends Relation
 {
-    public QueryBody(Optional<NodeLocation> location)
+    protected QueryBody(Optional<NodeLocation> location)
     {
         super(location);
     }
-
-    @Override
-    public abstract int hashCode();
-
-    @Override
-    public abstract boolean equals(Object obj);
-
-    @Override
-    public abstract String toString();
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)

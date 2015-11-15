@@ -18,7 +18,7 @@ import java.util.Optional;
 public abstract class SetOperation
         extends QueryBody
 {
-    public SetOperation(Optional<NodeLocation> location)
+    protected SetOperation(Optional<NodeLocation> location)
     {
         super(location);
     }

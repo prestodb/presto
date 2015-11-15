@@ -18,7 +18,7 @@ import java.util.Optional;
 public abstract class SelectItem
         extends Node
 {
-    public SelectItem(Optional<NodeLocation> location)
+    protected SelectItem(Optional<NodeLocation> location)
     {
         super(location);
     }

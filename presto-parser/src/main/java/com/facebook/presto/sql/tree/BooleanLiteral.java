@@ -74,7 +74,7 @@ public class BooleanLiteral
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final BooleanLiteral other = (BooleanLiteral) obj;
+        BooleanLiteral other = (BooleanLiteral) obj;
         return Objects.equals(this.value, other.value);
     }
 }

@@ -18,7 +18,7 @@ import java.util.Optional;
 public abstract class Literal
         extends Expression
 {
-    public Literal(Optional<NodeLocation> location)
+    protected Literal(Optional<NodeLocation> location)
     {
         super(location);
     }
