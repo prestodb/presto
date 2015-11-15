@@ -18,7 +18,7 @@ import java.util.Optional;
 public abstract class ExplainOption
         extends Node
 {
-    public ExplainOption(Optional<NodeLocation> location)
+    protected ExplainOption(Optional<NodeLocation> location)
     {
         super(location);
     }

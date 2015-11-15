@@ -14,13 +14,13 @@
 package com.facebook.presto.sql.parser;
 
 import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.IntStream;
 import org.antlr.v4.runtime.misc.Interval;
-import org.antlr.v4.runtime.misc.NotNull;
 
 class CaseInsensitiveStream
         implements CharStream
 {
-    private CharStream stream;
+    private final CharStream stream;
 
     public CaseInsensitiveStream(CharStream stream)
     {
@@ -28,8 +28,7 @@ class CaseInsensitiveStream
     }
 
     @Override
-    @NotNull
-    public String getText(@NotNull Interval interval)
+    public String getText(Interval interval)
     {
         return stream.getText(interval);
     }
@@ -47,7 +46,7 @@ class CaseInsensitiveStream
 
         switch (result) {
             case 0:
-            case CharStream.EOF:
+            case IntStream.EOF:
                 return result;
             default:
                 return Character.toUpperCase(result);
@@ -85,7 +84,6 @@ class CaseInsensitiveStream
     }
 
     @Override
-    @NotNull
     public String getSourceName()
     {
         return stream.getSourceName();

@@ -40,6 +40,7 @@ public final class ExpressionTreeRewriter<C>
         this.visitor = new RewritingVisitor();
     }
 
+    @SuppressWarnings("unchecked")
     public <T extends Expression> T rewrite(T node, C context)
     {
         return (T) visitor.process(node, new Context<>(context, false));
@@ -48,6 +49,7 @@ public final class ExpressionTreeRewriter<C>
     /**
      * Invoke the default rewrite logic explicitly. Specifically, it skips the invocation of the expression rewriter for the provided node.
      */
+    @SuppressWarnings("unchecked")
     public <T extends Expression> T defaultRewrite(T node, C context)
     {
         return (T) visitor.process(node, new Context<>(context, true));

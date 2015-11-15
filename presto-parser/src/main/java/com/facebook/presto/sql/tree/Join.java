@@ -38,7 +38,7 @@ public class Join
         super(location);
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
-        if (type.equals(Type.CROSS) || type.equals(Type.IMPLICIT)) {
+        if ((type == Type.CROSS) || (type == Type.IMPLICIT)) {
             checkArgument(!criteria.isPresent(), "%s join cannot have join criteria", type);
         }
         else {

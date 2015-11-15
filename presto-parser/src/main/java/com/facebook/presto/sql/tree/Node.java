@@ -19,9 +19,9 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class Node
 {
-    private Optional<NodeLocation> location;
+    private final Optional<NodeLocation> location;
 
-    public Node(Optional<NodeLocation> location)
+    protected Node(Optional<NodeLocation> location)
     {
         this.location = requireNonNull(location, "location is null");
     }

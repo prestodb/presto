@@ -20,7 +20,7 @@ import java.util.Optional;
 public abstract class Expression
         extends Node
 {
-    public Expression(Optional<NodeLocation> location)
+    protected Expression(Optional<NodeLocation> location)
     {
         super(location);
     }
