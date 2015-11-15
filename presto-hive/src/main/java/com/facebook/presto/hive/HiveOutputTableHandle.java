@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,6 +29,7 @@ public class HiveOutputTableHandle
 {
     private final List<String> partitionedBy;
     private final String tableOwner;
+    private final Optional<Integer> retentionDays;
 
     @JsonCreator
     public HiveOutputTableHandle(
@@ -39,7 +41,8 @@ public class HiveOutputTableHandle
             @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat,
             @JsonProperty("partitionedBy") List<String> partitionedBy,
-            @JsonProperty("tableOwner") String tableOwner)
+            @JsonProperty("tableOwner") String tableOwner,
+            @JsonProperty("retentionDays") Optional<Integer> retentionDays)
     {
         super(
                 clientId,
@@ -52,6 +55,7 @@ public class HiveOutputTableHandle
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
+        this.retentionDays = retentionDays;
     }
 
     @JsonProperty
@@ -64,5 +68,11 @@ public class HiveOutputTableHandle
     public String getTableOwner()
     {
         return tableOwner;
+    }
+
+    @JsonProperty
+    public Optional<Integer> getRetentionDays()
+    {
+        return retentionDays;
     }
 }
