@@ -89,6 +89,7 @@ public class BackgroundHiveSplitLoader
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<HiveFileIterator> fileIterators = new ConcurrentLinkedDeque<>();
     private final AtomicInteger remainingInitialSplits;
+    private final boolean ignoreMissingData;
 
     // Purpose of this lock:
     // * When write lock is acquired, except the holder, no one can do any of the following:
@@ -136,6 +137,7 @@ public class BackgroundHiveSplitLoader
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
+        this.ignoreMissingData = hdfsEnvironment.isIgnoreMissingData();
     }
 
     @Override
@@ -228,7 +230,8 @@ public class BackgroundHiveSplitLoader
                             files.getInputFormat(),
                             files.getSchema(),
                             files.getPartitionKeys(),
-                            files.getEffectivePredicate());
+                            files.getEffectivePredicate(),
+                            ignoreMissingData);
                     fileIterators.add(fileIterator);
                 }
             }
@@ -306,7 +309,7 @@ public class BackgroundHiveSplitLoader
 
         // If only one bucket could match: load that one file
         FileSystem fs = hdfsEnvironment.getFileSystem(path);
-        HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate);
+        HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate, ignoreMissingData);
         if (bucket.isPresent()) {
             List<LocatedFileStatus> locatedFileStatuses = listAndSortBucketFiles(iterator, bucket.get().getBucketCount());
             FileStatus file = locatedFileStatuses.get(bucket.get().getBucketNumber());

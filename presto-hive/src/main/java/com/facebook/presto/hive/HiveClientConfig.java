@@ -65,6 +65,7 @@ public class HiveClientConfig
     private boolean allowDropTable;
     private boolean allowRenameTable;
     private boolean allowRenameColumn;
+    private boolean ignoreMissingData;
 
     private boolean allowCorruptWritesForTesting;
 
@@ -872,6 +873,19 @@ public class HiveClientConfig
     public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public boolean isIgnoreMissingData()
+    {
+        return ignoreMissingData;
+    }
+
+    @Config("hive.ignore-missing-data")
+    @ConfigDescription("Ignore missing data files / directories")
+    public HiveClientConfig setIgnoreMissingData(boolean ignoreMissingData)
+    {
+        this.ignoreMissingData = ignoreMissingData;
         return this;
     }
 }

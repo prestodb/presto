@@ -79,6 +79,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -95,6 +96,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -251,6 +253,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName temporaryRenameTableOld;
     protected SchemaTableName temporaryRenameTableNew;
     protected SchemaTableName temporaryCreateView;
+    protected SchemaTableName temporaryIgnoreMissingData;
 
     protected String invalidClientId;
     protected ConnectorTableHandle invalidTableHandle;
@@ -262,6 +265,7 @@ public abstract class AbstractTestHiveClient
     protected ColumnHandle invalidColumnHandle;
 
     protected int partitionCount;
+    protected int maxOutstandingSplits;
     protected TupleDomain<ColumnHandle> tupleDomain;
     protected ConnectorTableLayout tableLayout;
     protected ConnectorTableLayout unpartitionedTableLayout;
@@ -270,6 +274,7 @@ public abstract class AbstractTestHiveClient
 
     protected DateTimeZone timeZone;
 
+    protected HiveClientConfig hiveClientConfig;
     protected HdfsEnvironment hdfsEnvironment;
     protected LocationService locationService;
 
@@ -328,6 +333,7 @@ public abstract class AbstractTestHiveClient
         temporaryRenameTableOld = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
+        temporaryIgnoreMissingData = new SchemaTableName(database, "tmp_presto_test_ignore_missing_data_" + randomName());
 
         invalidClientId = "hive";
         invalidTableHandle = new HiveTableHandle(invalidClientId, database, INVALID_TABLE);
@@ -428,9 +434,10 @@ public abstract class AbstractTestHiveClient
 
     protected final void setup(String host, int port, String databaseName, String timeZoneId, String connectorName, int maxOutstandingSplits, int maxThreads)
     {
+        this.maxOutstandingSplits = maxOutstandingSplits;
         setupHive(connectorName, databaseName, timeZoneId);
 
-        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        hiveClientConfig = new HiveClientConfig();
         hiveClientConfig.setTimeZone(timeZoneId);
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
@@ -1454,6 +1461,48 @@ public abstract class AbstractTestHiveClient
         }
     }
 
+    @Test
+    public void testIgnoreMissingData()
+            throws Exception
+    {
+        hiveClientConfig.setIgnoreMissingData(true);
+        ConnectorSplitManager orgSplitManager = splitManager;
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
+        splitManager = new HiveSplitManager(
+                new HiveConnectorId(clientId),
+                metastoreClient,
+                new NamenodeStats(),
+                new HdfsEnvironment(hdfsConfiguration, hiveClientConfig),
+                new HadoopDirectoryLister(),
+                newDirectExecutorService(),
+                maxOutstandingSplits,
+                hiveClientConfig.getMinPartitionBatchSize(),
+                hiveClientConfig.getMaxPartitionBatchSize(),
+                hiveClientConfig.getMaxInitialSplits(),
+                false
+        );
+
+        try {
+            doInsertPartitionsAndDeleteHdfs(HiveStorageFormat.TEXTFILE, temporaryIgnoreMissingData);
+        }
+        finally {
+            dropTable(temporaryIgnoreMissingData);
+        }
+
+        hiveClientConfig.setIgnoreMissingData(false);
+        splitManager = orgSplitManager;
+
+        try {
+            doInsertPartitionsAndDeleteHdfs(HiveStorageFormat.TEXTFILE, temporaryIgnoreMissingData);
+        }
+        catch (PrestoException e) {
+            // eat exception, as this exception is intended here.
+        }
+        finally {
+            dropTable(temporaryIgnoreMissingData);
+        }
+    }
+
     private void createDummyTable(SchemaTableName tableName)
     {
         ConnectorSession session = newSession();
@@ -1997,6 +2046,58 @@ public abstract class AbstractTestHiveClient
 
         // verify temp directory is empty
         assertTrue(listAllDataFiles(insertTableHandle).isEmpty());
+    }
+
+    private void doInsertPartitionsAndDeleteHdfs(HiveStorageFormat storageFormat, SchemaTableName tableName)
+            throws Exception
+    {
+        // creating the table
+        doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
+
+        ConnectorMetadata metadata = newMetadata();
+        ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+
+        // insert the data
+        insertData(tableHandle, CREATE_TABLE_PARTITIONED_DATA, newSession());
+
+        // verify partitions were created
+        List<String> partitionNames = getMetastoreClient(tableName.getSchemaName()).getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new PrestoException(HIVE_METASTORE_ERROR, "Partition metadata not available"));
+        assertEqualsIgnoreOrder(partitionNames, CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
+                .map(row -> "ds=" + row.getField(CREATE_TABLE_PARTITIONED_DATA.getTypes().size() - 1))
+                .collect(toList()));
+
+        // load the new table
+        ConnectorSession session = newSession();
+        metadata = newMetadata();
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
+
+        // verify the data
+        MaterializedResult result = readTable(tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+        assertEqualsIgnoreOrder(result.getMaterializedRows(), CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows());
+
+        // remove a partition directory
+        List<String> paths = listAllDataPaths(
+                getMetastoreClient(tableName.getSchemaName()),
+                tableName.getSchemaName(), tableName.getTableName());
+        // expecting one path, which is table's top level directory
+        assertEquals(paths.size(), 1);
+
+        String aPartition = "ds=" + CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().
+                get(0).getField(CREATE_TABLE_PARTITIONED_DATA.getTypes().size() - 1).toString();
+
+        // delete hdfs directory of a partition
+        Configuration conf = new Configuration();
+        conf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
+        conf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+        FileSystem hdfs = FileSystem.get(URI.create(paths.get(0)), conf);
+        hdfs.delete(new Path(paths.get(0), aPartition), true);
+
+        // read the data : exception should occur if when ignore-missing-data == false
+        result = readTable(tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+
+        // if ignore-missing-data == true, one row should be missing
+        assertEquals(result.getMaterializedRows().size(), CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().size() - 1);
     }
 
     private void insertData(ConnectorTableHandle tableHandle, MaterializedResult data, ConnectorSession session)

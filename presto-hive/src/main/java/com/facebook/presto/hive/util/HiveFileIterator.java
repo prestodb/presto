@@ -48,7 +48,7 @@ public class HiveFileIterator
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
-
+    private final boolean ignoreMissingData;
     private RemoteIterator<LocatedFileStatus> remoteIterator;
 
     public HiveFileIterator(
@@ -60,7 +60,8 @@ public class HiveFileIterator
             InputFormat<?, ?> inputFormat,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate)
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            boolean ignoreMissingData)
     {
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
@@ -71,6 +72,7 @@ public class HiveFileIterator
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
+        this.ignoreMissingData = ignoreMissingData;
     }
 
     @Override
@@ -94,6 +96,10 @@ public class HiveFileIterator
             return endOfData();
         }
         catch (FileNotFoundException e) {
+            if (ignoreMissingData) {
+                return endOfData();
+            }
+
             throw new PrestoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path);
         }
         catch (IOException e) {
