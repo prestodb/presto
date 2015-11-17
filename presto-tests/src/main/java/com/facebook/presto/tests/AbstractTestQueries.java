@@ -4897,7 +4897,7 @@ public abstract class AbstractTestQueries
         computeActual("SELECT greatest(rgb(255, 0, 0))");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:10: Operator NOT_EQUAL(bigint, varchar) not registered\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:10: '<>' cannot be applied to bigint, varchar\\E")
     public void testTypeMismatch()
     {
         computeActual("SELECT 1 <> 'x'");
@@ -4909,10 +4909,16 @@ public abstract class AbstractTestQueries
         computeActual("SELECT CAST(null AS array<foo>)");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: Operator ADD(varchar, bigint) not registered\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar, bigint\\E")
     public void testInvalidTypeInfixOperator()
     {
         computeActual("SELECT ('a' || 'z') + (3 * 4) / 5");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:12: Cannot check if varchar is BETWEEN bigint and varchar\\E")
+    public void testInvalidTypeBetweenOperator()
+    {
+        computeActual("SELECT 'a' BETWEEN 3 AND 'z'");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: All ARRAY elements must be the same type: bigint\\E")

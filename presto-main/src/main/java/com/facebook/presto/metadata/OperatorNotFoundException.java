@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static java.lang.String.format;
@@ -32,7 +33,7 @@ public class OperatorNotFoundException extends PrestoException
 
     public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes)
     {
-        super(OPERATOR_NOT_FOUND, format("Operator %s(%s) not registered", operatorType, Joiner.on(", ").join(argumentTypes)));
+        super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.empty()));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.returnType = null;
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
@@ -40,10 +41,25 @@ public class OperatorNotFoundException extends PrestoException
 
     public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes, TypeSignature returnType)
     {
-        super(OPERATOR_NOT_FOUND, format("Operator %s(%s):%s not registered", operatorType, Joiner.on(", ").join(argumentTypes), returnType));
+        super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.of(returnType)));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.returnType = requireNonNull(returnType, "returnType is null");
+    }
+
+    private static String formatErrorMessage(OperatorType operatorType, List<? extends TypeSignature> argumentTypes, Optional<TypeSignature> returnType)
+    {
+        String operatorString;
+        switch (operatorType) {
+            case BETWEEN:
+                return format("Cannot check if %s is BETWEEN %s and %s", argumentTypes.get(0), argumentTypes.get(1), argumentTypes.get(2));
+            case CAST:
+                operatorString = format("%s%s", operatorType.getOperator(), returnType.map(value -> " to " + value).orElse(""));
+                break;
+            default:
+                operatorString = format("'%s'%s", operatorType.getOperator(), returnType.map(value -> ":" + value).orElse(""));
+        }
+        return format("%s cannot be applied to %s", operatorString,  Joiner.on(", ").join(argumentTypes));
     }
 
     public OperatorType getOperatorType()
