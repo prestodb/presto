@@ -49,6 +49,7 @@ public class UnnestNode
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.replicateSymbols = ImmutableList.copyOf(requireNonNull(replicateSymbols, "replicateSymbols is null"));
+        checkArgument(source.getOutputSymbols().containsAll(replicateSymbols), "Source does not contain all replicateSymbols");
         requireNonNull(unnestSymbols, "unnestSymbols is null");
         checkArgument(!unnestSymbols.isEmpty(), "unnestSymbols is empty");
         ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
