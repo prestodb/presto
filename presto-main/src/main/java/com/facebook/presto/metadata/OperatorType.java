@@ -158,11 +158,11 @@ public enum OperatorType
                     checkArgument(argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY) || argumentTypes.get(0).getBase().equals(StandardTypes.MAP), "First argument must be an ARRAY or MAP");
                     if (argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY)) {
                         checkArgument(argumentTypes.get(1).getBase().equals(StandardTypes.BIGINT), "Second argument must be a BIGINT");
-                        TypeSignature elementType = argumentTypes.get(0).getParameters().get(0);
+                        TypeSignature elementType = argumentTypes.get(0).getTypeParametersAsTypeSignatures().get(0);
                         checkArgument(returnType.equals(elementType), "[] return type does not match ARRAY element type");
                     }
                     else {
-                        TypeSignature valueType = argumentTypes.get(0).getParameters().get(1);
+                        TypeSignature valueType = argumentTypes.get(0).getTypeParametersAsTypeSignatures().get(1);
                         checkArgument(returnType.equals(valueType), "[] return type does not match MAP value type");
                     }
                 }
