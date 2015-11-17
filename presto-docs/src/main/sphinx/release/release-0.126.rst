@@ -31,6 +31,7 @@ General Changes
 * In ``ExchangeClient`` set ``maxResponseSize`` to be slightly smaller than
   the configured value. This reduces the possibility of encountering
   ``PageTooLargeException``.
+* Fix memory leak in coordinator.
 
 Hive Changes
 ------------
@@ -40,3 +41,4 @@ Hive Changes
   would write the wrong date (off by one day).
 * Fix an issue where ``VARCHAR`` columns added to an existing table could not be
   queried.
+* Fix over-creation of initial splits.
