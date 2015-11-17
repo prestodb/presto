@@ -69,7 +69,7 @@ import static java.util.Objects.requireNonNull;
 public class MaterializedResult
         implements Iterable<MaterializedRow>
 {
-    public static final int DEFAULT_PRECISION = 5;
+    public static final int DEFAULT_PRECISION = 4;
 
     private final List<MaterializedRow> rows;
     private final List<Type> types;

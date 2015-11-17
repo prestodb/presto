@@ -23,6 +23,8 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupBySpecification;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -35,6 +37,7 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -47,6 +50,7 @@ import com.google.common.base.Strings;
 
 import java.io.PrintStream;
 import java.util.IdentityHashMap;
+import java.util.List;
 
 public class TreePrinter
 {
@@ -115,9 +119,23 @@ public class TreePrinter
                 }
 
                 if (!node.getGroupBy().isEmpty()) {
-                    print(indentLevel, "GroupBy");
-                    for (Expression expression : node.getGroupBy()) {
-                        process(expression, indentLevel + 1);
+                    for (GroupBySpecification groupBySpecification : node.getGroupBy()) {
+                        print(indentLevel, "GroupBy");
+                        if (groupBySpecification instanceof SimpleGroupBy) {
+                            for (Expression column : groupBySpecification.enumerateGroupingSets().get(0)) {
+                                process(column, indentLevel + 1);
+                            }
+                        }
+                        else if (groupBySpecification instanceof GroupingSets) {
+                            print(indentLevel + 1, "GroupingSets");
+                            for (List<Expression> column : groupBySpecification.enumerateGroupingSets()) {
+                                print(indentLevel + 2, "GroupingSet[");
+                                for (Expression expression : column) {
+                                    process(expression, indentLevel + 3);
+                                }
+                                print(indentLevel + 2, "]");
+                            }
+                        }
                     }
                 }
 

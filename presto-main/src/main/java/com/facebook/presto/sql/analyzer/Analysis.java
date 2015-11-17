@@ -59,7 +59,7 @@ public class Analysis
     private final IdentityHashMap<Expression, Integer> resolvedNames = new IdentityHashMap<>();
 
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> aggregates = new IdentityHashMap<>();
-    private final IdentityHashMap<QuerySpecification, List<FieldOrExpression>> groupByExpressions = new IdentityHashMap<>();
+    private final IdentityHashMap<QuerySpecification, List<List<FieldOrExpression>>> groupByExpressions = new IdentityHashMap<>();
     private final IdentityHashMap<Node, Expression> where = new IdentityHashMap<>();
     private final IdentityHashMap<QuerySpecification, Expression> having = new IdentityHashMap<>();
     private final IdentityHashMap<Node, List<FieldOrExpression>> orderByExpressions = new IdentityHashMap<>();
@@ -172,12 +172,12 @@ public class Analysis
         return coercions.get(expression);
     }
 
-    public void setGroupByExpressions(QuerySpecification node, List<FieldOrExpression> expressions)
+    public void setGroupingSets(QuerySpecification node, List<List<FieldOrExpression>> expressions)
     {
         groupByExpressions.put(node, expressions);
     }
 
-    public List<FieldOrExpression> getGroupByExpressions(QuerySpecification node)
+    public List<List<FieldOrExpression>> getGroupingSets(QuerySpecification node)
     {
         return groupByExpressions.get(node);
     }
