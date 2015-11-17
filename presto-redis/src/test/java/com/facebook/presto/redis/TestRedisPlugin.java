@@ -20,6 +20,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeParameterSignature;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,6 +69,12 @@ public class TestRedisPlugin
     {
         @Override
         public Type getType(TypeSignature signature)
+        {
+            return null;
+        }
+
+        @Override
+        public Type getParameterizedType(String baseTypeName, List<TypeParameterSignature> typeParameters)
         {
             return null;
         }

@@ -1041,7 +1041,7 @@ class AstBuilder
     @Override
     public Node visitTypeConstructor(SqlBaseParser.TypeConstructorContext context)
     {
-        String type = context.identifier().getText();
+        String type = getType(context.type());
         String value = unquote(context.STRING().getText());
 
         if (type.equalsIgnoreCase("time")) {
@@ -1346,8 +1346,17 @@ class AstBuilder
 
     private static String getType(SqlBaseParser.TypeContext type)
     {
-        if (type.simpleType() != null) {
-            return type.simpleType().getText();
+        if (type.parametrizedType() != null) {
+            String signature = type.parametrizedType().getText();
+            if (!type.typeParameter().isEmpty()) {
+                String typeParamterSignature = type
+                        .typeParameter()
+                        .stream()
+                        .map(AstBuilder::typeParameterToString)
+                        .collect(Collectors.joining(","));
+                signature += "(" + typeParamterSignature + ")";
+            }
+            return signature;
         }
 
         if (type.ARRAY() != null) {
@@ -1359,6 +1368,17 @@ class AstBuilder
         }
 
         throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
+    }
+
+    private static String typeParameterToString(SqlBaseParser.TypeParameterContext typeParameter)
+    {
+        if (typeParameter.INTEGER_VALUE() != null) {
+            return typeParameter.INTEGER_VALUE().toString();
+        }
+        if (typeParameter.type() != null) {
+            return getType(typeParameter.type());
+        }
+        throw new IllegalArgumentException("Unsupported typeParameter: " + typeParameter.getText());
     }
 
     private static void check(boolean condition, String message, ParserRuleContext context)
