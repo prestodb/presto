@@ -18,6 +18,7 @@ import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
@@ -74,6 +75,7 @@ public class ExchangeClientConfig
     }
 
     @NotNull
+    @MinDataSize("1MB")
     public DataSize getMaxResponseSize()
     {
         return maxResponseSize;

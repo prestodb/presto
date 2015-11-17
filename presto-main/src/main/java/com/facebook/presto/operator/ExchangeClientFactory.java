@@ -24,6 +24,7 @@ import javax.inject.Inject;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeClientFactory
@@ -66,7 +67,13 @@ public class ExchangeClientFactory
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.minErrorDuration = requireNonNull(minErrorDuration, "minErrorDuration is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
+
+        // Use only 0.75 of the maxResponseSize to leave room for additional bytes from the encoding
+        // TODO figure out a better way to compute the size of data that will be transferred over the network
+        requireNonNull(maxResponseSize, "maxResponseSize is null");
+        long maxResponseSizeBytes = (long) (Math.min(httpClient.getMaxContentLength(), maxResponseSize.toBytes()) * 0.75);
+        this.maxResponseSize = new DataSize(maxResponseSizeBytes, BYTE);
+
         this.executor = requireNonNull(executor, "executor is null");
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
