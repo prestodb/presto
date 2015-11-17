@@ -358,7 +358,7 @@ public final class SqlStageExecution
         }
         else {
             // stage finished while we were scheduling this task
-            task.cancel();
+            task.abort();
         }
 
         return task;
