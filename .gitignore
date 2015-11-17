@@ -21,4 +21,4 @@ benchmark_outputs
 *.class
 .checkstyle
 *-local.yaml
-.mvn/timing.properties 
+.mvn/timing.properties
