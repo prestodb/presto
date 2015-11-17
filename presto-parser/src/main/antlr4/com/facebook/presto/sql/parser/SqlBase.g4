@@ -299,10 +299,14 @@ type
     : type ARRAY
     | ARRAY '<' type '>'
     | MAP '<' type ',' type '>'
-    | simpleType
+    | baseType ('(' typeParameter (',' typeParameter)* ')')?
     ;
 
-simpleType
+typeParameter
+    : INTEGER_VALUE | type
+    ;
+
+baseType
     : TIME_WITH_TIME_ZONE
     | TIMESTAMP_WITH_TIME_ZONE
     | identifier
@@ -381,7 +385,7 @@ number
 nonReserved
     : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
     | ADD
-    | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP
+    | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
     | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED

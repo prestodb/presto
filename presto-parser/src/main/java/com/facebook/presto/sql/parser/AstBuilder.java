@@ -138,6 +138,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -1477,19 +1478,39 @@ class AstBuilder
 
     private static String getType(SqlBaseParser.TypeContext type)
     {
-        if (type.simpleType() != null) {
-            return type.simpleType().getText();
+        if (type.baseType() != null) {
+            String signature = type.baseType().getText();
+            if (!type.typeParameter().isEmpty()) {
+                String typeParameterSignature = type
+                        .typeParameter()
+                        .stream()
+                        .map(AstBuilder::typeParameterToString)
+                        .collect(Collectors.joining(","));
+                signature += "(" + typeParameterSignature + ")";
+            }
+            return signature;
         }
 
         if (type.ARRAY() != null) {
-            return "ARRAY<" + getType(type.type(0)) + ">";
+            return "ARRAY(" + getType(type.type(0)) + ")";
         }
 
         if (type.MAP() != null) {
-            return "MAP<" + getType(type.type(0)) + "," + getType(type.type(1)) + ">";
+            return "MAP(" + getType(type.type(0)) + "," + getType(type.type(1)) + ")";
         }
 
         throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
+    }
+
+    private static String typeParameterToString(SqlBaseParser.TypeParameterContext typeParameter)
+    {
+        if (typeParameter.INTEGER_VALUE() != null) {
+            return typeParameter.INTEGER_VALUE().toString();
+        }
+        if (typeParameter.type() != null) {
+            return getType(typeParameter.type());
+        }
+        throw new IllegalArgumentException("Unsupported typeParameter: " + typeParameter.getText());
     }
 
     private static void check(boolean condition, String message, ParserRuleContext context)

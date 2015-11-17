@@ -240,6 +240,7 @@ public class TestSqlParser
     public void testCast()
             throws Exception
     {
+        assertCast("foo(42, 55) ARRAY", "ARRAY(foo(42,55))");
         assertCast("varchar");
         assertCast("bigint");
         assertCast("BIGINT");
@@ -254,15 +255,34 @@ public class TestSqlParser
         assertCast("foo");
         assertCast("FOO");
 
-        assertCast("ARRAY<bigint>");
-        assertCast("ARRAY<BIGINT>");
-        assertCast("array<bigint>");
-        assertCast("array < bigint  >", "ARRAY<bigint>");
-        assertCast("array<array<bigint>>");
-        assertCast("foo ARRAY", "ARRAY<foo>");
-        assertCast("boolean array  array ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
-        assertCast("boolean ARRAY ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
-        assertCast("ARRAY<boolean> ARRAY ARRAY", "ARRAY<ARRAY<ARRAY<boolean>>>");
+        assertCast("ARRAY<bigint>", "ARRAY(bigint)");
+        assertCast("ARRAY<BIGINT>", "ARRAY(BIGINT)");
+        assertCast("array<bigint>", "array(bigint)");
+        assertCast("array < bigint  >", "ARRAY(bigint)");
+
+        assertCast("ARRAY(bigint)");
+        assertCast("ARRAY(BIGINT)");
+        assertCast("array(bigint)");
+        assertCast("array ( bigint  )", "ARRAY(bigint)");
+
+        assertCast("array<array<bigint>>", "array(array(bigint))");
+        assertCast("array(array(bigint))");
+
+        assertCast("foo ARRAY", "ARRAY(foo)");
+        assertCast("boolean array  array ARRAY", "ARRAY(ARRAY(ARRAY(boolean)))");
+        assertCast("boolean ARRAY ARRAY ARRAY", "ARRAY(ARRAY(ARRAY(boolean)))");
+        assertCast("ARRAY<boolean> ARRAY ARRAY", "ARRAY(ARRAY(ARRAY(boolean)))");
+
+        assertCast("map(BIGINT,array(VARCHAR))");
+        assertCast("map<BIGINT,array<VARCHAR>>", "map(BIGINT,array(VARCHAR))");
+
+        assertCast("varchar(42)");
+        assertCast("foo(42,55)");
+        assertCast("foo(BIGINT,array(VARCHAR))");
+        assertCast("ARRAY<varchar(42)>", "ARRAY(varchar(42))");
+        assertCast("ARRAY<foo(42,55)>", "ARRAY(foo(42,55))");
+        assertCast("varchar(42) ARRAY", "ARRAY(varchar(42))");
+        assertCast("foo(42, 55) ARRAY", "ARRAY(foo(42,55))");
     }
 
     @Test

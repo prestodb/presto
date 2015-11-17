@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,21 +35,21 @@ public class ClientTypeSignature
 {
     private static final Pattern PATTERN = Pattern.compile(".*[<>,].*");
     private final String rawType;
-    private final List<ClientTypeSignature> typeArguments;
+    private final List<ClientTypeSignatureParameter> typeArguments;
     private final List<Object> literalArguments;
 
     public ClientTypeSignature(TypeSignature typeSignature)
     {
         this(
                 typeSignature.getBase(),
-                Lists.transform(typeSignature.getParameters(), ClientTypeSignature::new),
+                Lists.transform(typeSignature.getParameters(), ClientTypeSignatureParameter::new),
                 typeSignature.getLiteralParameters());
     }
 
     @JsonCreator
     public ClientTypeSignature(
             @JsonProperty("rawType") String rawType,
-            @JsonProperty("typeArguments") List<ClientTypeSignature> typeArguments,
+            @JsonProperty("typeArguments") List<ClientTypeSignatureParameter> typeArguments,
             @JsonProperty("literalArguments") List<Object> literalArguments)
     {
         checkArgument(rawType != null, "rawType is null");
@@ -71,7 +72,7 @@ public class ClientTypeSignature
     }
 
     @JsonProperty
-    public List<ClientTypeSignature> getTypeArguments()
+    public List<ClientTypeSignatureParameter> getTypeArguments()
     {
         return typeArguments;
     }
@@ -85,18 +86,34 @@ public class ClientTypeSignature
     @Override
     public String toString()
     {
+        if (rawType.equals(StandardTypes.ROW)) {
+            return rowToString();
+        }
+        else {
+            return toString("(", ")");
+        }
+    }
+
+    @Deprecated
+    private String rowToString()
+    {
+        return toString("<", ">");
+    }
+
+    private String toString(String leftParameterBracket, String rightParameterBracket)
+    {
         StringBuilder typeName = new StringBuilder(rawType);
         if (!typeArguments.isEmpty()) {
-            typeName.append("<");
+            typeName.append(leftParameterBracket);
             boolean first = true;
-            for (ClientTypeSignature argument : typeArguments) {
+            for (ClientTypeSignatureParameter argument : typeArguments) {
                 if (!first) {
                     typeName.append(",");
                 }
                 first = false;
                 typeName.append(argument.toString());
             }
-            typeName.append(">");
+            typeName.append(rightParameterBracket);
         }
         if (!literalArguments.isEmpty()) {
             typeName.append("(");

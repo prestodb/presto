@@ -292,9 +292,11 @@ public final class Signature
 
     private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameter> typeParameters, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
     {
+        // TODO: add literals to Types and switch to TypeSignatureParameter so boundParameters map includes also literal parameter bindings
+        List<TypeSignature> typeSignatures = parameter.getTypeParametersAsTypeSignatures();
         // If this parameter is already bound, then match (with coercion)
         if (boundParameters.containsKey(parameter.getBase())) {
-            checkArgument(parameter.getParameters().isEmpty(), "Unexpected parameteric type");
+            checkArgument(typeSignatures.isEmpty(), "Unexpected parameteric type");
             if (allowCoercion) {
                 if (canCoerce(type, boundParameters.get(parameter.getBase()))) {
                     return true;
@@ -312,13 +314,13 @@ public final class Signature
         }
 
         // Recurse into component types
-        if (!parameter.getParameters().isEmpty()) {
-            if (type.getTypeParameters().size() != parameter.getParameters().size()) {
+        if (!typeSignatures.isEmpty()) {
+            if (type.getTypeParameters().size() != typeSignatures.size()) {
                 return false;
             }
-            for (int i = 0; i < parameter.getParameters().size(); i++) {
+            for (int i = 0; i < typeSignatures.size(); i++) {
                 Type componentType = type.getTypeParameters().get(i);
-                TypeSignature componentSignature = parameter.getParameters().get(i);
+                TypeSignature componentSignature = typeSignatures.get(i);
                 if (!matchAndBind(boundParameters, typeParameters, componentSignature, componentType, allowCoercion, typeManager)) {
                     return false;
                 }
@@ -336,7 +338,7 @@ public final class Signature
         }
 
         // We've already checked all the components, so just match the base type
-        if (!parameter.getParameters().isEmpty()) {
+        if (!typeSignatures.isEmpty()) {
             return type.getTypeSignature().getBase().equals(parameter.getBase());
         }
 
