@@ -43,6 +43,12 @@ public class TestingTypeManager
     }
 
     @Override
+    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        return getType(new TypeSignature(baseTypeName, typeParameters));
+    }
+
+    @Override
     public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters)
     {
         return getType(new TypeSignature(baseTypeName, typeParameters, literalParameters));
