@@ -4314,6 +4314,21 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCrossJoinUnnestWithUnion()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT col, COUNT(*)\n" +
+                "FROM ((\n" +
+                "    SELECT ARRAY[1, 2] AS a\n" +
+                "    UNION ALL\n" +
+                "    SELECT ARRAY[1, 3] AS a)  unionresult\n" +
+                "  CROSS JOIN UNNEST(unionresult.a) t(col))\n" +
+                "GROUP BY col",
+                "SELECT * FROM VALUES (1, 2), (2, 1), (3, 1)");
+    }
+
+    @Test
     public void testJoinOnConstantExpression()
             throws Exception
     {
