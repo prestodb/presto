@@ -76,7 +76,7 @@ public class NodeTaskMap
         {
             if (remoteTasks.add(task)) {
                 task.addStateChangeListener(taskInfo -> {
-                    if (task.getTaskInfo().getState().isDone()) {
+                    if (taskInfo.getState().isDone()) {
                         remoteTasks.remove(task);
                     }
                 });
