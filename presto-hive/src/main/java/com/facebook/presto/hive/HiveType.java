@@ -100,6 +100,11 @@ public final class HiveType
         return typeInfo.getCategory();
     }
 
+    public TypeInfo getTypeInfo()
+    {
+        return typeInfo;
+    }
+
     public TypeSignature getTypeSignature()
     {
         return getTypeSignature(typeInfo);
