@@ -186,7 +186,9 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
@@ -262,7 +264,9 @@ public class LocalExecutionPlanner
             boolean allowLocalParallel)
     {
         List<Symbol> outputLayout = functionBinding.getOutputLayout();
-        if (functionBinding.getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
+        if (functionBinding.getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
+                functionBinding.getPartitioningHandle().equals(SINGLE_DISTRIBUTION) ||
+                functionBinding.getPartitioningHandle().equals(COORDINATOR_DISTRIBUTION)) {
             return plan(session, plan, outputLayout, types, new TaskOutputFactory(sharedBuffer), singleNode, allowLocalParallel);
         }
 

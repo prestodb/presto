@@ -590,7 +590,7 @@ public class PruneUnreferencedOutputs
                 rewrittenSubPlans.add(context.rewrite(node.getSources().get(i), expectedInputSymbols.build()));
             }
 
-            return new UnionNode(node.getId(), rewrittenSubPlans.build(), rewrittenSymbolMapping);
+            return new UnionNode(node.getId(), rewrittenSubPlans.build(), rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
         }
     }
 }

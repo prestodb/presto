@@ -569,7 +569,7 @@ class RelationPlanner
             sources.add(relationPlan.getRoot());
         }
 
-        PlanNode planNode = new UnionNode(idAllocator.getNextId(), sources.build(), symbolMapping.build());
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), sources.build(), symbolMapping.build(), ImmutableList.copyOf(symbolMapping.build().keySet()));
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }

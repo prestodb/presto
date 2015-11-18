@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -74,11 +75,11 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorOnly;
-import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.distributed;
-import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.undistributed;
-import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Partitioning.hashPartitioned;
-import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Partitioning.partitioned;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -259,7 +260,7 @@ class PropertyDerivations
         public ActualProperties visitTableFinish(TableFinishNode node, List<ActualProperties> inputProperties)
         {
             return ActualProperties.builder()
-                    .global(coordinatorOnly())
+                    .global(coordinatorSingleStreamPartition())
                     .build();
         }
 
@@ -290,14 +291,16 @@ class PropertyDerivations
                             .constants(probeProperties.getConstants())
                             .build();
                 case RIGHT:
-                    return ActualProperties.builder()
-                            .global(buildProperties)
+                    return ActualProperties.builderFrom(buildProperties)
                             .constants(buildProperties.getConstants())
+                            .local(ImmutableList.of())
                             .build();
                 case FULL:
                     // We can't say anything about the partitioning scheme because any partition of
                     // a hash-partitioned join can produce nulls in case of a lack of matches
-                    return probeProperties.isDistributed() ? ActualProperties.distributed() : ActualProperties.undistributed();
+                    return ActualProperties.builder()
+                            .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                            .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
@@ -336,7 +339,9 @@ class PropertyDerivations
         @Override
         public ActualProperties visitIndexSource(IndexSourceNode node, List<ActualProperties> context)
         {
-            return ActualProperties.undistributed();
+            return ActualProperties.builder()
+                    .global(singleStreamPartition())
+                    .build();
         }
 
         public static Map<Symbol, Symbol> exchangeInputToOutput(ExchangeNode node, int sourceIndex)
@@ -367,18 +372,21 @@ class PropertyDerivations
             switch (node.getType()) {
                 case GATHER:
                     return ActualProperties.builder()
-                            .global(undistributed())
+                            .global(singleStreamPartition())
                             .constants(constants)
                             .build();
                 case REPARTITION:
                     return ActualProperties.builder()
-                            .global(distributed(hashPartitioned(node.getPartitionFunction().getPartitioningColumns())))
+                            .global(partitionedOn(
+                                    node.getPartitionFunction().getPartitioningHandle(),
+                                    node.getPartitionFunction().getPartitioningColumns(),
+                                    Optional.of(node.getPartitionFunction().getPartitioningColumns())))
                             .constants(constants)
                             .build();
                 case REPLICATE:
                     // TODO: this should have the same global properties as the stream taking the replicated data
                     return ActualProperties.builder()
-                            .global(distributed())
+                            .global(arbitraryPartition())
                             .constants(constants)
                             .build();
             }
@@ -453,10 +461,12 @@ class PropertyDerivations
 
             if (properties.isCoordinatorOnly()) {
                 return ActualProperties.builder()
-                        .global(coordinatorOnly())
+                        .global(coordinatorSingleStreamPartition())
                         .build();
             }
-            return properties.isDistributed() ? ActualProperties.distributed() : ActualProperties.undistributed();
+            return ActualProperties.builder()
+                    .global(properties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                    .build();
         }
 
         @Override
@@ -511,10 +521,7 @@ class PropertyDerivations
             }
 
             if (partitioningColumns.isPresent()) {
-                properties.global(distributed(partitioned(ImmutableSet.copyOf(partitioningColumns.get()))));
-            }
-            else {
-                properties.global(distributed());
+                properties.global(streamPartitionedOn(ImmutableSet.copyOf(partitioningColumns.get()))));
             }
 
             // Append the global constants onto the local properties to maximize their translation potential

@@ -111,7 +111,7 @@ public class ProjectionPushDown
                 outputLayout.forEach(symbol -> mappings.put(symbol, projectSymbolMapping.get(symbol)));
             }
 
-            return new UnionNode(node.getId(), outputSources.build(), mappings.build());
+            return new UnionNode(node.getId(), outputSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
         }
 
         private PlanNode pushProjectionThrough(ProjectNode node, ExchangeNode exchange)

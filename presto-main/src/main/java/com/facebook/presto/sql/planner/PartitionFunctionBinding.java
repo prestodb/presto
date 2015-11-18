@@ -154,7 +154,6 @@ public class PartitionFunctionBinding
         return Objects.equals(partitioningHandle, that.partitioningHandle) &&
                 Objects.equals(outputLayout, that.outputLayout) &&
                 Objects.equals(partitioningColumns, that.partitioningColumns) &&
-                Objects.equals(hashColumn, that.hashColumn) &&
                 replicateNulls == that.replicateNulls &&
                 Objects.equals(bucketToPartition, that.bucketToPartition);
     }

@@ -226,7 +226,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitUnion(UnionNode node, List<PlanNode> newChildren)
     {
-        return new UnionNode(node.getId(), newChildren, node.getSymbolMapping());
+        return new UnionNode(node.getId(), newChildren, node.getSymbolMapping(), node.getOutputSymbols());
     }
 
     @Override
