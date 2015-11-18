@@ -34,6 +34,7 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpre
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
@@ -192,8 +193,8 @@ public class TestInterpretedProjectionFunction
 
     private static Block createBlock(Type type, Object value)
     {
-        return type.createBlockBuilder(new BlockBuilderStatus(), 1)
-                .write(type, value)
-                .build();
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        writeNativeValue(type, blockBuilder, value);
+        return blockBuilder.build();
     }
 }
