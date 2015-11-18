@@ -14,14 +14,20 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Multimap;
 import io.airlift.stats.CounterStat;
 
 import javax.annotation.PreDestroy;
@@ -258,5 +264,28 @@ public class NodeScheduler
         }
 
         return ImmutableList.copyOf(chosen);
+    }
+
+    public static Multimap<Node, Split> selectDistributionNodes(
+            NodeMap nodeMap,
+            NodeTaskMap nodeTaskMap,
+            int maxSplitsPerNode,
+            Set<Split> splits,
+            List<RemoteTask> existingTasks,
+            NodePartitionMap partitioning)
+    {
+        Multimap<Node, Split> assignments = HashMultimap.create();
+        NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
+
+        for (Split split : splits) {
+            // node placement is forced by the partitioning
+            Node node = partitioning.getNode(split);
+
+            // if node is full, don't schedule now, which will push back on the scheduling of splits
+            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
+                assignments.put(node, split);
+            }
+        }
+        return ImmutableMultimap.copyOf(assignments);
     }
 }

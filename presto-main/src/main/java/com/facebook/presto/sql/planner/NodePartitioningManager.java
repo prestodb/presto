@@ -132,6 +132,6 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
-        return new NodePartitionMap(nodeToPartition.inverse(), bucketToPartition);
+        return new NodePartitionMap(nodeToPartition.inverse(), bucketToPartition, split -> splitBucketFunction.applyAsInt(split.getConnectorSplit()));
     }
 }

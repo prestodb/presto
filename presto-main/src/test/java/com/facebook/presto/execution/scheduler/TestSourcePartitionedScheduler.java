@@ -295,7 +295,7 @@ public class TestSourcePartitionedScheduler
             SourcePartitionedScheduler scheduler = new SourcePartitionedScheduler(
                     stage,
                     plan.getDataSource().get(),
-                    new SplitPlacementPolicy(nodeScheduler.createNodeSelector("test"), stage::getAllTasks),
+                    new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector("test"), stage::getAllTasks),
                     2);
             scheduler.schedule();
 
@@ -408,7 +408,7 @@ public class TestSourcePartitionedScheduler
         NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
 
         SplitSource splitSource = plan.getDataSource().get();
-        SplitPlacementPolicy placementPolicy = new SplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getDataSourceName()), stage::getAllTasks);
+        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getDataSourceName()), stage::getAllTasks);
         return new SourcePartitionedScheduler(stage, splitSource, placementPolicy, splitBatchSize);
     }
 

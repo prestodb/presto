@@ -20,6 +20,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -38,6 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
+import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -181,6 +183,12 @@ public class TopologyAwareNodeSelector
             }
         }
         return assignment;
+    }
+
+    @Override
+    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning)
+    {
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, splits, existingTasks, partitioning);
     }
 
     @Nullable

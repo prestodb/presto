@@ -153,7 +153,9 @@ public final class SystemPartitioningHandle
             Node node = nodes.get(i);
             partitionToNode.put(i, node);
         }
-        return new NodePartitionMap(partitionToNode.build());
+        return new NodePartitionMap(partitionToNode.build(), split -> {
+            throw new UnsupportedOperationException("System distribution does not support source splits");
+        });
     }
 
     public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int[] bucketToPartition)
