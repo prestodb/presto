@@ -27,8 +27,8 @@ import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slices;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.joda.time.DateTimeZone;
-import parquet.it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
