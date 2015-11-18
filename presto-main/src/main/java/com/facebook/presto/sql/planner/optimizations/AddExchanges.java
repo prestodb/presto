@@ -105,6 +105,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchangeNullReplicate;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -751,17 +752,13 @@ public class AddExchanges
                 if (!left.getProperties().isDistributed() && right.getProperties().isDistributed()) {
                     // force single-node join
                     // TODO: if inner join, flip order and do a broadcast join
-                    right = withDerivedProperties(gatheringExchange(idAllocator.getNextId(), right.getNode()), right.getProperties());
+                    right = withDerivedProperties(
+                            gatheringExchange(idAllocator.getNextId(), right.getNode()),
+                            right.getProperties());
                 }
                 else if (left.getProperties().isDistributed() && !(left.getProperties().isHashPartitionedOn(leftSymbols) && right.getProperties().isHashPartitionedOn(rightSymbols))) {
-                    right = withDerivedProperties(new ExchangeNode(
-                                    idAllocator.getNextId(),
-                                    ExchangeNode.Type.REPLICATE,
-                                    Optional.empty(),
-                                    Optional.<Symbol>empty(),
-                                    ImmutableList.of(right.getNode()),
-                                    right.getNode().getOutputSymbols(),
-                                    ImmutableList.of(right.getNode().getOutputSymbols())),
+                    right = withDerivedProperties(
+                            replicatedExchange(idAllocator.getNextId(), right.getNode()),
                             right.getProperties());
                 }
             }
@@ -828,14 +825,7 @@ public class AddExchanges
                 // make filtering source match requirements of source
                 if (source.getProperties().isDistributed()) {
                     filteringSource = withDerivedProperties(
-                            new ExchangeNode(
-                                    idAllocator.getNextId(),
-                                    ExchangeNode.Type.REPLICATE,
-                                    Optional.empty(),
-                                    Optional.<Symbol>empty(),
-                                    ImmutableList.of(filteringSource.getNode()),
-                                    filteringSource.getNode().getOutputSymbols(),
-                                    ImmutableList.of(filteringSource.getNode().getOutputSymbols())),
+                            replicatedExchange(idAllocator.getNextId(), filteringSource.getNode()),
                             filteringSource.getProperties());
                 }
                 else {
@@ -946,7 +936,7 @@ public class AddExchanges
                             idAllocator.getNextId(),
                             ExchangeNode.Type.GATHER,
                             Optional.empty(),
-                            Optional.<Symbol>empty(),
+                            Optional.empty(),
                             partitionedChildren,
                             node.getOutputSymbols(),
                             partitionedOutputLayouts);
