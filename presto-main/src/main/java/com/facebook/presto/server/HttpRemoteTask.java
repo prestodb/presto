@@ -226,8 +226,8 @@ public class HttpRemoteTask
                     taskStats,
                     ImmutableList.<ExecutionFailureInfo>of()));
 
-            // wait at least 2 seconds for a response
-            requestTimeout = new Duration(2000 + refreshMaxWait.toMillis(), MILLISECONDS);
+            long timeout = minErrorDuration.toMillis() / 3;
+            requestTimeout = new Duration(timeout + refreshMaxWait.toMillis(), MILLISECONDS);
             continuousTaskInfoFetcher = new ContinuousTaskInfoFetcher(refreshMaxWait);
         }
     }
