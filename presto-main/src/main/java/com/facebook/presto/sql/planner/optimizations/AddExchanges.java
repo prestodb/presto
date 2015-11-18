@@ -92,7 +92,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -840,7 +839,7 @@ public class AddExchanges
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 filteringSource.getNode(),
-                                new PartitionFunctionBinding(HASH, filteringSourceSymbols, node.getFilteringSourceHashSymbol(), true, OptionalInt.empty())),
+                                new PartitionFunctionBinding(HASH, filteringSourceSymbols, node.getFilteringSourceHashSymbol(), true, Optional.empty())),
                         filteringSource.getProperties());
             }
             else {

@@ -16,7 +16,10 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSelector;
+import com.facebook.presto.operator.BucketFunction;
+import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -76,5 +79,11 @@ public class NodePartitioningManager
             partitionToNode.put(i, node);
         }
         return new NodePartitionMap(partitionToNode.build());
+    }
+
+    public PartitionFunction getPartitionFunction(Session session, PartitionFunctionBinding functionBinding, List<Type> partitionChannelTypes)
+    {
+        BucketFunction bucketFunction = functionBinding.getFunctionHandle().createBucketFunction(functionBinding, partitionChannelTypes);
+        return new PartitionFunction(bucketFunction, functionBinding.getBucketToPartition().get());
     }
 }

@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -178,9 +177,9 @@ public class PlanFragment
         }
     }
 
-    public PlanFragment withPartitionCount(OptionalInt partitionCount)
+    public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, outputLayout, distribution, partitionedSource, partitionFunction.map(function -> function.withPartitionCount(partitionCount)));
+        return new PlanFragment(id, root, symbols, outputLayout, distribution, partitionedSource, partitionFunction.map(function -> function.withBucketToPartition(bucketToPartition)));
     }
 
     @Override

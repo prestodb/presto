@@ -230,7 +230,7 @@ public class UnaliasSymbolReferences
                             canonicalize(function.getPartitioningColumns()),
                             canonicalize(function.getHashColumn()),
                             function.isReplicateNulls(),
-                            function.getPartitionCount()));
+                            function.getBucketToPartition()));
 
             List<List<Symbol>> inputs = new ArrayList<>();
             for (int i = 0; i < node.getInputs().size(); i++) {
