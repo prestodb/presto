@@ -106,13 +106,25 @@ public class ExchangeNode
                 ImmutableList.of(child.getOutputSymbols()));
     }
 
+    public static ExchangeNode replicatedExchange(PlanNodeId id, PlanNode child)
+    {
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.REPLICATE,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(child),
+                child.getOutputSymbols(),
+                ImmutableList.of(child.getOutputSymbols()));
+    }
+
     public static ExchangeNode gatheringExchange(PlanNodeId id, PlanNode child)
     {
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.GATHER,
                 Optional.empty(),
-                Optional.<Symbol>empty(),
+                Optional.empty(),
                 ImmutableList.of(child),
                 child.getOutputSymbols(),
                 ImmutableList.of(child.getOutputSymbols()));
