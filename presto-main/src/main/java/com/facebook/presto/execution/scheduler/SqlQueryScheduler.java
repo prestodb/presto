@@ -45,7 +45,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -191,14 +190,14 @@ public class SqlQueryScheduler
 
         stages.add(stage);
 
-        OptionalInt partitionCount = OptionalInt.empty();
+        Optional<int[]> bucketToPartition = Optional.empty();
         if (plan.getPartitioningHandle().isPresent()) {
             NodePartitionMap nodePartitionMap = nodePartitioningManager.getNodePartitioningMap(session, plan.getPartitioningHandle().get());
             Map<Integer, Node> partitionToNode = nodePartitionMap.getPartitionToNode();
             // todo this should asynchronously wait a standard timeout period before failing
             checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
             stageSchedulers.put(stageId, new FixedCountScheduler(stage, partitionToNode));
-            partitionCount = OptionalInt.of(nodePartitionMap.getPartitionToNode().size());
+            bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
         }
         else {
             checkArgument(plan.getFragment().getDistribution() == PlanDistribution.SOURCE, "Expected plan fragment to be source partitioned");
@@ -213,7 +212,7 @@ public class SqlQueryScheduler
                     Optional.of(stage),
                     nextStageId,
                     locationFactory,
-                    subStagePlan.withPartitionCount(partitionCount),
+                    subStagePlan.withBucketToPartition(bucketToPartition),
                     nodeScheduler,
                     remoteTaskFactory,
                     session,

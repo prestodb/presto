@@ -17,20 +17,35 @@ import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import static java.util.Objects.requireNonNull;
 
 public class NodePartitionMap
 {
     private final Map<Integer, Node> partitionToNode;
+    private final int[] bucketToPartition;
 
     public NodePartitionMap(Map<Integer, Node> partitionToNode)
     {
+        this.partitionToNode = ImmutableMap.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
+
+        this.bucketToPartition = IntStream.range(0, partitionToNode.size()).toArray();
+    }
+
+    public NodePartitionMap(Map<Integer, Node> partitionToNode, int[] bucketToPartition)
+    {
+        this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
         this.partitionToNode = ImmutableMap.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
     }
 
     public Map<Integer, Node> getPartitionToNode()
     {
         return partitionToNode;
+    }
+
+    public int[] getBucketToPartition()
+    {
+        return bucketToPartition;
     }
 }

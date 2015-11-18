@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.operator.BucketFunction;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
-import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -29,21 +29,22 @@ public enum PartitionFunctionHandle
 {
     SINGLE {
         @Override
-        public PartitionFunction createPartitionFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes)
+        public BucketFunction createBucketFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes)
         {
-            checkArgument(function.getPartitionCount().isPresent(), "Partition count must be set before a partition function can be created");
-            checkArgument(function.getPartitionCount().getAsInt() == 1, "Single partition can only have one partition");
-            return new SinglePartitionFunction();
+            checkArgument(function.getBucketToPartition().isPresent(), "Bucket to partition must be set before a partition function can be created");
+            checkArgument(function.getBucketToPartition().get().length == 1, "Single partition can only have one partition");
+            checkArgument(function.getBucketToPartition().get()[0] == 0, "Single partition binding must contain a single bucket with id 0");
+            return new SingleBucketFunction();
         }
     },
     HASH {
         @Override
-        public PartitionFunction createPartitionFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes)
+        public BucketFunction createBucketFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes)
         {
-            checkArgument(function.getPartitionCount().isPresent(), "Partition count must be set before a partition function can be created");
-            int partitionCount = function.getPartitionCount().getAsInt();
+            checkArgument(function.getBucketToPartition().isPresent(), "Bucket to partition must be set before a partition function can be created");
+            int bucketCount = function.getBucketToPartition().get().length;
             if (function.getHashColumn().isPresent()) {
-                return new HashPartitionFunction(new PrecomputedHashGenerator(0), partitionCount);
+                return new HashBucketFunction(new PrecomputedHashGenerator(0), bucketCount);
             }
             else {
                 int[] hashChannels = new int[partitionChannelTypes.size()];
@@ -51,95 +52,77 @@ public enum PartitionFunctionHandle
                     hashChannels[i] = i;
                 }
 
-                return new HashPartitionFunction(new InterpretedHashGenerator(partitionChannelTypes, hashChannels), partitionCount);
+                return new HashBucketFunction(new InterpretedHashGenerator(partitionChannelTypes, hashChannels), bucketCount);
             }
         }
     },
     ROUND_ROBIN {
         @Override
-        public PartitionFunction createPartitionFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes)
+        public BucketFunction createBucketFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes)
         {
-            checkArgument(function.getPartitionCount().isPresent(), "Partition count must be set before a partition function can be created");
-            return new RoundRobinPartitionFunction(function.getPartitionCount().getAsInt());
+            checkArgument(function.getBucketToPartition().isPresent(), "Bucket to partition must be set before a partition function can be created");
+            return new RoundRobinBucketFunction(function.getBucketToPartition().get().length);
         }
     };
 
-    public abstract PartitionFunction createPartitionFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes);
+    public abstract BucketFunction createBucketFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes);
 
-    private static class SinglePartitionFunction
-            implements PartitionFunction
+    private static class SingleBucketFunction
+            implements BucketFunction
     {
         @Override
-        public int getPartitionCount()
-        {
-            return 1;
-        }
-
-        @Override
-        public int getPartition(Page page, int position)
+        public int getBucket(Page page, int position)
         {
             return 0;
         }
     }
 
-    private static class RoundRobinPartitionFunction
-            implements PartitionFunction
+    private static class RoundRobinBucketFunction
+            implements BucketFunction
     {
-        private final int partitionCount;
+        private final int bucketCount;
         private int counter;
 
-        public RoundRobinPartitionFunction(int partitionCount)
+        public RoundRobinBucketFunction(int bucketCount)
         {
-            checkArgument(partitionCount > 0, "partitionCount must be at least 1");
-            this.partitionCount = partitionCount;
+            checkArgument(bucketCount > 0, "bucketCount must be at least 1");
+            this.bucketCount = bucketCount;
         }
 
         @Override
-        public int getPartitionCount()
+        public int getBucket(Page page, int position)
         {
-            return partitionCount;
-        }
-
-        @Override
-        public int getPartition(Page page, int position)
-        {
-            int partition = counter % partitionCount;
+            int bucket = counter % bucketCount;
             counter = (counter + 1) & 0x7fff_ffff;
-            return partition;
+            return bucket;
         }
 
         @Override
         public String toString()
         {
             return MoreObjects.toStringHelper(this)
-                    .add("partitionCount", partitionCount)
+                    .add("bucketCount", bucketCount)
                     .toString();
         }
     }
 
-    private static class HashPartitionFunction
-            implements PartitionFunction
+    private static class HashBucketFunction
+            implements BucketFunction
     {
         private final HashGenerator generator;
-        private final int partitionCount;
+        private final int bucketCount;
 
-        public HashPartitionFunction(HashGenerator generator, int partitionCount)
+        public HashBucketFunction(HashGenerator generator, int bucketCount)
         {
-            checkArgument(partitionCount > 0, "partitionCount must be at least 1");
+            checkArgument(bucketCount > 0, "partitionCount must be at least 1");
             this.generator = generator;
-            this.partitionCount = partitionCount;
+            this.bucketCount = bucketCount;
         }
 
         @Override
-        public int getPartitionCount()
+        public int getBucket(Page page, int position)
         {
-            return partitionCount;
-        }
-
-        @Override
-        public int getPartition(Page page, int position)
-        {
-            return generator.getPartition(partitionCount, position, page);
+            return generator.getPartition(bucketCount, position, page);
         }
 
         @Override
@@ -147,7 +130,7 @@ public enum PartitionFunctionHandle
         {
             return MoreObjects.toStringHelper(this)
                     .add("generator", generator)
-                    .add("partitionCount", partitionCount)
+                    .add("bucketCount", bucketCount)
                     .toString();
         }
     }
