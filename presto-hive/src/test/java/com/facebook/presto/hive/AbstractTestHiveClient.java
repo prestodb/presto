@@ -157,6 +157,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -453,7 +454,8 @@ public abstract class AbstractTestHiveClient
                 true,
                 typeManager,
                 locationService,
-                partitionUpdateCodec);
+                partitionUpdateCodec,
+                newFixedThreadPool(2));
         splitManager = new HiveSplitManager(
                 connectorId,
                 metastoreClient,
