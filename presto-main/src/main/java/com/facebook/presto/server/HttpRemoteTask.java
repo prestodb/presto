@@ -483,6 +483,7 @@ public final class HttpRemoteTask
             if (getTaskInfo().getState().isDone()) {
                 return;
             }
+            checkState(continuousTaskInfoFetcher.isRunning(), "Cannot cancel task when it is not running");
 
             URI uri = getTaskInfo().getSelf();
             if (uri == null) {
@@ -805,6 +806,11 @@ public final class HttpRemoteTask
 
                 failTask(cause);
             }
+        }
+
+        public synchronized boolean isRunning()
+        {
+            return running;
         }
     }
 
