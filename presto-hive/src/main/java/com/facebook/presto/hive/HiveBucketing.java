@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.shaded.com.google.common.primitives.Ints;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -27,6 +29,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.HashMap;
 import java.util.List;
@@ -36,10 +42,17 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static java.lang.Double.doubleToLongBits;
 import static java.util.Map.Entry;
 import static org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredJavaObject;
 import static org.apache.hadoop.hive.ql.udf.generic.GenericUDF.DeferredObject;
@@ -65,6 +78,99 @@ final class HiveBucketing
             PrimitiveCategory.STRING);
 
     private HiveBucketing() {}
+
+    public static int getHiveBucket(List<TypeInfo> types, List<Block> blocks, int position, int bucketCount)
+    {
+        return (getBucketHashCode(types, blocks, position) & Integer.MAX_VALUE) % bucketCount;
+    }
+
+    public static int getBucketHashCode(List<TypeInfo> types, List<Block> blocks, int position)
+    {
+        int result = 0;
+        for (int i = 0; i < blocks.size(); i++) {
+            int fieldHash = hash(types.get(i), blocks.get(i), position);
+            result = result * 31 + fieldHash;
+        }
+        return result;
+    }
+
+    private static int hash(TypeInfo type, Block block, int position)
+    {
+        // This function mirrors the behavior of function hashCode in
+        // HIVE-12025 ba83fd7bff serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
+
+        // HIVE-7148 proposed change to bucketing hash algorithms. If that gets implemented, this function will need to change significantly.
+
+        if (block.isNull(position)) {
+            return 0;
+        }
+
+        switch (type.getCategory()) {
+            case PRIMITIVE:
+                PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) type).getPrimitiveCategory();
+                switch (primitiveCategory) {
+                    case BOOLEAN:
+                        return BOOLEAN.getBoolean(block, position) ? 1 : 0;
+                    case BYTE:
+                    case SHORT:
+                    case INT:
+                        return Ints.checkedCast(BIGINT.getLong(block, position));
+                    case LONG:
+                        long bigintValue = BIGINT.getLong(block, position);
+                        return (int) ((bigintValue >>> 32) ^ bigintValue);
+                    case FLOAT:
+                        return Float.floatToIntBits((float) DOUBLE.getDouble(block, position));
+                    case DOUBLE:
+                        long doubleValue = doubleToLongBits(DOUBLE.getDouble(block, position));
+                        return (int) ((doubleValue >>> 32) ^ doubleValue);
+                    case STRING:
+                        return hashBytes(0, VARCHAR.getSlice(block, position));
+                    case DATE:
+                        // day offset from 1970-01-01
+                        long days = DATE.getLong(block, position);
+                        return Ints.checkedCast(days);
+                    case TIMESTAMP:
+                        long millisSinceEpoch = TIMESTAMP.getLong(block, position);
+                        // seconds << 30 + nanoseconds
+                        long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000);
+                        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
+                    default:
+                        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
+                }
+            case LIST: {
+                TypeInfo elementTypeInfo = ((ListTypeInfo) type).getListElementTypeInfo();
+                Block elementsBlock = block.getObject(position, Block.class);
+                int result = 0;
+                for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
+                    result = result * 31 + hash(elementTypeInfo, elementsBlock, i);
+                }
+                return result;
+            }
+            case MAP: {
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) type;
+                TypeInfo keyTypeInfo = mapTypeInfo.getMapKeyTypeInfo();
+                TypeInfo valueTypeInfo = mapTypeInfo.getMapValueTypeInfo();
+                Block elementsBlock = block.getObject(position, Block.class);
+                int result = 0;
+                for (int i = 0; i < elementsBlock.getPositionCount(); i += 2) {
+                    result += hash(keyTypeInfo, elementsBlock, i) ^ hash(valueTypeInfo, elementsBlock, i + 1);
+                }
+                return result;
+            }
+            default:
+                // TODO: support more types, e.g. ROW
+                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
+        }
+    }
+
+    private static int hashBytes(int initialValue, Slice bytes)
+    {
+        int result = initialValue;
+        for (int i = 0; i < bytes.length(); i++) {
+            result = result * 31 + bytes.getByte(i);
+        }
+        return result;
+    }
 
     public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
     {
