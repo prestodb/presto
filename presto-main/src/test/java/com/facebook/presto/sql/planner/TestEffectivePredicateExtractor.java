@@ -369,14 +369,15 @@ public class TestEffectivePredicateExtractor
     public void testUnion()
             throws Exception
     {
+        ImmutableListMultimap<Symbol, Symbol> symbolMapping = ImmutableListMultimap.of(A, B, A, C, A, E);
         PlanNode node = new UnionNode(newId(),
                 ImmutableList.<PlanNode>of(
                         filter(baseTableScan, greaterThan(AE, number(10))),
                         filter(baseTableScan, and(greaterThan(AE, number(10)), lessThan(AE, number(100)))),
                         filter(baseTableScan, and(greaterThan(AE, number(10)), lessThan(AE, number(100))))
                 ),
-                ImmutableListMultimap.of(A, B, A, C, A, E)
-        );
+                symbolMapping,
+                ImmutableList.copyOf(symbolMapping.keySet()));
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

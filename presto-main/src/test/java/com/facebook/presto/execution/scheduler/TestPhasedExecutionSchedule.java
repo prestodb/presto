@@ -144,7 +144,8 @@ public class TestPhasedExecutionSchedule
                 Stream.of(fragments)
                         .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitionFunction().getOutputLayout()))
                         .collect(toImmutableList()),
-                ImmutableListMultimap.<Symbol, Symbol>of());
+                ImmutableListMultimap.of(),
+                ImmutableList.of());
 
         return createFragment(planNode);
     }

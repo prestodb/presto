@@ -460,7 +460,7 @@ public class UnaliasSymbolReferences
                 rewrittenSources.add(context.rewrite(source));
             }
 
-            return new UnionNode(node.getId(), rewrittenSources.build(), canonicalizeUnionSymbolMap(node.getSymbolMapping()));
+            return new UnionNode(node.getId(), rewrittenSources.build(), canonicalizeUnionSymbolMap(node.getSymbolMapping()), canonicalize(node.getOutputSymbols()));
         }
 
         @Override

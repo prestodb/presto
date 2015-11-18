@@ -81,7 +81,7 @@ public class SetFlatteningOptimizer
                     }
                 }
             }
-            return new UnionNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build());
+            return new UnionNode(node.getId(), flattenedSources.build(), flattenedSymbolMap.build(), ImmutableList.copyOf(flattenedSymbolMap.build().keySet()));
         }
 
         @Override

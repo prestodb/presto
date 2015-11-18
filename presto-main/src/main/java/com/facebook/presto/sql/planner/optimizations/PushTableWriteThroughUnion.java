@@ -93,7 +93,7 @@ public class PushTableWriteThroughUnion
                         node.getSampleWeightSymbol()));
             }
 
-            return new UnionNode(idAllocator.getNextId(), rewrittenSources.build(), mappings.build());
+            return new UnionNode(idAllocator.getNextId(), rewrittenSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
         }
     }
 }
