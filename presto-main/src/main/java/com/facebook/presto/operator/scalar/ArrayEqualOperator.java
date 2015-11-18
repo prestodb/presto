@@ -12,6 +12,7 @@ package com.facebook.presto.operator.scalar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
@@ -30,8 +31,8 @@ import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
-import static com.facebook.presto.type.TypeUtils.castValue;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
@@ -63,8 +64,8 @@ public class ArrayEqualOperator
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
             checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            Object leftElement = castValue(type, leftArray, i);
-            Object rightElement = castValue(type, rightArray, i);
+            Object leftElement = readNativeValue(type, leftArray, i);
+            Object rightElement = readNativeValue(type, rightArray, i);
             try {
                 if (!(boolean) equalsFunction.invoke(leftElement, rightElement)) {
                     return false;

@@ -33,7 +33,7 @@ import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.type.TypeUtils.castValue;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapSubscriptOperator
@@ -94,7 +94,7 @@ public class MapSubscriptOperator
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getBoolean(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
@@ -111,7 +111,7 @@ public class MapSubscriptOperator
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getLong(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
@@ -128,7 +128,7 @@ public class MapSubscriptOperator
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getDouble(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
@@ -145,7 +145,7 @@ public class MapSubscriptOperator
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getSlice(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {
@@ -162,7 +162,7 @@ public class MapSubscriptOperator
         for (int position = 0; position < map.getPositionCount(); position += 2) {
             try {
                 if ((boolean) keyEqualsMethod.invokeExact(keyType.getObject(map, position), key)) {
-                    return castValue(valueType, map, position + 1); // position + 1: value position
+                    return readNativeValue(valueType, map, position + 1); // position + 1: value position
                 }
             }
             catch (Throwable t) {

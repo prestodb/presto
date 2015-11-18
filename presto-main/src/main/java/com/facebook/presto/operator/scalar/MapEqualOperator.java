@@ -12,6 +12,7 @@ package com.facebook.presto.operator.scalar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
@@ -33,7 +34,7 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.TypeUtils.castValue;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapEqualOperator
@@ -65,12 +66,12 @@ public class MapEqualOperator
     {
         Map<KeyWrapper, Integer> wrappedLeftMap = new LinkedHashMap<>();
         for (int position = 0; position < leftMapBlock.getPositionCount(); position += 2) {
-            wrappedLeftMap.put(new KeyWrapper(castValue(keyType, leftMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
+            wrappedLeftMap.put(new KeyWrapper(readNativeValue(keyType, leftMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
         }
 
         Map<KeyWrapper, Integer> wrappedRightMap = new LinkedHashMap<>();
         for (int position = 0; position < rightMapBlock.getPositionCount(); position += 2) {
-            wrappedRightMap.put(new KeyWrapper(castValue(keyType, rightMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
+            wrappedRightMap.put(new KeyWrapper(readNativeValue(keyType, rightMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
         }
 
         if (wrappedLeftMap.size() != wrappedRightMap.size()) {
@@ -84,12 +85,12 @@ public class MapEqualOperator
                 return false;
             }
 
-            Object leftValue = castValue(valueType, leftMapBlock, leftValuePosition);
+            Object leftValue = readNativeValue(valueType, leftMapBlock, leftValuePosition);
             if (leftValue == null) {
                 return null;
             }
 
-            Object rightValue = castValue(valueType, rightMapBlock, entry.getValue());
+            Object rightValue = readNativeValue(valueType, rightMapBlock, entry.getValue());
             if (rightValue == null) {
                 return null;
             }
