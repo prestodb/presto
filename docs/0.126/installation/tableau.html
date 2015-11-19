@@ -1,0 +1,107 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>2.6. Web Connector for Tableau &mdash; Presto 0.126 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.126',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.126 Documentation" href="../index.html" />
+    <link rel="up" title="2. Installation" href="../installation.html" />
+    <link rel="next" title="3. Administration" href="../admin.html" />
+    <link rel="prev" title="2.5. Benchmark Driver" href="benchmark-driver.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.126 Documentation</span></a></h1>
+    <h2 class="heading"><span>2.6. Web Connector for Tableau</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="benchmark-driver.html">2.5. Benchmark Driver</a>
+    </span>
+    <span class="right">
+        <a href="../admin.html">3. Administration</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="web-connector-for-tableau">
+<h1>2.6. Web Connector for Tableau</h1>
+<p>The Presto web connector for Tableau lets users run queries from
+Tableau against Presto. It implements the functions in the
+<a class="reference external" href="https://community.tableau.com/community/developers/web-data-connectors">Tableau web connector API</a>.</p>
+<p>When creating a new web data source, Tableau will ask for the URL of the web
+connector. Use the following URL, replacing <tt class="docutils literal"><span class="pre">example.net:8080</span></tt> with the
+hostname and port number of the Presto coordinator
+(the default port is <tt class="docutils literal"><span class="pre">8080</span></tt>):</p>
+<div class="highlight-none"><div class="highlight"><pre>http://example.net:8080/tableau/presto-connector.html
+</pre></div>
+</div>
+<p>When Tableau first loads the Presto web connector, it will render an HTML
+form. In this form you need to fill in details such as your user name,
+the catalog and the schema you want to query, the data source name,
+session parameters you want to set and finally the SQL query to run.
+After you click <tt class="docutils literal"><span class="pre">Submit</span></tt>, the query will be submitted to the Presto
+coordinator and Tableau will then create an extract out of the results
+retrieved from the coordinator, page by page. After Tableau is done
+extracting the results of your query, you can then use this extract
+for further analysis with Tableau.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>With the Presto web connector, you can only create Tableau extracts,
+because the web connector API currently does not support the live mode.</p>
+<p class="last">The web connector API only supports a subset of the data types available
+in Presto. In particular, the Tableau web connector API currently supports
+the following Tableau data types:
+<tt class="docutils literal"><span class="pre">bool</span></tt>, <tt class="docutils literal"><span class="pre">date</span></tt>, <tt class="docutils literal"><span class="pre">datetime</span></tt>, <tt class="docutils literal"><span class="pre">float</span></tt>, <tt class="docutils literal"><span class="pre">int</span></tt> and <tt class="docutils literal"><span class="pre">string</span></tt>.
+Presto <tt class="docutils literal"><span class="pre">boolean</span></tt> and <tt class="docutils literal"><span class="pre">date</span></tt> types will be converted to the Tableau
+data types <tt class="docutils literal"><span class="pre">bool</span></tt> and <tt class="docutils literal"><span class="pre">date</span></tt>, respectively, on the Tableau client side.
+Any other Presto types such as <tt class="docutils literal"><span class="pre">array</span></tt>, <tt class="docutils literal"><span class="pre">map</span></tt>, <tt class="docutils literal"><span class="pre">row</span></tt>, <tt class="docutils literal"><span class="pre">double</span></tt>,
+<tt class="docutils literal"><span class="pre">bigint</span></tt>, etc., will be converted to a Tableau <tt class="docutils literal"><span class="pre">string</span></tt> as they do
+not map to any Tableau type.</p>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="benchmark-driver.html">2.5. Benchmark Driver</a>
+    </span>
+    <span class="right">
+        <a href="../admin.html">3. Administration</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

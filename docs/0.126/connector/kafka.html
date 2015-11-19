@@ -1,0 +1,606 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4.5. Kafka Connector &mdash; Presto 0.126 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.126',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.126 Documentation" href="../index.html" />
+    <link rel="up" title="4. Connectors" href="../connector.html" />
+    <link rel="next" title="4.6. Kafka Connector Tutorial" href="kafka-tutorial.html" />
+    <link rel="prev" title="4.4. JMX Connector" href="jmx.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.126 Documentation</span></a></h1>
+    <h2 class="heading"><span>4.5. Kafka Connector</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="jmx.html">4.4. JMX Connector</a>
+    </span>
+    <span class="right">
+        <a href="kafka-tutorial.html">4.6. Kafka Connector Tutorial</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="kafka-connector">
+<h1>4.5. Kafka Connector</h1>
+<p>This connector allows the use of Apache Kafka topics as tables in Presto.
+Each message is presented as a row in Presto.</p>
+<p>Topics can be live: rows will appear as data arrives and disappear as
+segments get dropped. This can result in strange behavior if accessing the
+same table multiple times in a single query (e.g. performing a self join).</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Apache Kafka 0.8+ is supported although it is highly recommend to use 0.8.1 or later.</p>
+</div>
+<div class="section" id="configuration">
+<h2>Configuration</h2>
+<p>To configure the Kafka connector, create a catalog properties file
+<tt class="docutils literal"><span class="pre">etc/catalog/kafka.properties</span></tt> with the following contents,
+replacing the properties as appropriate:</p>
+<div class="highlight-none"><div class="highlight"><pre>connector.name=kafka
+kafka.table-names=table1,table2
+kafka.nodes=host1:port,host2:port
+</pre></div>
+</div>
+<div class="section" id="multiple-kafka-clusters">
+<h3>Multiple Kafka Clusters</h3>
+<p>You can have as many catalogs as you need, so if you have additional
+Kafka clusters, simply add another properties file to <tt class="docutils literal"><span class="pre">etc/catalog</span></tt>
+with a different name (making sure it ends in <tt class="docutils literal"><span class="pre">.properties</span></tt>). For
+example, if you name the property file <tt class="docutils literal"><span class="pre">sales.properties</span></tt>, Presto
+will create a catalog named <tt class="docutils literal"><span class="pre">sales</span></tt> using the configured connector.</p>
+</div>
+</div>
+<div class="section" id="configuration-properties">
+<h2>Configuration Properties</h2>
+<p>The following configuration properties are available:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="31%" />
+<col width="69%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Property Name</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">kafka.table-names</span></tt></td>
+<td>List of all tables provided by the catalog</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">kafka.default-schema</span></tt></td>
+<td>Default schema name for tables</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">kafka.nodes</span></tt></td>
+<td>List of nodes in the Kafka cluster</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">kafka.connect-timeout</span></tt></td>
+<td>Timeout for connecting to the Kafka cluster</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">kafka.buffer-size</span></tt></td>
+<td>Kafka read buffer size</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">kafka.table-description-dir</span></tt></td>
+<td>Directory containing topic description files</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">kafka.hide-internal-columns</span></tt></td>
+<td>Controls whether internal columns are part of the table schema or not</td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="kafka-table-names">
+<h3><tt class="docutils literal"><span class="pre">kafka.table-names</span></tt></h3>
+<p>Comma-separated list of all tables provided by this catalog. A table name
+can be unqualified (simple name) and will be put into the default schema
+(see below) or qualified with a schema name (<tt class="docutils literal"><span class="pre">&lt;schema-name&gt;.&lt;table-name&gt;</span></tt>).</p>
+<p>For each table defined here, a table description file (see below) may
+exist. If no table description file exists, the table name is used as the
+topic name on Kafka and no data columns are mapped into the table. The
+table will still contain all internal columns (see below).</p>
+<p>This property is required; there is no default and at least one table must be defined.</p>
+</div>
+<div class="section" id="kafka-default-schema">
+<h3><tt class="docutils literal"><span class="pre">kafka.default-schema</span></tt></h3>
+<p>Defines the schema which will contain all tables that were defined without
+a qualifying schema name.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">default</span></tt>.</p>
+</div>
+<div class="section" id="kafka-nodes">
+<h3><tt class="docutils literal"><span class="pre">kafka.nodes</span></tt></h3>
+<p>A comma separated list of <tt class="docutils literal"><span class="pre">hostname:port</span></tt> pairs for the Kafka data nodes.</p>
+<p>This property is required; there is no default and at least one node must be defined.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Presto must still be able to connect to all nodes of the cluster
+even if only a subset is specified here as segment files may be
+located only on a specifc node.</p>
+</div>
+</div>
+<div class="section" id="kafka-connect-timeout">
+<h3><tt class="docutils literal"><span class="pre">kafka.connect-timeout</span></tt></h3>
+<p>Timeout for connecting to a data node. A busy Kafka cluster may take quite
+some time before accepting a connection; when seeing failed queries due to
+timeouts, increasing this value is a good strategy.</p>
+<p>This property is optional; the default is 10 seconds (<tt class="docutils literal"><span class="pre">10s</span></tt>).</p>
+</div>
+<div class="section" id="kafka-buffer-size">
+<h3><tt class="docutils literal"><span class="pre">kafka.buffer-size</span></tt></h3>
+<p>Size of the internal data buffer for reading data from Kafka. The data
+buffer must be able to hold at least one message and ideally can hold many
+messages. There is one data buffer allocated per worker and data node.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">64kb</span></tt>.</p>
+</div>
+<div class="section" id="kafka-table-description-dir">
+<h3><tt class="docutils literal"><span class="pre">kafka.table-description-dir</span></tt></h3>
+<p>References a folder within Presto deployment that holds one or more JSON
+files (must end with <tt class="docutils literal"><span class="pre">.json</span></tt>) which contain table description files.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">etc/kafka</span></tt>.</p>
+</div>
+<div class="section" id="kafka-hide-internal-columns">
+<h3><tt class="docutils literal"><span class="pre">kafka.hide-internal-columns</span></tt></h3>
+<p>In addition to the data columns defined in a table description file, the
+connector maintains a number of additional columns for each table. If
+these columns are hidden, they can still be used in queries but do not
+show up in <tt class="docutils literal"><span class="pre">DESCRIBE</span> <span class="pre">&lt;table-name&gt;</span></tt> or <tt class="docutils literal"><span class="pre">SELECT</span> <span class="pre">*</span></tt>.</p>
+<p>This property is optional; the default is <tt class="docutils literal"><span class="pre">true</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="internal-columns">
+<h2>Internal Columns</h2>
+<p>For each defined table, the connector maintains the following columns:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="11%" />
+<col width="4%" />
+<col width="85%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Column name</th>
+<th class="head">Type</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">_partition_id</span></tt></td>
+<td>BIGINT</td>
+<td>ID of the Kafka partition which contains this row.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">_partition_offset</span></tt></td>
+<td>BIGINT</td>
+<td>Offset within the Kafka partition for this row.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">_segment_start</span></tt></td>
+<td>BIGINT</td>
+<td>Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">_segment_end</span></tt></td>
+<td>BIGINT</td>
+<td>Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as <tt class="docutils literal"><span class="pre">_segment_start</span></tt> of the next segment (if it exists).</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">_segment_count</span></tt></td>
+<td>BIGINT</td>
+<td>Running count of for the current row within the segment. For an uncompacted topic, <tt class="docutils literal"><span class="pre">_segment_start</span> <span class="pre">+</span> <span class="pre">_segment_count</span></tt> is equal to <tt class="docutils literal"><span class="pre">_partition_offset</span></tt>.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">_message_corrupt</span></tt></td>
+<td>BOOLEAN</td>
+<td>True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">_message</span></tt></td>
+<td>VARCHAR</td>
+<td>Message bytes as an UTF-8 encoded string. This is only useful for a text topic.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">_message_length</span></tt></td>
+<td>BIGINT</td>
+<td>Number of bytes in the message.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">_key_corrupt</span></tt></td>
+<td>BOOLEAN</td>
+<td>True if the key decode could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">_key</span></tt></td>
+<td>VARCHAR</td>
+<td>Key bytes as an UTF-8 encoded string. This is only useful for textual keys.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">_key_length</span></tt></td>
+<td>BIGINT</td>
+<td>Number of bytes in the key.</td>
+</tr>
+</tbody>
+</table>
+<p>For tables without a table definition file, the <tt class="docutils literal"><span class="pre">_key_corrupt</span></tt> and
+<tt class="docutils literal"><span class="pre">_message_corrupt</span></tt> columns will always be <tt class="docutils literal"><span class="pre">false</span></tt>.</p>
+</div>
+<div class="section" id="table-definition-files">
+<h2>Table Definition Files</h2>
+<p>Kafka maintains topics only as byte messages and leaves it to producers
+and consumers to define how a message should be interpreted. For Presto,
+this data must be mapped into columns to allow queries against the data.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">For textual topics that contain JSON data, it is entirely possible to not
+use any table definition files, but instead use the Presto
+<a class="reference internal" href="../functions/json.html"><em>JSON Functions</em></a> to parse the <tt class="docutils literal"><span class="pre">_message</span></tt> column which contains
+the bytes mapped into an UTF-8 string. This is, however, pretty
+cumbersome and makes it difficult to write SQL queries.</p>
+</div>
+<p>A table definition file consists of a JSON definition for a table. The
+name of the file can be arbitrary but must end in <tt class="docutils literal"><span class="pre">.json</span></tt>.</p>
+<div class="highlight-json"><pre>{
+    "tableName": ...,
+    "schemaName": ...,
+    "topicName": ...,
+    "key": {
+        "dataFormat": ...,
+        "fields": [
+            ...
+        ]
+    },
+    "message": {
+        "dataFormat": ...,
+        "fields": [
+            ...
+       ]
+    }
+}</pre>
+</div>
+<table border="1" class="docutils">
+<colgroup>
+<col width="13%" />
+<col width="8%" />
+<col width="12%" />
+<col width="68%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Required</th>
+<th class="head">Type</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">tableName</span></tt></td>
+<td>required</td>
+<td>string</td>
+<td>Presto table name defined by this file.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">schemaName</span></tt></td>
+<td>optional</td>
+<td>string</td>
+<td>Schema which will contain the table. If omitted, the default schema name is used.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">topicName</span></tt></td>
+<td>required</td>
+<td>string</td>
+<td>Kafka topic that is mapped.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">key</span></tt></td>
+<td>optional</td>
+<td>JSON object</td>
+<td>Field definitions for data columns mapped to the message key.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">message</span></tt></td>
+<td>optional</td>
+<td>JSON object</td>
+<td>Field definitions for data columns mapped to the message itself.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="key-and-message-in-kafka">
+<h2>Key and Message in Kafka</h2>
+<p>Starting with Kafka 0.8, each Message in a topic can have an optional key.
+A table definition file contains sections for both key and message to map
+the data onto table columns.</p>
+<p>Each of the <tt class="docutils literal"><span class="pre">key</span></tt> and <tt class="docutils literal"><span class="pre">message</span></tt> fields in the table definition is a
+JSON object that must contain two fields:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="12%" />
+<col width="7%" />
+<col width="11%" />
+<col width="71%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Required</th>
+<th class="head">Type</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">dataFormat</span></tt></td>
+<td>required</td>
+<td>string</td>
+<td>Selects the decoder for this group of fields.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">fields</span></tt></td>
+<td>required</td>
+<td>JSON array</td>
+<td>A list of field definitions. Each field definition creates a new column in the Presto table.</td>
+</tr>
+</tbody>
+</table>
+<p>Each field definition is a JSON object:</p>
+<div class="highlight-json"><pre>{
+    "name": ...,
+    "type": ...,
+    "dataFormat": ...,
+    "mapping": ...,
+    "formatHint": ...,
+    "hidden": ...,
+    "comment": ...
+}</pre>
+</div>
+<table border="1" class="docutils">
+<colgroup>
+<col width="10%" />
+<col width="6%" />
+<col width="6%" />
+<col width="78%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Field</th>
+<th class="head">Required</th>
+<th class="head">Type</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">name</span></tt></td>
+<td>required</td>
+<td>string</td>
+<td>Name of the column in the Presto table.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">type</span></tt></td>
+<td>required</td>
+<td>string</td>
+<td>Presto type of the column.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">dataFormat</span></tt></td>
+<td>optional</td>
+<td>string</td>
+<td>Selects the column decoder for this field. Default to the default decoder for this row data format and column type.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">mapping</span></tt></td>
+<td>optional</td>
+<td>string</td>
+<td>Mapping information for the column. This is decoder specific, see below.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">formatHint</span></tt></td>
+<td>optional</td>
+<td>string</td>
+<td>Sets a column specifc format hint to the column decoder.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">hidden</span></tt></td>
+<td>optional</td>
+<td>boolean</td>
+<td>Hides the column from <tt class="docutils literal"><span class="pre">DESCRIBE</span> <span class="pre">&lt;table</span> <span class="pre">name&gt;</span></tt> and <tt class="docutils literal"><span class="pre">SELECT</span> <span class="pre">*</span></tt>. Defaults to <tt class="docutils literal"><span class="pre">false</span></tt>.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">comment</span></tt></td>
+<td>optional</td>
+<td>string</td>
+<td>Add a column comment which is shown with <tt class="docutils literal"><span class="pre">DESCRIBE</span> <span class="pre">&lt;table</span> <span class="pre">name&gt;</span></tt>.</td>
+</tr>
+</tbody>
+</table>
+<p>There is no limit on field descriptions for either key or message.</p>
+</div>
+<div class="section" id="row-decoding">
+<h2>Row Decoding</h2>
+<p>For key and message, a decoder is used to map data onto columns. If no
+table definition file exists for a table, the <tt class="docutils literal"><span class="pre">dummy</span></tt> decoder is used.</p>
+<p>The Kafka connector contains the following decoders:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">raw</span></tt> - do not convert the row data, use as raw bytes</li>
+<li><tt class="docutils literal"><span class="pre">csv</span></tt> - interpret the value as CSV</li>
+<li><tt class="docutils literal"><span class="pre">json</span></tt> - convert the value to a JSON object</li>
+</ul>
+<p>The main purpose of the decoders is to select the appropriate field
+decoders to interpret the message or key data.</p>
+<p>Presto supports only four physical data types onto which the Presto types
+are mapped: boolean, long, double and a sequence of bytes which is treated
+as a string.</p>
+<div class="section" id="raw-decoder">
+<h3><tt class="docutils literal"><span class="pre">raw</span></tt> Decoder</h3>
+<p>The raw decoder supports reading of raw (byte based) values from a message
+or key and converting it into Presto columns.</p>
+<p>For fields, the following attributes are supported:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">type</span></tt> - All Presto data types are supported</li>
+<li><tt class="docutils literal"><span class="pre">dataFormat</span></tt> - Only <tt class="docutils literal"><span class="pre">_default</span></tt> supported, can be omitted.</li>
+<li><tt class="docutils literal"><span class="pre">mapping</span></tt> - selects the width of the data type converted</li>
+<li><tt class="docutils literal"><span class="pre">formatHint</span></tt> - optional, <tt class="docutils literal"><span class="pre">&lt;start&gt;[:&lt;end&gt;]</span></tt>; start and end position of bytes to convert</li>
+</ul>
+<p>The <tt class="docutils literal"><span class="pre">mapping</span></tt> column selects the number of bytes converted.
+If absent, <tt class="docutils literal"><span class="pre">BYTE</span></tt> is assumed. All values are signed.</p>
+<p>Supported values are:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">BYTE</span></tt> - one byte</li>
+<li><tt class="docutils literal"><span class="pre">SHORT</span></tt> - two bytes</li>
+<li><tt class="docutils literal"><span class="pre">INT</span></tt> - four bytes</li>
+<li><tt class="docutils literal"><span class="pre">LONG</span></tt> - eight bytes</li>
+<li><tt class="docutils literal"><span class="pre">FLOAT</span></tt> - four bytes (IEEE 754 format)</li>
+<li><tt class="docutils literal"><span class="pre">DOUBLE</span></tt> - eight bytes (IEEE 754 format)</li>
+</ul>
+<p>The <tt class="docutils literal"><span class="pre">type</span></tt> column defines the Presto data type on which the value is mapped.</p>
+<ul class="simple">
+<li>boolean based types require a mapping to <tt class="docutils literal"><span class="pre">BYTE</span></tt>, <tt class="docutils literal"><span class="pre">SHORT</span></tt>, <tt class="docutils literal"><span class="pre">INT</span></tt> or <tt class="docutils literal"><span class="pre">LONG</span></tt>.
+Any other type will throw a conversion error.
+A value of <tt class="docutils literal"><span class="pre">0</span></tt> returns false, everything else true.</li>
+<li>long based types require a mapping to <tt class="docutils literal"><span class="pre">BYTE</span></tt>, <tt class="docutils literal"><span class="pre">SHORT</span></tt>, <tt class="docutils literal"><span class="pre">INT</span></tt> or <tt class="docutils literal"><span class="pre">LONG</span></tt>.
+Any other type will throw a conversion error.</li>
+<li>double based types require a mapping to <tt class="docutils literal"><span class="pre">FLOAT</span></tt> or <tt class="docutils literal"><span class="pre">DOUBLE</span></tt>.
+Any other type will throw a conversion error.</li>
+<li>string based types require a mapping to <tt class="docutils literal"><span class="pre">BYTE</span></tt>.
+Any other type will throw a conversion error.</li>
+</ul>
+<p>The <tt class="docutils literal"><span class="pre">formatHint</span></tt> field specifies the position of the bytes in a key or
+message. It can be one or two numbers separated by a colon (<tt class="docutils literal"><span class="pre">&lt;start&gt;[:&lt;end&gt;]</span></tt>).
+If only a start position is given, the column will use the appropriate
+number of bytes for the type (see above). string based types (<tt class="docutils literal"><span class="pre">VARCHAR</span></tt>)
+will use all bytes to the end of the message. If start and end position is
+given, then for fixed with types the size must be at least the size of the
+type. For string based types, all bytes between start (inclusive) and end
+(exclusive) are used.</p>
+</div>
+<div class="section" id="csv-decoder">
+<h3><tt class="docutils literal"><span class="pre">csv</span></tt> Decoder</h3>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The CSV decoder is of beta quality and should be used with caution.</p>
+</div>
+<p>The CSV decoder converts the bytes representing a message or key into a
+string using UTF-8 encoding and then interprets the result as a CSV
+(comma-separated value) line.</p>
+<p>For fields, the following attributes are supported:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">type</span></tt> - All Presto data types are supported</li>
+<li><tt class="docutils literal"><span class="pre">dataFormat</span></tt> - Only <tt class="docutils literal"><span class="pre">_default</span></tt> supported, can be omitted</li>
+<li><tt class="docutils literal"><span class="pre">mapping</span></tt> - field index used for the column. Must be given</li>
+<li><tt class="docutils literal"><span class="pre">formatHint</span></tt> - not supported, ignored</li>
+<li>boolean based types return <tt class="docutils literal"><span class="pre">true</span></tt> if the field value is the string &#8220;true&#8221; (case insensitive), <tt class="docutils literal"><span class="pre">false</span></tt> otherwise.</li>
+<li>long and double based types parse the field value according to Java long and double parse rules.</li>
+<li>string types use the field as-is (text using UTF-8 encoding)</li>
+</ul>
+</div>
+<div class="section" id="json-decoder">
+<h3><tt class="docutils literal"><span class="pre">json</span></tt> Decoder</h3>
+<p>The JSON decoder converts the bytes representing a message or key into a
+JSON according to <span class="target" id="index-0"></span><a class="rfc reference external" href="http://tools.ietf.org/html/rfc4627.html"><strong>RFC 4627</strong></a>. Note that the message or key <em>MUST</em> convert
+into a JSON object, not an array or simple type.</p>
+<p>For fields, the following attributes are supported:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">type</span></tt> - All Presto data types are supported</li>
+<li><tt class="docutils literal"><span class="pre">dataFormat</span></tt> - <tt class="docutils literal"><span class="pre">_default</span></tt>, <tt class="docutils literal"><span class="pre">custom-date-time</span></tt>, <tt class="docutils literal"><span class="pre">iso8601</span></tt>, <tt class="docutils literal"><span class="pre">rfc2822</span></tt>,
+<tt class="docutils literal"><span class="pre">milliseconds-since-epoch</span></tt>, <tt class="docutils literal"><span class="pre">seconds-since-epoch</span></tt>. If missing, <tt class="docutils literal"><span class="pre">_default</span></tt> is used.</li>
+<li><tt class="docutils literal"><span class="pre">mapping</span></tt> - slash-separated list of fields names to select a field from the JSON object.</li>
+<li><tt class="docutils literal"><span class="pre">formatHint</span></tt> - only for <tt class="docutils literal"><span class="pre">custom-date-time</span></tt>, see below.</li>
+</ul>
+<p>The JSON decoder supports multiple field decoders, with <tt class="docutils literal"><span class="pre">_default</span></tt> being
+used for standard table columns and a number of decoders for date and time
+based types.</p>
+</div>
+<div class="section" id="default-field-decoder">
+<h3><tt class="docutils literal"><span class="pre">_default</span></tt> Field decoder</h3>
+<p>This is the standard field decoder supporting all the Presto physical data
+types. A field value will be coerced by JSON conversion rules into
+boolean, long, double or string values. For non-date/time based columns,
+this decoder should be used.</p>
+</div>
+<div class="section" id="date-and-time-decoders">
+<h3>Date and Time Decoders</h3>
+<p>To convert values from JSON objects into Presto <tt class="docutils literal"><span class="pre">DATE</span></tt>, <tt class="docutils literal"><span class="pre">TIME</span></tt> or
+<tt class="docutils literal"><span class="pre">TIMESTAMP</span></tt> columns, special decoders can be selected using the
+<tt class="docutils literal"><span class="pre">dataFormat</span></tt> attribute of a field definition.</p>
+<div class="section" id="text-decoders">
+<h4>Text Decoders</h4>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">iso8601</span></tt> - text based, parses a text field as an ISO 8601 timestamp.</li>
+<li><tt class="docutils literal"><span class="pre">rfc2822</span></tt> - text based, parses a text field as an <span class="target" id="index-1"></span><a class="rfc reference external" href="http://tools.ietf.org/html/rfc2822.html"><strong>RFC 2822</strong></a> timestamp.</li>
+<li><tt class="docutils literal"><span class="pre">custom-date-time</span></tt> - text based, a formatting hint is required which is parsed as a Joda-Time formatting string.</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="16%" />
+<col width="42%" />
+<col width="42%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Presto Type</th>
+<th class="head">JSON Text</th>
+<th class="head">JSON Long</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>string type</td>
+<td>as-is</td>
+<td>parse according to format type, return millis since epoch</td>
+</tr>
+<tr class="row-odd"><td>long-based type</td>
+<td>parse according to format type, return millis since epoch</td>
+<td>return as millis since epoch</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="number-decoders">
+<h4>Number Decoders</h4>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">milliseconds-since-epoch</span></tt> - number based, interprets a text or number as number of milliseconds since the epoch.</li>
+<li><tt class="docutils literal"><span class="pre">seconds-since-epoch</span></tt> - number based, interprets a text or number as number of milliseconds since the epoch.</li>
+</ul>
+<table border="1" class="docutils">
+<colgroup>
+<col width="16%" />
+<col width="42%" />
+<col width="42%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Presto Type</th>
+<th class="head">JSON Text</th>
+<th class="head">JSON Long</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>string type</td>
+<td>parse as long, format as ISO8601</td>
+<td>format as ISO8601</td>
+</tr>
+<tr class="row-odd"><td>long-based type</td>
+<td>parse as long, return millis since epoch</td>
+<td>return millis since epoch</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="jmx.html">4.4. JMX Connector</a>
+    </span>
+    <span class="right">
+        <a href="kafka-tutorial.html">4.6. Kafka Connector Tutorial</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

@@ -1,0 +1,115 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.11. Release 0.116 &mdash; Presto 0.126 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.126',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.126 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.12. Release 0.115" href="release-0.115.html" />
+    <link rel="prev" title="10.10. Release 0.117" href="release-0.117.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.126 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.11. Release 0.116</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.117.html">10.10. Release 0.117</a>
+    </span>
+    <span class="right">
+        <a href="release-0.115.html">10.12. Release 0.115</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-116">
+<h1>10.11. Release 0.116</h1>
+<div class="section" id="cast-between-json-and-varchar">
+<h2>Cast between JSON and VARCHAR</h2>
+<p>Casts of both directions between JSON and VARCHAR have been removed. If you
+have such casts in your scripts or views, they will fail with a message when
+you move to release 0.116. To get the semantics of the current casts, use:</p>
+<ul class="simple">
+<li><cite>JSON_PARSE(x)</cite> instead of <cite>CAST(x as JSON)</cite></li>
+<li><cite>JSON_FORMAT(x)</cite> instead of <cite>CAST(x as VARCHAR)</cite></li>
+</ul>
+<p>In a future release, we intend to reintroduce casts between JSON and VARCHAR
+along with other casts involving JSON. The semantics of the new JSON and
+VARCHAR cast will be consistent with the other casts being introduced. But it
+will be different from the semantics in 0.115 and before. When that comes,
+cast between JSON and VARCHAR in old scripts and views will produce unexpected
+result.</p>
+</div>
+<div class="section" id="cluster-memory-manager-improvements">
+<h2>Cluster Memory Manager Improvements</h2>
+<p>The cluster memory manager now has a low memory killer. If the cluster runs low
+on memory, the killer will kill queries to improve throughput. It can be enabled
+with the <tt class="docutils literal"><span class="pre">query.low-memory-killer.enabled</span></tt> config flag, and the delay between
+when the cluster runs low on memory and when the killer will be invoked can be
+configured with the <tt class="docutils literal"><span class="pre">query.low-memory-killer.delay</span></tt> option.</p>
+</div>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Add <a class="reference internal" href="../functions/aggregate.html#multimap_agg" title="multimap_agg"><tt class="xref py py-func docutils literal"><span class="pre">multimap_agg()</span></tt></a> function.</li>
+<li>Add <a class="reference internal" href="../functions/aggregate.html#checksum" title="checksum"><tt class="xref py py-func docutils literal"><span class="pre">checksum()</span></tt></a> function.</li>
+<li>Add <a class="reference internal" href="../functions/aggregate.html#max" title="max"><tt class="xref py py-func docutils literal"><span class="pre">max()</span></tt></a> and <a class="reference internal" href="../functions/aggregate.html#min" title="min"><tt class="xref py py-func docutils literal"><span class="pre">min()</span></tt></a> that takes a second argument and produces
+<tt class="docutils literal"><span class="pre">n</span></tt> largest or <tt class="docutils literal"><span class="pre">n</span></tt> smallest values.</li>
+<li>Add <tt class="docutils literal"><span class="pre">query_max_run_time</span></tt> session property and <tt class="docutils literal"><span class="pre">query.max-run-time</span></tt>
+config. Queries are failed after the specified duration.</li>
+<li>Removed <tt class="docutils literal"><span class="pre">experimental.cluster-memory-manager-enabled</span></tt> config. The cluster
+memory manager is now always enabled.</li>
+<li>Removed <tt class="docutils literal"><span class="pre">task.max-memory</span></tt> config.</li>
+<li><tt class="docutils literal"><span class="pre">optimizer.optimize-hash-generation</span></tt> and <tt class="docutils literal"><span class="pre">distributed-joins-enabled</span></tt> are
+both enabled by default now.</li>
+<li>Add optimization for <tt class="docutils literal"><span class="pre">IF</span></tt> on a constant condition.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="release-0.117.html">10.10. Release 0.117</a>
+    </span>
+    <span class="right">
+        <a href="release-0.115.html">10.12. Release 0.115</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

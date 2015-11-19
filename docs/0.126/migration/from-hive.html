@@ -1,0 +1,199 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>8.1. Migrating From Hive &mdash; Presto 0.126 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.126',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.126 Documentation" href="../index.html" />
+    <link rel="up" title="8. Migration" href="../migration.html" />
+    <link rel="next" title="9. Developer Guide" href="../develop.html" />
+    <link rel="prev" title="8. Migration" href="../migration.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.126 Documentation</span></a></h1>
+    <h2 class="heading"><span>8.1. Migrating From Hive</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../migration.html">8. Migration</a>
+    </span>
+    <span class="right">
+        <a href="../develop.html">9. Developer Guide</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="migrating-from-hive">
+<h1>8.1. Migrating From Hive</h1>
+<p>Presto uses ANSI SQL syntax and semantics, whereas Hive uses a SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).</p>
+<div class="section" id="use-subscript-for-accessing-a-dynamic-index-of-an-array-instead-of-a-udf">
+<h2>Use subscript for accessing a dynamic index of an array instead of a udf</h2>
+<p>The subscript operator in SQL supports full expressions, unlike Hive (which only supports constants). Therefore you can write queries like:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">my_array</span><span class="p">[</span><span class="k">CARDINALITY</span><span class="p">(</span><span class="n">my_array</span><span class="p">)]</span> <span class="k">as</span> <span class="n">last_element</span>
+<span class="k">FROM</span> <span class="p">...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="avoid-out-of-bounds-access-of-arrays">
+<h2>Avoid out of bounds access of arrays</h2>
+<p>Accessing out of bounds elements of an array will result in an exception. You can avoid this with an <tt class="docutils literal"><span class="pre">if</span></tt> as follows:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">IF</span><span class="p">(</span><span class="k">CARDINALITY</span><span class="p">(</span><span class="n">my_array</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">my_array</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="k">NULL</span><span class="p">)</span>
+<span class="k">FROM</span> <span class="p">...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="use-ansi-sql-syntax-for-arrays">
+<h2>Use ANSI SQL syntax for arrays</h2>
+<p>Arrays are indexed starting from 1, not from 0:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">my_array</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">AS</span> <span class="n">first_element</span>
+<span class="k">FROM</span> <span class="p">...</span>
+</pre></div>
+</div>
+<p>Construct arrays with ANSI syntax:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="nb">ARRAY</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="k">AS</span> <span class="n">my_array</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="use-ansi-sql-syntax-for-identifiers-and-strings">
+<h2>Use ANSI SQL syntax for identifiers and strings</h2>
+<p>Strings are delimited with single quotes and identifiers are quoted with double quotes, not backquotes:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">name</span> <span class="k">AS</span> <span class="ss">&quot;User Name&quot;</span>
+<span class="k">FROM</span> <span class="ss">&quot;7day_active&quot;</span>
+<span class="k">WHERE</span> <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;foo&#39;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="quote-identifiers-that-start-with-numbers">
+<h2>Quote identifiers that start with numbers</h2>
+<p>Identifiers that start with numbers are not legal in ANSI SQL and must be quoted using double quotes:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="o">*</span>
+<span class="k">FROM</span> <span class="ss">&quot;7day_active&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="use-the-standard-string-concatenation-operator">
+<h2>Use the standard string concatenation operator</h2>
+<p>Use the ANSI SQL string concatenation operator:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">a</span> <span class="o">||</span> <span class="n">b</span> <span class="o">||</span> <span class="k">c</span>
+<span class="k">FROM</span> <span class="p">...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="use-standard-types-for-cast-targets">
+<h2>Use standard types for CAST targets</h2>
+<p>The following standard types are supported for <tt class="docutils literal"><span class="pre">CAST</span></tt> targets:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span>
+  <span class="k">CAST</span><span class="p">(</span><span class="n">x</span> <span class="k">AS</span> <span class="nb">varchar</span><span class="p">)</span>
+<span class="p">,</span> <span class="k">CAST</span><span class="p">(</span><span class="n">x</span> <span class="k">AS</span> <span class="nb">bigint</span><span class="p">)</span>
+<span class="p">,</span> <span class="k">CAST</span><span class="p">(</span><span class="n">x</span> <span class="k">AS</span> <span class="n">double</span><span class="p">)</span>
+<span class="p">,</span> <span class="k">CAST</span><span class="p">(</span><span class="n">x</span> <span class="k">AS</span> <span class="nb">boolean</span><span class="p">)</span>
+<span class="k">FROM</span> <span class="p">...</span>
+</pre></div>
+</div>
+<p>In particular, use <tt class="docutils literal"><span class="pre">VARCHAR</span></tt> instead of <tt class="docutils literal"><span class="pre">STRING</span></tt>.</p>
+</div>
+<div class="section" id="use-cast-when-dividing-integers">
+<h2>Use CAST when dividing integers</h2>
+<p>Presto follows the standard behavior of performing integer division when dividing two integers. For example, dividing <tt class="docutils literal"><span class="pre">7</span></tt> by <tt class="docutils literal"><span class="pre">2</span></tt> will result in <tt class="docutils literal"><span class="pre">3</span></tt>, not <tt class="docutils literal"><span class="pre">3.5</span></tt>.
+To perform floating point division on two integers, cast one of them to a double:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">CAST</span><span class="p">(</span><span class="mi">5</span> <span class="k">AS</span> <span class="n">DOUBLE</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="use-with-for-complex-expressions-or-queries">
+<h2>Use WITH for complex expressions or queries</h2>
+<p>When you want to re-use a complex output expression as a filter, use either an inline subquery or factor it out using the <tt class="docutils literal"><span class="pre">WITH</span></tt> clause:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">WITH</span> <span class="n">a</span> <span class="k">AS</span> <span class="p">(</span>
+  <span class="k">SELECT</span> <span class="n">substr</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="n">x</span>
+  <span class="k">FROM</span> <span class="p">...</span>
+<span class="p">)</span>
+<span class="k">SELECT</span> <span class="o">*</span>
+<span class="k">FROM</span> <span class="n">a</span>
+<span class="k">WHERE</span> <span class="n">x</span> <span class="o">=</span> <span class="s1">&#39;foo&#39;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="use-unnest-to-expand-arrays-and-maps">
+<h2>Use UNNEST to expand arrays and maps</h2>
+<p>Presto supports <a class="reference internal" href="../sql/select.html#unnest"><em>UNNEST</em></a> for expanding arrays and maps.
+Use <tt class="docutils literal"><span class="pre">UNNEST</span></tt> instead of <tt class="docutils literal"><span class="pre">LATERAL</span> <span class="pre">VIEW</span> <span class="pre">explode()</span></tt>.</p>
+<p>Hive query:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">student</span><span class="p">,</span> <span class="n">score</span>
+<span class="k">FROM</span> <span class="n">tests</span>
+<span class="k">LATERAL</span> <span class="k">VIEW</span> <span class="n">explode</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span> <span class="n">t</span> <span class="k">AS</span> <span class="n">score</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Presto query:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">student</span><span class="p">,</span> <span class="n">score</span>
+<span class="k">FROM</span> <span class="n">tests</span>
+<span class="k">CROSS</span> <span class="k">JOIN</span> <span class="k">UNNEST</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span> <span class="k">AS</span> <span class="n">t</span> <span class="p">(</span><span class="n">score</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="outer-join-differences">
+<h2>Outer Join Differences</h2>
+<p>Adhering to the ANSI SQL spec, Presto respects the abstract concept that the <em>whole</em> <tt class="docutils literal"><span class="pre">ON</span></tt> clause is evaluated to determine whether or not a row from the left table will be joined with a right table row. In a <tt class="docutils literal"><span class="pre">LEFT</span> <span class="pre">JOIN</span></tt>, all the rows of the left table are always returned out of the join, vice versa for a <tt class="docutils literal"><span class="pre">RIGHT</span> <span class="pre">JOIN</span></tt>. In contrast, Hive will <em>first</em> apply any constant filters in the <tt class="docutils literal"><span class="pre">ON</span></tt> clause <em>then</em> perform the join. This can produce very different results when <tt class="docutils literal"><span class="pre">ON</span></tt> clause predicates refer to the outer table.</p>
+<p>When you want to convert a Hive <tt class="docutils literal"><span class="pre">OUTER</span> <span class="pre">JOIN</span></tt> query to Presto, remember that Hive treats the <tt class="docutils literal"><span class="pre">ON</span></tt> clause predicates as if it were part of the <tt class="docutils literal"><span class="pre">WHERE</span></tt> clause. So to get the equivalent behavior in Presto, you need to move your <tt class="docutils literal"><span class="pre">ON</span></tt> clause predicates into the <tt class="docutils literal"><span class="pre">WHERE</span></tt> clause.</p>
+<p>Hive query:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">a</span><span class="p">.</span><span class="n">id</span><span class="p">,</span> <span class="n">b</span><span class="p">.</span><span class="n">userid</span>
+<span class="k">FROM</span> <span class="n">a</span>
+<span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">b</span>
+<span class="k">ON</span> <span class="n">a</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">b</span><span class="p">.</span><span class="n">id</span> <span class="k">AND</span> <span class="n">a</span><span class="p">.</span><span class="n">ds</span> <span class="o">=</span> <span class="s1">&#39;2013-11-11&#39;</span>
+</pre></div>
+</div>
+<p>Presto query:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="n">a</span><span class="p">.</span><span class="n">id</span><span class="p">,</span> <span class="n">b</span><span class="p">.</span><span class="n">userid</span>
+<span class="k">FROM</span> <span class="n">a</span>
+<span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">b</span>
+<span class="k">ON</span> <span class="n">a</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">b</span><span class="p">.</span><span class="n">id</span>
+<span class="k">WHERE</span> <span class="n">a</span><span class="p">.</span><span class="n">ds</span> <span class="o">=</span> <span class="s1">&#39;2013-11-11&#39;</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../migration.html">8. Migration</a>
+    </span>
+    <span class="right">
+        <a href="../develop.html">9. Developer Guide</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>

@@ -1,0 +1,124 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>10.1. Release 0.126 &mdash; Presto 0.126 Documentation</title>
+    
+    <link rel="stylesheet" href="../_static/presto.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.126',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Presto 0.126 Documentation" href="../index.html" />
+    <link rel="up" title="10. Release Notes" href="../release.html" />
+    <link rel="next" title="10.2. Release 0.125" href="release-0.125.html" />
+    <link rel="prev" title="10. Release Notes" href="../release.html" /> 
+  </head>
+  <body>
+<div class="header">
+    <h1 class="heading"><a href="../index.html">
+        <span>Presto 0.126 Documentation</span></a></h1>
+    <h2 class="heading"><span>10.1. Release 0.126</span></h2>
+</div>
+<div class="topnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.125.html">10.2. Release 0.125</a> &raquo;
+    </span>
+</p>
+
+</div>
+<div class="content">
+    
+  <div class="section" id="release-0-126">
+<h1>10.1. Release 0.126</h1>
+<div class="section" id="general-changes">
+<h2>General Changes</h2>
+<ul class="simple">
+<li>Add error location information (line and column number) for semantic errors.</li>
+<li>Fix a CLI crash during tab-completion when no schema is currently selected.</li>
+<li>Fix reset of session properties in CLI when running <a class="reference internal" href="../sql/use.html"><em>USE</em></a>.</li>
+<li>Fix occasional query planning failure due to a bug in the projection
+push down optimizer.</li>
+<li>Fix a parsing issue when expressions contain the form <tt class="docutils literal"><span class="pre">POSITION(x</span> <span class="pre">in</span> <span class="pre">(y))</span></tt>.</li>
+<li>Add a new version of <a class="reference internal" href="../functions/aggregate.html#approx_percentile" title="approx_percentile"><tt class="xref py py-func docutils literal"><span class="pre">approx_percentile()</span></tt></a> that takes an <tt class="docutils literal"><span class="pre">accuracy</span></tt>
+parameter.</li>
+<li>Allow specifying columns names in <a class="reference internal" href="../sql/insert.html"><em>INSERT</em></a> queries.</li>
+<li>Add <tt class="docutils literal"><span class="pre">field_length</span></tt> table property to blackhole connector to control the
+size of generated <tt class="docutils literal"><span class="pre">VARCHAR</span></tt> and <tt class="docutils literal"><span class="pre">VARBINARY</span></tt> fields.</li>
+<li>Bundle Teradata functions plugin in server package.</li>
+<li>Improve handling of physical properties which can increase performance for
+queries involving window functions.</li>
+<li>Add ability to control whether index join lookups and caching are shared
+within a task. This allows us to optimize for index cache hits or for more
+CPU parallelism. This option is toggled by the <tt class="docutils literal"><span class="pre">task.share-index-loading</span></tt>
+config property or the <tt class="docutils literal"><span class="pre">task_share_index_loading</span></tt> session property.</li>
+<li>Add <a class="reference internal" href="../installation/tableau.html"><em>Tableau web connector</em></a>.</li>
+<li>Improve performance of queries that use an <tt class="docutils literal"><span class="pre">IN</span></tt> expression with a large
+list of constant values.</li>
+<li>Enable connector predicate push down for all comparable and equatable types.</li>
+<li>Fix query planning failure when using certain operations such as <tt class="docutils literal"><span class="pre">GROUP</span> <span class="pre">BY</span></tt>,
+<tt class="docutils literal"><span class="pre">DISTINCT</span></tt>, etc. on the output columns of <tt class="docutils literal"><span class="pre">UNNEST</span></tt>.</li>
+<li>In <tt class="docutils literal"><span class="pre">ExchangeClient</span></tt> set <tt class="docutils literal"><span class="pre">maxResponseSize</span></tt> to be slightly smaller than
+the configured value. This reduces the possibility of encountering
+<tt class="docutils literal"><span class="pre">PageTooLargeException</span></tt>.</li>
+<li>Fix memory leak in coordinator.</li>
+<li>Add validation for names of table properties.</li>
+</ul>
+</div>
+<div class="section" id="hive-changes">
+<h2>Hive Changes</h2>
+<ul class="simple">
+<li>Fix reading structural types containing nulls in Parquet.</li>
+<li>Fix writing DATE type when timezone offset is negative. Previous versions
+would write the wrong date (off by one day).</li>
+<li>Fix an issue where <tt class="docutils literal"><span class="pre">VARCHAR</span></tt> columns added to an existing table could not be
+queried.</li>
+<li>Fix over-creation of initial splits.</li>
+<li>Fix <tt class="docutils literal"><span class="pre">hive.immutable-partitions</span></tt> config property to also apply to
+unpartitioned tables.</li>
+<li>Allow non-<tt class="docutils literal"><span class="pre">VARCHAR</span></tt> columns in <tt class="docutils literal"><span class="pre">DELETE</span></tt> query.</li>
+<li>Support <tt class="docutils literal"><span class="pre">DATE</span></tt> columns as partition columns in parquet tables.</li>
+<li>Improve error message for cases where partition columns are also table columns.</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+<div class="bottomnav">
+    
+<p class="nav">
+    <span class="left">
+        &laquo; <a href="../release.html">10. Release Notes</a>
+    </span>
+    <span class="right">
+        <a href="release-0.125.html">10.2. Release 0.125</a> &raquo;
+    </span>
+</p>
+
+</div>
+
+    <div class="footer">
+    </div>
+  </body>
+</html>
