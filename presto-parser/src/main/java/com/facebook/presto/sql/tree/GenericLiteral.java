@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.sql.parser.ParsingException;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -39,6 +41,12 @@ public final class GenericLiteral
         super(location);
         requireNonNull(type, "type is null");
         requireNonNull(value, "value is null");
+        if (type.equalsIgnoreCase("X")) {
+            // we explicitly disallow "X" as type name, so if the user arrived here,
+            // it must be because that he intended to give a binaryLiteral instead, but
+            // added whitespace between the X and quote
+            throw new ParsingException("Spaces are not allowed between 'X' and the starting quote of a binary literal", location.get());
+        }
         this.type = type;
         this.value = value;
     }

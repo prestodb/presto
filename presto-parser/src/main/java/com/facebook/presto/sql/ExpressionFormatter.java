@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -150,6 +151,12 @@ public final class ExpressionFormatter
         protected String visitStringLiteral(StringLiteral node, Boolean unmangleNames)
         {
             return formatStringLiteral(node.getValue());
+        }
+
+        @Override
+        protected String visitBinaryLiteral(BinaryLiteral node, Boolean unmangleNames)
+        {
+            return "X'" + node.toHexString() + "'";
         }
 
         @Override

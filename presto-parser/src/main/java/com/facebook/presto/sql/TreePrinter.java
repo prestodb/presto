@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
@@ -245,6 +246,13 @@ public class TreePrinter
             protected Void visitStringLiteral(StringLiteral node, Integer indentLevel)
             {
                 print(indentLevel, "String[" + node.getValue() + "]");
+                return null;
+            }
+
+            @Override
+            protected Void visitBinaryLiteral(BinaryLiteral node, Integer indentLevel)
+            {
+                print(indentLevel, "Binary[" + node.toHexString() + "]");
                 return null;
             }
 
