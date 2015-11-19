@@ -39,6 +39,13 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testBinaryLiteral()
+            throws Exception
+    {
+        assertFunction("X'58F7'", VARBINARY, new SqlVarbinary(new byte[]{(byte) 0x58, (byte) 0xF7}));
+    }
+
+    @Test
     public void testLength()
             throws Exception
     {

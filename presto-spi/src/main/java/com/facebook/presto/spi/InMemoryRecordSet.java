@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class InMemoryRecordSet
@@ -155,6 +156,9 @@ public class InMemoryRecordSet
             if (value instanceof String) {
                 return Slices.utf8Slice((String) value);
             }
+            if (value instanceof Slice) {
+                return (Slice) value;
+            }
             throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
         }
 
@@ -236,6 +240,10 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof String || value instanceof byte[],
                             "Expected value %d to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
                 }
+                else if (VARBINARY.equals(type)) {
+                    checkArgument(value instanceof Slice,
+                            "Expected value %d to be an instance of Slice, but is a %s", i, value.getClass().getSimpleName());
+                }
                 else {
                     throw new IllegalStateException("Unsupported column type " + types.get(i));
                 }
@@ -293,6 +301,9 @@ public class InMemoryRecordSet
             }
             else if (value instanceof Block) {
                 completedBytes += ((Block) value).getSizeInBytes();
+            }
+            else if (value instanceof Slice) {
+                completedBytes += ((Slice) value).getBytes().length;
             }
             else {
                 throw new IllegalArgumentException("Unknown type: " + value.getClass());

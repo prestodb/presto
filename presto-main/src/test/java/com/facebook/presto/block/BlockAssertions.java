@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
+import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +33,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.wrappedIntArray;
@@ -94,6 +96,28 @@ public final class BlockAssertions
             }
             else {
                 VARCHAR.writeString(builder, value);
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createSlicesBlock(Slice... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+        return createSlicesBlock(Arrays.asList(values));
+    }
+
+    public static Block createSlicesBlock(Iterable<Slice> values)
+    {
+        BlockBuilder builder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
+
+        for (Slice value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                VARBINARY.writeSlice(builder, value);
             }
         }
 
