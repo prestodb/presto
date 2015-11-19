@@ -14,14 +14,18 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.util.FinalizerService;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,6 +34,13 @@ public class NodeTaskMap
 {
     private static final Logger log = Logger.get(NodeTaskMap.class);
     private final ConcurrentHashMap<Node, NodeTasks> nodeTasksMap = new ConcurrentHashMap<>();
+    private final FinalizerService finalizerService;
+
+    @Inject
+    public NodeTaskMap(FinalizerService finalizerService)
+    {
+        this.finalizerService = requireNonNull(finalizerService, "finalizerService is null");
+    }
 
     public void addTask(Node node, RemoteTask task)
     {
@@ -57,7 +68,7 @@ public class NodeTaskMap
 
     private NodeTasks addNodeTask(Node node)
     {
-        NodeTasks newNodeTasks = new NodeTasks();
+        NodeTasks newNodeTasks = new NodeTasks(finalizerService);
         NodeTasks nodeTasks = nodeTasksMap.putIfAbsent(node, newNodeTasks);
         if (nodeTasks == null) {
             return newNodeTasks;
@@ -69,6 +80,12 @@ public class NodeTaskMap
     {
         private final Set<RemoteTask> remoteTasks = Sets.newConcurrentHashSet();
         private final AtomicInteger nodeTotalPartitionedSplitCount = new AtomicInteger();
+        private final FinalizerService finalizerService;
+
+        public NodeTasks(FinalizerService finalizerService)
+        {
+            this.finalizerService = requireNonNull(finalizerService, "finalizerService is null");
+        }
 
         private int getPartitionedSplitCount()
         {
@@ -93,55 +110,85 @@ public class NodeTaskMap
 
         public PartitionedSplitCountTracker createPartitionedSplitCountTracker(TaskId taskId)
         {
-            return new TaskPartitionedSplitCountTracker(taskId);
+            requireNonNull(taskId, "taskId is null");
+
+            TaskPartitionedSplitCountTracker tracker = new TaskPartitionedSplitCountTracker(taskId);
+            PartitionedSplitCountTracker partitionedSplitCountTracker = new PartitionedSplitCountTracker(tracker::setPartitionedSplitCount);
+
+            // when partitionedSplitCountTracker is garbage collected, run the cleanup method on the tracker
+            // Note: tracker can not have a reference to partitionedSplitCountTracker
+            finalizerService.addFinalizer(partitionedSplitCountTracker, tracker::cleanup);
+
+            return partitionedSplitCountTracker;
         }
 
         @ThreadSafe
         private class TaskPartitionedSplitCountTracker
-                implements PartitionedSplitCountTracker
         {
             private final TaskId taskId;
-            private int localPartitionedSplitCount;
+            private final AtomicInteger localPartitionedSplitCount = new AtomicInteger();
 
             public TaskPartitionedSplitCountTracker(TaskId taskId)
             {
                 this.taskId = requireNonNull(taskId, "taskId is null");
             }
 
-            @Override
             public synchronized void setPartitionedSplitCount(int partitionedSplitCount)
             {
                 if (partitionedSplitCount < 0) {
-                    nodeTotalPartitionedSplitCount.addAndGet(-localPartitionedSplitCount);
-                    localPartitionedSplitCount = 0;
+                    int oldValue = localPartitionedSplitCount.getAndSet(0);
+                    nodeTotalPartitionedSplitCount.addAndGet(-oldValue);
                     throw new IllegalArgumentException("partitionedSplitCount is negative");
                 }
 
-                int delta = partitionedSplitCount - localPartitionedSplitCount;
-                nodeTotalPartitionedSplitCount.addAndGet(delta);
-                localPartitionedSplitCount = partitionedSplitCount;
+                int oldValue = localPartitionedSplitCount.getAndSet(partitionedSplitCount);
+                nodeTotalPartitionedSplitCount.addAndGet(partitionedSplitCount - oldValue);
             }
 
-            @Override
-            protected synchronized void finalize()
+            public void cleanup()
             {
-                if (localPartitionedSplitCount == 0) {
+                int leakedSplits = localPartitionedSplitCount.getAndSet(0);
+                if (leakedSplits == 0) {
                     return;
                 }
 
-                log.error("BUG! %s for %s leaked with %s splits.  Cleaning up so server can continue to function.",
+                log.error("BUG! %s for %s leaked with %s partitioned splits.  Cleaning up so server can continue to function.",
                         getClass().getName(),
                         taskId,
-                        localPartitionedSplitCount);
+                        leakedSplits);
 
-                nodeTotalPartitionedSplitCount.addAndGet(-localPartitionedSplitCount);
-                localPartitionedSplitCount = 0;
+                nodeTotalPartitionedSplitCount.addAndGet(-leakedSplits);
+            }
+
+            @Override
+            public String toString()
+            {
+                return MoreObjects.toStringHelper(this)
+                        .add("taskId", taskId)
+                        .add("splits", localPartitionedSplitCount)
+                        .toString();
             }
         }
     }
 
-    public interface PartitionedSplitCountTracker
+    public static class PartitionedSplitCountTracker
     {
-        void setPartitionedSplitCount(int partitionedSplitCount);
+        private final IntConsumer splitSetter;
+
+        public PartitionedSplitCountTracker(IntConsumer splitSetter)
+        {
+            this.splitSetter = requireNonNull(splitSetter, "splitSetter is null");
+        }
+
+        public void setPartitionedSplitCount(int partitionedSplitCount)
+        {
+            splitSetter.accept(partitionedSplitCount);
+        }
+
+        @Override
+        public String toString()
+        {
+            return splitSetter.toString();
+        }
     }
 }
