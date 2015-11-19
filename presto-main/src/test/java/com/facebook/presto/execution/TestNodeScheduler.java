@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -48,6 +49,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestNodeScheduler
 {
+    private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
     private NodeScheduler.NodeSelector nodeSelector;
@@ -58,7 +60,8 @@ public class TestNodeScheduler
     public void setUp()
             throws Exception
     {
-        nodeTaskMap = new NodeTaskMap();
+        finalizerService = new FinalizerService();
+        nodeTaskMap = new NodeTaskMap(finalizerService);
         nodeManager = new InMemoryNodeManager();
 
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
@@ -77,6 +80,8 @@ public class TestNodeScheduler
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector("foo");
         remoteTaskExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
+
+        finalizerService.start();
     }
 
     @AfterMethod
@@ -84,6 +89,7 @@ public class TestNodeScheduler
             throws Exception
     {
         remoteTaskExecutor.shutdown();
+        finalizerService.destroy();
     }
 
     @Test
