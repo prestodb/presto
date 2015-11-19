@@ -166,31 +166,7 @@ public class ExpressionInterpreter
         requireNonNull(columnReferences, "columnReferences is null");
 
         // verify expression is constant
-        expression.accept(new DefaultTraversalVisitor<Void, Void>()
-        {
-            @Override
-            protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
-            {
-                if (columnReferences.contains(node)) {
-                    throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
-                }
-
-                process(node.getBase(), context);
-                return null;
-            }
-
-            @Override
-            protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
-            {
-                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
-            }
-
-            @Override
-            protected Void visitInputReference(InputReference node, Void context)
-            {
-                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
-            }
-        }, null);
+        new ConstantExpressionVerifierVisitor(columnReferences, expression).process(expression, null);
 
         // add coercions
         Expression rewrite = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -252,6 +228,42 @@ public class ExpressionInterpreter
     {
         checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
         return visitor.process(expression, inputs);
+    }
+
+    private static class ConstantExpressionVerifierVisitor
+            extends DefaultTraversalVisitor<Void, Void>
+    {
+        private final Set<Expression> columnReferences;
+        private final Expression expression;
+
+        public ConstantExpressionVerifierVisitor(Set<Expression> columnReferences, Expression expression)
+        {
+            this.columnReferences = columnReferences;
+            this.expression = expression;
+        }
+
+        @Override
+        protected Void visitDereferenceExpression(DereferenceExpression node, Void context)
+        {
+            if (columnReferences.contains(node)) {
+                throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+            }
+
+            process(node.getBase(), context);
+            return null;
+        }
+
+        @Override
+        protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
+        {
+            throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+        }
+
+        @Override
+        protected Void visitInputReference(InputReference node, Void context)
+        {
+            throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+        }
     }
 
     @SuppressWarnings("FloatingPointEquality")
