@@ -1656,16 +1656,16 @@ class StatementAnalyzer
         AggregateExtractor extractor = new AggregateExtractor(metadata);
         for (SelectItem item : node.getSelect().getSelectItems()) {
             if (item instanceof SingleColumn) {
-                ((SingleColumn) item).getExpression().accept(extractor, null);
+                extractor.process(((SingleColumn) item).getExpression(), null);
             }
         }
 
         for (SortItem item : node.getOrderBy()) {
-            item.getSortKey().accept(extractor, null);
+            extractor.process(item.getSortKey(), null);
         }
 
         if (node.getHaving().isPresent()) {
-            node.getHaving().get().accept(extractor, null);
+            extractor.process(node.getHaving().get(), null);
         }
 
         List<FunctionCall> aggregates = extractor.getAggregates();

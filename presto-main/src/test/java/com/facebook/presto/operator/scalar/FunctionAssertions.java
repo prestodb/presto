@@ -510,7 +510,7 @@ public final class FunctionAssertions
     private static boolean needsBoundValue(Expression projectionExpression)
     {
         final AtomicBoolean hasQualifiedNameReference = new AtomicBoolean();
-        projectionExpression.accept(new DefaultTraversalVisitor<Void, Void>()
+        new DefaultTraversalVisitor<Void, Void>()
         {
             @Override
             protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
@@ -518,7 +518,7 @@ public final class FunctionAssertions
                 hasQualifiedNameReference.set(true);
                 return null;
             }
-        }, null);
+        }.process(projectionExpression, null);
 
         return hasQualifiedNameReference.get();
     }
