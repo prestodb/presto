@@ -43,12 +43,12 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestJsonTableHandle
 {
-    private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("type", "system",
+    private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("_type", "system",
             "schemaName", "system_schema",
             "tableName", "system_table");
 
     private static final Map<String, Object> INFORMATION_SCHEMA_AS_MAP = ImmutableMap.<String, Object>of(
-            "type", "information_schema",
+            "_type", "information_schema",
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",
             "tableName", "information_schema_table"

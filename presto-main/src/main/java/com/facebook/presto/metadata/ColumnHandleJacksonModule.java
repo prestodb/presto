@@ -25,7 +25,7 @@ public class ColumnHandleJacksonModule
     @Inject
     public ColumnHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(ColumnHandle.class, "type", new ColumnHandleJsonTypeIdResolver(handleResolver));
+        super(ColumnHandle.class, "_type", new ColumnHandleJsonTypeIdResolver(handleResolver));
     }
 
     private static class ColumnHandleJsonTypeIdResolver
