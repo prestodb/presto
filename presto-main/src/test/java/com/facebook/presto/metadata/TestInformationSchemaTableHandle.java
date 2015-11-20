@@ -39,7 +39,7 @@ public class TestInformationSchemaTableHandle
 {
     private static final String CONNECTOR_ID = "information_connector_id";
     private static final Map<String, Object> SCHEMA_AS_MAP = ImmutableMap.<String, Object>of(
-            "type", "information_schema",
+            "@type", "information_schema",
             "connectorId", CONNECTOR_ID,
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",

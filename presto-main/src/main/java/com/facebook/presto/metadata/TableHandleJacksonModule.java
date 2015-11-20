@@ -25,7 +25,7 @@ public class TableHandleJacksonModule
     @Inject
     public TableHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(ConnectorTableHandle.class, "type", new TableHandleJsonTypeIdResolver(handleResolver));
+        super(ConnectorTableHandle.class, new TableHandleJsonTypeIdResolver(handleResolver));
     }
 
     private static class TableHandleJsonTypeIdResolver

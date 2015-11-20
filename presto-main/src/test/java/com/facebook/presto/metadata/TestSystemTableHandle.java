@@ -40,7 +40,7 @@ public class TestSystemTableHandle
 {
     private static final String CONNECTOR_ID = "system_connector_id";
     private static final Map<String, Object> SCHEMA_AS_MAP = ImmutableMap.<String, Object>of(
-            "type", "system",
+            "@type", "system",
             "connectorId", CONNECTOR_ID,
             "schemaName", "system_schema",
             "tableName", "system_table");

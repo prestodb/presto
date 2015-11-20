@@ -48,12 +48,11 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractTypedJacksonModule<T>
         extends SimpleModule
 {
-    private final String typeProperty;
+    private static final String TYPE_PROPERTY = "@type";
 
-    protected AbstractTypedJacksonModule(Class<T> baseClass, String typeProperty, JsonTypeIdResolver<T> typeIdResolver)
+    protected AbstractTypedJacksonModule(Class<T> baseClass, JsonTypeIdResolver<T> typeIdResolver)
     {
         super(baseClass.getSimpleName() + "Module", Version.unknownVersion());
-        this.typeProperty = typeProperty;
 
         TypeIdResolver typeResolver = new InternalTypeResolver((JsonTypeIdResolver<Object>) typeIdResolver);
 
@@ -69,7 +68,7 @@ public abstract class AbstractTypedJacksonModule<T>
         InternalTypeDeserializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {
             super(baseClass);
-            this.typeDeserializer = new AsPropertyTypeDeserializer(SimpleType.construct(baseClass), typeIdResolver, typeProperty, false, null);
+            this.typeDeserializer = new AsPropertyTypeDeserializer(SimpleType.construct(baseClass), typeIdResolver, TYPE_PROPERTY, false, null);
         }
 
         @SuppressWarnings("unchecked")
@@ -90,7 +89,7 @@ public abstract class AbstractTypedJacksonModule<T>
         InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {
             super(baseClass);
-            this.typeSerializer = new AsPropertyTypeSerializer(typeIdResolver, null, typeProperty);
+            this.typeSerializer = new AsPropertyTypeSerializer(typeIdResolver, null, TYPE_PROPERTY);
         }
 
         @Override
