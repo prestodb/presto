@@ -119,6 +119,7 @@ public class ParquetReader
         }
         nextRowInGroup = 0;
         currentGroupRowCount = rowCount;
+        columnReadersMap.clear();
         return true;
     }
 
