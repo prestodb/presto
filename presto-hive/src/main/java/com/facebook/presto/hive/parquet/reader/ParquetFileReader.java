@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.hive.parquet.ParquetCodecFactory;
+import com.facebook.presto.hive.parquet.ParquetCorruptionException;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -25,9 +26,7 @@ import parquet.hadoop.metadata.ColumnPath;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -37,7 +36,6 @@ public class ParquetFileReader
     private final List<BlockMetaData> blocks;
     private final FSDataInputStream inputStream;
     private final Path file;
-    private final Map<ColumnDescriptor, ColumnChunkMetaData> columnMetadata = new HashMap<>();
     private final ParquetCodecFactory codecFactory;
 
     private int currentBlock;
@@ -53,15 +51,6 @@ public class ParquetFileReader
         this.file = file;
         this.inputStream = file.getFileSystem(configuration).open(file);
         this.blocks = blocks;
-        if (!blocks.isEmpty()) {
-            for (ColumnDescriptor columnDescriptor : columns) {
-                for (ColumnChunkMetaData metadata : blocks.get(0).getColumns()) {
-                    if (metadata.getPath().equals(ColumnPath.get(columnDescriptor.getPath()))) {
-                        columnMetadata.put(columnDescriptor, metadata);
-                    }
-                }
-            }
-        }
         this.codecFactory = new ParquetCodecFactory(configuration);
     }
 
@@ -80,7 +69,7 @@ public class ParquetFileReader
     {
         checkArgument(currentBlockMetadata.getRowCount() > 0, "Row group having 0 rows");
 
-        ColumnChunkMetaData metadata = columnMetadata.get(columnDescriptor);
+        ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
         long startingPosition = metadata.getStartingPos();
         inputStream.seek(startingPosition);
         int totalSize = Ints.checkedCast(metadata.getTotalSize());
@@ -89,6 +78,17 @@ public class ParquetFileReader
         ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, startingPosition, totalSize);
         ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0, codecFactory);
         return columnChunk.readAllPages();
+    }
+
+    private ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
+            throws IOException
+    {
+        for (ColumnChunkMetaData metadata : currentBlockMetadata.getColumns()) {
+            if (metadata.getPath().equals(ColumnPath.get(columnDescriptor.getPath()))) {
+                return metadata;
+            }
+        }
+        throw new ParquetCorruptionException("Malformed Parquet file. Could not find column metadata %s", columnDescriptor.toString());
     }
 
     @Override

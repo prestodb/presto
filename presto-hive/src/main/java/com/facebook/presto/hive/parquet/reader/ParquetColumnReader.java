@@ -34,6 +34,7 @@ import parquet.io.ParquetDecodingException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
+import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -62,17 +63,17 @@ public class ParquetColumnReader
 
         if (dictionaryPage != null) {
             try {
-                this.dictionary = dictionaryPage.getEncoding().initDictionary(columnDescriptor, dictionaryPage);
+                dictionary = dictionaryPage.getEncoding().initDictionary(columnDescriptor, dictionaryPage);
             }
             catch (IOException e) {
                 throw new ParquetDecodingException("could not decode the dictionary for " + columnDescriptor, e);
             }
         }
         else {
-            this.dictionary = null;
+            dictionary = null;
         }
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
-        this.totalValueCount = pageReader.getTotalValueCount();
+        totalValueCount = pageReader.getTotalValueCount();
     }
 
     public int getCurrentRepetitionLevel()
@@ -96,16 +97,16 @@ public class ParquetColumnReader
     }
 
     public Block readBlock(int vectorSize, Type type)
+        throws IOException
     {
         checkArgument(currentValueCount <= totalValueCount, "Already read all values in this column chunk");
         int valueCount = 0;
         ParquetBlockBuilder blockBuilder = ParquetBlockBuilder.createBlockBuilder(vectorSize, columnDescriptor);
         while (valueCount < vectorSize) {
-            if (this.page == null) {
-                this.page = pageReader.readPage();
-                if (this.page == null) {
-                    break;
-                }
+            if (page == null) {
+                page = pageReader.readPage();
+                validateParquet(page != null, "Parquet file does not have enough values for column chunk");
+
                 remainingValueCountInPage = page.getValueCount();
 
                 if (page instanceof DataPageV1) {
@@ -116,8 +117,8 @@ public class ParquetColumnReader
                 }
             }
 
-            int valueNumber = Math.min(this.remainingValueCountInPage, vectorSize - valueCount);
-            blockBuilder.readValues(this.valuesReader, valueNumber, definitionReader);
+            int valueNumber = Math.min(remainingValueCountInPage, vectorSize - valueCount);
+            blockBuilder.readValues(valuesReader, valueNumber, definitionReader);
             valueCount = valueCount + valueNumber;
 
             if (valueNumber == remainingValueCountInPage) {

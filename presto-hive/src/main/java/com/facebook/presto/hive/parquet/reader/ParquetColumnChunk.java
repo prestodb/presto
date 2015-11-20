@@ -15,6 +15,7 @@ package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.hive.parquet.ParquetCodecFactory;
 import com.facebook.presto.hive.parquet.ParquetCodecFactory.BytesDecompressor;
+import com.facebook.presto.hive.parquet.ParquetCorruptionException;
 import parquet.bytes.BytesInput;
 import parquet.column.Encoding;
 import parquet.column.page.DataPage;
@@ -74,7 +75,7 @@ public class ParquetColumnChunk
             switch (pageHeader.type) {
                 case DICTIONARY_PAGE:
                     if (dictionaryPage != null) {
-                        throw new IOException(descriptor.getColumnDescriptor() + " has more than one dictionary page in column chunk");
+                        throw new ParquetCorruptionException("%s has more than one dictionary page in column chunk", descriptor.getColumnDescriptor());
                     }
                     dictionaryPage = readDictionaryPage(pageHeader, uncompressedPageSize, compressedPageSize);
                     break;
