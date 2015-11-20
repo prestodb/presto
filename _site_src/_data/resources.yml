@@ -1,0 +1,134 @@
+- title: Management Tools
+  id: tools
+  items:
+  - title: Presto-Admin
+    id: presto-admin
+    project: https://github.com/prestodb/presto-admin
+    maintainer: >
+      [Teradata Center for Hadoop](https://github.com/TeradataCenterForHadoop)
+    text: > 
+      Presto-Admin is a tool for installing and managing the Presto query engine on a cluster. It provides easy-to-use commands:
+      
+        * Install and uninstall Presto across your cluster
+        * Configure your Presto cluster
+        * Start and stop the Presto servers
+        * Gather status and log information from your Presto cluster
+      
+      Examples:  
+      
+      `presto-admin server start|stop|restart|status`  
+      
+      `presto-admin server install path-to-presto-rpm`  
+      
+      `presto-admin connector add connector-name`
+      
+- title: Clients and GUIs
+  id: clients
+  items:
+  - title: Airpal
+    id: airpal
+    project: https://airbnb.github.io/airpal/
+    maintainer: >
+      [Airbnb](https://github.com/airbnb)
+    text: > 
+      Airpal is a web-based, query execution tool which leverages Facebook's PrestoDB to make authoring queries and retrieving results simple for users. Airpal provides the ability to find tables, see metadata, browse sample rows, write and edit queries, then submit queries all in a web interface. 
+  - title: Shib
+    id: shib
+    project: https://github.com/tagomoris/shib
+    maintainer: >
+      [Tagomori Satoshi](https://github.com/tagomoris)
+    text: > 
+      Shib is a web-client written in Node.js designed to query Presto and Hive. To run Shib install node.js, alter your config.js, and follow the instructions on the shib project page. Shib can also be used as an proxy server for query engines. 
+      
+- title: ODBC
+  id: odbc
+  items:
+  - title: Prestogres
+    id: prestogres
+    project: https://github.com/treasure-data/prestogres
+    maintainer: >
+      [Furuhashi Sadayuki](https://github.com/frsyuki)
+    text: > 
+      Prestogres is a gateway server that allows clients to use PostgreSQL protocol and thus the PostgreSQL ODBC driver to run queries on Presto.  
+      
+- title: Language Libraries
+  id: libraries
+  items:
+  - title: PrestoClient C
+    id: language-c
+    project: https://github.com/easydatawarehousing/prestoclient/tree/master/C
+    maintainer: >
+      [Ivo Herweijer](https://github.com/easydatawarehousing)
+    text: > 
+      C client for Presto.
+  - title: Presto JDBC Driver
+    id: language-java
+    project: https://prestodb.io/docs/current/installation/jdbc.html
+    maintainer: >
+      [Presto Team](https://github.com/facebook/presto)
+    text: > 
+      JDBC driver for Presto.
+  - title: presto-client-node
+    id: language-node
+    project: https://github.com/tagomoris/presto-client-node
+    maintainer: >
+      [Tagomori Satoshi](https://github.com/tagomoris)
+    text: > 
+      Node.js client for Presto.
+  - title: PhpPrestoClient
+    id: language-php
+    project: https://github.com/Xtendsys-labs/PhpPrestoClient
+    maintainer: >
+      [Xtendsys-labs](https://github.com/Xtendsys-labs)
+    text: > 
+      PHP client for Presto.
+  - title: PyHive
+    id: language-python
+    project: https://github.com/dropbox/PyHive
+    maintainer: >
+      [Dropbox](https://github.com/dropbox)
+    text: > 
+      PyHive is a collection of Python DB-API and SQLAlchemy interfaces for Presto and Hive.
+  - title: PrestoClient Python
+    id: language-python2
+    project: >
+      https://github.com/easydatawarehousing/prestoclient/tree/master/python
+    maintainer: >
+      [Ivo Herweijer](https://github.com/easydatawarehousing)
+    text: > 
+      Python client for Presto.
+  - title: RPresto
+    id: language-r
+    project: >
+      https://github.com/prestodb/RPresto
+    maintainer: >
+      [RPresto Team](https://github.com/prestodb/RPresto)
+    text: > 
+      DBI-based adapter for Presto for R.
+  - title: presto-client-ruby
+    id: language-ruby
+    project: https://github.com/treasure-data/presto-client-ruby
+    maintainer: >
+      [Furuhashi Sadayuki](https://github.com/frsyuki)
+    text: > 
+      Ruby client for Presto.
+      
+- title: Hosting
+  id: hosting
+  items:
+  - title: Qubole
+    id: qubole
+    project: http://www.qubole.com/presto-as-a-service/
+    text: > 
+      Presto is integrated with the Qubole Data Service (QDS) platform. QDS is a web-based interface for launching Presto clusters and running queries across Presto clusters on Amazon's EC2. 
+      
+- title: Connectors and Plugins
+  id: connectors
+  items:
+  - title: MySQL-Teradata
+    id: qubole
+    project: https://github.com/HackShare/presto
+    maintainer: >
+      [HackShare](https://github.com/HackShare)
+    text: > 
+      This project is not an install-ready plugin for MySQL-Teradata, it is a fork of the entire Presto project and it contains a working MySQL-Teradata plugin. This integration was posted to the Google Group by maintainer Dheeban Govindarajan. 

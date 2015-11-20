@@ -1,0 +1,17 @@
+<div class="headerContainer">
+  <div id="header_wrap" class="wrapper headerWrapper">
+    <div class="logo-splash">
+      <img class="projectLogo" src="{{ site.baseurl }}/static/logo.png" alt="{{ site.title }}">
+    </div>
+    <div class="inner">
+      <h2 id="project_tagline" class="fbossFontLight">{{ site.tagline }}</h2>
+
+      <section id="intro">
+        <p>{% if page.excerpt %}{{ page.excerpt | strip_html }}{% else %}{{ site.description }}{% endif %}</p>
+      </section>
+      <div id="promo" class="section promoSection">
+        Read the {% include plugins/button.html button_href='/gettingstarted/' button_text='Getting Started' %} guide.
+      </div>
+    </div>
+  </div>
+</div>

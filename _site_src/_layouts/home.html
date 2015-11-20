@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  {% include head.html %}
+  <body>    
+    {% include nav.html alwayson=true %}
+    <div class="navPusher">
+      {% include header.html %}
+      <div class="mainContainer">
+        <div id="main_wrap" class="wrapper mainWrapper">
+          {{ content }}
+        </div>
+      </div>
+      <div class="poweredByContainer">
+        <div id="poweredby_wrap" class="wrapper mainWrapper">
+          {% include poweredby.html %}
+        </div>
+      </div>
+      {% include footer.html %}
+    </div>
+  </body>
+
+</html>

@@ -1,0 +1,35 @@
+- title: Quick Links
+  items:
+    - title: Documentation
+      url: docs/current/
+    - title: FAQ
+      url: faq/
+    - title: Community
+      url: community/
+    - title: Tools
+      url: tools/
+
+- title: Support
+  items:
+    - title: Presto-users group
+      url: https://groups.google.com/group/presto-users
+    - title: Message Us
+      url: mailto:presto-users@googlegroups.com
+    - title: Report An Issue
+      url: https://github.com/facebook/presto/issues/new
+    - title: IRC on freenode
+      url: https://webchat.freenode.net/?channels=prestodb
+
+- title: Connect
+  items:
+    - title: Facebook
+      url: https://www.facebook.com/prestodb
+    - title: Twitter
+      url: https://twitter.com/prestodb
+
+- title: Open Source
+  items:
+    - title: Apache License v2
+      url: http://www.apache.org/licenses/LICENSE-2.0
+    - title: Contributing
+      url: https://github.com/facebook/presto/blob/master/CONTRIBUTING.md

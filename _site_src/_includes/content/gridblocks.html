@@ -1,0 +1,8 @@
+<div class="gridBlock">
+{% for item in {{include.data_source}} %}
+  {% include content/items/gridblock.html item=item gridtype=include.grid_type %}
+  {% if include.grid_type == 'twoByGridBlock' %}
+  {% cycle '', '<div class="gridClear"></div>' %}
+  {% endif %}
+{% endfor %}
+</div>
