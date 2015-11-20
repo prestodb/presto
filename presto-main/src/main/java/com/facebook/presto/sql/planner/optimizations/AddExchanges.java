@@ -859,18 +859,10 @@ public class AddExchanges
             PlanWithProperties indexSource = node.getIndexSource().accept(this, context.withPreferredProperties(PreferredProperties.any()));
 
             // TODO: allow repartitioning if unpartitioned to increase parallelism
-            if (distributedIndexJoins && probeProperties.isDistributed()) {
-                // Force partitioned exchange if we are not effectively partitioned on the join keys, or if the probe is currently executing as a single stream
-                // and the repartitioning will make a difference.
-                boolean parentPartitioningPreferences = context.getPreferredProperties().getGlobalProperties()
-                        .flatMap(PreferredProperties.Global::getPartitioningProperties)
-                        .isPresent();
-                boolean enableSinglePartitionRedistribute = !parentPartitioningPreferences || !preferStreamingOperators;
-                if (!probeProperties.isPartitionedOn(joinColumns) || (enableSinglePartitionRedistribute && probeProperties.isEffectivelySinglePartition() && probeProperties.isRepartitionEffective(joinColumns))) {
-                    probeSource = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), probeSource.getNode(), Optional.of(joinColumns), node.getProbeHashSymbol()),
-                            probeProperties);
-                }
+            if (shouldRepartitionForIndexJoin(joinColumns, context.getPreferredProperties(), probeProperties)) {
+                probeSource = withDerivedProperties(
+                        partitionedExchange(idAllocator.getNextId(), probeSource.getNode(), Optional.of(joinColumns), node.getProbeHashSymbol()),
+                        probeProperties);
             }
 
             // TODO: if input is grouped, create streaming join
@@ -878,6 +870,39 @@ public class AddExchanges
             // index side is really a nested-loops plan, so don't add exchanges
             PlanNode result = ChildReplacer.replaceChildren(node, ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(probeSource.getProperties(), indexSource.getProperties())));
+        }
+
+        private boolean shouldRepartitionForIndexJoin(List<Symbol> joinColumns, PreferredProperties parentPreferredProperties, ActualProperties probeProperties)
+        {
+            // See if distributed index joins are enabled
+            if (!distributedIndexJoins) {
+                return false;
+            }
+
+            // No point in repartitioning if the plan is not distributed
+            if (!probeProperties.isDistributed()) {
+                return false;
+            }
+
+            Optional<PreferredProperties.Partitioning> parentPartitioningPreferences = parentPreferredProperties.getGlobalProperties()
+                    .flatMap(PreferredProperties.Global::getPartitioningProperties);
+
+            // Disable repartitioning if it would disrupt a parent's partitioning preference when streaming is enabled
+            boolean parentAlreadyPartitionedOnChild = parentPartitioningPreferences
+                    .map(partitioning -> probeProperties.isPartitionedOn(partitioning.getPartitioningColumns()))
+                    .orElse(false);
+            if (preferStreamingOperators && parentAlreadyPartitionedOnChild) {
+                return false;
+            }
+
+            // Otherwise, repartition if we need to align with the join columns
+            if (!probeProperties.isPartitionedOn(joinColumns)) {
+                return true;
+            }
+
+            // If we are already partitioned on the join columns because the data has been forced effectively into one stream,
+            // then we should repartition if that would make a difference (from the single stream state).
+            return probeProperties.isEffectivelySinglePartition() && probeProperties.isRepartitionEffective(joinColumns);
         }
 
         @Override
