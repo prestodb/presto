@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+  {% include head.html %}
+  <body>    
+    {% include nav.html alwayson=true %}
+    <div class="navPusher">
+      {% include mini_header.html %}
+      {{ content }}
+      {% include footer.html %}
+    </div>
+  </body>
+
+</html>

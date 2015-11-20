@@ -1,0 +1,20 @@
+---
+layout: default
+---
+
+<div class="mainContainer blogContainer postContainer">
+  <div id="main_wrap" class="wrapper mainWrapper">
+    {% include nav_parsed.html source=site.data.faq source_url="faq/" %}
+    <div class="post">
+      {% for group in site.data.faq %}
+      <div class="faqGroup">
+        <h2 id="{{ group.id }}">{{ group.title }}</h2>
+        {% for faq in group.items %}
+        <h3 id="{{ faq.id }}">{{ faq.title }}</h3>
+        {{ faq.text|markdownify }}
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>

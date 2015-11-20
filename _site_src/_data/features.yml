@@ -1,0 +1,15 @@
+- title: Interactive Queries
+  text: >
+    Presto allows querying data where it lives, including Hive, Cassandra, relational databases or even proprietary data stores. A single Presto query can combine data from multiple sources, allowing for analytics across your entire organization. 
+    
+- title: Performance At Scale
+  text: >
+    Presto was designed and written from the ground up for interactive analytics and approaches the speed of commercial data warehouses while scaling to the size of organizations like Facebook. 
+  
+- title: A Big Community
+  text: >
+    Because Presto is Open Source, you can expect access to a range of tools that help make it easier to use, like [Airpal](/resources/#airpal) - a web-based, query execution tool built by Airbnb.
+
+- title: Get Data Fast
+  text: >
+    Presto is targeted at analysts who expect response times ranging from sub-second to minutes. Presto breaks the false choice between having fast analytics using an expensive commercial solution or using a slow "free" solution that requires excessive hardware.  

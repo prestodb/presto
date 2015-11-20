@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<meta property="og:url" content="https://prestodb.io/tools/" />
+	<meta property="og:site_name" content="Presto"/>
+	<meta property="og:title" content="Presto Tools and Services" />
+	<meta property="og:image" content="https://prestodb.io/static/presto-og.png" />
+	<meta property="og:description" content="Presto is an open source distributed SQL query engine for running interactive analytic queries against data sources of all sizes ranging from gigabytes to petabytes. 
+" />
+
+  <link rel="stylesheet" type="text/css" media="screen" href="/css/main.css">
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.5/styles/default.min.css">
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+  <link rel="stylesheet" type="text/css" href="//cloud.typography.com/7491092/677688/css/fonts.css" /> 
+
+  <link rel="icon" href="static/favicon.png" type="image/x-icon">
+
+  <base href="/" />
+
+  <script src="https://fb.me/react-with-addons-0.13.1.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.5/highlight.min.js"></script>
+
+  <title>Presto Tools and Services &mdash; Presto</title>
+  <meta name="description" content="Presto is an open source distributed SQL query engine for running interactive analytic queries against data sources of all sizes ranging from gigabytes to petabytes. 
+">
+
+  <link rel="canonical" href="https://prestodb.io/tools/">
+  <link rel="alternate" type="application/rss+xml" title="Presto" href="https://prestodb.io/feed.xml" />
+</head>
+
+  <body>    
+    <div id="fixed_header" class="fixedHeaderContainer visible">
+  <header>
+    <a href="/">
+      <img src="/static/logo.png" height="30" alt="">
+      <h2>Presto</h2>
+    </a>
+    <div class="navigationWrapper navigationFull" id="flat_nav">
+      <nav class="navigation">
+        <ul>
+          
+          <li class="navItem ">
+            <a href="docs/current/">Docs</a>
+          </li>
+          
+          <li class="navItem ">
+            <a href="faq/">FAQ</a>
+          </li>
+          
+          <li class="navItem ">
+            <a href="community/">Community</a>
+          </li>
+          
+          <li class="navItem ">
+            <a href="tools/">Tools</a>
+          </li>
+          
+          <li class="navItem ">
+            <a href="https://github.com/facebook/presto">GitHub</a>
+          </li>
+          
+        </ul>
+      </nav>
+    </div>
+    <div class="navigationWrapper navigationSlider" id="navigation_wrap"></div>
+  </header>
+  <script>
+    var event = document.createEvent('Event');
+    event.initEvent('slide', true, true);
+    document.addEventListener('slide', function (e) {
+      document.body.classList.toggle('sliderActive');
+    }, false);
+    var navData = [
+      
+      {
+        href       : "docs/current/",
+        text       : "Docs",
+      },
+      
+      {
+        href       : "faq/",
+        text       : "FAQ",
+      },
+      
+      {
+        href       : "community/",
+        text       : "Community",
+      },
+      
+      {
+        href       : "tools/",
+        text       : "Tools",
+      },
+      
+      {
+        href       : "https://github.com/facebook/presto",
+        text       : "GitHub",
+      },
+      
+    ];
+  </script>
+  <script type="text/javascript">  
+    var Nav = React.createClass({displayName: "Nav",
+      getInitialState: function() {
+        return {
+          currentPath: window.location.pathname,
+          slideoutActive: false,
+        };
+      },
+      getDefaultProps: function() {
+        return {
+          data: navData,
+        }
+      },
+      handleClick: function(id) {
+        this.setState({
+          slideoutActive: false,
+        });
+        document.dispatchEvent(event);
+      },
+      handleSlide: function(id) {
+        this.setState({
+          slideoutActive: !this.state.slideoutActive,
+        });
+        document.dispatchEvent(event);
+      },
+      render: function() {
+        var classes = React.addons.classSet({
+          'navSlideout': true,
+          'navSlideoutActive': this.state.slideoutActive,
+        });
+        var navClasses = React.addons.classSet({
+          'slidingNav': true,
+          'slidingNavActive': this.state.slideoutActive,
+        });
+        return (
+          React.createElement("div", null, 
+            React.createElement("div", {className: classes, onClick: this.handleSlide}, 
+              React.createElement("i", {className: "fa fa-bars"})
+            ), 
+            React.createElement("nav", {className: navClasses}, 
+              React.createElement("ul", null, 
+                this.props.data.map(this.renderNavItems)
+              )
+            )
+          )
+        );
+      },
+      renderNavItems: function(child, index) {
+        var classes = React.addons.classSet({
+          'navItem': true,
+          'navItemActive': this.state.currentPath === child.href,
+        });
+        return (
+          React.createElement("li", {key: index, className: classes}, 
+            React.createElement("a", {onClick: this.handleClick, href: child.href}, child.text)
+          )
+        );
+      },
+    });
+
+    function render(navData) {
+      React.render(
+        React.createElement(Nav, {data: navData}),
+        document.getElementById('navigation_wrap')
+      );
+    }
+    render(navData);
+  </script>
+</div>
+
+    <div class="navPusher">
+      <div class="headerContainer">
+  <div id="header_wrap" class="wrapper headerWrapper miniHeaderWrapper">
+    <div class="inner">
+      <h2 id="project_tagline" class="fbossFontLight">Presto Tools and Services</h2>
+    </div>
+  </div>
+</div>
+
+      <div class="mainContainer blogContainer postContainer">
+  <div id="main_wrap" class="wrapper mainWrapper">
+    <div>
+</div>
+<nav class='toc' id="doc_nav"></nav>
+<script>
+  var docnavData = [
+    
+    {
+      group     : "Management Tools",
+      items     : [
+        
+        {
+          key : "presto-admin",
+          title : "Presto-Admin",
+          url : "resources/#presto-admin",
+        }
+        
+      ],
+    },
+    
+    {
+      group     : "Clients and GUIs",
+      items     : [
+        
+        {
+          key : "airpal",
+          title : "Airpal",
+          url : "resources/#airpal",
+        },
+        
+        {
+          key : "shib",
+          title : "Shib",
+          url : "resources/#shib",
+        }
+        
+      ],
+    },
+    
+    {
+      group     : "ODBC",
+      items     : [
+        
+        {
+          key : "prestogres",
+          title : "Prestogres",
+          url : "resources/#prestogres",
+        }
+        
+      ],
+    },
+    
+    {
+      group     : "Language Libraries",
+      items     : [
+        
+        {
+          key : "language-c",
+          title : "PrestoClient C",
+          url : "resources/#language-c",
+        },
+        
+        {
+          key : "language-java",
+          title : "Presto JDBC Driver",
+          url : "resources/#language-java",
+        },
+        
+        {
+          key : "language-node",
+          title : "presto-client-node",
+          url : "resources/#language-node",
+        },
+        
+        {
+          key : "language-php",
+          title : "PhpPrestoClient",
+          url : "resources/#language-php",
+        },
+        
+        {
+          key : "language-python",
+          title : "PyHive",
+          url : "resources/#language-python",
+        },
+        
+        {
+          key : "language-python2",
+          title : "PrestoClient Python",
+          url : "resources/#language-python2",
+        },
+        
+        {
+          key : "language-r",
+          title : "RPresto",
+          url : "resources/#language-r",
+        },
+        
+        {
+          key : "language-ruby",
+          title : "presto-client-ruby",
+          url : "resources/#language-ruby",
+        }
+        
+      ],
+    },
+    
+    {
+      group     : "Hosting",
+      items     : [
+        
+        {
+          key : "qubole",
+          title : "Qubole",
+          url : "resources/#qubole",
+        }
+        
+      ],
+    },
+    
+    {
+      group     : "Connectors and Plugins",
+      items     : [
+        
+        {
+          key : "qubole",
+          title : "MySQL-Teradata",
+          url : "resources/#qubole",
+        }
+        
+      ],
+    },
+    
+  ];
+</script>
+<script type="text/javascript">  
+  var DocNav = React.createClass({displayName: "DocNav",
+    getInitialState: function() {
+      return {
+        toggleActive: false,
+      };
+    },
+    getDefaultProps: function() {
+      return {
+        currentDoc: "Presto Tools and Services",
+        currentGroup: "",
+        data: docnavData,
+      }
+    },
+    handleSlide: function(id) {
+      this.setState({
+        toggleActive: !this.state.toggleActive,
+      });
+    },
+    render: function() {
+      var classes = React.addons.classSet({
+        'navToggle': true,
+        'navToggleActive': this.state.toggleActive,
+      });
+      var navClasses = React.addons.classSet({
+        'toggleNav': true,
+        'toggleNavActive': this.state.toggleActive,
+      });
+      return (
+        React.createElement("div", {className: navClasses}, 
+          React.createElement("section", null, 
+            this.props.data.map(this.renderNavGroups)
+          ), 
+          React.createElement("div", {className: classes, onClick: this.handleSlide}, React.createElement("i", {className: "fa fa-chevron-circle-down"}))
+        )
+      );
+    },
+    renderNavGroups: function(child, index) {
+      var classes = React.addons.classSet({
+        'navGroup': true,
+        'navGroupActive': this.props.currentGroup === child.group,
+      });
+      return (
+        React.createElement("div", {className: classes, key: index}, 
+          React.createElement("h3", null, child.group), 
+          React.createElement("ul", null, 
+            child.items.map(this.renderNavItems)
+          )
+        )
+      );
+    },
+    renderNavItems: function(child, index) {
+      var itemClasses = React.addons.classSet({
+        'navListItem': true,
+        'navListItemActive': this.props.currentDoc === child.title,
+      });
+      var classes = React.addons.classSet({
+        'navItem': true,
+        'navItemActive': this.props.currentDoc === child.title,
+      });
+      return (
+        React.createElement("li", {className: itemClasses, key: index}, React.createElement("a", {className: classes, href: child.url},  child.title))
+      );
+    },
+  });
+
+  function docNavRender(docnavData) {
+    React.render(
+      React.createElement(DocNav, {data: docnavData}),
+      document.getElementById('doc_nav')
+    );
+  }
+  docNavRender(docnavData);
+</script>
+    <div class="post">
+      
+      <div class="resourceGroup">
+        <h2 id="tools">Management Tools</h2>
+        
+        <h3 id="presto-admin">
+          <a href="https://github.com/prestodb/presto-admin" target="_blank">Presto-Admin</a> by <a href="https://github.com/TeradataCenterForHadoop">Teradata Center for Hadoop</a>
+
+        </h3>
+        
+        <p>Presto-Admin is a tool for installing and managing the Presto query engine on a cluster. It provides easy-to-use commands:</p>
+
+<ul>
+<li>Install and uninstall Presto across your cluster</li>
+<li>Configure your Presto cluster</li>
+<li>Start and stop the Presto servers</li>
+<li>Gather status and log information from your Presto cluster</li>
+</ul>
+
+<p>Examples:<br>
+<code>presto-admin server start|stop|restart|status</code><br>
+<code>presto-admin server install path-to-presto-rpm</code><br>
+<code>presto-admin connector add connector-name</code></p>
+
+        
+      </div>
+      
+      <div class="resourceGroup">
+        <h2 id="clients">Clients and GUIs</h2>
+        
+        <h3 id="airpal">
+          <a href="https://airbnb.github.io/airpal/" target="_blank">Airpal</a> by <a href="https://github.com/airbnb">Airbnb</a>
+
+        </h3>
+        
+        <p>Airpal is a web-based, query execution tool which leverages Facebook&rsquo;s PrestoDB to make authoring queries and retrieving results simple for users. Airpal provides the ability to find tables, see metadata, browse sample rows, write and edit queries, then submit queries all in a web interface. </p>
+
+        
+        <h3 id="shib">
+          <a href="https://github.com/tagomoris/shib" target="_blank">Shib</a> by <a href="https://github.com/tagomoris">Tagomori Satoshi</a>
+
+        </h3>
+        
+        <p>Shib is a web-client written in Node.js designed to query Presto and Hive. To run Shib install node.js, alter your config.js, and follow the instructions on the shib project page. Shib can also be used as an proxy server for query engines. </p>
+
+        
+      </div>
+      
+      <div class="resourceGroup">
+        <h2 id="odbc">ODBC</h2>
+        
+        <h3 id="prestogres">
+          <a href="https://github.com/treasure-data/prestogres" target="_blank">Prestogres</a> by <a href="https://github.com/frsyuki">Furuhashi Sadayuki</a>
+
+        </h3>
+        
+        <p>Prestogres is a gateway server that allows clients to use PostgreSQL protocol and thus the PostgreSQL ODBC driver to run queries on Presto.  </p>
+
+        
+      </div>
+      
+      <div class="resourceGroup">
+        <h2 id="libraries">Language Libraries</h2>
+        
+        <h3 id="language-c">
+          <a href="https://github.com/easydatawarehousing/prestoclient/tree/master/C" target="_blank">PrestoClient C</a> by <a href="https://github.com/easydatawarehousing">Ivo Herweijer</a>
+
+        </h3>
+        
+        <p>C client for Presto.</p>
+
+        
+        <h3 id="language-java">
+          <a href="https://prestodb.io/docs/current/installation/jdbc.html" target="_blank">Presto JDBC Driver</a> by <a href="https://github.com/facebook/presto">Presto Team</a>
+
+        </h3>
+        
+        <p>JDBC driver for Presto.</p>
+
+        
+        <h3 id="language-node">
+          <a href="https://github.com/tagomoris/presto-client-node" target="_blank">presto-client-node</a> by <a href="https://github.com/tagomoris">Tagomori Satoshi</a>
+
+        </h3>
+        
+        <p>Node.js client for Presto.</p>
+
+        
+        <h3 id="language-php">
+          <a href="https://github.com/Xtendsys-labs/PhpPrestoClient" target="_blank">PhpPrestoClient</a> by <a href="https://github.com/Xtendsys-labs">Xtendsys-labs</a>
+
+        </h3>
+        
+        <p>PHP client for Presto.</p>
+
+        
+        <h3 id="language-python">
+          <a href="https://github.com/dropbox/PyHive" target="_blank">PyHive</a> by <a href="https://github.com/dropbox">Dropbox</a>
+
+        </h3>
+        
+        <p>PyHive is a collection of Python DB-API and SQLAlchemy interfaces for Presto and Hive.</p>
+
+        
+        <h3 id="language-python2">
+          <a href="https://github.com/easydatawarehousing/prestoclient/tree/master/python
+" target="_blank">PrestoClient Python</a> by <a href="https://github.com/easydatawarehousing">Ivo Herweijer</a>
+
+        </h3>
+        
+        <p>Python client for Presto.</p>
+
+        
+        <h3 id="language-r">
+          <a href="https://github.com/prestodb/RPresto
+" target="_blank">RPresto</a> by <a href="https://github.com/prestodb/RPresto">RPresto Team</a>
+
+        </h3>
+        
+        <p>DBI-based adapter for Presto for R.</p>
+
+        
+        <h3 id="language-ruby">
+          <a href="https://github.com/treasure-data/presto-client-ruby" target="_blank">presto-client-ruby</a> by <a href="https://github.com/frsyuki">Furuhashi Sadayuki</a>
+
+        </h3>
+        
+        <p>Ruby client for Presto.</p>
+
+        
+      </div>
+      
+      <div class="resourceGroup">
+        <h2 id="hosting">Hosting</h2>
+        
+        <h3 id="qubole">
+          <a href="http://www.qubole.com/presto-as-a-service/" target="_blank">Qubole</a>
+        </h3>
+        
+        <p>Presto is integrated with the Qubole Data Service (QDS) platform. QDS is a web-based interface for launching Presto clusters and running queries across Presto clusters on Amazon&rsquo;s EC2. </p>
+
+        
+      </div>
+      
+      <div class="resourceGroup">
+        <h2 id="connectors">Connectors and Plugins</h2>
+        
+        <h3 id="qubole">
+          <a href="https://github.com/HackShare/presto" target="_blank">MySQL-Teradata</a> by <a href="https://github.com/HackShare">HackShare</a>
+
+        </h3>
+        
+        <p>This project is not an install-ready plugin for MySQL-Teradata, it is a fork of the entire Presto project and it contains a working MySQL-Teradata plugin. This integration was posted to the Google Group by maintainer Dheeban Govindarajan. </p>
+
+        
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+      <div class="footerContainer">
+  <div id="footer_wrap" class="wrapper footerWrapper">
+    <section id="footer_links" class="footerLinks">
+      <div class="footerSection">
+        <h2>Quick Links</h2>
+        <ul>
+          
+          <li><a href="docs/current/">Documentation</a></li>
+          
+          <li><a href="faq/">FAQ</a></li>
+          
+          <li><a href="community/">Community</a></li>
+          
+          <li><a href="tools/">Tools</a></li>
+          
+        </ul>
+      </div><div class="footerSection">
+        <h2>Support</h2>
+        <ul>
+          
+          <li><a href="https://groups.google.com/group/presto-users">Presto-users group</a></li>
+          
+          <li><a href="mailto:presto-users@googlegroups.com">Message Us</a></li>
+          
+          <li><a href="https://github.com/facebook/presto/issues/new">Report An Issue</a></li>
+          
+          <li><a href="https://webchat.freenode.net/?channels=prestodb">IRC on freenode</a></li>
+          
+        </ul>
+      </div><div class="footerSection">
+        <h2>Connect</h2>
+        <ul>
+          
+          <li><a href="https://www.facebook.com/prestodb">Facebook</a></li>
+          
+          <li><a href="https://twitter.com/prestodb">Twitter</a></li>
+          
+        </ul>
+      </div><div class="footerSection">
+        <h2>Open Source</h2>
+        <ul>
+          
+          <li><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License v2</a></li>
+          
+          <li><a href="https://github.com/facebook/presto/blob/master/CONTRIBUTING.md">Contributing</a></li>
+          
+        </ul>
+      </div>
+    </section>
+    <section id="fb_oss" class="fbOpenSourceFooter">
+      <a href="https://code.facebook.com/projects/" target="_blank"><img src="/static/oss_logo.png" alt="Facebook Open Source" title="Facebook Open Source" /></a>
+    </section>
+    <script>hljs.initHighlightingOnLoad();</script>
+  </div>
+</div>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-45503728-1', 'auto');
+  ga('send', 'pageview');
+</script>
+
+
+    </div>
+  </body>
+
+</html>

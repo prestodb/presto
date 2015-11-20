@@ -1,0 +1,57 @@
+- title: Running Presto
+  id: running
+  items:
+  - title: How much memory should I give a worker node?
+    id: memory
+    text: > 
+      The answer to this question will depend on the size of the data sets you are working with and the nature of the queries you are running, but Facebook typically runs Presto with a 16 GB heap (this is the amount specified by the example JVM config file in the deployment instructions).
+
+- title: Compatibility and Support
+  id: compatibility
+  items:
+  - title: What versions of Hadoop does Presto support?
+    id: hadoopversion
+    text: > 
+      The [Hive Connector](docs/current/connector/hive.html) supports all popular versions of Hadoop.
+  - title: Does Presto connect to Cassandra?
+    id: cassandra-connector
+    text: > 
+      Yes, via the [Cassandra Connector](docs/current/connector/cassandra.html).
+  - title: Does Presto connect to MySQL or PostgreSQL?
+    id: mysql-postgre
+    text: > 
+      Yes, via the [MySQL Connector](docs/current/connector/mysql.html) or [PostgreSQL Connector](docs/current/connector/postgresql.html). Both of these connectors extend a base JDBC connector that is easy to extend to connect other databases. Presto also includes a [JDBC Driver](docs/current/installation/jdbc.html) that allows Java applications to connect to Presto.
+
+- title: Common Errors and Troubleshooting
+  id: errors
+  items:
+  - title: Why can I run SHOW TABLES but I can't SELECT from any of them?
+    id: showtables
+    text: > 
+      If you can run metadata commands like `SHOW TABLES` but can't read from them, this means that Presto is able to access your Hive metastore but not your HDFS cluster. You might see one of these error messages:
+
+        * `java.io.IOException: Response is null`
+        * `InvalidProtocolBufferException: Message missing required fields`
+      
+      There is probably a mismatch between your Hadoop version and the [Hive Connector](docs/current/connector/hive.html) version you have selected. Make sure that you set the catalog property `connector.name` appropriately for your version of Hadoop.
+
+  - title: Why do I see a '_Cannot connect to discovery server for refresh_' error on startup?
+    id: discovery-server
+    text: > 
+      This is usually not a problem. The error message appears because the discovery client starts before the embedded discovery server is ready. You will see a `succeeded for refresh` message shortly after the error message in the logs which shows that everything is working. We will fix the log message eventually but it is purely a cosmetic issue.
+  - title: Queries are running slower than expected. What are the factors that influence Presto performance?
+    id: performance-slow
+    text: > 
+      The first things to check are the basic machine stats for your workers and coordinators. Measure the load, network, and disk utilization over time to understand where Presto is running out of resources.
+
+        * If the Presto process is mostly idle, this means that Presto can not retrieve data fast enough from the HDFS data node. This could be caused by network or disk bandwidth or CPU on the data node.
+        * If the Presto process is using 100% cpu, it might be caused by the use of an expensive to parse input format. For example, the Textfile is a very expensive input format to parse.
+        * If neither of the above are true, the Presto process may have some sort of internal resource starvation. If this is the case you should take a thread dump of your coordinators and workers with a tool like jstack as a starting point for your investigation.
+        
+- title: Running Presto Queries
+  id: querying
+  items:
+  - title: Is there a user-friendly interface for running Presto queries?
+    id: interfaces
+    text: > 
+      The [resources page](resources.html) lists several external projects designed to provide a user-friendly GUI interface for Presto queries.

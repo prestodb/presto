@@ -5,9 +5,9 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-	<meta property="og:url" content="https://prestodb.io/" />
+	<meta property="og:url" content="https://prestodb.io/gettingstarted/" />
 	<meta property="og:site_name" content="Presto"/>
-	<meta property="og:title" content="Presto - Distributed SQL Query Engine for Big Data" />
+	<meta property="og:title" content="Getting Started" />
 	<meta property="og:image" content="https://prestodb.io/static/presto-og.png" />
 	<meta property="og:description" content="Presto is an open source distributed SQL query engine for running interactive analytic queries against data sources of all sizes ranging from gigabytes to petabytes. 
 " />
@@ -24,11 +24,11 @@
   <script src="https://fb.me/react-with-addons-0.13.1.min.js"></script>
   <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.5/highlight.min.js"></script>
 
-  <title>Presto - Distributed SQL Query Engine for Big Data &mdash; Presto</title>
+  <title>Getting Started &mdash; Presto</title>
   <meta name="description" content="Presto is an open source distributed SQL query engine for running interactive analytic queries against data sources of all sizes ranging from gigabytes to petabytes. 
 ">
 
-  <link rel="canonical" href="https://prestodb.io/">
+  <link rel="canonical" href="https://prestodb.io/gettingstarted/">
   <link rel="alternate" type="application/rss+xml" title="Presto" href="https://prestodb.io/feed.xml" />
 </head>
 
@@ -175,91 +175,75 @@
 
     <div class="navPusher">
       <div class="headerContainer">
-  <div id="header_wrap" class="wrapper headerWrapper">
-    <div class="logo-splash">
-      <img class="projectLogo" src="/static/logo.png" alt="Presto">
-    </div>
+  <div id="header_wrap" class="wrapper headerWrapper miniHeaderWrapper">
     <div class="inner">
-      <h2 id="project_tagline" class="fbossFontLight">A Distributed SQL Query Engine for Big Data</h2>
-
-      <section id="intro">
-        <p>Presto is an open source distributed SQL query engine for running interactive analytic queries against data sources of all sizes ranging from gigabytes to petabytes. 
-</p>
-      </section>
-      <div id="promo" class="section promoSection">
-        Read the <a class="button blockButton fbossFontLight pluginBlock" href="/gettingstarted/">Getting Started</a> guide.
-      </div>
+      <h2 id="project_tagline" class="fbossFontLight">Getting Started</h2>
     </div>
   </div>
 </div>
 
-      <div class="mainContainer">
-        <div id="main_wrap" class="wrapper mainWrapper">
-          <div class="gridBlock">
+      <div class="mainContainer blogContainer postContainer">
+  <div id="main_wrap" class="wrapper mainWrapper">
+    <h2 id="requirements">Requirements</h2>
 
-  <section id="fb_hhvm" class="featureBlock twoByGridBlock fbossFontLight">
-  
-  <h3>Interactive Queries</h3>
-  <p>Presto allows querying data where it lives, including Hive, Cassandra, relational databases or even proprietary data stores. A single Presto query can combine data from multiple sources, allowing for analytics across your entire organization. </p>
+<p>Presto has a few basic requirements:</p>
 
-</section>
-  
-  
-  
+<ul>
+<li>Linux or Mac OS X</li>
+<li>Java 8, 64-bit</li>
+<li>Python 2.4+</li>
+</ul>
 
-  <section id="fb_hhvm" class="featureBlock twoByGridBlock fbossFontLight">
-  
-  <h3>Performance At Scale</h3>
-  <p>Presto was designed and written from the ground up for interactive analytics and approaches the speed of commercial data warehouses while scaling to the size of organizations like Facebook. </p>
+<h2 id="connectors">Connectors</h2>
 
-</section>
-  
-  <div class="gridClear"></div>
-  
+<p>Presto supports pluggable connectors that provide data for queries.
+The requirements vary by connector.</p>
 
-  <section id="fb_hhvm" class="featureBlock twoByGridBlock fbossFontLight">
-  
-  <h3>A Big Community</h3>
-  <p>Because Presto is Open Source, you can expect access to a range of tools that help make it easier to use, like <a href="/resources/#airpal">Airpal</a> - a web-based, query execution tool built by Airbnb.</p>
+<h3 id="hadoop-hive">Hadoop / Hive</h3>
 
-</section>
-  
-  
-  
+<p>Presto supports reading Hive data from the following versions of Hadoop:</p>
 
-  <section id="fb_hhvm" class="featureBlock twoByGridBlock fbossFontLight">
-  
-  <h3>Get Data Fast</h3>
-  <p>Presto is targeted at analysts who expect response times ranging from sub-second to minutes. Presto breaks the false choice between having fast analytics using an expensive commercial solution or using a slow &ldquo;free&rdquo; solution that requires excessive hardware.  </p>
+<ul>
+<li>Apache Hadoop 1.x</li>
+<li>Apache Hadoop 2.x</li>
+<li>Cloudera CDH 4</li>
+<li>Cloudera CDH 5</li>
+</ul>
 
-</section>
-  
-  <div class="gridClear"></div>
-  
+<p>The following file formats are supported: Text, SequenceFile,
+RCFile, ORC and Parquet.</p>
 
-</div>
+<p>Additionally, a remote Hive metastore is required.
+Local or embedded mode is not supported.
+Presto does not use MapReduce and thus only requires HDFS.</p>
 
-        </div>
-      </div>
-      <div class="poweredByContainer">
-        <div id="poweredby_wrap" class="wrapper mainWrapper">
-          <h2><a href="poweredby/">Powered By Presto</a></h2>
+<h3 id="cassandra">Cassandra</h3>
 
-<p><a href="poweredby/">Read more</a> about how these companies and others use Presto at scale:</p>
+<p>Cassandra 2.x is required. This connector is completely
+independent of the Hive connector and only requires an
+existing Cassandra installation.</p>
 
-<div class="poweredByLogos">
-  <div class="poweredByLogo">
-    <span class="logoSpan" style="background-image:url(static/images/poweredby/facebook.png)" alt="Facebook" />
-  </div><div class="poweredByLogo">
-    <span class="logoSpan" style="background-image:url(static/images/poweredby/airbnb.png)" alt="Airbnb" />
-  </div><div class="poweredByLogo">
-    <span class="logoSpan" style="background-image:url(static/images/poweredby/dropbox.png)" alt="Dropbox" />
-  </div><div class="poweredByLogo">
-    <span class="logoSpan" style="background-image:url(static/images/poweredby/netflix.png)" alt="Netflix" />
+<h3 id="tpc-h">TPC-H</h3>
+
+<p>The TPC-H connector dynamically generates data that can be used
+for experiementing with and testing Presto. This connector has
+no external requirements.</p>
+
+<h2 id="installation">Installation</h2>
+
+<p>See <a href="docs/current/installation/deployment.html">Deploying Presto</a>
+for complete installation instructions.</p>
+
+<h2 id="running-queries">Running Queries</h2>
+
+<p>You can run queries using the
+<a href="docs/current/installation/cli.html">Command Line Interface</a>
+after deploying Presto.</p>
+
   </div>
 </div>
-        </div>
-      </div>
+
+
       <div class="footerContainer">
   <div id="footer_wrap" class="wrapper footerWrapper">
     <section id="footer_links" class="footerLinks">

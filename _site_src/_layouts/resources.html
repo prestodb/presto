@@ -1,0 +1,23 @@
+---
+layout: default
+---
+
+<div class="mainContainer blogContainer postContainer">
+  <div id="main_wrap" class="wrapper mainWrapper">
+    {% include nav_parsed.html source=site.data.resources source_url="resources/" %}
+    <div class="post">
+      {% for group in site.data.resources %}
+      <div class="resourceGroup">
+        <h2 id="{{ group.id }}">{{ group.title }}</h2>
+        {% for item in group.items %}
+        <h3 id="{{ item.id }}">
+          <a href="{{ item.project }}" target="_blank">{{ item.title }}</a>{% if item.maintainer %} by {{ item.maintainer|markdownify| remove: '<p>' | remove: '</p>' }}{% endif %}
+        </h3>
+        
+        {{ item.text|markdownify }}
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>

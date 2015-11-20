@@ -1,0 +1,7 @@
+*~
+.sass-cache/
+_site/
+
+# Ignore locked gems because GitHub Pages controls the gems in production. Omit the
+# lock so `bundle install` always installs the latest.
+Gemfile.lock

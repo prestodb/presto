@@ -1,0 +1,15 @@
+- title: Docs
+  href: docs/current/
+  category: docs
+- title: FAQ
+  href: faq/
+  category: faq
+- title: Community
+  href: community/
+  category: community
+- title: Tools
+  href: tools/
+  category: tools
+- title: GitHub
+  href: https://github.com/facebook/presto
+  category: github
