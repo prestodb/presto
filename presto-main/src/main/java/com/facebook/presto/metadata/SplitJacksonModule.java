@@ -25,7 +25,7 @@ public class SplitJacksonModule
     @Inject
     public SplitJacksonModule(HandleResolver handleResolver)
     {
-        super(ConnectorSplit.class, "type", new SplitJsonTypeIdResolver(handleResolver));
+        super(ConnectorSplit.class, new SplitJsonTypeIdResolver(handleResolver));
     }
 
     private static class SplitJsonTypeIdResolver

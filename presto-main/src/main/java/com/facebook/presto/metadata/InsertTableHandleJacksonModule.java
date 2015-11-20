@@ -25,7 +25,7 @@ public class InsertTableHandleJacksonModule
     @Inject
     public InsertTableHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(ConnectorInsertTableHandle.class, "type", new InsertTableHandleJsonTypeIdResolver(handleResolver));
+        super(ConnectorInsertTableHandle.class, new InsertTableHandleJsonTypeIdResolver(handleResolver));
     }
 
     private static class InsertTableHandleJsonTypeIdResolver

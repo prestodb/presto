@@ -28,7 +28,7 @@ public class IndexHandleJacksonModule
     @Inject
     public IndexHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(ConnectorIndexHandle.class, "type", new IndexHandleJsonTypeIdResolver(handleResolver));
+        super(ConnectorIndexHandle.class, new IndexHandleJsonTypeIdResolver(handleResolver));
     }
 
     private static class IndexHandleJsonTypeIdResolver

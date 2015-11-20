@@ -116,7 +116,7 @@ public class TableWriterNode
         return visitor.visitTableWriter(this, context);
     }
 
-    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
     @JsonSubTypes({
             @JsonSubTypes.Type(value = CreateHandle.class, name = "CreateHandle"),
             @JsonSubTypes.Type(value = InsertHandle.class, name = "InsertHandle"),

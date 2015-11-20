@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         include = JsonTypeInfo.As.PROPERTY,
-        property = "type")
+        property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = OutputNode.class, name = "output"),
         @JsonSubTypes.Type(value = ProjectNode.class, name = "project"),
