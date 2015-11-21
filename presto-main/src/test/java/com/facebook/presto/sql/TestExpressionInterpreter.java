@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -48,6 +49,7 @@ import org.testng.annotations.Test;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -64,6 +66,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
@@ -927,6 +930,26 @@ public class TestExpressionInterpreter
             throws Exception
     {
         optimize("0 / 0");
+    }
+
+    @Test
+    public void testMassiveArrayConstructor()
+    {
+        optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "(bound_long + " + i + ")").iterator())));
+        optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "'" + i + "'").iterator())));
+        optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "ARRAY['" + i + "']").iterator())));
+    }
+
+    @Test
+    public void testArrayConstructor()
+    {
+        optimize("ARRAY []");
+        assertOptimizedEquals("ARRAY [(unbound_long + 0), (unbound_long + 1), (unbound_long + 2)]",
+                "array_constructor((unbound_long + 0), (unbound_long + 1), (unbound_long + 2))");
+        assertOptimizedEquals("ARRAY [(bound_long + 0), (unbound_long + 1), (bound_long + 2)]",
+                "array_constructor((bound_long + 0), (unbound_long + 1), (bound_long + 2))");
+        assertOptimizedEquals("ARRAY [(bound_long + 0), (unbound_long + 1), NULL]",
+                "array_constructor((bound_long + 0), (unbound_long + 1), NULL)");
     }
 
     @Test(expectedExceptions = PrestoException.class)
