@@ -25,6 +25,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.AnalysisContext;
@@ -68,6 +70,7 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
@@ -93,6 +96,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
@@ -936,7 +940,18 @@ public class ExpressionInterpreter
         @Override
         protected Object visitArrayConstructor(ArrayConstructor node, Object context)
         {
-            return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
+            Type elementType = ((ArrayType) expressionTypes.get(node)).getElementType();
+            BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), node.getValues().size());
+
+            for (Expression expression : node.getValues()) {
+                Object value = process(expression, context);
+                if (value instanceof Expression) {
+                    return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
+                }
+                writeNativeValue(elementType, arrayBlockBuilder, value);
+            }
+
+            return arrayBlockBuilder.build();
         }
 
         @Override
