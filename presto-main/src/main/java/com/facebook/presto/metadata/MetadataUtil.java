@@ -13,37 +13,31 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public final class MetadataUtil
 {
     private MetadataUtil() {}
-
-    public static QualifiedTableName checkTable(QualifiedTableName table)
-    {
-        checkNotNull(table, "table is null");
-        checkCatalogName(table.getCatalogName());
-        checkSchemaName(table.getSchemaName());
-        checkTableName(table.getTableName());
-        return table;
-    }
 
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
@@ -51,9 +45,7 @@ public final class MetadataUtil
         checkSchemaName(schemaName);
         checkTableName(tableName);
 
-        if (!schemaName.isPresent()) {
-            checkState(!tableName.isPresent(), "schemaName is absent!");
-        }
+        checkArgument(schemaName.isPresent() || !tableName.isPresent(), "tableName specified but schemaName is missing");
     }
 
     public static String checkCatalogName(String catalogName)
@@ -103,8 +95,10 @@ public final class MetadataUtil
 
     public static String checkLowerCase(String value, String name)
     {
-        checkNotNull(value, "%s is null", name);
-        checkArgument(value.equals(value.toLowerCase()), "%s is not lowercase", name);
+        if (value == null) {
+            throw new NullPointerException(format("%s is null", name));
+        }
+        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase", name);
         return value;
     }
 
@@ -118,66 +112,29 @@ public final class MetadataUtil
         return null;
     }
 
-    public static Function<ColumnMetadata, ColumnType> columnTypeGetter()
+    public static QualifiedTableName createQualifiedTableName(Session session, Node node, QualifiedName name)
     {
-        return new Function<ColumnMetadata, ColumnType>()
-        {
-            @Override
-            public ColumnType apply(ColumnMetadata columnMetadata)
-            {
-                return columnMetadata.getType();
-            }
-        };
-    }
-
-    public static Function<ColumnMetadata, String> columnNameGetter()
-    {
-        return new Function<ColumnMetadata, String>()
-        {
-            @Override
-            public String apply(ColumnMetadata columnMetadata)
-            {
-                return columnMetadata.getName();
-            }
-        };
-    }
-
-    public static QualifiedTableName createQualifiedTableName(Session session, QualifiedName name)
-    {
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkArgument(name.getParts().size() <= 3, "Too many dots in table name: %s", name);
+        requireNonNull(session, "session is null");
+        requireNonNull(name, "name is null");
+        checkArgument(name.getParts().size() <= 3, "Too many dots in table name: %s", name);
 
         List<String> parts = Lists.reverse(name.getParts());
         String tableName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema();
-        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog();
+        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
+                new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
+        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
+                new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
 
         return new QualifiedTableName(catalogName, schemaName, tableName);
     }
 
-    public static Function<SchemaTableName, String> schemaNameGetter()
+    public static boolean tableExists(Metadata metadata, Session session, String table)
     {
-        return new Function<SchemaTableName, String>()
-        {
-            @Override
-            public String apply(SchemaTableName schemaTableName)
-            {
-                return schemaTableName.getSchemaName();
-            }
-        };
-    }
-
-    public static Function<SchemaTableName, String> tableNameGetter()
-    {
-        return new Function<SchemaTableName, String>()
-        {
-            @Override
-            public String apply(SchemaTableName schemaTableName)
-            {
-                return schemaTableName.getTableName();
-            }
-        };
+        if (!session.getCatalog().isPresent() || !session.getSchema().isPresent()) {
+            return false;
+        }
+        QualifiedTableName name = new QualifiedTableName(session.getCatalog().get(), session.getSchema().get(), table);
+        return metadata.getTableHandle(session, name).isPresent();
     }
 
     public static class SchemaMetadataBuilder
@@ -215,28 +172,34 @@ public final class MetadataUtil
 
         private final SchemaTableName tableName;
         private final ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        private int ordinalPosition = 0;
+        private final ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
 
         private TableMetadataBuilder(SchemaTableName tableName)
         {
             this.tableName = tableName;
         }
 
-        public TableMetadataBuilder column(String columnName, ColumnType type)
+        public TableMetadataBuilder column(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type, ordinalPosition++, false));
+            columns.add(new ColumnMetadata(columnName, type, false));
             return this;
         }
 
-        public TableMetadataBuilder partitionKeyColumn(String columnName, ColumnType type)
+        public TableMetadataBuilder partitionKeyColumn(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type, ordinalPosition++, true));
+            columns.add(new ColumnMetadata(columnName, type, true));
+            return this;
+        }
+
+        public TableMetadataBuilder property(String name, Object value)
+        {
+            properties.put(name, value);
             return this;
         }
 
         public ConnectorTableMetadata build()
         {
-            return new ConnectorTableMetadata(tableName, columns.build());
+            return new ConnectorTableMetadata(tableName, columns.build(), properties.build());
         }
     }
 }

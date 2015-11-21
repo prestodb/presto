@@ -16,9 +16,9 @@ package com.facebook.presto.cli;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.ErrorLocation;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -36,11 +36,15 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.Writer;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class Query
         implements Closeable
@@ -50,39 +54,41 @@ public class Query
     private static final Signal SIGINT = new Signal("INT");
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
+    private final AtomicBoolean userAbortedQuery = new AtomicBoolean();
     private final StatementClient client;
 
     public Query(StatementClient client)
     {
-        this.client = checkNotNull(client, "client is null");
+        this.client = requireNonNull(client, "client is null");
+    }
+
+    public Map<String, String> getSetSessionProperties()
+    {
+        return client.getSetSessionProperties();
+    }
+
+    public Set<String> getResetSessionProperties()
+    {
+        return client.getResetSessionProperties();
     }
 
     public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
-        SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
-        {
-            @Override
-            public void handle(Signal signal)
-            {
-                if (ignoreUserInterrupt.get() || client.isClosed()) {
-                    return;
-                }
-                try {
-                    if (!client.cancelLeafStage()) {
-                        client.close();
-                    }
-                }
-                catch (RuntimeException e) {
-                    log.debug(e, "error canceling leaf stage");
-                    client.close();
-                }
+        Thread clientThread = Thread.currentThread();
+        SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
+            if (ignoreUserInterrupt.get() || client.isClosed()) {
+                return;
             }
+            userAbortedQuery.set(true);
+            client.close();
+            clientThread.interrupt();
         });
         try {
             renderQueryOutput(out, outputFormat, interactive);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
+            Thread.interrupted(); // clear interrupt status
         }
     }
 
@@ -102,20 +108,15 @@ public class Query
 
         if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
-            if (results.getColumns() == null) {
+            if (results.getUpdateType() != null) {
+                renderUpdate(out, results);
+            }
+            else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());
                 return;
             }
-
-            try {
-                renderResults(out, outputFormat, interactive, results);
-            }
-            catch (QueryAbortedException e) {
-                System.out.println("(query aborted by user)");
-                client.close();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
+            else {
+                renderResults(out, outputFormat, interactive, results.getColumns());
             }
         }
 
@@ -130,7 +131,7 @@ public class Query
             errorChannel.println("Query is gone (server restarted?)");
         }
         else if (client.isFailed()) {
-            renderFailure(client.finalResults(), errorChannel);
+            renderFailure(errorChannel);
         }
     }
 
@@ -141,10 +142,45 @@ public class Query
         }
     }
 
-    private void renderResults(PrintStream out, OutputFormat format, boolean interactive, QueryResults results)
+    private void renderUpdate(PrintStream out, QueryResults results)
+    {
+        String status = results.getUpdateType();
+        if (results.getUpdateCount() != null) {
+            long count = results.getUpdateCount();
+            status += format(": %s row%s", count, (count != 1) ? "s" : "");
+        }
+        out.println(status);
+        discardResults();
+    }
+
+    private void discardResults()
+    {
+        try (OutputHandler handler = new OutputHandler(new NullPrinter())) {
+            handler.processRows(client);
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private void renderResults(PrintStream out, OutputFormat outputFormat, boolean interactive, List<Column> columns)
+    {
+        try {
+            doRenderResults(out, outputFormat, interactive, columns);
+        }
+        catch (QueryAbortedException e) {
+            System.out.println("(query aborted by user)");
+            client.close();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private void doRenderResults(PrintStream out, OutputFormat format, boolean interactive, List<Column> columns)
             throws IOException
     {
-        List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
+        List<String> fieldNames = Lists.transform(columns, Column::getName);
         if (interactive) {
             pageOutput(format, fieldNames);
         }
@@ -156,12 +192,26 @@ public class Query
     private void pageOutput(OutputFormat format, List<String> fieldNames)
             throws IOException
     {
-        // ignore the user pressing ctrl-C while in the pager
-        ignoreUserInterrupt.set(true);
-
-        try (Writer writer = createWriter(Pager.create());
+        try (Pager pager = Pager.create();
+                Writer writer = createWriter(pager);
                 OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
+            if (!pager.isNullPager()) {
+                // ignore the user pressing ctrl-C while in the pager
+                ignoreUserInterrupt.set(true);
+                Thread clientThread = Thread.currentThread();
+                pager.getFinishFuture().thenRun(() -> {
+                    userAbortedQuery.set(true);
+                    ignoreUserInterrupt.set(false);
+                    clientThread.interrupt();
+                });
+            }
             handler.processRows(client);
+        }
+        catch (RuntimeException | IOException e) {
+            if (userAbortedQuery.get() && !(e instanceof QueryAbortedException)) {
+                throw new QueryAbortedException(e);
+            }
+            throw e;
         }
     }
 
@@ -182,9 +232,9 @@ public class Query
     {
         switch (format) {
             case ALIGNED:
-                return new AlignedTuplePrinter(fieldNames, writer);
+                return new AlignedTablePrinter(fieldNames, writer);
             case VERTICAL:
-                return new VerticalTuplePrinter(fieldNames, writer);
+                return new VerticalRecordPrinter(fieldNames, writer);
             case CSV:
                 return new CsvPrinter(fieldNames, writer, false);
             case CSV_HEADER:
@@ -193,13 +243,15 @@ public class Query
                 return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:
                 return new TsvPrinter(fieldNames, writer, true);
+            case NULL:
+                return new NullPrinter();
         }
         throw new RuntimeException(format + " not supported");
     }
 
     private static Writer createWriter(OutputStream out)
     {
-        return new OutputStreamWriter(out, Charsets.UTF_8);
+        return new OutputStreamWriter(out, UTF_8);
     }
 
     @Override
@@ -208,20 +260,20 @@ public class Query
         client.close();
     }
 
-    public void renderFailure(QueryResults results, PrintStream out)
+    public void renderFailure(PrintStream out)
     {
-        out.printf("Query %s failed: %s%n", results.getId(), results.getError().getMessage());
-        if (client.isDebug()) {
-            renderStack(results, out);
-        }
-        renderErrorLocation(client.getQuery(), results, out);
-    }
+        QueryResults results = client.finalResults();
+        QueryError error = results.getError();
+        checkState(error != null);
 
-    private static void renderErrorLocation(String query, QueryResults results, PrintStream out)
-    {
-        if (results.getError().getErrorLocation() != null) {
-            renderErrorLocation(query, results.getError().getErrorLocation(), out);
+        out.printf("Query %s failed: %s%n", results.getId(), error.getMessage());
+        if (client.isDebug() && (error.getFailureInfo() != null)) {
+            error.getFailureInfo().toException().printStackTrace(out);
         }
+        if (error.getErrorLocation() != null) {
+            renderErrorLocation(client.getQuery(), error.getErrorLocation(), out);
+        }
+        out.println();
     }
 
     private static void renderErrorLocation(String query, ErrorLocation location, PrintStream out)
@@ -252,20 +304,13 @@ public class Query
             }
 
             ansi.reset();
-            out.println(ansi);
+            out.print(ansi);
         }
         else {
             String prefix = format("LINE %s: ", location.getLineNumber());
             String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
-        }
-    }
-
-    private static void renderStack(QueryResults results, PrintStream out)
-    {
-        if (results.getError().getFailureInfo() != null) {
-            results.getError().getFailureInfo().toException().printStackTrace(out);
         }
     }
 }

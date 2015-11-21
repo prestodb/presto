@@ -13,52 +13,42 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import static com.facebook.presto.block.BlockIterables.createBlockIterable;
-import static com.facebook.presto.block.BlockUtils.emptyBlockIterable;
+import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InternalTable
 {
-    private final Map<String, BlockIterable> columns;
+    private final Map<String, Integer> columnIndexes;
+    private final List<Page> pages;
 
-    public InternalTable(Map<String, BlockIterable> columns)
+    public InternalTable(Map<String, Integer> columnIndexes, Iterable<Page> pages)
     {
-        this.columns = ImmutableMap.copyOf(checkNotNull(columns, "columns is null"));
+        this.columnIndexes = ImmutableMap.copyOf(requireNonNull(columnIndexes, "columnIndexes is null"));
+        this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
     }
 
-    public Set<String> getColumnNames()
+    public int getColumnIndex(String columnName)
     {
-        return columns.keySet();
+        Integer index = columnIndexes.get(columnName);
+        checkArgument(index != null, "Column %s not found", columnName);
+        return index;
     }
 
-    public BlockIterable getColumn(String columnName)
+    public List<Page> getPages()
     {
-        return columns.get(columnName);
-    }
-
-    public List<BlockIterable> getColumns(List<String> columnNames)
-    {
-        ImmutableList.Builder<BlockIterable> columns = ImmutableList.builder();
-        for (String columnName : columnNames) {
-            columns.add(getColumn(columnName));
-        }
-        return columns.build();
+        return pages;
     }
 
     public static Builder builder(ColumnMetadata... columns)
@@ -69,51 +59,49 @@ public class InternalTable
     public static Builder builder(List<ColumnMetadata> columns)
     {
         ImmutableList.Builder<String> names = ImmutableList.builder();
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ColumnMetadata column : columns) {
             names.add(column.getName());
-            Type type = Type.fromColumnType(column.getType());
-            tupleInfos.add(new TupleInfo(type));
+            types.add(column.getType());
         }
-        return new Builder(tupleInfos.build(), names.build());
+        return new Builder(names.build(), types.build());
     }
 
     public static class Builder
     {
-        private final List<TupleInfo> tupleInfos;
-        private final List<String> columnNames;
-        private final List<List<Block>> columns;
+        private final Map<String, Integer> columnIndexes;
+        private final List<Type> types;
+        private final List<Page> pages;
         private PageBuilder pageBuilder;
 
-        public Builder(List<TupleInfo> tupleInfos, List<String> columnNames)
+        public Builder(List<String> columnNames, List<Type> types)
         {
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
-            this.columnNames = ImmutableList.copyOf(checkNotNull(columnNames, "columnNames is null"));
-            checkArgument(columnNames.size() == tupleInfos.size(),
-                    "Column name count does not match tuple type count: columnNames=%s, tupleInfos=%s", columnNames, tupleInfos.size());
+            requireNonNull(columnNames, "columnNames is null");
 
-            columns = new ArrayList<>();
-            for (int i = 0; i < tupleInfos.size(); i++) {
-                columns.add(new ArrayList<Block>());
+            ImmutableMap.Builder<String, Integer> columnIndexes = ImmutableMap.builder();
+            int columnIndex = 0;
+            for (String columnName : columnNames) {
+                columnIndexes.put(columnName, columnIndex++);
             }
+            this.columnIndexes = columnIndexes.build();
 
-            pageBuilder = new PageBuilder(tupleInfos);
-        }
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            checkArgument(columnNames.size() == types.size(),
+                    "Column name count does not match type count: columnNames=%s, types=%s", columnNames, types.size());
 
-        public List<TupleInfo> getTupleInfos()
-        {
-            return tupleInfos;
+            pages = new ArrayList<>();
+            pageBuilder = new PageBuilder(types);
         }
 
         public Builder add(Object... values)
         {
-            for (int i = 0; i < tupleInfos.size(); i++) {
-                pageBuilder.getBlockBuilder(i).appendObject(values[i]);
+            pageBuilder.declarePosition();
+            for (int i = 0; i < types.size(); i++) {
+                writeNativeValue(types.get(i), pageBuilder.getBlockBuilder(i), values[i]);
             }
 
             if (pageBuilder.isFull()) {
                 flushPage();
-                pageBuilder.reset();
             }
             return this;
         }
@@ -121,21 +109,14 @@ public class InternalTable
         public InternalTable build()
         {
             flushPage();
-            ImmutableMap.Builder<String, BlockIterable> data = ImmutableMap.builder();
-            for (int i = 0; i < columns.size(); i++) {
-                List<Block> column = columns.get(i);
-                data.put(columnNames.get(i), column.isEmpty() ? emptyBlockIterable() : createBlockIterable(column));
-            }
-            return new InternalTable(data.build());
+            return new InternalTable(columnIndexes, pages);
         }
 
         private void flushPage()
         {
             if (!pageBuilder.isEmpty()) {
-                Page page = pageBuilder.build();
-                for (int i = 0; i < tupleInfos.size(); i++) {
-                    columns.get(i).add(page.getBlock(i));
-                }
+                pages.add(pageBuilder.build());
+                pageBuilder.reset();
             }
         }
     }

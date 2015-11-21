@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.block.PagesSerde;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
-import com.facebook.presto.serde.PagesSerde;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
-import com.google.common.base.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -30,7 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableListMultimap.Builder;
 import com.google.common.collect.Iterables;
-import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -38,6 +39,7 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -47,26 +49,32 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.SequencePageBuilder.createSequencePage;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.operator.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestExchangeOperator
 {
-    private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
-    private static final Page PAGE = createSequencePage(TUPLE_INFOS, 10, 100);
+    private static final List<Type> TYPES = ImmutableList.<Type>of(VARCHAR);
+    private static final Page PAGE = createSequencePage(TYPES, 10, 100);
+    private static final BlockEncodingManager blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
 
     private static final String TASK_1_ID = "task1";
     private static final String TASK_2_ID = "task2";
@@ -82,26 +90,28 @@ public class TestExchangeOperator
         }
     });
 
-    private ExecutorService executor;
-    private AsyncHttpClient httpClient;
-    private Supplier<ExchangeClient> exchangeClientSupplier;
+    private ScheduledExecutorService executor;
+    private HttpClient httpClient;
+    private ExchangeClientSupplier exchangeClientSupplier;
 
+    @SuppressWarnings("resource")
     @BeforeClass
     public void setUp()
             throws Exception
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
 
         httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
 
-        exchangeClientSupplier = new Supplier<ExchangeClient>()
-        {
-            @Override
-            public ExchangeClient get()
-            {
-                return new ExchangeClient(new DataSize(32, MEGABYTE), new DataSize(10, MEGABYTE), 3, httpClient, executor);
-            }
-        };
+        exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
+                blockEncodingSerde,
+                new DataSize(32, MEGABYTE),
+                new DataSize(10, MEGABYTE),
+                3,
+                new Duration(1, TimeUnit.MINUTES),
+                httpClient,
+                executor,
+                systemMemoryUsageListener);
     }
 
     @AfterClass
@@ -127,9 +137,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(newRemoteSplit(TASK_3_ID));
         operator.noMoreSplits();
 
         // add pages and close the buffers
@@ -144,15 +154,20 @@ public class TestExchangeOperator
         waitForFinished(operator);
     }
 
+    private Split newRemoteSplit(String taskId)
+    {
+        return new Split("remote", new RemoteSplit(URI.create("http://localhost/" + taskId)));
+    }
+
     @Test
     public void testWaitForClose()
             throws Exception
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(newRemoteSplit(TASK_3_ID));
         operator.noMoreSplits();
 
         // add pages and leave buffers open
@@ -187,7 +202,8 @@ public class TestExchangeOperator
         SourceOperator operator = createExchangeOperator();
 
         // add a buffer location containing one page and close the buffer
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        // add pages and leave buffers open
         taskBuffers.getUnchecked(TASK_1_ID).addPages(1, true);
 
         // read page
@@ -199,7 +215,7 @@ public class TestExchangeOperator
         assertEquals(operator.getOutput(), null);
 
         // add a buffer location
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
         // set no more splits (buffer locations)
         operator.noMoreSplits();
         // add two pages and close the last buffer
@@ -218,9 +234,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_1_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_2_ID), TUPLE_INFOS));
-        operator.addSplit(new RemoteSplit(URI.create("http://localhost/" + TASK_3_ID), TUPLE_INFOS));
+        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(newRemoteSplit(TASK_3_ID));
         operator.noMoreSplits();
 
         // add pages and leave buffers open
@@ -245,14 +261,15 @@ public class TestExchangeOperator
 
     private SourceOperator createExchangeOperator()
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TUPLE_INFOS);
+        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TYPES);
 
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
-        return operatorFactory.createOperator(driverContext);
+        SourceOperator operator = operatorFactory.createOperator(driverContext);
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
+        return operator;
     }
 
     private List<Page> waitForPages(Operator operator, int expectedPageCount)
@@ -261,6 +278,23 @@ public class TestExchangeOperator
         // read expected pages or until 10 seconds has passed
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         List<Page> outputPages = new ArrayList<>();
+
+        boolean greaterThanZero = false;
+        while (System.nanoTime() < endTime) {
+            if (operator.isFinished()) {
+                break;
+            }
+
+            if (operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes() > 0) {
+                greaterThanZero = true;
+                break;
+            }
+            else {
+                Thread.sleep(10);
+            }
+        }
+        assertTrue(greaterThanZero);
+
         while (outputPages.size() < expectedPageCount && System.nanoTime() < endTime) {
             assertEquals(operator.needsInput(), false);
             if (operator.isFinished()) {
@@ -286,8 +320,10 @@ public class TestExchangeOperator
         // verify pages
         assertEquals(outputPages.size(), expectedPageCount);
         for (Page page : outputPages) {
-            assertPageEquals(page, PAGE);
+            assertPageEquals(operator.getTypes(), page, PAGE);
         }
+
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
 
         return outputPages;
     }
@@ -310,6 +346,7 @@ public class TestExchangeOperator
         assertEquals(operator.isFinished(), true);
         assertEquals(operator.needsInput(), false);
         assertNull(operator.getOutput());
+        assertEquals(operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes(), 0);
     }
 
     private static class HttpClientHandler
@@ -326,6 +363,11 @@ public class TestExchangeOperator
         public Response apply(Request request)
         {
             ImmutableList<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
+            if (request.getMethod().equals("DELETE")) {
+                assertEquals(parts.size(), 1);
+                return new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(), new byte[0]);
+            }
+
             assertEquals(parts.size(), 2);
             String taskId = parts.get(0);
             int pageToken = Integer.parseInt(parts.get(1));
@@ -335,19 +377,22 @@ public class TestExchangeOperator
 
             TaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
             Page page = taskBuffer.getPage(pageToken);
+            headers.put(CONTENT_TYPE, PRESTO_PAGES);
             if (page != null) {
-                headers.put(CONTENT_TYPE, PRESTO_PAGES);
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
+                headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
                 DynamicSliceOutput output = new DynamicSliceOutput(256);
-                PagesSerde.writePages(output, page);
+                PagesSerde.writePages(blockEncodingSerde, output, page);
                 return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
             }
             else if (taskBuffer.isFinished()) {
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
-                return new TestingResponse(HttpStatus.GONE, headers.build(), new byte[0]);
+                headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(true));
+                return new TestingResponse(HttpStatus.OK, headers.build(), new byte[0]);
             }
             else {
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
+                headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
                 return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
             }
         }

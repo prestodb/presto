@@ -21,8 +21,9 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SemiJoinNode
@@ -33,6 +34,8 @@ public class SemiJoinNode
     private final Symbol sourceJoinSymbol;
     private final Symbol filteringSourceJoinSymbol;
     private final Symbol semiJoinOutput;
+    private final Optional<Symbol> sourceHashSymbol;
+    private final Optional<Symbol> filteringSourceHashSymbol;
 
     @JsonCreator
     public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
@@ -40,14 +43,18 @@ public class SemiJoinNode
             @JsonProperty("filteringSource") PlanNode filteringSource,
             @JsonProperty("sourceJoinSymbol") Symbol sourceJoinSymbol,
             @JsonProperty("filteringSourceJoinSymbol") Symbol filteringSourceJoinSymbol,
-            @JsonProperty("semiJoinOutput") Symbol semiJoinOutput)
+            @JsonProperty("semiJoinOutput") Symbol semiJoinOutput,
+            @JsonProperty("sourceHashSymbol") Optional<Symbol> sourceHashSymbol,
+            @JsonProperty("filteringSourceHashSymbol") Optional<Symbol> filteringSourceHashSymbol)
     {
         super(id);
-        this.source = checkNotNull(source, "source is null");
-        this.filteringSource = checkNotNull(filteringSource, "filteringSource is null");
-        this.sourceJoinSymbol = checkNotNull(sourceJoinSymbol, "sourceJoinSymbol is null");
-        this.filteringSourceJoinSymbol = checkNotNull(filteringSourceJoinSymbol, "filteringSourceJoinSymbol is null");
-        this.semiJoinOutput = checkNotNull(semiJoinOutput, "semiJoinOutput is null");
+        this.source = requireNonNull(source, "source is null");
+        this.filteringSource = requireNonNull(filteringSource, "filteringSource is null");
+        this.sourceJoinSymbol = requireNonNull(sourceJoinSymbol, "sourceJoinSymbol is null");
+        this.filteringSourceJoinSymbol = requireNonNull(filteringSourceJoinSymbol, "filteringSourceJoinSymbol is null");
+        this.semiJoinOutput = requireNonNull(semiJoinOutput, "semiJoinOutput is null");
+        this.sourceHashSymbol = requireNonNull(sourceHashSymbol, "sourceHashSymbol is null");
+        this.filteringSourceHashSymbol = requireNonNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
     }
 
     @JsonProperty("source")
@@ -78,6 +85,18 @@ public class SemiJoinNode
     public Symbol getSemiJoinOutput()
     {
         return semiJoinOutput;
+    }
+
+    @JsonProperty("sourceHashSymbol")
+    public Optional<Symbol> getSourceHashSymbol()
+    {
+        return sourceHashSymbol;
+    }
+
+    @JsonProperty("filteringSourceHashSymbol")
+    public Optional<Symbol> getFilteringSourceHashSymbol()
+    {
+        return filteringSourceHashSymbol;
     }
 
     @Override

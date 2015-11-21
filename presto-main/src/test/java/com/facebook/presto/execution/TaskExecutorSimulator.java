@@ -20,11 +20,9 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
@@ -38,15 +36,16 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.util.Threads.threadsNamed;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -69,9 +68,9 @@ public class TaskExecutorSimulator
 
     public TaskExecutorSimulator()
     {
-        executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%d")));
+        executor = listeningDecorator(newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%s")));
 
-        taskExecutor = new TaskExecutor(24, new Ticker()
+        taskExecutor = new TaskExecutor(24, 48, new Ticker()
         {
             private final long start = System.nanoTime();
 
@@ -97,7 +96,7 @@ public class TaskExecutorSimulator
             throws Exception
     {
         Multimap<Integer, SimulationTask> tasks = Multimaps.synchronizedListMultimap(ArrayListMultimap.<Integer, SimulationTask>create());
-        Set<ListenableFuture<?>> finishFutures = Sets.newSetFromMap(new ConcurrentHashMap<ListenableFuture<?>, Boolean>());
+        Set<ListenableFuture<?>> finishFutures = newConcurrentHashSet();
         AtomicBoolean done = new AtomicBoolean();
 
         long start = System.nanoTime();
@@ -414,6 +413,12 @@ public class TaskExecutorSimulator
             }
 
             return Futures.immediateCheckedFuture(null);
+        }
+
+        @Override
+        public String getInfo()
+        {
+            return "simulation-split";
         }
     }
 }

@@ -13,7 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Optional;
+
 public abstract class SelectItem
         extends Node
 {
+    public SelectItem(Optional<NodeLocation> location)
+    {
+        super(location);
+    }
 }

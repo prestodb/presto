@@ -14,14 +14,14 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.SortedRangeSet;
-import com.google.common.base.Function;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
 
 public final class DomainUtils
 {
@@ -41,25 +41,26 @@ public final class DomainUtils
     }
 
     /**
-     * Reduces the number of discrete ranges in the Domain if there are too many.
+     * Reduces the number of discrete components in the Domain if there are too many.
      */
     public static Domain simplifyDomain(Domain domain)
     {
-        if (domain.getRanges().getRangeCount() <= 32) {
-            return domain;
-        }
-        return Domain.create(SortedRangeSet.of(domain.getRanges().getSpan()), domain.isNullAllowed());
-    }
-
-    public static Function<Domain, Domain> simplifyDomainFunction()
-    {
-        return new Function<Domain, Domain>()
-        {
-            @Override
-            public Domain apply(Domain domain)
-            {
-                return simplifyDomain(domain);
-            }
-        };
+        ValueSet values = domain.getValues();
+        ValueSet simplifiedValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
+                ranges -> {
+                    if (ranges.getOrderedRanges().size() <= 32) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(ValueSet.ofRanges(ranges.getSpan()));
+                },
+                discreteValues -> {
+                    if (discreteValues.getValues().size() <= 32) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(ValueSet.all(domain.getType()));
+                },
+                allOrNone -> Optional.empty())
+                .orElse(values);
+        return Domain.create(simplifiedValueSet, domain.isNullAllowed());
     }
 }

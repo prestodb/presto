@@ -13,30 +13,31 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.google.common.base.Charsets;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class InfiniteRecordSet
         implements RecordSet
 {
-    private final List<ColumnType> types;
+    private final List<Type> types;
     private final List<?> record;
 
-    public InfiniteRecordSet(List<ColumnType> types, List<?> record)
+    public InfiniteRecordSet(List<Type> types, List<?> record)
     {
         this.types = types;
         this.record = record;
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return types;
     }
@@ -50,13 +51,13 @@ public class InfiniteRecordSet
     private static class InMemoryRecordCursor
             implements RecordCursor
     {
-        private final List<ColumnType> types;
+        private final List<Type> types;
         private final List<?> record;
 
-        private InMemoryRecordCursor(List<ColumnType> types, List<?> record)
+        private InMemoryRecordCursor(List<Type> types, List<?> record)
         {
-            this.types = checkNotNull(ImmutableList.copyOf(types), "types is null");
-            this.record = checkNotNull(ImmutableList.copyOf(record), "record is null");
+            this.types = requireNonNull(ImmutableList.copyOf(types), "types is null");
+            this.record = requireNonNull(ImmutableList.copyOf(record), "record is null");
         }
 
         @Override
@@ -72,13 +73,19 @@ public class InfiniteRecordSet
         }
 
         @Override
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
         public boolean advanceNextPosition()
         {
             return true;
         }
 
         @Override
-        public ColumnType getType(int field)
+        public Type getType(int field)
         {
             return types.get(field);
         }
@@ -86,36 +93,44 @@ public class InfiniteRecordSet
         @Override
         public boolean getBoolean(int field)
         {
-            checkNotNull(record.get(field), "value is null");
+            requireNonNull(record.get(field), "value is null");
             return (Boolean) record.get(field);
         }
 
         @Override
         public long getLong(int field)
         {
-            checkNotNull(record.get(field), "value is null");
+            requireNonNull(record.get(field), "value is null");
             return (Long) record.get(field);
         }
 
         @Override
         public double getDouble(int field)
         {
-            checkNotNull(record.get(field), "value is null");
+            requireNonNull(record.get(field), "value is null");
             return (Double) record.get(field);
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
             Object value = record.get(field);
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
             if (value instanceof byte[]) {
-                return (byte[]) value;
+                return Slices.wrappedBuffer((byte[]) value);
             }
             if (value instanceof String) {
-                return ((String) value).getBytes(Charsets.UTF_8);
+                return Slices.utf8Slice((String) value);
             }
             throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            Object value = record.get(field);
+            requireNonNull(value, "value is null");
+            return value;
         }
 
         @Override

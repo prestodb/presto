@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.PrestoException;
 import org.joda.time.DateTime;
 
+import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
+import static java.lang.String.format;
+
 public class AbandonedException
-        extends RuntimeException
+        extends PrestoException
 {
     public AbandonedException(String name, DateTime lastHeartbeat, DateTime now)
     {
-        super(String.format("%s has not been accessed since %s: currentTime %s", name, lastHeartbeat, now));
+        super(ABANDONED_QUERY, format("%s has not been accessed since %s: currentTime %s", name, lastHeartbeat, now));
     }
 }

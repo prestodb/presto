@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class FrameBound
         extends Node
@@ -35,13 +36,34 @@ public class FrameBound
 
     public FrameBound(Type type)
     {
-        this(type, null);
+        this(Optional.empty(), type);
+    }
+
+    public FrameBound(NodeLocation location, Type type)
+    {
+        this(Optional.of(location), type);
     }
 
     public FrameBound(Type type, Expression value)
     {
-        this.type = checkNotNull(type, "type is null");
-        this.value = Optional.fromNullable(value);
+        this(Optional.empty(), type, value);
+    }
+
+    private FrameBound(Optional<NodeLocation> location, Type type)
+    {
+        this(location, type, null);
+    }
+
+    public FrameBound(NodeLocation location, Type type, Expression value)
+    {
+        this(Optional.of(location), type, value);
+    }
+
+    private FrameBound(Optional<NodeLocation> location, Type type, Expression value)
+    {
+        super(location);
+        this.type = requireNonNull(type, "type is null");
+        this.value = Optional.ofNullable(value);
     }
 
     public Type getType()
@@ -70,20 +92,20 @@ public class FrameBound
             return false;
         }
         FrameBound o = (FrameBound) obj;
-        return Objects.equal(type, o.type) &&
-                Objects.equal(value, o.value);
+        return Objects.equals(type, o.type) &&
+                Objects.equals(value, o.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(type, value);
+        return Objects.hash(type, value);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("type", type)
                 .add("value", value)
                 .toString();

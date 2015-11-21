@@ -20,28 +20,30 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class Input
+public final class Input
 {
     private final String connectorId;
     private final String schema;
     private final String table;
-    private final List<String> columns;
+    private final List<Column> columns;
 
     @JsonCreator
     public Input(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
-            @JsonProperty("columns") List<String> columns)
+            @JsonProperty("columns") List<Column> columns)
     {
-        checkNotNull(connectorId, "connectorId is null");
-        checkNotNull(schema, "schema is null");
-        checkNotNull(table, "table is null");
-        checkNotNull(columns, "columns is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(table, "table is null");
+        requireNonNull(columns, "columns is null");
 
         this.connectorId = connectorId;
         this.schema = schema;
@@ -68,8 +70,43 @@ public class Input
     }
 
     @JsonProperty
-    public List<String> getColumns()
+    public List<Column> getColumns()
     {
         return columns;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Input that = (Input) o;
+
+        return Objects.equals(this.connectorId, that.connectorId) &&
+                Objects.equals(this.schema, that.schema) &&
+                Objects.equals(this.table, that.table) &&
+                Objects.equals(this.columns, that.columns);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(connectorId, schema, table, columns);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(connectorId)
+                .addValue(schema)
+                .addValue(table)
+                .addValue(columns)
+                .toString();
     }
 }

@@ -15,12 +15,12 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Objects;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.execution.QueryId.validateId;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class StageId
 {
@@ -36,7 +36,7 @@ public class StageId
 
     public StageId(QueryId queryId, String id)
     {
-        this.queryId = checkNotNull(queryId, "queryId is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.id = validateId(id);
     }
 
@@ -56,6 +56,7 @@ public class StageId
         return id;
     }
 
+    @Override
     @JsonValue
     public String toString()
     {
@@ -65,7 +66,7 @@ public class StageId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(id, queryId);
+        return Objects.hash(id, queryId);
     }
 
     @Override
@@ -78,7 +79,7 @@ public class StageId
             return false;
         }
         final StageId other = (StageId) obj;
-        return Objects.equal(this.id, other.id) &&
-                Objects.equal(this.queryId, other.queryId);
+        return Objects.equals(this.id, other.id) &&
+                Objects.equals(this.queryId, other.queryId);
     }
 }

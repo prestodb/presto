@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class NaturalJoin
         extends JoinCriteria
@@ -36,6 +36,6 @@ public class NaturalJoin
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this).toString();
+        return toStringHelper(this).toString();
     }
 }

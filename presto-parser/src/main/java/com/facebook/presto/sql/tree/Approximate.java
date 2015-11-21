@@ -13,18 +13,21 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class Approximate
         extends Node
 {
     private final String confidence;
 
-    public Approximate(String confidence)
+    public Approximate(NodeLocation location, String confidence)
     {
-        this.confidence = checkNotNull(confidence, "confidence is null");
+        super(Optional.of(location));
+        this.confidence = requireNonNull(confidence, "confidence is null");
     }
 
     public String getConfidence()
@@ -48,7 +51,7 @@ public final class Approximate
             return false;
         }
         Approximate o = (Approximate) obj;
-        return Objects.equal(confidence, o.confidence);
+        return Objects.equals(confidence, o.confidence);
     }
 
     @Override
@@ -60,7 +63,7 @@ public final class Approximate
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("confidence", confidence)
                 .toString();
     }

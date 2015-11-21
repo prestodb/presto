@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.example;
 
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public final class ExampleTableHandle
-        implements TableHandle
+        implements ConnectorTableHandle
 {
     private final String connectorId;
     private final String schemaName;
@@ -35,9 +36,9 @@ public final class ExampleTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     @JsonProperty
@@ -66,7 +67,7 @@ public final class ExampleTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, schemaName, tableName);
+        return Objects.hash(connectorId, schemaName, tableName);
     }
 
     @Override
@@ -80,9 +81,9 @@ public final class ExampleTableHandle
         }
 
         ExampleTableHandle other = (ExampleTableHandle) obj;
-        return Objects.equal(this.connectorId, other.connectorId) &&
-                Objects.equal(this.schemaName, other.schemaName) &&
-                Objects.equal(this.tableName, other.tableName);
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName);
     }
 
     @Override

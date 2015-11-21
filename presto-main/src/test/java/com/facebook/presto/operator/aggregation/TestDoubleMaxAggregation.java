@@ -13,29 +13,27 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import java.util.List;
+
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleMaxAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int start, int length)
+    public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append((double) i);
+            DOUBLE.writeDouble(blockBuilder, (double) i);
         }
-        return blockBuilder.build();
-    }
-
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return DOUBLE_MAX;
+        return new Block[] {blockBuilder.build()};
     }
 
     @Override
@@ -45,5 +43,17 @@ public class TestDoubleMaxAggregation
             return null;
         }
         return (double) (start + length - 1);
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "max";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.DOUBLE);
     }
 }

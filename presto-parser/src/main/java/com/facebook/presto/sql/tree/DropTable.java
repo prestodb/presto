@@ -13,16 +13,32 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
+import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class DropTable
         extends Statement
 {
     private final QualifiedName tableName;
+    private final boolean exists;
 
-    public DropTable(QualifiedName tableName)
+    public DropTable(QualifiedName tableName, boolean exists)
     {
+        this(Optional.empty(), tableName, exists);
+    }
+
+    public DropTable(NodeLocation location, QualifiedName tableName, boolean exists)
+    {
+        this(Optional.of(location), tableName, exists);
+    }
+
+    private DropTable(Optional<NodeLocation> location, QualifiedName tableName, boolean exists)
+    {
+        super(location);
         this.tableName = tableName;
+        this.exists = exists;
     }
 
     public QualifiedName getTableName()
@@ -30,16 +46,21 @@ public class DropTable
         return tableName;
     }
 
+    public boolean isExists()
+    {
+        return exists;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitStatement(this, context);
+        return visitor.visitDropTable(this, context);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tableName);
+        return Objects.hash(tableName, exists);
     }
 
     @Override
@@ -52,14 +73,16 @@ public class DropTable
             return false;
         }
         DropTable o = (DropTable) obj;
-        return Objects.equal(tableName, o.tableName);
+        return Objects.equals(tableName, o.tableName)
+                && (exists == o.exists);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("tableName", tableName)
+                .add("exists", exists)
                 .toString();
     }
 }

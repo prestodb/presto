@@ -15,22 +15,24 @@ package com.facebook.presto.byteCode.debug;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
-import com.facebook.presto.byteCode.LocalVariableDefinition;
+import com.facebook.presto.byteCode.MethodGenerationContext;
+import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class LocalVariableNode
         implements DebugNode
 {
-    private final LocalVariableDefinition variable;
+    private final Variable variable;
     private final LabelNode start;
     private final LabelNode end;
 
-    public LocalVariableNode(LocalVariableDefinition variable, LabelNode start, LabelNode end)
+    public LocalVariableNode(Variable variable, LabelNode start, LabelNode end)
     {
         this.variable = variable;
         this.start = start;
@@ -38,20 +40,20 @@ public class LocalVariableNode
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
         visitor.visitLocalVariable(variable.getName(),
                 variable.getType().getType(),
                 variable.getType().getGenericSignature(),
                 start.getLabel(),
                 end.getLabel(),
-                variable.getSlot());
+                generationContext.getVariableSlot(variable));
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("variable", variable)
                 .add("start", start)
                 .add("end", end)

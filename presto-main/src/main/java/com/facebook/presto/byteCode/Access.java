@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.EnumSet;
 
+import static java.util.Locale.ENGLISH;
 import static org.objectweb.asm.Opcodes.ACC_ABSTRACT;
 import static org.objectweb.asm.Opcodes.ACC_ANNOTATION;
 import static org.objectweb.asm.Opcodes.ACC_BRIDGE;
@@ -57,7 +58,7 @@ public enum Access
     ANNOTATION(ACC_ANNOTATION),
     ENUM(ACC_ENUM);
 
-    private int modifier;
+    private final int modifier;
 
     Access(int modifier)
     {
@@ -72,7 +73,7 @@ public enum Access
     @Override
     public String toString()
     {
-        return super.name().toLowerCase();
+        return name().toLowerCase(ENGLISH);
     }
 
     public static EnumSet<Access> a(Access... access)

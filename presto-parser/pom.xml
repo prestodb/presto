@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.60-SNAPSHOT</version>
+        <version>0.127-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-parser</artifactId>
@@ -16,6 +16,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>annotations</artifactId>
@@ -32,11 +37,6 @@
         </dependency>
 
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
         </dependency>
@@ -48,7 +48,7 @@
 
         <dependency>
             <groupId>org.antlr</groupId>
-            <artifactId>antlr-runtime</artifactId>
+            <artifactId>antlr4-runtime</artifactId>
         </dependency>
 
         <!-- for testing -->
@@ -63,7 +63,7 @@
         <plugins>
             <plugin>
                 <groupId>org.antlr</groupId>
-                <artifactId>antlr3-maven-plugin</artifactId>
+                <artifactId>antlr4-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

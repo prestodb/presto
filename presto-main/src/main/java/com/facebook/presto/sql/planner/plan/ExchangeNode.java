@@ -16,72 +16,148 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class ExchangeNode
         extends PlanNode
 {
-    private final List<PlanFragmentId> sourceFragmentIds;
+    public enum Type
+    {
+        GATHER,
+        REPARTITION,
+        REPARTITION_WITH_NULL_REPLICATION,
+        REPLICATE
+    }
+
+    private final Type type;
     private final List<Symbol> outputs;
 
+    private final List<PlanNode> sources;
+    private final Optional<List<Symbol>> partitionKeys;
+    private final Optional<Symbol> hashSymbol;
+
+    // for each source, the list of inputs corresponding to each output
+    private final List<List<Symbol>> inputs;
+
     @JsonCreator
-    public ExchangeNode(@JsonProperty("id") PlanNodeId id,
-            @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
-            @JsonProperty("outputs") List<Symbol> outputs)
+    public ExchangeNode(
+            @JsonProperty("id") PlanNodeId id,
+            @JsonProperty("type") Type type,
+            @JsonProperty("partitionKeys") Optional<List<Symbol>> partitionKeys,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
+            @JsonProperty("sources") List<PlanNode> sources,
+            @JsonProperty("outputs") List<Symbol> outputs,
+            @JsonProperty("inputs") List<List<Symbol>> inputs)
     {
         super(id);
 
-        Preconditions.checkNotNull(outputs, "outputs is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(sources, "sources is null");
+        requireNonNull(partitionKeys, "partitionKeys is null");
+        requireNonNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(outputs, "outputs is null");
+        requireNonNull(inputs, "inputs is null");
+        partitionKeys.ifPresent(list -> checkArgument(outputs.containsAll(list), "outputs must contain all partitionKeys"));
+        checkArgument(!hashSymbol.isPresent() || outputs.contains(hashSymbol.get()), "outputs must contain hashSymbol");
+        checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == outputs.size()), "Input symbols do not match output symbols");
+        checkArgument(inputs.size() == sources.size(), "Must have same number of input lists as sources");
+        for (int i = 0; i < inputs.size(); i++) {
+            checkArgument(sources.get(i).getOutputSymbols().containsAll(inputs.get(i)), "Source does not supply all required input symbols");
+        }
 
-        this.sourceFragmentIds = sourceFragmentIds;
+        this.type = type;
+        this.sources = sources;
+        this.partitionKeys = partitionKeys.map(ImmutableList::copyOf);
+        this.hashSymbol = hashSymbol;
         this.outputs = ImmutableList.copyOf(outputs);
+        this.inputs = ImmutableList.copyOf(inputs);
     }
 
-    public ExchangeNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs)
+    public static ExchangeNode partitionedExchangeNullReplicate(PlanNodeId id, PlanNode child, Symbol partitionKey, Optional<Symbol> hashSymbol)
     {
-        this(id, ImmutableList.of(sourceFragmentId), outputs);
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.REPARTITION_WITH_NULL_REPLICATION,
+                Optional.of(ImmutableList.of(partitionKey)),
+                hashSymbol,
+                ImmutableList.of(child),
+                child.getOutputSymbols(),
+                ImmutableList.of(child.getOutputSymbols()));
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, PlanNode child, Optional<List<Symbol>> partitionKeys, Optional<Symbol> hashSymbol)
+    {
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.REPARTITION,
+                partitionKeys,
+                hashSymbol,
+                ImmutableList.of(child),
+                child.getOutputSymbols(),
+                ImmutableList.of(child.getOutputSymbols()));
+    }
+
+    public static ExchangeNode gatheringExchange(PlanNodeId id, PlanNode child)
+    {
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.GATHER,
+                Optional.empty(),
+                Optional.<Symbol>empty(),
+                ImmutableList.of(child),
+                child.getOutputSymbols(),
+                ImmutableList.of(child.getOutputSymbols()));
+    }
+
+    @JsonProperty
+    public Type getType()
+    {
+        return type;
     }
 
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of();
+        return sources;
     }
 
+    @Override
     @JsonProperty("outputs")
     public List<Symbol> getOutputSymbols()
     {
         return outputs;
     }
 
-    @JsonProperty("sourceFragmentIds")
-    public List<PlanFragmentId> getSourceFragmentIds()
+    @JsonProperty
+    public Optional<List<Symbol>> getPartitionKeys()
     {
-        return sourceFragmentIds;
+        return partitionKeys;
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
+    }
+
+    @JsonProperty
+    public List<List<Symbol>> getInputs()
+    {
+        return inputs;
     }
 
     @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitExchange(this, context);
-    }
-
-    public static Function<ExchangeNode, List<PlanFragmentId>> sourceFragmentIdsGetter()
-    {
-        return new Function<ExchangeNode, List<PlanFragmentId>>()
-        {
-            @Override
-            public List<PlanFragmentId> apply(ExchangeNode input)
-            {
-                return input.getSourceFragmentIds();
-            }
-        };
     }
 }

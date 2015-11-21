@@ -21,9 +21,8 @@ import com.google.common.collect.ImmutableList;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchPlugin
         implements Plugin
@@ -37,15 +36,10 @@ public class TpchPlugin
     }
 
     @Override
-    public void setOptionalConfig(Map<String, String> optionalConfig)
-    {
-    }
-
-    @Override
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == ConnectorFactory.class) {
-            checkNotNull(nodeManager, "nodeManager is null");
+            requireNonNull(nodeManager, "nodeManager is null");
             return ImmutableList.of(type.cast(new TpchConnectorFactory(nodeManager)));
         }
         return ImmutableList.of();

@@ -14,6 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
@@ -24,28 +27,31 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.operator.PageBufferClientStatus.uriGetter;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestExchangeClient
 {
-    private ExecutorService executor;
+    private ScheduledExecutorService executor;
+
+    private static final BlockEncodingManager blockEncodingManager = new BlockEncodingManager(new TypeRegistry());
 
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
     }
 
     @AfterClass
@@ -70,11 +76,8 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
         processor.setComplete(location);
 
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE),
-                maxResponseSize,
-                1,
-                new TestingHttpClient(processor, executor),
-                executor);
+        @SuppressWarnings("resource")
+        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, executor), executor, deltaMemoryInBytes -> { });
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -93,21 +96,18 @@ public class TestExchangeClient
         assertTrue(exchangeClient.getStatus().getBufferedBytes() == 0);
 
         // client should have sent only 2 requests: one to get all pages and once to get the done signal
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 2, 2, "queued");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
     }
 
-    @Test
+    @Test(timeOut = 10000)
     public void testAddLocation()
             throws Exception
     {
         DataSize maxResponseSize = new DataSize(10, Unit.MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE),
-                maxResponseSize,
-                1,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                executor);
+        @SuppressWarnings("resource")
+        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
 
         URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
@@ -144,11 +144,15 @@ public class TestExchangeClient
         assertEquals(exchangeClient.isClosed(), false);
 
         exchangeClient.noMoreLocations();
-        assertEquals(exchangeClient.isClosed(), true);
+        // The transition to closed may happen asynchronously, since it requires that all the HTTP clients
+        // receive a final GONE response, so just spin until it's closed or the test times out.
+        while (!exchangeClient.isClosed()) {
+            Thread.sleep(1);
+        }
 
-        ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), uriGetter());
-        assertStatus(statuses.get(location1), location1, "closed", 3, 2, 2, "queued");
-        assertStatus(statuses.get(location2), location2, "closed", 3, 2, 2, "queued");
+        ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
+        assertStatus(statuses.get(location1), location1, "closed", 3, 3, 3, "not scheduled");
+        assertStatus(statuses.get(location2), location2, "closed", 3, 3, 3, "not scheduled");
     }
 
     @Test
@@ -158,24 +162,22 @@ public class TestExchangeClient
         DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE),
-                maxResponseSize,
-                1,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                executor);
-
         URI location = URI.create("http://localhost:8080");
-        exchangeClient.addLocation(location);
-        exchangeClient.noMoreLocations();
-        assertEquals(exchangeClient.isClosed(), false);
-
-        long start = System.nanoTime();
 
         // add a pages
         processor.addPage(location, createPage(1));
         processor.addPage(location, createPage(2));
         processor.addPage(location, createPage(3));
         processor.setComplete(location);
+
+        @SuppressWarnings("resource")
+        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
+
+        exchangeClient.addLocation(location);
+        exchangeClient.noMoreLocations();
+        assertEquals(exchangeClient.isClosed(), false);
+
+        long start = System.nanoTime();
 
         // start fetching pages
         exchangeClient.scheduleRequestIfNecessary();
@@ -190,7 +192,7 @@ public class TestExchangeClient
         // client should have sent a single request for a single page
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
         assertTrue(exchangeClient.getStatus().getBufferedBytes() > 0);
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 1, 1, 1, "queued");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 1, 1, 1, "not scheduled");
 
         // remove the page and wait for the client to fetch another page
         assertPageEquals(exchangeClient.getNextPage(new Duration(0, TimeUnit.SECONDS)), createPage(1));
@@ -201,7 +203,7 @@ public class TestExchangeClient
         while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 2, 2, 2, "queued");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 2, 2, 2, "not scheduled");
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
         assertTrue(exchangeClient.getStatus().getBufferedBytes() > 0);
 
@@ -214,7 +216,7 @@ public class TestExchangeClient
         while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 3, 3, 3, "queued");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 3, 3, 3, "not scheduled");
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
         assertTrue(exchangeClient.getStatus().getBufferedBytes() > 0);
 
@@ -226,7 +228,7 @@ public class TestExchangeClient
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
         assertTrue(exchangeClient.getStatus().getBufferedBytes() == 0);
         assertEquals(exchangeClient.isClosed(), true);
-        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 4, 4, "queued");
+        assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 5, 5, "not scheduled");
     }
 
     @Test
@@ -241,10 +243,8 @@ public class TestExchangeClient
         processor.addPage(location, createPage(2));
         processor.addPage(location, createPage(3));
 
-        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE),
-                maxResponseSize, 1,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
-                executor);
+        @SuppressWarnings("resource")
+        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
 
@@ -263,22 +263,22 @@ public class TestExchangeClient
         PageBufferClientStatus clientStatus = exchangeClient.getStatus().getPageBufferClientStatuses().get(0);
         assertEquals(clientStatus.getUri(), location);
         assertEquals(clientStatus.getState(), "closed", "status");
-        assertEquals(clientStatus.getHttpRequestState(), "queued", "httpRequestState");
+        assertEquals(clientStatus.getHttpRequestState(), "not scheduled", "httpRequestState");
     }
 
-    private Page createPage(int size)
+    private static Page createPage(int size)
     {
         return new Page(BlockAssertions.createLongSequenceBlock(0, size));
     }
 
-    private void assertPageEquals(Page actualPage, Page expectedPage)
+    private static void assertPageEquals(Page actualPage, Page expectedPage)
     {
         assertNotNull(actualPage);
         assertEquals(actualPage.getPositionCount(), expectedPage.getPositionCount());
         assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
     }
 
-    private void assertStatus(PageBufferClientStatus clientStatus,
+    private static void assertStatus(PageBufferClientStatus clientStatus,
             URI location,
             String status,
             int pagesReceived,

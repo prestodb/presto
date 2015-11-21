@@ -13,27 +13,41 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.sql.tree.Statement;
 import io.airlift.units.Duration;
 
 public interface QueryExecution
 {
+    QueryId getQueryId();
+
     QueryInfo getQueryInfo();
+
+    QueryState getState();
 
     Duration waitForStateChange(QueryState currentState, Duration maxWait)
             throws InterruptedException;
 
-    void start();
+    VersionedMemoryPoolId getMemoryPool();
 
-    void cancel();
+    void setMemoryPool(VersionedMemoryPoolId poolId);
+
+    long getTotalMemoryReservation();
+
+    Session getSession();
+
+    void start();
 
     void fail(Throwable cause);
 
     void cancelStage(StageId stageId);
 
     void recordHeartbeat();
+
+    // XXX: This should be removed when the client protocol is improved, so that we don't need to hold onto so much query history
+    void pruneInfo();
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 

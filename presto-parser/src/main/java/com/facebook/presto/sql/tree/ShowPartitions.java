@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class ShowPartitions
         extends Statement
@@ -31,10 +32,21 @@ public class ShowPartitions
 
     public ShowPartitions(QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
     {
-        this.table = checkNotNull(table, "table is null");
-        this.where = checkNotNull(where, "where is null");
-        this.orderBy = ImmutableList.copyOf(checkNotNull(orderBy, "orderBy is null"));
-        this.limit = checkNotNull(limit, "limit is null");
+        this(Optional.empty(), table, where, orderBy, limit);
+    }
+
+    public ShowPartitions(NodeLocation location, QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
+    {
+        this(Optional.of(location), table, where, orderBy, limit);
+    }
+
+    private ShowPartitions(Optional<NodeLocation> location, QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
+    {
+        super(location);
+        this.table = requireNonNull(table, "table is null");
+        this.where = requireNonNull(where, "where is null");
+        this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     public QualifiedName getTable()
@@ -66,7 +78,7 @@ public class ShowPartitions
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(table, where, orderBy, limit);
+        return Objects.hash(table, where, orderBy, limit);
     }
 
     @Override
@@ -79,16 +91,16 @@ public class ShowPartitions
             return false;
         }
         ShowPartitions o = (ShowPartitions) obj;
-        return Objects.equal(table, o.table) &&
-                Objects.equal(where, o.where) &&
-                Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(limit, o.limit);
+        return Objects.equals(table, o.table) &&
+                Objects.equals(where, o.where) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(limit, o.limit);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("table", table)
                 .add("where", where)
                 .add("orderBy", orderBy)

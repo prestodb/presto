@@ -13,26 +13,26 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestApproximateCountDistinctLong
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public AggregationFunction getAggregationFunction()
+    public InternalAggregationFunction getAggregationFunction()
     {
         return LONG_APPROXIMATE_COUNT_DISTINCT_AGGREGATIONS;
     }
 
     @Override
-    public TupleInfo.Type getValueType()
+    public Type getValueType()
     {
-        return FIXED_INT_64;
+        return BIGINT;
     }
 
     @Override

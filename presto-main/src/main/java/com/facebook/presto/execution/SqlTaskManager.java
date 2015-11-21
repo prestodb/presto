@@ -14,88 +14,77 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.execution.SharedBuffer.QueueState;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.MemoryPoolAssignment;
+import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
-import io.airlift.stats.CounterStat;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
+import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
-import java.net.URI;
-import java.util.HashMap;
+import java.io.Closeable;
 import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.util.Threads.threadsNamed;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.notNull;
+import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Iterables.transform;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class SqlTaskManager
-        implements TaskManager
+        implements TaskManager, Closeable
 {
     private static final Logger log = Logger.get(SqlTaskManager.class);
-
-    private final DataSize maxBufferSize;
 
     private final ExecutorService taskNotificationExecutor;
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
-    private final TaskExecutor taskExecutor;
-
     private final ScheduledExecutorService taskManagementExecutor;
     private final ThreadPoolExecutorMBean taskManagementExecutorMBean;
 
-    private final LocalExecutionPlanner planner;
-    private final LocationFactory locationFactory;
-    private final QueryMonitor queryMonitor;
-    private final DataSize maxTaskMemoryUsage;
-    private final DataSize operatorPreAllocatedMemory;
     private final Duration infoCacheTime;
     private final Duration clientTimeout;
-    private final boolean cpuTimerEnabled;
 
-    private final ConcurrentMap<TaskId, TaskInfo> taskInfos = new ConcurrentHashMap<>();
-    private final ConcurrentMap<TaskId, TaskExecution> tasks = new ConcurrentHashMap<>();
+    private final LocalMemoryManager localMemoryManager;
+    private final LoadingCache<QueryId, QueryContext> queryContexts;
+    private final LoadingCache<TaskId, SqlTask> tasks;
 
-    private final CounterStat inputDataSize = new CounterStat();
-    private final CounterStat finishedInputDataSize = new CounterStat();
+    private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
+    private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
 
-    private final CounterStat inputPositions = new CounterStat();
-    private final CounterStat finishedInputPositions = new CounterStat();
-
-    private final CounterStat outputDataSize = new CounterStat();
-    private final CounterStat finishedOutputDataSize = new CounterStat();
-
-    private final CounterStat outputPositions = new CounterStat();
-    private final CounterStat finishedOutputPositions = new CounterStat();
+    @GuardedBy("this")
+    private long currentMemoryPoolAssignmentVersion;
+    @GuardedBy("this")
+    private String coordinatorId;
 
     @Inject
     public SqlTaskManager(
@@ -103,99 +92,120 @@ public class SqlTaskManager
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             QueryMonitor queryMonitor,
-            TaskManagerConfig config)
+            NodeInfo nodeInfo,
+            LocalMemoryManager localMemoryManager,
+            TaskManagerConfig config,
+            MemoryManagerConfig memoryManagerConfig)
     {
-        this.planner = checkNotNull(planner, "planner is null");
-        this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
-        this.taskExecutor = checkNotNull(taskExecutor, "taskExecutor is null");
-        this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
+        requireNonNull(nodeInfo, "nodeInfo is null");
+        requireNonNull(config, "config is null");
+        infoCacheTime = config.getInfoMaxAge();
+        clientTimeout = config.getClientTimeout();
 
-        checkNotNull(config, "config is null");
-        this.maxBufferSize = config.getSinkMaxBufferSize();
-        this.maxTaskMemoryUsage = config.getMaxTaskMemoryUsage();
-        this.operatorPreAllocatedMemory = config.getOperatorPreAllocatedMemory();
-        this.infoCacheTime = config.getInfoMaxAge();
-        this.clientTimeout = config.getClientTimeout();
-        this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
+        DataSize maxBufferSize = config.getSinkMaxBufferSize();
 
-        taskNotificationExecutor = Executors.newCachedThreadPool(threadsNamed("task-notification-%d"));
+        taskNotificationExecutor = newCachedThreadPool(threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
 
-        taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
+        taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%s"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
+
+        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, queryMonitor, config);
+
+        this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
+        DataSize maxQueryMemoryPerNode = memoryManagerConfig.getMaxQueryMemoryPerNode();
+
+        queryContexts = CacheBuilder.newBuilder().weakValues().build(new CacheLoader<QueryId, QueryContext>()
+        {
+            @Override
+            public QueryContext load(QueryId key)
+                    throws Exception
+            {
+                return new QueryContext(key, maxQueryMemoryPerNode, localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL), localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL), taskNotificationExecutor);
+            }
+        });
+
+        tasks = CacheBuilder.newBuilder().build(new CacheLoader<TaskId, SqlTask>()
+        {
+            @Override
+            public SqlTask load(TaskId taskId)
+                    throws Exception
+            {
+                return new SqlTask(
+                        taskId,
+                        nodeInfo.getInstanceId(),
+                        locationFactory.createLocalTaskLocation(taskId),
+                        queryContexts.getUnchecked(taskId.getQueryId()),
+                        sqlTaskExecutionFactory,
+                        taskNotificationExecutor,
+                        sqlTask -> {
+                                finishedTaskStats.merge(sqlTask.getIoStats());
+                                return null;
+                        },
+                        maxBufferSize
+                );
+            }
+        });
+    }
+
+    @Override
+    public synchronized void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments)
+    {
+        if (coordinatorId != null && coordinatorId.equals(assignments.getCoordinatorId()) && assignments.getVersion() <= currentMemoryPoolAssignmentVersion) {
+            return;
+        }
+        currentMemoryPoolAssignmentVersion = assignments.getVersion();
+        if (coordinatorId != null && !coordinatorId.equals(assignments.getCoordinatorId())) {
+            log.warn("Switching coordinator affinity from " + coordinatorId + " to " + assignments.getCoordinatorId());
+        }
+        coordinatorId = assignments.getCoordinatorId();
+
+        for (MemoryPoolAssignment assignment : assignments.getAssignments()) {
+            queryContexts.getUnchecked(assignment.getQueryId()).setMemoryPool(localMemoryManager.getPool(assignment.getPoolId()));
+        }
     }
 
     @PostConstruct
     public void start()
     {
-        taskManagementExecutor.scheduleAtFixedRate(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    removeOldTasks();
-                }
-                catch (Throwable e) {
-                    log.warn(e, "Error removing old tasks");
-                }
-                try {
-                    failAbandonedTasks();
-                }
-                catch (Throwable e) {
-                    log.warn(e, "Error canceling abandoned tasks");
-                }
+        taskManagementExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                removeOldTasks();
+            }
+            catch (Throwable e) {
+                log.warn(e, "Error removing old tasks");
+            }
+            try {
+                failAbandonedTasks();
+            }
+            catch (Throwable e) {
+                log.warn(e, "Error canceling abandoned tasks");
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
 
-        taskManagementExecutor.scheduleAtFixedRate(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    updateStats();
-                }
-                catch (Throwable e) {
-                    log.warn(e, "Error updating stats");
-                }
+        taskManagementExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                updateStats();
+            }
+            catch (Throwable e) {
+                log.warn(e, "Error updating stats");
             }
         }, 0, 1, TimeUnit.SECONDS);
     }
 
+    @Override
     @PreDestroy
-    public void stop()
+    public void close()
     {
         taskNotificationExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
 
     @Managed
-    @Nested
-    public CounterStat getInputDataSize()
+    @Flatten
+    public SqlTaskIoStats getIoStats()
     {
-        return inputDataSize;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getInputPositions()
-    {
-        return inputPositions;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getOutputDataSize()
-    {
-        return outputDataSize;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getOutputPositions()
-    {
-        return outputPositions;
+        return cachedStats;
     }
 
     @Managed(description = "Task notification executor")
@@ -213,221 +223,90 @@ public class SqlTaskManager
     }
 
     @Override
-    public List<TaskInfo> getAllTaskInfo(boolean full)
+    public List<TaskInfo> getAllTaskInfo()
     {
-        Map<TaskId, TaskInfo> taskInfos = new HashMap<>();
-        for (TaskExecution taskExecution : tasks.values()) {
-            taskInfos.put(taskExecution.getTaskId(), getTaskInfo(taskExecution, full));
-        }
-        taskInfos.putAll(this.taskInfos);
-        return ImmutableList.copyOf(taskInfos.values());
+        return ImmutableList.copyOf(transform(tasks.asMap().values(), SqlTask::getTaskInfo));
     }
 
     @Override
-    public void waitForStateChange(TaskId taskId, TaskState currentState, Duration maxWait)
-            throws InterruptedException
+    public TaskInfo getTaskInfo(TaskId taskId)
     {
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(maxWait, "maxWait is null");
+        requireNonNull(taskId, "taskId is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            return;
-        }
-
-        taskExecution.recordHeartbeat();
-        taskExecution.waitForStateChange(currentState, maxWait);
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.getTaskInfo();
     }
 
     @Override
-    public TaskInfo getTaskInfo(TaskId taskId, boolean full)
+    public CompletableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState)
     {
-        checkNotNull(taskId, "taskId is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(currentState, "currentState is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution != null) {
-            taskExecution.recordHeartbeat();
-            return getTaskInfo(taskExecution, full);
-        }
-
-        TaskInfo taskInfo = taskInfos.get(taskId);
-        if (taskInfo == null) {
-            throw new NoSuchElementException("Unknown query task " + taskId);
-        }
-        return taskInfo;
-    }
-
-    private TaskInfo getTaskInfo(TaskExecution taskExecution, boolean full)
-    {
-        TaskInfo taskInfo = taskExecution.getTaskInfo(full);
-        if (taskInfo.getState().isDone()) {
-            if (taskInfo.getStats().getEndTime() == null) {
-                log.warn("Task %s is in done state %s but does not have an end time", taskInfo.getTaskId(), taskInfo.getState());
-            }
-
-            // cache task info
-            taskInfos.putIfAbsent(taskInfo.getTaskId(), taskInfo);
-
-            // record input and output stats
-            TaskContext taskContext = taskExecution.getTaskContext();
-            finishedInputDataSize.merge(taskContext.getInputDataSize());
-            finishedInputPositions.merge(taskContext.getInputPositions());
-            finishedOutputDataSize.merge(taskContext.getOutputDataSize());
-            finishedOutputPositions.merge(taskContext.getOutputPositions());
-
-            // remove task (after caching the task info)
-            tasks.remove(taskInfo.getTaskId());
-        }
-        return taskInfo;
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.getTaskInfo(currentState);
     }
 
     @Override
     public TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
-        URI location = locationFactory.createLocalTaskLocation(taskId);
+        requireNonNull(session, "session is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(fragment, "fragment is null");
+        requireNonNull(sources, "sources is null");
+        requireNonNull(outputBuffers, "outputBuffers is null");
 
-        TaskExecution taskExecution;
-        synchronized (this) {
-            taskExecution = tasks.get(taskId);
-            if (taskExecution == null) {
-                // is task already complete?
-                TaskInfo taskInfo = taskInfos.get(taskId);
-                if (taskInfo != null) {
-                    return taskInfo;
-                }
-
-                taskExecution = SqlTaskExecution.createSqlTaskExecution(session,
-                        taskId,
-                        location,
-                        fragment,
-                        sources,
-                        outputBuffers,
-                        planner,
-                        maxBufferSize,
-                        taskExecutor,
-                        taskNotificationExecutor,
-                        maxTaskMemoryUsage,
-                        operatorPreAllocatedMemory,
-                        queryMonitor,
-                        cpuTimerEnabled
-                );
-                tasks.put(taskId, taskExecution);
-            }
-        }
-
-        taskExecution.recordHeartbeat();
-        taskExecution.addSources(sources);
-        taskExecution.addResultQueue(outputBuffers);
-
-        return getTaskInfo(taskExecution, false);
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.updateTask(session, fragment, sources, outputBuffers);
     }
 
     @Override
-    public BufferResult getTaskResults(TaskId taskId, String outputName, long startingSequenceId, DataSize maxSize, Duration maxWaitTime)
-            throws InterruptedException
+    public CompletableFuture<BufferResult> getTaskResults(TaskId taskId, TaskId outputName, long startingSequenceId, DataSize maxSize)
     {
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(outputName, "outputName is null");
-        Preconditions.checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
-        checkNotNull(maxWaitTime, "maxWaitTime is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(outputName, "outputName is null");
+        Preconditions.checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
+        requireNonNull(maxSize, "maxSize is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo == null) {
-                throw new NoSuchElementException("Unknown query task " + taskId);
-            }
-            else if (taskInfo.getState() == TaskState.FAILED) {
-                // for a failed query, do not return a closed buffer as a
-                // closed buffer signals to upstream tasks that everything
-                // finished cleanly
-                Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-                return BufferResult.emptyResults(startingSequenceId, false);
-            }
-            else {
-                // query is finished
-                return BufferResult.emptyResults(taskInfo.getOutputBuffers().getMasterSequenceId(), true);
-            }
-        }
-        taskExecution.recordHeartbeat();
-        return taskExecution.getResults(outputName, startingSequenceId, maxSize, maxWaitTime);
+        return tasks.getUnchecked(taskId).getTaskResults(outputName, startingSequenceId, maxSize);
     }
 
     @Override
-    public TaskInfo abortTaskResults(TaskId taskId, String outputId)
+    public TaskInfo abortTaskResults(TaskId taskId, TaskId outputId)
     {
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(outputId, "outputId is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(outputId, "outputId is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo != null) {
-                // todo this is not safe since task can be expired at any time
-                // task was finished early, so the new split should be ignored
-                return taskInfo;
-            }
-            else {
-                throw new NoSuchElementException("Unknown query task " + taskId);
-            }
-        }
-        log.debug("Aborting task %s output %s", taskId, outputId);
-        taskExecution.abortResults(outputId);
-
-        return getTaskInfo(taskExecution, false);
+        return tasks.getUnchecked(taskId).abortTaskResults(outputId);
     }
 
     @Override
     public TaskInfo cancelTask(TaskId taskId)
     {
-        checkNotNull(taskId, "taskId is null");
+        requireNonNull(taskId, "taskId is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo == null) {
-                // task does not exist yet, mark the task as canceled, so later if a late request
-                // comes in to create the task, the task remains canceled
-                TaskContext taskContext = new TaskContext(
-                        new TaskStateMachine(taskId, taskNotificationExecutor),
-                        taskManagementExecutor,
-                        null,
-                        maxTaskMemoryUsage,
-                        operatorPreAllocatedMemory,
-                        cpuTimerEnabled);
+        return tasks.getUnchecked(taskId).cancel();
+    }
 
-                taskInfo = new TaskInfo(taskId,
-                        Long.MAX_VALUE,
-                        TaskState.CANCELED,
-                        URI.create("unknown"),
-                        DateTime.now(),
-                        new SharedBufferInfo(QueueState.FINISHED, 0, 0, ImmutableList.<BufferInfo>of()),
-                        ImmutableSet.<PlanNodeId>of(),
-                        taskContext.getTaskStats(),
-                        ImmutableList.<FailureInfo>of(),
-                        ImmutableMap.<PlanNodeId, Set<?>>of());
-                TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
-                if (existingTaskInfo != null) {
-                    taskInfo = existingTaskInfo;
-                }
-            }
-            return taskInfo;
-        }
+    @Override
+    public TaskInfo abortTask(TaskId taskId)
+    {
+        requireNonNull(taskId, "taskId is null");
 
-        // make sure task is finished
-        taskExecution.cancel();
-
-        return getTaskInfo(taskExecution, false);
+        return tasks.getUnchecked(taskId).abort();
     }
 
     public void removeOldTasks()
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
-        for (TaskInfo taskInfo : taskInfos.values()) {
+        for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
             try {
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
-                    taskInfos.remove(taskInfo.getTaskId());
+                    tasks.asMap().remove(taskInfo.getTaskId());
                 }
             }
             catch (RuntimeException e) {
@@ -440,23 +319,20 @@ public class SqlTaskManager
     {
         DateTime now = DateTime.now();
         DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
-        for (TaskExecution taskExecution : tasks.values()) {
+        for (SqlTask sqlTask : tasks.asMap().values()) {
             try {
-                TaskInfo taskInfo = taskExecution.getTaskInfo(false);
+                TaskInfo taskInfo = sqlTask.getTaskInfo();
                 if (taskInfo.getState().isDone()) {
                     continue;
                 }
                 DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
-                    log.info("Failing abandoned task %s", taskExecution.getTaskId());
-                    taskExecution.fail(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartbeat, now));
-
-                    // trigger caching
-                    getTaskInfo(taskExecution, false);
+                    log.info("Failing abandoned task %s", taskInfo.getTaskId());
+                    sqlTask.failed(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartbeat, now));
                 }
             }
             catch (RuntimeException e) {
-                log.warn(e, "Error while inspecting age of task %s", taskExecution.getTaskId());
+                log.warn(e, "Error while inspecting age of task %s", sqlTask.getTaskId());
             }
         }
     }
@@ -465,41 +341,19 @@ public class SqlTaskManager
     // Jmxutils only calls nested getters once, so we are forced to maintain a single
     // instance and periodically recalculate the stats.
     //
-    @SuppressWarnings("deprecation")
     private void updateStats()
     {
-        CounterStat temp;
+        SqlTaskIoStats tempIoStats = new SqlTaskIoStats();
+        tempIoStats.merge(finishedTaskStats);
 
-        temp = new CounterStat();
-        temp.merge(finishedInputDataSize);
-        for (TaskExecution taskExecution : tasks.values()) {
-            TaskContext taskContext = taskExecution.getTaskContext();
-            temp.merge(taskContext.getInputDataSize());
-        }
-        inputDataSize.resetTo(temp);
+        // there is a race here between task completion, which merges stats into
+        // finishedTaskStats, and getting the stats from the task.  Since we have
+        // already merged the final stats, we could miss the stats from this task
+        // which would result in an under-count, but we will not get an over-count.
+        tasks.asMap().values().stream()
+                .filter(task -> !task.getTaskInfo().getState().isDone())
+                .forEach(task -> tempIoStats.merge(task.getIoStats()));
 
-        temp = new CounterStat();
-        temp.merge(finishedInputPositions);
-        for (TaskExecution taskExecution : tasks.values()) {
-            TaskContext taskContext = taskExecution.getTaskContext();
-            temp.merge(taskContext.getInputPositions());
-        }
-        inputPositions.resetTo(temp);
-
-        temp = new CounterStat();
-        temp.merge(finishedOutputDataSize);
-        for (TaskExecution taskExecution : tasks.values()) {
-            TaskContext taskContext = taskExecution.getTaskContext();
-            temp.merge(taskContext.getOutputDataSize());
-        }
-        outputDataSize.resetTo(temp);
-
-        temp = new CounterStat();
-        temp.merge(finishedOutputPositions);
-        for (TaskExecution taskExecution : tasks.values()) {
-            TaskContext taskContext = taskExecution.getTaskContext();
-            temp.merge(taskContext.getOutputPositions());
-        }
-        outputPositions.resetTo(temp);
+        cachedStats.resetTo(tempIoStats);
     }
 }

@@ -13,54 +13,55 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class Field
 {
     private final Optional<QualifiedName> relationAlias;
     private final Optional<String> name;
     private final Type type;
+    private final boolean hidden;
 
     public static Field newUnqualified(String name, Type type)
     {
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
 
-        return new Field(Optional.<QualifiedName>absent(), Optional.of(name), type);
+        return new Field(Optional.empty(), Optional.of(name), type, false);
     }
 
     public static Field newUnqualified(Optional<String> name, Type type)
     {
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
 
-        return new Field(Optional.<QualifiedName>absent(), name, type);
+        return new Field(Optional.empty(), name, type, false);
     }
 
-    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type)
+    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden)
     {
-        Preconditions.checkNotNull(relationAlias, "relationAlias is null");
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(relationAlias, "relationAlias is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
 
-        return new Field(Optional.of(relationAlias), name, type);
+        return new Field(Optional.of(relationAlias), name, type, hidden);
     }
 
-    private Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type)
+    public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden)
     {
-        checkNotNull(relationAlias, "relationAlias is null");
-        checkNotNull(name, "name is null");
-        checkNotNull(type, "type is null");
+        requireNonNull(relationAlias, "relationAlias is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
 
         this.relationAlias = relationAlias;
         this.name = name;
         this.type = type;
+        this.hidden = hidden;
     }
 
     public Optional<QualifiedName> getRelationAlias()
@@ -78,16 +79,9 @@ public class Field
         return type;
     }
 
-    public static Function<Field, Type> typeGetter()
+    public boolean isHidden()
     {
-        return new Function<Field, Type>()
-        {
-            @Override
-            public Type apply(Field field)
-            {
-                return field.getType();
-            }
-        };
+        return hidden;
     }
 
     public boolean matchesPrefix(Optional<QualifiedName> prefix)
@@ -126,30 +120,6 @@ public class Field
         return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
     }
 
-    public static Function<Field, Optional<QualifiedName>> relationAliasGetter()
-    {
-        return new Function<Field, Optional<QualifiedName>>()
-        {
-            @Override
-            public Optional<QualifiedName> apply(Field input)
-            {
-                return input.getRelationAlias();
-            }
-        };
-    }
-
-    public static Predicate<Field> canResolvePredicate(final QualifiedName name)
-    {
-        return new Predicate<Field>()
-        {
-            @Override
-            public boolean apply(Field input)
-            {
-                return input.canResolve(name);
-            }
-        };
-    }
-
     @Override
     public String toString()
     {
@@ -159,7 +129,7 @@ public class Field
                     .append(".");
         }
 
-        result.append(name.or("<anonymous>"))
+        result.append(name.orElse("<anonymous>"))
                 .append(":")
                 .append(type);
 

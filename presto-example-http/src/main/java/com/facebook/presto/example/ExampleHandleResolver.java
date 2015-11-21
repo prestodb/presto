@@ -15,12 +15,13 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleHandleResolver
         implements ConnectorHandleResolver
@@ -30,11 +31,11 @@ public class ExampleHandleResolver
     @Inject
     public ExampleHandleResolver(ExampleConnectorId clientId)
     {
-        this.connectorId = checkNotNull(clientId, "clientId is null").toString();
+        this.connectorId = requireNonNull(clientId, "clientId is null").toString();
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof ExampleTableHandle && ((ExampleTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
@@ -46,13 +47,25 @@ public class ExampleHandleResolver
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof ExampleSplit && ((ExampleSplit) split).getConnectorId().equals(connectorId);
     }
 
     @Override
-    public Class<? extends TableHandle> getTableHandleClass()
+    public boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return handle instanceof ExampleTableLayoutHandle;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return ExampleTableLayoutHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return ExampleTableHandle.class;
     }
@@ -64,7 +77,7 @@ public class ExampleHandleResolver
     }
 
     @Override
-    public Class<? extends Split> getSplitClass()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
         return ExampleSplit.class;
     }

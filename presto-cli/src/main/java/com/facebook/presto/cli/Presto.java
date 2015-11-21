@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cli;
 
-import static io.airlift.command.SingleCommand.singleCommand;
+import static io.airlift.airline.SingleCommand.singleCommand;
 
 public final class Presto
 {
@@ -24,7 +24,8 @@ public final class Presto
     {
         Console console = singleCommand(Console.class).parse(args);
 
-        if (console.helpOption.showHelpIfRequested()) {
+        if (console.helpOption.showHelpIfRequested() ||
+                console.versionOption.showVersionIfRequested()) {
             return;
         }
 

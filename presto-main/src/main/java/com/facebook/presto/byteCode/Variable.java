@@ -13,23 +13,85 @@
  */
 package com.facebook.presto.byteCode;
 
-public interface Variable
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
+import com.facebook.presto.byteCode.instruction.VariableInstruction;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
+import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static java.util.Objects.requireNonNull;
+
+public class Variable
+        extends ByteCodeExpression
 {
-    LocalVariableDefinition getLocalVariableDefinition();
+    private final String name;
 
-    ByteCodeNode getValue();
+    public Variable(String name, ParameterizedType type)
+    {
+        super(type);
+        this.name = requireNonNull(name, "name is null");
+    }
 
-    ByteCodeNode setValue();
+    public String getName()
+    {
+        return name;
+    }
 
-    ByteCodeNode getReference();
+    public ByteCodeExpression set(ByteCodeExpression value)
+    {
+        return new SetVariableByteCodeExpression(this, value);
+    }
 
-    ByteCodeNode setReference();
+    @Override
+    public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
+    {
+        return VariableInstruction.loadVariable(this);
+    }
 
-    ByteCodeNode isSet();
+    @Override
+    protected String formatOneLine()
+    {
+        return name;
+    }
 
-    ByteCodeNode unset();
+    @Override
+    public List<ByteCodeNode> getChildNodes()
+    {
+        return ImmutableList.of();
+    }
 
-    ByteCodeNode getInitialization();
+    private static final class SetVariableByteCodeExpression
+            extends ByteCodeExpression
+    {
+        private final Variable variable;
+        private final ByteCodeExpression value;
 
-    ByteCodeNode getCleanup();
+        public SetVariableByteCodeExpression(Variable variable, ByteCodeExpression value)
+        {
+            super(type(void.class));
+            this.variable = requireNonNull(variable, "variable is null");
+            this.value = requireNonNull(value, "value is null");
+        }
+
+        @Override
+        public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
+        {
+            return new ByteCodeBlock()
+                    .append(value)
+                    .putVariable(variable);
+        }
+
+        @Override
+        public List<ByteCodeNode> getChildNodes()
+        {
+            return ImmutableList.<ByteCodeNode>of(value);
+        }
+
+        @Override
+        protected String formatOneLine()
+        {
+            return variable.getName() + " = " + value;
+        }
+    }
 }

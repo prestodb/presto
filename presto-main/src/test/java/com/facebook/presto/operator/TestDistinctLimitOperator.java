@@ -13,23 +13,28 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
+@Test(singleThreaded = true)
 public class TestDistinctLimitOperator
 {
     private ExecutorService executor;
@@ -38,9 +43,8 @@ public class TestDistinctLimitOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        driverContext = createTaskContext(executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }
@@ -51,19 +55,26 @@ public class TestDistinctLimitOperator
         executor.shutdownNow();
     }
 
-    @Test
-    public void testDistinctLimit()
+    @DataProvider(name = "hashEnabledValues")
+    public static Object[][] hashEnabledValuesProvider()
+    {
+        return new Object[][] { { true }, { false } };
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testDistinctLimit(boolean hashEnabled)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(5, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 5);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), Ints.asList(0), 5, rowPagesBuilder.getHashChannel());
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(SINGLE_LONG)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1)
                 .row(2)
                 .row(3)
@@ -74,19 +85,20 @@ public class TestDistinctLimitOperator
         OperatorAssertion.assertOperatorEquals(operator, input, expected);
     }
 
-    @Test
-    public void testDistinctLimitWithPageAlignment()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testDistinctLimitWithPageAlignment(boolean hashEnabled)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 3);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), Ints.asList(0), 3, rowPagesBuilder.getHashChannel());
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(SINGLE_LONG)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1)
                 .row(2)
                 .row(3)
@@ -95,19 +107,20 @@ public class TestDistinctLimitOperator
         OperatorAssertion.assertOperatorEquals(operator, input, expected);
     }
 
-    @Test
-    public void testDistinctLimitValuesLessThanLimit()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testDistinctLimitValuesLessThanLimit(boolean hashEnabled)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(SINGLE_LONG), 5);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, ImmutableList.of(BIGINT), Ints.asList(0), 5, rowPagesBuilder.getHashChannel());
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(SINGLE_LONG)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1)
                 .row(2)
                 .row(3)

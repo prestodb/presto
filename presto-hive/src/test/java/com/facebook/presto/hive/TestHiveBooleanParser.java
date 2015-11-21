@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Charsets;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveBooleanParser.parseHiveBoolean;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -46,6 +46,6 @@ public class TestHiveBooleanParser
 
     private static Boolean parseBoolean(String s)
     {
-        return parseHiveBoolean(s.getBytes(Charsets.US_ASCII), 0, s.length());
+        return parseHiveBoolean(s.getBytes(US_ASCII), 0, s.length());
     }
 }

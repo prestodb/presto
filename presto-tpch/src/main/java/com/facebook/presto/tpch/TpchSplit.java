@@ -13,28 +13,26 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PartitionKey;
-import com.facebook.presto.spi.PartitionedSplit;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 // Right now, splits are just the entire TPCH table
 public class TpchSplit
-        implements PartitionedSplit
+        implements ConnectorSplit
 {
     private final TpchTableHandle tableHandle;
     private final int totalParts;
     private final int partNumber;
-
-    private final String partition;
     private final List<HostAddress> addresses;
 
     @JsonCreator
@@ -47,11 +45,10 @@ public class TpchSplit
         checkState(totalParts >= 1, "totalParts must be >= 1");
         checkState(totalParts > partNumber, "totalParts must be > partNumber");
 
-        this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.partNumber = partNumber;
         this.totalParts = totalParts;
-        this.partition = "tpch_part_" + partNumber;
-        this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
+        this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
     }
 
     @JsonProperty
@@ -70,24 +67,6 @@ public class TpchSplit
     public int getPartNumber()
     {
         return partNumber;
-    }
-
-    @Override
-    public String getPartitionId()
-    {
-        return partition;
-    }
-
-    @Override
-    public boolean isLastSplit()
-    {
-        return true;
-    }
-
-    @Override
-    public List<PartitionKey> getPartitionKeys()
-    {
-        return ImmutableList.of();
     }
 
     @Override
@@ -110,36 +89,30 @@ public class TpchSplit
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (!(o instanceof TpchSplit)) {
+        if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-
-        TpchSplit tpchSplit = (TpchSplit) o;
-
-        if (tableHandle.equals(tpchSplit.tableHandle)
-                && partNumber == tpchSplit.partNumber
-                && totalParts == tpchSplit.totalParts) {
-            return true;
-        }
-
-        return false;
+        TpchSplit other = (TpchSplit) obj;
+        return Objects.equals(this.tableHandle, other.tableHandle) &&
+                Objects.equals(this.totalParts, other.totalParts) &&
+                Objects.equals(this.partNumber, other.partNumber);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(tableHandle, partNumber, totalParts);
+        return Objects.hash(tableHandle, totalParts, partNumber);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("tableHandle", tableHandle)
                 .add("partNumber", partNumber)
                 .add("totalParts", totalParts)

@@ -22,9 +22,10 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SampleNode
@@ -33,10 +34,13 @@ public class SampleNode
     private final PlanNode source;
     private final double sampleRatio;
     private final Type sampleType;
+    private final boolean rescaled;
+    private final Optional<Symbol> sampleWeightSymbol;
 
     public enum Type
     {
         BERNOULLI,
+        POISSONIZED,
         SYSTEM;
 
         public static Type fromType(SampledRelation.Type sampleType)
@@ -44,6 +48,8 @@ public class SampleNode
             switch (sampleType) {
                 case BERNOULLI:
                     return Type.BERNOULLI;
+                case POISSONIZED:
+                    return Type.POISSONIZED;
                 case SYSTEM:
                     return Type.SYSTEM;
                 default:
@@ -57,21 +63,40 @@ public class SampleNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("sampleRatio") double sampleRatio,
-            @JsonProperty("sampleType") Type sampleType)
+            @JsonProperty("sampleType") Type sampleType,
+            @JsonProperty("rescaled") boolean rescaled,
+            @JsonProperty("sampleWeightSymbol") Optional<Symbol> sampleWeightSymbol)
     {
         super(id);
 
-        checkArgument(sampleRatio >= 0.0 && sampleRatio <= 1.0, "sample ratio must be between 0 and 1");
+        checkArgument(sampleRatio >= 0.0, "sample ratio must be greater than or equal to 0");
+        checkArgument((sampleRatio <= 1.0) || (sampleType == Type.POISSONIZED), "sample ratio must be less than or equal to 1");
 
-        this.sampleType = checkNotNull(sampleType, "sample type is null");
-        this.source = checkNotNull(source, "source is null");
-        this.sampleRatio = checkNotNull(sampleRatio, "sample ratio is null");
+        this.sampleType = requireNonNull(sampleType, "sample type is null");
+        this.source = requireNonNull(source, "source is null");
+        this.sampleRatio = sampleRatio;
+        this.rescaled = rescaled;
+        checkArgument(!rescaled || sampleType == Type.POISSONIZED);
+        this.sampleWeightSymbol = requireNonNull(sampleWeightSymbol, "sample weight symbol is null");
+        checkArgument(sampleWeightSymbol.isPresent() == (sampleType == Type.POISSONIZED), "sample weight symbol must be used with POISSONIZED sampling");
     }
 
     @Override
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(source);
+    }
+
+    @JsonProperty
+    public boolean isRescaled()
+    {
+        return rescaled;
+    }
+
+    @JsonProperty
+    public Optional<Symbol> getSampleWeightSymbol()
+    {
+        return sampleWeightSymbol;
     }
 
     @JsonProperty
@@ -95,7 +120,12 @@ public class SampleNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return source.getOutputSymbols();
+        if (sampleWeightSymbol.isPresent()) {
+            return ImmutableList.<Symbol>builder().addAll(source.getOutputSymbols()).add(sampleWeightSymbol.get()).build();
+        }
+        else {
+            return source.getOutputSymbols();
+        }
     }
 
     @Override

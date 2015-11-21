@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
 
 import java.net.URI;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.Objects.requireNonNull;
 
 /**
  * A node is a server in a cluster than can process queries.
@@ -37,9 +37,9 @@ public class PrestoNode
     public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
-        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null or empty");
-        this.httpUri = checkNotNull(httpUri, "httpUri is null");
-        this.nodeVersion = checkNotNull(nodeVersion, "nodeVersion is null");
+        this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
+        this.httpUri = requireNonNull(httpUri, "httpUri is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
     }
 
     @Override
@@ -87,34 +87,10 @@ public class PrestoNode
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("httpUri", httpUri)
                 .add("nodeVersion", nodeVersion)
                 .toString();
-    }
-
-    public static Function<Node, String> getIdentifierFunction()
-    {
-        return new Function<Node, String>()
-        {
-            @Override
-            public String apply(Node node)
-            {
-                return node.getNodeIdentifier();
-            }
-        };
-    }
-
-    public static Function<Node, HostAddress> hostAndPortGetter()
-    {
-        return new Function<Node, HostAddress>()
-        {
-            @Override
-            public HostAddress apply(Node node)
-            {
-                return node.getHostAndPort();
-            }
-        };
     }
 }

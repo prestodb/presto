@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -79,6 +80,13 @@ public class InMemoryNodeManager
     public Node getCurrentNode()
     {
         return localNode;
+    }
+
+    @Override
+    public Set<Node> getCoordinators()
+    {
+        // always use localNode as coordinator
+        return ImmutableSet.of(localNode);
     }
 
     @Override

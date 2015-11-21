@@ -42,7 +42,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitArithmeticExpression(ArithmeticExpression node, C context)
+    protected R visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
     {
         return visitExpression(node, context);
     }
@@ -65,11 +65,6 @@ public abstract class AstVisitor<R, C>
     protected R visitLiteral(Literal node, C context)
     {
         return visitExpression(node, context);
-    }
-
-    protected R visitDateLiteral(DateLiteral node, C context)
-    {
-        return visitLiteral(node, context);
     }
 
     protected R visitDoubleLiteral(DoubleLiteral node, C context)
@@ -122,9 +117,29 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
-    protected R visitUseCollection(UseCollection node, C context)
+    protected R visitUse(Use node, C context)
     {
         return visitStatement(node, context);
+    }
+
+    protected R visitShowSession(ShowSession node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetSession(SetSession node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    public R visitResetSession(ResetSession node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitGenericLiteral(GenericLiteral node, C context)
+    {
+        return visitLiteral(node, context);
     }
 
     protected R visitTimeLiteral(TimeLiteral node, C context)
@@ -217,6 +232,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitLambdaExpression(LambdaExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitSimpleCaseExpression(SimpleCaseExpression node, C context)
     {
         return visitExpression(node, context);
@@ -242,6 +262,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitDereferenceExpression(DereferenceExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitNullIfExpression(NullIfExpression node, C context)
     {
         return visitExpression(node, context);
@@ -257,7 +282,7 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
-    protected R visitNegativeExpression(NegativeExpression node, C context)
+    protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
     {
         return visitExpression(node, context);
     }
@@ -302,6 +327,16 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitArrayConstructor(ArrayConstructor node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitSubscriptExpression(SubscriptExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitLongLiteral(LongLiteral node, C context)
     {
         return visitLiteral(node, context);
@@ -325,6 +360,21 @@ public abstract class AstVisitor<R, C>
     protected R visitTable(Table node, C context)
     {
         return visitQueryBody(node, context);
+    }
+
+    protected R visitUnnest(Unnest node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitValues(Values node, C context)
+    {
+        return visitQueryBody(node, context);
+    }
+
+    protected R visitRow(Row node, C context)
+    {
+        return visitNode(node, context);
     }
 
     protected R visitTableSubquery(TableSubquery node, C context)
@@ -357,48 +407,78 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    public R visitInputReference(InputReference node, C context)
+    protected R visitInputReference(InputReference node, C context)
     {
         return visitExpression(node, context);
     }
 
-    public R visitWindow(Window node, C context)
+    protected R visitWindow(Window node, C context)
     {
         return visitNode(node, context);
     }
 
-    public R visitWindowFrame(WindowFrame node, C context)
+    protected R visitWindowFrame(WindowFrame node, C context)
     {
         return visitNode(node, context);
     }
 
-    public R visitFrameBound(FrameBound node, C context)
+    protected R visitFrameBound(FrameBound node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitTableElement(TableElement node, C context)
     {
         return visitNode(node, context);
     }
 
     protected R visitCreateTable(CreateTable node, C context)
     {
-        return visitNode(node, context);
+        return visitStatement(node, context);
     }
 
-    protected R visitCreateMaterializedView(CreateMaterializedView node, C context)
+    protected R visitCreateTableAsSelect(CreateTableAsSelect node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropTable(DropTable node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRenameTable(RenameTable node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRenameColumn(RenameColumn node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitAddColumn(AddColumn node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitCreateView(CreateView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropView(DropView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitInsert(Insert node, C context)
     {
         return visitNode(node, context);
     }
 
-    protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
+    protected R visitDelete(Delete node, C context)
     {
-        return visitNode(node, context);
-    }
-
-    protected R visitCreateAlias(CreateAlias node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitDropAlias(DropAlias node, C context)
-    {
-        return visitNode(node, context);
+        return visitStatement(node, context);
     }
 }

@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class LogicalBinaryExpression
         extends Expression
@@ -29,9 +31,20 @@ public class LogicalBinaryExpression
 
     public LogicalBinaryExpression(Type type, Expression left, Expression right)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(left, "left is null");
-        Preconditions.checkNotNull(right, "right is null");
+        this(Optional.empty(), type, left, right);
+    }
+
+    public LogicalBinaryExpression(NodeLocation location, Type type, Expression left, Expression right)
+    {
+        this(Optional.of(location), type, left, right);
+    }
+
+    private LogicalBinaryExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
+    {
+        super(location);
+        requireNonNull(type, "type is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
 
         this.type = type;
         this.left = left;
@@ -61,12 +74,12 @@ public class LogicalBinaryExpression
 
     public static LogicalBinaryExpression and(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(Type.AND, left, right);
+        return new LogicalBinaryExpression(Optional.empty(), Type.AND, left, right);
     }
 
     public static LogicalBinaryExpression or(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(Type.OR, left, right);
+        return new LogicalBinaryExpression(Optional.empty(), Type.OR, left, right);
     }
 
     @Override

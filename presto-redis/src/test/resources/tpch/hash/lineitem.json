@@ -1,0 +1,103 @@
+{
+    "tableName": "lineitem",
+    "schemaName": "tpch",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "redis_key",
+                "dataFormat": "VARCHAR",
+                "type": "VARCHAR",
+                "hidden": "true"
+            }
+        ]
+    },
+    "value": {
+        "dataFormat": "hash",
+        "fields": [
+            {
+                "name": "orderkey",
+                "mapping": "orderkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "partkey",
+                "mapping": "partkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "suppkey",
+                "mapping": "suppkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "linenumber",
+                "mapping": "linenumber",
+                "type": "BIGINT"
+            },
+            {
+                "name": "quantity",
+                "mapping": "quantity",
+                "type": "BIGINT"
+            },
+            {
+                "name": "extendedprice",
+                "mapping": "extendedprice",
+                "type": "DOUBLE"
+            },
+            {
+                "name": "discount",
+                "mapping": "discount",
+                "type": "DOUBLE"
+            },
+            {
+                "name": "tax",
+                "mapping": "tax",
+                "type": "DOUBLE"
+            },
+            {
+                "name": "returnflag",
+                "mapping": "returnflag",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "linestatus",
+                "mapping": "linestatus",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "shipdate",
+                "mapping": "shipdate",
+                "type": "VARCHAR",
+                "dataFormat": "iso8601"
+            },
+            {
+                "name": "commitdate",
+                "mapping": "commitdate",
+                "type": "VARCHAR",
+                "dataFormat": "iso8601"
+            },
+            {
+                "name": "receiptdate",
+                "mapping": "receiptdate",
+                "type": "VARCHAR",
+                "dataFormat": "iso8601"
+            },
+            {
+                "name": "shipinstruct",
+                "mapping": "shipinstruct",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "shipmode",
+                "mapping": "shipmode",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "comment",
+                "mapping": "comment",
+                "type": "VARCHAR"
+            }
+        ]
+    }
+}

@@ -15,15 +15,15 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.split.RemoteSplit;
 
 public class RemoteSplitHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return false;
     }
@@ -35,13 +35,13 @@ public class RemoteSplitHandleResolver
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof RemoteSplit;
     }
 
     @Override
-    public Class<? extends TableHandle> getTableHandleClass()
+    public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         throw new UnsupportedOperationException();
     }
@@ -53,7 +53,7 @@ public class RemoteSplitHandleResolver
     }
 
     @Override
-    public Class<? extends Split> getSplitClass()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
         return RemoteSplit.class;
     }

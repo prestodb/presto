@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -41,10 +43,10 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Makes equality based inferences to rewrite Expressions and generate equality sets in terms of specified symbol scopes
@@ -240,14 +242,7 @@ public class EqualityInference
 
     private static Predicate<Expression> symbolToExpressionPredicate(final Predicate<Symbol> symbolScope)
     {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(Expression expression)
-            {
-                return Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
-            }
-        };
+        return expression -> Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
     }
 
     /**
@@ -255,21 +250,34 @@ public class EqualityInference
      */
     public static Predicate<Expression> isInferenceCandidate()
     {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(Expression expression)
-            {
-                if (DeterminismEvaluator.isDeterministic(expression) && expression instanceof ComparisonExpression) {
-                    ComparisonExpression comparison = (ComparisonExpression) expression;
-                    if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
-                        // We should only consider equalities that have distinct left and right components
-                        return !comparison.getLeft().equals(comparison.getRight());
-                    }
+        return expression -> {
+            expression = normalizeInPredicateToEquality(expression);
+            if (DeterminismEvaluator.isDeterministic(expression) && expression instanceof ComparisonExpression) {
+                ComparisonExpression comparison = (ComparisonExpression) expression;
+                if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
+                    // We should only consider equalities that have distinct left and right components
+                    return !comparison.getLeft().equals(comparison.getRight());
                 }
-                return false;
             }
+            return false;
         };
+    }
+
+    /**
+     * Rewrite single value InPredicates as equality if possible
+     */
+    private static Expression normalizeInPredicateToEquality(Expression expression)
+    {
+        if (expression instanceof InPredicate) {
+            InPredicate inPredicate = (InPredicate) expression;
+            if (inPredicate.getValueList() instanceof InListExpression) {
+                InListExpression valueList = (InListExpression) inPredicate.getValueList();
+                if (valueList.getValues().size() == 1) {
+                    return new ComparisonExpression(ComparisonExpression.Type.EQUAL, inPredicate.getValue(), Iterables.getOnlyElement(valueList.getValues()));
+                }
+            }
+        }
+        return expression;
     }
 
     /**
@@ -297,9 +305,9 @@ public class EqualityInference
 
         public EqualityPartition(Iterable<Expression> scopeEqualities, Iterable<Expression> scopeComplementEqualities, Iterable<Expression> scopeStraddlingEqualities)
         {
-            this.scopeEqualities = ImmutableList.copyOf(checkNotNull(scopeEqualities, "scopeEqualities is null"));
-            this.scopeComplementEqualities = ImmutableList.copyOf(checkNotNull(scopeComplementEqualities, "scopeComplementEqualities is null"));
-            this.scopeStraddlingEqualities = ImmutableList.copyOf(checkNotNull(scopeStraddlingEqualities, "scopeStraddlingEqualities is null"));
+            this.scopeEqualities = ImmutableList.copyOf(requireNonNull(scopeEqualities, "scopeEqualities is null"));
+            this.scopeComplementEqualities = ImmutableList.copyOf(requireNonNull(scopeComplementEqualities, "scopeComplementEqualities is null"));
+            this.scopeStraddlingEqualities = ImmutableList.copyOf(requireNonNull(scopeStraddlingEqualities, "scopeStraddlingEqualities is null"));
         }
 
         public List<Expression> getScopeEqualities()
@@ -338,8 +346,8 @@ public class EqualityInference
 
         public Builder addEquality(Expression expression)
         {
+            expression = normalizeInPredicateToEquality(expression);
             checkArgument(isInferenceCandidate().apply(expression), "Expression must be a simple equality: " + expression);
-
             ComparisonExpression comparison = (ComparisonExpression) expression;
             addEquality(comparison.getLeft(), comparison.getRight());
             return this;

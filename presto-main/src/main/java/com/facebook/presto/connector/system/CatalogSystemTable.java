@@ -14,46 +14,45 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
+import com.facebook.presto.spi.predicate.TupleDomain;
 
-import java.util.List;
+import javax.inject.Inject;
+
 import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
-import static com.facebook.presto.spi.ColumnType.STRING;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
+import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.Objects.requireNonNull;
 
 public class CatalogSystemTable
         implements SystemTable
 {
-    public static final SchemaTableName CATALOG_TABLE_NAME = new SchemaTableName("sys", "catalog");
+    public static final SchemaTableName CATALOG_TABLE_NAME = new SchemaTableName("metadata", "catalogs");
 
     public static final ConnectorTableMetadata CATALOG_TABLE = tableMetadataBuilder(CATALOG_TABLE_NAME)
-            .column("catalog_name", STRING)
-            .column("connector_id", STRING)
+            .column("catalog_name", VARCHAR)
+            .column("connector_id", VARCHAR)
             .build();
     private final Metadata metadata;
 
     @Inject
     public CatalogSystemTable(Metadata metadata)
     {
-        this.metadata = checkNotNull(metadata);
+        this.metadata = requireNonNull(metadata);
     }
 
     @Override
-    public boolean isDistributed()
+    public Distribution getDistribution()
     {
-        return false;
+        return SINGLE_COORDINATOR;
     }
 
     @Override
@@ -63,13 +62,7 @@ public class CatalogSystemTable
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
-    {
-        return ImmutableList.copyOf(transform(CATALOG_TABLE.getColumns(), columnTypeGetter()));
-    }
-
-    @Override
-    public RecordCursor cursor()
+    public RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
         for (Map.Entry<String, String> entry : metadata.getCatalogNames().entrySet()) {

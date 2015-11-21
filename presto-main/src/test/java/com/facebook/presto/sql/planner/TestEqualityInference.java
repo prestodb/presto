@@ -14,13 +14,11 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -30,10 +28,12 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Set;
 
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Predicates.not;
 
 public class TestEqualityInference
@@ -303,26 +303,14 @@ public class TestEqualityInference
 
     private static Predicate<Expression> matchesSymbolScope(final Predicate<Symbol> symbolScope)
     {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(Expression expression)
-            {
-                return Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
-            }
-        };
+        return expression -> Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
     }
 
     private static Predicate<Expression> matchesStraddlingScope(final Predicate<Symbol> symbolScope)
     {
-        return new Predicate<Expression>()
-        {
-            @Override
-            public boolean apply(Expression expression)
-            {
-                Set<Symbol> symbols = DependencyExtractor.extractUnique(expression);
-                return Iterables.any(symbols, symbolScope) && Iterables.any(symbols, not(symbolScope));
-            }
+        return expression -> {
+            Set<Symbol> symbols = DependencyExtractor.extractUnique(expression);
+            return Iterables.any(symbols, symbolScope) && Iterables.any(symbols, not(symbolScope));
         };
     }
 
@@ -348,7 +336,7 @@ public class TestEqualityInference
 
     private static Expression add(Expression expression1, Expression expression2)
     {
-        return new ArithmeticExpression(ArithmeticExpression.Type.ADD, expression1, expression2);
+        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, expression1, expression2);
     }
 
     private static Expression multiply(String symbol1, String symbol2)
@@ -358,7 +346,7 @@ public class TestEqualityInference
 
     private static Expression multiply(Expression expression1, Expression expression2)
     {
-        return new ArithmeticExpression(ArithmeticExpression.Type.MULTIPLY, expression1, expression2);
+        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.MULTIPLY, expression1, expression2);
     }
 
     private static Expression equals(String symbol1, String symbol2)
@@ -386,17 +374,12 @@ public class TestEqualityInference
         return matchesSymbols(Arrays.asList(symbols));
     }
 
-    private static Predicate<Symbol> matchesSymbols(Iterable<String> symbols)
+    private static Predicate<Symbol> matchesSymbols(Collection<String> symbols)
     {
-        final Set<Symbol> symbolSet = IterableTransformer.<String>on(symbols)
-                .transform(new Function<String, Symbol>()
-                {
-                    @Override
-                    public Symbol apply(String symbol)
-                    {
-                        return new Symbol(symbol);
-                    }
-                }).set();
+        final Set<Symbol> symbolSet = symbols.stream()
+                .map(Symbol::new)
+                .collect(toImmutableSet());
+
         return Predicates.in(symbolSet);
     }
 
@@ -407,18 +390,13 @@ public class TestEqualityInference
 
     private static Predicate<Symbol> symbolBeginsWith(final Iterable<String> prefixes)
     {
-        return new Predicate<Symbol>()
-        {
-            @Override
-            public boolean apply(Symbol symbol)
-            {
-                for (String prefix : prefixes) {
-                    if (symbol.getName().startsWith(prefix)) {
-                        return true;
-                    }
+        return symbol -> {
+            for (String prefix : prefixes) {
+                if (symbol.getName().startsWith(prefix)) {
+                    return true;
                 }
-                return false;
             }
+            return false;
         };
     }
 

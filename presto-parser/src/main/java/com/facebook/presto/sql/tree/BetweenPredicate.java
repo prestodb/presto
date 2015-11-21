@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class BetweenPredicate
         extends Expression
@@ -24,9 +26,20 @@ public class BetweenPredicate
 
     public BetweenPredicate(Expression value, Expression min, Expression max)
     {
-        Preconditions.checkNotNull(value, "value is null");
-        Preconditions.checkNotNull(min, "min is null");
-        Preconditions.checkNotNull(max, "max is null");
+        this(Optional.empty(), value, min, max);
+    }
+
+    public BetweenPredicate(NodeLocation location, Expression value, Expression min, Expression max)
+    {
+        this(Optional.of(location), value, min, max);
+    }
+
+    private BetweenPredicate(Optional<NodeLocation> location, Expression value, Expression min, Expression max)
+    {
+        super(location);
+        requireNonNull(value, "value is null");
+        requireNonNull(min, "min is null");
+        requireNonNull(max, "max is null");
 
         this.value = value;
         this.min = min;

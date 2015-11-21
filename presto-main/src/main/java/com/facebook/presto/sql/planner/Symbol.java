@@ -14,9 +14,12 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Preconditions;
+
+import static java.util.Objects.requireNonNull;
 
 public class Symbol
         implements Comparable<Symbol>
@@ -26,7 +29,7 @@ public class Symbol
     @JsonCreator
     public Symbol(String name)
     {
-        Preconditions.checkNotNull(name, "name is null");
+        requireNonNull(name, "name is null");
         this.name = name;
     }
 
@@ -39,6 +42,11 @@ public class Symbol
     public QualifiedName toQualifiedName()
     {
         return QualifiedName.of(name);
+    }
+
+    public QualifiedNameReference toQualifiedNameReference()
+    {
+        return new QualifiedNameReference(toQualifiedName());
     }
 
     public static Symbol fromQualifiedName(QualifiedName name)

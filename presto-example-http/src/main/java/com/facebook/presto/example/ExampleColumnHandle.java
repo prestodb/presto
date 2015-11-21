@@ -15,36 +15,33 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public final class ExampleColumnHandle
         implements ColumnHandle
 {
     private final String connectorId;
     private final String columnName;
-    private final ColumnType columnType;
+    private final Type columnType;
     private final int ordinalPosition;
-
-    public ExampleColumnHandle(String connectorId, ColumnMetadata columnMetadata)
-    {
-        this(connectorId, columnMetadata.getName(), columnMetadata.getType(), columnMetadata.getOrdinalPosition());
-    }
 
     @JsonCreator
     public ExampleColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") ColumnType columnType,
+            @JsonProperty("columnType") Type columnType,
             @JsonProperty("ordinalPosition") int ordinalPosition)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
-        this.columnName = checkNotNull(columnName, "columnName is null");
-        this.columnType = checkNotNull(columnType, "columnType is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.columnType = requireNonNull(columnType, "columnType is null");
         this.ordinalPosition = ordinalPosition;
     }
 
@@ -61,7 +58,7 @@ public final class ExampleColumnHandle
     }
 
     @JsonProperty
-    public ColumnType getColumnType()
+    public Type getColumnType()
     {
         return columnType;
     }
@@ -74,13 +71,13 @@ public final class ExampleColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, ordinalPosition, false);
+        return new ColumnMetadata(columnName, columnType, false);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId, columnName);
+        return Objects.hash(connectorId, columnName);
     }
 
     @Override
@@ -94,14 +91,14 @@ public final class ExampleColumnHandle
         }
 
         ExampleColumnHandle other = (ExampleColumnHandle) obj;
-        return Objects.equal(this.connectorId, other.connectorId) &&
-                Objects.equal(this.columnName, other.columnName);
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.columnName, other.columnName);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("columnName", columnName)
                 .add("columnType", columnType)

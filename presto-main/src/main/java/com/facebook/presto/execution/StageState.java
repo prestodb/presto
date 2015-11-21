@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Predicate;
+import java.util.Set;
+import java.util.stream.Stream;
+
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public enum StageState
 {
@@ -22,37 +26,51 @@ public enum StageState
      * be in the planned state until, the dependencies of the stage
      * have begun producing output.
      */
-    PLANNED(false),
+    PLANNED(false, false),
     /**
      * Stage tasks are being scheduled on nodes.
      */
-    SCHEDULING(false),
+    SCHEDULING(false, false),
+    /**
+     * All stage tasks have been scheduled, but splits are still being scheduled.
+     */
+    SCHEDULING_SPLITS(false, false),
     /**
      * Stage has been scheduled on nodes and ready to execute, but all tasks are still queued.
      */
-    SCHEDULED(false),
+    SCHEDULED(false, false),
     /**
      * Stage is running.
      */
-    RUNNING(false),
+    RUNNING(false, false),
     /**
      * Stage has finished executing and all output has been consumed.
      */
-    FINISHED(true),
+    FINISHED(true, false),
     /**
      * Stage was canceled by a user.
      */
-    CANCELED(true),
+    CANCELED(true, false),
+    /**
+     * Stage was aborted due to a failure in the query.  The failure
+     * was not in this stage.
+     */
+    ABORTED(true, true),
     /**
      * Stage execution failed.
      */
-    FAILED(true);
+    FAILED(true, true);
+
+    public static final Set<StageState> TERMINAL_STAGE_STATES = Stream.of(StageState.values()).filter(StageState::isDone).collect(toImmutableSet());
 
     private final boolean doneState;
+    private final boolean failureState;
 
-    private StageState(boolean doneState)
+    StageState(boolean doneState, boolean failureState)
     {
+        checkArgument(!failureState || doneState, "%s is a non-done failure state", name());
         this.doneState = doneState;
+        this.failureState = failureState;
     }
 
     /**
@@ -63,15 +81,11 @@ public enum StageState
         return doneState;
     }
 
-    public static Predicate<StageState> inDoneState()
+    /**
+     * Is this a non-success terminal state.
+     */
+    public boolean isFailure()
     {
-        return new Predicate<StageState>()
-        {
-            @Override
-            public boolean apply(StageState state)
-            {
-                return state.isDone();
-            }
-        };
+        return failureState;
     }
 }

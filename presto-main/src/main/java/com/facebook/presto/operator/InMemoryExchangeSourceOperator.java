@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class InMemoryExchangeSourceOperator
         implements Operator
@@ -29,26 +31,49 @@ public class InMemoryExchangeSourceOperator
     {
         private final int operatorId;
         private final InMemoryExchange inMemoryExchange;
+        private final boolean broadcast;
+        private int bufferIndex;
         private boolean closed;
 
-        public InMemoryExchangeSourceOperatorFactory(int operatorId, InMemoryExchange inMemoryExchange)
+        public static InMemoryExchangeSourceOperatorFactory createRandomDistribution(int operatorId, InMemoryExchange inMemoryExchange)
+        {
+            requireNonNull(inMemoryExchange, "inMemoryExchange is null");
+            checkArgument(inMemoryExchange.getBufferCount() == 1, "exchange must have only one buffer");
+            return new InMemoryExchangeSourceOperatorFactory(operatorId, inMemoryExchange, false);
+        }
+
+        public static InMemoryExchangeSourceOperatorFactory createBroadcastDistribution(int operatorId, InMemoryExchange inMemoryExchange)
+        {
+            requireNonNull(inMemoryExchange, "inMemoryExchange is null");
+            checkArgument(inMemoryExchange.getBufferCount() > 1, "exchange must have more than one buffer");
+            return new InMemoryExchangeSourceOperatorFactory(operatorId, inMemoryExchange, true);
+        }
+
+        private InMemoryExchangeSourceOperatorFactory(int operatorId, InMemoryExchange inMemoryExchange, boolean broadcast)
         {
             this.operatorId = operatorId;
-            this.inMemoryExchange = inMemoryExchange;
+            this.inMemoryExchange = requireNonNull(inMemoryExchange, "inMemoryExchange is null");
+            checkArgument(bufferIndex < inMemoryExchange.getBufferCount());
+            this.broadcast = broadcast;
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return inMemoryExchange.getTupleInfos();
+            return inMemoryExchange.getTypes();
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+            checkState(bufferIndex < inMemoryExchange.getBufferCount(), "All operators already created");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, InMemoryExchangeSourceOperator.class.getSimpleName());
-            return new InMemoryExchangeSourceOperator(operatorContext, inMemoryExchange);
+            Operator operator = new InMemoryExchangeSourceOperator(operatorContext, inMemoryExchange, bufferIndex);
+            if (broadcast) {
+                bufferIndex++;
+            }
+            return operator;
         }
 
         @Override
@@ -60,11 +85,14 @@ public class InMemoryExchangeSourceOperator
 
     private final OperatorContext operatorContext;
     private final InMemoryExchange exchange;
+    private final int bufferIndex;
 
-    public InMemoryExchangeSourceOperator(OperatorContext operatorContext, InMemoryExchange exchange)
+    public InMemoryExchangeSourceOperator(OperatorContext operatorContext, InMemoryExchange exchange, int bufferIndex)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.exchange = checkNotNull(exchange, "exchange is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.exchange = requireNonNull(exchange, "exchange is null");
+        checkArgument(bufferIndex < exchange.getBufferCount());
+        this.bufferIndex = bufferIndex;
     }
 
     @Override
@@ -74,9 +102,9 @@ public class InMemoryExchangeSourceOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return exchange.getTupleInfos();
+        return exchange.getTypes();
     }
 
     @Override
@@ -88,13 +116,13 @@ public class InMemoryExchangeSourceOperator
     @Override
     public boolean isFinished()
     {
-        return exchange.isFinished();
+        return exchange.isFinished(bufferIndex);
     }
 
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ListenableFuture<?> blocked = exchange.waitForNotEmpty();
+        ListenableFuture<?> blocked = exchange.waitForReading(bufferIndex);
         if (blocked.isDone()) {
             return NOT_BLOCKED;
         }
@@ -116,10 +144,17 @@ public class InMemoryExchangeSourceOperator
     @Override
     public Page getOutput()
     {
-        Page page = exchange.removePage();
+        Page page = exchange.removePage(bufferIndex);
         if (page != null) {
-            operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+            operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
         }
         return page;
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        finish();
     }
 }

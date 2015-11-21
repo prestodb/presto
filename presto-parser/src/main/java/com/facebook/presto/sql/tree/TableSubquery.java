@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class TableSubquery
         extends QueryBody
@@ -22,6 +24,17 @@ public class TableSubquery
 
     public TableSubquery(Query query)
     {
+        this(Optional.empty(), query);
+    }
+
+    public TableSubquery(NodeLocation location, Query query)
+    {
+        this(Optional.of(location), query);
+    }
+
+    private TableSubquery(Optional<NodeLocation> location, Query query)
+    {
+        super(location);
         this.query = query;
     }
 
@@ -39,7 +52,7 @@ public class TableSubquery
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(query)
                 .toString();
     }

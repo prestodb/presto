@@ -22,7 +22,7 @@ This will hold the following configuration:
 * Node Properties: environmental configuration specific to each node
 * JVM Config: command line options for the Java Virtual Machine
 * Config Properties: configuration for the Presto server
-* Catalog Properties: configuration for connectors (data sources)
+* Catalog Properties: configuration for :doc:`/connector` (data sources)
 
 .. _presto_node_properties:
 
@@ -75,31 +75,19 @@ The following provides a good starting point for creating ``etc/jvm.config``:
 
     -server
     -Xmx16G
-    -XX:+UseConcMarkSweepGC
+    -XX:+UseG1GC
+    -XX:G1HeapRegionSize=32M
+    -XX:+UseGCOverheadLimit
     -XX:+ExplicitGCInvokesConcurrent
-    -XX:+CMSClassUnloadingEnabled
-    -XX:+AggressiveOpts
     -XX:+HeapDumpOnOutOfMemoryError
     -XX:OnOutOfMemoryError=kill -9 %p
-    -XX:PermSize=150M
-    -XX:MaxPermSize=150M
-    -XX:ReservedCodeCacheSize=150M
-    -Xbootclasspath/p:/var/presto/installation/lib/floatingdecimal-0.1.jar
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
 inconsistent state, we write a heap dump (for debugging) and forcibly
 terminate the process when this occurs.
 
-Presto compiles queries to bytecode at runtime and thus produces many classes,
-so we increase the permanent generation size (the garbage collector region
-where classes are stored) and enable class unloading.
 
-The last option in the above configuration loads the
-`floatingdecimal <https://github.com/airlift/floatingdecimal>`_
-patch for the JDK that substantially improves performance when parsing
-floating point numbers. This is important because many Hive file formats
-store floating point values as text. Change the path
-``/var/presto/installation`` to match the Presto installation directory.
+.. _config_properties:
 
 Config Properties
 ^^^^^^^^^^^^^^^^^
@@ -115,11 +103,10 @@ The following is a minimal configuration for the coordinator:
 .. code-block:: none
 
     coordinator=true
-    datasources=jmx
+    node-scheduler.include-coordinator=false
     http-server.http.port=8080
-    presto-metastore.db.type=h2
-    presto-metastore.db.filename=var/db/MetaStore
-    task.max-memory=1GB
+    query.max-memory=50GB
+    query.max-memory-per-node=1GB
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
@@ -128,44 +115,46 @@ And this is a minimal configuration for the workers:
 .. code-block:: none
 
     coordinator=false
-    datasources=jmx,hive
     http-server.http.port=8080
-    presto-metastore.db.type=h2
-    presto-metastore.db.filename=var/db/MetaStore
-    task.max-memory=1GB
+    query.max-memory=50GB
+    query.max-memory-per-node=1GB
+    discovery.uri=http://example.net:8080
+
+Alternatively, if you are setting up a single machine for testing that
+will function as both a coordinator and worker, use this configuration:
+
+.. code-block:: none
+
+    coordinator=true
+    node-scheduler.include-coordinator=true
+    http-server.http.port=8080
+    query.max-memory=5GB
+    query.max-memory-per-node=1GB
+    discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
 These properties require some explanation:
 
-* ``datasources``:
-  Specifies the list of catalog names that may have splits processed
-  on this node. Both the coordinator and workers have ``jmx`` enabled
-  because the JMX catalog enables querying JMX properties from all nodes.
-  However, only the workers have ``hive`` enabled, because we do not want
-  to process Hive splits on the coordinator, as this can interfere with
-  query coordination and slow down everything.
+* ``coordinator``:
+  Allow this Presto instance to function as a coordinator
+  (accept queries from clients and manage query execution).
+
+* ``node-scheduler.include-coordinator``:
+  Allow scheduling work on the coordinator.
+  For larger clusters, processing work on the coordinator
+  can impact query performance because the machine's resources are not
+  available for the critical task of scheduling, managing and monitoring
+  query execution.
 
 * ``http-server.http.port``:
   Specifies the port for the HTTP server. Presto uses HTTP for all
   communication, internal and external.
 
-* ``presto-metastore.db.filename``:
-  The location of the local H2 database used for storing metadata.
-  Currently, this is mainly used by features that are still in
-  development and thus a local database suffices.
-  Also, this should only be needed by the coordinator, but currently
-  it is also required for workers.
+* ``query.max-memory=50GB``:
+  The maximum amount of distributed memory that a query may use.
 
-* ``task.max-memory=1GB``:
-  The maximum amount of memory used by a single task
-  (a fragment of a query plan running on a specific node).
-  In particular, this limits the number of groups in a ``GROUP BY``,
-  the size of the right-hand table in a ``JOIN``, the number of rows
-  in an ``ORDER BY`` or the number of rows processed by a window function.
-  This value should be tuned based on the number of concurrent queries and
-  the size and complexity of queries.  Setting it too low will limit the
-  queries that can be run, while setting it too high will cause the JVM
-  to run out of memory.
+* ``query.max-memory-per-node=1GB``:
+  The maximum amount of memory that a query may use on any one machine.
 
 * ``discovery-server.enabled``:
   Presto uses the Discovery service to find all the nodes in the cluster.
@@ -173,8 +162,7 @@ These properties require some explanation:
   on startup. In order to simplify deployment and avoid running an additional
   service, the Presto coordinator can run an embedded version of the
   Discovery service. It shares the HTTP server with Presto and thus uses
-  the same port. For larger clusters, we recommend running Discovery as a
-  dedicated service. See :doc:`discovery` for details.
+  the same port.
 
 * ``discovery.uri``:
   The URI to the Discovery server. Because we have enabled the embedded
@@ -182,6 +170,9 @@ These properties require some explanation:
   URI of the Presto coordinator. Replace ``example.net:8080`` to match
   the host and port of the Presto coordinator. This URI must not end
   in a slash.
+
+* ``query.queue-config-file``:
+  Specifies the file to read the :doc:`/admin/queue` from.
 
 Log Levels
 ^^^^^^^^^^
@@ -194,11 +185,12 @@ For example, consider the following log levels file:
 
 .. code-block:: none
 
-    com.facebook.presto=DEBUG
+    com.facebook.presto=INFO
 
-This would set the minimum level to ``DEBUG`` for both
+This would set the minimum level to ``INFO`` for both
 ``com.facebook.presto.server`` and ``com.facebook.presto.hive``.
-The default minimum level is ``INFO``.
+The default minimum level is ``INFO``
+(thus the above example does not actually change anything).
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 
 Catalog Properties
@@ -208,8 +200,8 @@ Presto accesses data via *connectors*, which are mounted in catalogs.
 The connector provides all of the schemas and tables inside of the catalog.
 For example, the Hive connector maps each Hive database to a schema,
 so if the Hive connector is mounted as the ``hive`` catalog, and Hive
-contains a table ``bar`` in database ``foo``, that table would be accessed
-in Presto as ``hive.foo.bar``.
+contains a table ``clicks`` in database ``web``, that table would be accessed
+in Presto as ``hive.web.clicks``.
 
 Catalogs are registered by creating a catalog properties file
 in the ``etc/catalog`` directory.
@@ -220,26 +212,7 @@ contents to mount the ``jmx`` connector as the ``jmx`` catalog:
 
     connector.name=jmx
 
-Presto includes Hive connectors for multiple versions of Hadoop:
-
-* ``hive-hadoop1``: Apache Hadoop 1.x
-* ``hive-hadoop2``: Apache Hadoop 2.x
-* ``hive-cdh4``: Cloudera CDH4
-
-Create ``etc/catalog/hive.properties`` with the following contents
-to mount the ``hive-cdh4`` connector as the ``hive`` catalog,
-replacing ``hive-cdh4`` with the proper connector for your version
-of Hadoop and ``example.net:9083`` with the correct host and port
-for your Hive metastore Thrift service:
-
-.. code-block:: none
-
-    connector.name=hive-cdh4
-    hive.metastore.uri=thrift://example.net:9083
-
-You can have as many catalogs as you need, so if you have additional
-Hive clusters, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``).
+See :doc:`/connector` for more information about configuring connectors.
 
 .. _running_presto:
 

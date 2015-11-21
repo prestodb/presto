@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -48,20 +49,23 @@ public class TestQueryStats
             16,
 
             new DataSize(17, BYTE),
+            new DataSize(18, BYTE),
 
-            new Duration(18, NANOSECONDS),
             new Duration(19, NANOSECONDS),
             new Duration(20, NANOSECONDS),
             new Duration(21, NANOSECONDS),
+            new Duration(22, NANOSECONDS),
+            false,
+            ImmutableSet.of(),
 
-            new DataSize(22, BYTE),
-            23,
+            new DataSize(23, BYTE),
+            24,
 
-            new DataSize(24, BYTE),
-            25,
+            new DataSize(25, BYTE),
+            26,
 
-            new DataSize(26, BYTE),
-            27);
+            new DataSize(27, BYTE),
+            28);
 
     @Test
     public void testJson()
@@ -98,19 +102,20 @@ public class TestQueryStats
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getTotalMemoryReservation(), new DataSize(17, BYTE));
+        assertEquals(actual.getPeakMemoryReservation(), new DataSize(18, BYTE));
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(18, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(19, NANOSECONDS));
-        assertEquals(actual.getTotalUserTime(), new Duration(20, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(21, NANOSECONDS));
+        assertEquals(actual.getTotalScheduledTime(), new Duration(19, NANOSECONDS));
+        assertEquals(actual.getTotalCpuTime(), new Duration(20, NANOSECONDS));
+        assertEquals(actual.getTotalUserTime(), new Duration(21, NANOSECONDS));
+        assertEquals(actual.getTotalBlockedTime(), new Duration(22, NANOSECONDS));
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(22, BYTE));
-        assertEquals(actual.getRawInputPositions(), 23);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(23, BYTE));
+        assertEquals(actual.getRawInputPositions(), 24);
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(24, BYTE));
-        assertEquals(actual.getProcessedInputPositions(), 25);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(25, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 26);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(26, BYTE));
-        assertEquals(actual.getOutputPositions(), 27);
+        assertEquals(actual.getOutputDataSize(), new DataSize(27, BYTE));
+        assertEquals(actual.getOutputPositions(), 28);
     }
 }

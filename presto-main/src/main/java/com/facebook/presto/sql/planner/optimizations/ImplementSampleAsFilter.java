@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -32,7 +31,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ImplementSampleAsFilter
         extends PlanOptimizer
@@ -40,23 +39,23 @@ public class ImplementSampleAsFilter
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan, null);
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends SimplePlanRewriter<Void>
     {
         @Override
-        public PlanNode rewriteSample(SampleNode node, Void context, PlanRewriter<Void> planRewriter)
+        public PlanNode visitSample(SampleNode node, RewriteContext<Void> context)
         {
             if (node.getSampleType() == SampleNode.Type.BERNOULLI) {
-                PlanNode rewrittenSource = planRewriter.rewrite(node.getSource(), context);
+                PlanNode rewrittenSource = context.rewrite(node.getSource());
 
                 ComparisonExpression expression = new ComparisonExpression(
                         ComparisonExpression.Type.LESS_THAN,
@@ -64,8 +63,9 @@ public class ImplementSampleAsFilter
                         new DoubleLiteral(Double.toString(node.getSampleRatio())));
                 return new FilterNode(node.getId(), rewrittenSource, expression);
             }
-            else if (node.getSampleType() == SampleNode.Type.SYSTEM) {
-                return rewriteNode(node, context, planRewriter);
+            else if (node.getSampleType() == SampleNode.Type.POISSONIZED ||
+                    node.getSampleType() == SampleNode.Type.SYSTEM) {
+                return context.defaultRewrite(node);
             }
             throw new UnsupportedOperationException("not yet implemented");
         }

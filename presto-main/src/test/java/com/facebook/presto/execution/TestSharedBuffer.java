@@ -13,38 +13,41 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.HashPagePartitionFunction;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.operator.Page;
-import com.google.common.base.Throwables;
+import com.facebook.presto.operator.PageAssertions;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.planner.PlanFragment.NullPartitioning.HASH;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -52,10 +55,15 @@ public class TestSharedBuffer
 {
     private static final Duration NO_WAIT = new Duration(0, TimeUnit.MILLISECONDS);
     private static final Duration MAX_WAIT = new Duration(1, TimeUnit.SECONDS);
-    private static final DataSize PAGE_SIZE = createPage(42).getDataSize();
+    private static final DataSize PAGE_SIZE = new DataSize(createPage(42).getSizeInBytes(), BYTE);
     private static final TaskId TASK_ID = new TaskId("query", "stage", "task");
+    private static final int DEFAULT_PARTITION = 0;
 
-    private static final OutputBuffers CLOSED_OUTPUT_BUFFERS = INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds();
+    private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
+    public static final TaskId FIRST = new TaskId("query", "stage", "first_task");
+    public static final TaskId SECOND = new TaskId("query", "stage", "second_task");
+    public static final TaskId QUEUE = new TaskId("query", "stage", "queue");
+    public static final TaskId FOO = new TaskId("foo", "bar", "baz");
 
     private static Page createPage(int i)
     {
@@ -64,25 +72,25 @@ public class TestSharedBuffer
 
     public static DataSize sizeOfPages(int count)
     {
-        return new DataSize(PAGE_SIZE.toBytes() * count, Unit.BYTE);
+        return new DataSize(PAGE_SIZE.toBytes() * count, BYTE);
     }
 
-    private ExecutorService executor;
+    private ScheduledExecutorService stateNotificationExecutor;
 
     @BeforeClass
     public void setUp()
             throws Exception
     {
-        executor = Executors.newCachedThreadPool();
+        stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
     }
 
     @AfterClass
     public void tearDown()
             throws Exception
     {
-        if (executor != null) {
-            executor.shutdownNow();
-            executor = null;
+        if (stateNotificationExecutor != null) {
+            stateNotificationExecutor.shutdownNow();
+            stateNotificationExecutor = null;
         }
     }
 
@@ -91,10 +99,10 @@ public class TestSharedBuffer
             throws Exception
     {
         try {
-            new SharedBuffer(TASK_ID, executor, new DataSize(0, Unit.BYTE), CLOSED_OUTPUT_BUFFERS);
+            new SharedBuffer(TASK_ID, stateNotificationExecutor, new DataSize(0, BYTE));
             fail("Expected IllegalStateException");
         }
-        catch (IllegalArgumentException e) {
+        catch (IllegalArgumentException ignored) {
         }
     }
 
@@ -102,52 +110,53 @@ public class TestSharedBuffer
     public void testSimple()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
 
         // add three items
         for (int i = 0; i < 3; i++) {
             addPage(sharedBuffer, createPage(i));
         }
 
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer("first", new UnpartitionedPagePartitionFunction());
+        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(FIRST, new UnpartitionedPagePartitionFunction());
 
         // add a queue
         sharedBuffer.setOutputBuffers(outputBuffers);
-        assertQueueState(sharedBuffer, "first", 3, 0);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 3, 0, 3, 3, 0);
 
         // get the three elements
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
-        assertQueueState(sharedBuffer, "first", 3, 0);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 3, 0, 3, 3, 0);
 
-        // try to get some more pages (acknowledge first three pages)
-        assertBufferResultEquals(sharedBuffer.get("first", 3, sizeOfPages(10), NO_WAIT), emptyResults(3, false));
+        // acknowledge first three pages
+        sharedBuffer.get(FIRST, 3, sizeOfPages(10)).cancel(true);
         // pages now acknowledged
-        assertQueueState(sharedBuffer, "first", 0, 3);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 0, 3, 3, 3, 0);
 
         // fill the buffer (we already added 3 pages)
         for (int i = 3; i < 10; i++) {
             addPage(sharedBuffer, createPage(i));
         }
-        assertQueueState(sharedBuffer, "first", 7, 3);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 7, 3, 10, 10, 0);
 
         // try to add one more page, which should block
         ListenableFuture<?> future = enqueuePage(sharedBuffer, createPage(10));
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 7, 3, 10, 10, 1);
 
         // remove a page
-        assertBufferResultEquals(sharedBuffer.get("first", 3, sizeOfPages(1), NO_WAIT), bufferResult(3, createPage(3)));
-        // page not acknowledged yet so state is the same
-        assertQueueState(sharedBuffer, "first", 7, 3);
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 3, sizeOfPages(1), NO_WAIT), bufferResult(3, createPage(3)));
+        // page not acknowledged yet so sent count is the same
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 7, 3, 10, 10, 1);
 
         // we should still be blocked
         assertFalse(future.isDone());
 
         //
         // add another buffer and verify it sees all pages
-        outputBuffers = outputBuffers.withBuffer("second", new UnpartitionedPagePartitionFunction());
+        outputBuffers = outputBuffers.withBuffer(SECOND, new UnpartitionedPagePartitionFunction());
         sharedBuffer.setOutputBuffers(outputBuffers);
-        assertQueueState(sharedBuffer, "second", 10, 0);
-        assertBufferResultEquals(sharedBuffer.get("second", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0),
+        assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 10, 0, 10, 10, 1);
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, SECOND, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0),
                 createPage(1),
                 createPage(2),
                 createPage(3),
@@ -157,11 +166,11 @@ public class TestSharedBuffer
                 createPage(7),
                 createPage(8),
                 createPage(9)));
-        // page not acknowledged yet so state is the same
-        assertQueueState(sharedBuffer, "second", 10, 0);
+        // page not acknowledged yet so sent count is still zero
+        assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 10, 0, 10, 10, 1);
         // acknowledge the 10 pages
-        assertBufferResultEquals(sharedBuffer.get("second", 10, sizeOfPages(10), NO_WAIT), emptyResults(10, false));
-        assertQueueState(sharedBuffer, "second", 0, 10);
+        sharedBuffer.get(SECOND, 10, sizeOfPages(10)).cancel(true);
+        assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 0, 10, 10, 10, 1);
 
         //
         // tell shared buffer there will be no more queues
@@ -176,36 +185,36 @@ public class TestSharedBuffer
         addPage(sharedBuffer, createPage(11));
         addPage(sharedBuffer, createPage(12));
         future = enqueuePage(sharedBuffer, createPage(13));
-        assertQueueState(sharedBuffer, "first", 10, 3);
-        assertQueueState(sharedBuffer, "second", 3, 10);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 10, 3, 10, 13, 1);
+        assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 3, 10, 10, 13, 1);
 
         // remove a page from the first queue
-        assertBufferResultEquals(sharedBuffer.get("first", 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
 
         // the blocked page future above should be done
         future.get(1, TimeUnit.SECONDS);
-        assertQueueState(sharedBuffer, "first", 10, 4);
-        assertQueueState(sharedBuffer, "second", 4, 10);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 10, 4, 10, 14, 0);
+        assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 4, 10, 10, 14, 0);
 
         //
         // finish the buffer
         assertFalse(sharedBuffer.isFinished());
-        sharedBuffer.finish();
-        assertQueueState(sharedBuffer, "first", 10, 4);
-        assertQueueState(sharedBuffer, "second", 4, 10);
+        sharedBuffer.setNoMorePages();
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 10, 4, 10, 14, 0);
+        assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 4, 10, 10, 14, 0);
 
         // not fully finished until all pages are consumed
         assertFalse(sharedBuffer.isFinished());
 
         // remove a page, not finished
-        assertBufferResultEquals(sharedBuffer.get("first", 5, sizeOfPages(1), NO_WAIT), bufferResult(5, createPage(5)));
-        assertQueueState(sharedBuffer, "first", 9, 5);
-        assertQueueState(sharedBuffer, "second", 4, 10);
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 5, sizeOfPages(1), NO_WAIT), bufferResult(5, createPage(5)));
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 9, 5, 9, 14, 0);
+        assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 4, 10, 9, 14, 0);
         assertFalse(sharedBuffer.isFinished());
 
         // remove all remaining pages from first queue, should not be finished
-        BufferResult x = sharedBuffer.get("first", 6, sizeOfPages(10), NO_WAIT);
-        assertBufferResultEquals(x, bufferResult(6, createPage(6),
+        BufferResult x = getBufferResult(sharedBuffer, FIRST, 6, sizeOfPages(10), NO_WAIT);
+        assertBufferResultEquals(TYPES, x, bufferResult(6, createPage(6),
                 createPage(7),
                 createPage(8),
                 createPage(9),
@@ -213,92 +222,286 @@ public class TestSharedBuffer
                 createPage(11),
                 createPage(12),
                 createPage(13)));
-        assertQueueState(sharedBuffer, "first", 8, 6);
-        assertBufferResultEquals(sharedBuffer.get("first", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, false));
-        assertQueueClosed(sharedBuffer, "first", 14);
-        assertQueueState(sharedBuffer, "second", 4, 10);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 8, 6, 8, 14, 0);
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+
+        // finish first queue
+        sharedBuffer.abort(FIRST);
+        assertQueueClosed(sharedBuffer, FIRST, 14);
+        assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 4, 10, 4, 14, 0);
         assertFalse(sharedBuffer.isFinished());
 
         // remove all remaining pages from second queue, should be finished
-        assertBufferResultEquals(sharedBuffer.get("second", 10, sizeOfPages(10), NO_WAIT), bufferResult(10, createPage(10),
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, SECOND, 10, sizeOfPages(10), NO_WAIT), bufferResult(10, createPage(10),
                 createPage(11),
                 createPage(12),
                 createPage(13)));
-        assertQueueState(sharedBuffer, "second", 4, 10);
-        assertBufferResultEquals(sharedBuffer.get("second", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, false));
-        assertQueueClosed(sharedBuffer, "first", 14);
-        assertQueueClosed(sharedBuffer, "second", 14);
+        assertQueueState(sharedBuffer, SECOND, DEFAULT_PARTITION, 4, 10, 4, 14, 0);
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, SECOND, 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+        sharedBuffer.abort(SECOND);
+        assertQueueClosed(sharedBuffer, FIRST, 14);
+        assertQueueClosed(sharedBuffer, SECOND, 14);
         assertFinished(sharedBuffer);
 
-        assertBufferResultEquals(sharedBuffer.get("first", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
-        assertBufferResultEquals(sharedBuffer.get("second", 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, SECOND, 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+    }
+
+    @Test
+    public void testSharedBufferFull()
+            throws Exception
+    {
+        int firstPartition = 0;
+        int secondPartition = 1;
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(2));
+
+        // Add two pages, buffer is full
+        addPage(sharedBuffer, createPage(1), firstPartition);
+        addPage(sharedBuffer, createPage(2), secondPartition);
+
+        // third page is blocked
+        enqueuePage(sharedBuffer, createPage(3), secondPartition);
+    }
+
+    @Test
+    public void testDeqeueueOnAcknowledgement()
+            throws Exception
+    {
+        int firstPartition = 0;
+        int secondPartition = 1;
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(2));
+        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
+                .withBuffer(FIRST, new HashPagePartitionFunction(firstPartition, 2, Ints.asList(0), Optional.<Integer>empty(), ImmutableList.of(BIGINT), HASH))
+                .withBuffer(SECOND, new HashPagePartitionFunction(secondPartition, 2, Ints.asList(0), Optional.<Integer>empty(), ImmutableList.of(BIGINT), HASH))
+                .withNoMoreBufferIds();
+        sharedBuffer.setOutputBuffers(outputBuffers);
+
+        // Add two pages, buffer is full
+        addPage(sharedBuffer, createPage(1), firstPartition);
+        addPage(sharedBuffer, createPage(2), firstPartition);
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 2, 0, 2, 2, 0);
+
+        // third page is blocked
+        ListenableFuture<?> future = enqueuePage(sharedBuffer, createPage(3), secondPartition);
+
+        // we should be blocked
+        assertFalse(future.isDone());
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 2, 0, 2, 2, 0);   // 2 buffered pages
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 0, 0, 0, 1); // 1 queued page
+
+        // acknowledge pages for first partition, make space in the shared buffer
+        sharedBuffer.get(FIRST, 2, sizeOfPages(10)).cancel(true);
+
+        // page should be dequeued, we should not be blocked
+        assertTrue(future.isDone());
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 1, 0, 1, 1, 0); // no more queued pages
+    }
+
+    @Test
+    public void testSimplePartitioned()
+            throws Exception
+    {
+        int firstPartition = 0;
+        int secondPartition = 1;
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(20));
+
+        // add three items to each buffer
+        for (int i = 0; i < 3; i++) {
+            addPage(sharedBuffer, createPage(i), firstPartition);
+            addPage(sharedBuffer, createPage(i), secondPartition);
+        }
+
+        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(FIRST, new HashPagePartitionFunction(firstPartition, 2, Ints.asList(0), Optional.<Integer>empty(), ImmutableList.of(BIGINT), HASH));
+
+        // add first partition
+        sharedBuffer.setOutputBuffers(outputBuffers);
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 3, 0, 3, 3, 0);
+
+        // get the three elements
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        // pages not acknowledged yet so state is the same
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 3, 0, 3, 3, 0);
+
+        // acknowledge first three pages
+        sharedBuffer.get(FIRST, 3, sizeOfPages(10)).cancel(true);
+        // pages now acknowledged
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 0, 3, 3, 3, 0);
+
+        // fill the buffer (we already added 3 pages)
+        for (int i = 3; i < 10; i++) {
+            addPage(sharedBuffer, createPage(i), firstPartition);
+            addPage(sharedBuffer, createPage(i), secondPartition);
+        }
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 7, 3, 10, 10, 0);
+
+        // try to add one more page, which should block
+        ListenableFuture<?> future = enqueuePage(sharedBuffer, createPage(10), firstPartition);
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 7, 3, 10, 10, 1);
+
+        // remove a page
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 3, sizeOfPages(1), NO_WAIT), bufferResult(3, createPage(3)));
+        // page not acknowledged yet so sent count is the same
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 7, 3, 10, 10, 1);
+
+        // we should still be blocked
+        assertFalse(future.isDone());
+
+        //
+        // add second partition and verify it sees all pages
+        outputBuffers = outputBuffers.withBuffer(SECOND, new HashPagePartitionFunction(secondPartition, 2, Ints.asList(0), Optional.<Integer>empty(), ImmutableList.of(BIGINT), HASH));
+        sharedBuffer.setOutputBuffers(outputBuffers);
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 10, 0, 10, 10, 0);
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, SECOND, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0),
+                createPage(1),
+                createPage(2),
+                createPage(3),
+                createPage(4),
+                createPage(5),
+                createPage(6),
+                createPage(7),
+                createPage(8),
+                createPage(9)));
+        // page not acknowledged yet so sent count is still zero
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 10, 0, 10, 10, 0);
+        // acknowledge the 10 pages
+        sharedBuffer.get(SECOND, 10, sizeOfPages(10)).cancel(true);
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 10, 10, 0);
+
+        //
+        // tell shared buffer there will be no more queues
+        outputBuffers = outputBuffers.withNoMoreBufferIds();
+        sharedBuffer.setOutputBuffers(outputBuffers);
+
+        // since both queues consumed some pages, the blocked page future from above should be done
+        future.get(1, TimeUnit.SECONDS);
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 8, 3, 8, 11, 0);
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 0, 10, 0);
+
+        // we should be able to add 3 more pages
+        // although the first queue fetched the 4th page, the page has not been acknowledged yet
+        addPage(sharedBuffer, createPage(11), firstPartition);
+        addPage(sharedBuffer, createPage(12), firstPartition);
+        addPage(sharedBuffer, createPage(13), firstPartition);
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 11, 3, 11, 14, 0);
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 0, 10, 0);
+
+        // remove a page from the first queue
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
+
+        // the blocked page future above should be done
+        future.get(1, TimeUnit.SECONDS);
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 10, 4, 10, 14, 0);
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 0, 10, 0);
+
+        //
+        // finish the buffer
+        assertFalse(sharedBuffer.isFinished());
+        sharedBuffer.setNoMorePages();
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 10, 4, 10, 14, 0);
+        assertQueueState(sharedBuffer, SECOND, secondPartition, 0, 10, 0, 10, 0);
+        sharedBuffer.abort(SECOND);
+        assertQueueClosed(sharedBuffer, SECOND, 10);
+
+        // not fully finished until all pages are consumed
+        assertFalse(sharedBuffer.isFinished());
+
+        // remove a page, not finished
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 5, sizeOfPages(1), NO_WAIT), bufferResult(5, createPage(5)));
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 9, 5, 9, 14, 0);
+        assertFalse(sharedBuffer.isFinished());
+
+        // remove all remaining pages from first queue, should not be finished
+        BufferResult x = getBufferResult(sharedBuffer, FIRST, 6, sizeOfPages(10), NO_WAIT);
+        assertBufferResultEquals(TYPES, x, bufferResult(6, createPage(6),
+                createPage(7),
+                createPage(8),
+                createPage(9),
+                createPage(10),
+                createPage(11),
+                createPage(12),
+                createPage(13)));
+        assertQueueState(sharedBuffer, FIRST, firstPartition, 8, 6, 8, 14, 0);
+        // acknowledge all pages from the first partition, should transition to finished state
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 14, sizeOfPages(10), NO_WAIT), emptyResults(14, true));
+        sharedBuffer.abort(FIRST);
+        assertQueueClosed(sharedBuffer, FIRST, 14);
+        assertFinished(sharedBuffer);
+    }
+
+    public static BufferResult getBufferResult(SharedBuffer sharedBuffer, TaskId outputId, long sequenceId, DataSize maxSize, Duration maxWait)
+    {
+        CompletableFuture<BufferResult> future = sharedBuffer.get(outputId, sequenceId, maxSize);
+        return getFuture(future, maxWait);
+    }
+
+    public static BufferResult getFuture(CompletableFuture<BufferResult> future, Duration maxWait)
+    {
+        return tryGetFutureValue(future, (int) maxWait.toMillis(), TimeUnit.MILLISECONDS).get();
     }
 
     @Test
     public void testDuplicateRequests()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
         // add three items
         for (int i = 0; i < 3; i++) {
             addPage(sharedBuffer, createPage(i));
         }
 
         // add a queue
-        outputBuffers = outputBuffers.withBuffer("first", new UnpartitionedPagePartitionFunction());
+        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
+        outputBuffers = outputBuffers.withBuffer(FIRST, new UnpartitionedPagePartitionFunction());
         sharedBuffer.setOutputBuffers(outputBuffers);
-        assertQueueState(sharedBuffer, "first", 3, 0);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 3, 0, 3, 3, 0);
 
         // get the three elements
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
-        assertQueueState(sharedBuffer, "first", 3, 0);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 3, 0, 3, 3, 0);
 
         // get the three elements again
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
-        assertQueueState(sharedBuffer, "first", 3, 0);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 3, 0, 3, 3, 0);
 
         // acknowledge the pages
-        sharedBuffer.acknowledge("first", 3);
+        sharedBuffer.get(FIRST, 3, sizeOfPages(10)).cancel(true);
 
         // attempt to get the three elements again
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(10), NO_WAIT), emptyResults(3, false));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 0, sizeOfPages(10), NO_WAIT), emptyResults(0, false));
         // pages not acknowledged yet so state is the same
-        assertQueueState(sharedBuffer, "first", 0, 3);
+        assertQueueState(sharedBuffer, FIRST, DEFAULT_PARTITION, 0, 3, 3, 3, 0);
     }
 
     @Test
     public void testAddQueueAfterNoMoreQueues()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
         assertFalse(sharedBuffer.isFinished());
 
         // tell buffer no more queues will be added
-        outputBuffers = outputBuffers.withNoMoreBufferIds();
-        sharedBuffer.setOutputBuffers(outputBuffers);
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds());
         assertFalse(sharedBuffer.isFinished());
 
         // set no more queues a second time to assure that we don't get an exception or such
-        sharedBuffer.setOutputBuffers(outputBuffers);
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds());
         assertFalse(sharedBuffer.isFinished());
 
         // set no more queues a third time to assure that we don't get an exception or such
-        sharedBuffer.setOutputBuffers(outputBuffers);
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds());
         assertFalse(sharedBuffer.isFinished());
 
         try {
-            outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                    .withBuffer("foo", new UnpartitionedPagePartitionFunction())
+            OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
+                    .withBuffer(FOO, new UnpartitionedPagePartitionFunction())
                     .withNoMoreBufferIds();
 
             sharedBuffer.setOutputBuffers(outputBuffers);
             fail("Expected IllegalStateException from addQueue after noMoreQueues has been called");
         }
-        catch (IllegalStateException expected) {
+        catch (IllegalStateException ignored) {
         }
     }
 
@@ -306,7 +509,7 @@ public class TestSharedBuffer
     public void testAddQueueAfterDestroy()
             throws Exception
     {
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
         assertFalse(sharedBuffer.isFinished());
 
         // destroy buffer
@@ -322,64 +525,53 @@ public class TestSharedBuffer
         assertFinished(sharedBuffer);
 
         // add queue calls after finish should be ignored
-        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer("foo", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(FOO, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds());
     }
 
     @Test
-    public void testOperationsOnUnknownQueues()
+    public void testGetBeforeCreate()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
         assertFalse(sharedBuffer.isFinished());
 
-        // verify operations on unknown queue throw an exception
-        try {
-            sharedBuffer.get("unknown", 0, sizeOfPages(1), NO_WAIT);
-            fail("Expected NoSuchBufferException from operation on unknown queue");
-        }
-        catch (NoSuchBufferException expected) {
-        }
+        // get a page from a buffer that doesn't exist yet
+        CompletableFuture<BufferResult> future = sharedBuffer.get(FIRST, (long) 0, sizeOfPages(1));
+        assertFalse(future.isDone());
 
-        // abort on unknown buffer is allowed
-        sharedBuffer.abort("unknown");
+        // add a page and verify the future is not complete
+        addPage(sharedBuffer, createPage(33));
+        assertFalse(future.isDone());
 
-        // finish buffer and try operations again
-        sharedBuffer.finish();
-        try {
-            sharedBuffer.get("unknown", 0, sizeOfPages(1), NO_WAIT);
-            fail("Expected NoSuchBufferException from operation on unknown queue");
-        }
-        catch (NoSuchBufferException expected) {
-        }
+        // add the buffer and verify the future completed
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(FIRST, new UnpartitionedPagePartitionFunction()));
+        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(33)));
+    }
 
-        // abort on unknown buffer is allowed
-        sharedBuffer.abort("unknown");
+    @Test
+    public void testAbortBeforeCreate()
+            throws Exception
+    {
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
+        assertFalse(sharedBuffer.isFinished());
 
-        // set no more queues and try operations again
-        outputBuffers = outputBuffers.withNoMoreBufferIds();
-        sharedBuffer.setOutputBuffers(outputBuffers);
-        try {
-            sharedBuffer.get("unknown", 0, sizeOfPages(1), NO_WAIT);
-            fail("Expected NoSuchBufferException from operation on unknown queue");
-        }
-        catch (NoSuchBufferException expected) {
-        }
+        // get a page from a buffer that doesn't exist yet
+        CompletableFuture<BufferResult> future = sharedBuffer.get(FIRST, (long) 0, sizeOfPages(1));
+        assertFalse(future.isDone());
 
-        // abort on unknown buffer is allowed
-        sharedBuffer.abort("unknown");
+        // abort that buffer
+        sharedBuffer.abort(FIRST);
 
-        // destroy and try operations again
-        sharedBuffer.destroy();
-        try {
-            sharedBuffer.get("unknown", 0, sizeOfPages(1), NO_WAIT);
-            fail("Expected NoSuchBufferException from operation on unknown queue");
-        }
-        catch (NoSuchBufferException expected) {
-        }
+        // add a page and verify the future is not complete
+        addPage(sharedBuffer, createPage(33));
+        assertFalse(future.isDone());
 
-        // abort on unknown buffer is allowed
-        sharedBuffer.abort("unknown");
+        // add the buffer and verify we did not get the page
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(FIRST, new UnpartitionedPagePartitionFunction()));
+        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), emptyResults(0, true));
+
+        // verify that a normal read returns a closed empty result
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 0, sizeOfPages(10), NO_WAIT), emptyResults(0, true));
     }
 
     @Test
@@ -387,179 +579,177 @@ public class TestSharedBuffer
             throws Exception
     {
         // add after finish
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
-        sharedBuffer.finish();
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
+        sharedBuffer.setNoMorePages();
         addPage(sharedBuffer, createPage(0));
         addPage(sharedBuffer, createPage(0));
-        assertEquals(sharedBuffer.getInfo().getPagesAdded(), 0);
+        assertEquals(sharedBuffer.getInfo().getTotalPagesSent(), 0);
 
         // add after destroy
-        sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), INITIAL_EMPTY_OUTPUT_BUFFERS);
+        sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
         sharedBuffer.destroy();
         addPage(sharedBuffer, createPage(0));
         addPage(sharedBuffer, createPage(0));
-        assertEquals(sharedBuffer.getInfo().getPagesAdded(), 0);
+        assertEquals(sharedBuffer.getInfo().getTotalPagesSent(), 0);
     }
 
     @Test
     public void testAbort()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
 
         // fill the buffer
         for (int i = 0; i < 10; i++) {
             addPage(sharedBuffer, createPage(i));
         }
-        sharedBuffer.finish();
+        sharedBuffer.setNoMorePages();
 
-        outputBuffers = outputBuffers.withBuffer("first", new UnpartitionedPagePartitionFunction());
+        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
+        outputBuffers = outputBuffers.withBuffer(FIRST, new UnpartitionedPagePartitionFunction());
         sharedBuffer.setOutputBuffers(outputBuffers);
-        assertBufferResultEquals(sharedBuffer.get("first", 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        sharedBuffer.abort("first");
-        assertQueueClosed(sharedBuffer, "first", 0);
-        assertBufferResultEquals(sharedBuffer.get("first", 1, sizeOfPages(1), NO_WAIT), emptyResults(1, true));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
+        sharedBuffer.abort(FIRST);
+        assertQueueClosed(sharedBuffer, FIRST, 0);
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, FIRST, 1, sizeOfPages(1), NO_WAIT), emptyResults(1, true));
 
-        outputBuffers = outputBuffers.withBuffer("second", new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds();
+        outputBuffers = outputBuffers.withBuffer(SECOND, new UnpartitionedPagePartitionFunction()).withNoMoreBufferIds();
         sharedBuffer.setOutputBuffers(outputBuffers);
-        assertBufferResultEquals(sharedBuffer.get("second", 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        sharedBuffer.abort("second");
-        assertQueueClosed(sharedBuffer, "second", 0);
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, SECOND, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
+        sharedBuffer.abort(SECOND);
+        assertQueueClosed(sharedBuffer, SECOND, 0);
         assertFinished(sharedBuffer);
-        assertBufferResultEquals(sharedBuffer.get("second", 1, sizeOfPages(1), NO_WAIT), emptyResults(0, true));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, SECOND, 1, sizeOfPages(1), NO_WAIT), emptyResults(0, true));
     }
 
     @Test
     public void testFinishClosesEmptyQueues()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer("first", new UnpartitionedPagePartitionFunction())
-                .withBuffer("second", new UnpartitionedPagePartitionFunction());
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(10), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(10));
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
+                .withBuffer(FIRST, new UnpartitionedPagePartitionFunction())
+                .withBuffer(SECOND, new UnpartitionedPagePartitionFunction()));
 
         // finish while queues are empty
-        sharedBuffer.finish();
+        sharedBuffer.setNoMorePages();
 
-        assertQueueClosed(sharedBuffer, "first", 0);
-        assertQueueClosed(sharedBuffer, "second", 0);
+        assertQueueState(sharedBuffer, FIRST, 0, 0, 0, 0, 0, 0);
+        assertQueueState(sharedBuffer, SECOND, 0, 0, 0, 0, 0, 0);
+
+        sharedBuffer.abort(FIRST);
+        sharedBuffer.abort(SECOND);
+
+        assertQueueClosed(sharedBuffer, FIRST, 0);
+        assertQueueClosed(sharedBuffer, SECOND, 0);
     }
 
     @Test
     public void testAbortFreesReader()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer("queue", new UnpartitionedPagePartitionFunction());
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(5));
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(QUEUE, new UnpartitionedPagePartitionFunction()));
         assertFalse(sharedBuffer.isFinished());
 
-        ExecutorService executor = Executors.newCachedThreadPool();
+        // attempt to get a page
+        CompletableFuture<BufferResult> future = sharedBuffer.get(QUEUE, 0, sizeOfPages(10));
 
-        // exec thread to get two pages
-        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 0, 2, 1);
-        executor.submit(getPagesJob);
-        getPagesJob.waitForStarted();
+        // verify we are waiting for a page
+        assertFalse(future.isDone());
 
-        // "verify" thread is blocked
-        getPagesJob.assertBlockedWithCount(0);
-
-        // add one page
+        // add one item
         addPage(sharedBuffer, createPage(0));
 
-        // verify thread got one page and is blocked
-        getPagesJob.assertBlockedWithCount(1);
+        // verify we got one page
+        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
+
+        // attempt to get another page, and verify we are blocked
+        future = sharedBuffer.get(QUEUE, 1, sizeOfPages(10));
+        assertFalse(future.isDone());
 
         // abort the buffer
-        sharedBuffer.abort("queue");
-        assertQueueClosed(sharedBuffer, "queue", 1);
+        sharedBuffer.abort(QUEUE);
+        assertQueueClosed(sharedBuffer, QUEUE, 1);
 
-        // verify thread is released
-        getPagesJob.waitForFinished();
-
-        // verify thread only got one page
-        assertEquals(getPagesJob.getElements().size(), 1);
+        // verify the future completed
+        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), emptyResults(1, true));
     }
 
     @Test
     public void testFinishFreesReader()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer("queue", new UnpartitionedPagePartitionFunction());
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(5));
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(QUEUE, new UnpartitionedPagePartitionFunction()));
         assertFalse(sharedBuffer.isFinished());
 
-        ExecutorService executor = Executors.newCachedThreadPool();
+        // attempt to get a page
+        CompletableFuture<BufferResult> future = sharedBuffer.get(QUEUE, 0, sizeOfPages(10));
 
-        // exec thread to get two pages
-        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 0, 2, 1);
-        executor.submit(getPagesJob);
-        getPagesJob.waitForStarted();
-
-        // "verify" thread is blocked
-        getPagesJob.assertBlockedWithCount(0);
+        // verify we are waiting for a page
+        assertFalse(future.isDone());
 
         // add one item
         addPage(sharedBuffer, createPage(0));
 
-        // verify thread got one page and is blocked
-        getPagesJob.assertBlockedWithCount(1);
+        // verify we got one page
+        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
-        // finish the query
-        sharedBuffer.finish();
-        assertQueueClosed(sharedBuffer, "queue", 1);
+        // attempt to get another page, and verify we are blocked
+        future = sharedBuffer.get(QUEUE, 1, sizeOfPages(10));
+        assertFalse(future.isDone());
 
-        // verify thread is released
-        getPagesJob.waitForFinished();
+        // finish the buffer
+        sharedBuffer.setNoMorePages();
+        assertQueueState(sharedBuffer, QUEUE, 0, 0, 1, 1, 1, 0);
+        sharedBuffer.abort(QUEUE);
+        assertQueueClosed(sharedBuffer, QUEUE, 1);
 
-        // verify thread only got one page
-        assertEquals(getPagesJob.getElements().size(), 1);
+        // verify the future completed
+        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), emptyResults(1, true));
     }
 
     @Test
     public void testFinishFreesWriter()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer("queue", new UnpartitionedPagePartitionFunction())
-                .withNoMoreBufferIds();
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(5));
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
+                .withBuffer(QUEUE, new UnpartitionedPagePartitionFunction())
+                .withNoMoreBufferIds());
         assertFalse(sharedBuffer.isFinished());
-
-        ExecutorService executor = Executors.newCachedThreadPool();
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
             addPage(sharedBuffer, createPage(i));
         }
 
-        // exec thread to add two pages
-        AddPagesJob addPagesJob = new AddPagesJob(sharedBuffer, createPage(2), createPage(3));
-        executor.submit(addPagesJob);
-        addPagesJob.waitForStarted();
+        // enqueue the addition two pages more pages
+        ListenableFuture<?> firstEnqueuePage = enqueuePage(sharedBuffer, createPage(5));
+        ListenableFuture<?> secondEnqueuePage = enqueuePage(sharedBuffer, createPage(6));
 
-        // "verify" thread is blocked
-        addPagesJob.assertBlockedWithCount(2);
+        // get and acknowledge one page
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, QUEUE, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
+        sharedBuffer.get(QUEUE, 1, sizeOfPages(1)).cancel(true);
 
-        // get one page
-        assertEquals(sharedBuffer.get("queue", 0, sizeOfPages(1), MAX_WAIT).size(), 1);
-        sharedBuffer.acknowledge("queue", 1);
-
-        // "verify" thread is blocked again with one remaining page
-        addPagesJob.assertBlockedWithCount(1);
+        // verify the first blocked page was accepted but the second one was not
+        assertTrue(firstEnqueuePage.isDone());
+        assertFalse(secondEnqueuePage.isDone());
 
         // finish the query
-        sharedBuffer.finish();
+        sharedBuffer.setNoMorePages();
         assertFalse(sharedBuffer.isFinished());
 
-        // verify thread is released
-        addPagesJob.waitForFinished();
+        // verify second future was completed
+        assertTrue(secondEnqueuePage.isDone());
 
-        // get the last 5 page
-        assertEquals(sharedBuffer.get("queue", 1, sizeOfPages(100), MAX_WAIT).size(), 5);
-        sharedBuffer.acknowledge("queue", 5);
+        // get the last 5 page (page 6 was never accepted)
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, QUEUE, 1, sizeOfPages(100), NO_WAIT),
+                bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5)));
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, QUEUE, 6, sizeOfPages(100), NO_WAIT), emptyResults(6, true));
+
+        sharedBuffer.abort(QUEUE);
 
         // verify finished
         assertFinished(sharedBuffer);
@@ -569,102 +759,149 @@ public class TestSharedBuffer
     public void testDestroyFreesReader()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer("queue", new UnpartitionedPagePartitionFunction())
-                .withNoMoreBufferIds();
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(5));
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
+                .withBuffer(QUEUE, new UnpartitionedPagePartitionFunction())
+                .withNoMoreBufferIds());
         assertFalse(sharedBuffer.isFinished());
 
-        ExecutorService executor = Executors.newCachedThreadPool();
+        // attempt to get a page
+        CompletableFuture<BufferResult> future = sharedBuffer.get(QUEUE, 0, sizeOfPages(10));
 
-        // exec thread to get two pages
-        GetPagesJob getPagesJob = new GetPagesJob(sharedBuffer, 0, 2, 1);
-        executor.submit(getPagesJob);
-        getPagesJob.waitForStarted();
-
-        // "verify" thread is blocked
-        getPagesJob.assertBlockedWithCount(0);
+        // verify we are waiting for a page
+        assertFalse(future.isDone());
 
         // add one page
         addPage(sharedBuffer, createPage(0));
 
-        // verify thread got one page and is blocked
-        getPagesJob.assertBlockedWithCount(1);
+        // verify we got one page
+        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
+
+        // attempt to get another page, and verify we are blocked
+        future = sharedBuffer.get(QUEUE, 1, sizeOfPages(10));
+        assertFalse(future.isDone());
 
         // destroy the buffer
         sharedBuffer.destroy();
-        assertQueueClosed(sharedBuffer, "queue", 1);
+        assertQueueClosed(sharedBuffer, QUEUE, 1);
 
-        // verify thread is released
-        getPagesJob.waitForFinished();
-
-        // verify thread only got one page
-        assertEquals(getPagesJob.getElements().size(), 1);
+        // verify the future completed
+        assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), emptyResults(1, true));
     }
 
     @Test
     public void testDestroyFreesWriter()
             throws Exception
     {
-        OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS
-                .withBuffer("queue", new UnpartitionedPagePartitionFunction())
-                .withNoMoreBufferIds();
-        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, executor, sizeOfPages(5), outputBuffers);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(5));
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
+                .withBuffer(QUEUE, new UnpartitionedPagePartitionFunction())
+                .withNoMoreBufferIds());
         assertFalse(sharedBuffer.isFinished());
-
-        ExecutorService executor = Executors.newCachedThreadPool();
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
             addPage(sharedBuffer, createPage(i));
         }
 
-        // exec thread to add two page
-        AddPagesJob addPagesJob = new AddPagesJob(sharedBuffer, createPage(2), createPage(3));
-        executor.submit(addPagesJob);
-        addPagesJob.waitForStarted();
+        // add two pages to the buffer queue
+        ListenableFuture<?> firstEnqueuePage = enqueuePage(sharedBuffer, createPage(5));
+        ListenableFuture<?> secondEnqueuePage = enqueuePage(sharedBuffer, createPage(6));
 
-        // "verify" thread is blocked
-        addPagesJob.assertBlockedWithCount(2);
+        // get and acknowledge one page
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, QUEUE, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
+        sharedBuffer.get(QUEUE, 1, sizeOfPages(1)).cancel(true);
 
-        // get one page
-        assertEquals(sharedBuffer.get("queue", 0, sizeOfPages(1), MAX_WAIT).size(), 1);
-        sharedBuffer.acknowledge("queue", 1);
+        // verify the first blocked page was accepted but the second one was not
+        assertTrue(firstEnqueuePage.isDone());
+        assertFalse(secondEnqueuePage.isDone());
 
-        // "verify" thread is blocked again with one remaining page
-        addPagesJob.assertBlockedWithCount(1);
-
-        // cancel the query
+        // destroy the buffer (i.e., cancel the query)
         sharedBuffer.destroy();
         assertFinished(sharedBuffer);
 
-        // verify thread is released
-        addPagesJob.waitForFinished();
+        // verify the second future was completed
+        assertTrue(secondEnqueuePage.isDone());
     }
 
-    private ListenableFuture<?> enqueuePage(SharedBuffer sharedBuffer, Page page)
+    @Test
+    public void testBufferCompletion()
+            throws Exception
     {
-        ListenableFuture<?> future = sharedBuffer.enqueue(page);
+        SharedBuffer sharedBuffer = new SharedBuffer(TASK_ID, stateNotificationExecutor, sizeOfPages(5));
+        sharedBuffer.setOutputBuffers(INITIAL_EMPTY_OUTPUT_BUFFERS
+                .withBuffer(QUEUE, new UnpartitionedPagePartitionFunction())
+                .withNoMoreBufferIds());
+
+        assertFalse(sharedBuffer.isFinished());
+
+        // fill the buffer
+        List<Page> pages = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            Page page = createPage(i);
+            addPage(sharedBuffer, page);
+            pages.add(page);
+        }
+
+        sharedBuffer.setNoMorePages();
+
+        // get and acknowledge 5 pages
+        assertBufferResultEquals(TYPES, getBufferResult(sharedBuffer, QUEUE, 0, sizeOfPages(5), MAX_WAIT), bufferResult(0, pages));
+
+        // buffer is not finished
+        assertFalse(sharedBuffer.isFinished());
+
+        // there are no more pages and no more buffers, but buffer is not finished because it didn't receive an acknowledgement yet
+        assertFalse(sharedBuffer.isFinished());
+
+        // ask the buffer to finish
+        sharedBuffer.abort(QUEUE);
+
+        // verify that the buffer is finished
+        assertTrue(sharedBuffer.isFinished());
+    }
+
+    private static ListenableFuture<?> enqueuePage(SharedBuffer sharedBuffer, Page page)
+    {
+        return enqueuePage(sharedBuffer, page, DEFAULT_PARTITION);
+    }
+
+    private static ListenableFuture<?> enqueuePage(SharedBuffer sharedBuffer, Page page, int partition)
+    {
+        ListenableFuture<?> future = sharedBuffer.enqueue(partition, page);
         assertFalse(future.isDone());
         return future;
     }
 
-    private void addPage(SharedBuffer sharedBuffer, Page page)
+    private static void addPage(SharedBuffer sharedBuffer, Page page)
     {
-        assertTrue(sharedBuffer.enqueue(page).isDone());
+        addPage(sharedBuffer, page, DEFAULT_PARTITION);
     }
 
-    private void assertQueueState(SharedBuffer sharedBuffer, String queueId, int size, int pagesSent)
+    private static void addPage(SharedBuffer sharedBuffer, Page page, int partition)
     {
-        assertEquals(getBufferInfo(sharedBuffer, queueId), new BufferInfo(queueId, false, size, pagesSent));
+        assertTrue(sharedBuffer.enqueue(partition, page).isDone());
     }
 
-    private void assertQueueClosed(SharedBuffer sharedBuffer, String queueId, int pagesSent)
+    private static void assertQueueState(SharedBuffer sharedBuffer, TaskId queueId, int partition, int bufferedPages, int pagesSent, int pageBufferBufferedPages, int pageBufferPagesSent, int pageBufferQueuedPages)
     {
-        assertEquals(getBufferInfo(sharedBuffer, queueId), new BufferInfo(queueId, true, 0, pagesSent));
+        assertEquals(
+                getBufferInfo(sharedBuffer, queueId),
+                new BufferInfo(queueId,
+                        false, bufferedPages, pagesSent, new PageBufferInfo(partition,
+                        pageBufferBufferedPages, pageBufferQueuedPages, sizeOfPages(pageBufferBufferedPages).toBytes(), pageBufferPagesSent)));
     }
 
-    private BufferInfo getBufferInfo(SharedBuffer sharedBuffer, String queueId)
+    @SuppressWarnings("ConstantConditions")
+    private static void assertQueueClosed(SharedBuffer sharedBuffer, TaskId queueId, int pagesSent)
+    {
+        BufferInfo bufferInfo = getBufferInfo(sharedBuffer, queueId);
+        assertEquals(bufferInfo.getBufferedPages(), 0);
+        assertEquals(bufferInfo.getPagesSent(), pagesSent);
+        assertEquals(bufferInfo.isFinished(), true);
+    }
+
+    private static BufferInfo getBufferInfo(SharedBuffer sharedBuffer, TaskId queueId)
     {
         for (BufferInfo bufferInfo : sharedBuffer.getInfo().getBuffers()) {
             if (bufferInfo.getBufferId().equals(queueId)) {
@@ -674,7 +911,7 @@ public class TestSharedBuffer
         return null;
     }
 
-    private void assertFinished(SharedBuffer sharedBuffer)
+    private static void assertFinished(SharedBuffer sharedBuffer)
             throws Exception
     {
         assertTrue(sharedBuffer.isFinished());
@@ -684,7 +921,7 @@ public class TestSharedBuffer
         }
     }
 
-    private void assertBufferResultEquals(BufferResult actual, BufferResult expected)
+    private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
     {
         assertEquals(actual.getPages().size(), expected.getPages().size());
         assertEquals(actual.getToken(), expected.getToken());
@@ -692,194 +929,20 @@ public class TestSharedBuffer
             Page actualPage = actual.getPages().get(i);
             Page expectedPage = expected.getPages().get(i);
             assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
-            for (int channel = 0; channel < actualPage.getChannelCount(); channel++) {
-                assertBlockEquals(actualPage.getBlock(channel), expectedPage.getBlock(channel));
-            }
+            PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
-        assertEquals(actual.isBufferClosed(), expected.isBufferClosed());
+        assertEquals(actual.isBufferComplete(), expected.isBufferComplete());
     }
 
     public static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
     {
         List<Page> pages = ImmutableList.<Page>builder().add(firstPage).add(otherPages).build();
+        return bufferResult(token, pages);
+    }
+
+    public static BufferResult bufferResult(long token, List<Page> pages)
+    {
+        checkArgument(!pages.isEmpty(), "pages is empty");
         return new BufferResult(token, token + pages.size(), false, pages);
-    }
-
-    private static class GetPagesJob
-            implements Runnable
-    {
-        private final SharedBuffer sharedBuffer;
-        private final int pagesToGet;
-        private final int batchSize;
-        private long sequenceId;
-
-        private final AtomicReference<FailedQueryException> failedQueryException = new AtomicReference<>();
-
-        private final CopyOnWriteArrayList<Page> elements = new CopyOnWriteArrayList<>();
-        private final CountDownLatch started = new CountDownLatch(1);
-        private final CountDownLatch finished = new CountDownLatch(1);
-
-        private GetPagesJob(SharedBuffer sharedBuffer, long startingSequenceId, int pagesToGet, int batchSize)
-        {
-            this.sharedBuffer = sharedBuffer;
-            this.sequenceId = startingSequenceId;
-            this.pagesToGet = pagesToGet;
-            this.batchSize = batchSize;
-        }
-
-        public List<Page> getElements()
-        {
-            return ImmutableList.copyOf(elements);
-        }
-
-        /**
-         * Do our best to assure the thread is blocked.
-         */
-        public void assertBlockedWithCount(int expectedBlockSize)
-        {
-            // the best we can do is to verify the count hasn't changed in after sleeping for a bit
-
-            assertTrue(isStarted());
-            assertTrue(!isFinished());
-
-            Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-
-            assertEquals(elements.size(), expectedBlockSize);
-            assertTrue(isStarted());
-            assertTrue(!isFinished());
-        }
-
-        private boolean isFinished()
-        {
-            return finished.getCount() == 0;
-        }
-
-        private boolean isStarted()
-        {
-            return started.getCount() == 0;
-        }
-
-        public void waitForStarted()
-                throws InterruptedException
-        {
-            assertTrue(started.await(1, TimeUnit.SECONDS), "Job did not start with in 1 second");
-        }
-
-        public void waitForFinished()
-                throws InterruptedException
-        {
-            long wait = MAX_WAIT.toMillis() * 3;
-            assertTrue(finished.await(wait, TimeUnit.MILLISECONDS), "Job did not finish with in " + wait + " ms");
-        }
-
-        @Override
-        public void run()
-        {
-            started.countDown();
-            try {
-                while (elements.size() < pagesToGet) {
-                    try {
-                        BufferResult result = sharedBuffer.get("queue", sequenceId, sizeOfPages(batchSize), MAX_WAIT);
-                        assertTrue(!result.isEmpty());
-                        this.elements.addAll(result.getPages());
-                        sequenceId = result.getToken() + result.getPages().size();
-                        sharedBuffer.acknowledge("queue", sequenceId);
-                    }
-                    catch (FailedQueryException e) {
-                        failedQueryException.set(e);
-                        break;
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw Throwables.propagate(e);
-                    }
-                }
-            }
-            finally {
-                finished.countDown();
-            }
-        }
-    }
-
-    private static class AddPagesJob
-            implements Runnable
-    {
-        private final SharedBuffer sharedBuffer;
-        private final ArrayBlockingQueue<Page> elements;
-
-        private final CountDownLatch started = new CountDownLatch(1);
-        private final CountDownLatch finished = new CountDownLatch(1);
-
-        private AddPagesJob(SharedBuffer sharedBuffer, Page... elements)
-        {
-            this.sharedBuffer = sharedBuffer;
-            this.elements = new ArrayBlockingQueue<>(elements.length);
-            Collections.addAll(this.elements, elements);
-        }
-
-        /**
-         * Do our best to assure the thread is blocked.
-         */
-        public void assertBlockedWithCount(int expectedBlockSize)
-        {
-            // the best we can do is to verify the count hasn't changed in after sleeping for a bit
-
-            assertTrue(isStarted());
-            assertTrue(!isFinished());
-
-            Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-
-            assertEquals(elements.size(), expectedBlockSize);
-            assertTrue(isStarted());
-            assertTrue(!isFinished());
-        }
-
-        private boolean isFinished()
-        {
-            return finished.getCount() == 0;
-        }
-
-        private boolean isStarted()
-        {
-            return started.getCount() == 0;
-        }
-
-        public void waitForStarted()
-                throws InterruptedException
-        {
-            assertTrue(started.await(1, TimeUnit.SECONDS), "Job did not start with in 1 second");
-        }
-
-        public void waitForFinished()
-                throws InterruptedException
-        {
-            long wait = MAX_WAIT.toMillis() * 3;
-            assertTrue(finished.await(wait, TimeUnit.MILLISECONDS), "Job did not finish with in " + wait + " ms");
-        }
-
-        @Override
-        public void run()
-        {
-            started.countDown();
-            try {
-                for (Page element = elements.peek(); element != null; element = elements.peek()) {
-                    try {
-                        ListenableFuture<?> listenableFuture = sharedBuffer.enqueue(element);
-                        listenableFuture.get();
-                        assertNotNull(elements.poll());
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw Throwables.propagate(e);
-                    }
-                    catch (ExecutionException e) {
-                        throw Throwables.propagate(e);
-                    }
-                }
-            }
-            finally {
-                finished.countDown();
-            }
-        }
     }
 }

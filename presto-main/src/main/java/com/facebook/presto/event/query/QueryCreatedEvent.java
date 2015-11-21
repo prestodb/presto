@@ -28,7 +28,9 @@ public class QueryCreatedEvent
 {
     private final QueryId queryId;
     private final String user;
+    private final String principal;
     private final String source;
+    private final String serverVersion;
     private final String environment;
     private final String catalog;
     private final String schema;
@@ -41,7 +43,9 @@ public class QueryCreatedEvent
     public QueryCreatedEvent(
             QueryId queryId,
             String user,
+            String principal,
             String source,
+            String serverVersion,
             String environment,
             String catalog,
             String schema,
@@ -53,7 +57,9 @@ public class QueryCreatedEvent
     {
         this.queryId = queryId;
         this.user = user;
+        this.principal = principal;
         this.source = source;
+        this.serverVersion = serverVersion;
         this.environment = environment;
         this.catalog = catalog;
         this.schema = schema;
@@ -77,9 +83,21 @@ public class QueryCreatedEvent
     }
 
     @EventField
+    public String getPrincipal()
+    {
+        return principal;
+    }
+
+    @EventField
     public String getSource()
     {
         return source;
+    }
+
+    @EventField
+    public String getServerVersion()
+    {
+        return serverVersion;
     }
 
     @EventField

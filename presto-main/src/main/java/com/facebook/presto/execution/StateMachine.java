@@ -13,25 +13,31 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Predicate;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nonnull;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
- * Simple state machine which holds a single value.  Callers can register for
+ * Simple state machine which holds a single state.  Callers can register for
  * state change events, and can wait for the state to change.
  */
 @ThreadSafe
@@ -41,27 +47,46 @@ public class StateMachine<T>
 
     private final String name;
     private final Executor executor;
+    private final Object lock = new Object();
+    private final Set<T> terminalStates;
 
-    @GuardedBy("this")
+    @GuardedBy("lock")
     private volatile T state;
 
-    @GuardedBy("this")
+    @GuardedBy("lock")
     private final List<StateChangeListener<T>> stateChangeListeners = new ArrayList<>();
 
+    private final AtomicReference<FutureStateChange<T>> futureStateChange = new AtomicReference<>(new FutureStateChange<>());
+
     /**
-     * Creates a state machine with the specified initial value
+     * Creates a state machine with the specified initial state and no terminal states.
      *
      * @param name name of this state machine to use in debug statements
      * @param executor executor for firing state change events; must not be a same thread executor
-     * @param initialState the initial value
+     * @param initialState the initial state
      */
     public StateMachine(String name, Executor executor, T initialState)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.executor = checkNotNull(executor, "executor is null");
-        this.state = checkNotNull(initialState, "initialState is null");
+        this(name, executor, initialState, ImmutableSet.of());
     }
 
+    /**
+     * Creates a state machine with the specified initial state and terminal states.
+     *
+     * @param name name of this state machine to use in debug statements
+     * @param executor executor for firing state change events; must not be a same thread executor
+     * @param initialState the initial state
+     * @param terminalStates the terminal states
+     */
+    public StateMachine(String name, Executor executor, T initialState, Iterable<T> terminalStates)
+    {
+        this.name = requireNonNull(name, "name is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.state = requireNonNull(initialState, "initialState is null");
+        this.terminalStates = ImmutableSet.copyOf(requireNonNull(terminalStates, "terminalStates is null"));
+    }
+
+    @Nonnull
     public T get()
     {
         return state;
@@ -73,26 +98,37 @@ public class StateMachine<T>
      *
      * @return the old state
      */
+    @Nonnull
     public T set(T newState)
     {
-        checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
-        checkNotNull(newState, "newState is null");
+        checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
+        requireNonNull(newState, "newState is null");
 
         T oldState;
+        FutureStateChange<T> futureStateChange;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
-        synchronized (this) {
-            if (Objects.equals(state, newState)) {
+        synchronized (lock) {
+            if (state.equals(newState)) {
                 return state;
             }
+
+            checkState(!isTerminalState(state), "%s can not transition from %s to %s", name, state, newState);
 
             oldState = state;
             state = newState;
 
+            futureStateChange = this.futureStateChange.getAndSet(new FutureStateChange<>());
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
-            this.notifyAll();
+
+            // if we are now in a terminal state, free the listeners since this will be the last notification
+            if (isTerminalState(state)) {
+                this.stateChangeListeners.clear();
+            }
+
+            lock.notifyAll();
         }
 
-        fireStateChanged(newState, stateChangeListeners);
+        fireStateChanged(newState, futureStateChange, stateChangeListeners);
         return oldState;
     }
 
@@ -102,20 +138,27 @@ public class StateMachine<T>
      *
      * @return the old state
      */
-    public boolean setIf(T newValue, Predicate<T> predicate)
+    public boolean setIf(T newState, Predicate<T> predicate)
     {
-        checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
+        checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
+        requireNonNull(newState, "newState is null");
 
         while (true) {
             // check if the current state passes the predicate
             T currentState = get();
-            // do not call back while holding a lock on this
-            if (!predicate.apply(currentState)) {
+
+            // change to same state is not a change, and does not notify the notify listeners
+            if (currentState.equals(newState)) {
+                return false;
+            }
+
+            // do not call predicate while holding the lock
+            if (!predicate.test(currentState)) {
                 return false;
             }
 
             // if state did not change while, checking the predicate, apply the new state
-            if (compareAndSet(currentState, newValue)) {
+            if (compareAndSet(currentState, newState)) {
                 return true;
             }
         }
@@ -129,59 +172,102 @@ public class StateMachine<T>
      */
     public boolean compareAndSet(T expectedState, T newState)
     {
-        checkState(!Thread.holdsLock(this), "Can not set state while holding a lock on this");
-        checkNotNull(expectedState, "expectedState is null");
-        checkNotNull(newState, "newState is null");
+        checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
+        requireNonNull(expectedState, "expectedState is null");
+        requireNonNull(newState, "newState is null");
 
+        FutureStateChange<T> futureStateChange;
         ImmutableList<StateChangeListener<T>> stateChangeListeners;
-        synchronized (this) {
-            if (!Objects.equals(state, expectedState)) {
+        synchronized (lock) {
+            if (!state.equals(expectedState)) {
                 return false;
             }
 
-            if (Objects.equals(state, newState)) {
-                // successfully changed to the same state, no need to notify
-                return true;
+            // change to same state is not a change, and does not notify the notify listeners
+            if (state.equals(newState)) {
+                return false;
             }
+
+            checkState(!isTerminalState(state), "%s can not transition from %s to %s", name, state, newState);
 
             state = newState;
 
+            futureStateChange = this.futureStateChange.getAndSet(new FutureStateChange<>());
             stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
-            this.notifyAll();
+
+            // if we are now in a terminal state, free the listeners since this will be the last notification
+            if (isTerminalState(state)) {
+                this.stateChangeListeners.clear();
+            }
+
+            lock.notifyAll();
         }
 
-        fireStateChanged(newState, stateChangeListeners);
+        fireStateChanged(newState, futureStateChange, stateChangeListeners);
         return true;
     }
 
-    private void fireStateChanged(final T newState, final ImmutableList<StateChangeListener<T>> stateChangeListeners)
+    private void fireStateChanged(T newState, FutureStateChange<T> futureStateChange, List<StateChangeListener<T>> stateChangeListeners)
     {
-        checkState(!Thread.holdsLock(this), "Can not fire state change event while holding a lock on this");
+        checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
+        requireNonNull(newState, "newState is null");
 
-        executor.execute(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                checkState(!Thread.holdsLock(StateMachine.this), "Can not notify while holding a lock on this");
-                for (StateChangeListener<T> stateChangeListener : stateChangeListeners) {
-                    try {
-                        stateChangeListener.stateChanged(newState);
-                    }
-                    catch (Throwable e) {
-                        log.error(e, "Error notifying state change listener for %s", name);
-                    }
+        executor.execute(() -> {
+            checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
+            try {
+                futureStateChange.complete(newState);
+            }
+            catch (Throwable e) {
+                log.error(e, "Error setting future state for %s", name);
+            }
+            for (StateChangeListener<T> stateChangeListener : stateChangeListeners) {
+                try {
+                    stateChangeListener.stateChanged(newState);
+                }
+                catch (Throwable e) {
+                    log.error(e, "Error notifying state change listener for %s", name);
                 }
             }
         });
     }
 
     /**
+     * Gets a future that completes when the state is no longer {@code .equals()} to {@code currentState)}.
+     */
+    public CompletableFuture<T> getStateChange(T currentState)
+    {
+        checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
+        requireNonNull(currentState, "currentState is null");
+
+        synchronized (lock) {
+            // return a completed future if the state has already changed, or we are in a terminal state
+            if (!isPossibleStateChange(currentState)) {
+                return CompletableFuture.completedFuture(state);
+            }
+
+            return futureStateChange.get().createNewListener();
+        }
+    }
+
+    /**
      * Adds a listener to be notified when the state instance changes according to {@code .equals()}.
      */
-    public synchronized void addStateChangeListener(StateChangeListener<T> stateChangeListener)
+    public void addStateChangeListener(StateChangeListener<T> stateChangeListener)
     {
-        stateChangeListeners.add(stateChangeListener);
+        requireNonNull(stateChangeListener, "stateChangeListener is null");
+
+        boolean inTerminalState;
+        synchronized (lock) {
+            inTerminalState = isTerminalState(state);
+            if (!inTerminalState) {
+                stateChangeListeners.add(stateChangeListener);
+            }
+        }
+
+        // state machine will never transition from a terminal state, so fire state change immediately
+        if (inTerminalState) {
+            stateChangeListener.stateChanged(state);
+        }
     }
 
     /**
@@ -190,9 +276,12 @@ public class StateMachine<T>
     public Duration waitForStateChange(T currentState, Duration maxWait)
             throws InterruptedException
     {
-        checkState(!Thread.holdsLock(this), "Can not wait for state change while holding a lock on this");
+        checkState(!Thread.holdsLock(lock), "Can not wait for state change while holding the lock");
+        requireNonNull(currentState, "currentState is null");
+        requireNonNull(maxWait, "maxWait is null");
 
-        if (!Objects.equals(state, currentState)) {
+        // don't wait if the state has already changed, or we are in a terminal state
+        if (!isPossibleStateChange(currentState)) {
             return maxWait;
         }
 
@@ -201,10 +290,10 @@ public class StateMachine<T>
         long start = System.nanoTime();
         long end = start + remainingNanos;
 
-        synchronized (this) {
-            while (remainingNanos > 0 && Objects.equals(state, currentState)) {
+        synchronized (lock) {
+            while (remainingNanos > 0 && isPossibleStateChange(currentState)) {
                 // wait for timeout or notification
-                NANOSECONDS.timedWait(this, remainingNanos);
+                NANOSECONDS.timedWait(lock, remainingNanos);
                 remainingNanos = end - System.nanoTime();
             }
         }
@@ -214,14 +303,66 @@ public class StateMachine<T>
         return new Duration(remainingNanos, NANOSECONDS);
     }
 
-    public static interface StateChangeListener<T>
+    private boolean isPossibleStateChange(T currentState)
     {
-        public void stateChanged(T newValue);
+        return state.equals(currentState) && !isTerminalState(state);
+    }
+
+    @VisibleForTesting
+    boolean isTerminalState(T state)
+    {
+        return terminalStates.contains(state);
+    }
+
+    @VisibleForTesting
+    synchronized List<StateChangeListener<T>> getStateChangeListeners()
+    {
+        return ImmutableList.copyOf(stateChangeListeners);
+    }
+
+    public interface StateChangeListener<T>
+    {
+        void stateChanged(T newState);
     }
 
     @Override
     public String toString()
     {
-        return String.valueOf(get());
+        return get().toString();
+    }
+
+    private static class FutureStateChange<T>
+    {
+        // Use a separate future for each listener so canceled listeners can be removed
+        @GuardedBy("this")
+        private final Set<CompletableFuture<T>> listeners = new HashSet<>();
+
+        public synchronized CompletableFuture<T> createNewListener()
+        {
+            CompletableFuture<T> listener = new CompletableFuture<>();
+            listeners.add(listener);
+
+            // remove the listener when the future completes
+            listener.whenComplete((t, throwable) -> {
+                synchronized (FutureStateChange.this) {
+                    listeners.remove(listener);
+                }
+            });
+
+            return listener;
+        }
+
+        public void complete(T newState)
+        {
+            Set<CompletableFuture<T>> futures;
+            synchronized (this) {
+                futures = ImmutableSet.copyOf(listeners);
+                listeners.clear();
+            }
+
+            for (CompletableFuture<T> future : futures) {
+                future.complete(newState);
+            }
+        }
     }
 }

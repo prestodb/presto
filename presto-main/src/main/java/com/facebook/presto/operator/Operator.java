@@ -13,29 +13,71 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
 public interface Operator
+        extends AutoCloseable
 {
     ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
 
     OperatorContext getOperatorContext();
 
-    List<TupleInfo> getTupleInfos();
+    /**
+     * Gets the column types of pages produced by this operator.
+     */
+    List<Type> getTypes();
 
+    /**
+     * Notifies the operator that no more pages will be added and the
+     * operator should finish processing and flush results. This method
+     * will not be called if the Task is already failed or canceled.
+     */
     void finish();
 
+    /**
+     * Is this operator completely finished processing and no more
+     * output pages will be produced.
+     */
     boolean isFinished();
 
-    ListenableFuture<?> isBlocked();
+    /**
+     * Returns a future that will be completed when the operator becomes
+     * unblocked.  If the operator is not blocked, this method should return
+     * {@code NOT_BLOCKED}.
+     */
+    default ListenableFuture<?> isBlocked()
+    {
+        return NOT_BLOCKED;
+    }
 
+    /**
+     * Returns true if and only if this operator can accept an input page.
+     */
     boolean needsInput();
 
+    /**
+     * Adds an input page to the operator.  This method will only be called if
+     * {@code needsInput()} returns true.
+     */
     void addInput(Page page);
 
+    /**
+     * Gets an output page from the operator.  If no output data is currently
+     * available, return null.
+     */
     Page getOutput();
+
+    /**
+     * This method will always be called before releasing the Operator reference.
+     */
+    @Override
+    default void close()
+            throws Exception
+    {
+    }
 }

@@ -21,6 +21,10 @@ import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 
 public class Pager
         extends FilterOutputStream
@@ -59,6 +63,11 @@ public class Pager
         }
     }
 
+    public boolean isNullPager()
+    {
+        return process == null;
+    }
+
     @Override
     public void write(int b)
             throws IOException
@@ -93,6 +102,24 @@ public class Pager
         catch (IOException e) {
             throw propagateIOException(e);
         }
+    }
+
+    public CompletableFuture<?> getFinishFuture()
+    {
+        checkState(process != null, "getFinishFuture called on null pager");
+        CompletableFuture<?> result = new CompletableFuture<>();
+        new Thread(() -> {
+            try {
+                process.waitFor();
+            }
+            catch (InterruptedException e) {
+                // ignore exception because thread is exiting
+            }
+            finally {
+                result.complete(null);
+            }
+        }).start();
+        return unmodifiableFuture(result);
     }
 
     private static IOException propagateIOException(IOException e)

@@ -15,11 +15,12 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
 public class QueryError
@@ -27,6 +28,8 @@ public class QueryError
     private final String message;
     private final String sqlState;
     private final int errorCode;
+    private final String errorName;
+    private final String errorType;
     private final ErrorLocation errorLocation;
     private final FailureInfo failureInfo;
 
@@ -35,12 +38,16 @@ public class QueryError
             @JsonProperty("message") String message,
             @JsonProperty("sqlState") String sqlState,
             @JsonProperty("errorCode") int errorCode,
+            @JsonProperty("errorName") String errorName,
+            @JsonProperty("errorType") String errorType,
             @JsonProperty("errorLocation") ErrorLocation errorLocation,
             @JsonProperty("failureInfo") FailureInfo failureInfo)
     {
         this.message = message;
         this.sqlState = sqlState;
         this.errorCode = errorCode;
+        this.errorName = errorName;
+        this.errorType = errorType;
         this.errorLocation = errorLocation;
         this.failureInfo = failureInfo;
     }
@@ -65,6 +72,20 @@ public class QueryError
         return errorCode;
     }
 
+    @NotNull
+    @JsonProperty
+    public String getErrorName()
+    {
+        return errorName;
+    }
+
+    @NotNull
+    @JsonProperty
+    public String getErrorType()
+    {
+        return errorType;
+    }
+
     @Nullable
     @JsonProperty
     public ErrorLocation getErrorLocation()
@@ -82,10 +103,12 @@ public class QueryError
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("message", message)
                 .add("sqlState", sqlState)
                 .add("errorCode", errorCode)
+                .add("errorName", errorName)
+                .add("errorType", errorType)
                 .add("errorLocation", errorLocation)
                 .add("failureInfo", failureInfo)
                 .toString();

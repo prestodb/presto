@@ -13,20 +13,18 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HiveSplitSourceProvider.HiveSplitSource;
-import com.facebook.presto.hive.util.SuspendingExecutor;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
 import com.google.common.util.concurrent.SettableFuture;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -37,8 +35,7 @@ public class TestHiveSplitSource
     public void testOutstandingSplitCount()
             throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -47,60 +44,23 @@ public class TestHiveSplitSource
         }
 
         // remove 1 split
-        assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(1)).size(), 1);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
 
         // remove 4 splits
-        assertEquals(hiveSplitSource.getNextBatch(4).size(), 4);
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(4)).size(), 4);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 5);
 
         // try to remove 20 splits, and verify we only got 5
-        assertEquals(hiveSplitSource.getNextBatch(20).size(), 5);
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(20)).size(), 5);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 0);
-    }
-
-    @Test
-    public void testSuspendResume()
-            throws Exception
-    {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
-
-        // almost fill the source
-        for (int i = 0; i < 9; i++) {
-            hiveSplitSource.addToQueue(new TestSplit(i));
-            assertEquals(hiveSplitSource.getOutstandingSplitCount(), i + 1);
-            assertFalse(suspendingExecutor.isSuspended());
-        }
-
-        // add one more split so the source is now full and verify that the executor is suspended
-        hiveSplitSource.addToQueue(new TestSplit(10));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 10);
-        assertTrue(suspendingExecutor.isSuspended());
-
-        // remove one split so the source is no longer full and verify the executor is resumed
-        assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
-        assertFalse(suspendingExecutor.isSuspended());
-
-        // add two more splits so the source is now full and verify that the executor is suspended
-        hiveSplitSource.addToQueue(new TestSplit(11));
-        hiveSplitSource.addToQueue(new TestSplit(12));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 11);
-        assertTrue(suspendingExecutor.isSuspended());
-
-        // remove two splits so the source is no longer full and verify the executor is resumed
-        assertEquals(hiveSplitSource.getNextBatch(2).size(), 2);
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 9);
-        assertFalse(suspendingExecutor.isSuspended());
     }
 
     @Test
     public void testFail()
             throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -109,7 +69,7 @@ public class TestHiveSplitSource
         }
 
         // remove a split and verify
-        assertEquals(hiveSplitSource.getNextBatch(1).size(), 1);
+        assertEquals(getFutureValue(hiveSplitSource.getNextBatch(1)).size(), 1);
         assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
 
         // fail source
@@ -118,25 +78,25 @@ public class TestHiveSplitSource
 
         // try to remove a split and verify we got the expected exception
         try {
-            hiveSplitSource.getNextBatch(1);
+            getFutureValue(hiveSplitSource.getNextBatch(1));
             fail("expected RuntimeException");
         }
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "test");
         }
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 3);
 
         // attempt to add another split and verify it does not work
         hiveSplitSource.addToQueue(new TestSplit(99));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 3);
 
         // fail source again
         hiveSplitSource.fail(new RuntimeException("another failure"));
-        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 4);
+        assertEquals(hiveSplitSource.getOutstandingSplitCount(), 3);
 
         // try to remove a split and verify we got the first exception
         try {
-            hiveSplitSource.getNextBatch(1);
+            getFutureValue(hiveSplitSource.getNextBatch(1));
             fail("expected RuntimeException");
         }
         catch (RuntimeException e) {
@@ -148,10 +108,9 @@ public class TestHiveSplitSource
     public void testReaderWaitsForSplits()
             throws Exception
     {
-        SuspendingExecutor suspendingExecutor = createSuspendingExecutor();
-        final HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, suspendingExecutor);
+        final HiveSplitSource hiveSplitSource = new HiveSplitSource("test", 10, new TestingHiveSplitLoader(), Executors.newFixedThreadPool(5));
 
-        final SettableFuture<Split> splits = SettableFuture.create();
+        final SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
         // create a thread that will get a split
         final CountDownLatch started = new CountDownLatch(1);
@@ -162,7 +121,7 @@ public class TestHiveSplitSource
             {
                 try {
                     started.countDown();
-                    List<Split> batch = hiveSplitSource.getNextBatch(1);
+                    List<ConnectorSplit> batch = getFutureValue(hiveSplitSource.getNextBatch(1));
                     assertEquals(batch.size(), 1);
                     splits.set(batch.get(0));
                 }
@@ -185,7 +144,7 @@ public class TestHiveSplitSource
             hiveSplitSource.addToQueue(new TestSplit(33));
 
             // wait for thread to get the split
-            Split split = splits.get(200, TimeUnit.MILLISECONDS);
+            ConnectorSplit split = splits.get(200, TimeUnit.MILLISECONDS);
             assertSame(split.getInfo(), 33);
         }
         finally {
@@ -194,20 +153,22 @@ public class TestHiveSplitSource
         }
     }
 
-    private SuspendingExecutor createSuspendingExecutor()
+    private static class TestingHiveSplitLoader
+            implements HiveSplitLoader
     {
-        return new SuspendingExecutor(new Executor()
+        @Override
+        public void start(HiveSplitSource splitSource)
         {
-            @Override
-            public void execute(Runnable command)
-            {
-                throw new UnsupportedOperationException();
-            }
-        });
+        }
+
+        @Override
+        public void stop()
+        {
+        }
     }
 
     private static class TestSplit
-            implements Split
+            implements ConnectorSplit
     {
         private final int id;
 

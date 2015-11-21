@@ -14,7 +14,6 @@
 package com.facebook.presto.byteCode;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.objectweb.asm.ClassVisitor;
@@ -31,6 +30,7 @@ import static com.facebook.presto.byteCode.Access.a;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.concat;
+import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.V1_7;
 
@@ -49,33 +49,31 @@ public class ClassDefinition
     private String debug;
 
     public ClassDefinition(
-            CompilerContext compilerContext,
             EnumSet<Access> access,
             String name,
             ParameterizedType superClass,
             ParameterizedType... interfaces)
     {
-        this(compilerContext, access, new ParameterizedType(name), superClass, interfaces);
+        this(access, new ParameterizedType(name), superClass, interfaces);
     }
 
     public ClassDefinition(
-            CompilerContext compilerContext,
             EnumSet<Access> access,
             ParameterizedType type,
             ParameterizedType superClass,
             ParameterizedType... interfaces)
     {
-        Preconditions.checkNotNull(access, "access is null");
-        Preconditions.checkNotNull(access, "access is null");
-        Preconditions.checkNotNull(superClass, "superClass is null");
-        Preconditions.checkNotNull(interfaces, "interfaces is null");
+        requireNonNull(access, "access is null");
+        requireNonNull(access, "access is null");
+        requireNonNull(superClass, "superClass is null");
+        requireNonNull(interfaces, "interfaces is null");
 
         this.access = access;
         this.type = type;
         this.superClass = superClass;
         this.interfaces.addAll(ImmutableList.copyOf(interfaces));
 
-        classInitializer = new MethodDefinition(compilerContext, this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.<NamedParameterDefinition>of());
+        classInitializer = new MethodDefinition(this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.<Parameter>of());
     }
 
     public Set<Access> getAccess()
@@ -127,7 +125,7 @@ public class ClassDefinition
     {
         // Generic signature if super class or any interface is generic
         String signature = null;
-        if (superClass.isGeneric() || any(interfaces, ParameterizedType.isGenericType())) {
+        if (superClass.isGeneric() || any(interfaces, ParameterizedType::isGeneric)) {
             signature = genericClassSignature(superClass, interfaces);
         }
 
@@ -216,20 +214,28 @@ public class ClassDefinition
     }
 
     public MethodDefinition declareConstructor(
-            CompilerContext compilerContext,
             EnumSet<Access> access,
-            NamedParameterDefinition... parameters
-    )
+            Parameter... parameters)
     {
-        return declareMethod(compilerContext, access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
+        return declareMethod(access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
     }
 
     public MethodDefinition declareConstructor(
-            CompilerContext compilerContext,
             EnumSet<Access> access,
-            Iterable<NamedParameterDefinition> parameters)
+            Iterable<Parameter> parameters)
     {
-        return declareMethod(compilerContext, access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
+        return declareMethod(access, "<init>", ParameterizedType.type(void.class), ImmutableList.copyOf(parameters));
+    }
+
+    public ClassDefinition declareDefaultConstructor(EnumSet<Access> access)
+    {
+        MethodDefinition constructor = declareConstructor(access);
+        constructor
+                .getBody()
+                .append(constructor.getThis())
+                .invokeConstructor(superClass)
+                .ret();
+        return this;
     }
 
     public ClassDefinition addMethod(MethodDefinition method)
@@ -246,26 +252,21 @@ public class ClassDefinition
     }
 
     public MethodDefinition declareMethod(
-            CompilerContext compilerContext,
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            NamedParameterDefinition... parameters
-    )
+            Parameter... parameters)
     {
-        MethodDefinition methodDefinition = new MethodDefinition(compilerContext, this, access, name, returnType, ImmutableList.copyOf(parameters));
-        methods.add(methodDefinition);
-        return methodDefinition;
+        return declareMethod(access, name, returnType, ImmutableList.copyOf(parameters));
     }
 
     public MethodDefinition declareMethod(
-            CompilerContext compilerContext,
             EnumSet<Access> access,
             String name,
             ParameterizedType returnType,
-            Iterable<NamedParameterDefinition> parameters)
+            Iterable<Parameter> parameters)
     {
-        MethodDefinition methodDefinition = new MethodDefinition(compilerContext, this, access, name, returnType, parameters);
+        MethodDefinition methodDefinition = new MethodDefinition(this, access, name, returnType, parameters);
         methods.add(methodDefinition);
         return methodDefinition;
     }

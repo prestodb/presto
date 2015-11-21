@@ -13,18 +13,17 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ColumnType;
-import com.facebook.presto.spi.PartitionKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Objects;
 
-public class HivePartitionKey
-        implements PartitionKey
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
+
+public final class HivePartitionKey
 {
+    public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     private final String name;
     private final HiveType hiveType;
     private final String value;
@@ -35,17 +34,16 @@ public class HivePartitionKey
             @JsonProperty("hiveType") HiveType hiveType,
             @JsonProperty("value") String value)
     {
-        checkNotNull(name, "name is null");
-        checkNotNull(hiveType, "hiveType is null");
-        checkNotNull(value, "value is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(hiveType, "hiveType is null");
+        requireNonNull(value, "value is null");
 
         this.name = name;
         this.hiveType = hiveType;
-        this.value = value;
+        this.value = value.equals(HIVE_DEFAULT_DYNAMIC_PARTITION) ? "\\N" : value;
     }
 
     @JsonProperty
-    @Override
     public String getName()
     {
         return name;
@@ -57,14 +55,7 @@ public class HivePartitionKey
         return hiveType;
     }
 
-    @Override
-    public ColumnType getType()
-    {
-        return hiveType.getNativeType();
-    }
-
     @JsonProperty
-    @Override
     public String getValue()
     {
         return value;
@@ -73,7 +64,7 @@ public class HivePartitionKey
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("hiveType", hiveType)
                 .add("value", value)
@@ -83,7 +74,7 @@ public class HivePartitionKey
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, hiveType, value);
+        return Objects.hash(name, hiveType, value);
     }
 
     @Override
@@ -96,20 +87,8 @@ public class HivePartitionKey
             return false;
         }
         HivePartitionKey other = (HivePartitionKey) obj;
-        return Objects.equal(this.name, other.name) &&
-                Objects.equal(this.hiveType, other.hiveType) &&
-                Objects.equal(this.value, other.value);
-    }
-
-    public static Function<HivePartitionKey, String> nameGetter()
-    {
-        return new Function<HivePartitionKey, String>()
-        {
-            @Override
-            public String apply(HivePartitionKey input)
-            {
-                return input.getName();
-            }
-        };
+        return Objects.equals(this.name, other.name) &&
+                Objects.equals(this.hiveType, other.hiveType) &&
+                Objects.equals(this.value, other.value);
     }
 }

@@ -13,13 +13,24 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.predicate.TupleDomain;
+
 public interface SystemTable
-        extends RecordSet
 {
-    /**
-     * True if table is distributed across all nodes.
-     */
-    boolean isDistributed();
+    enum Distribution
+    {
+        ALL_NODES, ALL_COORDINATORS, SINGLE_COORDINATOR
+    }
+
+    Distribution getDistribution();
 
     ConnectorTableMetadata getTableMetadata();
+
+    /**
+     * Create a cursor for the data in this table.
+     *
+     * @param session the session to use for creating the data
+     * @param constraint the constraints for the table columns (indexed from 0)
+     */
+    RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint);
 }

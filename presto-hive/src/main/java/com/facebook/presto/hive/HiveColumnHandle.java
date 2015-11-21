@@ -15,23 +15,30 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Predicate;
 
+import java.util.Objects;
+
+import static com.facebook.presto.hive.HiveType.HIVE_LONG;
+import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveColumnHandle
         implements ColumnHandle
 {
+    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "__presto__sample_weight__";
+    private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
+
     private final String clientId;
     private final String name;
-    private final int ordinalPosition;
     private final HiveType hiveType;
+    private final TypeSignature typeName;
     private final int hiveColumnIndex;
     private final boolean partitionKey;
 
@@ -39,18 +46,17 @@ public class HiveColumnHandle
     public HiveColumnHandle(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("name") String name,
-            @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("hiveType") HiveType hiveType,
+            @JsonProperty("typeSignature") TypeSignature typeSignature,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("partitionKey") boolean partitionKey)
     {
-        this.clientId = checkNotNull(clientId, "clientId is null");
-        this.name = checkNotNull(name, "name is null");
-        checkArgument(ordinalPosition >= 0, "ordinalPosition is negative");
-        this.ordinalPosition = ordinalPosition;
+        this.clientId = requireNonNull(clientId, "clientId is null");
+        this.name = requireNonNull(name, "name is null");
         checkArgument(hiveColumnIndex >= 0 || partitionKey, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
-        this.hiveType = checkNotNull(hiveType, "hiveType is null");
+        this.hiveType = requireNonNull(hiveType, "hiveType is null");
+        this.typeName = requireNonNull(typeSignature, "type is null");
         this.partitionKey = partitionKey;
     }
 
@@ -64,12 +70,6 @@ public class HiveColumnHandle
     public String getName()
     {
         return name;
-    }
-
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
     }
 
     @JsonProperty
@@ -90,20 +90,21 @@ public class HiveColumnHandle
         return partitionKey;
     }
 
-    public ColumnMetadata getColumnMetadata()
+    public ColumnMetadata getColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(name, hiveType.getNativeType(), ordinalPosition, partitionKey);
+        return new ColumnMetadata(name, typeManager.getType(typeName), partitionKey);
     }
 
-    public ColumnType getType()
+    @JsonProperty
+    public TypeSignature getTypeSignature()
     {
-        return hiveType.getNativeType();
+        return typeName;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(clientId, name, hiveColumnIndex, hiveType, partitionKey);
+        return Objects.hash(clientId, name, hiveColumnIndex, hiveType, partitionKey);
     }
 
     @Override
@@ -116,85 +117,40 @@ public class HiveColumnHandle
             return false;
         }
         HiveColumnHandle other = (HiveColumnHandle) obj;
-        return Objects.equal(this.clientId, other.clientId) &&
-                Objects.equal(this.name, other.name) &&
-                Objects.equal(this.hiveColumnIndex, other.hiveColumnIndex) &&
-                Objects.equal(this.hiveType, other.hiveType) &&
-                Objects.equal(this.partitionKey, other.partitionKey);
+        return Objects.equals(this.clientId, other.clientId) &&
+                Objects.equals(this.name, other.name) &&
+                Objects.equals(this.hiveColumnIndex, other.hiveColumnIndex) &&
+                Objects.equals(this.hiveType, other.hiveType) &&
+                Objects.equals(this.partitionKey, other.partitionKey);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("clientId", clientId)
                 .add("name", name)
-                .add("ordinalPosition", ordinalPosition)
                 .add("hiveType", hiveType)
                 .add("hiveColumnIndex", hiveColumnIndex)
                 .add("partitionKey", partitionKey)
                 .toString();
     }
 
-    public static Function<ColumnHandle, HiveColumnHandle> hiveColumnHandle()
+    public static HiveColumnHandle toHiveColumnHandle(ColumnHandle columnHandle)
     {
-        return new Function<ColumnHandle, HiveColumnHandle>()
-        {
-            @Override
-            public HiveColumnHandle apply(ColumnHandle columnHandle)
-            {
-                checkNotNull(columnHandle, "columnHandle is null");
-                checkArgument(columnHandle instanceof HiveColumnHandle, "columnHandle is not an instance of HiveColumnHandle");
-                return (HiveColumnHandle) columnHandle;
-            }
-        };
+        return checkType(columnHandle, HiveColumnHandle.class, "columnHandle");
     }
 
-    public static Function<HiveColumnHandle, Integer> hiveColumnIndexGetter()
+    public static HiveColumnHandle updateRowIdHandle(String connectorId)
     {
-        return new Function<HiveColumnHandle, Integer>()
-        {
-            @Override
-            public Integer apply(HiveColumnHandle input)
-            {
-                return input.getHiveColumnIndex();
-            }
-        };
-    }
+        // Hive connector only supports metadata delete. It does not support generic row-by-row deletion.
+        // Metadata delete is implemented in Presto by generating a plan for row-by-row delete first,
+        // and then optimize it into metadata delete. As a result, Hive connector must provide partial
+        // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
+        // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
 
-    public static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter()
-    {
-        return new Function<HiveColumnHandle, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(HiveColumnHandle input)
-            {
-                return input.getColumnMetadata();
-            }
-        };
-    }
-
-    public static Function<HiveColumnHandle, ColumnType> nativeTypeGetter()
-    {
-        return new Function<HiveColumnHandle, ColumnType>()
-        {
-            @Override
-            public ColumnType apply(HiveColumnHandle input)
-            {
-                return input.getType();
-            }
-        };
-    }
-
-    public static Predicate<HiveColumnHandle> isPartitionKeyPredicate()
-    {
-        return new Predicate<HiveColumnHandle>()
-        {
-            @Override
-            public boolean apply(HiveColumnHandle input)
-            {
-                return input.isPartitionKey();
-            }
-        };
+        // Like partition columns, this column can not be found in data source. Using true for partitionKey,
+        // the plan-time support needed just works.
+        return new HiveColumnHandle(connectorId, UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, true);
     }
 }

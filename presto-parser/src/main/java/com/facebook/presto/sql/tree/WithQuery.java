@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class WithQuery
         extends Node
@@ -28,8 +29,19 @@ public class WithQuery
 
     public WithQuery(String name, Query query, List<String> columnNames)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.query = checkNotNull(query, "query is null");
+        this(Optional.empty(), name, query, columnNames);
+    }
+
+    public WithQuery(NodeLocation location, String name, Query query, List<String> columnNames)
+    {
+        this(Optional.of(location), name, query, columnNames);
+    }
+
+    private WithQuery(Optional<NodeLocation> location, String name, Query query, List<String> columnNames)
+    {
+        super(location);
+        this.name = QualifiedName.of(requireNonNull(name, "name is null")).getParts().get(0);
+        this.query = requireNonNull(query, "query is null");
         this.columnNames = columnNames;
     }
 
@@ -57,7 +69,7 @@ public class WithQuery
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("query", query)
                 .add("columnNames", columnNames)
@@ -68,7 +80,7 @@ public class WithQuery
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name, query, columnNames);
+        return Objects.hash(name, query, columnNames);
     }
 
     @Override
@@ -81,8 +93,8 @@ public class WithQuery
             return false;
         }
         WithQuery o = (WithQuery) obj;
-        return Objects.equal(name, o.name) &&
-                Objects.equal(query, o.query) &&
-                Objects.equal(columnNames, o.columnNames);
+        return Objects.equals(name, o.name) &&
+                Objects.equals(query, o.query) &&
+                Objects.equals(columnNames, o.columnNames);
     }
 }

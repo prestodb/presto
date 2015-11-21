@@ -13,22 +13,35 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class SimpleCaseExpression
         extends Expression
 {
     private final Expression operand;
     private final List<WhenClause> whenClauses;
-    private final Expression defaultValue;
+    private final Optional<Expression> defaultValue;
 
-    public SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Expression defaultValue)
+    public SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
-        Preconditions.checkNotNull(operand, "operand is null");
-        Preconditions.checkNotNull(whenClauses, "whenClauses is null");
+        this(Optional.empty(), operand, whenClauses, defaultValue);
+    }
+
+    public SimpleCaseExpression(NodeLocation location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    {
+        this(Optional.of(location), operand, whenClauses, defaultValue);
+    }
+
+    private SimpleCaseExpression(Optional<NodeLocation> location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    {
+        super(location);
+        requireNonNull(operand, "operand is null");
+        requireNonNull(whenClauses, "whenClauses is null");
 
         this.operand = operand;
         this.whenClauses = ImmutableList.copyOf(whenClauses);
@@ -45,7 +58,7 @@ public class SimpleCaseExpression
         return whenClauses;
     }
 
-    public Expression getDefaultValue()
+    public Optional<Expression> getDefaultValue()
     {
         return defaultValue;
     }

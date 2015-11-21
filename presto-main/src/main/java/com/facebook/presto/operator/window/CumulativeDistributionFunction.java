@@ -13,34 +13,29 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.BlockBuilder;
+
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class CumulativeDistributionFunction
-        implements WindowFunction
+        extends RankingWindowFunction
 {
     private long totalCount;
     private long count;
 
     @Override
-    public TupleInfo getTupleInfo()
+    public void reset()
     {
-        return TupleInfo.SINGLE_DOUBLE;
-    }
-
-    @Override
-    public void reset(int partitionRowCount)
-    {
-        totalCount = partitionRowCount;
+        totalCount = windowIndex.size();
         count = 0;
     }
 
     @Override
-    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
+    public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
         if (newPeerGroup) {
             count += peerGroupCount;
         }
-        output.append(((double) count) / totalCount);
+        DOUBLE.writeDouble(output, ((double) count) / totalCount);
     }
 }

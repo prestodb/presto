@@ -13,43 +13,53 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.OutputTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Optional;
+import io.airlift.slice.Slice;
 
 import javax.validation.constraints.NotNull;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 
 public interface Metadata
 {
-    FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes, boolean approximate);
+    void verifyComparableOrderableContract();
 
-    @NotNull
-    FunctionInfo getFunction(Signature handle);
+    Type getType(TypeSignature signature);
 
     boolean isAggregationFunction(QualifiedName name);
 
     @NotNull
-    List<FunctionInfo> listFunctions();
+    List<SqlFunction> listFunctions();
 
-    void addFunctions(List<FunctionInfo> functions);
+    void addFunctions(List<? extends SqlFunction> functions);
 
     @NotNull
-    List<String> listSchemaNames(String catalogName);
+    List<String> listSchemaNames(Session session, String catalogName);
 
     /**
      * Returns a table handle for the specified table name.
      */
     @NotNull
-    Optional<TableHandle> getTableHandle(QualifiedTableName tableName);
+    Optional<TableHandle> getTableHandle(Session session, QualifiedTableName tableName);
+
+    @NotNull
+    List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+
+    @NotNull
+    TableLayout getLayout(Session session, TableLayoutHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
@@ -57,21 +67,13 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
-    TableMetadata getTableMetadata(TableHandle tableHandle);
+    TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
     /**
      * Get the names that match the specified table prefix (never null).
      */
     @NotNull
-    List<QualifiedTableName> listTables(QualifiedTablePrefix prefix);
-
-    /**
-     * Returns a handle for the specified table column.
-     *
-     * @throws RuntimeException if table handle is no longer valid
-     */
-    @NotNull
-    Optional<ColumnHandle> getColumnHandle(TableHandle tableHandle, String columnName);
+    List<QualifiedTableName> listTables(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Returns the handle for the sample weight column.
@@ -79,13 +81,13 @@ public interface Metadata
      * @throws RuntimeException if the table handle is no longer valid
      */
     @NotNull
-    Optional<ColumnHandle> getSampleWeightColumnHandle(TableHandle tableHandle);
+    Optional<ColumnHandle> getSampleWeightColumnHandle(Session session, TableHandle tableHandle);
 
     /**
      * Returns true iff this catalog supports creation of sampled tables
      *
      */
-    boolean canCreateSampledTables(String catalogName);
+    boolean canCreateSampledTables(Session session, String catalogName);
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
@@ -93,7 +95,7 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     @NotNull
-    Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle);
+    Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column.
@@ -101,50 +103,103 @@ public interface Metadata
      * @throws RuntimeException if table or column handles are no longer valid
      */
     @NotNull
-    ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle);
+    ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
      */
     @NotNull
-    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix);
+    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Creates a table using the specified table metadata.
      */
     @NotNull
-    TableHandle createTable(String catalogName, TableMetadata tableMetadata);
+    void createTable(Session session, String catalogName, TableMetadata tableMetadata);
+
+    /**
+     * Rename the specified table.
+     */
+    void renameTable(Session session, TableHandle tableHandle, QualifiedTableName newTableName);
+
+    /**
+     * Rename the specified column.
+     */
+    void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
+
+    /**
+     * Add the specified column to the table.
+     */
+    void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
 
     /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
-    void dropTable(TableHandle tableHandle);
+    void dropTable(Session session, TableHandle tableHandle);
 
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(String catalogName, TableMetadata tableMetadata);
+    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata);
 
     /**
      * Commit a table creation with data after the data is written.
      */
-    void commitCreateTable(OutputTableHandle tableHandle, Collection<String> fragments);
+    void commitCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
-     * HACK: This is here only for table alias support and should be remove when aliases are based on serialized table handles.
+     * Rollback a table creation
      */
-    @NotNull
-    @Deprecated
-    String getConnectorId(TableHandle tableHandle);
+    void rollbackCreateTable(Session session, OutputTableHandle tableHandle);
 
     /**
-     * HACK: This is here only for table alias support and should be remove when aliases are based on serialized table handles.
+     * Begin insert query
      */
-    @NotNull
-    @Deprecated
-    Optional<TableHandle> getTableHandle(String connectorId, SchemaTableName tableName);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+
+    /**
+     * Commit insert query
+     */
+    void commitInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Rollback insert query
+     */
+    void rollbackInsert(Session session, InsertTableHandle tableHandle);
+
+    /**
+     * Get the row ID column handle used with UpdatablePageSource.
+     */
+    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle);
+
+    /**
+     * @return whether delete without table scan is supported
+     */
+    boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+
+    /**
+     * Delete the provide table layout
+     *
+     * @return number of rows deleted, or empty for unknown
+     */
+    OptionalLong metadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+
+    /**
+     * Begin delete query
+     */
+    TableHandle beginDelete(Session session, TableHandle tableHandle);
+
+    /**
+     * Commit delete query
+     */
+    void commitDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Rollback delete query
+     */
+    void rollbackDelete(Session session, TableHandle tableHandle);
 
     /**
      * Gets all the loaded catalogs
@@ -153,4 +208,42 @@ public interface Metadata
      */
     @NotNull
     Map<String, String> getCatalogNames();
+
+    /**
+     * Get the names that match the specified table prefix (never null).
+     */
+    @NotNull
+    List<QualifiedTableName> listViews(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Get the view definitions that match the specified table prefix (never null).
+     */
+    @NotNull
+    Map<QualifiedTableName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Returns the view definition for the specified view name.
+     */
+    @NotNull
+    Optional<ViewDefinition> getView(Session session, QualifiedTableName viewName);
+
+    /**
+     * Creates the specified view with the specified view definition.
+     */
+    void createView(Session session, QualifiedTableName viewName, String viewData, boolean replace);
+
+    /**
+     * Drops the specified view.
+     */
+    void dropView(Session session, QualifiedTableName viewName);
+
+    FunctionRegistry getFunctionRegistry();
+
+    TypeManager getTypeManager();
+
+    BlockEncodingSerde getBlockEncodingSerde();
+
+    SessionPropertyManager getSessionPropertyManager();
+
+    TablePropertyManager getTablePropertyManager();
 }

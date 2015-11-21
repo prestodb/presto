@@ -14,190 +14,187 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
 
 import java.util.Map;
 
-import static com.facebook.presto.connector.dual.DualMetadata.DUAL_METADATA_MANAGER;
-import static com.facebook.presto.sql.analyzer.Type.BIGINT;
-import static com.facebook.presto.sql.analyzer.Type.BOOLEAN;
-import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
-import static com.facebook.presto.sql.analyzer.Type.VARCHAR;
-import static com.facebook.presto.sql.parser.SqlParser.createExpression;
-import static com.facebook.presto.tuple.Tuples.NULL_BOOLEAN_TUPLE;
-import static com.facebook.presto.tuple.Tuples.NULL_DOUBLE_TUPLE;
-import static com.facebook.presto.tuple.Tuples.NULL_LONG_TUPLE;
-import static com.facebook.presto.tuple.Tuples.NULL_STRING_TUPLE;
-import static com.facebook.presto.tuple.Tuples.createTuple;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestInterpretedProjectionFunction
 {
+    private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
+
     @Test
     public void testBooleanExpression()
     {
-        assertProjection(BOOLEAN, "true", true);
-        assertProjection(BOOLEAN, "false", false);
-        assertProjection(BOOLEAN, "1 = 1", true);
-        assertProjection(BOOLEAN, "1 = 0", false);
-        assertProjection(BOOLEAN, "true and false", false);
+        assertProjection("true", true);
+        assertProjection("false", false);
+        assertProjection("1 = 1", true);
+        assertProjection("1 = 0", false);
+        assertProjection("true and false", false);
     }
 
     @Test
     public void testArithmeticExpression()
     {
-        assertProjection(BIGINT, "42 + 87", 42L + 87L);
-        assertProjection(DOUBLE, "42 + 22.2", 42L + 22.2);
-        assertProjection(DOUBLE, "11.1 + 22.2", 11.1 + 22.2);
+        assertProjection("42 + 87", 42L + 87L);
+        assertProjection("42 + 22.2", 42L + 22.2);
+        assertProjection("11.1 + 22.2", 11.1 + 22.2);
 
-        assertProjection(BIGINT, "42 - 87", 42L - 87L);
-        assertProjection(DOUBLE, "42 - 22.2", 42L - 22.2);
-        assertProjection(DOUBLE, "11.1 - 22.2", 11.1 - 22.2);
+        assertProjection("42 - 87", 42L - 87L);
+        assertProjection("42 - 22.2", 42L - 22.2);
+        assertProjection("11.1 - 22.2", 11.1 - 22.2);
 
-        assertProjection(BIGINT, "42 * 87", 42L * 87L);
-        assertProjection(DOUBLE, "42 * 22.2", 42L * 22.2);
-        assertProjection(DOUBLE, "11.1 * 22.2", 11.1 * 22.2);
+        assertProjection("42 * 87", 42L * 87L);
+        assertProjection("42 * 22.2", 42L * 22.2);
+        assertProjection("11.1 * 22.2", 11.1 * 22.2);
 
-        assertProjection(BIGINT, "42 / 87", 42L / 87L);
-        assertProjection(DOUBLE, "42 / 22.2", 42L / 22.2);
-        assertProjection(DOUBLE, "11.1 / 22.2", 11.1 / 22.2);
+        assertProjection("42 / 87", 42L / 87L);
+        assertProjection("42 / 22.2", 42L / 22.2);
+        assertProjection("11.1 / 22.2", 11.1 / 22.2);
 
-        assertProjection(BIGINT, "42 % 87", 42L % 87L);
-        assertProjection(DOUBLE, "42 % 22.2", 42L % 22.2);
-        assertProjection(DOUBLE, "11.1 % 22.2", 11.1 % 22.2);
+        assertProjection("42 % 87", 42L % 87L);
+        assertProjection("42 % 22.2", 42L % 22.2);
+        assertProjection("11.1 % 22.2", 11.1 % 22.2);
     }
 
     @Test
     public void testArithmeticExpressionWithNulls()
     {
-        for (ArithmeticExpression.Type type : ArithmeticExpression.Type.values()) {
-            assertProjection(BIGINT, "NULL " + type.getValue() + " NULL", null);
+        for (ArithmeticBinaryExpression.Type type : ArithmeticBinaryExpression.Type.values()) {
+            assertProjection("NULL " + type.getValue() + " NULL", null);
 
-            assertProjection(BIGINT, "42 " + type.getValue() + " NULL", null);
-            assertProjection(BIGINT, "NULL " + type.getValue() + " 42", null);
+            assertProjection("42 " + type.getValue() + " NULL", null);
+            assertProjection("NULL " + type.getValue() + " 42", null);
 
-            assertProjection(DOUBLE, "11.1 " + type.getValue() + " NULL", null);
-            assertProjection(DOUBLE, "NULL " + type.getValue() + " 11.1", null);
+            assertProjection("11.1 " + type.getValue() + " NULL", null);
+            assertProjection("NULL " + type.getValue() + " 11.1", null);
         }
     }
 
     @Test
     public void testCoalesceExpression()
     {
-        assertProjection(BIGINT, "COALESCE(42, 87, 100)", 42L);
-        assertProjection(BIGINT, "COALESCE(NULL, 87, 100)", 87L);
-        assertProjection(BIGINT, "COALESCE(42, NULL, 100)", 42L);
-        assertProjection(BIGINT, "COALESCE(NULL, NULL, 100)", 100L);
+        assertProjection("COALESCE(42, 87, 100)", 42L);
+        assertProjection("COALESCE(NULL, 87, 100)", 87L);
+        assertProjection("COALESCE(42, NULL, 100)", 42L);
+        assertProjection("COALESCE(NULL, NULL, 100)", 100L);
 
-        assertProjection(DOUBLE, "COALESCE(42.2, 87.2, 100.2)", 42.2);
-        assertProjection(DOUBLE, "COALESCE(NULL, 87.2, 100.2)", 87.2);
-        assertProjection(DOUBLE, "COALESCE(42.2, NULL, 100.2)", 42.2);
-        assertProjection(DOUBLE, "COALESCE(NULL, NULL, 100.2)", 100.2);
+        assertProjection("COALESCE(42.2, 87.2, 100.2)", 42.2);
+        assertProjection("COALESCE(NULL, 87.2, 100.2)", 87.2);
+        assertProjection("COALESCE(42.2, NULL, 100.2)", 42.2);
+        assertProjection("COALESCE(NULL, NULL, 100.2)", 100.2);
 
-        assertProjection(VARCHAR, "COALESCE('foo', 'bar', 'zah')", "foo");
-        assertProjection(VARCHAR, "COALESCE(NULL, 'bar', 'zah')", "bar");
-        assertProjection(VARCHAR, "COALESCE('foo', NULL, 'zah')", "foo");
-        assertProjection(VARCHAR, "COALESCE(NULL, NULL, 'zah')", "zah");
+        assertProjection("COALESCE('foo', 'bar', 'zah')", "foo");
+        assertProjection("COALESCE(NULL, 'bar', 'zah')", "bar");
+        assertProjection("COALESCE('foo', NULL, 'zah')", "foo");
+        assertProjection("COALESCE(NULL, NULL, 'zah')", "zah");
 
-        assertProjection(VARCHAR, "COALESCE(NULL, NULL, NULL)", null);
+        assertProjection("COALESCE(NULL, NULL, NULL)", null);
     }
 
     @Test
     public void testNullIf()
     {
-        assertProjection(BIGINT, "NULLIF(42, 42)", null);
-        assertProjection(BIGINT, "NULLIF(42, 42.0)", null);
-        assertProjection(DOUBLE, "NULLIF(42.42, 42.42)", null);
-        assertProjection(VARCHAR, "NULLIF('foo', 'foo')", null);
+        assertProjection("NULLIF(42, 42)", null);
+        assertProjection("NULLIF(42, 42.0)", null);
+        assertProjection("NULLIF(42.42, 42.42)", null);
+        assertProjection("NULLIF('foo', 'foo')", null);
 
-        assertProjection(BIGINT, "NULLIF(42, 87)", 42L);
-        assertProjection(BIGINT, "NULLIF(42, 22.2)", 42L);
-        assertProjection(DOUBLE, "NULLIF(42.42, 22.2)", 42.42);
-        assertProjection(VARCHAR, "NULLIF('foo', 'bar')", "foo");
+        assertProjection("NULLIF(42, 87)", 42L);
+        assertProjection("NULLIF(42, 22.2)", 42L);
+        assertProjection("NULLIF(42.42, 22.2)", 42.42);
+        assertProjection("NULLIF('foo', 'bar')", "foo");
 
-        assertProjection(BIGINT, "NULLIF(NULL, NULL)", null);
+        assertProjection("NULLIF(NULL, NULL)", null);
 
-        assertProjection(BIGINT, "NULLIF(42, NULL)", 42L);
-        assertProjection(BIGINT, "NULLIF(NULL, 42)", null);
+        assertProjection("NULLIF(42, NULL)", 42L);
+        assertProjection("NULLIF(NULL, 42)", null);
 
-        assertProjection(DOUBLE, "NULLIF(11.1, NULL)", 11.1);
-        assertProjection(DOUBLE, "NULLIF(NULL, 11.1)", null);
+        assertProjection("NULLIF(11.1, NULL)", 11.1);
+        assertProjection("NULLIF(NULL, 11.1)", null);
     }
 
     @Test
     public void testSymbolReference()
     {
-        assertProjection(BOOLEAN, createExpression("symbol"), true, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(true));
-        assertProjection(BOOLEAN, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_BOOLEAN_TUPLE);
+        Symbol symbol = new Symbol("symbol");
+        ImmutableMap<Symbol, Integer> symbolToInputMappings = ImmutableMap.of(symbol, 0);
+        assertProjection("symbol", true, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, true));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, null));
 
-        assertProjection(BIGINT, createExpression("symbol"), 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(42L));
-        assertProjection(BIGINT, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_LONG_TUPLE);
+        assertProjection("symbol", 42L, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BIGINT), 0, createBlock(BIGINT, 42));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BIGINT), 0, createBlock(BIGINT, null));
 
-        assertProjection(DOUBLE, createExpression("symbol"), 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple(11.1));
-        assertProjection(DOUBLE, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_DOUBLE_TUPLE);
+        assertProjection("symbol", 11.1, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, DOUBLE), 0, createBlock(DOUBLE, 11.1));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, DOUBLE), 0, createBlock(DOUBLE, null));
 
-        assertProjection(VARCHAR, createExpression("symbol"), "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0)), createTuple("foo"));
-        assertProjection(VARCHAR, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0)), NULL_STRING_TUPLE);
+        assertProjection("symbol", "foo", symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, VARCHAR), 0, createBlock(VARCHAR, "foo"));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, VARCHAR), 0, createBlock(VARCHAR, null));
     }
 
-    public static void assertProjection(Type outputType, String expression, @Nullable Object expectedValue)
+    public static void assertProjection(String expression, @Nullable Object expectedValue)
     {
-        assertProjection(outputType, createExpression(expression), expectedValue, ImmutableMap.<Symbol, Input>of());
-    }
-
-    public static void assertProjection(Type outputType,
-            Expression expression,
-            @Nullable Object expectedValue,
-            Map<Symbol, Input> symbolToInputMappings,
-            TupleReadable... channels)
-    {
-        Builder<Input, Type> inputTypes = ImmutableMap.builder();
-        for (Input input : symbolToInputMappings.values()) {
-            TupleInfo.Type type = channels[input.getChannel()].getTupleInfo().getType();
-            switch (type) {
-                case BOOLEAN:
-                    inputTypes.put(input, BOOLEAN);
-                    break;
-                case FIXED_INT_64:
-                    inputTypes.put(input, BIGINT);
-                    break;
-                case VARIABLE_BINARY:
-                    inputTypes.put(input, VARCHAR);
-                    break;
-                case DOUBLE:
-                    inputTypes.put(input, DOUBLE);
-                    break;
-                default:
-                    throw new IllegalStateException("Unsupported type");
-            }
-        }
-        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType,
+        assertProjection(
                 expression,
+                expectedValue,
+                ImmutableMap.<Symbol, Integer>of(),
+                ImmutableMap.<Symbol, Type>of(),
+                0);
+    }
+
+    private static void assertProjection(
+            String expression,
+            @Nullable Object expectedValue,
+            Map<Symbol, Integer> symbolToInputMappings,
+            Map<Symbol, Type> symbolTypes,
+            int position,
+            Block... blocks)
+    {
+        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(
+                createExpression(expression, METADATA, symbolTypes),
+                symbolTypes,
                 symbolToInputMappings,
-                DUAL_METADATA_MANAGER,
-                new Session("user", "test", Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA, null, null)
+                METADATA,
+                SQL_PARSER,
+                TEST_SESSION
         );
 
         // create output
-        BlockBuilder builder = new BlockBuilder(new TupleInfo(outputType.getRawType()));
+        Type type = projectionFunction.getType();
+        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
 
         // project
-        projectionFunction.project(channels, builder);
+        projectionFunction.project(position, blocks, builder);
 
         // extract single value
-        Object actualValue = BlockAssertions.getOnlyValue(builder.build());
+        Object actualValue = BlockAssertions.getOnlyValue(type, builder.build());
         assertEquals(actualValue, expectedValue);
+    }
+
+    private static Block createBlock(Type type, Object value)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        writeNativeValue(type, blockBuilder, value);
+        return blockBuilder.build();
     }
 }

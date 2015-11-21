@@ -13,27 +13,31 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaTableHandle
-        implements TableHandle
+        implements ConnectorTableHandle
 {
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
 
     @JsonCreator
-    public InformationSchemaTableHandle(@JsonProperty("catalogName") String catalogName, @JsonProperty("schemaName") String schemaName, @JsonProperty("tableName") String tableName)
+    public InformationSchemaTableHandle(
+            @JsonProperty("catalogName") String catalogName,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableName") String tableName)
     {
-        this.catalogName = checkNotNull(catalogName, "catalogName is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     @JsonProperty
@@ -68,7 +72,7 @@ public class InformationSchemaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(catalogName, schemaName, tableName);
+        return Objects.hash(catalogName, schemaName, tableName);
     }
 
     @Override
@@ -80,9 +84,9 @@ public class InformationSchemaTableHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final InformationSchemaTableHandle other = (InformationSchemaTableHandle) obj;
-        return Objects.equal(this.catalogName, other.catalogName) &&
-                Objects.equal(this.schemaName, other.schemaName) &&
-                Objects.equal(this.tableName, other.tableName);
+        InformationSchemaTableHandle other = (InformationSchemaTableHandle) obj;
+        return Objects.equals(this.catalogName, other.catalogName) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName);
     }
 }

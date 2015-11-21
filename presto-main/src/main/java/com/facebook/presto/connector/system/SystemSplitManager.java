@@ -14,165 +14,72 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
+import com.facebook.presto.spi.SystemTable.Distribution;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
+import com.google.common.collect.ImmutableSet;
 
-import javax.inject.Inject;
-
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
+import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
+import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
+import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static com.facebook.presto.util.Types.checkType;
+import static com.google.common.collect.Maps.uniqueIndex;
+import static java.util.Objects.requireNonNull;
 
 public class SystemSplitManager
         implements ConnectorSplitManager
 {
     private final NodeManager nodeManager;
-    private final ConcurrentMap<SchemaTableName, SystemTable> tables = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, SystemTable> tables;
 
-    @Inject
-    public SystemSplitManager(NodeManager nodeManager)
+    public SystemSplitManager(NodeManager nodeManager, Set<SystemTable> tables)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
-    }
-
-    public void addTable(SystemTable systemTable)
-    {
-        checkNotNull(systemTable, "systemTable is null");
-        SchemaTableName tableName = systemTable.getTableMetadata().getTable();
-        checkArgument(tables.putIfAbsent(tableName, systemTable) == null, "Table %s is already registered", tableName);
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.tables = uniqueIndex(tables, table -> table.getTableMetadata().getTable());
     }
 
     @Override
-    public String getConnectorId()
+    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        // system is not a connector
-        return null;
-    }
+        SystemTableLayoutHandle layoutHandle = checkType(layout, SystemTableLayoutHandle.class, "layout");
+        SystemTableHandle tableHandle = layoutHandle.getTable();
 
-    @Override
-    public boolean canHandle(TableHandle handle)
-    {
-        return handle instanceof SystemTableHandle;
-    }
+        TupleDomain<ColumnHandle> constraint = layoutHandle.getConstraint();
+        SystemTable systemTable = tables.get(tableHandle.getSchemaTableName());
 
-    @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
-    {
-        checkNotNull(table, "table is null");
-        checkNotNull(tupleDomain, "tupleDomain is null");
-
-        checkArgument(table instanceof SystemTableHandle, "TableHandle must be an SystemTableHandle");
-        SystemTableHandle systemTableHandle = (SystemTableHandle) table;
-
-        Map<ColumnHandle, Comparable<?>> bindings = tupleDomain.extractFixedValues();
-
-        TupleDomain unusedTupleDomain = TupleDomain.none();
-        if (!tupleDomain.isNone()) {
-            unusedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(bindings.keySet()))));
+        Distribution tableDistributionMode = systemTable.getDistribution();
+        if (tableDistributionMode == SINGLE_COORDINATOR) {
+            HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
+            ConnectorSplit split = new SystemSplit(tableHandle, address, constraint);
+            return new FixedSplitSource(SystemConnector.NAME, ImmutableList.of(split));
         }
 
-        ImmutableList<Partition> partitions = ImmutableList.<Partition>of(new SystemPartition(systemTableHandle, bindings));
-        return new PartitionResult(partitions, unusedTupleDomain);
-    }
-
-    @Override
-    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
-    {
-        checkNotNull(partitions, "partitions is null");
-        if (partitions.isEmpty()) {
-            return new FixedSplitSource(null, ImmutableList.<Split>of());
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+        ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
+        if (tableDistributionMode == ALL_COORDINATORS) {
+            nodes.addAll(nodeManager.getCoordinators());
         }
-
-        Partition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof SystemPartition, "Partition must be a system partition");
-        SystemPartition systemPartition = (SystemPartition) partition;
-
-        SystemTable systemTable = tables.get(systemPartition.getTableHandle().getSchemaTableName());
-        checkArgument(systemTable != null, "Table %s does not exist", systemPartition.getTableHandle().getTableName());
-
-        ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
-        for (Entry<ColumnHandle, Comparable<?>> entry : systemPartition.getFilters().entrySet()) {
-            SystemColumnHandle systemColumnHandle = (SystemColumnHandle) entry.getKey();
-            filters.put(systemColumnHandle.getColumnName(), entry.getValue());
+        else if (tableDistributionMode == ALL_NODES) {
+            nodes.addAll(nodeManager.getActiveNodes());
         }
-
-        if (systemTable.isDistributed()) {
-            ImmutableList.Builder<Split> splits = ImmutableList.builder();
-            for (Node node : nodeManager.getActiveNodes()) {
-                splits.add(new SystemSplit(systemPartition.tableHandle, filters.build(), node.getHostAndPort()));
-            }
-            return new FixedSplitSource(null, splits.build());
+        Set<Node> nodeSet = nodes.build();
+        for (Node node : nodeSet) {
+            splits.add(new SystemSplit(tableHandle, node.getHostAndPort(), constraint));
         }
-
-        HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-        Split split = new SystemSplit(systemPartition.tableHandle, filters.build(), address);
-        return new FixedSplitSource(null, ImmutableList.of(split));
-    }
-
-    public static class SystemPartition
-            implements Partition
-    {
-        private final SystemTableHandle tableHandle;
-        private final Map<ColumnHandle, Comparable<?>> filters;
-
-        public SystemPartition(SystemTableHandle tableHandle, Map<ColumnHandle, Comparable<?>> filters)
-        {
-            this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
-            this.filters = ImmutableMap.copyOf(checkNotNull(filters, "filters is null"));
-        }
-
-        public SystemTableHandle getTableHandle()
-        {
-            return tableHandle;
-        }
-
-        @Override
-        public String getPartitionId()
-        {
-            return tableHandle.getSchemaTableName().toString();
-        }
-
-        @Override
-        public TupleDomain getTupleDomain()
-        {
-            return TupleDomain.withFixedValues(filters);
-        }
-
-        public Map<ColumnHandle, Comparable<?>> getFilters()
-        {
-            return filters;
-        }
-
-        @Override
-        public String toString()
-        {
-            return Objects.toStringHelper(this)
-                    .add("tableHandle", tableHandle)
-                    .add("filters", filters)
-                    .toString();
-        }
+        return new FixedSplitSource(SystemConnector.NAME, splits.build());
     }
 }

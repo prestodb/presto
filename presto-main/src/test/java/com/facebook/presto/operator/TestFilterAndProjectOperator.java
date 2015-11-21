@@ -13,14 +13,12 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
-import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -29,16 +27,17 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
+@Test(singleThreaded = true)
 public class TestFilterAndProjectOperator
 {
     private ExecutorService executor;
@@ -47,9 +46,9 @@ public class TestFilterAndProjectOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+
+        driverContext = createTaskContext(executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }
@@ -64,32 +63,34 @@ public class TestFilterAndProjectOperator
     public void test()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .addSequencePage(100, 0, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
-                0,
-                new FilterFunction()
-                {
-                    @Override
-                    public boolean filter(TupleReadable... cursors)
-                    {
-                        long value = cursors[1].getLong();
-                        return 10 <= value && value < 20;
-                    }
+        FilterFunction filter = new FilterFunction()
+        {
+            @Override
+            public boolean filter(int position, Block... blocks)
+            {
+                long value = BIGINT.getLong(blocks[1], position);
+                return 10 <= value && value < 20;
+            }
 
-                    @Override
-                    public boolean filter(RecordCursor cursor)
-                    {
-                        long value = cursor.getLong(0);
-                        return 10 <= value && value < 20;
-                    }
-                }, ImmutableList.of(singleColumn(VARIABLE_BINARY, 0), new Add5Projection(1)));
+            @Override
+            public boolean filter(RecordCursor cursor)
+            {
+                long value = cursor.getLong(0);
+                return 10 <= value && value < 20;
+            }
+        };
+        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                0,
+                new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
+                ImmutableList.<Type>of(VARCHAR, BIGINT));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
+        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("10", 15)
                 .row("11", 16)
                 .row("12", 17)
@@ -116,19 +117,19 @@ public class TestFilterAndProjectOperator
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return SINGLE_LONG;
+            return BIGINT;
         }
 
         @Override
-        public void project(TupleReadable[] cursors, BlockBuilder output)
+        public void project(int position, Block[] blocks, BlockBuilder output)
         {
-            if (cursors[channelIndex].isNull()) {
+            if (blocks[channelIndex].isNull(position)) {
                 output.appendNull();
             }
             else {
-                output.append(cursors[channelIndex].getLong() + 5);
+                BIGINT.writeLong(output, BIGINT.getLong(blocks[channelIndex], position) + 5);
             }
         }
 
@@ -139,7 +140,7 @@ public class TestFilterAndProjectOperator
                 output.appendNull();
             }
             else {
-                output.append(cursor.getLong(channelIndex) + 5);
+                BIGINT.writeLong(output, cursor.getLong(channelIndex) + 5);
             }
         }
     }

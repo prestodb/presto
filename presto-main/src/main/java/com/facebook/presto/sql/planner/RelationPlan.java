@@ -13,33 +13,43 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 class RelationPlan
 {
     private final PlanNode root;
     private final List<Symbol> outputSymbols;
-    private final TupleDescriptor descriptor;
+    private final RelationType descriptor;
+    private final Optional<Symbol> sampleWeight;
 
-    public RelationPlan(PlanNode root, TupleDescriptor descriptor, List<Symbol> outputSymbols)
+    public RelationPlan(PlanNode root, RelationType descriptor, List<Symbol> outputSymbols, Optional<Symbol> sampleWeight)
     {
-        checkNotNull(root, "root is null");
-        checkNotNull(outputSymbols, "outputSymbols is null");
-        checkNotNull(descriptor, "descriptor is null");
+        requireNonNull(root, "root is null");
+        requireNonNull(outputSymbols, "outputSymbols is null");
+        requireNonNull(descriptor, "descriptor is null");
+        requireNonNull(descriptor, "sampleWeight is null");
 
-        checkArgument(descriptor.getFields().size() == outputSymbols.size(), "Number of outputs (%s) doesn't match descriptor size (%s)", outputSymbols.size(), descriptor.getFields().size());
+        checkArgument(descriptor.getAllFieldCount() == outputSymbols.size(),
+                "Number of outputs (%s) doesn't match descriptor size (%s)", outputSymbols.size(), descriptor.getAllFieldCount());
 
         this.root = root;
         this.descriptor = descriptor;
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+        this.sampleWeight = sampleWeight;
+    }
+
+    public Optional<Symbol> getSampleWeight()
+    {
+        return sampleWeight;
     }
 
     public Symbol getSymbol(int fieldIndex)
@@ -58,7 +68,7 @@ class RelationPlan
         return outputSymbols;
     }
 
-    public TupleDescriptor getDescriptor()
+    public RelationType getDescriptor()
     {
         return descriptor;
     }

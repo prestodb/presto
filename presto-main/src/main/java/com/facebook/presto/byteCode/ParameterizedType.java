@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.byteCode;
 
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
 
@@ -24,103 +21,128 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
+
 @Immutable
 public class ParameterizedType
 {
     public static ParameterizedType typeFromJavaClassName(String className)
     {
-        Preconditions.checkNotNull(className, "type is null");
+        requireNonNull(className, "type is null");
         if (className.endsWith("/")) {
-            Preconditions.checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
+            checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
         }
         return new ParameterizedType(className.replace('.', '/'));
     }
 
     public static ParameterizedType typeFromPathName(String className)
     {
-        Preconditions.checkNotNull(className, "type is null");
+        requireNonNull(className, "type is null");
         if (className.indexOf(".") > 0) {
-            Preconditions.checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
+            checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
         }
         return new ParameterizedType(className);
     }
 
     public static ParameterizedType type(Type type)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         return new ParameterizedType(type.getInternalName());
     }
 
     public static ParameterizedType type(Class<?> type)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         return new ParameterizedType(type);
     }
 
     public static ParameterizedType type(Class<?> type, Class<?>... parameters)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         return new ParameterizedType(type, parameters);
     }
 
     public static ParameterizedType type(Class<?> type, ParameterizedType... parameters)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         return new ParameterizedType(type, parameters);
     }
 
     private final String type;
     private final String className;
+    private final String simpleName;
     private final List<String> parameters;
+
+    private final boolean isInterface;
+    @Nullable
+    private final Class<?> primitiveType;
+    @Nullable
+    private final ParameterizedType arrayComponentType;
 
     public ParameterizedType(String className)
     {
-        Preconditions.checkNotNull(className, "className is null");
-        if (className.indexOf(".") > 0) {
-            Preconditions.checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
-        }
-
-        if (className.endsWith(";")) {
-            Preconditions.checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
-        }
+        requireNonNull(className, "className is null");
+        checkArgument(!className.contains("."), "Invalid class name %s", className);
+        checkArgument(!className.endsWith(";"), "Invalid class name %s", className);
 
         this.className = className;
+        this.simpleName = className.substring(className.lastIndexOf("/") + 1);
         this.type = "L" + className + ";";
         this.parameters = ImmutableList.of();
+
+        this.isInterface = false;
+        this.primitiveType = null;
+        this.arrayComponentType = null;
     }
 
     private ParameterizedType(Class<?> type)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
+        this.simpleName = type.getSimpleName();
         this.parameters = ImmutableList.of();
+
+        this.isInterface = type.isInterface();
+        this.primitiveType = type.isPrimitive() ? type : null;
+        this.arrayComponentType = type.isArray() ? type(type.getComponentType()) : null;
     }
 
     private ParameterizedType(Class<?> type, Class<?>... parameters)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
+        this.simpleName = type.getSimpleName();
 
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (Class<?> parameter : parameters) {
             builder.add(toInternalIdentifier(parameter));
         }
         this.parameters = builder.build();
+
+        this.isInterface = type.isInterface();
+        this.primitiveType = type.isPrimitive() ? type : null;
+        this.arrayComponentType = type.isArray() ? type(type.getComponentType()) : null;
     }
 
     private ParameterizedType(Class<?> type, ParameterizedType... parameters)
     {
-        Preconditions.checkNotNull(type, "type is null");
+        requireNonNull(type, "type is null");
         this.type = toInternalIdentifier(type);
         this.className = getPathName(type);
+        this.simpleName = type.getSimpleName();
 
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (ParameterizedType parameter : parameters) {
             builder.add(parameter.toString());
         }
         this.parameters = builder.build();
+
+        this.isInterface = type.isInterface();
+        this.primitiveType = type.isPrimitive() ? type : null;
+        this.arrayComponentType = type.isArray() ? type(type.getComponentType()) : null;
     }
 
     public String getClassName()
@@ -131,6 +153,11 @@ public class ParameterizedType
     public String getJavaClassName()
     {
         return className.replace('/', '.');
+    }
+
+    public String getSimpleName()
+    {
+        return simpleName;
     }
 
     public String getType()
@@ -145,7 +172,10 @@ public class ParameterizedType
 
     public String getGenericSignature()
     {
-        final StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
+        if (primitiveType != null || arrayComponentType != null) {
+            return type;
+        }
         sb.append('L').append(className);
         if (!parameters.isEmpty()) {
             sb.append("<");
@@ -161,6 +191,28 @@ public class ParameterizedType
     public boolean isGeneric()
     {
         return !parameters.isEmpty();
+    }
+
+    public boolean isInterface()
+    {
+        return isInterface;
+    }
+
+    @Nullable
+    public Class<?> getPrimitiveType()
+    {
+        return primitiveType;
+    }
+
+    public boolean isPrimitive()
+    {
+        return primitiveType != null;
+    }
+
+    @Nullable
+    public ParameterizedType getArrayComponentType()
+    {
+        return arrayComponentType;
     }
 
     @Override
@@ -273,53 +325,5 @@ public class ParameterizedType
                 return "L" + getPathName(n) + ";";
             }
         }
-    }
-
-    public static Predicate<ParameterizedType> isGenericType()
-    {
-        return new Predicate<ParameterizedType>()
-        {
-            @Override
-            public boolean apply(ParameterizedType input)
-            {
-                return input.isGeneric();
-            }
-        };
-    }
-
-    public static Function<ParameterizedType, String> getParameterType()
-    {
-        return new Function<ParameterizedType, String>()
-        {
-            @Override
-            public String apply(ParameterizedType input)
-            {
-                return input.getType();
-            }
-        };
-    }
-
-    public static Function<Class<?>, ParameterizedType> toParameterizedType()
-    {
-        return new Function<Class<?>, ParameterizedType>()
-        {
-            @Override
-            public ParameterizedType apply(@Nullable Class<?> input)
-            {
-                return new ParameterizedType(input);
-            }
-        };
-    }
-
-    public static Function<String, ParameterizedType> pathToParameterizedType()
-    {
-        return new Function<String, ParameterizedType>()
-        {
-            @Override
-            public ParameterizedType apply(@Nullable String input)
-            {
-                return typeFromPathName(input);
-            }
-        };
     }
 }

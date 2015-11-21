@@ -15,17 +15,17 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QueryId
@@ -49,6 +49,7 @@ public class QueryId
         return id;
     }
 
+    @Override
     @JsonValue
     public String toString()
     {
@@ -58,7 +59,7 @@ public class QueryId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(id);
+        return Objects.hash(id);
     }
 
     @Override
@@ -71,7 +72,7 @@ public class QueryId
             return false;
         }
         final QueryId other = (QueryId) obj;
-        return Objects.equal(this.id, other.id);
+        return Objects.equals(this.id, other.id);
     }
 
     //
@@ -82,7 +83,7 @@ public class QueryId
 
     static String validateId(String id)
     {
-        checkNotNull(id, "id is null");
+        requireNonNull(id, "id is null");
         checkArgument(!id.isEmpty(), "id is empty");
         checkArgument(ID_PATTERN.matcher(id).matches(), "Invalid id %s", id);
         return id;
@@ -90,9 +91,9 @@ public class QueryId
 
     static List<String> parseDottedId(String id, int expectedParts, String name)
     {
-        checkNotNull(id, "id is null");
+        requireNonNull(id, "id is null");
         checkArgument(expectedParts > 0, "expectedParts must be at least 1");
-        checkNotNull(name, "name is null");
+        requireNonNull(name, "name is null");
 
         ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(id));
         checkArgument(ids.size() == expectedParts, "Invalid %s %s", name, id);

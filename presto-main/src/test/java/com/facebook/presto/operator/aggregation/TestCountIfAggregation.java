@@ -13,29 +13,27 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.aggregation.CountIfAggregation.COUNT_IF;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
+import java.util.List;
+
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class TestCountIfAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int start, int length)
+    public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_BOOLEAN);
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append(i % 2 == 0);
+            BOOLEAN.writeBoolean(blockBuilder, i % 2 == 0);
         }
-        return blockBuilder.build();
-    }
-
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return COUNT_IF;
+        return new Block[] {blockBuilder.build()};
     }
 
     @Override
@@ -48,5 +46,17 @@ public class TestCountIfAggregation
             }
         }
         return count;
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "count_if";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.BOOLEAN);
     }
 }

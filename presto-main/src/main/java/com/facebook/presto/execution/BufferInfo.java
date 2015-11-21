@@ -15,34 +15,42 @@ package com.facebook.presto.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
+
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class BufferInfo
 {
-    private final String bufferId;
+    private final TaskId bufferId;
     private final boolean finished;
     private final int bufferedPages;
+
     private final long pagesSent;
+    private final PageBufferInfo pageBufferInfo;
 
     @JsonCreator
     public BufferInfo(
-            @JsonProperty("bufferId") String bufferId,
+            @JsonProperty("bufferId") TaskId bufferId,
             @JsonProperty("finished") boolean finished,
             @JsonProperty("bufferedPages") int bufferedPages,
-            @JsonProperty("pagesSent") long pagesSent)
+            @JsonProperty("pagesSent") long pagesSent,
+            @JsonProperty("pageBufferInfo") PageBufferInfo pageBufferInfo)
     {
-        Preconditions.checkNotNull(bufferId, "bufferId is null");
+        checkArgument(bufferedPages >= 0, "bufferedPages must be >= 0");
+        checkArgument(pagesSent >= 0, "pagesSent must be >= 0");
 
-        this.bufferId = bufferId;
+        this.bufferId = requireNonNull(bufferId, "bufferId is null");
+        this.pagesSent = pagesSent;
+        this.pageBufferInfo = requireNonNull(pageBufferInfo, "pageBufferInfo is null");
         this.finished = finished;
         this.bufferedPages = bufferedPages;
-        this.pagesSent = pagesSent;
     }
 
     @JsonProperty
-    public String getBufferId()
+    public TaskId getBufferId()
     {
         return bufferId;
     }
@@ -65,48 +73,44 @@ public class BufferInfo
         return pagesSent;
     }
 
-    @Override
-    public boolean equals(Object obj)
+    @JsonProperty
+    public PageBufferInfo getPageBufferInfo()
     {
-        if (this == obj) {
+        return pageBufferInfo;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        final BufferInfo other = (BufferInfo) obj;
-        return Objects.equal(this.bufferId, other.bufferId) &&
-                Objects.equal(this.finished, other.finished) &&
-                Objects.equal(this.bufferedPages, other.bufferedPages) &&
-                Objects.equal(this.pagesSent, other.pagesSent);
+        BufferInfo that = (BufferInfo) o;
+        return Objects.equals(finished, that.finished) &&
+                Objects.equals(bufferedPages, that.bufferedPages) &&
+                Objects.equals(pagesSent, that.pagesSent) &&
+                Objects.equals(bufferId, that.bufferId) &&
+                Objects.equals(pageBufferInfo, that.pageBufferInfo);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(bufferId, finished, bufferedPages, pagesSent);
+        return Objects.hash(bufferId, finished, bufferedPages, pagesSent, pageBufferInfo);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("bufferId", bufferId)
                 .add("finished", finished)
                 .add("bufferedPages", bufferedPages)
                 .add("pagesSent", pagesSent)
+                .add("pageBufferInfo", pageBufferInfo)
                 .toString();
-    }
-
-    public static Function<BufferInfo, String> bufferIdGetter()
-    {
-        return new Function<BufferInfo, String>()
-        {
-            @Override
-            public String apply(BufferInfo taskInfo)
-            {
-                return taskInfo.getBufferId();
-            }
-        };
     }
 }

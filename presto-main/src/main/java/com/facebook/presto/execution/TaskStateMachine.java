@@ -14,23 +14,27 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.execution.TaskState.TERMINAL_TASK_STATES;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class TaskStateMachine
 {
     private static final Logger log = Logger.get(TaskStateMachine.class);
+
+    private final DateTime createdTime = DateTime.now();
 
     private final TaskId taskId;
     private final StateMachine<TaskState> taskState;
@@ -38,16 +42,21 @@ public class TaskStateMachine
 
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
-        this.taskId = checkNotNull(taskId, "taskId is null");
-        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING);
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
         taskState.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
-            public void stateChanged(TaskState newValue)
+            public void stateChanged(TaskState newState)
             {
-                log.debug("Task %s is %s", TaskStateMachine.this.taskId, newValue);
+                log.debug("Task %s is %s", TaskStateMachine.this.taskId, newState);
             }
         });
+    }
+
+    public DateTime getCreatedTime()
+    {
+        return createdTime;
     }
 
     public TaskId getTaskId()
@@ -58,6 +67,19 @@ public class TaskStateMachine
     public TaskState getState()
     {
         return taskState.get();
+    }
+
+    public CompletableFuture<TaskState> getStateChange(TaskState currentState)
+    {
+        requireNonNull(currentState, "currentState is null");
+        checkArgument(!currentState.isDone(), "Current state is already done");
+
+        CompletableFuture<TaskState> future = taskState.getStateChange(currentState);
+        TaskState state = taskState.get();
+        if (state.isDone()) {
+            return CompletableFuture.completedFuture(state);
+        }
+        return future;
     }
 
     public LinkedBlockingQueue<Throwable> getFailureCauses()
@@ -75,6 +97,11 @@ public class TaskStateMachine
         transitionToDoneState(TaskState.CANCELED);
     }
 
+    public void abort()
+    {
+        transitionToDoneState(TaskState.ABORTED);
+    }
+
     public void failed(Throwable cause)
     {
         failureCauses.add(cause);
@@ -83,16 +110,10 @@ public class TaskStateMachine
 
     private void transitionToDoneState(TaskState doneState)
     {
-        Preconditions.checkNotNull(doneState, "doneState is null");
-        Preconditions.checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
+        requireNonNull(doneState, "doneState is null");
+        checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
 
-        taskState.setIf(doneState, new Predicate<TaskState>()
-        {
-            public boolean apply(TaskState currentState)
-            {
-                return !currentState.isDone();
-            }
-        });
+        taskState.setIf(doneState, currentState -> !currentState.isDone());
     }
 
     public Duration waitForStateChange(TaskState currentState, Duration maxWait)
@@ -109,7 +130,7 @@ public class TaskStateMachine
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("taskState", taskState)
                 .add("failureCauses", failureCauses)

@@ -13,23 +13,25 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class TableCommitOperator
         implements Operator
 {
-    public static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
+    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT);
 
     public static class TableCommitOperatorFactory
             implements OperatorFactory
@@ -41,13 +43,13 @@ public class TableCommitOperator
         public TableCommitOperatorFactory(int operatorId, TableCommitter tableCommitter)
         {
             this.operatorId = operatorId;
-            this.tableCommitter = checkNotNull(tableCommitter, "tableCommitter is null");
+            this.tableCommitter = requireNonNull(tableCommitter, "tableCommitter is null");
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return TUPLE_INFOS;
+            return TYPES;
         }
 
         @Override
@@ -75,12 +77,14 @@ public class TableCommitOperator
 
     private State state = State.RUNNING;
     private long rowCount;
-    private final ImmutableList.Builder<String> fragmentBuilder = ImmutableList.builder();
+    private boolean committed;
+    private boolean closed;
+    private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
 
     public TableCommitOperator(OperatorContext operatorContext, TableCommitter tableCommitter)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tableCommitter = checkNotNull(tableCommitter, "tableCommitter is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.tableCommitter = requireNonNull(tableCommitter, "tableCommitter is null");
     }
 
     @Override
@@ -90,9 +94,9 @@ public class TableCommitOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return TUPLE_INFOS;
+        return TYPES;
     }
 
     @Override
@@ -110,12 +114,6 @@ public class TableCommitOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
-    }
-
-    @Override
     public boolean needsInput()
     {
         return state == State.RUNNING;
@@ -124,16 +122,18 @@ public class TableCommitOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
-        BlockCursor rowCountCursor = page.getBlock(0).cursor();
-        BlockCursor fragmentCursor = page.getBlock(1).cursor();
-        for (int i = 0; i < page.getPositionCount(); i++) {
-            checkArgument(rowCountCursor.advanceNextPosition());
-            checkArgument(fragmentCursor.advanceNextPosition());
-            rowCount += rowCountCursor.getLong();
-            fragmentBuilder.add(fragmentCursor.getSlice().toStringUtf8());
+        Block rowCountBlock = page.getBlock(0);
+        Block fragmentBlock = page.getBlock(1);
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            if (!rowCountBlock.isNull(position)) {
+                rowCount += BIGINT.getLong(rowCountBlock, position);
+            }
+            if (!fragmentBlock.isNull(position)) {
+                fragmentBuilder.add(VARBINARY.getSlice(fragmentBlock, position));
+            }
         }
     }
 
@@ -146,14 +146,29 @@ public class TableCommitOperator
         state = State.FINISHED;
 
         tableCommitter.commitTable(fragmentBuilder.build());
+        committed = true;
 
-        PageBuilder page = new PageBuilder(getTupleInfos());
-        page.getBlockBuilder(0).append(rowCount);
+        PageBuilder page = new PageBuilder(getTypes());
+        page.declarePosition();
+        BIGINT.writeLong(page.getBlockBuilder(0), rowCount);
         return page.build();
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        if (!closed) {
+            closed = true;
+            if (!committed) {
+                tableCommitter.rollbackTable();
+            }
+        }
     }
 
     public interface TableCommitter
     {
-        void commitTable(Collection<String> fragments);
+        void commitTable(Collection<Slice> fragments);
+        void rollbackTable();
     }
 }

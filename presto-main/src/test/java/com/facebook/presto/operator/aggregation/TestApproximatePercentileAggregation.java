@@ -13,24 +13,30 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.operator.Page;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.type.ArrayType;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.ApproximatePercentileWeightedAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.Tuples.createTuple;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations.DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY;
+import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations.DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations.DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.LONG_APPROXIMATE_PERCENTILE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations.LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY;
+import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAggregations.LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAggregations.LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestApproximatePercentileAggregation
 {
@@ -43,120 +49,136 @@ public class TestApproximatePercentileAggregation
                 LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 null,
-                createPage(
-                        new Long[] {null},
-                        0.5),
-                createPage(
-                        new Long[] {null},
-                        0.5));
+                createLongsBlock(null, null),
+                createRLEBlock(0.5, 2));
 
         assertAggregation(LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 1L,
-                createPage(
-                        new Long[] {null},
-                        0.5),
-                createPage(
-                        new Long[] {1L},
-                        0.5));
+                createLongsBlock(null, 1L),
+                createRLEBlock(0.5, 2));
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 2L,
-                createPage(
-                        new Long[] {null},
-                        0.5),
-                createPage(
-                        new Long[] {1L, 2L, 3L},
-                        0.5));
+                createLongsBlock(null, 1L, 2L, 3L),
+                createRLEBlock(0.5, 4));
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 2L,
-                createPage(
-                        new Long[] {1L},
-                        0.5),
-                createPage(
-                        new Long[] {2L, 3L},
-                        0.5));
+                createLongsBlock(1L, 2L, 3L),
+                createRLEBlock(0.5, 3));
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 3L,
-                createPage(
-                        new Long[] {1L, null, 2L, 2L, null, 2L, 2L, null},
-                        0.5),
-                createPage(
-                        new Long[] {2L, 2L, null, 3L, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L},
-                        0.5));
+                createLongsBlock(1L, null, 2L, 2L, null, 2L, 2L, null, 2L, 2L, null, 3L, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
+                createRLEBlock(0.5, 21));
+
+        // array of approx_percentile
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                null,
+                createLongsBlock(null, null),
+                createRLEBlock(ImmutableList.of(0.5),  2));
+
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                null,
+                createLongsBlock(null, null),
+                createRLEBlock(ImmutableList.of(0.5, 0.99),  2));
+
+        assertAggregation(LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                ImmutableList.of(1L, 1L),
+                createLongsBlock(null, 1L),
+                createRLEBlock(ImmutableList.of(0.5, 0.5),  2));
+
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                ImmutableList.of(1L, 2L, 3L),
+                createLongsBlock(null, 1L, 2L, 3L),
+                createRLEBlock(ImmutableList.of(0.2, 0.5, 0.8),  4));
+
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                ImmutableList.of(2L, 3L),
+                createLongsBlock(1L, 2L, 3L),
+                createRLEBlock(ImmutableList.of(0.5, 0.99),  3));
+
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                ImmutableList.of(1L, 3L),
+                createLongsBlock(1L, null, 2L, 2L, null, 2L, 2L, null, 2L, 2L, null, 3L, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
+                createRLEBlock(ImmutableList.of(0.01, 0.5),  21));
 
         // weighted approx_percentile
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 null,
-                createPage(
-                        new Long[] {null},
-                        new Long[] {1L},
-                        0.5),
-                createPage(
-                        new Long[] {null},
-                        new Long[] {1L},
-                        0.5));
+                createLongsBlock(null, null),
+                createLongsBlock(1L, 1L),
+                createRLEBlock(0.5, 2));
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 1L,
-                createPage(
-                        new Long[] {null},
-                        new Long[] {1L},
-                        0.5),
-                createPage(
-                        new Long[] {1L},
-                        new Long[] {1L},
-                        0.5));
+                createLongsBlock(null, 1L),
+                createLongsBlock(1L, 1L),
+                createRLEBlock(0.5, 2));
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 2L,
-                createPage(
-                        new Long[] {null},
-                        new Long[] {1L}, 0.5),
-                createPage(
-                        new Long[] {1L, 2L, 3L},
-                        new Long[] {1L, 1L, 1L},
-                        0.5));
+                createLongsBlock(null, 1L, 2L, 3L),
+                createLongsBlock(1L, 1L, 1L, 1L),
+                createRLEBlock(0.5, 4));
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 2L,
-                createPage(
-                        new Long[] {1L},
-                        new Long[] {1L},
-                        0.5),
-                createPage(
-                        new Long[] {2L, 3L},
-                        new Long[] {1L, 1L},
-                        0.5));
+                createLongsBlock(1L, 2L, 3L),
+                createLongsBlock(1L, 1L, 1L),
+                createRLEBlock(0.5, 3));
 
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 3L,
-                createPage(
-                        new Long[] {1L, null, 2L, null, 2L, null},
-                        new Long[] {1L, 1L, 2L, 1L, 2L, 1L},
-                        0.5),
-                createPage(
-                        new Long[] {2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L},
-                        new Long[] {2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L},
-                        0.5));
+                createLongsBlock(1L, null, 2L, null, 2L, null, 2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
+                createLongsBlock(1L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L),
+                createRLEBlock(0.5, 17));
+
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY,
+                1.0,
+                9900L,
+                createLongSequenceBlock(0, 10000),
+                createLongRepeatBlock(1, 10000),
+                createRLEBlock(0.99, 10000),
+                createRLEBlock(0.001, 10000));
+
+        // weighted + array of approx_percentile
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION,
+                1.0,
+                ImmutableList.of(1L, 2L),
+                createLongsBlock(1L, 2L, 3L),
+                createLongsBlock(4L, 2L, 1L),
+                createRLEBlock(ImmutableList.of(0.5, 0.8),  3));
     }
 
     @Test
@@ -168,199 +190,158 @@ public class TestApproximatePercentileAggregation
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 null,
-                createPage(
-                        new Double[] {null},
-                        0.5),
-                createPage(
-                        new Double[] {null},
-                        0.5));
+                createDoublesBlock(null, null),
+                createRLEBlock(0.5, 2));
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 1.0,
-                createPage(
-                        new Double[] {null},
-                        0.5),
-                createPage(
-                        new Double[] {1.0},
-                        0.5));
+                createDoublesBlock(null, 1.0),
+                createRLEBlock(0.5, 2));
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 2.0,
-                createPage(
-                        new Double[] {null},
-                        0.5),
-                createPage(
-                        new Double[] {1.0, 2.0, 3.0},
-                        0.5));
+                createDoublesBlock(null, 1.0, 2.0, 3.0),
+                createRLEBlock(0.5, 4));
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 2.0,
-                createPage(
-                        new Double[] {1.0},
-                        0.5),
-                createPage(
-                        new Double[] {2.0, 3.0},
-                        0.5));
+                createDoublesBlock(1.0, 2.0, 3.0),
+                createRLEBlock(0.5, 3));
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1.0,
                 3.0,
-                createPage(
-                        new Double[] {1.0, null, 2.0, 2.0, null, 2.0, 2.0, null},
-                        0.5),
-                createPage(
-                        new Double[] {2.0, 2.0, null, 3.0, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0},
-                        0.5));
+                createDoublesBlock(1.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 3.0, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
+                createRLEBlock(0.5, 21));
+
+        // array of approx_percentile
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                null,
+                createDoublesBlock(null, null),
+                createRLEBlock(ImmutableList.of(0.5),  2));
+
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                null,
+                createDoublesBlock(null, null),
+                createRLEBlock(ImmutableList.of(0.5, 0.5),  2));
+
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                ImmutableList.of(1.0, 1.0),
+                createDoublesBlock(null, 1.0),
+                createRLEBlock(ImmutableList.of(0.5, 0.5),  2));
+
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                ImmutableList.of(1.0, 2.0, 3.0),
+                createDoublesBlock(null, 1.0, 2.0, 3.0),
+                createRLEBlock(ImmutableList.of(0.2, 0.5, 0.8),  4));
+
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                ImmutableList.of(2.0, 3.0),
+                createDoublesBlock(1.0, 2.0, 3.0),
+                createRLEBlock(ImmutableList.of(0.5, 0.99),  3));
+
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+                1.0,
+                ImmutableList.of(1.0, 3.0),
+                createDoublesBlock(1.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 2.0, 2.0, null, 3.0, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
+                createRLEBlock(ImmutableList.of(0.01, 0.5),  21));
 
         // weighted approx_percentile
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 null,
-                createPage(
-                        new Double[] {null},
-                        new Long[] {1L},
-                        0.5),
-                createPage(
-                        new Double[] {null},
-                        new Long[] {1L},
-                        0.5));
+                createDoublesBlock(null, null),
+                createLongsBlock(1L, 1L),
+                createRLEBlock(0.5, 2));
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 1.0,
-                createPage(
-                        new Double[] {null},
-                        new Long[] {1L},
-                        0.5),
-                createPage(
-                        new Double[] {1.0},
-                        new Long[] {1L},
-                        0.5));
+                createDoublesBlock(null, 1.0),
+                createLongsBlock(1L, 1L),
+                createRLEBlock(0.5, 2));
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 2.0,
-                createPage(
-                        new Double[] {null},
-                        new Long[] {1L},
-                        0.5),
-                createPage(
-                        new Double[] {1.0, 2.0, 3.0},
-                        new Long[] {1L, 1L, 1L},
-                        0.5));
+                createDoublesBlock(null, 1.0, 2.0, 3.0),
+                createLongsBlock(1L, 1L, 1L, 1L),
+                createRLEBlock(0.5, 4));
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 2.0,
-                createPage(
-                        new Double[] {1.0},
-                        new Long[] {1L},
-                        0.5),
-                createPage(
-                        new Double[] {2.0, 3.0},
-                        new Long[] {1L, 1L},
-                        0.5));
+                createDoublesBlock(1.0, 2.0, 3.0),
+                createLongsBlock(1L, 1L, 1L),
+                createRLEBlock(0.5, 3));
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 1.0,
                 3.0,
-                createPage(
-                        new Double[] {1.0, null, 2.0, null, 2.0, null},
-                        new Long[] {1L, 1L, 2L, 1L, 2L, 1L},
-                        0.5),
-                createPage(
-                        new Double[] {2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0},
-                        new Long[] {2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L},
-                        0.5));
+                createDoublesBlock(1.0, null, 2.0, null, 2.0, null, 2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
+                createLongsBlock(1L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L),
+                createRLEBlock(0.5, 17));
+
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY,
+                1.0,
+                9900.0,
+                createDoubleSequenceBlock(0, 10000),
+                createLongRepeatBlock(1, 10000),
+                createRLEBlock(0.99, 10000),
+                createRLEBlock(0.001, 10000));
+
+        // weighted + array of approx_percentile
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION,
+                1.0,
+                ImmutableList.of(1.0, 2.0),
+                createDoublesBlock(1.0, 2.0, 3.0),
+                createLongsBlock(4L, 2L, 1L),
+                createRLEBlock(ImmutableList.of(0.5, 0.8),  3));
     }
 
-    private static Page createPage(Double[] values, double percentile)
+    private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)
     {
-        Block valuesBlock;
-        Block percentilesBlock;
-
-        if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-        }
-        else {
-            valuesBlock = createDoublesBlock(values);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
-        }
-
-        return new Page(valuesBlock, percentilesBlock);
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 1);
+        DOUBLE.writeDouble(blockBuilder, percentile);
+        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }
 
-    private static Page createPage(Long[] values, double percentile)
+    private static RunLengthEncodedBlock createRLEBlock(Iterable<Double> percentiles, int positionCount)
     {
-        Block valuesBlock;
-        Block percentilesBlock;
+        BlockBuilder rleBlockBuilder = new ArrayType(DOUBLE).createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder arrayBlockBuilder = rleBlockBuilder.beginBlockEntry();
 
-        if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-        }
-        else {
-            valuesBlock = createLongsBlock(values);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
+        for (double percentile : percentiles) {
+            DOUBLE.writeDouble(arrayBlockBuilder, percentile);
         }
 
-        return new Page(valuesBlock, percentilesBlock);
-    }
+        rleBlockBuilder.closeEntry();
 
-    private static Page createPage(Long[] values, Long[] weights, double percentile)
-    {
-        Preconditions.checkArgument(values.length == weights.length, "values.length must match weights.length");
-
-        Block valuesBlock;
-        Block weightsBlock;
-        Block percentilesBlock;
-
-        if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            weightsBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-        }
-        else {
-            valuesBlock = createLongsBlock(values);
-            weightsBlock = createLongsBlock(weights);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
-        }
-
-        return new Page(valuesBlock, weightsBlock, percentilesBlock);
-    }
-
-    private static Page createPage(Double[] values, Long[] weights, double percentile)
-    {
-        Preconditions.checkArgument(values.length == weights.length, "values.length must match weights.length");
-
-        Block valuesBlock;
-        Block weightsBlock;
-        Block percentilesBlock;
-
-        if (values.length == 0) {
-            valuesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-            weightsBlock = new UncompressedBlock(0, SINGLE_LONG, EMPTY_SLICE);
-            percentilesBlock = new UncompressedBlock(0, SINGLE_DOUBLE, EMPTY_SLICE);
-        }
-        else {
-            valuesBlock = createDoublesBlock(values);
-            weightsBlock = createLongsBlock(weights);
-            percentilesBlock = new RunLengthEncodedBlock(createTuple(percentile), values.length);
-        }
-
-        return new Page(valuesBlock, weightsBlock, percentilesBlock);
+        return new RunLengthEncodedBlock(rleBlockBuilder.build(), positionCount);
     }
 }

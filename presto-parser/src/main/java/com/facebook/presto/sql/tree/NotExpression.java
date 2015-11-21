@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class NotExpression
         extends Expression
@@ -22,7 +24,18 @@ public class NotExpression
 
     public NotExpression(Expression value)
     {
-        Preconditions.checkNotNull(value, "value is null");
+        this(Optional.empty(), value);
+    }
+
+    public NotExpression(NodeLocation location, Expression value)
+    {
+        this(Optional.of(location), value);
+    }
+
+    private NotExpression(Optional<NodeLocation> location, Expression value)
+    {
+        super(location);
+        requireNonNull(value, "value is null");
         this.value = value;
     }
 

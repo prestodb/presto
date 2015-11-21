@@ -13,25 +13,21 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TupleDomain;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
-import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.tpch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class TpchSplitManager
         implements ConnectorSplitManager
@@ -49,84 +45,24 @@ public class TpchSplitManager
     }
 
     @Override
-    public String getConnectorId()
+    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        return connectorId;
-    }
-
-    @Override
-    public boolean canHandle(TableHandle handle)
-    {
-        return handle instanceof TpchTableHandle && ((TpchTableHandle) handle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
-    {
-        ImmutableList<Partition> partitions = ImmutableList.<Partition>of(new TpchPartition((TpchTableHandle) table));
-        return new PartitionResult(partitions, tupleDomain);
-    }
-
-    @Override
-    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
-    {
-        checkNotNull(partitions, "partitions is null");
-        if (partitions.isEmpty()) {
-            return new FixedSplitSource(connectorId, ImmutableList.<Split>of());
-        }
-
-        Partition partition = Iterables.getOnlyElement(partitions);
-        checkArgument(partition instanceof TpchPartition, "Partition must be a tpch partition");
-        TpchTableHandle tableHandle = ((TpchPartition) partition).getTable();
+        TpchTableHandle tableHandle = checkType(layout, TpchTableLayoutHandle.class, "layout").getTable();
 
         Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
+        checkState(!nodes.isEmpty(), "No TPCH nodes available");
 
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
 
         // Split the data using split and skew by the number of nodes available.
-        ImmutableList.Builder<Split> splits = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (Node node : nodes) {
             for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(new TpchSplit(tableHandle, partNumber++, totalParts, ImmutableList.of(node.getHostAndPort())));
+                splits.add(new TpchSplit(tableHandle, partNumber, totalParts, ImmutableList.of(node.getHostAndPort())));
+                partNumber++;
             }
         }
         return new FixedSplitSource(connectorId, splits.build());
-    }
-
-    public static class TpchPartition
-            implements Partition
-    {
-        private final TpchTableHandle table;
-
-        public TpchPartition(TpchTableHandle table)
-        {
-            this.table = checkNotNull(table, "table is null");
-        }
-
-        public TpchTableHandle getTable()
-        {
-            return table;
-        }
-
-        @Override
-        public String getPartitionId()
-        {
-            return table.getTableName();
-        }
-
-        @Override
-        public TupleDomain getTupleDomain()
-        {
-            return TupleDomain.all();
-        }
-
-        @Override
-        public String toString()
-        {
-            return Objects.toStringHelper(this)
-                    .add("table", table)
-                    .toString();
-        }
     }
 }

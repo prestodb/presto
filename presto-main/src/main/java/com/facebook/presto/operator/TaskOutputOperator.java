@@ -14,14 +14,15 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SharedBuffer;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class TaskOutputOperator
         implements Operator
@@ -33,11 +34,11 @@ public class TaskOutputOperator
 
         public TaskOutputFactory(SharedBuffer sharedBuffer)
         {
-            this.sharedBuffer = checkNotNull(sharedBuffer, "sharedBuffer is null");
+            this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
         }
 
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, List<TupleInfo> sourceTupleInfo)
+        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes)
         {
             return new TaskOutputOperatorFactory(operatorId, sharedBuffer);
         }
@@ -52,11 +53,11 @@ public class TaskOutputOperator
         public TaskOutputOperatorFactory(int operatorId, SharedBuffer sharedBuffer)
         {
             this.operatorId = operatorId;
-            this.sharedBuffer = checkNotNull(sharedBuffer, "sharedBuffer is null");
+            this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
             return ImmutableList.of();
         }
@@ -81,8 +82,8 @@ public class TaskOutputOperator
 
     public TaskOutputOperator(OperatorContext operatorContext, SharedBuffer sharedBuffer)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.sharedBuffer = checkNotNull(sharedBuffer, "sharedBuffer is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
     }
 
     @Override
@@ -92,7 +93,7 @@ public class TaskOutputOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
         return ImmutableList.of();
     }
@@ -134,13 +135,13 @@ public class TaskOutputOperator
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(blocked == NOT_BLOCKED, "output is already blocked");
         ListenableFuture<?> future = sharedBuffer.enqueue(page);
         if (!future.isDone()) {
             this.blocked = future;
         }
-        operatorContext.recordGeneratedOutput(page.getDataSize(), page.getPositionCount());
+        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override

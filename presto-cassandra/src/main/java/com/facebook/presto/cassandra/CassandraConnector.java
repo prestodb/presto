@@ -16,51 +16,64 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraConnector
         implements Connector
 {
+    private static final Logger log = Logger.get(CassandraConnector.class);
+
+    private final LifeCycleManager lifeCycleManager;
     private final CassandraMetadata metadata;
     private final CassandraSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
     private final CassandraHandleResolver handleResolver;
+    private final CassandraConnectorRecordSinkProvider recordSinkProvider;
 
     @Inject
     public CassandraConnector(
+            LifeCycleManager lifeCycleManager,
             CassandraMetadata metadata,
             CassandraSplitManager splitManager,
             CassandraRecordSetProvider recordSetProvider,
-            CassandraHandleResolver handleResolver)
+            CassandraHandleResolver handleResolver,
+            CassandraConnectorRecordSinkProvider recordSinkProvider)
     {
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
-        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.recordSinkProvider = requireNonNull(recordSinkProvider, "recordSinkProvider is null");
     }
 
+    @Override
     public ConnectorMetadata getMetadata()
     {
         return metadata;
     }
 
+    @Override
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
     }
 
+    @Override
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
     }
 
+    @Override
     public ConnectorHandleResolver getHandleResolver()
     {
         return handleResolver;
@@ -69,12 +82,17 @@ public class CassandraConnector
     @Override
     public ConnectorRecordSinkProvider getRecordSinkProvider()
     {
-        throw new UnsupportedOperationException();
+        return recordSinkProvider;
     }
 
     @Override
-    public ConnectorOutputHandleResolver getOutputHandleResolver()
+    public final void shutdown()
     {
-        throw new UnsupportedOperationException();
+        try {
+            lifeCycleManager.stop();
+        }
+        catch (Exception e) {
+            log.error(e, "Error shutting down connector");
+        }
     }
 }

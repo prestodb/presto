@@ -19,3 +19,6 @@ test-output
 benchmark_outputs
 *.pyc
 *.class
+.checkstyle
+*-local.yaml
+.mvn/timing.properties

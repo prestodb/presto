@@ -25,9 +25,8 @@ import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
-import static com.google.common.base.Charsets.UTF_8;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -41,20 +40,20 @@ public class TestExampleRecordSet
             throws Exception
     {
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", STRING, 0),
-                new ExampleColumnHandle("test", "value", LONG, 1)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(STRING, LONG));
+                new ExampleColumnHandle("test", "text", VARCHAR, 0),
+                new ExampleColumnHandle("test", "value", BIGINT, 1)));
+        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, BIGINT));
 
         recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "value", LONG, 1),
-                new ExampleColumnHandle("test", "text", STRING, 0)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(LONG, STRING));
+                new ExampleColumnHandle("test", "value", BIGINT, 1),
+                new ExampleColumnHandle("test", "text", VARCHAR, 0)));
+        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
 
         recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "value", LONG, 1),
-                new ExampleColumnHandle("test", "value", LONG, 1),
-                new ExampleColumnHandle("test", "text", STRING, 0)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(LONG, LONG, STRING));
+                new ExampleColumnHandle("test", "value", BIGINT, 1),
+                new ExampleColumnHandle("test", "value", BIGINT, 1),
+                new ExampleColumnHandle("test", "text", VARCHAR, 0)));
+        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
         recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.<ExampleColumnHandle>of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
@@ -65,16 +64,16 @@ public class TestExampleRecordSet
             throws Exception
     {
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "text", STRING, 0),
-                new ExampleColumnHandle("test", "value", LONG, 1)));
+                new ExampleColumnHandle("test", "text", VARCHAR, 0),
+                new ExampleColumnHandle("test", "value", BIGINT, 1)));
         RecordCursor cursor = recordSet.cursor();
 
-        assertEquals(cursor.getType(0), STRING);
-        assertEquals(cursor.getType(1), LONG);
+        assertEquals(cursor.getType(0), VARCHAR);
+        assertEquals(cursor.getType(1), BIGINT);
 
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
-            data.put(new String(cursor.getString(0), UTF_8), cursor.getLong(1));
+            data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(1));
             assertFalse(cursor.isNull(0));
             assertFalse(cursor.isNull(1));
         }
@@ -90,15 +89,15 @@ public class TestExampleRecordSet
             throws Exception
     {
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("test", "schema", "table", dataUri), ImmutableList.of(
-                new ExampleColumnHandle("test", "value", LONG, 1),
-                new ExampleColumnHandle("test", "value", LONG, 1),
-                new ExampleColumnHandle("test", "text", STRING, 0)));
+                new ExampleColumnHandle("test", "value", BIGINT, 1),
+                new ExampleColumnHandle("test", "value", BIGINT, 1),
+                new ExampleColumnHandle("test", "text", VARCHAR, 0)));
         RecordCursor cursor = recordSet.cursor();
 
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
             assertEquals(cursor.getLong(0), cursor.getLong(1));
-            data.put(new String(cursor.getString(2), UTF_8), cursor.getLong(0));
+            data.put(cursor.getSlice(2).toStringUtf8(), cursor.getLong(0));
         }
         assertEquals(data, ImmutableMap.<String, Long>builder()
                 .put("ten", 10L)

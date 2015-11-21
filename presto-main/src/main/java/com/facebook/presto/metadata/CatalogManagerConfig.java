@@ -13,15 +13,22 @@
  */
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.List;
 
 public class CatalogManagerConfig
 {
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
     private File catalogConfigurationDir = new File("etc/catalog/");
+    private List<String> disabledCatalogs;
 
     @NotNull
     public File getCatalogConfigurationDir()
@@ -29,10 +36,29 @@ public class CatalogManagerConfig
         return catalogConfigurationDir;
     }
 
-    @Config("plugin.config-dir")
-    public CatalogManagerConfig setCatalogConfigurationDir(File pluginConfigurationDir)
+    @LegacyConfig("plugin.config-dir")
+    @Config("catalog.config-dir")
+    public CatalogManagerConfig setCatalogConfigurationDir(File dir)
     {
-        this.catalogConfigurationDir = pluginConfigurationDir;
+        this.catalogConfigurationDir = dir;
+        return this;
+    }
+
+    public List<String> getDisabledCatalogs()
+    {
+        return disabledCatalogs;
+    }
+
+    @Config("catalog.disabled-catalogs")
+    public CatalogManagerConfig setDisabledCatalogs(String catalogs)
+    {
+        this.disabledCatalogs = (catalogs == null) ? null : SPLITTER.splitToList(catalogs);
+        return this;
+    }
+
+    public CatalogManagerConfig setDisabledCatalogs(List<String> catalogs)
+    {
+        this.disabledCatalogs = (catalogs == null) ? null : ImmutableList.copyOf(catalogs);
         return this;
     }
 }

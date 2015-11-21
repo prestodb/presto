@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class ComparisonExpression
         extends Expression
@@ -48,9 +49,20 @@ public class ComparisonExpression
 
     public ComparisonExpression(Type type, Expression left, Expression right)
     {
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(left, "left is null");
-        Preconditions.checkNotNull(right, "right is null");
+        this(Optional.empty(), type, left, right);
+    }
+
+    public ComparisonExpression(NodeLocation location, Type type, Expression left, Expression right)
+    {
+        this(Optional.of(location), type, left, right);
+    }
+
+    private ComparisonExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
+    {
+        super(location);
+        requireNonNull(type, "type is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
 
         this.type = type;
         this.left = left;
@@ -110,19 +122,5 @@ public class ComparisonExpression
         result = 31 * result + left.hashCode();
         result = 31 * result + right.hashCode();
         return result;
-    }
-
-    public static Predicate<ComparisonExpression> matchesPattern(final Type type, final Class<?> left, final Class<?> right)
-    {
-        return new Predicate<ComparisonExpression>()
-        {
-            @Override
-            public boolean apply(ComparisonExpression expression)
-            {
-                return expression.getType() == type &&
-                        left.isAssignableFrom(expression.getLeft().getClass()) &&
-                        right.isAssignableFrom(expression.getRight().getClass());
-            }
-        };
     }
 }

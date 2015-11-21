@@ -16,20 +16,31 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.base.Preconditions;
+
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 class PlanBuilder
 {
     private final TranslationMap translations;
     private final PlanNode root;
+    private final Optional<Symbol> sampleWeight;
 
-    public PlanBuilder(TranslationMap translations, PlanNode root)
+    public PlanBuilder(TranslationMap translations, PlanNode root, Optional<Symbol> sampleWeight)
     {
-        Preconditions.checkNotNull(translations, "translations is null");
-        Preconditions.checkNotNull(root, "root is null");
+        requireNonNull(translations, "translations is null");
+        requireNonNull(root, "root is null");
+        requireNonNull(sampleWeight, "sampleWeight is null");
 
         this.translations = translations;
         this.root = root;
+        this.sampleWeight = sampleWeight;
+    }
+
+    public Optional<Symbol> getSampleWeight()
+    {
+        return sampleWeight;
     }
 
     public RelationPlan getRelationPlan()

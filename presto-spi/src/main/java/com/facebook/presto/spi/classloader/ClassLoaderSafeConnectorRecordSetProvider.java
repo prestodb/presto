@@ -15,8 +15,9 @@ package com.facebook.presto.spi.classloader;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
 
 import java.util.List;
 
@@ -35,18 +36,10 @@ public class ClassLoaderSafeConnectorRecordSetProvider
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canHandle(split);
-        }
-    }
-
-    @Override
-    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return new ClassLoaderSafeRecordSet(delegate.getRecordSet(split, columns), classLoader);
+            return new ClassLoaderSafeRecordSet(delegate.getRecordSet(session, split, columns), classLoader);
         }
     }
 

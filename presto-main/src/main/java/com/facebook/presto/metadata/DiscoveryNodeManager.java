@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -35,11 +36,11 @@ import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
 import static java.util.Arrays.asList;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class DiscoveryNodeManager
@@ -62,36 +63,42 @@ public final class DiscoveryNodeManager
     @GuardedBy("this")
     private long lastUpdateTimestamp;
 
+    private final PrestoNode currentNode;
+
     @GuardedBy("this")
-    private PrestoNode currentNode;
+    private Set<Node> coordinators;
 
     @Inject
     public DiscoveryNodeManager(@ServiceType("presto") ServiceSelector serviceSelector, NodeInfo nodeInfo, FailureDetector failureDetector, NodeVersion expectedNodeVersion)
     {
-        this.serviceSelector = checkNotNull(serviceSelector, "serviceSelector is null");
-        this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
-        this.failureDetector = checkNotNull(failureDetector, "failureDetector is null");
-        this.expectedNodeVersion = checkNotNull(expectedNodeVersion, "expectedNodeVersion is null");
-
-        refreshNodes();
+        this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
+        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
+        this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
+        this.currentNode = refreshNodesInternal();
     }
 
     @Override
-    public synchronized void refreshNodes()
+    public void refreshNodes()
+    {
+        refreshNodesInternal();
+    }
+
+    private synchronized PrestoNode refreshNodesInternal()
     {
         lastUpdateTimestamp = System.nanoTime();
 
         // This is currently a blacklist.
         // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
-        Set<ServiceDescriptor> services = IterableTransformer.on(serviceSelector.selectAllServices())
-                .select(not(in(failureDetector.getFailed())))
-                .set();
+        Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
+                .filter(service -> !failureDetector.getFailed().contains(service))
+                .collect(toImmutableSet());
 
-        // reset current node
-        currentNode = null;
+        PrestoNode currentNode = null;
 
         ImmutableSet.Builder<Node> activeNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<Node> coordinatorsBuilder = ImmutableSet.builder();
         ImmutableSetMultimap.Builder<String, Node> byDataSourceBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
@@ -108,15 +115,21 @@ public final class DiscoveryNodeManager
 
                 if (isActive(node)) {
                     activeNodesBuilder.add(node);
+                    if (Boolean.parseBoolean(service.getProperties().get("coordinator"))) {
+                        coordinatorsBuilder.add(node);
+                    }
 
                     // record available active nodes organized by data source
                     String dataSources = service.getProperties().get("datasources");
                     if (dataSources != null) {
-                        dataSources = dataSources.toLowerCase();
+                        dataSources = dataSources.toLowerCase(ENGLISH);
                         for (String dataSource : DATASOURCES_SPLITTER.split(dataSources)) {
                             byDataSourceBuilder.put(dataSource, node);
                         }
                     }
+
+                    // always add system data source
+                    byDataSourceBuilder.put(SystemConnector.NAME, node);
                 }
                 else {
                     inactiveNodesBuilder.add(node);
@@ -126,14 +139,16 @@ public final class DiscoveryNodeManager
 
         allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build());
         activeNodesByDataSource = byDataSourceBuilder.build();
+        coordinators = coordinatorsBuilder.build();
 
         checkState(currentNode != null, "INVARIANT: current node not returned from service selector");
+        return currentNode;
     }
 
     private synchronized void refreshIfNecessary()
     {
         if (Duration.nanosSince(lastUpdateTimestamp).compareTo(MAX_AGE) > 0) {
-            refreshNodes();
+            refreshNodesInternal();
         }
     }
 
@@ -163,16 +178,21 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Node getCurrentNode()
+    public Node getCurrentNode()
+    {
+        return currentNode;
+    }
+
+    @Override
+    public synchronized Set<Node> getCoordinators()
     {
         refreshIfNecessary();
-        return currentNode;
+        return coordinators;
     }
 
     private static URI getHttpUri(ServiceDescriptor descriptor)
     {
-        // favor https over http
-        for (String type : asList("https", "http")) {
+        for (String type : asList("http", "https")) {
             String url = descriptor.getProperties().get(type);
             if (url != null) {
                 try {

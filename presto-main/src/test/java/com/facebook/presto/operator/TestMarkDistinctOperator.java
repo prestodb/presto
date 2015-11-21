@@ -13,27 +13,31 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.util.MaterializedResult;
-import com.google.common.base.Optional;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_BOOLEAN;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
+@Test(singleThreaded = true)
 public class TestMarkDistinctOperator
 {
     private ExecutorService executor;
@@ -42,9 +46,8 @@ public class TestMarkDistinctOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        driverContext = createTaskContext(executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }
@@ -55,47 +58,31 @@ public class TestMarkDistinctOperator
         executor.shutdownNow();
     }
 
-    @Test
-    public void testSampledMarkDistinct()
-            throws Exception
+    @DataProvider(name = "hashEnabledValues")
+    public static Object[][] hashEnabledValuesProvider()
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
-                .addSequencePage(100, 0)
-                .addSequencePage(100, 0)
-                .build();
-        input = appendSampleWeight(input, 2);
-
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(SINGLE_LONG, SINGLE_LONG), ImmutableList.of(0), Optional.of(1));
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        MaterializedResult.Builder expected = resultBuilder(SINGLE_LONG, SINGLE_LONG, SINGLE_BOOLEAN);
-        for (int i = 0; i < 100; i++) {
-            expected.row(i, 1, true);
-            expected.row(i, 1, false);
-            expected.row(i, 2, false);
-        }
-
-        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build());
+        return new Object[][] { { true }, { false } };
     }
 
-    @Test
-    public void testMarkDistinct()
+    @Test(dataProvider = "hashEnabledValues")
+    public void testMarkDistinct(boolean hashEnabled)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG)
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
+        List<Page> input = rowPagesBuilder
                 .addSequencePage(100, 0)
                 .addSequencePage(100, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, ImmutableList.of(SINGLE_LONG), ImmutableList.of(0), Optional.<Integer>absent());
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, rowPagesBuilder.getTypes(), ImmutableList.of(0), rowPagesBuilder.getHashChannel());
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult.Builder expected = resultBuilder(SINGLE_LONG, SINGLE_BOOLEAN);
+        MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
         for (int i = 0; i < 100; i++) {
             expected.row(i, true);
             expected.row(i, false);
         }
 
-        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build());
+        OperatorAssertion.assertOperatorEqualsIgnoreOrder(operator, input, expected.build(), hashEnabled, Optional.of(1));
     }
 }

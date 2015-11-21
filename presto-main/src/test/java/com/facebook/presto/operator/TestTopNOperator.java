@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.tuple.FieldOrderedTupleComparator;
-import com.facebook.presto.util.MaterializedResult;
-import com.google.common.base.Optional;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -28,20 +24,21 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestTopNOperator
 {
     private ExecutorService executor;
@@ -50,9 +47,8 @@ public class TestTopNOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        driverContext = createTaskContext(executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }
@@ -64,47 +60,10 @@ public class TestTopNOperator
     }
 
     @Test
-    public void testSampledTopN()
-            throws Exception
-    {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
-                .row(1, 0.1)
-                .row(2, 0.2)
-                .pageBreak()
-                .row(-1, -0.1)
-                .row(4, 0.4)
-                .pageBreak()
-                .row(5, 0.5)
-                .row(4, 0.41)
-                .row(6, 0.6)
-                .row(5, 0.5)
-                .pageBreak()
-                .build();
-        input = appendSampleWeight(input, 2);
-
-        TopNOperatorFactory factory = new TopNOperatorFactory(
-                0,
-                5,
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0), singleColumn(DOUBLE, 1), singleColumn(FIXED_INT_64, 2)),
-                Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
-                Optional.of(input.get(0).getChannelCount() - 1),
-                false);
-
-        Operator operator = factory.createOperator(driverContext);
-
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE, FIXED_INT_64)
-                .row(6, 0.6, 2)
-                .row(5, 0.5, 3)
-                .build();
-
-        assertOperatorEquals(operator, input, expected);
-    }
-
-    @Test
     public void testSingleFieldKey()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -119,15 +78,15 @@ public class TestTopNOperator
 
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
+                ImmutableList.of(BIGINT, DOUBLE),
                 2,
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0), singleColumn(DOUBLE, 1)),
-                Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.DESC_NULLS_LAST))),
-                Optional.<Integer>absent(),
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST),
                 false);
 
         Operator operator = factory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(6, 0.6)
                 .row(5, 0.5)
                 .build();
@@ -139,7 +98,7 @@ public class TestTopNOperator
     public void testMultiFieldKey()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1)
                 .row("b", 2)
                 .pageBreak()
@@ -151,18 +110,17 @@ public class TestTopNOperator
                 .row("e", 6)
                 .build();
 
-        FieldOrderedTupleComparator comparator = new FieldOrderedTupleComparator(ImmutableList.of(0, 1), ImmutableList.of(SortOrder.DESC_NULLS_LAST, SortOrder.DESC_NULLS_LAST));
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
+                ImmutableList.of(VARCHAR, BIGINT),
                 3,
-                ImmutableList.of(singleColumn(VARIABLE_BINARY, 0), singleColumn(FIXED_INT_64, 1)),
-                Ordering.from(comparator),
-                Optional.<Integer>absent(),
+                ImmutableList.of(0, 1),
+                ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST),
                 false);
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
+        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("f", 3)
                 .row("e", 6)
                 .row("d", 7)
@@ -175,7 +133,7 @@ public class TestTopNOperator
     public void testReverseOrder()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -190,19 +148,47 @@ public class TestTopNOperator
 
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
+                ImmutableList.of(BIGINT, DOUBLE),
                 2,
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0), singleColumn(DOUBLE, 1)),
-                Ordering.from(new FieldOrderedTupleComparator(ImmutableList.of(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST))),
-                Optional.<Integer>absent(),
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST),
                 false);
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, DOUBLE)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(-1, -0.1)
                 .row(1, 0.1)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testLimitZero()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT).row(1).build();
+
+        TopNOperatorFactory factory = new TopNOperatorFactory(
+                0,
+                ImmutableList.of(BIGINT),
+                0,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST),
+                false);
+
+        Operator operator = factory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT).build();
+
+        // assertOperatorEquals assumes operators do not start in finished state
+        assertEquals(operator.isFinished(), true);
+        assertEquals(operator.needsInput(), false);
+        assertEquals(operator.getOutput(), null);
+
+        List<Page> pages = OperatorAssertion.toPages(operator, input.iterator());
+        MaterializedResult actual = OperatorAssertion.toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+        assertEquals(actual, expected);
     }
 }

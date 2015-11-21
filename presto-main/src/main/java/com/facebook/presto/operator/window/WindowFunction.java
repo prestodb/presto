@@ -13,19 +13,16 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.block.BlockBuilder;
 
 public interface WindowFunction
 {
-    TupleInfo getTupleInfo();
-
     /**
      * Reset state for a new partition (including the first one).
      *
-     * @param partitionRowCount the total number of rows in the new partition
+     * @param windowIndex the window index which contains sorted values for the partition
      */
-    void reset(int partitionRowCount);
+    void reset(WindowIndex windowIndex);
 
     /**
      * Process a row by outputting the result of the window function.
@@ -35,8 +32,11 @@ public interface WindowFunction
      * compare equal to each other using the specified ordering expression. The ordering
      * of rows within a peer group is undefined (otherwise they would not be peers).
      *
-     * @param newPeerGroup if this row starts a new peer group
-     * @param peerGroupCount the total number of rows in this peer group
+     * @param output the {@link BlockBuilder} to use for writing the output row
+     * @param peerGroupStart the position of the first row in the peer group
+     * @param peerGroupEnd the position of the last row in the peer group
+     * @param frameStart the position of the first row in the window frame
+     * @param frameEnd the position of the last row in the window frame
      */
-    void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount);
+    void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd);
 }

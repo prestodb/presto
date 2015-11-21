@@ -13,20 +13,23 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.UpdatablePageSource;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
         implements SourceOperator, Closeable
@@ -36,16 +39,16 @@ public class ExchangeOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final Supplier<ExchangeClient> exchangeClientSupplier;
-        private final List<TupleInfo> tupleInfos;
+        private final ExchangeClientSupplier exchangeClientSupplier;
+        private final List<Type> types;
         private boolean closed;
 
-        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, Supplier<ExchangeClient> exchangeClientSupplier, List<TupleInfo> tupleInfos)
+        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, ExchangeClientSupplier exchangeClientSupplier, List<Type> types)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
             this.exchangeClientSupplier = exchangeClientSupplier;
-            this.tupleInfos = tupleInfos;
+            this.types = types;
         }
 
         @Override
@@ -55,9 +58,9 @@ public class ExchangeOperator
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -68,9 +71,9 @@ public class ExchangeOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ExchangeOperator.class.getSimpleName());
             return new ExchangeOperator(
                     operatorContext,
-                    tupleInfos,
+                    types,
                     sourceId,
-                    exchangeClientSupplier.get());
+                    exchangeClientSupplier.get(new SystemMemoryUsageTracker(operatorContext)));
         }
 
         @Override
@@ -83,27 +86,20 @@ public class ExchangeOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final ExchangeClient exchangeClient;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
-            List<TupleInfo> tupleInfos,
+            List<Type> types,
             PlanNodeId sourceId,
-            final ExchangeClient exchangeClient)
+            ExchangeClient exchangeClient)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.sourceId = checkNotNull(sourceId, "sourceId is null");
-        this.exchangeClient = checkNotNull(exchangeClient, "exchangeClient is null");
-        this.tupleInfos = checkNotNull(tupleInfos, "tupleInfos is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.sourceId = requireNonNull(sourceId, "sourceId is null");
+        this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
+        this.types = requireNonNull(types, "types is null");
 
-        operatorContext.setInfoSupplier(new Supplier<Object>()
-        {
-            @Override
-            public Object get()
-            {
-                return exchangeClient.getStatus();
-            }
-        });
+        operatorContext.setInfoSupplier(exchangeClient::getStatus);
     }
 
     @Override
@@ -113,13 +109,15 @@ public class ExchangeOperator
     }
 
     @Override
-    public void addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
-        checkNotNull(split, "split is null");
-        checkArgument(split instanceof RemoteSplit, "split is not a remote split");
+        requireNonNull(split, "split is null");
+        checkArgument(split.getConnectorId().equals("remote"), "split is not a remote split");
 
-        URI location = ((RemoteSplit) split).getLocation();
+        URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
         exchangeClient.addLocation(location);
+
+        return Optional::empty;
     }
 
     @Override
@@ -135,9 +133,9 @@ public class ExchangeOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -179,7 +177,7 @@ public class ExchangeOperator
     {
         Page page = exchangeClient.pollPage();
         if (page != null) {
-            operatorContext.recordGeneratedInput(page.getDataSize(), page.getPositionCount());
+            operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
         }
         return page;
     }

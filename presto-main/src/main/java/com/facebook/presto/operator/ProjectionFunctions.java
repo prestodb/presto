@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
+
+import static java.util.Objects.requireNonNull;
 
 public final class ProjectionFunctions
 {
@@ -30,56 +31,35 @@ public final class ProjectionFunctions
         return new SingleColumnProjection(columnType, channelIndex);
     }
 
-    public static ProjectionFunction singleColumn(Type columnType, Input input)
-    {
-        return new SingleColumnProjection(columnType, input.getChannel());
-    }
-
     private static class SingleColumnProjection
             implements ProjectionFunction
     {
         private final Type columnType;
         private final int channelIndex;
-        private final TupleInfo info;
 
         public SingleColumnProjection(Type columnType, int channelIndex)
         {
-            Preconditions.checkNotNull(columnType, "columnType is null");
+            requireNonNull(columnType, "columnType is null");
             Preconditions.checkArgument(channelIndex >= 0, "channelIndex is negative");
 
             this.columnType = columnType;
             this.channelIndex = channelIndex;
-            this.info = new TupleInfo(columnType);
         }
 
         @Override
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            return info;
+            return columnType;
         }
 
         @Override
-        public void project(TupleReadable[] cursors, BlockBuilder output)
+        public void project(int position, Block[] blocks, BlockBuilder output)
         {
-            if (cursors[channelIndex].isNull()) {
+            if (blocks[channelIndex].isNull(position)) {
                 output.appendNull();
             }
             else {
-                switch (columnType) {
-                    case BOOLEAN:
-                        output.append(cursors[channelIndex].getBoolean());
-                        return;
-                    case FIXED_INT_64:
-                        output.append(cursors[channelIndex].getLong());
-                        return;
-                    case VARIABLE_BINARY:
-                        output.append(cursors[channelIndex].getSlice());
-                        return;
-                    case DOUBLE:
-                        output.append(cursors[channelIndex].getDouble());
-                        return;
-                }
-                throw new IllegalStateException("Unsupported type info " + info);
+                columnType.appendTo(blocks[channelIndex], position, output);
             }
         }
 
@@ -91,19 +71,22 @@ public final class ProjectionFunctions
                 output.appendNull();
             }
             else {
-                switch (columnType) {
-                    case BOOLEAN:
-                        output.append(cursor.getBoolean(channelIndex));
-                        break;
-                    case FIXED_INT_64:
-                        output.append(cursor.getLong(channelIndex));
-                        break;
-                    case VARIABLE_BINARY:
-                        output.append(cursor.getString(channelIndex));
-                        break;
-                    case DOUBLE:
-                        output.append(cursor.getDouble(channelIndex));
-                        break;
+                Class<?> javaType = columnType.getJavaType();
+                if (javaType == boolean.class) {
+                    columnType.writeBoolean(output, cursor.getBoolean(channelIndex));
+                }
+                else if (javaType == long.class) {
+                    columnType.writeLong(output, cursor.getLong(channelIndex));
+                }
+                else if (javaType == double.class) {
+                    columnType.writeDouble(output, cursor.getDouble(channelIndex));
+                }
+                else if (javaType == Slice.class) {
+                    Slice slice = cursor.getSlice(channelIndex);
+                    columnType.writeSlice(output, slice, 0, slice.length());
+                }
+                else {
+                    throw new UnsupportedOperationException("not yet implemented: " + javaType);
                 }
             }
         }

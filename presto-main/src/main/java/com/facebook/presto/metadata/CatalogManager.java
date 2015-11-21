@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.connector.ConnectorManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 
@@ -27,35 +28,47 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.fromProperties;
+import static java.util.Objects.requireNonNull;
 
 public class CatalogManager
 {
     private static final Logger log = Logger.get(CatalogManager.class);
     private final ConnectorManager connectorManager;
     private final File catalogConfigurationDir;
+    private final Set<String> disabledCatalogs;
+    private final AtomicBoolean catalogsLoading = new AtomicBoolean();
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
 
     @Inject
     public CatalogManager(ConnectorManager connectorManager, CatalogManagerConfig config)
     {
-        this(connectorManager, config.getCatalogConfigurationDir());
+        this(connectorManager,
+                config.getCatalogConfigurationDir(),
+                firstNonNull(config.getDisabledCatalogs(), ImmutableList.<String>of()));
     }
 
-    public CatalogManager(ConnectorManager connectorManager, File catalogConfigurationDir)
+    public CatalogManager(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)
     {
         this.connectorManager = connectorManager;
         this.catalogConfigurationDir = catalogConfigurationDir;
+        this.disabledCatalogs = ImmutableSet.copyOf(disabledCatalogs);
+    }
+
+    public boolean areCatalogsLoaded()
+    {
+        return catalogsLoaded.get();
     }
 
     public void loadCatalogs()
             throws Exception
     {
-        if (!catalogsLoaded.compareAndSet(false, true)) {
+        if (!catalogsLoading.compareAndSet(false, true)) {
             return;
         }
 
@@ -64,23 +77,30 @@ public class CatalogManager
                 loadCatalog(file);
             }
         }
+
+        catalogsLoaded.set(true);
     }
 
     private void loadCatalog(File file)
             throws Exception
     {
+        String catalogName = Files.getNameWithoutExtension(file.getName());
+        if (disabledCatalogs.contains(catalogName)) {
+            log.info("Skipping disabled catalog %s", catalogName);
+            return;
+        }
+
+        log.info("-- Loading catalog %s --", file);
         Map<String, String> properties = new HashMap<>(loadProperties(file));
 
         String connectorName = properties.remove("connector.name");
-        checkState(connectorName != null, "Catalog configuration %s does not contain conector.name", file.getAbsoluteFile());
-
-        String catalogName = Files.getNameWithoutExtension(file.getName());
+        checkState(connectorName != null, "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
 
         connectorManager.createConnection(catalogName, connectorName, ImmutableMap.copyOf(properties));
-        log.info("Added catalog %s using connector %s", catalogName, connectorName);
+        log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
     }
 
-    private List<File> listFiles(File installedPluginsDir)
+    private static List<File> listFiles(File installedPluginsDir)
     {
         if (installedPluginsDir != null && installedPluginsDir.isDirectory()) {
             File[] files = installedPluginsDir.listFiles();
@@ -94,7 +114,7 @@ public class CatalogManager
     private static Map<String, String> loadProperties(File file)
             throws Exception
     {
-        checkNotNull(file, "file is null");
+        requireNonNull(file, "file is null");
 
         Properties properties = new Properties();
         try (FileInputStream in = new FileInputStream(file)) {

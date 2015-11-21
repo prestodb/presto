@@ -15,19 +15,22 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import io.airlift.units.Duration;
+
+import java.util.concurrent.CompletableFuture;
 
 public interface RemoteTask
 {
+    TaskId getTaskId();
+
     String getNodeId();
 
     TaskInfo getTaskInfo();
 
     void start();
 
-    void addSplits(PlanNodeId sourceId, Iterable<? extends Split> split);
+    void addSplits(PlanNodeId sourceId, Iterable<Split> split);
 
     void noMoreSplits(PlanNodeId sourceId);
 
@@ -35,10 +38,13 @@ public interface RemoteTask
 
     void addStateChangeListener(StateChangeListener<TaskInfo> stateChangeListener);
 
+    CompletableFuture<TaskInfo> getStateChange(TaskInfo taskInfo);
+
     void cancel();
 
-    int getQueuedSplits();
+    void abort();
 
-    Duration waitForTaskToFinish(Duration maxWait)
-            throws InterruptedException;
+    int getPartitionedSplitCount();
+
+    int getQueuedPartitionedSplitCount();
 }

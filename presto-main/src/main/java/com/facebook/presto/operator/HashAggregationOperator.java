@@ -13,29 +13,28 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
-import it.unimi.dsi.fastutil.longs.Long2IntMap.Entry;
-import it.unimi.dsi.fastutil.objects.ObjectIterator;
+import io.airlift.units.DataSize;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 public class HashAggregationOperator
         implements Operator
@@ -44,36 +43,46 @@ public class HashAggregationOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> groupByTupleInfos;
+        private final Optional<Integer> maskChannel;
+        private final List<Type> groupByTypes;
         private final List<Integer> groupByChannels;
         private final Step step;
-        private final List<AggregationFunctionDefinition> functionDefinitions;
+        private final List<AccumulatorFactory> accumulatorFactories;
+        private final Optional<Integer> hashChannel;
+
         private final int expectedGroups;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Type> types;
         private boolean closed;
+        private final long maxPartialMemory;
 
         public HashAggregationOperatorFactory(
                 int operatorId,
-                List<TupleInfo> groupByTupleInfos,
+                List<? extends Type> groupByTypes,
                 List<Integer> groupByChannels,
                 Step step,
-                List<AggregationFunctionDefinition> functionDefinitions,
-                int expectedGroups)
+                List<AccumulatorFactory> accumulatorFactories,
+                Optional<Integer> maskChannel,
+                Optional<Integer> hashChannel,
+                int expectedGroups,
+                DataSize maxPartialMemory)
         {
             this.operatorId = operatorId;
-            this.groupByTupleInfos = groupByTupleInfos;
-            this.groupByChannels = groupByChannels;
+            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
+            this.groupByTypes = ImmutableList.copyOf(groupByTypes);
+            this.groupByChannels = ImmutableList.copyOf(groupByChannels);
             this.step = step;
-            this.functionDefinitions = functionDefinitions;
+            this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
             this.expectedGroups = expectedGroups;
+            this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null").toBytes();
 
-            this.tupleInfos = toTupleInfos(groupByTupleInfos, step, functionDefinitions);
+            this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -81,15 +90,23 @@ public class HashAggregationOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashAggregationOperator.class.getSimpleName());
-            return new HashAggregationOperator(
+            OperatorContext operatorContext;
+            if (step.isOutputPartial()) {
+                operatorContext = driverContext.addOperatorContext(operatorId, HashAggregationOperator.class.getSimpleName(), maxPartialMemory);
+            }
+            else {
+                operatorContext = driverContext.addOperatorContext(operatorId, HashAggregationOperator.class.getSimpleName());
+            }
+            HashAggregationOperator hashAggregationOperator = new HashAggregationOperator(
                     operatorContext,
-                    groupByTupleInfos,
+                    groupByTypes,
                     groupByChannels,
                     step,
-                    functionDefinitions,
-                    expectedGroups
-            );
+                    accumulatorFactories,
+                    maskChannel,
+                    hashChannel,
+                    expectedGroups);
+            return hashAggregationOperator;
         }
 
         @Override
@@ -100,14 +117,15 @@ public class HashAggregationOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> groupByTupleInfos;
+    private final List<Type> groupByTypes;
     private final List<Integer> groupByChannels;
     private final Step step;
-    private final List<AggregationFunctionDefinition> functionDefinitions;
+    private final List<AccumulatorFactory> accumulatorFactories;
+    private final Optional<Integer> maskChannel;
+    private final Optional<Integer> hashChannel;
     private final int expectedGroups;
 
-    private final List<TupleInfo> tupleInfos;
-    private final HashMemoryManager memoryManager;
+    private final List<Type> types;
 
     private GroupByHashAggregationBuilder aggregationBuilder;
     private Iterator<Page> outputIterator;
@@ -115,25 +133,27 @@ public class HashAggregationOperator
 
     public HashAggregationOperator(
             OperatorContext operatorContext,
-            List<TupleInfo> groupByTupleInfos,
+            List<Type> groupByTypes,
             List<Integer> groupByChannels,
             Step step,
-            List<AggregationFunctionDefinition> functionDefinitions,
+            List<AccumulatorFactory> accumulatorFactories,
+            Optional<Integer> maskChannel,
+            Optional<Integer> hashChannel,
             int expectedGroups)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        Preconditions.checkNotNull(step, "step is null");
-        Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
-        Preconditions.checkNotNull(operatorContext, "operatorContext is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        requireNonNull(step, "step is null");
+        requireNonNull(accumulatorFactories, "accumulatorFactories is null");
+        requireNonNull(operatorContext, "operatorContext is null");
 
-        this.groupByTupleInfos = groupByTupleInfos;
-        this.groupByChannels = groupByChannels;
-        this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
+        this.groupByTypes = ImmutableList.copyOf(groupByTypes);
+        this.groupByChannels = ImmutableList.copyOf(groupByChannels);
+        this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
+        this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+        this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         this.step = step;
         this.expectedGroups = expectedGroups;
-        this.memoryManager = new HashMemoryManager(operatorContext);
-
-        this.tupleInfos = toTupleInfos(groupByTupleInfos, step, functionDefinitions);
+        this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
     }
 
     @Override
@@ -143,9 +163,9 @@ public class HashAggregationOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
@@ -161,12 +181,6 @@ public class HashAggregationOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
-    }
-
-    @Override
     public boolean needsInput()
     {
         return !finishing && outputIterator == null && (aggregationBuilder == null || !aggregationBuilder.isFull());
@@ -176,15 +190,17 @@ public class HashAggregationOperator
     public void addInput(Page page)
     {
         checkState(!finishing, "Operator is already finishing");
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         if (aggregationBuilder == null) {
             aggregationBuilder = new GroupByHashAggregationBuilder(
-                    functionDefinitions,
+                    accumulatorFactories,
                     step,
                     expectedGroups,
-                    groupByTupleInfos,
+                    groupByTypes,
                     groupByChannels,
-                    memoryManager);
+                    maskChannel,
+                    hashChannel,
+                    operatorContext);
 
             // assume initial aggregationBuilder is not full
         }
@@ -198,6 +214,9 @@ public class HashAggregationOperator
     public Page getOutput()
     {
         if (outputIterator == null || !outputIterator.hasNext()) {
+            // current output iterator is done
+            outputIterator = null;
+
             // no data
             if (aggregationBuilder == null) {
                 return null;
@@ -208,13 +227,12 @@ public class HashAggregationOperator
                 return null;
             }
 
-            // Only partial aggregation can flush early. Also, check that we are not flushing tiny bits at a time
-            checkState(finishing || step == Step.PARTIAL, "Task exceeded max memory size of %s", memoryManager.getMaxMemorySize());
-
             outputIterator = aggregationBuilder.build();
             aggregationBuilder = null;
 
             if (!outputIterator.hasNext()) {
+                // current output iterator is done
+                outputIterator = null;
                 return null;
             }
         }
@@ -222,56 +240,57 @@ public class HashAggregationOperator
         return outputIterator.next();
     }
 
-    private static List<TupleInfo> toTupleInfos(List<TupleInfo> groupByTupleInfo, Step step, List<AggregationFunctionDefinition> functionDefinitions)
+    private static List<Type> toTypes(List<? extends Type> groupByType, Step step, List<AccumulatorFactory> factories, Optional<Integer> hashChannel)
     {
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        tupleInfos.addAll(groupByTupleInfo);
-        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
-            if (step != Step.PARTIAL) {
-                tupleInfos.add(functionDefinition.getFunction().getFinalTupleInfo());
-            }
-            else {
-                tupleInfos.add(functionDefinition.getFunction().getIntermediateTupleInfo());
-            }
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        types.addAll(groupByType);
+        if (hashChannel.isPresent()) {
+            types.add(BIGINT);
         }
-        return tupleInfos.build();
+        for (AccumulatorFactory factory : factories) {
+            types.add(new Aggregator(factory, step).getType());
+        }
+        return types.build();
     }
 
     private static class GroupByHashAggregationBuilder
     {
         private final GroupByHash groupByHash;
         private final List<Aggregator> aggregators;
-        private final HashMemoryManager memoryManager;
+        private final OperatorContext operatorContext;
+        private final boolean partial;
 
         private GroupByHashAggregationBuilder(
-                List<AggregationFunctionDefinition> functionDefinitions,
+                List<AccumulatorFactory> accumulatorFactories,
                 Step step,
                 int expectedGroups,
-                List<TupleInfo> groupByTupleInfos,
+                List<Type> groupByTypes,
                 List<Integer> groupByChannels,
-                HashMemoryManager memoryManager)
+                Optional<Integer> maskChannel,
+                Optional<Integer> hashChannel,
+                OperatorContext operatorContext)
         {
-            List<Type> groupByTypes = ImmutableList.copyOf(transform(groupByTupleInfos, new Function<TupleInfo, Type>()
-            {
-                public Type apply(TupleInfo tupleInfo)
-                {
-                    return tupleInfo.getType();
-                }
-            }));
-
-            this.groupByHash = new GroupByHash(groupByTypes, Ints.toArray(groupByChannels), expectedGroups);
-            this.memoryManager = memoryManager;
+            this.groupByHash = createGroupByHash(groupByTypes, Ints.toArray(groupByChannels), maskChannel, hashChannel, expectedGroups);
+            this.operatorContext = operatorContext;
+            this.partial = step.isOutputPartial();
 
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-            for (AggregationFunctionDefinition functionDefinition : checkNotNull(functionDefinitions, "functionDefinitions is null")) {
-                builder.add(new Aggregator(functionDefinition, step));
+            requireNonNull(accumulatorFactories, "accumulatorFactories is null");
+            for (int i = 0; i < accumulatorFactories.size(); i++) {
+                AccumulatorFactory accumulatorFactory = accumulatorFactories.get(i);
+                builder.add(new Aggregator(accumulatorFactory, step));
             }
             aggregators = builder.build();
         }
 
         private void processPage(Page page)
         {
+            if (aggregators.isEmpty()) {
+                groupByHash.addPage(page);
+                return;
+            }
+
             GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
 
             for (Aggregator aggregator : aggregators) {
@@ -285,93 +304,58 @@ public class HashAggregationOperator
             for (Aggregator aggregator : aggregators) {
                 memorySize += aggregator.getEstimatedSize();
             }
-            return memoryManager.canUse(memorySize);
+            memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
+            if (memorySize < 0) {
+                memorySize = 0;
+            }
+            if (partial) {
+                return !operatorContext.trySetMemoryReservation(memorySize);
+            }
+            else {
+                operatorContext.setMemoryReservation(memorySize);
+                return false;
+            }
         }
 
         public Iterator<Page> build()
         {
-            List<Type> types = groupByHash.getTypes();
-            ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-            for (Type type : types) {
-                tupleInfos.add(new TupleInfo(type));
-            }
+            List<Type> types = new ArrayList<>(groupByHash.getTypes());
             for (Aggregator aggregator : aggregators) {
-                tupleInfos.add(aggregator.getTupleInfo());
+                types.add(aggregator.getType());
             }
 
-            final PageBuilder pageBuilder = new PageBuilder(tupleInfos.build());
+            final PageBuilder pageBuilder = new PageBuilder(types);
             return new AbstractIterator<Page>()
             {
-                private final ObjectIterator<Entry> pagePositionToGroup = groupByHash.getPagePositionToGroupId().long2IntEntrySet().fastIterator();
+                private final int groupCount = groupByHash.getGroupCount();
+                private int groupId;
 
                 @Override
                 protected Page computeNext()
                 {
-                    if (!pagePositionToGroup.hasNext()) {
+                    if (groupId >= groupCount) {
                         return endOfData();
                     }
 
                     pageBuilder.reset();
 
                     List<Type> types = groupByHash.getTypes();
-                    BlockBuilder[] groupByBlockBuilders = new BlockBuilder[types.size()];
-                    for (int i = 0; i < types.size(); i++) {
-                        groupByBlockBuilders[i] = pageBuilder.getBlockBuilder(i);
-                    }
+                    while (!pageBuilder.isFull() && groupId < groupCount) {
+                        groupByHash.appendValuesTo(groupId, pageBuilder, 0);
 
-                    while (!pageBuilder.isFull() && pagePositionToGroup.hasNext()) {
-                        Entry next = pagePositionToGroup.next();
-                        long pagePosition = next.getLongKey();
-                        int groupId = next.getIntValue();
-
-                        groupByHash.appendValuesTo(pagePosition, groupByBlockBuilders);
-
+                        pageBuilder.declarePosition();
                         for (int i = 0; i < aggregators.size(); i++) {
                             Aggregator aggregator = aggregators.get(i);
                             BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
                             aggregator.evaluate(groupId, output);
                         }
+
+                        groupId++;
                     }
 
-                    Page page = pageBuilder.build();
-                    return page;
+                    return pageBuilder.build();
                 }
             };
-        }
-    }
-
-    public static class HashMemoryManager
-    {
-        private final OperatorContext operatorContext;
-        private long currentMemoryReservation;
-
-        public HashMemoryManager(OperatorContext operatorContext)
-        {
-            this.operatorContext = operatorContext;
-        }
-
-        public boolean canUse(long memorySize)
-        {
-            // remove the pre-allocated memory from this size
-            memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
-
-            long delta = memorySize - currentMemoryReservation;
-            if (delta <= 0) {
-                return false;
-            }
-
-            if (!operatorContext.reserveMemory(delta)) {
-                return true;
-            }
-
-            // reservation worked, record the reservation
-            currentMemoryReservation = Math.max(currentMemoryReservation, memorySize);
-            return false;
-        }
-
-        public Object getMaxMemorySize()
-        {
-            return operatorContext.getMaxMemorySize();
         }
     }
 
@@ -379,29 +363,18 @@ public class HashAggregationOperator
     {
         private final GroupedAccumulator aggregation;
         private final Step step;
-
         private final int intermediateChannel;
 
-        private Aggregator(AggregationFunctionDefinition functionDefinition, Step step)
+        private Aggregator(AccumulatorFactory accumulatorFactory, Step step)
         {
-            AggregationFunction function = functionDefinition.getFunction();
-
-            if (step == Step.FINAL) {
-                checkArgument(functionDefinition.getInputs().size() == 1, "Expected a single input for an intermediate aggregation");
-                intermediateChannel = functionDefinition.getInputs().get(0).getChannel();
-                aggregation = function.createGroupedIntermediateAggregation(functionDefinition.getConfidence());
+            if (step.isInputRaw()) {
+                intermediateChannel = -1;
+                aggregation = accumulatorFactory.createGroupedAccumulator();
             }
             else {
-                int[] argumentChannels = new int[functionDefinition.getInputs().size()];
-                for (int i = 0; i < argumentChannels.length; i++) {
-                    argumentChannels[i] = functionDefinition.getInputs().get(i).getChannel();
-                }
-                intermediateChannel = -1;
-                aggregation = function.createGroupedAggregation(
-                        functionDefinition.getMask().transform(Input.channelGetter()),
-                        functionDefinition.getSampleWeight().transform(Input.channelGetter()),
-                        functionDefinition.getConfidence(),
-                        argumentChannels);
+                checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
+                intermediateChannel = accumulatorFactory.getInputChannels().get(0);
+                aggregation = accumulatorFactory.createGroupedIntermediateAccumulator();
             }
             this.step = step;
         }
@@ -411,29 +384,29 @@ public class HashAggregationOperator
             return aggregation.getEstimatedSize();
         }
 
-        public TupleInfo getTupleInfo()
+        public Type getType()
         {
-            if (step == Step.PARTIAL) {
-                return aggregation.getIntermediateTupleInfo();
+            if (step.isOutputPartial()) {
+                return aggregation.getIntermediateType();
             }
             else {
-                return aggregation.getFinalTupleInfo();
+                return aggregation.getFinalType();
             }
         }
 
         public void processPage(GroupByIdBlock groupIds, Page page)
         {
-            if (step == Step.FINAL) {
-                aggregation.addIntermediate(groupIds, page.getBlock(intermediateChannel));
+            if (step.isInputRaw()) {
+                aggregation.addInput(groupIds, page);
             }
             else {
-                aggregation.addInput(groupIds, page);
+                aggregation.addIntermediate(groupIds, page.getBlock(intermediateChannel));
             }
         }
 
         public void evaluate(int groupId, BlockBuilder output)
         {
-            if (step == Step.PARTIAL) {
+            if (step.isOutputPartial()) {
                 aggregation.evaluateIntermediate(groupId, output);
             }
             else {

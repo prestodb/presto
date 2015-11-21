@@ -13,30 +13,28 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import org.apache.commons.math.stat.descriptive.moment.StandardDeviation;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.LONG_STDDEV_INSTANCE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import java.util.List;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestLongStdDevAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int start, int length)
+    public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append(i);
+            BIGINT.writeLong(blockBuilder, i);
         }
-        return blockBuilder.build();
-    }
-
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return LONG_STDDEV_INSTANCE;
+        return new Block[] {blockBuilder.build()};
     }
 
     @Override
@@ -53,5 +51,17 @@ public class TestLongStdDevAggregation
 
         StandardDeviation stdDev = new StandardDeviation();
         return stdDev.evaluate(values);
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "stddev_samp";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.BIGINT);
     }
 }

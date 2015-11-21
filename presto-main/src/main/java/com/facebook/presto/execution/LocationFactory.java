@@ -26,4 +26,6 @@ public interface LocationFactory
     URI createLocalTaskLocation(TaskId taskId);
 
     URI createTaskLocation(Node node, TaskId taskId);
+
+    URI createMemoryInfoLocation(Node node);
 }

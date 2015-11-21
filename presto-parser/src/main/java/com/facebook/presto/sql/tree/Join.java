@@ -13,21 +13,32 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class Join
         extends Relation
 {
     public Join(Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
     {
-        checkNotNull(left, "left is null");
-        checkNotNull(right, "right is null");
-        if (type.equals(Type.CROSS)) {
-            checkArgument(!criteria.isPresent(), "Cross join cannot have join criteria");
+        this(Optional.empty(), type, left, right, criteria);
+    }
+
+    public Join(NodeLocation location, Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
+    {
+        this(Optional.of(location), type, left, right, criteria);
+    }
+
+    private Join(Optional<NodeLocation> location, Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
+    {
+        super(location);
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
+        if (type.equals(Type.CROSS) || type.equals(Type.IMPLICIT)) {
+            checkArgument(!criteria.isPresent(), "%s join cannot have join criteria", type);
         }
         else {
             checkArgument(criteria.isPresent(), "No join criteria specified");
@@ -41,7 +52,7 @@ public class Join
 
     public enum Type
     {
-        CROSS, INNER, LEFT, RIGHT, FULL
+        CROSS, INNER, LEFT, RIGHT, FULL, IMPLICIT
     }
 
     private final Type type;
@@ -78,7 +89,7 @@ public class Join
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("type", type)
                 .add("left", left)
                 .add("right", right)

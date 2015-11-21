@@ -16,7 +16,6 @@ package com.facebook.presto.event.query;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
-import com.google.common.base.Preconditions;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
 import io.airlift.units.DataSize;
@@ -25,6 +24,8 @@ import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 @EventType("SplitCompletion")
@@ -44,6 +45,7 @@ public class SplitCompletionEvent
 
     private final DataSize completedDataSize;
     private final long completedPositions;
+    private final Long completedReadTimeMs;
 
     private final Long wallTimeMs;
     private final Long cpuTimeMs;
@@ -65,6 +67,7 @@ public class SplitCompletionEvent
             @Nullable Duration timeToLastByte,
             DataSize completedDataSize,
             long completedPositions,
+            Duration completedReadTime,
             @Nullable Duration wallTime,
             @Nullable Duration cpuTime,
             @Nullable Duration userTime,
@@ -72,12 +75,11 @@ public class SplitCompletionEvent
             @Nullable String failureMessage,
             String splitInfoJson)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(completedDataSize, "completedDataSize is null");
-        Preconditions.checkNotNull(completedPositions, "completedPositions is null");
-        Preconditions.checkNotNull(splitInfoJson, "splitInfoJson is null");
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(stageId, "stageId is null");
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(completedDataSize, "completedDataSize is null");
+        requireNonNull(splitInfoJson, "splitInfoJson is null");
 
         this.queryId = queryId;
         this.stageId = stageId;
@@ -89,6 +91,7 @@ public class SplitCompletionEvent
         this.timeToLastByteMs = durationToMillis(timeToLastByte);
         this.completedDataSize = completedDataSize;
         this.completedPositions = completedPositions;
+        this.completedReadTimeMs = durationToMillis(completedReadTime);
         this.wallTimeMs = durationToMillis(wallTime);
         this.cpuTimeMs = durationToMillis(cpuTime);
         this.userTimeMs = durationToMillis(userTime);
@@ -164,6 +167,12 @@ public class SplitCompletionEvent
     public long getCompletedPositionsTotal()
     {
         return completedPositions;
+    }
+
+    @EventField
+    public Long getCompletedReadTimeMs()
+    {
+        return completedReadTimeMs;
     }
 
     @EventField

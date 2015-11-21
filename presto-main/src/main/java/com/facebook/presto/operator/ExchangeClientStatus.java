@@ -15,18 +15,19 @@ package com.facebook.presto.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class ExchangeClientStatus
 {
     private final long bufferedBytes;
     private final long averageBytesPerRequest;
     private final int bufferedPages;
+    private final boolean noMoreLocations;
     private final List<PageBufferClientStatus> pageBufferClientStatuses;
 
     @JsonCreator
@@ -34,12 +35,14 @@ public class ExchangeClientStatus
             @JsonProperty("bufferedBytes") long bufferedBytes,
             @JsonProperty("averageBytesPerRequest") long averageBytesPerRequest,
             @JsonProperty("bufferedPages") int bufferedPages,
+            @JsonProperty("noMoreLocations") boolean noMoreLocations,
             @JsonProperty("pageBufferClientStatuses") List<PageBufferClientStatus> pageBufferClientStatuses)
     {
         this.bufferedBytes = bufferedBytes;
         this.averageBytesPerRequest = averageBytesPerRequest;
         this.bufferedPages = bufferedPages;
-        this.pageBufferClientStatuses = ImmutableList.copyOf(checkNotNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
+        this.noMoreLocations = noMoreLocations;
+        this.pageBufferClientStatuses = ImmutableList.copyOf(requireNonNull(pageBufferClientStatuses, "pageBufferClientStatuses is null"));
     }
 
     @JsonProperty
@@ -61,6 +64,13 @@ public class ExchangeClientStatus
     }
 
     @JsonProperty
+    public boolean isNoMoreLocations()
+    {
+        return noMoreLocations;
+    }
+
+    @JsonProperty
+
     public List<PageBufferClientStatus> getPageBufferClientStatuses()
     {
         return pageBufferClientStatuses;
@@ -69,10 +79,11 @@ public class ExchangeClientStatus
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("bufferBytes", bufferedBytes)
                 .add("averageBytesPerRequest", averageBytesPerRequest)
                 .add("bufferedPages", bufferedPages)
+                .add("noMoreLocations", noMoreLocations)
                 .add("pageBufferClientStatuses", pageBufferClientStatuses)
                 .toString();
     }

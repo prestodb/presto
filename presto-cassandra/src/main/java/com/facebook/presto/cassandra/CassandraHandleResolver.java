@@ -15,13 +15,14 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
-import com.google.common.base.Objects;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraHandleResolver
     implements ConnectorHandleResolver
@@ -31,11 +32,11 @@ public class CassandraHandleResolver
     @Inject
     public CassandraHandleResolver(CassandraConnectorId connectorId)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof CassandraTableHandle && ((CassandraTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
@@ -47,13 +48,19 @@ public class CassandraHandleResolver
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof CassandraSplit && ((CassandraSplit) split).getConnectorId().equals(connectorId);
     }
 
     @Override
-    public Class<? extends TableHandle> getTableHandleClass()
+    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
+    {
+        return (tableHandle instanceof CassandraOutputTableHandle) && ((CassandraOutputTableHandle) tableHandle).getConnectorId().equals(connectorId);
+    }
+
+    @Override
+    public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return CassandraTableHandle.class;
     }
@@ -65,15 +72,21 @@ public class CassandraHandleResolver
     }
 
     @Override
-    public Class<? extends Split> getSplitClass()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
         return CassandraSplit.class;
     }
 
     @Override
+    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
+    {
+        return CassandraOutputTableHandle.class;
+    }
+
+    @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .toString();
     }

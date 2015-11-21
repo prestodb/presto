@@ -13,225 +13,302 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.instruction.Constant;
+import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.operator.Description;
-import com.facebook.presto.sql.gen.DefaultFunctionBinder;
-import com.facebook.presto.sql.gen.FunctionBinder;
-import com.facebook.presto.sql.gen.FunctionBinding;
-import com.facebook.presto.sql.gen.TypedByteCodeNode;
-import com.facebook.presto.util.ThreadLocalCache;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.RegexpType;
+import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
+import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
+import io.airlift.joni.Matcher;
+import io.airlift.joni.Option;
+import io.airlift.joni.Regex;
+import io.airlift.joni.Region;
+import io.airlift.joni.Syntax;
+import io.airlift.joni.exception.ValueException;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.nio.charset.StandardCharsets;
 
-import static java.lang.invoke.MethodHandles.lookup;
-import static java.lang.invoke.MethodType.methodType;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 
 public final class RegexpFunctions
 {
-    private static final PatternCache CACHE = new PatternCache(100);
-
     private RegexpFunctions()
     {
     }
 
+    @ScalarOperator(OperatorType.CAST)
+    @SqlType(RegexpType.NAME)
+    public static Regex castToRegexp(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    {
+        Regex regex;
+        try {
+            // When normal UTF8 encoding instead of non-strict UTF8) is used, joni can infinite loop when invalid UTF8 slice is supplied to it.
+            regex = new Regex(pattern.getBytes(), 0, pattern.length(), Option.DEFAULT, NonStrictUTF8Encoding.INSTANCE, Syntax.Java);
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+        return regex;
+    }
+
     @Description("returns substrings matching a regular expression")
-    @ScalarFunction(functionBinder = RegexFunctionBinder.class)
-    public static boolean regexpLike(Slice source, Slice pattern)
+    @ScalarFunction
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean regexpLike(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
     {
-        return regexpLike(CACHE, source, pattern);
-    }
-
-    public static boolean regexpLike(PatternCache patternCache, Slice source, Slice pattern)
-    {
-        return regexpLike(source, patternCache.get(pattern));
-    }
-
-    public static boolean regexpLike(Slice source, Pattern pattern)
-    {
-        return pattern.matcher(source.toString(UTF_8)).find();
+        Matcher m = pattern.matcher(source.getBytes());
+        int offset = m.search(0, source.length(), Option.DEFAULT);
+        return offset != -1;
     }
 
     @Description("removes substrings matching a regular expression")
-    @ScalarFunction(functionBinder = RegexFunctionBinder.class)
-    public static Slice regexpReplace(Slice source, Slice pattern)
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
     {
         return regexpReplace(source, pattern, Slices.EMPTY_SLICE);
     }
 
     @Description("replaces substrings matching a regular expression by given string")
-    @ScalarFunction(functionBinder = RegexFunctionBinder.class)
-    public static Slice regexpReplace(Slice source, Slice pattern, Slice replacement)
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice regexpReplace(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern, @SqlType(StandardTypes.VARCHAR) Slice replacement)
     {
-        return regexpReplace(CACHE, source, pattern, replacement);
+        Matcher matcher = pattern.matcher(source.getBytes());
+        SliceOutput sliceOutput = new DynamicSliceOutput(source.length() + replacement.length() * 5);
+
+        int lastEnd = 0;
+        int nextStart = 0; // nextStart is the same as lastEnd, unless the last match was zero-width. In such case, nextStart is lastEnd + 1.
+        while (true) {
+            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            if (offset == -1) {
+                break;
+            }
+            if (matcher.getEnd() == matcher.getBegin()) {
+                nextStart = matcher.getEnd() + 1;
+            }
+            else {
+                nextStart = matcher.getEnd();
+            }
+            Slice sliceBetweenReplacements = source.slice(lastEnd, matcher.getBegin() - lastEnd);
+            lastEnd = matcher.getEnd();
+            sliceOutput.appendBytes(sliceBetweenReplacements);
+            appendReplacement(sliceOutput, source, pattern, matcher.getEagerRegion(), replacement);
+        }
+        sliceOutput.appendBytes(source.slice(lastEnd, source.length() - lastEnd));
+
+        return sliceOutput.slice();
     }
 
-    public static Slice regexpReplace(PatternCache patternCache, Slice source, Slice pattern, Slice replacement)
+    private static void appendReplacement(SliceOutput result, Slice source, Regex pattern, Region region, Slice replacement)
     {
-        return regexpReplace(source, patternCache.get(pattern), replacement);
+        // Handle the following items:
+        // 1. ${name};
+        // 2. $0, $1, $123 (group 123, if exists; or group 12, if exists; or group 1);
+        // 3. \\, \$, \t (literal 't').
+        // 4. Anything that doesn't starts with \ or $ is considered regular bytes
+
+        int idx = 0;
+
+        while (idx < replacement.length()) {
+            byte nextByte = replacement.getByte(idx);
+            if (nextByte == '$') {
+                idx++;
+                if (idx == replacement.length()) { // not using checkArgument because `.toStringUtf8` is expensive
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
+                }
+                nextByte = replacement.getByte(idx);
+                int backref;
+                if (nextByte == '{') { // case 1 in the above comment
+                    idx++;
+                    int startCursor = idx;
+                    while (idx < replacement.length()) {
+                        nextByte = replacement.getByte(idx);
+                        if (nextByte == '}') {
+                            break;
+                        }
+                        idx++;
+                    }
+                    byte[] groupName = replacement.getBytes(startCursor, idx - startCursor);
+                    try {
+                        backref = pattern.nameToBackrefNumber(groupName, 0, groupName.length, region);
+                    }
+                    catch (ValueException e) {
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: unknown group { " + new String(groupName, StandardCharsets.UTF_8) + " }");
+                    }
+                    idx++;
+                }
+                else { // case 2 in the above comment
+                    backref = nextByte - '0';
+                    if (backref < 0 || backref > 9) { // not using checkArgument because `.toStringUtf8` is expensive
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
+                    }
+                    if (region.numRegs <= backref) {
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: unknown group " + backref);
+                    }
+                    idx++;
+                    while (idx < replacement.length()) { // Adaptive group number: find largest group num that is not greater than actual number of groups
+                        int nextDigit = replacement.getByte(idx) - '0';
+                        if (nextDigit < 0 || nextDigit > 9) {
+                            break;
+                        }
+                        int newBackref = (backref * 10) + nextDigit;
+                        if (region.numRegs <= newBackref) {
+                            break;
+                        }
+                        backref = newBackref;
+                        idx++;
+                    }
+                }
+                int beg = region.beg[backref];
+                int end = region.end[backref];
+                if (beg != -1 && end != -1) { // the specific group doesn't exist in the current match, skip
+                    result.appendBytes(source.slice(beg, end - beg));
+                }
+            }
+            else { // case 3 and 4 in the above comment
+                if (nextByte == '\\') {
+                    idx++;
+                    if (idx == replacement.length()) { // not using checkArgument because `.toStringUtf8` is expensive
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
+                    }
+                    nextByte = replacement.getByte(idx);
+                }
+                result.appendByte(nextByte);
+                idx++;
+            }
+        }
     }
 
-    public static Slice regexpReplace(Slice source, Pattern pattern, Slice replacement)
+    @Description("string(s) extracted using the given pattern")
+    @ScalarFunction
+    @SqlType("array<varchar>")
+    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
     {
-        Matcher matcher = pattern.matcher(source.toString(UTF_8));
-        String replaced = matcher.replaceAll(replacement.toString(UTF_8));
-        return Slices.copiedBuffer(replaced, UTF_8);
+        return regexpExtractAll(source, pattern, 0);
+    }
+
+    @Description("group(s) extracted using the given pattern")
+    @ScalarFunction
+    @SqlType("array<varchar>")
+    public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
+    {
+        Matcher matcher = pattern.matcher(source.getBytes());
+        validateGroup(groupIndex, matcher.getEagerRegion());
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        int group = Ints.checkedCast(groupIndex);
+
+        int nextStart = 0;
+        while (true) {
+            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            if (offset == -1) {
+                break;
+            }
+            if (matcher.getEnd() == matcher.getBegin()) {
+                nextStart = matcher.getEnd() + 1;
+            }
+            else {
+                nextStart = matcher.getEnd();
+            }
+            Region region = matcher.getEagerRegion();
+            int beg = region.beg[group];
+            int end = region.end[group];
+            if (beg == -1 || end == -1) {
+                blockBuilder.appendNull();
+            }
+            else {
+                Slice slice = source.slice(beg, end - beg);
+                VARCHAR.writeSlice(blockBuilder, slice);
+            }
+        }
+        return blockBuilder.build();
     }
 
     @Nullable
     @Description("string extracted using the given pattern")
-    @ScalarFunction(functionBinder = RegexFunctionBinder.class)
-    public static Slice regexpExtract(Slice source, Slice pattern)
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
     {
         return regexpExtract(source, pattern, 0);
     }
 
     @Nullable
     @Description("returns regex group of extracted string with a pattern")
-    @ScalarFunction(functionBinder = RegexFunctionBinder.class)
-    public static Slice regexpExtract(Slice source, Slice pattern, long group)
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice regexpExtract(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
-        return regexpExtract(CACHE, source, pattern, group);
-    }
+        Matcher matcher = pattern.matcher(source.getBytes());
+        validateGroup(groupIndex, matcher.getEagerRegion());
+        int group = Ints.checkedCast(groupIndex);
 
-    @Nullable
-    public static Slice regexpExtract(PatternCache patternCache, Slice source, Slice pattern, long group)
-    {
-        return regexpExtract(source, patternCache.get(pattern), group);
-    }
-
-    @Nullable
-    public static Slice regexpExtract(Slice source, Pattern pattern, long group)
-    {
-        Matcher matcher = pattern.matcher(source.toString(UTF_8));
-        if ((group < 0) || (group > matcher.groupCount())) {
-            throw new IllegalArgumentException("invalid group count");
-        }
-        if (!matcher.find()) {
+        int offset = matcher.search(0, source.length(), Option.DEFAULT);
+        if (offset == -1) {
             return null;
         }
-        String extracted = matcher.group(Ints.checkedCast(group));
-        return Slices.copiedBuffer(extracted, UTF_8);
-    }
-
-    public static class RegexFunctionBinder
-            implements FunctionBinder
-    {
-        private static final MethodHandle constantRegexpLike;
-        private static final MethodHandle dynamicRegexpLike;
-        private static final MethodHandle constantRegexpReplace;
-        private static final MethodHandle dynamicRegexpReplace;
-        private static final MethodHandle constantRegexpExtract;
-        private static final MethodHandle dynamicRegexpExtract;
-
-        static {
-            try {
-                constantRegexpLike = lookup().findStatic(RegexpFunctions.class, "regexpLike", methodType(boolean.class, Slice.class, Pattern.class));
-                dynamicRegexpLike = lookup().findStatic(RegexpFunctions.class, "regexpLike", methodType(boolean.class, PatternCache.class, Slice.class, Slice.class));
-                constantRegexpReplace = lookup().findStatic(RegexpFunctions.class, "regexpReplace", methodType(Slice.class, Slice.class, Pattern.class, Slice.class));
-                dynamicRegexpReplace = lookup().findStatic(RegexpFunctions.class, "regexpReplace", methodType(Slice.class, PatternCache.class, Slice.class, Slice.class, Slice.class));
-                constantRegexpExtract = lookup().findStatic(RegexpFunctions.class, "regexpExtract", methodType(Slice.class, Slice.class, Pattern.class, long.class));
-                dynamicRegexpExtract = lookup().findStatic(RegexpFunctions.class, "regexpExtract", methodType(Slice.class, PatternCache.class, Slice.class, Slice.class, long.class));
-            }
-            catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
+        Region region = matcher.getEagerRegion();
+        int beg = region.beg[group];
+        int end = region.end[group];
+        if (beg == -1) {
+            // end == -1 must be true
+            return null;
         }
 
-        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
-        {
-            MethodHandle methodHandle;
-            boolean nullable = false;
-            TypedByteCodeNode patternNode = arguments.get(1);
-            if (patternNode.getNode() instanceof Constant) {
-                switch (name) {
-                    case "regexp_like":
-                        methodHandle = constantRegexpLike;
-                        break;
-                    case "regexp_replace":
-                        methodHandle = constantRegexpReplace;
-                        if (arguments.size() == 2) {
-                            methodHandle = MethodHandles.insertArguments(methodHandle, 2, Slices.EMPTY_SLICE);
-                        }
-                        break;
-                    case "regexp_extract":
-                        methodHandle = constantRegexpExtract;
-                        nullable = true;
-                        if (arguments.size() == 2) {
-                            methodHandle = MethodHandles.insertArguments(methodHandle, 2, 0L);
-                        }
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported method " + name);
-                }
+        Slice slice = source.slice(beg, end - beg);
+        return slice;
+    }
 
-                Slice patternSlice = (Slice) ((Constant) patternNode.getNode()).getValue();
+    @ScalarFunction
+    @Description("returns array of strings split by pattern")
+    @SqlType("array<varchar>")
+    public static Block regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
+    {
+        Matcher matcher = pattern.matcher(source.getBytes());
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
 
-                Pattern pattern = Pattern.compile(patternSlice.toString(UTF_8));
-
-                methodHandle = MethodHandles.insertArguments(methodHandle, 1, pattern);
-
-                // remove the pattern argument
-                arguments = new ArrayList<>(arguments);
-                arguments.remove(1);
-                arguments = ImmutableList.copyOf(arguments);
+        int lastEnd = 0;
+        int nextStart = 0;
+        while (true) {
+            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            if (offset == -1) {
+                break;
+            }
+            if (matcher.getEnd() == matcher.getBegin()) {
+                nextStart = matcher.getEnd() + 1;
             }
             else {
-                switch (name) {
-                    case "regexp_like":
-                        methodHandle = dynamicRegexpLike;
-                        break;
-                    case "regexp_replace":
-                        methodHandle = dynamicRegexpReplace;
-                        if (arguments.size() == 2) {
-                            methodHandle = MethodHandles.insertArguments(methodHandle, 3, Slices.EMPTY_SLICE);
-                        }
-                        break;
-                    case "regexp_extract":
-                        methodHandle = dynamicRegexpExtract;
-                        nullable = true;
-                        if (arguments.size() == 2) {
-                            methodHandle = MethodHandles.insertArguments(methodHandle, 3, 0L);
-                        }
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported method " + name);
-                }
-
-                methodHandle = methodHandle.bindTo(new PatternCache(100));
+                nextStart = matcher.getEnd();
             }
-
-            return DefaultFunctionBinder.bindConstantArguments(bindingId, name, getSessionByteCode, arguments, methodHandle, nullable);
+            Slice slice = source.slice(lastEnd, matcher.getBegin() - lastEnd);
+            lastEnd = matcher.getEnd();
+            VARCHAR.writeSlice(blockBuilder, slice);
         }
+        VARCHAR.writeSlice(blockBuilder, source.slice(lastEnd, source.length() - lastEnd));
+
+        return blockBuilder.build();
     }
 
-    public static class PatternCache
-            extends ThreadLocalCache<Slice, Pattern>
+    private static void validateGroup(long group, Region region)
     {
-        public PatternCache(int maxSizePerThread)
-        {
-            super(maxSizePerThread);
+        if (group < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");
         }
-
-        @Nonnull
-        @Override
-        protected Pattern load(Slice patternSlice)
-        {
-            return Pattern.compile(patternSlice.toString(UTF_8));
+        if (group > region.numRegs - 1) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", region.numRegs - 1, group));
         }
     }
 }

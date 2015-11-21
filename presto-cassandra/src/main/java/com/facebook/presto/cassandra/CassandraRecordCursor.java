@@ -15,11 +15,14 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
-import com.google.common.base.Charsets;
+import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
 
 import java.util.List;
+
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class CassandraRecordCursor
         implements RecordCursor
@@ -30,11 +33,14 @@ public class CassandraRecordCursor
     private long atLeastCount;
     private long count;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession,
-            List<FullCassandraType> fullCassandraTypes, String cql)
+    public CassandraRecordCursor(
+            CassandraSession cassandraSession,
+            String schema,
+            List<FullCassandraType> fullCassandraTypes,
+            String cql)
     {
         this.fullCassandraTypes = fullCassandraTypes;
-        rs = cassandraSession.executeQuery(cql);
+        rs = cassandraSession.executeQuery(schema, cql);
         currentRow = null;
         atLeastCount = rs.getAvailableWithoutFetching();
     }
@@ -69,6 +75,12 @@ public class CassandraRecordCursor
     }
 
     @Override
+    public long getReadTimeNanos()
+    {
+        return 0;
+    }
+
+    @Override
     public double getDouble(int i)
     {
         switch (getCassandraType(i)) {
@@ -76,6 +88,8 @@ public class CassandraRecordCursor
                 return currentRow.getDouble(i);
             case FLOAT:
                 return currentRow.getFloat(i);
+            case DECIMAL:
+                return currentRow.getDecimal(i).doubleValue();
             default:
                 throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
         }
@@ -103,10 +117,19 @@ public class CassandraRecordCursor
     }
 
     @Override
-    public byte[] getString(int i)
+    public Slice getSlice(int i)
     {
-        String str = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i)).toString();
-        return str.getBytes(Charsets.UTF_8);
+        NullableValue value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
+        if (value.getValue() instanceof Slice) {
+            return (Slice) value.getValue();
+        }
+        return utf8Slice(value.getValue().toString());
+    }
+
+    @Override
+    public Object getObject(int field)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -116,7 +139,7 @@ public class CassandraRecordCursor
     }
 
     @Override
-    public ColumnType getType(int i)
+    public Type getType(int i)
     {
         return getCassandraType(i).getNativeType();
     }

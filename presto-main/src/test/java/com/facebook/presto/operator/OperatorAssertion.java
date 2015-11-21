@@ -13,20 +13,27 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.IterableTransformer;
-import com.facebook.presto.util.MaterializedResult;
-import com.google.common.base.Function;
+import com.facebook.presto.Session;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public final class OperatorAssertion
 {
@@ -34,49 +41,43 @@ public final class OperatorAssertion
     {
     }
 
-    public static List<Page> appendSampleWeight(List<Page> input, final int sampleWeight)
+    public static List<Page> appendSampleWeight(List<Page> input, int sampleWeight)
     {
-        return IterableTransformer.on(input).transform(new Function<Page, Page>()
-        {
-            @Override
-            public Page apply(Page page)
-            {
-                BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
-                for (int i = 0; i < page.getPositionCount(); i++) {
-                    builder.append(sampleWeight);
-                }
-                Block[] blocks = new Block[page.getChannelCount() + 1];
-                System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());
-                blocks[blocks.length - 1] = builder.build();
-                return new Page(blocks);
-            }
-        }).list();
+        return input.stream()
+                .map(page -> {
+                    BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
+                    for (int i = 0; i < page.getPositionCount(); i++) {
+                        BIGINT.writeLong(builder, sampleWeight);
+                    }
+                    Block[] blocks = new Block[page.getChannelCount() + 1];
+                    System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());
+                    blocks[blocks.length - 1] = builder.build();
+                    return new Page(blocks);
+                })
+                .collect(toImmutableList());
     }
 
-    public static List<Page> toPages(Operator operator, List<Page> input)
+    public static List<Page> toPages(Operator operator, Iterator<Page> input)
     {
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
 
-        // verify initial state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
-        assertEquals(operator.getOutput(), null);
+        boolean finishing = false;
 
-        // process input pages
-        for (Page inputPage : input) {
-            // read output until input is needed or operator is finished
-            while (!operator.needsInput() && !operator.isFinished()) {
-                Page outputPage = operator.getOutput();
-                assertNotNull(outputPage);
-                outputPages.add(outputPage);
+        while (operator.needsInput() && input.hasNext()) {
+            operator.addInput(input.next());
+        }
+
+        for (int loops = 0; !operator.isFinished() && loops < 10_000; loops++) {
+            if (operator.needsInput()) {
+                if (input.hasNext()) {
+                    Page inputPage = input.next();
+                    operator.addInput(inputPage);
+                }
+                else if (!finishing) {
+                    operator.finish();
+                    finishing = true;
+                }
             }
-
-            if (operator.isFinished()) {
-                break;
-            }
-
-            assertEquals(operator.needsInput(), true);
-            operator.addInput(inputPage);
 
             Page outputPage = operator.getOutput();
             if (outputPage != null) {
@@ -84,13 +85,21 @@ public final class OperatorAssertion
             }
         }
 
-        // finish
-        operator.finish();
-        assertEquals(operator.needsInput(), false);
+        assertFalse(operator.needsInput());
+        assertTrue(operator.isBlocked().isDone());
+        assertTrue(operator.isFinished());
 
-        // add remaining output pages
-        addRemainingOutputPages(operator, outputPages);
         return outputPages.build();
+    }
+
+    public static List<Page> toPages(Operator operator, List<Page> input)
+    {
+        // verify initial state
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), true);
+        assertEquals(operator.getOutput(), null);
+
+        return toPages(operator, input.iterator());
     }
 
     public static List<Page> toPages(Operator operator)
@@ -106,15 +115,14 @@ public final class OperatorAssertion
     private static void addRemainingOutputPages(Operator operator, ImmutableList.Builder<Page> outputPages)
     {
         // pull remaining output pages
-        while (true) {
+        while (!operator.isFinished()) {
             // at this point the operator should not need more input
             assertEquals(operator.needsInput(), false);
 
             Page outputPage = operator.getOutput();
-            if (outputPage == null) {
-                break;
+            if (outputPage != null) {
+                outputPages.add(outputPage);
             }
-            outputPages.add(outputPage);
         }
 
         // verify final state
@@ -123,10 +131,10 @@ public final class OperatorAssertion
         assertEquals(operator.getOutput(), null);
     }
 
-    public static MaterializedResult toMaterializedResult(List<TupleInfo> tupleInfos, List<Page> pages)
+    public static MaterializedResult toMaterializedResult(Session session, List<Type> types, List<Page> pages)
     {
         // materialize pages
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(tupleInfos);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(session, types);
         for (Page outputPage : pages) {
             resultBuilder.page(outputPage);
         }
@@ -138,7 +146,7 @@ public final class OperatorAssertion
         List<Page> actual = toPages(operator);
         assertEquals(actual.size(), expected.size());
         for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(actual.get(i), expected.get(i));
+            assertPageEquals(operator.getTypes(), actual.get(i), expected.get(i));
         }
     }
 
@@ -147,30 +155,85 @@ public final class OperatorAssertion
         List<Page> actual = toPages(operator, input);
         assertEquals(actual.size(), expected.size());
         for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(actual.get(i), expected.get(i));
+            assertPageEquals(operator.getTypes(), actual.get(i), expected.get(i));
         }
     }
 
     public static void assertOperatorEquals(Operator operator, MaterializedResult expected)
     {
         List<Page> pages = toPages(operator);
-        MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
+        MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
         assertEquals(actual, expected);
     }
 
     public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected)
     {
+        assertOperatorEquals(operator, input, expected, false, ImmutableList.<Integer>of());
+    }
+
+    public static void assertOperatorEquals(Operator operator, List<Page> input, MaterializedResult expected, boolean hashEnabled, List<Integer> hashChannels)
+    {
         List<Page> pages = toPages(operator, input);
-        MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
+        MaterializedResult actual;
+        if (hashEnabled && !hashChannels.isEmpty()) {
+            // Drop the hashChannel for all pages
+            List<Page> actualPages = dropChannel(pages, hashChannels);
+            List<Type> expectedTypes = without(operator.getTypes(), hashChannels);
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+        }
+        else {
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+        }
         assertEquals(actual, expected);
     }
 
     public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected)
     {
-        List<Page> pages = toPages(operator, input);
-        MaterializedResult actual = toMaterializedResult(operator.getTupleInfos(), pages);
+        assertOperatorEqualsIgnoreOrder(operator, input, expected, false, Optional.empty());
+    }
 
-        assertEquals(actual.getTupleInfos(), expected.getTupleInfos());
-        assertEqualsIgnoreOrder(actual.getMaterializedTuples(), expected.getMaterializedTuples());
+    public static void assertOperatorEqualsIgnoreOrder(Operator operator, List<Page> input, MaterializedResult expected, boolean hashEnabled, Optional<Integer> hashChannel)
+    {
+        List<Page> pages = toPages(operator, input);
+        MaterializedResult actual;
+        if (hashEnabled && hashChannel.isPresent()) {
+            // Drop the hashChannel for all pages
+            List<Page> actualPages = dropChannel(pages, ImmutableList.of(hashChannel.get()));
+            List<Type> expectedTypes = without(operator.getTypes(), ImmutableList.of(hashChannel.get()));
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+        }
+        else {
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+        }
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    static <T> List<T> without(List<T> types, List<Integer> channels)
+    {
+        types = new ArrayList<>(types);
+        int removed = 0;
+        for (int hashChannel : channels) {
+            types.remove(hashChannel - removed);
+            removed++;
+        }
+        return ImmutableList.copyOf(types);
+    }
+
+    static List<Page> dropChannel(List<Page> pages, List<Integer> channels)
+    {
+        List<Page> actualPages = new ArrayList<>();
+        for (Page page : pages) {
+            int channel = 0;
+            Block[] blocks = new Block[page.getChannelCount() - channels.size()];
+            for (int i = 0; i < page.getChannelCount(); i++) {
+                if (channels.contains(i)) {
+                    continue;
+                }
+                blocks[channel++] = page.getBlock(i);
+            }
+            actualPages.add(new Page(blocks));
+        }
+        return actualPages;
     }
 }

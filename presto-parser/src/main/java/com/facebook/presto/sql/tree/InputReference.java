@@ -13,29 +13,38 @@
  */
 package com.facebook.presto.sql.tree;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Optional;
 
 /**
- * A reference to an execution engine {@link Input}.
- * <p/>
+ * A reference to an execution engine channel.
+ * <p>
  * This is used to replace a {@link QualifiedNameReference} with a direct reference to the physical
- * channel and field to avoid unnecessary lookups in a symbol->input map during evaluation
+ * channel and field to avoid unnecessary lookups in a symbol->channel map during evaluation
  */
 public class InputReference
         extends Expression
 {
-    private final Input input;
+    private final int channel;
 
-    public InputReference(Input input)
+    public InputReference(int channel)
     {
-        checkNotNull(input, "input is null");
-
-        this.input = input;
+        this(Optional.empty(), channel);
     }
 
-    public Input getInput()
+    public InputReference(NodeLocation location, int channel)
     {
-        return input;
+        this(Optional.of(location), channel);
+    }
+
+    private InputReference(Optional<NodeLocation> location, int channel)
+    {
+        super(location);
+        this.channel = channel;
+    }
+
+    public int getChannel()
+    {
+        return channel;
     }
 
     @Override
@@ -56,16 +65,12 @@ public class InputReference
 
         InputReference that = (InputReference) o;
 
-        if (!input.equals(that.input)) {
-            return false;
-        }
-
-        return true;
+        return channel == that.channel;
     }
 
     @Override
     public int hashCode()
     {
-        return input.hashCode();
+        return channel;
     }
 }

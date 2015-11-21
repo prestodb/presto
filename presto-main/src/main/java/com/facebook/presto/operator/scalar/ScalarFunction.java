@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.sql.gen.DefaultFunctionBinder;
-import com.facebook.presto.sql.gen.FunctionBinder;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -29,7 +26,7 @@ public @interface ScalarFunction
 
     String[] alias() default {};
 
-    boolean deterministic() default true;
+    boolean hidden() default false;
 
-    Class<? extends FunctionBinder> functionBinder() default DefaultFunctionBinder.class;
+    boolean deterministic() default true;
 }

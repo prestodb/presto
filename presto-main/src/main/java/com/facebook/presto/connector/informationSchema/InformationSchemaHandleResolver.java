@@ -15,14 +15,14 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 
 public class InformationSchemaHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof InformationSchemaTableHandle;
     }
@@ -34,13 +34,13 @@ public class InformationSchemaHandleResolver
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof InformationSchemaSplit;
     }
 
     @Override
-    public Class<? extends TableHandle> getTableHandleClass()
+    public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return InformationSchemaTableHandle.class;
     }
@@ -52,7 +52,7 @@ public class InformationSchemaHandleResolver
     }
 
     @Override
-    public Class<? extends Split> getSplitClass()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
         return InformationSchemaSplit.class;
     }

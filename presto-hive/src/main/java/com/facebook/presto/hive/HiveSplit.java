@@ -13,26 +13,25 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PartitionedSplit;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Properties;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveSplit
-        implements PartitionedSplit
+        implements ConnectorSplit
 {
     private final String clientId;
-    private final String partitionId;
-    private final boolean lastSplit;
     private final String path;
     private final long start;
     private final long length;
@@ -41,43 +40,49 @@ public class HiveSplit
     private final List<HostAddress> addresses;
     private final String database;
     private final String table;
+    private final String partitionName;
+    private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final boolean forceLocalScheduling;
 
     @JsonCreator
     public HiveSplit(
             @JsonProperty("clientId") String clientId,
             @JsonProperty("database") String database,
             @JsonProperty("table") String table,
-            @JsonProperty("partitionId") String partitionId,
-            @JsonProperty("lastSplit") boolean lastSplit,
+            @JsonProperty("partitionName") String partitionName,
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+            @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
+            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        checkNotNull(clientId, "clientId is null");
+        requireNonNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
-        checkNotNull(database, "database is null");
-        checkNotNull(table, "table is null");
-        checkNotNull(partitionId, "partitionName is null");
-        checkNotNull(path, "path is null");
-        checkNotNull(schema, "schema is null");
-        checkNotNull(partitionKeys, "partitionKeys is null");
-        checkNotNull(addresses, "addresses is null");
+        requireNonNull(database, "database is null");
+        requireNonNull(table, "table is null");
+        requireNonNull(partitionName, "partitionName is null");
+        requireNonNull(path, "path is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(partitionKeys, "partitionKeys is null");
+        requireNonNull(addresses, "addresses is null");
+        requireNonNull(effectivePredicate, "tupleDomain is null");
 
         this.clientId = clientId;
         this.database = database;
         this.table = table;
-        this.partitionId = partitionId;
-        this.lastSplit = lastSplit;
+        this.partitionName = partitionName;
         this.path = path;
         this.start = start;
         this.length = length;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
+        this.forceLocalScheduling = forceLocalScheduling;
+        this.effectivePredicate = effectivePredicate;
     }
 
     @JsonProperty
@@ -99,17 +104,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @Override
-    public String getPartitionId()
+    public String getPartitionName()
     {
-        return partitionId;
-    }
-
-    @JsonProperty
-    @Override
-    public boolean isLastSplit()
-    {
-        return lastSplit;
+        return partitionName;
     }
 
     @JsonProperty
@@ -137,7 +134,6 @@ public class HiveSplit
     }
 
     @JsonProperty
-    @Override
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
@@ -150,10 +146,22 @@ public class HiveSplit
         return addresses;
     }
 
+    @JsonProperty
+    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
+    {
+        return effectivePredicate;
+    }
+
+    @JsonProperty
+    public boolean isForceLocalScheduling()
+    {
+        return forceLocalScheduling;
+    }
+
     @Override
     public boolean isRemotelyAccessible()
     {
-        return true;
+        return !forceLocalScheduling;
     }
 
     @Override
@@ -166,36 +174,20 @@ public class HiveSplit
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)
-                .put("partitionId", partitionId)
+                .put("forceLocalScheduling", forceLocalScheduling)
+                .put("partitionName", partitionName)
+                .put("effectivePredicate", effectivePredicate)
                 .build();
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .addValue(path)
                 .addValue(start)
                 .addValue(length)
+                .addValue(effectivePredicate)
                 .toString();
-    }
-
-    public static HiveSplit markAsLastSplit(HiveSplit split)
-    {
-        if (split.isLastSplit()) {
-            return split;
-        }
-
-        return new HiveSplit(split.getClientId(),
-                split.getDatabase(),
-                split.getTable(),
-                split.getPartitionId(),
-                true,
-                split.getPath(),
-                split.getStart(),
-                split.getLength(),
-                split.getSchema(),
-                split.getPartitionKeys(),
-                split.getAddresses());
     }
 }

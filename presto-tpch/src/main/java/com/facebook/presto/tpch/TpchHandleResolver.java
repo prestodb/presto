@@ -15,10 +15,11 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchHandleResolver
         implements ConnectorHandleResolver
@@ -27,13 +28,19 @@ public class TpchHandleResolver
 
     public TpchHandleResolver(String connectorId)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public boolean canHandle(ConnectorTableHandle tableHandle)
     {
         return tableHandle instanceof TpchTableHandle && ((TpchTableHandle) tableHandle).getConnectorId().equals(connectorId);
+    }
+
+    @Override
+    public boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return handle instanceof TpchTableLayoutHandle && ((TpchTableLayoutHandle) handle).getConnectorId().equals(connectorId);
     }
 
     @Override
@@ -43,13 +50,13 @@ public class TpchHandleResolver
     }
 
     @Override
-    public boolean canHandle(Split split)
+    public boolean canHandle(ConnectorSplit split)
     {
         return split instanceof TpchSplit && ((TpchSplit) split).getTableHandle().getConnectorId().equals(connectorId);
     }
 
     @Override
-    public Class<? extends TableHandle> getTableHandleClass()
+    public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return TpchTableHandle.class;
     }
@@ -61,8 +68,14 @@ public class TpchHandleResolver
     }
 
     @Override
-    public Class<? extends Split> getSplitClass()
+    public Class<? extends ConnectorSplit> getSplitClass()
     {
         return TpchSplit.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return TpchTableLayoutHandle.class;
     }
 }

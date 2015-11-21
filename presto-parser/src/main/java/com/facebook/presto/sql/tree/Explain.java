@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class Explain
         extends Statement
@@ -28,7 +30,18 @@ public class Explain
 
     public Explain(Statement statement, List<ExplainOption> options)
     {
-        this.statement = checkNotNull(statement, "statement is null");
+        this(Optional.empty(), statement, options);
+    }
+
+    public Explain(NodeLocation location, Statement statement, List<ExplainOption> options)
+    {
+        this(Optional.of(location), statement, options);
+    }
+
+    private Explain(Optional<NodeLocation> location, Statement statement, List<ExplainOption> options)
+    {
+        super(location);
+        this.statement = requireNonNull(statement, "statement is null");
         if (options == null) {
             this.options = ImmutableList.of();
         }
@@ -56,7 +69,7 @@ public class Explain
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(statement, options);
+        return Objects.hash(statement, options);
     }
 
     @Override
@@ -69,14 +82,14 @@ public class Explain
             return false;
         }
         Explain o = (Explain) obj;
-        return Objects.equal(statement, o.statement) &&
-                Objects.equal(options, o.options);
+        return Objects.equals(statement, o.statement) &&
+                Objects.equals(options, o.options);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("statement", statement)
                 .add("options", options)
                 .toString();

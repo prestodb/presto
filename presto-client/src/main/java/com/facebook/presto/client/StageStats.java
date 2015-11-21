@@ -15,7 +15,6 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -23,7 +22,8 @@ import javax.validation.constraints.NotNull;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class StageStats
@@ -61,7 +61,7 @@ public class StageStats
             @JsonProperty("subStages") List<StageStats> subStages)
     {
         this.stageId = stageId;
-        this.state = checkNotNull(state, "state is null");
+        this.state = requireNonNull(state, "state is null");
         this.done = done;
         this.nodes = nodes;
         this.totalSplits = totalSplits;
@@ -73,7 +73,7 @@ public class StageStats
         this.wallTimeMillis = wallTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
-        this.subStages = ImmutableList.copyOf(checkNotNull(subStages, "subStages is null"));
+        this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
     }
 
     @JsonProperty
@@ -165,7 +165,7 @@ public class StageStats
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("state", state)
                 .add("done", done)
                 .add("nodes", nodes)
@@ -208,13 +208,13 @@ public class StageStats
 
         public Builder setStageId(String stageId)
         {
-            this.stageId = checkNotNull(stageId, "stageId is null");
+            this.stageId = requireNonNull(stageId, "stageId is null");
             return this;
         }
 
         public Builder setState(String state)
         {
-            this.state = checkNotNull(state, "state is null");
+            this.state = requireNonNull(state, "state is null");
             return this;
         }
 
@@ -286,7 +286,7 @@ public class StageStats
 
         public Builder setSubStages(List<StageStats> subStages)
         {
-            this.subStages = ImmutableList.copyOf(checkNotNull(subStages, "subStages is null"));
+            this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
             return this;
         }
 

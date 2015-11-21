@@ -28,6 +28,7 @@ import java.util.List;
 import static com.facebook.presto.byteCode.Access.toAccessModifier;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 
+@SuppressWarnings("UnusedDeclaration")
 @Immutable
 public class FieldDefinition
 {
@@ -111,7 +112,7 @@ public class FieldDefinition
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         sb.append("FieldDefinition");
         sb.append("{access=").append(access);
         sb.append(", name='").append(name).append('\'');

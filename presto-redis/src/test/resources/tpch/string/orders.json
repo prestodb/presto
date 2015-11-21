@@ -1,0 +1,66 @@
+{
+    "tableName": "orders",
+    "schemaName": "tpch",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "redis_key",
+                "dataFormat": "VARCHAR",
+                "type": "VARCHAR",
+                "hidden": "true"
+            }
+        ]
+    },
+    "value": {
+        "dataFormat": "json",
+        "fields": [
+            {
+                "name": "orderkey",
+                "mapping": "orderkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "custkey",
+                "mapping": "custkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "orderstatus",
+                "mapping": "orderstatus",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "totalprice",
+                "mapping": "totalprice",
+                "type": "DOUBLE"
+            },
+            {
+                "name": "orderdate",
+                "mapping": "orderdate",
+                "type": "VARCHAR",
+                "dataFormat": "iso8601"
+            },
+            {
+                "name": "orderpriority",
+                "mapping": "orderpriority",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "clerk",
+                "mapping": "clerk",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "shippriority",
+                "mapping": "shippriority",
+                "type": "BIGINT"
+            },
+            {
+                "name": "comment",
+                "mapping": "comment",
+                "type": "VARCHAR"
+            }
+        ]
+    }
+}

@@ -13,12 +13,12 @@
  */
 package com.datastax.driver.core;
 
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 
 import java.nio.ByteBuffer;
 
 import static com.datastax.driver.core.ColumnDefinitions.Definition;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class RowUtil
 {
@@ -26,9 +26,10 @@ public final class RowUtil
     {
     }
 
-    public static Row createSingleStringRow(String value)
+    public static Row createSingleStringRow(String value, int protocolVersion)
     {
         ColumnDefinitions definitions = new ColumnDefinitions(new Definition[] {new Definition("keyspace", "table", "column", DataType.ascii())});
-        return Row.fromData(definitions, ImmutableList.of(ByteBuffer.wrap(value.getBytes(Charsets.UTF_8))));
+        ByteBuffer data = ByteBuffer.wrap(value.getBytes(UTF_8));
+        return ArrayBackedRow.fromData(definitions, null, ProtocolVersion.fromInt(protocolVersion), ImmutableList.of(data));
     }
 }

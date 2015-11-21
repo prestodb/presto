@@ -16,36 +16,60 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import io.airlift.http.client.AsyncHttpClient;
+import com.google.common.collect.ImmutableList;
+import com.google.common.net.HostAndPort;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
+import io.airlift.http.client.HttpRequestFilter;
+import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.client.jetty.JettyIoPool;
+import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
 import java.io.Closeable;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.util.Objects.requireNonNull;
 
 public class QueryRunner
         implements Closeable
 {
     private final JsonCodec<QueryResults> queryResultsCodec;
-    private final ClientSession session;
-    private final AsyncHttpClient httpClient;
+    private final AtomicReference<ClientSession> session;
+    private final HttpClient httpClient;
 
-    public QueryRunner(ClientSession session, JsonCodec<QueryResults> queryResultsCodec)
+    public QueryRunner(
+            ClientSession session,
+            JsonCodec<QueryResults> queryResultsCodec,
+            Optional<HostAndPort> socksProxy,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> kerberosPrincipal,
+            Optional<String> kerberosRemoteServiceName,
+            boolean authenticationEnabled,
+            KerberosConfig kerberosConfig)
     {
-        this.session = checkNotNull(session, "session is null");
-        this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
-        this.httpClient = new StandaloneNettyAsyncHttpClient("cli",
-                new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));
+        this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
+        this.queryResultsCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
+        this.httpClient = new JettyHttpClient(
+                getHttpClientConfig(socksProxy, keystorePath, keystorePassword, kerberosPrincipal, kerberosRemoteServiceName, authenticationEnabled),
+                kerberosConfig,
+                Optional.<JettyIoPool>empty(),
+                ImmutableList.<HttpRequestFilter>of());
     }
 
     public ClientSession getSession()
     {
-        return session;
+        return session.get();
+    }
+
+    public void setSession(ClientSession session)
+    {
+        this.session.set(requireNonNull(session, "session is null"));
     }
 
     public Query startQuery(String query)
@@ -55,7 +79,7 @@ public class QueryRunner
 
     public StatementClient startInternalQuery(String query)
     {
-        return new StatementClient(httpClient, queryResultsCodec, session, query);
+        return new StatementClient(httpClient, queryResultsCodec, session.get(), query);
     }
 
     @Override
@@ -64,8 +88,47 @@ public class QueryRunner
         httpClient.close();
     }
 
-    public static QueryRunner create(ClientSession session)
+    public static QueryRunner create(
+            ClientSession session,
+            Optional<HostAndPort> socksProxy,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> kerberosPrincipal,
+            Optional<String> kerberosRemoteServiceName,
+            boolean authenticationEnabled,
+            KerberosConfig kerberosConfig)
     {
-        return new QueryRunner(session, jsonCodec(QueryResults.class));
+        return new QueryRunner(
+                session,
+                jsonCodec(QueryResults.class),
+                socksProxy,
+                keystorePath,
+                keystorePassword,
+                kerberosPrincipal,
+                kerberosRemoteServiceName,
+                authenticationEnabled,
+                kerberosConfig);
+    }
+
+    private static HttpClientConfig getHttpClientConfig(
+            Optional<HostAndPort> socksProxy,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> kerberosPrincipal,
+            Optional<String> kerberosRemoteServiceName,
+            boolean authenticationEnabled)
+    {
+        HttpClientConfig httpClientConfig = new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
+
+        socksProxy.ifPresent(httpClientConfig::setSocksProxy);
+
+        httpClientConfig.setAuthenticationEnabled(authenticationEnabled);
+
+        keystorePath.ifPresent(httpClientConfig::setKeyStorePath);
+        keystorePassword.ifPresent(httpClientConfig::setKeyStorePassword);
+        kerberosPrincipal.ifPresent(httpClientConfig::setKerberosPrincipal);
+        kerberosRemoteServiceName.ifPresent(httpClientConfig::setKerberosRemoteServiceName);
+
+        return httpClientConfig;
     }
 }

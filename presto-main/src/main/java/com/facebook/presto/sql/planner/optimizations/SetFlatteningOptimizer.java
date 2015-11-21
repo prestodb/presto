@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
-import com.facebook.presto.sql.planner.plan.PlanRewriter;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -30,7 +29,7 @@ import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class SetFlatteningOptimizer
         extends PlanOptimizer
@@ -38,33 +37,33 @@ public class SetFlatteningOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(), plan, false);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan, false);
     }
 
     // TODO: remove expectation that UNION DISTINCT => distinct aggregation directly above union node
     private static class Rewriter
-            extends PlanNodeRewriter<Boolean>
+            extends SimplePlanRewriter<Boolean>
     {
         @Override
-        public PlanNode rewriteNode(PlanNode node, Boolean upstreamDistinct, PlanRewriter<Boolean> planRewriter)
+        public PlanNode visitPlan(PlanNode node, RewriteContext<Boolean> context)
         {
-            return super.rewriteNode(node, false, planRewriter);
+            return context.defaultRewrite(node, false);
         }
 
         @Override
-        public PlanNode rewriteUnion(UnionNode node, Boolean upstreamDistinct, PlanRewriter<Boolean> planRewriter)
+        public PlanNode visitUnion(UnionNode node, RewriteContext<Boolean> context)
         {
             ImmutableList.Builder<PlanNode> flattenedSources = ImmutableList.builder();
             ImmutableListMultimap.Builder<Symbol, Symbol> flattenedSymbolMap = ImmutableListMultimap.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
-                PlanNode rewrittenSource = planRewriter.rewrite(subplan, upstreamDistinct);
+                PlanNode rewrittenSource = context.rewrite(subplan, context.get());
 
                 if (rewrittenSource instanceof UnionNode) {
                     // Absorb source's subplans if it is also a UnionNode
@@ -86,18 +85,28 @@ public class SetFlatteningOptimizer
         }
 
         @Override
-        public PlanNode rewriteAggregation(AggregationNode node, Boolean upstreamDistinct, PlanRewriter<Boolean> planRewriter)
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Boolean> context)
         {
             boolean distinct = isDistinctOperator(node);
 
-            PlanNode rewrittenNode = planRewriter.rewrite(node.getSource(), distinct);
+            PlanNode rewrittenNode = context.rewrite(node.getSource(), distinct);
 
-            if (upstreamDistinct && distinct) {
+            if (context.get() && distinct) {
                 // Assumes underlying node has same output symbols as this distinct node
                 return rewrittenNode;
             }
 
-            return new AggregationNode(node.getId(), rewrittenNode, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getSampleWeight(), node.getConfidence());
+            return new AggregationNode(
+                    node.getId(),
+                    rewrittenNode,
+                    node.getGroupBy(),
+                    node.getAggregations(),
+                    node.getFunctions(),
+                    node.getMasks(),
+                    node.getStep(),
+                    node.getSampleWeight(),
+                    node.getConfidence(),
+                    node.getHashSymbol());
         }
 
         private static boolean isDistinctOperator(AggregationNode node)

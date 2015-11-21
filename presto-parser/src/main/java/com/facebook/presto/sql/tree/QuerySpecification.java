@@ -13,41 +13,67 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-
-import javax.annotation.Nullable;
-
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class QuerySpecification
         extends QueryBody
 {
     private final Select select;
-    private final List<Relation> from;
+    private final Optional<Relation> from;
     private final Optional<Expression> where;
-    private final List<Expression> groupBy;
+    private final List<GroupingElement> groupBy;
     private final Optional<Expression> having;
     private final List<SortItem> orderBy;
     private final Optional<String> limit;
 
     public QuerySpecification(
             Select select,
-            @Nullable List<Relation> from,
+            Optional<Relation> from,
             Optional<Expression> where,
-            List<Expression> groupBy,
+            List<GroupingElement> groupBy,
             Optional<Expression> having,
             List<SortItem> orderBy,
             Optional<String> limit)
     {
-        checkNotNull(select, "select is null");
-        checkNotNull(where, "where is null");
-        checkNotNull(groupBy, "groupBy is null");
-        checkNotNull(having, "having is null");
-        checkNotNull(orderBy, "orderBy is null");
-        checkNotNull(limit, "limit is null");
+        this(Optional.empty(), select, from, where, groupBy, having, orderBy, limit);
+    }
+
+    public QuerySpecification(
+            NodeLocation location,
+            Select select,
+            Optional<Relation> from,
+            Optional<Expression> where,
+            List<GroupingElement> groupBy,
+            Optional<Expression> having,
+            List<SortItem> orderBy,
+            Optional<String> limit)
+    {
+        this(Optional.of(location), select, from, where, groupBy, having, orderBy, limit);
+    }
+
+    private QuerySpecification(
+            Optional<NodeLocation> location,
+            Select select,
+            Optional<Relation> from,
+            Optional<Expression> where,
+            List<GroupingElement> groupBy,
+            Optional<Expression> having,
+            List<SortItem> orderBy,
+            Optional<String> limit)
+    {
+        super(location);
+        requireNonNull(select, "select is null");
+        requireNonNull(from, "from is null");
+        requireNonNull(where, "where is null");
+        requireNonNull(groupBy, "groupBy is null");
+        requireNonNull(having, "having is null");
+        requireNonNull(orderBy, "orderBy is null");
+        requireNonNull(limit, "limit is null");
 
         this.select = select;
         this.from = from;
@@ -63,7 +89,7 @@ public class QuerySpecification
         return select;
     }
 
-    public List<Relation> getFrom()
+    public Optional<Relation> getFrom()
     {
         return from;
     }
@@ -73,7 +99,7 @@ public class QuerySpecification
         return where;
     }
 
-    public List<Expression> getGroupBy()
+    public List<GroupingElement> getGroupBy()
     {
         return groupBy;
     }
@@ -102,14 +128,14 @@ public class QuerySpecification
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("select", select)
                 .add("from", from)
-                .add("where", where.orNull())
+                .add("where", where.orElse(null))
                 .add("groupBy", groupBy)
-                .add("having", having.orNull())
+                .add("having", having.orElse(null))
                 .add("orderBy", orderBy)
-                .add("limit", limit.orNull())
+                .add("limit", limit.orElse(null))
                 .toString();
     }
 
@@ -123,18 +149,18 @@ public class QuerySpecification
             return false;
         }
         QuerySpecification o = (QuerySpecification) obj;
-        return Objects.equal(select, o.select) &&
-                Objects.equal(from, o.from) &&
-                Objects.equal(where, o.where) &&
-                Objects.equal(groupBy, o.groupBy) &&
-                Objects.equal(having, o.having) &&
-                Objects.equal(orderBy, o.orderBy) &&
-                Objects.equal(limit, o.limit);
+        return Objects.equals(select, o.select) &&
+                Objects.equals(from, o.from) &&
+                Objects.equals(where, o.where) &&
+                Objects.equals(groupBy, o.groupBy) &&
+                Objects.equals(having, o.having) &&
+                Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(limit, o.limit);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(select, from, where, groupBy, having, orderBy, limit);
+        return Objects.hash(select, from, where, groupBy, having, orderBy, limit);
     }
 }

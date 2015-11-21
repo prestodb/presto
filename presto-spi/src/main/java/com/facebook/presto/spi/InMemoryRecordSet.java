@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.spi;
 
-import java.nio.charset.StandardCharsets;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -21,14 +25,22 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+
 public class InMemoryRecordSet
         implements RecordSet
 {
-    private final List<ColumnType> types;
+    private final List<Type> types;
     private final Iterable<? extends List<?>> records;
     private final long totalBytes;
 
-    public InMemoryRecordSet(Collection<ColumnType> types, Collection<? extends List<?>> records)
+    public InMemoryRecordSet(Collection<? extends Type> types, Collection<? extends List<?>> records)
     {
         this.types = Collections.unmodifiableList(new ArrayList<>(types));
         this.records = records;
@@ -41,7 +53,7 @@ public class InMemoryRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return types;
     }
@@ -55,13 +67,13 @@ public class InMemoryRecordSet
     private static class InMemoryRecordCursor
             implements RecordCursor
     {
-        private final List<ColumnType> types;
+        private final List<Type> types;
         private final Iterator<? extends List<?>> records;
         private final long totalBytes;
         private List<?> record;
         private long completedBytes;
 
-        private InMemoryRecordCursor(List<ColumnType> types, Iterator<? extends List<?>> records, long totalBytes)
+        private InMemoryRecordCursor(List<Type> types, Iterator<? extends List<?>> records, long totalBytes)
         {
             this.types = types;
 
@@ -83,7 +95,13 @@ public class InMemoryRecordSet
         }
 
         @Override
-        public ColumnType getType(int field)
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
+        public Type getType(int field)
         {
             return types.get(field);
         }
@@ -114,7 +132,7 @@ public class InMemoryRecordSet
         {
             checkState(record != null, "no current record");
             checkNotNull(record.get(field), "value is null");
-            return (Long) record.get(field);
+            return ((Number) record.get(field)).longValue();
         }
 
         @Override
@@ -126,18 +144,27 @@ public class InMemoryRecordSet
         }
 
         @Override
-        public byte[] getString(int field)
+        public Slice getSlice(int field)
         {
             checkState(record != null, "no current record");
             Object value = record.get(field);
             checkNotNull(value, "value is null");
             if (value instanceof byte[]) {
-                return (byte[]) value;
+                return Slices.wrappedBuffer((byte[]) value);
             }
             if (value instanceof String) {
-                return ((String) value).getBytes(StandardCharsets.UTF_8);
+                return Slices.utf8Slice((String) value);
             }
             throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
+        }
+
+        @Override
+        public Object getObject(int field)
+        {
+            checkState(record != null, "no current record");
+            Object value = record.get(field);
+            checkNotNull(value, "value is null");
+            return value;
         }
 
         @Override
@@ -160,24 +187,24 @@ public class InMemoryRecordSet
 
     public static Builder builder(List<ColumnMetadata> columns)
     {
-        List<ColumnType> columnTypes = new ArrayList<>();
+        List<Type> columnTypes = new ArrayList<>();
         for (ColumnMetadata column : columns) {
             columnTypes.add(column.getType());
         }
         return builder(columnTypes);
     }
 
-    public static Builder builder(Collection<ColumnType> columnsTypes)
+    public static Builder builder(Collection<Type> columnsTypes)
     {
         return new Builder(columnsTypes);
     }
 
     public static class Builder
     {
-        private final List<ColumnType> types;
+        private final List<Type> types;
         private final List<List<Object>> records = new ArrayList<>();
 
-        private Builder(Collection<ColumnType> types)
+        private Builder(Collection<Type> types)
         {
             checkNotNull(types, "types is null");
             this.types = Collections.unmodifiableList(new ArrayList<>(types));
@@ -193,22 +220,24 @@ public class InMemoryRecordSet
                 if (value == null) {
                     continue;
                 }
-                switch (types.get(i)) {
-                    case BOOLEAN:
-                        checkArgument(value instanceof Boolean, "Expected value %d to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
-                        break;
-                    case LONG:
-                        checkArgument(value instanceof Long, "Expected value %d to be an instance of Long, but is a %s", i, value.getClass().getSimpleName());
-                        break;
-                    case DOUBLE:
-                        checkArgument(value instanceof Double, "Expected value %d to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
-                        break;
-                    case STRING:
-                        checkArgument(value instanceof String || value instanceof byte[],
-                                "Expected value %d to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
-                        break;
-                    default:
-                        throw new IllegalStateException("Unsupported column type " + types.get(i));
+
+                Type type = types.get(i);
+                if (BOOLEAN.equals(type)) {
+                    checkArgument(value instanceof Boolean, "Expected value %d to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                    checkArgument(value instanceof Integer || value instanceof Long,
+                            "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (DOUBLE.equals(type)) {
+                    checkArgument(value instanceof Double, "Expected value %d to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
+                }
+                else if (VARCHAR.equals(type)) {
+                    checkArgument(value instanceof String || value instanceof byte[],
+                            "Expected value %d to be an instance of String or byte[], but is a %s", i, value.getClass().getSimpleName());
+                }
+                else {
+                    throw new IllegalStateException("Unsupported column type " + types.get(i));
                 }
             }
             // Immutable list does not allow nulls
@@ -247,13 +276,13 @@ public class InMemoryRecordSet
     {
         long completedBytes = 0;
         for (Object value : record) {
-            if (value instanceof Boolean) {
+            if (value == null) {
+                // do nothing
+            }
+            else if (value instanceof Boolean) {
                 completedBytes++;
             }
-            else if (value instanceof Long) {
-                completedBytes += 8;
-            }
-            else if (value instanceof Double) {
+            else if (value instanceof Number) {
                 completedBytes += 8;
             }
             else if (value instanceof String) {
@@ -261,6 +290,12 @@ public class InMemoryRecordSet
             }
             else if (value instanceof byte[]) {
                 completedBytes += ((byte[]) value).length;
+            }
+            else if (value instanceof Block) {
+                completedBytes += ((Block) value).getSizeInBytes();
+            }
+            else {
+                throw new IllegalArgumentException("Unknown type: " + value.getClass());
             }
         }
         return completedBytes;

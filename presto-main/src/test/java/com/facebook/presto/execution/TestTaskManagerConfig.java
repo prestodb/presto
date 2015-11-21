@@ -32,36 +32,63 @@ public class TestTaskManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
+                .setInfoRefreshMaxWait(new Duration(200, TimeUnit.MILLISECONDS))
+                .setVerboseStats(false)
                 .setTaskCpuTimerEnabled(true)
-                .setMaxShardProcessorThreads(Runtime.getRuntime().availableProcessors() * 4)
+                .setMaxWorkerThreads(Runtime.getRuntime().availableProcessors() * 4)
+                .setMinDrivers(Runtime.getRuntime().availableProcessors() * 4 * 2)
                 .setInfoMaxAge(new Duration(15, TimeUnit.MINUTES))
-                .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
-                .setMaxTaskMemoryUsage(new DataSize(256, Unit.MEGABYTE))
+                .setClientTimeout(new Duration(2, TimeUnit.MINUTES))
+                .setMaxIndexMemoryUsage(new DataSize(64, Unit.MEGABYTE))
+                .setShareIndexLoading(false)
                 .setOperatorPreAllocatedMemory(new DataSize(16, Unit.MEGABYTE))
-                .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE)));
+                .setMaxPartialAggregationMemoryUsage(new DataSize(16, Unit.MEGABYTE))
+                .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
+                .setWriterCount(1)
+                .setTaskDefaultConcurrency(1)
+                .setHttpResponseThreads(100)
+                .setHttpTimeoutThreads(1));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("task.info-refresh-max-wait", "1s")
+                .put("task.verbose-stats", "true")
                 .put("task.cpu-timer-enabled", "false")
-                .put("task.max-memory", "2GB")
+                .put("task.max-index-memory", "512MB")
+                .put("task.share-index-loading", "true")
                 .put("task.operator-pre-allocated-memory", "2MB")
-                .put("task.shard.max-threads", "3")
+                .put("task.max-partial-aggregation-memory", "32MB")
+                .put("task.max-worker-threads", "3")
+                .put("task.min-drivers", "2")
                 .put("task.info.max-age", "22m")
                 .put("task.client.timeout", "10s")
                 .put("sink.max-buffer-size", "42MB")
+                .put("task.writer-count", "3")
+                .put("task.default-concurrency", "7")
+                .put("task.http-response-threads", "4")
+                .put("task.http-timeout-threads", "10")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
+                .setInfoRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
+                .setVerboseStats(true)
                 .setTaskCpuTimerEnabled(false)
-                .setMaxTaskMemoryUsage(new DataSize(2, Unit.GIGABYTE))
+                .setMaxIndexMemoryUsage(new DataSize(512, Unit.MEGABYTE))
+                .setShareIndexLoading(true)
                 .setOperatorPreAllocatedMemory(new DataSize(2, Unit.MEGABYTE))
-                .setMaxShardProcessorThreads(3)
+                .setMaxPartialAggregationMemoryUsage(new DataSize(32, Unit.MEGABYTE))
+                .setMaxWorkerThreads(3)
+                .setMinDrivers(2)
                 .setInfoMaxAge(new Duration(22, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
-                .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE));
+                .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
+                .setWriterCount(3)
+                .setTaskDefaultConcurrency(7)
+                .setHttpResponseThreads(4)
+                .setHttpTimeoutThreads(10);
 
         assertFullMapping(properties, expected);
     }

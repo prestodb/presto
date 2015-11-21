@@ -15,61 +15,94 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.TpchColumn;
+import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 
 import java.util.List;
 
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.tpch.Types.checkType;
+import static io.airlift.tpch.TpchColumnType.BIGINT;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final String connectorId;
-
-    public TpchRecordSetProvider(String connectorId)
-    {
-        this.connectorId = connectorId;
-    }
-
     @Override
-    public boolean canHandle(Split split)
+    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        return split instanceof TpchSplit && ((TpchSplit) split).getTableHandle().getConnectorId().equals(connectorId);
-    }
+        TpchSplit tpchSplit = checkType(split, TpchSplit.class, "split");
 
-    @Override
-    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
-    {
-        checkNotNull(split, "split is null");
-        checkArgument(split instanceof TpchSplit, "Split must be a tpch split!");
-
-        checkNotNull(columns, "columns is null");
-        checkArgument(!columns.isEmpty(), "must provide at least one column");
-
-        TpchSplit tpchSplit = (TpchSplit) split;
         String tableName = tpchSplit.getTableHandle().getTableName();
 
         TpchTable<?> tpchTable = TpchTable.getTable(tableName);
 
-        return getRecordSet(tpchTable, columns, tpchSplit);
+        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts());
     }
 
-    private <E extends TpchEntity> RecordSet getRecordSet(TpchTable<E> table, List<? extends ColumnHandle> columns, TpchSplit tpchSplit)
+    public <E extends TpchEntity> RecordSet getRecordSet(
+            TpchTable<E> table,
+            List<? extends ColumnHandle> columns,
+            double scaleFactor,
+            int partNumber,
+            int totalParts)
     {
         ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            checkArgument(column instanceof TpchColumnHandle, "column must be of type TpchColumnHandle, not %s", column.getClass().getName());
-            String columnName = ((TpchColumnHandle) column).getColumnName();
-            builder.add(table.getColumn(columnName));
+            String columnName = checkType(column, TpchColumnHandle.class, "column").getColumnName();
+            if (columnName.equalsIgnoreCase(TpchMetadata.ROW_NUMBER_COLUMN_NAME)) {
+                builder.add(new RowNumberTpchColumn<E>());
+            }
+            else {
+                builder.add(table.getColumn(columnName));
+            }
         }
 
-        return createTpchRecordSet(table, builder.build(), tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber() + 1, tpchSplit.getTotalParts());
+        return createTpchRecordSet(table, builder.build(), scaleFactor, partNumber + 1, totalParts);
+    }
+
+    private static class RowNumberTpchColumn<E extends TpchEntity>
+            implements TpchColumn<E>
+    {
+        @Override
+        public String getColumnName()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TpchColumnType getType()
+        {
+            return BIGINT;
+        }
+
+        @Override
+        public double getDouble(E entity)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getLong(E entity)
+        {
+            return entity.getRowNumber();
+        }
+
+        @Override
+        public String getString(E entity)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getDate(E entity)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }

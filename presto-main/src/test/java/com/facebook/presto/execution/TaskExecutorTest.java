@@ -33,7 +33,7 @@ public class TaskExecutorTest
     public void test()
             throws Exception
     {
-        TaskExecutor taskExecutor = new TaskExecutor(4);
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8);
         taskExecutor.start();
 
         try {
@@ -113,6 +113,35 @@ public class TaskExecutorTest
         }
     }
 
+    @Test
+    public void testTaskHandle()
+            throws Exception
+    {
+        TaskExecutor taskExecutor = new TaskExecutor(4, 8);
+        taskExecutor.start();
+
+        try {
+            TaskHandle taskHandle = taskExecutor.addTask(new TaskId("test", "test", "test"));
+
+            Phaser beginPhase = new Phaser();
+            beginPhase.register();
+            Phaser verificationComplete = new Phaser();
+            verificationComplete.register();
+            TestingJob driver = new TestingJob(beginPhase, verificationComplete, 10);
+
+            // force enqueue a split
+            taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver));
+            assertEquals(taskHandle.getRunningSplits(), 0);
+
+            // normal enqueue a split
+            taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver));
+            assertEquals(taskHandle.getRunningSplits(), 1);
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
     private static class TestingJob
             implements SplitRunner
     {
@@ -162,6 +191,12 @@ public class TaskExecutorTest
         }
 
         @Override
+        public String getInfo()
+        {
+            return "testing-split";
+        }
+
+        @Override
         public boolean isFinished()
         {
             boolean isFinished = completedPhases.get() >= requiredPhases;
@@ -172,6 +207,7 @@ public class TaskExecutorTest
             return isFinished;
         }
 
+        @Override
         public void close()
         {
         }

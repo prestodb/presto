@@ -13,15 +13,19 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static org.testng.Assert.fail;
 
 public class TestHiveConnectorFactory
 {
@@ -29,7 +33,14 @@ public class TestHiveConnectorFactory
     public void testGetClient()
     {
         assertCreateConnector("thrift://localhost:1234");
-        assertCreateConnector("discovery::");
+        assertCreateConnector("thrift://localhost:1234,thrift://192.0.2.3:5678");
+
+        assertCreateConnectorFails("abc", "metastoreUri scheme is missing: abc");
+        assertCreateConnectorFails("thrift://:8090", "metastoreUri host is missing: thrift://:8090");
+        assertCreateConnectorFails("thrift://localhost", "metastoreUri port is missing: thrift://localhost");
+        assertCreateConnectorFails("abc::", "metastoreUri scheme must be thrift: abc::");
+        assertCreateConnectorFails("", "metastoreUris must specify at least one URI");
+        assertCreateConnectorFails("thrift://localhost:1234,thrift://test-1", "metastoreUri port is missing: thrift://test-1");
     }
 
     private static void assertCreateConnector(String metastoreUri)
@@ -40,12 +51,26 @@ public class TestHiveConnectorFactory
                         .put("node.environment", "test")
                         .put("hive.metastore.uri", metastoreUri)
                         .build(),
-                HiveConnector.class.getClassLoader());
+                HiveConnector.class.getClassLoader(),
+                null,
+                new TypeRegistry(),
+                new GroupByHashPageIndexerFactory());
 
         Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
         assertInstanceOf(connector.getMetadata(), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);
-        assertInstanceOf(connector.getRecordSetProvider(), ClassLoaderSafeConnectorRecordSetProvider.class);
+        assertInstanceOf(connector.getPageSourceProvider(), ConnectorPageSourceProvider.class);
         assertInstanceOf(connector.getHandleResolver(), ClassLoaderSafeConnectorHandleResolver.class);
+    }
+
+    private static void assertCreateConnectorFails(String metastoreUri, String exceptionString)
+    {
+        try {
+            assertCreateConnector(metastoreUri);
+            fail("expected connector creation to fail:" + metastoreUri);
+        }
+        catch (RuntimeException e) {
+            assertContains(e.getMessage(), exceptionString);
+        }
     }
 }

@@ -13,169 +13,35 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.util.array.LongBigArray;
-import com.google.common.base.Optional;
+import com.facebook.presto.operator.aggregation.state.LongState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.Type.BOOLEAN;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
-public class CountIfAggregation
-        extends SimpleAggregationFunction
+@AggregationFunction("count_if")
+public final class CountIfAggregation
 {
-    public static final CountIfAggregation COUNT_IF = new CountIfAggregation();
+    private CountIfAggregation() {}
 
-    public CountIfAggregation()
+    @InputFunction
+    public static void input(LongState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        super(SINGLE_LONG, SINGLE_LONG, BOOLEAN);
-    }
-
-    @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
-    {
-        checkArgument(confidence == 1.0, "count_if does not support approximate queries");
-        return new CountIfGroupedAccumulator(valueChannel, maskChannel, sampleWeightChannel);
-    }
-
-    public static class CountIfGroupedAccumulator
-            extends SimpleGroupedAccumulator
-    {
-        private final LongBigArray counts;
-
-        public CountIfGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
-        {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
-            this.counts = new LongBigArray();
-        }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return counts.sizeOf();
-        }
-
-        @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            counts.ensureCapacity(groupIdsBlock.getGroupCount());
-
-            BlockCursor values = valuesBlock.cursor();
-            BlockCursor masks = null;
-            if (maskBlock.isPresent()) {
-                masks = maskBlock.get().cursor();
-            }
-            BlockCursor sampleWeights = null;
-            if (sampleWeightBlock.isPresent()) {
-                sampleWeights = sampleWeightBlock.get().cursor();
-            }
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
-                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
-
-                long sampleWeight = computeSampleWeight(masks, sampleWeights);
-                if (!values.isNull() && values.getBoolean() && sampleWeight > 0) {
-                    long groupId = groupIdsBlock.getGroupId(position);
-                    counts.add(groupId, sampleWeight);
-                }
-            }
-            checkState(!values.advanceNextPosition());
-        }
-
-        @Override
-        protected void processIntermediate(GroupByIdBlock groupIdsBlock, Block valuesBlock)
-        {
-            counts.ensureCapacity(groupIdsBlock.getGroupCount());
-
-            BlockCursor values = valuesBlock.cursor();
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-
-                if (!values.isNull()) {
-                    long groupId = groupIdsBlock.getGroupId(position);
-                    counts.add(groupId, values.getLong());
-                }
-            }
-            checkState(!values.advanceNextPosition());
-        }
-
-        @Override
-        public void evaluateFinal(int groupId, BlockBuilder output)
-        {
-            long value = counts.get((long) groupId);
-            output.append(value);
+        if (value) {
+            state.setLong(state.getLong() + 1);
         }
     }
 
-    @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    @CombineFunction
+    public static void combine(LongState state, LongState otherState)
     {
-        checkArgument(confidence == 1.0, "count_if does not support approximate queries");
-        return new CountIfAccumulator(valueChannel, maskChannel, sampleWeightChannel);
+        state.setLong(state.getLong() + otherState.getLong());
     }
 
-    public static class CountIfAccumulator
-            extends SimpleAccumulator
+    @OutputFunction(StandardTypes.BIGINT)
+    public static void output(LongState state, BlockBuilder out)
     {
-        private long count;
-
-        public CountIfAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
-        {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
-        }
-
-        @Override
-        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            BlockCursor values = block.cursor();
-            BlockCursor masks = null;
-            if (maskBlock.isPresent()) {
-                masks = maskBlock.get().cursor();
-            }
-            BlockCursor sampleWeights = null;
-            if (sampleWeightBlock.isPresent()) {
-                sampleWeights = sampleWeightBlock.get().cursor();
-            }
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
-                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
-                long sampleWeight = computeSampleWeight(masks, sampleWeights);
-                if (!values.isNull() && values.getBoolean() && sampleWeight > 0) {
-                    count += sampleWeight;
-                }
-            }
-        }
-
-        @Override
-        protected void processIntermediate(Block block)
-        {
-            BlockCursor intermediates = block.cursor();
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(intermediates.advanceNextPosition());
-                count += intermediates.getLong();
-            }
-        }
-
-        @Override
-        public void evaluateIntermediate(BlockBuilder out)
-        {
-            evaluateFinal(out);
-        }
-
-        @Override
-        public void evaluateFinal(BlockBuilder out)
-        {
-            out.append(count);
-        }
+        BIGINT.writeLong(out, state.getLong());
     }
 }

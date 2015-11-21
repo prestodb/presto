@@ -15,13 +15,13 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class StatementStats
@@ -56,7 +56,7 @@ public class StatementStats
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("rootStage") StageStats rootStage)
     {
-        this.state = checkNotNull(state, "state is null");
+        this.state = requireNonNull(state, "state is null");
         this.scheduled = scheduled;
         this.nodes = nodes;
         this.totalSplits = totalSplits;
@@ -154,7 +154,7 @@ public class StatementStats
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("state", state)
                 .add("scheduled", scheduled)
                 .add("nodes", nodes)
@@ -196,7 +196,7 @@ public class StatementStats
 
         public Builder setState(String state)
         {
-            this.state = checkNotNull(state, "state is null");
+            this.state = requireNonNull(state, "state is null");
             return this;
         }
 

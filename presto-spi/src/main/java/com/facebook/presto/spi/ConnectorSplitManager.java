@@ -13,20 +13,12 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.predicate.TupleDomain;
+
 import java.util.List;
 
 public interface ConnectorSplitManager
 {
-    /**
-     * Get the globally-unique id of this connector instance
-     */
-    String getConnectorId();
-
-    /**
-     * Returns true only if this ConnectorSplitManager can operate on the TableHandle
-     */
-    boolean canHandle(TableHandle handle);
-
     /**
      * Gets the Partitions for the specified table.
      *
@@ -34,10 +26,23 @@ public interface ConnectorSplitManager
      * data stream produced by this connector. Connectors are encouraged to take advantage of
      * this information to perform connector-specific optimizations.
      */
-    PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain);
+    @Deprecated
+    default ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
 
     /**
      * Gets the Splits for the specified Partitions in the indicated table.
      */
-    SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions);
+    @Deprecated
+    default ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    default ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
 }

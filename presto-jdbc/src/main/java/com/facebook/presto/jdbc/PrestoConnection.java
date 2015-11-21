@@ -14,12 +14,14 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 
 import java.net.URI;
+import java.nio.charset.CharsetEncoder;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -38,17 +40,22 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
+import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Objects.requireNonNull;
 
 public class PrestoConnection
         implements Connection
@@ -56,21 +63,24 @@ public class PrestoConnection
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
+    private final AtomicReference<String> timeZoneId = new AtomicReference<>();
+    private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final URI uri;
     private final HostAndPort address;
     private final String user;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final QueryExecutor queryExecutor;
 
     PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
             throws SQLException
     {
-        this.uri = checkNotNull(uri, "uri is null");
+        this.uri = requireNonNull(uri, "uri is null");
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
-        this.user = checkNotNull(user, "user is null");
-        this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
-        catalog.set("default");
-        schema.set("default");
+        this.user = requireNonNull(user, "user is null");
+        this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        timeZoneId.set(TimeZone.getDefault().getID());
+        locale.set(Locale.getDefault());
 
         if (!isNullOrEmpty(uri.getPath())) {
             setCatalogAndSchema();
@@ -90,14 +100,14 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        return new PrestoPreparedStatement(this, sql);
+        throw new NotImplementedException("Connection", "prepareStatement");
     }
 
     @Override
     public CallableStatement prepareCall(String sql)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareCall");
+        throw new NotImplementedException("Connection", "prepareCall");
     }
 
     @Override
@@ -134,7 +144,7 @@ public class PrestoConnection
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
         }
-        throw new UnsupportedOperationException("commit");
+        throw new NotImplementedException("Connection", "commit");
     }
 
     @Override
@@ -145,7 +155,7 @@ public class PrestoConnection
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
         }
-        throw new UnsupportedOperationException("rollback");
+        throw new NotImplementedException("Connection", "rollback");
     }
 
     @Override
@@ -174,17 +184,14 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        if (!readOnly) {
-            throw new SQLFeatureNotSupportedException("Disabling read-only mode not supported");
-        }
+        // TODO: implement this
     }
 
     @Override
     public boolean isReadOnly()
             throws SQLException
     {
-        checkOpen();
-        return true;
+        return false;
     }
 
     @Override
@@ -207,14 +214,16 @@ public class PrestoConnection
     public void setTransactionIsolation(int level)
             throws SQLException
     {
-        throw new UnsupportedOperationException("setTransactionIsolation");
+        checkOpen();
+        throw new SQLFeatureNotSupportedException("Transactions are not yet supported");
     }
 
     @Override
     public int getTransactionIsolation()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTransactionIsolation");
+        checkOpen();
+        return TRANSACTION_NONE;
     }
 
     @Override
@@ -236,35 +245,38 @@ public class PrestoConnection
     public Statement createStatement(int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
-        throw new UnsupportedOperationException("createStatement");
+        checkResultSet(resultSetType, resultSetConcurrency);
+        return createStatement();
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        checkResultSet(resultSetType, resultSetConcurrency);
+        return prepareStatement(sql);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareCall");
+        checkResultSet(resultSetType, resultSetConcurrency);
+        throw new SQLFeatureNotSupportedException("prepareCall");
     }
 
     @Override
     public Map<String, Class<?>> getTypeMap()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getTypeMap");
+        throw new SQLFeatureNotSupportedException("getTypeMap");
     }
 
     @Override
     public void setTypeMap(Map<String, Class<?>> map)
             throws SQLException
     {
-        throw new UnsupportedOperationException("setTypeMap");
+        throw new SQLFeatureNotSupportedException("setTypeMap");
     }
 
     @Override
@@ -289,117 +301,126 @@ public class PrestoConnection
     public Savepoint setSavepoint()
             throws SQLException
     {
-        throw new UnsupportedOperationException("setSavepoint");
+        throw new SQLFeatureNotSupportedException("setSavepoint");
     }
 
     @Override
     public Savepoint setSavepoint(String name)
             throws SQLException
     {
-        throw new UnsupportedOperationException("setSavepoint");
+        throw new SQLFeatureNotSupportedException("setSavepoint");
     }
 
     @Override
     public void rollback(Savepoint savepoint)
             throws SQLException
     {
-        throw new UnsupportedOperationException("rollback");
+        throw new SQLFeatureNotSupportedException("rollback");
     }
 
     @Override
     public void releaseSavepoint(Savepoint savepoint)
             throws SQLException
     {
-        throw new UnsupportedOperationException("releaseSavepoint");
+        throw new SQLFeatureNotSupportedException("releaseSavepoint");
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        throw new UnsupportedOperationException("createStatement");
+        checkHoldability(resultSetHoldability);
+        return createStatement(resultSetType, resultSetConcurrency);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        checkHoldability(resultSetHoldability);
+        return prepareStatement(sql, resultSetType, resultSetConcurrency);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareCall");
+        checkHoldability(resultSetHoldability);
+        return prepareCall(sql, resultSetType, resultSetConcurrency);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        if (autoGeneratedKeys != Statement.RETURN_GENERATED_KEYS) {
+            throw new SQLFeatureNotSupportedException("Auto generated keys must be NO_GENERATED_KEYS");
+        }
+        return prepareStatement(sql);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        throw new SQLFeatureNotSupportedException("prepareStatement");
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames)
             throws SQLException
     {
-        throw new UnsupportedOperationException("prepareStatement");
+        throw new SQLFeatureNotSupportedException("prepareStatement");
     }
 
     @Override
     public Clob createClob()
             throws SQLException
     {
-        throw new UnsupportedOperationException("createClob");
+        throw new SQLFeatureNotSupportedException("createClob");
     }
 
     @Override
     public Blob createBlob()
             throws SQLException
     {
-        throw new UnsupportedOperationException("createBlob");
+        throw new SQLFeatureNotSupportedException("createBlob");
     }
 
     @Override
     public NClob createNClob()
             throws SQLException
     {
-        throw new UnsupportedOperationException("createNClob");
+        throw new SQLFeatureNotSupportedException("createNClob");
     }
 
     @Override
     public SQLXML createSQLXML()
             throws SQLException
     {
-        throw new UnsupportedOperationException("createSQLXML");
+        throw new SQLFeatureNotSupportedException("createSQLXML");
     }
 
     @Override
     public boolean isValid(int timeout)
             throws SQLException
     {
-        throw new UnsupportedOperationException("isValid");
+        if (timeout < 0) {
+            throw new SQLException("Timeout is negative");
+        }
+        return !isClosed();
     }
 
     @Override
     public void setClientInfo(String name, String value)
             throws SQLClientInfoException
     {
-        checkNotNull(name, "name is null");
+        requireNonNull(name, "name is null");
         if (value != null) {
             clientInfo.put(name, value);
         }
         else {
-            clientInfo.remove(value);
+            clientInfo.remove(name);
         }
     }
 
@@ -422,7 +443,9 @@ public class PrestoConnection
             throws SQLException
     {
         Properties properties = new Properties();
-        properties.putAll(clientInfo);
+        for (Map.Entry<String, String> entry : clientInfo.entrySet()) {
+            properties.setProperty(entry.getKey(), entry.getValue());
+        }
         return properties;
     }
 
@@ -430,14 +453,14 @@ public class PrestoConnection
     public Array createArrayOf(String typeName, Object[] elements)
             throws SQLException
     {
-        throw new UnsupportedOperationException("createArrayOf");
+        throw new SQLFeatureNotSupportedException("createArrayOf");
     }
 
     @Override
     public Struct createStruct(String typeName, Object[] attributes)
             throws SQLException
     {
-        throw new UnsupportedOperationException("createStruct");
+        throw new SQLFeatureNotSupportedException("createStruct");
     }
 
     @Override
@@ -456,6 +479,44 @@ public class PrestoConnection
         return schema.get();
     }
 
+    public String getTimeZoneId()
+    {
+        return timeZoneId.get();
+    }
+
+    public void setTimeZoneId(String timeZoneId)
+    {
+        requireNonNull(timeZoneId, "timeZoneId is null");
+        this.timeZoneId.set(timeZoneId);
+    }
+
+    public Locale getLocale()
+    {
+        return locale.get();
+    }
+
+    public void setLocale(Locale locale)
+    {
+        this.locale.set(locale);
+    }
+
+    /**
+     * Adds a session property (experimental).
+     */
+    public void setSessionProperty(String name, String value)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(value, "value is null");
+        checkArgument(!name.isEmpty(), "name is empty");
+
+        CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
+        checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
+        checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
+        checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
+
+        sessionProperties.put(name, value);
+    }
+
     @Override
     public void abort(Executor executor)
             throws SQLException
@@ -467,14 +528,14 @@ public class PrestoConnection
     public void setNetworkTimeout(Executor executor, int milliseconds)
             throws SQLException
     {
-        throw new UnsupportedOperationException("setNetworkTimeout");
+        throw new SQLFeatureNotSupportedException("setNetworkTimeout");
     }
 
     @Override
     public int getNetworkTimeout()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getNetworkTimeout");
+        throw new SQLFeatureNotSupportedException("getNetworkTimeout");
     }
 
     @SuppressWarnings("unchecked")
@@ -505,12 +566,28 @@ public class PrestoConnection
         return user;
     }
 
+    ServerInfo getServerInfo()
+    {
+        return queryExecutor.getServerInfo(createHttpUri(address));
+    }
+
     StatementClient startQuery(String sql)
     {
         URI uri = createHttpUri(address);
 
-        String source = Objects.firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
-        ClientSession session = new ClientSession(uri, user, source, catalog.get(), schema.get(), false);
+        String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+
+        ClientSession session = new ClientSession(
+                uri,
+                user,
+                source,
+                catalog.get(),
+                schema.get(),
+                timeZoneId.get(),
+                locale.get(),
+                ImmutableMap.copyOf(sessionProperties),
+                false);
+
         return queryExecutor.startQuery(session, sql);
     }
 
@@ -567,5 +644,24 @@ public class PrestoConnection
                 .host(address.getHostText())
                 .port(address.getPort())
                 .build();
+    }
+
+    private static void checkResultSet(int resultSetType, int resultSetConcurrency)
+            throws SQLFeatureNotSupportedException
+    {
+        if (resultSetType != ResultSet.TYPE_FORWARD_ONLY) {
+            throw new SQLFeatureNotSupportedException("Result set type must be TYPE_FORWARD_ONLY");
+        }
+        if (resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
+            throw new SQLFeatureNotSupportedException("Result set concurrency must be CONCUR_READ_ONLY");
+        }
+    }
+
+    private static void checkHoldability(int resultSetHoldability)
+            throws SQLFeatureNotSupportedException
+    {
+        if (resultSetHoldability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
+            throw new SQLFeatureNotSupportedException("Result set holdability must be HOLD_CURSORS_OVER_COMMIT");
+        }
     }
 }

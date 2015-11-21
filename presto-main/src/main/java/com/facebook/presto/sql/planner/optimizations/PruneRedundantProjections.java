@@ -13,24 +13,32 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.DeterminismEvaluator;
+import com.facebook.presto.sql.planner.ExpressionNodeInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 /**
- * Removes pure identity projections (e.g., Project $0 := $0, $1 := $1, ...)
+ * Removes projections that share identical expression derivations
+ * <p>
+ * Example: Will prune out either $a1 or $a2, even if the two projections are separated by other non-interfering Nodes.
+ * Project (1) $a1 := $b1 + f($b2), $a2 := $b1 + $b3
+ * Project (2) $b1 := $b1, $b2 := $b2, $b3 := f($b2)
  */
 public class PruneRedundantProjections
         extends PlanOptimizer
@@ -38,43 +46,73 @@ public class PruneRedundantProjections
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkNotNull(plan, "plan is null");
-        checkNotNull(session, "session is null");
-        checkNotNull(types, "types is null");
-        checkNotNull(symbolAllocator, "symbolAllocator is null");
-        checkNotNull(idAllocator, "idAllocator is null");
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(idAllocator, "idAllocator is null");
 
-        return PlanRewriter.rewriteWith(new Rewriter(), plan);
+        return PlanRewriter.rewriteWith(new Rewriter(), plan).getPlanNode();
     }
 
     private static class Rewriter
-            extends PlanNodeRewriter<Void>
+            extends PlanRewriter<Void, Map<Symbol, Expression>>
     {
         @Override
-        public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
+        protected Result<Map<Symbol, Expression>> visitPlan(PlanNode node, RewriteContext<Void, Map<Symbol, Expression>> context)
         {
-            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+            // Return the expanded expressions from all sources
+            return context.defaultRewrite(node, assignments -> assignments.stream()
+                    .flatMap(assignment -> assignment.entrySet().stream())
+                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
+        }
 
-            if (node.getOutputSymbols().size() != source.getOutputSymbols().size()) {
-                // Can't get rid of this projection. It constrains the output tuple from the underlying operator
-                return new ProjectNode(node.getId(), source, node.getOutputMap());
-            }
+        @Override
+        public Result<Map<Symbol, Expression>> visitProject(ProjectNode node, RewriteContext<Void, Map<Symbol, Expression>> context)
+        {
+            Result<Map<Symbol, Expression>> result = context.rewrite(node.getSource());
 
-            boolean canElide = true;
-            for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
-                Expression expression = entry.getValue();
-                Symbol symbol = entry.getKey();
-                if (!(expression instanceof QualifiedNameReference && ((QualifiedNameReference) expression).getName().equals(symbol.toQualifiedName()))) {
-                    canElide = false;
-                    break;
+            Map<? extends Expression, Expression> sourceExpandedExpressions = result.getPayload().entrySet().stream()
+                    .collect(toMap(entry -> entry.getKey().toQualifiedNameReference(), Map.Entry::getValue));
+
+            // Include all of the source expanded expressions in the return payload
+            ImmutableMap.Builder<Symbol, Expression> expandedExpressions = ImmutableMap.<Symbol, Expression>builder()
+                    .putAll(result.getPayload());
+
+            // Index of expanded Expressions to actual expressions that can be used for the projection
+            Map<Expression, Expression> computedExpressions = new HashMap<>();
+
+            ImmutableMap.Builder<Symbol, Expression> newAssignments = ImmutableMap.builder();
+
+            // Projection may not refer to all source outputs, so make them available
+            // for consideration if they have an expanded form
+            for (Symbol sourceOutputSymbol : result.getPlanNode().getOutputSymbols()) {
+                Expression expanded = result.getPayload().get(sourceOutputSymbol);
+                if (expanded != null) {
+                    computedExpressions.putIfAbsent(expanded, sourceOutputSymbol.toQualifiedNameReference());
                 }
             }
 
-            if (canElide) {
-                return source;
+            for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
+                if (!DeterminismEvaluator.isDeterministic(projection.getValue())) {
+                    newAssignments.put(projection.getKey(), projection.getValue());
+                    continue;
+                }
+
+                Expression expanded = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(sourceExpandedExpressions), projection.getValue());
+
+                // Only include the expanded form if this is not an identity projection
+                if (!projection.getKey().toQualifiedNameReference().equals(projection.getValue())) {
+                    expandedExpressions.put(projection.getKey(), expanded);
+                }
+
+                Expression previousExpression = computedExpressions.putIfAbsent(expanded, projection.getValue());
+
+                // Rewrite in terms of the previous expression if possible
+                newAssignments.put(projection.getKey(), (previousExpression == null) ? projection.getValue() : previousExpression);
             }
 
-            return new ProjectNode(node.getId(), source, node.getOutputMap());
+            return new Result<>(new ProjectNode(node.getId(), result.getPlanNode(), newAssignments.build()), expandedExpressions.build());
         }
     }
 }

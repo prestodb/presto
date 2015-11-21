@@ -13,39 +13,39 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.OutputTableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class OutputTableHandleJacksonModule
-        extends AbstractTypedJacksonModule<OutputTableHandle>
+        extends AbstractTypedJacksonModule<ConnectorOutputTableHandle>
 {
     @Inject
-    public OutputTableHandleJacksonModule(OutputTableHandleResolver handleResolver)
+    public OutputTableHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(OutputTableHandle.class, "type", new OutputTableHandleJsonTypeIdResolver(handleResolver));
+        super(ConnectorOutputTableHandle.class, "type", new OutputTableHandleJsonTypeIdResolver(handleResolver));
     }
 
     private static class OutputTableHandleJsonTypeIdResolver
-            implements JsonTypeIdResolver<OutputTableHandle>
+            implements JsonTypeIdResolver<ConnectorOutputTableHandle>
     {
-        private final OutputTableHandleResolver handleResolver;
+        private final HandleResolver handleResolver;
 
-        private OutputTableHandleJsonTypeIdResolver(OutputTableHandleResolver handleResolver)
+        private OutputTableHandleJsonTypeIdResolver(HandleResolver handleResolver)
         {
-            this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+            this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         }
 
         @Override
-        public String getId(OutputTableHandle tableHandle)
+        public String getId(ConnectorOutputTableHandle tableHandle)
         {
             return handleResolver.getId(tableHandle);
         }
 
         @Override
-        public Class<? extends OutputTableHandle> getType(String id)
+        public Class<? extends ConnectorOutputTableHandle> getType(String id)
         {
             return handleResolver.getOutputTableHandleClass(id);
         }

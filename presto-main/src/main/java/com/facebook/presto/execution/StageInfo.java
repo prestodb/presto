@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -29,6 +25,9 @@ import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
+
 @Immutable
 public class StageInfo
 {
@@ -36,11 +35,11 @@ public class StageInfo
     private final StageState state;
     private final URI self;
     private final PlanFragment plan;
-    private final List<TupleInfo> tupleInfos;
+    private final List<Type> types;
     private final StageStats stageStats;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
-    private final List<FailureInfo> failures;
+    private final ExecutionFailureInfo failureCause;
 
     @JsonCreator
     public StageInfo(
@@ -48,29 +47,28 @@ public class StageInfo
             @JsonProperty("state") StageState state,
             @JsonProperty("self") URI self,
             @JsonProperty("plan") @Nullable PlanFragment plan,
-            @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
+            @JsonProperty("types") List<Type> types,
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
-            @JsonProperty("failures") List<FailureInfo> failures)
+            @JsonProperty("failureCause") ExecutionFailureInfo failureCause)
     {
-        Preconditions.checkNotNull(stageId, "stageId is null");
-        Preconditions.checkNotNull(state, "state is null");
-        Preconditions.checkNotNull(self, "self is null");
-        Preconditions.checkNotNull(stageStats, "stageStats is null");
-        Preconditions.checkNotNull(tasks, "tasks is null");
-        Preconditions.checkNotNull(subStages, "subStages is null");
-        Preconditions.checkNotNull(failures, "failures is null");
+        requireNonNull(stageId, "stageId is null");
+        requireNonNull(state, "state is null");
+        requireNonNull(self, "self is null");
+        requireNonNull(stageStats, "stageStats is null");
+        requireNonNull(tasks, "tasks is null");
+        requireNonNull(subStages, "subStages is null");
 
         this.stageId = stageId;
         this.state = state;
         this.self = self;
         this.plan = plan;
-        this.tupleInfos = tupleInfos;
+        this.types = types;
         this.stageStats = stageStats;
         this.tasks = ImmutableList.copyOf(tasks);
         this.subStages = subStages;
-        this.failures = failures;
+        this.failureCause = failureCause;
     }
 
     @JsonProperty
@@ -99,9 +97,9 @@ public class StageInfo
     }
 
     @JsonProperty
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @JsonProperty
@@ -123,15 +121,15 @@ public class StageInfo
     }
 
     @JsonProperty
-    public List<FailureInfo> getFailures()
+    public ExecutionFailureInfo getFailureCause()
     {
-        return failures;
+        return failureCause;
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("stageId", stageId)
                 .add("state", state)
                 .toString();
@@ -152,17 +150,5 @@ public class StageInfo
         for (StageInfo subStage : stageInfo.getSubStages()) {
             addAllStages(subStage, collector);
         }
-    }
-
-    public static Function<StageInfo, StageState> stageStateGetter()
-    {
-        return new Function<StageInfo, StageState>()
-        {
-            @Override
-            public StageState apply(StageInfo stageInfo)
-            {
-                return stageInfo.getState();
-            }
-        };
     }
 }

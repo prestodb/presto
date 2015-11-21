@@ -15,12 +15,18 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,13 +35,15 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.example.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleMetadata
-        extends ReadOnlyConnectorMetadata
+        implements ConnectorMetadata
 {
     private final String connectorId;
 
@@ -44,26 +52,25 @@ public class ExampleMetadata
     @Inject
     public ExampleMetadata(ExampleConnectorId connectorId, ExampleClient exampleClient)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.exampleClient = checkNotNull(exampleClient, "client is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.exampleClient = requireNonNull(exampleClient, "client is null");
     }
 
     @Override
-    public boolean canHandle(TableHandle tableHandle)
+    public List<String> listSchemaNames(ConnectorSession session)
     {
-        return tableHandle instanceof ExampleTableHandle && ((ExampleTableHandle) tableHandle).getConnectorId().equals(connectorId);
+        return listSchemaNames();
     }
 
-    @Override
     public List<String> listSchemaNames()
     {
         return ImmutableList.copyOf(exampleClient.getSchemaNames());
     }
 
     @Override
-    public ExampleTableHandle getTableHandle(SchemaTableName tableName)
+    public ExampleTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        if (!listSchemaNames().contains(tableName.getSchemaName())) {
+        if (!listSchemaNames(session).contains(tableName.getSchemaName())) {
             return null;
         }
 
@@ -76,10 +83,30 @@ public class ExampleMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(TableHandle table)
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        checkArgument(table instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) table;
+        ExampleTableHandle tableHandle = checkType(table, ExampleTableHandle.class, "table");
+        ConnectorTableLayout layout = new ConnectorTableLayout(
+                new ExampleTableLayoutHandle(tableHandle),
+                Optional.empty(),
+                TupleDomain.<ColumnHandle>all(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of());
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+    }
+
+    @Override
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    {
+        ExampleTableLayoutHandle layout = checkType(handle, ExampleTableLayoutHandle.class, "layout");
+        return new ConnectorTableLayout(layout, Optional.empty(), TupleDomain.<ColumnHandle>all(), Optional.empty(), Optional.empty(), ImmutableList.of());
+    }
+
+    @Override
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    {
+        ExampleTableHandle exampleTableHandle = checkType(table, ExampleTableHandle.class, "table");
         checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
         SchemaTableName tableName = new SchemaTableName(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
 
@@ -87,7 +114,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         Set<String> schemaNames;
         if (schemaNameOrNull != null) {
@@ -107,23 +134,9 @@ public class ExampleMetadata
     }
 
     @Override
-    public ColumnHandle getColumnHandle(TableHandle tableHandle, String columnName)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getColumnHandles(tableHandle).get(columnName);
-    }
-
-    @Override
-    public ColumnHandle getSampleWeightColumnHandle(TableHandle tableHandle)
-    {
-        return null;
-    }
-
-    @Override
-    public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
+        ExampleTableHandle exampleTableHandle = checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
         checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
         ExampleTable table = exampleClient.getTable(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
@@ -132,18 +145,20 @@ public class ExampleMetadata
         }
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (ColumnMetadata columnMetadata : table.getColumnsMetadata()) {
-            columnHandles.put(columnMetadata.getName(), new ExampleColumnHandle(connectorId, columnMetadata));
+        int index = 0;
+        for (ColumnMetadata column : table.getColumnsMetadata()) {
+            columnHandles.put(column.getName(), new ExampleColumnHandle(connectorId, column.getName(), column.getType(), index));
+            index++;
         }
         return columnHandles.build();
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(prefix)) {
+        for (SchemaTableName tableName : listTables(session, prefix)) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
@@ -167,23 +182,18 @@ public class ExampleMetadata
         return new ConnectorTableMetadata(tableName, table.getColumnsMetadata());
     }
 
-    private List<SchemaTableName> listTables(SchemaTablePrefix prefix)
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getSchemaName() == null) {
-            return listTables(prefix.getSchemaName());
+            return listTables(session, prefix.getSchemaName());
         }
         return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
-        checkArgument(((ExampleTableHandle) tableHandle).getConnectorId().equals(connectorId), "tableHandle is not for this connector");
-        checkArgument(columnHandle instanceof ExampleColumnHandle, "columnHandle is not an instance of ExampleColumnHandle");
-
-        return ((ExampleColumnHandle) columnHandle).getColumnMetadata();
+        checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
+        return checkType(columnHandle, ExampleColumnHandle.class, "columnHandle").getColumnMetadata();
     }
 }

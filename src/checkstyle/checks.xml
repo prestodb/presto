@@ -31,6 +31,10 @@
         <property name="format" value="\n\n\Z"/>
         <property name="message" value="Blank line before end of file"/>
     </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="Preconditions\.checkNotNull"/>
+        <property name="message" value="Use of checkNotNull"/>
+    </module>
 
     <module name="TreeWalker">
         <module name="EmptyBlock">
@@ -72,7 +76,6 @@
         <module name="DefaultComesLast"/>
         <module name="ArrayTypeStyle"/>
         <module name="MultipleVariableDeclarations"/>
-        <module name="FallThrough"/>
         <module name="ModifierOrder"/>
         <module name="OneStatementPerLine"/>
         <module name="StringLiteralEquality"/>
@@ -99,6 +102,12 @@
         <module name="AvoidStarImport"/>
         <module name="RedundantImport"/>
         <module name="UnusedImports"/>
+        <module name="ImportOrder">
+            <property name="groups" value="*,javax,java"/>
+            <property name="separated" value="true"/>
+            <property name="option" value="bottom"/>
+            <property name="sortStaticImportsAlphabetically" value="true"/>
+        </module>
 
         <module name="WhitespaceAround">
             <property name="allowEmptyConstructors" value="true"/>

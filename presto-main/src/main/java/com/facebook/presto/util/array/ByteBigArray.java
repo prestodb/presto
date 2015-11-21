@@ -21,14 +21,15 @@ import static com.facebook.presto.util.array.BigArrays.INITIAL_SEGMENTS;
 import static com.facebook.presto.util.array.BigArrays.SEGMENT_SIZE;
 import static com.facebook.presto.util.array.BigArrays.offset;
 import static com.facebook.presto.util.array.BigArrays.segment;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
-import static sun.misc.Unsafe.ARRAY_BYTE_INDEX_SCALE;
+import static io.airlift.slice.SizeOf.sizeOfByteArray;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class ByteBigArray
 {
-    private static final long SIZE_OF_SEGMENT = ARRAY_BYTE_BASE_OFFSET + ((long) ARRAY_BYTE_INDEX_SCALE * SEGMENT_SIZE);
+    private static final long SIZE_OF_SEGMENT = sizeOfByteArray(SEGMENT_SIZE);
+
+    private final byte initialValue;
 
     private byte[][] array;
     private int capacity;
@@ -39,6 +40,12 @@ public final class ByteBigArray
      */
     public ByteBigArray()
     {
+        this((byte) 0);
+    }
+
+    public ByteBigArray(byte initialValue)
+    {
+        this.initialValue = initialValue;
         array = new byte[INITIAL_SEGMENTS][];
         allocateNewSegment();
     }
@@ -103,7 +110,11 @@ public final class ByteBigArray
 
     private void allocateNewSegment()
     {
-        array[segments] = new byte[SEGMENT_SIZE];
+        byte[] newSegment = new byte[SEGMENT_SIZE];
+        if (initialValue != 0) {
+            Arrays.fill(newSegment, initialValue);
+        }
+        array[segments] = newSegment;
         capacity += SEGMENT_SIZE;
         segments++;
     }

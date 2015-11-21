@@ -31,18 +31,15 @@ public class TestCassandraSplit
     @Test
     public void testJsonRoundTrip()
     {
-        CassandraSplit expected = new CassandraSplit("connectorId", "schema1", "table1", "partitionId", "condition", true, addresses);
+        CassandraSplit expected = new CassandraSplit("connectorId", "schema1", "table1", "partitionId", "condition", addresses);
 
         String json = codec.toJson(expected);
         CassandraSplit actual = codec.fromJson(json);
 
         assertEquals(actual.getConnectorId(), expected.getConnectorId());
-        assertEquals(actual.getPartitionId(), expected.getPartitionId());
-        assertEquals(actual.isLastSplit(), expected.isLastSplit());
         assertEquals(actual.getSchema(), expected.getSchema());
         assertEquals(actual.getTable(), expected.getTable());
         assertEquals(actual.getSplitCondition(), expected.getSplitCondition());
-        assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
         assertEquals(actual.getAddresses(), expected.getAddresses());
     }
 
@@ -56,7 +53,6 @@ public class TestCassandraSplit
                 "table1",
                 CassandraPartition.UNPARTITIONED_ID,
                 "token(k) >= 0 AND token(k) <= 2",
-                true,
                 addresses);
         assertEquals(split.getWhereClause(), " WHERE token(k) >= 0 AND token(k) <= 2");
 
@@ -66,7 +62,6 @@ public class TestCassandraSplit
                 "table1",
                 "key = 123",
                 null,
-                true,
                 addresses);
         assertEquals(split.getWhereClause(), " WHERE key = 123");
     }

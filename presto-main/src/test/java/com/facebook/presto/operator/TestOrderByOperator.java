@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -27,19 +27,21 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
+@Test(singleThreaded = true)
 public class TestOrderByOperator
 {
     private ExecutorService executor;
@@ -48,9 +50,8 @@ public class TestOrderByOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        driverContext = createTaskContext(executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }
@@ -65,7 +66,7 @@ public class TestOrderByOperator
     public void testSingleFieldKey()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -75,14 +76,15 @@ public class TestOrderByOperator
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                new int[] {0},
-                new int[] {1},
-                10);
+                ImmutableList.of(BIGINT, DOUBLE),
+                ImmutableList.of(1),
+                10,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(DOUBLE)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE)
                 .row(-0.1)
                 .row(0.1)
                 .row(0.2)
@@ -96,7 +98,7 @@ public class TestOrderByOperator
     public void testMultiFieldKey()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG)
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1)
                 .row("b", 2)
                 .pageBreak()
@@ -106,15 +108,15 @@ public class TestOrderByOperator
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG),
-                new int[] {0, 1},
+                ImmutableList.of(VARCHAR, BIGINT),
+                ImmutableList.of(0, 1),
                 10,
-                new int[] {0, 1},
-                new SortOrder[] {SortOrder.ASC_NULLS_LAST, SortOrder.DESC_NULLS_LAST});
+                ImmutableList.of(0, 1),
+                ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(VARIABLE_BINARY, FIXED_INT_64)
+        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("a", 4)
                 .row("a", 1)
                 .row("b", 3)
@@ -128,7 +130,7 @@ public class TestOrderByOperator
     public void testReverseOrder()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -138,15 +140,15 @@ public class TestOrderByOperator
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                new int[] {0},
+                ImmutableList.of(BIGINT, DOUBLE),
+                ImmutableList.of(0),
                 10,
-                new int[] {0},
-                new SortOrder[] {SortOrder.DESC_NULLS_LAST});
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(4)
                 .row(2)
                 .row(1)
@@ -156,11 +158,11 @@ public class TestOrderByOperator
         assertOperatorEquals(operator, input, expected);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Task exceeded max memory size of 10B")
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
     public void testMemoryLimit()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_LONG, SINGLE_DOUBLE)
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1, 0.1)
                 .row(2, 0.2)
                 .pageBreak()
@@ -168,17 +170,17 @@ public class TestOrderByOperator
                 .row(4, 0.4)
                 .build();
 
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        DriverContext driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session, new DataSize(10, Unit.BYTE))
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
-                ImmutableList.of(SINGLE_LONG, SINGLE_DOUBLE),
-                new int[] {0},
-                new int[] {1},
-                10);
+                ImmutableList.of(BIGINT, DOUBLE),
+                ImmutableList.of(1),
+                10,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 

@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static java.util.Objects.requireNonNull;
 
 public class AnnotationDefinition
 {
@@ -126,8 +127,8 @@ public class AnnotationDefinition
 
     private AnnotationDefinition setValueInternal(String name, Object value)
     {
-        Preconditions.checkNotNull(name, "name is null");
-        Preconditions.checkNotNull(value, "value is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(value, "value is null");
 
         isValidType(value);
 
@@ -146,7 +147,7 @@ public class AnnotationDefinition
         return values;
     }
 
-    private void isValidType(Object value)
+    private static void isValidType(Object value)
     {
         if (value instanceof List) {
             // todo verify list contains single type
@@ -199,7 +200,7 @@ public class AnnotationDefinition
         }
     }
 
-    private void visit(AnnotationVisitor visitor, String name, Object value)
+    private static void visit(AnnotationVisitor visitor, String name, Object value)
     {
         if (value instanceof AnnotationDefinition) {
             AnnotationDefinition annotation = (AnnotationDefinition) value;

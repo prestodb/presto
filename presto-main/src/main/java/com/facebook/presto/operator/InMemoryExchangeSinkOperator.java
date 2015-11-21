@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class InMemoryExchangeSinkOperator
         implements Operator
@@ -30,8 +31,8 @@ public class InMemoryExchangeSinkOperator
 
     InMemoryExchangeSinkOperator(OperatorContext operatorContext, InMemoryExchange inMemoryExchange)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.inMemoryExchange = checkNotNull(inMemoryExchange, "inMemoryExchange is null");
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.inMemoryExchange = requireNonNull(inMemoryExchange, "inMemoryExchange is null");
     }
 
     @Override
@@ -41,9 +42,9 @@ public class InMemoryExchangeSinkOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return inMemoryExchange.getTupleInfos();
+        return inMemoryExchange.getTypes();
     }
 
     @Override
@@ -67,27 +68,38 @@ public class InMemoryExchangeSinkOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return NOT_BLOCKED;
+        ListenableFuture<?> blocked = inMemoryExchange.waitForWriting();
+        if (blocked.isDone()) {
+            return NOT_BLOCKED;
+        }
+        return blocked;
     }
 
     @Override
     public boolean needsInput()
     {
-        return !isFinished();
+        return !isFinished() && isBlocked().isDone();
     }
 
     @Override
     public void addInput(Page page)
     {
-        checkNotNull(page, "page is null");
+        requireNonNull(page, "page is null");
         checkState(!finished, "Already finished");
         inMemoryExchange.addPage(page);
-        operatorContext.recordGeneratedOutput(page.getDataSize(), page.getPositionCount());
+        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override
     public Page getOutput()
     {
         return null;
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        finish();
     }
 }

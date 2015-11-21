@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validColumnName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
@@ -60,12 +61,20 @@ public class TestCassandraCqlUtils
     }
 
     @Test
+    public void testQuoteJson()
+    {
+        assertEquals("\"foo\"", quoteStringLiteralForJson("foo"));
+        assertEquals("\"Presto's\"", quoteStringLiteralForJson("Presto's"));
+        assertEquals("\"xx\\\"xx\"", quoteStringLiteralForJson("xx\"xx"));
+    }
+
+    @Test
     public void testAppendSelectColumns()
     {
         List<CassandraColumnHandle> columns = ImmutableList.of(
-                new CassandraColumnHandle("", "foo", 0, CassandraType.VARCHAR, null, false, false),
-                new CassandraColumnHandle("", "bar", 0, CassandraType.VARCHAR, null, false, false),
-                new CassandraColumnHandle("", "table", 0, CassandraType.VARCHAR, null, false, false));
+                new CassandraColumnHandle("", "foo", 0, CassandraType.VARCHAR, null, false, false, false, false),
+                new CassandraColumnHandle("", "bar", 0, CassandraType.VARCHAR, null, false, false, false, false),
+                new CassandraColumnHandle("", "table", 0, CassandraType.VARCHAR, null, false, false, false, false));
 
         StringBuilder sb = new StringBuilder();
         CassandraCqlUtils.appendSelectColumns(sb, columns);

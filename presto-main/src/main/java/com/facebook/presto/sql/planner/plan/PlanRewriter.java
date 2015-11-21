@@ -13,473 +13,136 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
+import javax.annotation.Nullable;
 
-public final class PlanRewriter<C>
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
+public abstract class PlanRewriter<C, P>
+        extends PlanVisitor<PlanRewriter.RewriteContext<C, P>, PlanRewriter.Result<P>>
 {
-    private final PlanNodeRewriter<C> nodeRewriter;
-    private final PlanVisitor<Context<C>, PlanNode> visitor;
-
-    public static <C, T extends PlanNode> T rewriteWith(PlanNodeRewriter<C> rewriter, T node)
+    public static <C, P> Result<P> rewriteWith(PlanRewriter<C, P> rewriter, PlanNode node)
     {
-        return rewriteWith(rewriter, node, null);
+        return node.accept(rewriter, new RewriteContext<>(rewriter, null));
     }
 
-    public static <C, T extends PlanNode> T rewriteWith(PlanNodeRewriter<C> rewriter, T node, C context)
+    public static <C, P> Result<P> rewriteWith(PlanRewriter<C, P> rewriter, PlanNode node, C context)
     {
-        return new PlanRewriter<>(rewriter).rewrite(node, context);
+        return node.accept(rewriter, new RewriteContext<>(rewriter, context));
     }
 
-    public PlanRewriter(PlanNodeRewriter<C> nodeRewriter)
+    @Override
+    protected Result<P> visitPlan(PlanNode node, RewriteContext<C, P> context)
     {
-        this.nodeRewriter = nodeRewriter;
-        this.visitor = new RewritingVisitor();
+        return context.defaultRewrite(node, context.get());
     }
 
-    public <T extends PlanNode> T rewrite(T node, C context)
+    public static class Result<P>
     {
-        return (T) node.accept(visitor, new Context<>(context, false));
-    }
+        private final PlanNode planNode;
+        private final P payload;
 
-    /**
-     * Invoke the default rewrite logic explicitly. Specifically, it skips the invocation of the node rewriter for the provided node.
-     */
-    public <T extends PlanNode> T defaultRewrite(T node, C context)
-    {
-        return (T) node.accept(visitor, new Context<>(context, true));
-    }
-
-    public static <C, T extends PlanNode> Function<PlanNode, T> rewriteFunction(final PlanNodeRewriter<C> rewriter)
-    {
-        return new Function<PlanNode, T>()
+        public Result(PlanNode planNode, @Nullable P payload)
         {
-            @Override
-            public T apply(PlanNode node)
-            {
-                return (T) rewriteWith(rewriter, node);
-            }
-        };
-    }
-
-    private class RewritingVisitor
-            extends PlanVisitor<PlanRewriter.Context<C>, PlanNode>
-    {
-        @Override
-        protected PlanNode visitPlan(PlanNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteNode(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            throw new UnsupportedOperationException("not yet implemented: " + getClass().getSimpleName() + " for " + node.getClass().getName());
+            this.planNode = requireNonNull(planNode, "planNode is null");
+            this.payload = payload;
         }
 
-        @Override
-        public PlanNode visitExchange(ExchangeNode node, Context<C> context)
+        public PlanNode getPlanNode()
         {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteExchange(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            return node;
+            return planNode;
         }
 
-        @Override
-        public PlanNode visitAggregation(AggregationNode node, Context<C> context)
+        public P getPayload()
         {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteAggregation(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getStep(), node.getSampleWeight(), node.getConfidence());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitMaterializeSample(MaterializeSampleNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteMaterializeSample(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new MaterializeSampleNode(node.getId(), source, node.getSampleWeightSymbol());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitMarkDistinct(MarkDistinctNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteMarkDistinct(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getSampleWeightSymbol());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitWindow(WindowNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteWindow(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getSignatures());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitFilter(FilterNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteFilter(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new FilterNode(node.getId(), source, node.getPredicate());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitSample(SampleNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteSample(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new SampleNode(node.getId(), source, node.getSampleRatio(), node.getSampleType());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitProject(ProjectNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteProject(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new ProjectNode(node.getId(), source, node.getOutputMap());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitTopN(TopNNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteTopN(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.isPartial(), node.getSampleWeight());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitOutput(OutputNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteOutput(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new OutputNode(node.getId(), source, node.getColumnNames(), node.getOutputSymbols());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitLimit(LimitNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteLimit(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new LimitNode(node.getId(), source, node.getCount(), node.getSampleWeight());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitDistinctLimit(DistinctLimitNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteDistinctLimit(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new DistinctLimitNode(node.getId(), source, node.getLimit());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitTableScan(TableScanNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteTableScan(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitTableWriter(TableWriterNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteTableWriter(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol(), node.getCatalog(), node.getTableMetadata(), node.isSampleWeightSupported());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitTableCommit(TableCommitNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteTableCommit(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new TableCommitNode(node.getId(), source, node.getTarget(), node.getOutputSymbols());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitMaterializedViewWriter(MaterializedViewWriterNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteMaterializedViewWriter(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new MaterializedViewWriterNode(node.getId(),
-                        source,
-                        node.getTable(),
-                        node.getColumns(),
-                        node.getOutput());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitJoin(JoinNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteJoin(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode left = rewrite(node.getLeft(), context.get());
-            PlanNode right = rewrite(node.getRight(), context.get());
-
-            if (left != node.getLeft() || right != node.getRight()) {
-                return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitSemiJoin(SemiJoinNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteSemiJoin(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-            PlanNode filteringSource = rewrite(node.getFilteringSource(), context.get());
-
-            if (source != node.getSource() || filteringSource != node.getFilteringSource()) {
-                return new SemiJoinNode(node.getId(), source, filteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitSort(SortNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteSort(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            PlanNode source = rewrite(node.getSource(), context.get());
-
-            if (source != node.getSource()) {
-                return new SortNode(node.getId(), source, node.getOrderBy(), node.getOrderings());
-            }
-
-            return node;
-        }
-
-        @Override
-        public PlanNode visitUnion(UnionNode node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                PlanNode result = nodeRewriter.rewriteUnion(node, context.get(), PlanRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            boolean modified = false;
-            ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
-            for (PlanNode subPlan : node.getSources()) {
-                PlanNode rewriteSubPlan = rewrite(subPlan, context.get());
-                if (rewriteSubPlan != subPlan) {
-                    modified = true;
-                }
-                builder.add(rewriteSubPlan);
-            }
-
-            if (modified) {
-                return new UnionNode(node.getId(), builder.build(), node.getSymbolMapping());
-            }
-
-            return node;
+            return payload;
         }
     }
 
-    public static class Context<C>
+    public static class RewriteContext<C, P>
     {
-        private boolean defaultRewrite;
-        private final C context;
+        private final C userContext;
+        private final PlanRewriter<C, P> nodeRewriter;
 
-        private Context(C context, boolean defaultRewrite)
+        private RewriteContext(PlanRewriter<C, P> nodeRewriter, @Nullable C userContext)
         {
-            this.context = context;
-            this.defaultRewrite = defaultRewrite;
+            this.nodeRewriter = requireNonNull(nodeRewriter, "nodeRewriter is null");
+            this.userContext = userContext;
         }
 
         public C get()
         {
-            return context;
+            return userContext;
         }
 
-        public boolean isDefaultRewrite()
+        /**
+         * Invoke the rewrite logic recursively on children of the given node and swap it
+         * out with an identical copy with the rewritten children. The final payload will
+         * be null.
+         */
+        public Result<P> defaultRewrite(PlanNode node)
         {
-            return defaultRewrite;
+            return defaultRewrite(node, null, payloads -> null);
+        }
+
+        /**
+         * Invoke the rewrite logic recursively on children of the given node and swap it
+         * out with an identical copy with the rewritten children. The final payload will
+         * be null.
+         */
+        public Result<P> defaultRewrite(PlanNode node, C context)
+        {
+            return defaultRewrite(node, context, payloads -> null);
+        }
+
+        /**
+         * Invoke the rewrite logic recursively on children of the given node and swap it
+         * out with an identical copy with the rewritten children. The payloadCombiner is used
+         * to produce the final payload given the respective payloads of the children.
+         */
+        public Result<P> defaultRewrite(PlanNode node, Function<List<P>, P> payloadCombiner)
+        {
+            return defaultRewrite(node, null, payloadCombiner);
+        }
+
+        /**
+         * Invoke the rewrite logic recursively on children of the given node and swap it
+         * out with an identical copy with the rewritten children. The payloadCombiner is used
+         * to produce the final payload given the respective payloads of the children.
+         */
+        public Result<P> defaultRewrite(PlanNode node, C context, Function<List<P>, P> payloadCombiner)
+        {
+            List<PlanNode> children = new ArrayList<>(node.getSources().size());
+            List<P> payloads = new ArrayList<>(node.getSources().size());
+            for (PlanNode source : node.getSources()) {
+                Result<P> result = rewrite(source, context);
+                children.add(result.getPlanNode());
+                payloads.add(result.getPayload());
+            }
+            return new Result<>(ChildReplacer.replaceChildren(node, children), payloadCombiner.apply(payloads));
+        }
+
+        /**
+         * This method is meant for invoking the rewrite logic on children while processing a node.
+         */
+        public Result<P> rewrite(PlanNode node, C userContext)
+        {
+            Result<P> result = node.accept(nodeRewriter, new RewriteContext<>(nodeRewriter, userContext));
+            requireNonNull(result, format("nodeRewriter returned null for %s", node.getClass().getName()));
+
+            return result;
+        }
+
+        /**
+         * This method is meant for invoking the rewrite logic on children while processing a node.
+         */
+        public Result<P> rewrite(PlanNode node)
+        {
+            return rewrite(node, null);
         }
     }
 }

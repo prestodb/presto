@@ -13,48 +13,68 @@
  */
 package com.facebook.presto.operator;
 
-import com.google.common.base.Supplier;
-import io.airlift.http.client.AsyncHttpClient;
+import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
-import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 
 public class ExchangeClientFactory
-        implements Supplier<ExchangeClient>
+        implements ExchangeClientSupplier
 {
+    private final BlockEncodingSerde blockEncodingSerde;
     private final DataSize maxBufferedBytes;
     private final int concurrentRequestMultiplier;
-    private final AsyncHttpClient httpClient;
+    private final Duration minErrorDuration;
+    private final HttpClient httpClient;
     private final DataSize maxResponseSize;
-    private final Executor executor;
+    private final ScheduledExecutorService executor;
 
     @Inject
-    public ExchangeClientFactory(ExchangeClientConfig config, @ForExchange AsyncHttpClient httpClient, @ForExchange Executor executor)
+    public ExchangeClientFactory(BlockEncodingSerde blockEncodingSerde,
+            ExchangeClientConfig config,
+            @ForExchange HttpClient httpClient,
+            @ForExchange ScheduledExecutorService executor)
     {
-        this(config.getExchangeMaxBufferSize(),
-                new DataSize(10, Unit.MEGABYTE),
-                config.getExchangeConcurrentRequestMultiplier(),
+        this(blockEncodingSerde,
+                config.getMaxBufferSize(),
+                config.getMaxResponseSize(),
+                config.getConcurrentRequestMultiplier(),
+                config.getMinErrorDuration(),
                 httpClient,
                 executor);
     }
 
-    public ExchangeClientFactory(DataSize maxBufferedBytes,
+    public ExchangeClientFactory(
+            BlockEncodingSerde blockEncodingSerde,
+            DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
-            AsyncHttpClient httpClient,
-            Executor executor)
+            Duration minErrorDuration,
+            HttpClient httpClient,
+            ScheduledExecutorService executor)
     {
-        this.maxBufferedBytes = checkNotNull(maxBufferedBytes, "maxBufferedBytes is null");
+        this.blockEncodingSerde = blockEncodingSerde;
+        this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
-        this.httpClient = checkNotNull(httpClient, "httpClient is null");
-        this.maxResponseSize = checkNotNull(maxResponseSize, "maxResponseSize is null");
-        this.executor = checkNotNull(executor, "executor is null");
+        this.minErrorDuration = requireNonNull(minErrorDuration, "minErrorDuration is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+
+        // Use only 0.75 of the maxResponseSize to leave room for additional bytes from the encoding
+        // TODO figure out a better way to compute the size of data that will be transferred over the network
+        requireNonNull(maxResponseSize, "maxResponseSize is null");
+        long maxResponseSizeBytes = (long) (Math.min(httpClient.getMaxContentLength(), maxResponseSize.toBytes()) * 0.75);
+        this.maxResponseSize = new DataSize(maxResponseSizeBytes, BYTE);
+
+        this.executor = requireNonNull(executor, "executor is null");
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
@@ -62,8 +82,16 @@ public class ExchangeClientFactory
     }
 
     @Override
-    public ExchangeClient get()
+    public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
     {
-        return new ExchangeClient(maxBufferedBytes, maxResponseSize, concurrentRequestMultiplier, httpClient, executor);
+        return new ExchangeClient(
+                blockEncodingSerde,
+                maxBufferedBytes,
+                maxResponseSize,
+                concurrentRequestMultiplier,
+                minErrorDuration,
+                httpClient,
+                executor,
+                systemMemoryUsageListener);
     }
 }

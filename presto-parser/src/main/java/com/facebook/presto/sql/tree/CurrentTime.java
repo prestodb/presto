@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class CurrentTime
         extends Expression
@@ -25,7 +27,9 @@ public class CurrentTime
     {
         TIME("current_time"),
         DATE("current_date"),
-        TIMESTAMP("current_timestamp");
+        TIMESTAMP("current_timestamp"),
+        LOCALTIME("localtime"),
+        LOCALTIMESTAMP("localtimestamp");
 
         private final String name;
 
@@ -42,12 +46,28 @@ public class CurrentTime
 
     public CurrentTime(Type type)
     {
-        this(type, null);
+        this(Optional.empty(), type, null);
+    }
+
+    public CurrentTime(NodeLocation location, Type type)
+    {
+        this(Optional.of(location), type, null);
     }
 
     public CurrentTime(Type type, Integer precision)
     {
-        checkNotNull(type, "type is null");
+        this(Optional.empty(), type, precision);
+    }
+
+    public CurrentTime(NodeLocation location, Type type, Integer precision)
+    {
+        this(Optional.of(location), type, precision);
+    }
+
+    private CurrentTime(Optional<NodeLocation> location, Type type, Integer precision)
+    {
+        super(location);
+        requireNonNull(type, "type is null");
         this.type = type;
         this.precision = precision;
     }

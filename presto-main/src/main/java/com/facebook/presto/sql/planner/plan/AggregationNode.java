@@ -18,7 +18,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -26,10 +25,10 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.concat;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class AggregationNode
@@ -44,17 +43,33 @@ public class AggregationNode
     private final Step step;
     private final Optional<Symbol> sampleWeight;
     private final double confidence;
+    private final Optional<Symbol> hashSymbol;
 
     public enum Step
     {
-        PARTIAL,
-        FINAL,
-        SINGLE
-    }
+        PARTIAL(true, true),
+        FINAL(false, false),
+        INTERMEDIATE(false, true),
+        SINGLE(true, false);
 
-    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions, Map<Symbol, Symbol> masks, Optional<Symbol> sampleWeight, double confidence)
-    {
-        this(id, source, groupByKeys, aggregations, functions, masks, Step.SINGLE, sampleWeight, confidence);
+        private final boolean inputRaw;
+        private final boolean outputPartial;
+
+        Step(boolean inputRaw, boolean outputPartial)
+        {
+            this.inputRaw = inputRaw;
+            this.outputPartial = outputPartial;
+        }
+
+        public boolean isInputRaw()
+        {
+            return inputRaw;
+        }
+
+        public boolean isOutputPartial()
+        {
+            return outputPartial;
+        }
     }
 
     @JsonCreator
@@ -66,22 +81,24 @@ public class AggregationNode
             @JsonProperty("masks") Map<Symbol, Symbol> masks,
             @JsonProperty("step") Step step,
             @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight,
-            @JsonProperty("confidence") double confidence)
+            @JsonProperty("confidence") double confidence,
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
 
         this.source = source;
-        this.groupByKeys = ImmutableList.copyOf(checkNotNull(groupByKeys, "groupByKeys is null"));
-        this.aggregations = ImmutableMap.copyOf(checkNotNull(aggregations, "aggregations is null"));
-        this.functions = ImmutableMap.copyOf(checkNotNull(functions, "functions is null"));
-        this.masks = ImmutableMap.copyOf(checkNotNull(masks, "masks is null"));
+        this.groupByKeys = ImmutableList.copyOf(requireNonNull(groupByKeys, "groupByKeys is null"));
+        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        this.functions = ImmutableMap.copyOf(requireNonNull(functions, "functions is null"));
+        this.masks = ImmutableMap.copyOf(requireNonNull(masks, "masks is null"));
         for (Symbol mask : masks.keySet()) {
             checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
         }
         this.step = step;
-        this.sampleWeight = checkNotNull(sampleWeight, "sampleWeight is null");
+        this.sampleWeight = requireNonNull(sampleWeight, "sampleWeight is null");
         checkArgument(confidence >= 0 && confidence <= 1, "confidence must be in [0, 1]");
         this.confidence = confidence;
+        this.hashSymbol = hashSymbol;
     }
 
     @Override
@@ -93,7 +110,14 @@ public class AggregationNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(concat(groupByKeys, aggregations.keySet()));
+        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+        symbols.addAll(groupByKeys);
+        // output hashSymbol if present
+        if (hashSymbol.isPresent()) {
+            symbols.add(hashSymbol.get());
+        }
+        symbols.addAll(aggregations.keySet());
+        return symbols.build();
     }
 
     @JsonProperty("confidence")
@@ -144,6 +168,13 @@ public class AggregationNode
         return sampleWeight;
     }
 
+    @JsonProperty("hashSymbol")
+    public Optional<Symbol> getHashSymbol()
+    {
+        return hashSymbol;
+    }
+
+    @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitAggregation(this, context);

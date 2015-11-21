@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.Iterator;
+import java.util.Optional;
 
 public final class ExpressionTreeRewriter<C>
 {
@@ -53,18 +53,6 @@ public final class ExpressionTreeRewriter<C>
         return (T) visitor.process(node, new Context<>(context, true));
     }
 
-    public static <C, T extends Expression> Function<Expression, T> rewriteFunction(final ExpressionRewriter<C> rewriter)
-    {
-        return new Function<Expression, T>()
-        {
-            @Override
-            public T apply(Expression node)
-            {
-                return (T) rewriteWith(rewriter, node);
-            }
-        };
-    }
-
     private class RewritingVisitor
             extends AstVisitor<Expression, ExpressionTreeRewriter.Context<C>>
     {
@@ -82,10 +70,32 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitNegativeExpression(NegativeExpression node, Context<C> context)
+        protected Expression visitRow(Row node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteNegativeExpression(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteRow(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+            for (Expression expression : node.getItems()) {
+                builder.add(rewrite(expression, context.get()));
+            }
+
+            if (!sameElements(node.getItems(), builder.build())) {
+                return new Row(builder.build());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitArithmeticUnary(ArithmeticUnaryExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteArithmeticUnary(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
@@ -93,17 +103,17 @@ public final class ExpressionTreeRewriter<C>
 
             Expression child = rewrite(node.getValue(), context.get());
             if (child != node.getValue()) {
-                return new NegativeExpression(child);
+                return new ArithmeticUnaryExpression(node.getSign(), child);
             }
 
             return node;
         }
 
         @Override
-        public Expression visitArithmeticExpression(ArithmeticExpression node, Context<C> context)
+        public Expression visitArithmeticBinary(ArithmeticBinaryExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteArithmeticExpression(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteArithmeticBinary(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
@@ -113,7 +123,49 @@ public final class ExpressionTreeRewriter<C>
             Expression right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new ArithmeticExpression(node.getType(), left, right);
+                return new ArithmeticBinaryExpression(node.getType(), left, right);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitArrayConstructor(ArrayConstructor node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteArrayConstructor(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+            for (Expression expression : node.getValues()) {
+                builder.add(rewrite(expression, context.get()));
+            }
+
+            if (!sameElements(node.getValues(), builder.build())) {
+                return new ArrayConstructor(builder.build());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitSubscriptExpression(SubscriptExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteSubscriptExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression base = rewrite(node.getBase(), context.get());
+            Expression index = rewrite(node.getIndex(), context.get());
+
+            if (base != node.getBase() || index != node.getIndex()) {
+                return new SubscriptExpression(base, index);
             }
 
             return node;
@@ -274,7 +326,7 @@ public final class ExpressionTreeRewriter<C>
                 falseValue = rewrite(node.getFalseValue().get(), context.get());
             }
 
-            if ((condition != node.getCondition()) || (trueValue != node.getTrueValue()) || (falseValue != node.getFalseValue().orNull())) {
+            if ((condition != node.getCondition()) || (trueValue != node.getTrueValue()) || (falseValue != node.getFalseValue().orElse(null))) {
                 return new IfExpression(condition, trueValue, falseValue);
             }
 
@@ -296,12 +348,10 @@ public final class ExpressionTreeRewriter<C>
                 builder.add(rewrite(expression, context.get()));
             }
 
-            Expression defaultValue = null;
-            if (node.getDefaultValue() != null) {
-                defaultValue = rewrite(node.getDefaultValue(), context.get());
-            }
+            Optional<Expression> defaultValue = node.getDefaultValue()
+                    .map(value -> rewrite(value, context.get()));
 
-            if (defaultValue != node.getDefaultValue() || !sameElements(node.getWhenClauses(), builder.build())) {
+            if (!sameElements(node.getDefaultValue(), defaultValue) || !sameElements(node.getWhenClauses(), builder.build())) {
                 return new SearchedCaseExpression(builder.build(), defaultValue);
             }
 
@@ -325,12 +375,12 @@ public final class ExpressionTreeRewriter<C>
                 builder.add(rewrite(expression, context.get()));
             }
 
-            Expression defaultValue = null;
-            if (node.getDefaultValue() != null) {
-                defaultValue = rewrite(node.getDefaultValue(), context.get());
-            }
+            Optional<Expression> defaultValue = node.getDefaultValue()
+                    .map(value -> rewrite(value, context.get()));
 
-            if (operand != node.getOperand() || defaultValue != node.getDefaultValue() || !sameElements(node.getWhenClauses(), builder.build())) {
+            if (operand != node.getOperand() ||
+                    !sameElements(node.getDefaultValue(), defaultValue) ||
+                    !sameElements(node.getWhenClauses(), builder.build())) {
                 return new SimpleCaseExpression(operand, builder.build(), defaultValue);
             }
 
@@ -388,16 +438,18 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            Window rewrittenWindow = node.getWindow().orNull();
-            if (rewrittenWindow != null) {
+            Optional<Window> rewrittenWindow = node.getWindow();
+            if (node.getWindow().isPresent()) {
+                Window window = node.getWindow().get();
+
                 ImmutableList.Builder<Expression> partitionBy = ImmutableList.builder();
-                for (Expression expression : rewrittenWindow.getPartitionBy()) {
+                for (Expression expression : window.getPartitionBy()) {
                     partitionBy.add(rewrite(expression, context.get()));
                 }
 
                 // Since SortItem is not an Expression, but contains Expressions, just process the default rewrite inline with FunctionCall
                 ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
-                for (SortItem sortItem : rewrittenWindow.getOrderBy()) {
+                for (SortItem sortItem : window.getOrderBy()) {
                     Expression sortKey = rewrite(sortItem.getSortKey(), context.get());
                     if (sortItem.getSortKey() != sortKey) {
                         orderBy.add(new SortItem(sortKey, sortItem.getOrdering(), sortItem.getNullOrdering()));
@@ -407,10 +459,38 @@ public final class ExpressionTreeRewriter<C>
                     }
                 }
 
-                // TODO: rewrite frame
-                if (!sameElements(rewrittenWindow.getPartitionBy(), partitionBy.build()) ||
-                        !sameElements(rewrittenWindow.getOrderBy(), orderBy.build())) {
-                    rewrittenWindow = new Window(partitionBy.build(), orderBy.build(), rewrittenWindow.getFrame().orNull());
+                Optional<WindowFrame> rewrittenFrame = window.getFrame();
+                if (rewrittenFrame.isPresent()) {
+                    WindowFrame frame = rewrittenFrame.get();
+
+                    FrameBound start = frame.getStart();
+                    if (start.getValue().isPresent()) {
+                        Expression value = rewrite(start.getValue().get(), context.get());
+                        if (value != start.getValue().get()) {
+                            start = new FrameBound(start.getType(), value);
+                        }
+                    }
+
+                    Optional<FrameBound> rewrittenEnd = frame.getEnd();
+                    if (rewrittenEnd.isPresent()) {
+                        Optional<Expression> value = rewrittenEnd.get().getValue();
+                        if (value.isPresent()) {
+                            Expression rewrittenValue = rewrite(value.get(), context.get());
+                            if (rewrittenValue != value.get()) {
+                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
+                            }
+                        }
+                    }
+
+                    if ((frame.getStart() != start) || !sameElements(frame.getEnd(), rewrittenEnd)) {
+                        rewrittenFrame = Optional.of(new WindowFrame(frame.getType(), start, rewrittenEnd));
+                    }
+                }
+
+                if (!sameElements(window.getPartitionBy(), partitionBy.build()) ||
+                        !sameElements(window.getOrderBy(), orderBy.build()) ||
+                        !sameElements(window.getFrame(), rewrittenFrame)) {
+                    rewrittenWindow = Optional.of(new Window(partitionBy.build(), orderBy.build(), rewrittenFrame));
                 }
             }
 
@@ -419,9 +499,26 @@ public final class ExpressionTreeRewriter<C>
                 arguments.add(rewrite(expression, context.get()));
             }
 
-            if (!sameElements(node.getArguments(), arguments.build()) ||
-                    (rewrittenWindow != node.getWindow().orNull())) {
+            if (!sameElements(node.getArguments(), arguments.build()) || !sameElements(rewrittenWindow, node.getWindow())) {
                 return new FunctionCall(node.getName(), rewrittenWindow, node.isDistinct(), arguments.build());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitLambdaExpression(LambdaExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteLambdaExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression body = rewrite(node.getBody(), context.get());
+            if (body != node.getBody()) {
+                return new LambdaExpression(node.getArguments(), body);
             }
 
             return node;
@@ -534,6 +631,24 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        public Expression visitDereferenceExpression(DereferenceExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteDereferenceExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression base = rewrite(node.getBase(), context.get());
+            if (base != node.getBase()) {
+                return new DereferenceExpression(base, node.getFieldName());
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitExtract(Extract node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
@@ -578,7 +693,7 @@ public final class ExpressionTreeRewriter<C>
             Expression expression = rewrite(node.getExpression(), context.get());
 
             if (node.getExpression() != expression) {
-                return new Cast(expression, node.getType());
+                return new Cast(expression, node.getType(), node.isSafe());
             }
 
             return node;
@@ -605,6 +720,18 @@ public final class ExpressionTreeRewriter<C>
         {
             return defaultRewrite;
         }
+    }
+
+    private static <T> boolean sameElements(Optional<T> a, Optional<T> b)
+    {
+        if (!a.isPresent() && !b.isPresent()) {
+            return true;
+        }
+        else if (a.isPresent() != b.isPresent()) {
+            return false;
+        }
+
+        return a.get() == b.get();
     }
 
     @SuppressWarnings("ObjectEquality")

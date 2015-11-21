@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class Select
         extends Node
@@ -28,8 +29,19 @@ public class Select
 
     public Select(boolean distinct, List<SelectItem> selectItems)
     {
+        this(Optional.empty(), distinct, selectItems);
+    }
+
+    public Select(NodeLocation location, boolean distinct, List<SelectItem> selectItems)
+    {
+        this(Optional.of(location), distinct, selectItems);
+    }
+
+    private Select(Optional<NodeLocation> location, boolean distinct, List<SelectItem> selectItems)
+    {
+        super(location);
         this.distinct = distinct;
-        this.selectItems = ImmutableList.copyOf(checkNotNull(selectItems, "selectItems"));
+        this.selectItems = ImmutableList.copyOf(requireNonNull(selectItems, "selectItems"));
     }
 
     public boolean isDistinct()
@@ -51,7 +63,7 @@ public class Select
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("distinct", distinct)
                 .add("selectItems", selectItems)
                 .omitNullValues()

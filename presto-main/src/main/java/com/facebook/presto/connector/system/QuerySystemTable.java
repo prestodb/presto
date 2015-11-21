@@ -16,49 +16,47 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.spi.ColumnType;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
-import java.util.List;
-
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.metadata.MetadataUtil.columnTypeGetter;
-import static com.facebook.presto.spi.ColumnType.LONG;
-import static com.facebook.presto.spi.ColumnType.STRING;
-import static com.google.common.collect.Iterables.transform;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class QuerySystemTable
         implements SystemTable
 {
-    public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("sys", "query");
+    public static final SchemaTableName QUERY_TABLE_NAME = new SchemaTableName("runtime", "queries");
 
     public static final ConnectorTableMetadata QUERY_TABLE = tableMetadataBuilder(QUERY_TABLE_NAME)
-            .column("node_id", STRING)
-            .column("query_id", STRING)
-            .column("state", STRING)
-            .column("user", STRING)
-            .column("query", STRING)
+            .column("node_id", VARCHAR)
+            .column("query_id", VARCHAR)
+            .column("state", VARCHAR)
+            .column("user", VARCHAR)
+            .column("source", VARCHAR)
+            .column("query", VARCHAR)
 
-            .column("queued_time_ms", LONG)
-            .column("analysis_time_ms", LONG)
-            .column("distributed_planning_time_ms", LONG)
+            .column("queued_time_ms", BIGINT)
+            .column("analysis_time_ms", BIGINT)
+            .column("distributed_planning_time_ms", BIGINT)
 
-            .column("created", LONG)
-            .column("started", LONG)
-            .column("last_heartbeat", LONG)
-            .column("end", LONG)
+            .column("created", TIMESTAMP)
+            .column("started", TIMESTAMP)
+            .column("last_heartbeat", TIMESTAMP)
+            .column("end", TIMESTAMP)
             .build();
 
     private final QueryManager queryManager;
@@ -72,9 +70,9 @@ public class QuerySystemTable
     }
 
     @Override
-    public boolean isDistributed()
+    public Distribution getDistribution()
     {
-        return true;
+        return ALL_COORDINATORS;
     }
 
     @Override
@@ -84,13 +82,7 @@ public class QuerySystemTable
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
-    {
-        return ImmutableList.copyOf(transform(QUERY_TABLE.getColumns(), columnTypeGetter()));
-    }
-
-    @Override
-    public RecordCursor cursor()
+    public RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
@@ -100,6 +92,7 @@ public class QuerySystemTable
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
                     queryInfo.getSession().getUser(),
+                    queryInfo.getSession().getSource().orElse(null),
                     queryInfo.getQuery(),
 
                     toMillis(queryStats.getQueuedTime()),
@@ -114,7 +107,7 @@ public class QuerySystemTable
         return table.build().cursor();
     }
 
-    private Long toMillis(Duration duration)
+    private static Long toMillis(Duration duration)
     {
         if (duration == null) {
             return null;
@@ -122,11 +115,11 @@ public class QuerySystemTable
         return duration.toMillis();
     }
 
-    private Long toTimeStamp(DateTime dateTime)
+    private static Long toTimeStamp(DateTime dateTime)
     {
         if (dateTime == null) {
             return null;
         }
-        return MILLISECONDS.toSeconds(dateTime.getMillis());
+        return dateTime.getMillis();
     }
 }

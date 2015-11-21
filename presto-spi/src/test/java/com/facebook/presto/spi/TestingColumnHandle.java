@@ -15,18 +15,21 @@ package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
+
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class TestingColumnHandle
-    implements ColumnHandle
+        implements ColumnHandle
 {
     private final String name;
 
     @JsonCreator
     public TestingColumnHandle(@JsonProperty("name") String name)
     {
-        this.name = Preconditions.checkNotNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null");
     }
 
     @JsonProperty
@@ -38,7 +41,7 @@ public class TestingColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(name);
+        return Objects.hash(name);
     }
 
     @Override
@@ -50,14 +53,14 @@ public class TestingColumnHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TestingColumnHandle other = (TestingColumnHandle) obj;
-        return Objects.equal(this.name, other.name);
+        TestingColumnHandle other = (TestingColumnHandle) obj;
+        return Objects.equals(this.name, other.name);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .toString();
     }

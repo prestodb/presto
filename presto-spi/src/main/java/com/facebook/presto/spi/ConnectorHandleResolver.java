@@ -15,15 +15,55 @@ package com.facebook.presto.spi;
 
 public interface ConnectorHandleResolver
 {
-    boolean canHandle(TableHandle tableHandle);
+    boolean canHandle(ConnectorTableHandle tableHandle);
+
+    default boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return false;
+    }
 
     boolean canHandle(ColumnHandle columnHandle);
 
-    boolean canHandle(Split split);
+    boolean canHandle(ConnectorSplit split);
 
-    Class<? extends TableHandle> getTableHandleClass();
+    default boolean canHandle(ConnectorIndexHandle indexHandle)
+    {
+        return false;
+    }
+
+    default boolean canHandle(ConnectorOutputTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    default boolean canHandle(ConnectorInsertTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    Class<? extends ConnectorTableHandle> getTableHandleClass();
+
+    default Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     Class<? extends ColumnHandle> getColumnHandleClass();
 
-    Class<? extends Split> getSplitClass();
+    Class<? extends ConnectorSplit> getSplitClass();
+
+    default Class<? extends ConnectorIndexHandle> getIndexHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

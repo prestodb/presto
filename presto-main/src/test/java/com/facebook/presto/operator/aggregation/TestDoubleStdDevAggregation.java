@@ -13,30 +13,28 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import org.apache.commons.math.stat.descriptive.moment.StandardDeviation;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.collect.ImmutableList;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
-import static com.facebook.presto.operator.aggregation.VarianceAggregations.DOUBLE_STDDEV_INSTANCE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import java.util.List;
+
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleStdDevAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int start, int length)
+    public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append((double) i);
+            DOUBLE.writeDouble(blockBuilder, (double) i);
         }
-        return blockBuilder.build();
-    }
-
-    @Override
-    public AggregationFunction getFunction()
-    {
-        return DOUBLE_STDDEV_INSTANCE;
+        return new Block[] {blockBuilder.build()};
     }
 
     @Override
@@ -53,5 +51,17 @@ public class TestDoubleStdDevAggregation
 
         StandardDeviation stdDev = new StandardDeviation();
         return stdDev.evaluate(values);
+    }
+
+    @Override
+    protected String getFunctionName()
+    {
+        return "stddev";
+    }
+
+    @Override
+    protected List<String> getFunctionParameterTypes()
+    {
+        return ImmutableList.of(StandardTypes.DOUBLE);
     }
 }

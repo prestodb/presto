@@ -17,22 +17,22 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.cassandra.MockCassandraSession.BAD_SCHEMA;
 import static com.facebook.presto.cassandra.MockCassandraSession.TEST_SCHEMA;
 import static com.facebook.presto.cassandra.MockCassandraSession.TEST_TABLE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+@Test(singleThreaded = true)
 public class TestCachingCassandraSchemaProvider
 {
     private static final String CONNECTOR_ID = "test-cassandra";
@@ -43,9 +43,10 @@ public class TestCachingCassandraSchemaProvider
     public void setUp()
             throws Exception
     {
-        mockSession = new MockCassandraSession(CONNECTOR_ID);
-        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).build()));
+        mockSession = new MockCassandraSession(CONNECTOR_ID, new CassandraClientConfig());
+        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         schemaProvider = new CachingCassandraSchemaProvider(
+                CONNECTOR_ID,
                 mockSession,
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
@@ -74,14 +75,14 @@ public class TestCachingCassandraSchemaProvider
     {
         assertEquals(mockSession.getAccessCount(), 0);
         assertEquals(schemaProvider.getAllTables(TEST_SCHEMA), ImmutableList.of(TEST_TABLE));
-        assertEquals(mockSession.getAccessCount(), 1);
+        assertEquals(mockSession.getAccessCount(), 2);
         assertEquals(schemaProvider.getAllTables(TEST_SCHEMA), ImmutableList.of(TEST_TABLE));
-        assertEquals(mockSession.getAccessCount(), 1);
+        assertEquals(mockSession.getAccessCount(), 2);
 
         schemaProvider.flushCache();
 
         assertEquals(schemaProvider.getAllTables(TEST_SCHEMA), ImmutableList.of(TEST_TABLE));
-        assertEquals(mockSession.getAccessCount(), 2);
+        assertEquals(mockSession.getAccessCount(), 4);
     }
 
     @Test(expectedExceptions = SchemaNotFoundException.class)
@@ -128,16 +129,15 @@ public class TestCachingCassandraSchemaProvider
 
         String expectedList = "[column1 = 'testpartition1', column1 = 'testpartition2']";
 
-        List<Comparable<?>> empty = ImmutableList.of();
         assertEquals(mockSession.getAccessCount(), 1);
-        assertEquals(expectedList, schemaProvider.getPartitions(table, empty).toString());
+        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
         assertEquals(mockSession.getAccessCount(), 2);
-        assertEquals(expectedList, schemaProvider.getPartitions(table, empty).toString());
+        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
         assertEquals(mockSession.getAccessCount(), 2);
 
         schemaProvider.flushCache();
 
-        assertEquals(expectedList, schemaProvider.getPartitions(table, empty).toString());
+        assertEquals(expectedList, schemaProvider.getAllPartitions(table).toString());
         assertEquals(mockSession.getAccessCount(), 3);
     }
 

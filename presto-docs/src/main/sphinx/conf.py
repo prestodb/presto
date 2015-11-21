@@ -60,7 +60,7 @@ def get_version():
 
 # -- General configuration -----------------------------------------------------
 
-needs_sphinx = '1.0'
+needs_sphinx = '1.1'
 
 extensions = ['download']
 
@@ -71,13 +71,11 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 project = u'Presto'
-# noinspection PyShadowingBuiltins
-copyright = u'2013, Facebook'
 
 version = get_version()
 release = version
 
-exclude_patterns = ['_build']
+exclude_patterns = ['_build', 'rest*', 'overview/concepts*']
 
 pygments_style = 'sphinx'
 
@@ -94,4 +92,6 @@ html_theme = 'presto'
 
 html_title = '%s %s Documentation' % (project, release)
 
-html_add_permalinks = None
+html_add_permalinks = ''
+html_show_copyright = False
+html_show_sphinx = False

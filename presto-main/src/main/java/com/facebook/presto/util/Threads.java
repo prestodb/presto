@@ -18,14 +18,13 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class Threads
 {
@@ -33,26 +32,18 @@ public final class Threads
 
     private Threads() {}
 
-    public static ThreadFactory threadsNamed(String nameFormat)
-    {
-        return new ThreadFactoryBuilder().setNameFormat(nameFormat).build();
-    }
-
-    public static ThreadFactory daemonThreadsNamed(String nameFormat)
-    {
-        return new ThreadFactoryBuilder().setNameFormat(nameFormat).setDaemon(true).build();
-    }
-
     public static Executor checkNotSameThreadExecutor(Executor executor, String name)
     {
-        checkNotNull(executor, "%s is null", name);
+        if (executor == null) {
+            throw new NullPointerException(format("%s is null", name));
+        }
         checkArgument(!isSameThreadExecutor(executor), "%s is a same thread executor", name);
         return executor;
     }
 
     public static boolean isSameThreadExecutor(Executor executor)
     {
-        checkNotNull(executor, "executor is null");
+        requireNonNull(executor, "executor is null");
         if (executor.getClass() == GUAVA_SAME_THREAD_EXECUTOR_CLASS) {
             return true;
         }

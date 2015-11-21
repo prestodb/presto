@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class SampledRelation
         extends Relation
@@ -27,19 +28,33 @@ public class SampledRelation
     public enum Type
     {
         BERNOULLI,
+        POISSONIZED,
         SYSTEM
     }
 
     private final Relation relation;
     private final Type type;
     private final Expression samplePercentage;
+    private final boolean rescaled;
     private final Optional<List<Expression>> columnsToStratifyOn;
 
-    public SampledRelation(Relation relation, Type type, Expression samplePercentage, Optional<List<Expression>> columnsToStratifyOn)
+    public SampledRelation(Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
     {
-        this.relation = checkNotNull(relation, "relation is null");
-        this.type = checkNotNull(type, "type is null");
-        this.samplePercentage = checkNotNull(samplePercentage, "samplePercentage is null");
+        this(Optional.empty(), relation, type, samplePercentage, rescaled, columnsToStratifyOn);
+    }
+
+    public SampledRelation(NodeLocation location, Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
+    {
+        this(Optional.of(location), relation, type, samplePercentage, rescaled, columnsToStratifyOn);
+    }
+
+    private SampledRelation(Optional<NodeLocation> location, Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
+    {
+        super(location);
+        this.relation = requireNonNull(relation, "relation is null");
+        this.type = requireNonNull(type, "type is null");
+        this.samplePercentage = requireNonNull(samplePercentage, "samplePercentage is null");
+        this.rescaled = rescaled;
 
         if (columnsToStratifyOn.isPresent()) {
             this.columnsToStratifyOn = Optional.<List<Expression>>of(ImmutableList.copyOf(columnsToStratifyOn.get()));
@@ -64,6 +79,11 @@ public class SampledRelation
         return samplePercentage;
     }
 
+    public boolean isRescaled()
+    {
+        return rescaled;
+    }
+
     public Optional<List<Expression>> getColumnsToStratifyOn()
     {
         return columnsToStratifyOn;
@@ -78,7 +98,7 @@ public class SampledRelation
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("relation", relation)
                 .add("type", type)
                 .add("samplePercentage", samplePercentage)
@@ -96,15 +116,15 @@ public class SampledRelation
             return false;
         }
         SampledRelation that = (SampledRelation) o;
-        return Objects.equal(relation, that.relation) &&
-                Objects.equal(type, that.type) &&
-                Objects.equal(samplePercentage, that.samplePercentage) &&
-                Objects.equal(columnsToStratifyOn, that.columnsToStratifyOn);
+        return Objects.equals(relation, that.relation) &&
+                Objects.equals(type, that.type) &&
+                Objects.equals(samplePercentage, that.samplePercentage) &&
+                Objects.equals(columnsToStratifyOn, that.columnsToStratifyOn);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(relation, type, samplePercentage, columnsToStratifyOn);
+        return Objects.hash(relation, type, samplePercentage, columnsToStratifyOn);
     }
 }

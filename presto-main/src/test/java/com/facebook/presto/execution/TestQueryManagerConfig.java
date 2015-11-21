@@ -31,11 +31,15 @@ public class TestQueryManagerConfig
                 .setMaxQueryHistory(100)
                 .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setScheduleSplitBatchSize(1000)
-                .setMaxPendingSplitsPerNode(100)
+                .setMaxConcurrentQueries(1000)
+                .setMaxQueuedQueries(5000)
+                .setQueueConfigFile(null)
                 .setInitialHashPartitions(8)
                 .setQueryManagerExecutorPoolSize(5)
-                .setRemoteTaskMaxConsecutiveErrorCount(10)
-                .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES)));
+                .setRemoteTaskMinErrorDuration(new Duration(2, TimeUnit.MINUTES))
+                .setRemoteTaskMaxCallbackThreads(1000)
+                .setQueryExecutionPolicy("all-at-once")
+                .setQueryMaxRunTime(new Duration(100, TimeUnit.DAYS)));
     }
 
     @Test
@@ -46,11 +50,15 @@ public class TestQueryManagerConfig
                 .put("query.max-age", "30s")
                 .put("query.max-history", "10")
                 .put("query.schedule-split-batch-size", "99")
-                .put("query.max-pending-splits-per-node", "33")
+                .put("query.max-concurrent-queries", "10")
+                .put("query.max-queued-queries", "15")
+                .put("query.queue-config-file", "/etc/presto/queues.json")
                 .put("query.initial-hash-partitions", "16")
                 .put("query.manager-executor-pool-size", "11")
-                .put("query.remote-task.max-consecutive-error-count", "300")
                 .put("query.remote-task.min-error-duration", "30s")
+                .put("query.remote-task.max-callback-threads", "10")
+                .put("query.execution-policy", "phased")
+                .put("query.max-run-time", "2h")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -58,11 +66,15 @@ public class TestQueryManagerConfig
                 .setMaxQueryHistory(10)
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setScheduleSplitBatchSize(99)
-                .setMaxPendingSplitsPerNode(33)
+                .setMaxConcurrentQueries(10)
+                .setMaxQueuedQueries(15)
+                .setQueueConfigFile("/etc/presto/queues.json")
                 .setInitialHashPartitions(16)
                 .setQueryManagerExecutorPoolSize(11)
-                .setRemoteTaskMaxConsecutiveErrorCount(300)
-                .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS));
+                .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS))
+                .setRemoteTaskMaxCallbackThreads(10)
+                .setQueryExecutionPolicy("phased")
+                .setQueryMaxRunTime(new Duration(2, TimeUnit.HOURS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

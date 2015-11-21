@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.Session;
 import io.airlift.units.Duration;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface QueryManager
 {
@@ -26,6 +27,10 @@ public interface QueryManager
             throws InterruptedException;
 
     QueryInfo getQueryInfo(QueryId queryId);
+
+    Optional<QueryState> getQueryState(QueryId queryId);
+
+    void recordHeartbeat(QueryId queryId);
 
     QueryInfo createQuery(Session session, String query);
 

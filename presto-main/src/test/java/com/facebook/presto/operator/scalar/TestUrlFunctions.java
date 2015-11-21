@@ -13,19 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+
 public class TestUrlFunctions
+        extends AbstractTestFunctions
 {
-    private FunctionAssertions functionAssertions;
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionAssertions = new FunctionAssertions();
-    }
-
     @Test
     public void testUrlExtract()
     {
@@ -43,39 +38,49 @@ public class TestUrlFunctions
     @Test
     public void testUrlExtractParameter()
     {
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k1')", "v1");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k2')", "v2");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k3')", "");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k4')", "");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k5')", null);
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k1=v2&k1&k1#Ref1', 'k1')", "v1");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1&k1=v1&k1&k1#Ref1', 'k1')", "");
-        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", "a=b=c");
-        assertFunction("url_extract_parameter('foo', 'k1')", null);
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k1')", VARCHAR, "v1");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k2')", VARCHAR, "v2");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k3')", VARCHAR, "");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k4')", VARCHAR, "");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k5')", VARCHAR, null);
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k1=v2&k1&k1#Ref1', 'k1')", VARCHAR, "v1");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1&k1=v1&k1&k1#Ref1', 'k1')", VARCHAR, "");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", VARCHAR, "a=b=c");
+        assertFunction("url_extract_parameter('foo', 'k1')", VARCHAR, null);
+    }
+
+    @Test
+    public void testUrlEncode()
+    {
+        assertFunction("url_encode('http://test')", VARCHAR, "http%3A%2F%2Ftest");
+        assertFunction("url_encode('http://test?a=b&c=d')", VARCHAR, "http%3A%2F%2Ftest%3Fa%3Db%26c%3Dd");
+        assertFunction("url_encode('http://\u30c6\u30b9\u30c8')", VARCHAR, "http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88");
+        assertFunction("url_encode('~@:.-*_+ \u2603')", VARCHAR, "%7E%40%3A.-*_%2B+%E2%98%83");
+        assertFunction("url_encode('test')", VARCHAR, "test");
+    }
+
+    @Test
+    public void testUrlDecode()
+    {
+        assertFunction("url_decode('http%3A%2F%2Ftest')", VARCHAR, "http://test");
+        assertFunction("url_decode('http%3A%2F%2Ftest%3Fa%3Db%26c%3Dd')", VARCHAR, "http://test?a=b&c=d");
+        assertFunction("url_decode('http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88')", VARCHAR, "http://\u30c6\u30b9\u30c8");
+        assertFunction("url_decode('%7E%40%3A.-*_%2B+%E2%98%83')", VARCHAR, "~@:.-*_+ \u2603");
+        assertFunction("url_decode('test')", VARCHAR, "test");
     }
 
     private void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String fragment)
     {
-        assertFunction("url_extract_protocol('" + url + "')", protocol);
-        assertFunction("url_extract_host('" + url + "')", host);
+        assertFunction("url_extract_protocol('" + url + "')", VARCHAR, protocol);
+        assertFunction("url_extract_host('" + url + "')", VARCHAR, host);
         if (port == null) {
-            assertFunctionNull("url_extract_port('" + url + "')");
+            assertFunction("url_extract_port('" + url + "')", BIGINT, null);
         }
         else {
-            assertFunction("url_extract_port('" + url + "')", port);
+            assertFunction("url_extract_port('" + url + "')", BIGINT, port);
         }
-        assertFunction("url_extract_path('" + url + "')", path);
-        assertFunction("url_extract_query('" + url + "')", query);
-        assertFunction("url_extract_fragment('" + url + "')", fragment);
-    }
-
-    private void assertFunction(String projection, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expected);
-    }
-
-    private void assertFunctionNull(String projection)
-    {
-        functionAssertions.assertFunctionNull(projection);
+        assertFunction("url_extract_path('" + url + "')", VARCHAR, path);
+        assertFunction("url_extract_query('" + url + "')", VARCHAR, query);
+        assertFunction("url_extract_fragment('" + url + "')", VARCHAR, fragment);
     }
 }

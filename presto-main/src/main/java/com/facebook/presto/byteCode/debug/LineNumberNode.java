@@ -15,12 +15,14 @@ package com.facebook.presto.byteCode.debug;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ByteCodeVisitor;
+import com.facebook.presto.byteCode.MethodGenerationContext;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class LineNumberNode
         implements DebugNode
@@ -34,9 +36,12 @@ public class LineNumberNode
     }
 
     @Override
-    public void accept(MethodVisitor visitor)
+    public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        visitor.visitLineNumber(lineNumber, label.getLabel());
+        if (generationContext.updateLineNumber(lineNumber)) {
+            label.accept(visitor, generationContext);
+            visitor.visitLineNumber(lineNumber, label.getLabel());
+        }
     }
 
     public int getLineNumber()
@@ -47,7 +52,7 @@ public class LineNumberNode
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("line", lineNumber)
                 .toString();
     }

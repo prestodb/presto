@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.example;
 
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -22,10 +22,10 @@ import com.google.common.collect.ImmutableList;
 import java.net.URI;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleSplit
-        implements Split
+        implements ConnectorSplit
 {
     private final String connectorId;
     private final String schemaName;
@@ -41,10 +41,10 @@ public class ExampleSplit
             @JsonProperty("tableName") String tableName,
             @JsonProperty("uri") URI uri)
     {
-        this.schemaName = checkNotNull(schemaName, "schema name is null");
-        this.connectorId = checkNotNull(connectorId, "connector id is null");
-        this.tableName = checkNotNull(tableName, "table name is null");
-        this.uri = checkNotNull(uri, "uri is null");
+        this.schemaName = requireNonNull(schemaName, "schema name is null");
+        this.connectorId = requireNonNull(connectorId, "connector id is null");
+        this.tableName = requireNonNull(tableName, "table name is null");
+        this.uri = requireNonNull(uri, "uri is null");
 
 //        if ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())) {
         remotelyAccessible = true;

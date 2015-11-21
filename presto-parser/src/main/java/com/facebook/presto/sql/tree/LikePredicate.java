@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Preconditions;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class LikePredicate
         extends Expression
@@ -24,8 +26,19 @@ public class LikePredicate
 
     public LikePredicate(Expression value, Expression pattern, Expression escape)
     {
-        Preconditions.checkNotNull(value, "value is null");
-        Preconditions.checkNotNull(pattern, "pattern is null");
+        this(Optional.empty(), value, pattern, escape);
+    }
+
+    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Expression escape)
+    {
+        this(Optional.of(location), value, pattern, escape);
+    }
+
+    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Expression escape)
+    {
+        super(location);
+        requireNonNull(value, "value is null");
+        requireNonNull(pattern, "pattern is null");
 
         this.value = value;
         this.pattern = pattern;

@@ -14,29 +14,34 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.SqlFormatter;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
-import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
+import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertFalse;
 
 public class TestStatementBuilder
 {
+    private static final SqlParser SQL_PARSER = new SqlParser();
+
     @Test
     public void testStatementBuilder()
             throws Exception
     {
         printStatement("select * from foo");
         printStatement("explain select * from foo");
+        printStatement("explain (type distributed, format graphviz) select * from foo");
+
+        printStatement("select * from foo /* end */");
+        printStatement("/* start */ select * from foo");
+        printStatement("/* start */ select * /* middle */ from foo /* end */");
+        printStatement("-- start\nselect * -- junk\n-- hi\nfrom foo -- done");
 
         printStatement("select * from foo a (x, y, z)");
 
@@ -48,6 +53,21 @@ public class TestStatementBuilder
         printStatement("select 1 + 13 || '15' from foo");
 
         printStatement("select x is distinct from y from foo where a is not distinct from b");
+
+        printStatement("select x[1] from my_table");
+        printStatement("select x[1][2] from my_table");
+        printStatement("select x[cast(10 * sin(x) as bigint)] from my_table");
+
+        printStatement("select * from unnest(t.my_array)");
+        printStatement("select * from unnest(array[1, 2, 3])");
+        printStatement("select x from unnest(array[1, 2, 3]) t(x)");
+        printStatement("select * from users cross join unnest(friends)");
+        printStatement("select id, friend from users cross join unnest(friends) t(friend)");
+        printStatement("select * from unnest(t.my_array) with ordinality");
+        printStatement("select * from unnest(array[1, 2, 3]) with ordinality");
+        printStatement("select x from unnest(array[1, 2, 3]) with ordinality t(x)");
+        printStatement("select * from users cross join unnest(friends) with ordinality");
+        printStatement("select id, friend from users cross join unnest(friends) with ordinality t(friend)");
 
         printStatement("" +
                 "select depname, empno, salary\n" +
@@ -69,6 +89,11 @@ public class TestStatementBuilder
 
         printStatement("select * from information_schema.tables");
 
+        printStatement("show catalogs");
+
+        printStatement("show schemas");
+        printStatement("show schemas from sys");
+
         printStatement("show tables");
         printStatement("show tables from information_schema");
         printStatement("show tables like '%'");
@@ -78,18 +103,83 @@ public class TestStatementBuilder
         printStatement("show partitions from foo where name = 'foo'");
         printStatement("show partitions from foo order by x");
         printStatement("show partitions from foo limit 10");
+        printStatement("show partitions from foo limit all");
         printStatement("show partitions from foo order by x desc limit 10");
+        printStatement("show partitions from foo order by x desc limit all");
 
-        printStatement("select * from a.b.c@d");
+        printStatement("show functions");
+
+        printStatement("select cast('123' as bigint), try_cast('foo' as bigint)");
+
+        printStatement("select * from a.b.c");
+        printStatement("select * from a.b.c.e.f.g");
 
         printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
 
         printStatement("select * from foo tablesample system (10+1)");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
+        printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on not(a.id > b.id)");
+
         printStatement("select * from foo tablesample bernoulli (10) stratify on (id)");
         printStatement("select * from foo tablesample system (50) stratify on (id, name)");
 
-        printStatement("create table foo as select * from abc");
+        printStatement("select * from foo tablesample poissonized (100)");
+
+        printStatement("select * from foo approximate at 90 confidence");
+
+        printStatement("create table foo as (select * from abc)");
+        printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
+        printStatement("create table foo as select * from abc WITH NO DATA");
+        printStatement("drop table foo");
+
+        printStatement("insert into foo select * from abc");
+
+        printStatement("delete from foo");
+        printStatement("delete from foo where a = b");
+
+        printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
+
+        printStatement("table foo");
+        printStatement("table foo order by x limit 10");
+        printStatement("(table foo)");
+        printStatement("(table foo) limit 10");
+        printStatement("(table foo limit 5) limit 10");
+
+        printStatement("select * from a limit all");
+        printStatement("select * from a order by x limit all");
+
+        printStatement("select * from a union select * from b");
+        printStatement("table a union all table b");
+        printStatement("(table foo) union select * from foo union (table foo order by x)");
+
+        printStatement("table a union table b intersect table c");
+        printStatement("(table a union table b) intersect table c");
+        printStatement("table a union table b except table c intersect table d");
+        printStatement("(table a union table b except table c) intersect table d");
+        printStatement("((table a union table b) except table c) intersect table d");
+        printStatement("(table a union (table b except table c)) intersect table d");
+        printStatement("table a intersect table b union table c");
+        printStatement("table a intersect (table b union table c)");
+
+        printStatement("alter table foo rename to bar");
+        printStatement("alter table a.b.c rename to d.e.f");
+
+        printStatement("alter table a.b.c rename column x to y");
+
+        printStatement("alter table a.b.c add column x bigint");
+
+        printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
+        printStatement("create table if not exists baz (a timestamp, b varchar)");
+        printStatement("create table test (a boolean, b bigint) with (a = 'apple', b = 'banana')");
+        printStatement("drop table test");
+
+        printStatement("create view foo as with a as (select 123) select * from a");
+        printStatement("create or replace view foo as select 123 from t");
+
+        printStatement("drop view foo");
+
+        printStatement("insert into t select * from t");
+        printStatement("insert into t (c1, c2) select * from t");
     }
 
     @Test
@@ -132,20 +222,13 @@ public class TestStatementBuilder
         println(sql.trim());
         println("");
 
-        CommonTree tree = SqlParser.parseStatement(sql);
-        println(treeToString(tree));
-        println("");
-
-        Statement statement = SqlParser.createStatement(tree);
+        Statement statement = SQL_PARSER.createStatement(sql);
         println(statement.toString());
         println("");
 
-        // TODO: support formatting all statement types
-        if (statement instanceof Query) {
-            println(SqlFormatter.formatSql(statement));
-            println("");
-            assertFormattedSql(statement);
-        }
+        println(SqlFormatter.formatSql(statement));
+        println("");
+        assertFormattedSql(SQL_PARSER, statement);
 
         println(repeat("=", 60));
         println("");
@@ -182,7 +265,7 @@ public class TestStatementBuilder
     private static String readResource(String name)
             throws IOException
     {
-        return Resources.toString(Resources.getResource(name), Charsets.UTF_8);
+        return Resources.toString(Resources.getResource(name), UTF_8);
     }
 
     private static String fixTpchQuery(String s)

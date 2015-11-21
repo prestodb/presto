@@ -14,12 +14,32 @@
 package com.facebook.presto.execution;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.Min;
 
+@DefunctConfig("node-scheduler.location-aware-scheduling-enabled")
 public class NodeSchedulerConfig
 {
     private int minCandidates = 10;
+    private boolean includeCoordinator = true;
+    private boolean multipleTasksPerNode;
+    private int maxSplitsPerNode = 100;
+    private int maxPendingSplitsPerNodePerTask = 10;
+
+    public boolean isMultipleTasksPerNodeEnabled()
+    {
+        return multipleTasksPerNode;
+    }
+
+    @ConfigDescription("Allow nodes to be selected multiple times by the node scheduler, in a single stage")
+    @Config("node-scheduler.multiple-tasks-per-node-enabled")
+    public NodeSchedulerConfig setMultipleTasksPerNodeEnabled(boolean multipleTasksPerNode)
+    {
+        this.multipleTasksPerNode = multipleTasksPerNode;
+        return this;
+    }
 
     @Min(1)
     public int getMinCandidates()
@@ -31,6 +51,42 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMinCandidates(int candidates)
     {
         this.minCandidates = candidates;
+        return this;
+    }
+
+    public boolean isIncludeCoordinator()
+    {
+        return includeCoordinator;
+    }
+
+    @Config("node-scheduler.include-coordinator")
+    public NodeSchedulerConfig setIncludeCoordinator(boolean includeCoordinator)
+    {
+        this.includeCoordinator = includeCoordinator;
+        return this;
+    }
+
+    @Config("node-scheduler.max-pending-splits-per-node-per-task")
+    public NodeSchedulerConfig setMaxPendingSplitsPerNodePerTask(int maxPendingSplitsPerNodePerTask)
+    {
+        this.maxPendingSplitsPerNodePerTask = maxPendingSplitsPerNodePerTask;
+        return this;
+    }
+
+    public int getMaxPendingSplitsPerNodePerTask()
+    {
+        return maxPendingSplitsPerNodePerTask;
+    }
+
+    public int getMaxSplitsPerNode()
+    {
+        return maxSplitsPerNode;
+    }
+
+    @Config("node-scheduler.max-splits-per-node")
+    public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
+    {
+        this.maxSplitsPerNode = maxSplitsPerNode;
         return this;
     }
 }

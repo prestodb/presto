@@ -13,20 +13,45 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.tuple.Tuples.nullTuple;
 
 public abstract class AbstractTestAggregationFunction
 {
-    public abstract Block getSequenceBlock(int start, int length);
+    protected final TypeRegistry typeRegistry = new TypeRegistry();
+    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), true);
 
-    public abstract AggregationFunction getFunction();
+    public abstract Block[] getSequenceBlocks(int start, int length);
+
+    protected final InternalAggregationFunction getFunction()
+    {
+        Signature signature = functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature), isApproximate());
+        return functionRegistry.getAggregateFunctionImplementation(signature);
+    }
+
+    protected abstract String getFunctionName();
+
+    protected abstract List<String> getFunctionParameterTypes();
+
+    protected boolean isApproximate()
+    {
+        return false;
+    }
 
     public abstract Object getExpectedValue(int start, int length);
 
@@ -43,55 +68,86 @@ public abstract class AbstractTestAggregationFunction
     @Test
     public void testNoPositions()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(0, 0), 0);
+        testAggregation(getExpectedValue(0, 0), getSequenceBlocks(0, 0));
     }
 
     @Test
     public void testSinglePosition()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(0, 1), 1, getSequenceBlock(0, 1));
+        testAggregation(getExpectedValue(0, 1), getSequenceBlocks(0, 1));
     }
 
     @Test
     public void testMultiplePositions()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(0, 5), 5, getSequenceBlock(0, 5));
+        testAggregation(getExpectedValue(0, 5), getSequenceBlocks(0, 5));
     }
 
     @Test
     public void testAllPositionsNull()
             throws Exception
     {
-        Block block = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 10);
-        assertAggregation(getFunction(), getConfidence(), getExpectedValueIncludingNulls(0, 0, 10), 10, block);
+        // if there are no parameters skip this test
+        List<Type> parameterTypes = getFunction().getParameterTypes();
+        if (parameterTypes.isEmpty()) {
+            return;
+        }
+        Block[] blocks = new Block[parameterTypes.size()];
+        for (int i = 0; i < parameterTypes.size(); i++) {
+            Block nullValueBlock = parameterTypes.get(0).createBlockBuilder(new BlockBuilderStatus(), 1)
+                    .appendNull()
+                    .build();
+            blocks[i] = new RunLengthEncodedBlock(nullValueBlock, 10);
+        }
+
+        testAggregation(getExpectedValueIncludingNulls(0, 0, 10), blocks);
     }
 
     @Test
     public void testMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
-        assertAggregation(getFunction(), getConfidence(), getExpectedValueIncludingNulls(0, 10, 20), 20, alternatingNullsBlock);
+        // if there are no parameters skip this test
+        List<Type> parameterTypes = getFunction().getParameterTypes();
+        if (parameterTypes.isEmpty()) {
+            return;
+        }
+
+        Block[] alternatingNullsBlocks = createAlternatingNullsBlock(parameterTypes, getSequenceBlocks(0, 10));
+        testAggregation(getExpectedValueIncludingNulls(0, 10, 20), alternatingNullsBlocks);
     }
 
     @Test
     public void testNegativeOnlyValues()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(-10, 5), 5, getSequenceBlock(-10, 5));
+        testAggregation(getExpectedValue(-10, 5), getSequenceBlocks(-10, 5));
     }
 
     @Test
     public void testPositiveOnlyValues()
     {
-        assertAggregation(getFunction(), getConfidence(), getExpectedValue(2, 4), 4, getSequenceBlock(2, 4));
+        testAggregation(getExpectedValue(2, 4), getSequenceBlocks(2, 4));
     }
 
-    public Block createAlternatingNullsBlock(Block sequenceBlock)
+    public Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(sequenceBlock.getTupleInfo());
-        BlockCursor cursor = sequenceBlock.cursor();
-        while (cursor.advanceNextPosition()) {
-            blockBuilder.appendNull().append(cursor.getTuple());
+        Block[] alternatingNullsBlocks = new Block[sequenceBlocks.length];
+        for (int i = 0; i < sequenceBlocks.length; i++) {
+            int positionCount = sequenceBlocks[i].getPositionCount();
+            Type type = types.get(i);
+            BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            for (int position = 0; position < positionCount; position++) {
+                // append null
+                blockBuilder.appendNull();
+                // append value
+                type.appendTo(sequenceBlocks[i], position, blockBuilder);
+            }
+            alternatingNullsBlocks[i] = blockBuilder.build();
         }
-        return blockBuilder.build();
+        return alternatingNullsBlocks;
+    }
+
+    protected void testAggregation(Object expectedValue, Block... blocks)
+    {
+        assertAggregation(getFunction(), getConfidence(), expectedValue, blocks);
     }
 }

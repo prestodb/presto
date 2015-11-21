@@ -13,25 +13,20 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Optional;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import java.util.List;
-
-public interface AggregationFunction
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD})
+public @interface AggregationFunction
 {
-    List<Type> getParameterTypes();
+    String value();
 
-    TupleInfo getFinalTupleInfo();
+    boolean approximate() default false;
 
-    TupleInfo getIntermediateTupleInfo();
+    boolean decomposable() default true;
 
-    Accumulator createAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
-
-    Accumulator createIntermediateAggregation(double confidence);
-
-    GroupedAccumulator createGroupedAggregation(Optional<Integer> maskChannel, Optional<Integer> sampleWeight, double confidence, int... argumentChannels);
-
-    GroupedAccumulator createGroupedIntermediateAggregation(double confidence);
+    String[] alias() default {};
 }

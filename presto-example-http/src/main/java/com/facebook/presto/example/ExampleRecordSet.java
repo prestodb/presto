@@ -13,40 +13,39 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.InputSupplier;
+import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
 
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleRecordSet
         implements RecordSet
 {
     private final List<ExampleColumnHandle> columnHandles;
-    private final List<ColumnType> columnTypes;
-    private final InputSupplier<InputStream> inputStreamSupplier;
+    private final List<Type> columnTypes;
+    private final ByteSource byteSource;
 
     public ExampleRecordSet(ExampleSplit split, List<ExampleColumnHandle> columnHandles)
     {
-        checkNotNull(split, "split is null");
+        requireNonNull(split, "split is null");
 
-        this.columnHandles = checkNotNull(columnHandles, "column handles is null");
-        ImmutableList.Builder<ColumnType> types = ImmutableList.builder();
+        this.columnHandles = requireNonNull(columnHandles, "column handles is null");
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ExampleColumnHandle column : columnHandles) {
             types.add(column.getColumnType());
         }
         this.columnTypes = types.build();
 
         try {
-            inputStreamSupplier = Resources.newInputStreamSupplier(split.getUri().toURL());
+            byteSource = Resources.asByteSource(split.getUri().toURL());
         }
         catch (MalformedURLException e) {
             throw Throwables.propagate(e);
@@ -54,7 +53,7 @@ public class ExampleRecordSet
     }
 
     @Override
-    public List<ColumnType> getColumnTypes()
+    public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
@@ -62,6 +61,6 @@ public class ExampleRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new ExampleRecordCursor(columnHandles, inputStreamSupplier);
+        return new ExampleRecordCursor(columnHandles, byteSource);
     }
 }

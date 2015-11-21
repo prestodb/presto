@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    DESCRIBE table
+    DESCRIBE table_name
 
 Description
 -----------

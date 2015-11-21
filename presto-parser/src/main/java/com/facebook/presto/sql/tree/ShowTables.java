@@ -13,26 +13,44 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
+import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class ShowTables
         extends Statement
 {
-    private final QualifiedName schema;
-    private final String likePattern;
+    private final Optional<QualifiedName> schema;
+    private final Optional<String> likePattern;
 
-    public ShowTables(QualifiedName schema, String likePattern)
+    public ShowTables(Optional<QualifiedName> schema, Optional<String> likePattern)
     {
+        this(Optional.empty(), schema, likePattern);
+    }
+
+    public ShowTables(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern)
+    {
+        this(Optional.of(location), schema, likePattern);
+    }
+
+    private ShowTables(Optional<NodeLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern)
+    {
+        super(location);
+        requireNonNull(schema, "schema is null");
+        requireNonNull(likePattern, "likePattern is null");
+
         this.schema = schema;
         this.likePattern = likePattern;
     }
 
-    public QualifiedName getSchema()
+    public Optional<QualifiedName> getSchema()
     {
         return schema;
     }
 
-    public String getLikePattern()
+    public Optional<String> getLikePattern()
     {
         return likePattern;
     }
@@ -46,7 +64,7 @@ public class ShowTables
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(schema, likePattern);
+        return Objects.hash(schema, likePattern);
     }
 
     @Override
@@ -59,14 +77,14 @@ public class ShowTables
             return false;
         }
         ShowTables o = (ShowTables) obj;
-        return Objects.equal(schema, o.schema) &&
-                Objects.equal(likePattern, o.likePattern);
+        return Objects.equals(schema, o.schema) &&
+                Objects.equals(likePattern, o.likePattern);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("schema", schema)
                 .add("likePattern", likePattern)
                 .toString();

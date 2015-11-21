@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -30,30 +30,38 @@ import static com.google.common.base.Preconditions.checkNotNull;
         @JsonSubTypes.Type(value = OutputNode.class, name = "output"),
         @JsonSubTypes.Type(value = ProjectNode.class, name = "project"),
         @JsonSubTypes.Type(value = TableScanNode.class, name = "tablescan"),
+        @JsonSubTypes.Type(value = ValuesNode.class, name = "values"),
         @JsonSubTypes.Type(value = AggregationNode.class, name = "aggregation"),
         @JsonSubTypes.Type(value = MarkDistinctNode.class, name = "markDistinct"),
-        @JsonSubTypes.Type(value = MaterializeSampleNode.class, name = "materializeSample"),
         @JsonSubTypes.Type(value = FilterNode.class, name = "filter"),
         @JsonSubTypes.Type(value = WindowNode.class, name = "window"),
+        @JsonSubTypes.Type(value = RowNumberNode.class, name = "rowNumber"),
+        @JsonSubTypes.Type(value = TopNRowNumberNode.class, name = "topnRowNumber"),
         @JsonSubTypes.Type(value = LimitNode.class, name = "limit"),
         @JsonSubTypes.Type(value = DistinctLimitNode.class, name = "distinctlimit"),
         @JsonSubTypes.Type(value = TopNNode.class, name = "topn"),
         @JsonSubTypes.Type(value = SampleNode.class, name = "sample"),
         @JsonSubTypes.Type(value = SortNode.class, name = "sort"),
-        @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
-        @JsonSubTypes.Type(value = SinkNode.class, name = "sink"),
+        @JsonSubTypes.Type(value = RemoteSourceNode.class, name = "remoteSource"),
         @JsonSubTypes.Type(value = JoinNode.class, name = "join"),
         @JsonSubTypes.Type(value = SemiJoinNode.class, name = "semijoin"),
+        @JsonSubTypes.Type(value = IndexJoinNode.class, name = "indexjoin"),
+        @JsonSubTypes.Type(value = IndexSourceNode.class, name = "indexsource"),
         @JsonSubTypes.Type(value = TableWriterNode.class, name = "tablewriter"),
+        @JsonSubTypes.Type(value = DeleteNode.class, name = "delete"),
+        @JsonSubTypes.Type(value = MetadataDeleteNode.class, name = "metadatadelete"),
         @JsonSubTypes.Type(value = TableCommitNode.class, name = "tablecommit"),
-        @JsonSubTypes.Type(value = MaterializedViewWriterNode.class, name = "materializedViewWriter")})
+        @JsonSubTypes.Type(value = UnnestNode.class, name = "unnest"),
+        @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
+        @JsonSubTypes.Type(value = UnionNode.class, name = "union"),
+})
 public abstract class PlanNode
 {
     private final PlanNodeId id;
 
     protected PlanNode(PlanNodeId id)
     {
-        checkNotNull(id, "id is null");
+        requireNonNull(id, "id is null");
         this.id = id;
     }
 

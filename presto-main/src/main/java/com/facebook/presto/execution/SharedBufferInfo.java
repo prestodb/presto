@@ -13,50 +13,52 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.SharedBuffer.QueueState;
+import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
-public class SharedBufferInfo
+import static com.google.common.base.MoreObjects.toStringHelper;
+
+public final class SharedBufferInfo
 {
-    private final QueueState state;
-    private final long masterSequenceId;
-    private final long pagesAdded;
+    private final BufferState state;
+    private final boolean canAddBuffers;
+    private final boolean canAddPages;
+    private final long totalBufferedBytes;
+    private final long totalBufferedPages;
+    private final long totalQueuedPages;
+    private final long totalPagesSent;
     private final List<BufferInfo> buffers;
 
     @JsonCreator
     public SharedBufferInfo(
-            @JsonProperty("state") QueueState state,
-            @JsonProperty("masterSequenceId") long masterSequenceId,
-            @JsonProperty("pagesAdded") long pagesAdded,
+            @JsonProperty("state") BufferState state,
+            @JsonProperty("canAddBuffers") boolean canAddBuffers,
+            @JsonProperty("canAddPages") boolean canAddPages,
+            @JsonProperty("totalBufferedBytes") long totalBufferedBytes,
+            @JsonProperty("totalBufferedPages") long totalBufferedPages,
+            @JsonProperty("totalQueuedPages") long totalQueuedPages,
+            @JsonProperty("totalPagesSent") long totalPagesSent,
             @JsonProperty("buffers") List<BufferInfo> buffers)
     {
         this.state = state;
-        this.masterSequenceId = masterSequenceId;
-        this.pagesAdded = pagesAdded;
+        this.canAddBuffers = canAddBuffers;
+        this.canAddPages = canAddPages;
+        this.totalBufferedBytes = totalBufferedBytes;
+        this.totalBufferedPages = totalBufferedPages;
+        this.totalQueuedPages = totalQueuedPages;
+        this.totalPagesSent = totalPagesSent;
         this.buffers = ImmutableList.copyOf(buffers);
     }
 
     @JsonProperty
-    public QueueState getState()
+    public BufferState getState()
     {
         return state;
-    }
-
-    @JsonProperty
-    public long getMasterSequenceId()
-    {
-        return masterSequenceId;
-    }
-
-    @JsonProperty
-    public long getPagesAdded()
-    {
-        return pagesAdded;
     }
 
     @JsonProperty
@@ -65,36 +67,80 @@ public class SharedBufferInfo
         return buffers;
     }
 
-    @Override
-    public int hashCode()
+    @JsonProperty
+    public boolean isCanAddBuffers()
     {
-        return Objects.hashCode(state, pagesAdded, buffers, masterSequenceId);
+        return canAddBuffers;
+    }
+
+    @JsonProperty
+    public boolean isCanAddPages()
+    {
+        return canAddPages;
+    }
+
+    @JsonProperty
+    public long getTotalBufferedBytes()
+    {
+        return totalBufferedBytes;
+    }
+
+    @JsonProperty
+    public long getTotalBufferedPages()
+    {
+        return totalBufferedPages;
+    }
+
+    @JsonProperty
+    public long getTotalQueuedPages()
+    {
+        return totalQueuedPages;
+    }
+
+    @JsonProperty
+    public long getTotalPagesSent()
+    {
+        return totalPagesSent;
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        final SharedBufferInfo other = (SharedBufferInfo) obj;
-        return Objects.equal(this.state, other.state) &&
-                Objects.equal(this.pagesAdded, other.pagesAdded) &&
-                Objects.equal(this.buffers, other.buffers) &&
-                Objects.equal(this.masterSequenceId, other.masterSequenceId);
+        SharedBufferInfo that = (SharedBufferInfo) o;
+        return Objects.equals(canAddBuffers, that.canAddBuffers) &&
+                Objects.equals(canAddPages, that.canAddPages) &&
+                Objects.equals(totalBufferedBytes, that.totalBufferedBytes) &&
+                Objects.equals(totalBufferedPages, that.totalBufferedPages) &&
+                Objects.equals(totalQueuedPages, that.totalQueuedPages) &&
+                Objects.equals(totalPagesSent, that.totalPagesSent) &&
+                Objects.equals(state, that.state) &&
+                Objects.equals(buffers, that.buffers);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(state, canAddBuffers, canAddPages, totalBufferedBytes, totalBufferedPages, totalQueuedPages, totalPagesSent, buffers);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("state", state)
-                .add("pagesAdded", pagesAdded)
+                .add("canAddBuffers", canAddBuffers)
+                .add("canAddPages", canAddPages)
+                .add("totalBufferedBytes", totalBufferedBytes)
+                .add("totalBufferedPages", totalBufferedPages)
+                .add("totalQueuedPages", totalQueuedPages)
+                .add("totalPagesSent", totalPagesSent)
                 .add("buffers", buffers)
-                .add("masterSequenceId", masterSequenceId)
                 .toString();
     }
 }

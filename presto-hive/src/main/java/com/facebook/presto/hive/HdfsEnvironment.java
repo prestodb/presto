@@ -13,33 +13,46 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.HadoopFileSystemCache;
+import com.facebook.presto.hadoop.HadoopNative;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.io.IOException;
+
+import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
 {
+    static {
+        HadoopNative.requireHadoopNative();
+        HadoopFileSystemCache.initialize();
+    }
+
     private final HdfsConfiguration hdfsConfiguration;
+    private final boolean verifyChecksum;
 
     @Inject
-    public HdfsEnvironment(HdfsConfiguration hdfsConfiguration)
+    public HdfsEnvironment(HdfsConfiguration hdfsConfiguration, HiveClientConfig config)
     {
-        this.hdfsConfiguration = checkNotNull(hdfsConfiguration, "hdfsConfiguration is null");
+        this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
+        this.verifyChecksum = requireNonNull(config, "config is null").isVerifyChecksum();
     }
 
     public Configuration getConfiguration(Path path)
     {
-        String host = path.toUri().getHost();
-        checkArgument(host != null, "path host is null: %s", path);
-        return hdfsConfiguration.getConfiguration(host);
+        return hdfsConfiguration.getConfiguration(path.toUri());
     }
 
-    public Path wrapInputPath(Path path)
+    public FileSystem getFileSystem(Path path)
+            throws IOException
     {
-        return path;
+        FileSystem fileSystem = path.getFileSystem(getConfiguration(path));
+        fileSystem.setVerifyChecksum(verifyChecksum);
+
+        return fileSystem;
     }
 }

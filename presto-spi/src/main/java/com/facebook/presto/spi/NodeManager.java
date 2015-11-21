@@ -22,4 +22,6 @@ public interface NodeManager
     Set<Node> getActiveDatasourceNodes(String datasourceName);
 
     Node getCurrentNode();
+
+    Set<Node> getCoordinators();
 }

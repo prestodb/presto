@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
-import com.google.common.base.Objects;
+import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.google.common.base.Throwables;
+import org.apache.thrift.transport.TTransportException;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public class TestingHiveCluster
         implements HiveCluster
@@ -28,8 +30,8 @@ public class TestingHiveCluster
 
     public TestingHiveCluster(HiveClientConfig config, String host, int port)
     {
-        this.config = checkNotNull(config, "config is null");
-        this.host = checkNotNull(host, "host is null");
+        this.config = requireNonNull(config, "config is null");
+        this.host = requireNonNull(host, "host is null");
         this.port = port;
     }
 
@@ -55,13 +57,13 @@ public class TestingHiveCluster
         }
         TestingHiveCluster o = (TestingHiveCluster) obj;
 
-        return Objects.equal(this.host, o.host) &&
-                Objects.equal(this.port, o.port);
+        return Objects.equals(this.host, o.host) &&
+                Objects.equals(this.port, o.port);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(host, port);
+        return Objects.hash(host, port);
     }
 }

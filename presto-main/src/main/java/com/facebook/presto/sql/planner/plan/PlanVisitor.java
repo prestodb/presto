@@ -20,7 +20,7 @@ public class PlanVisitor<C, R>
         return null;
     }
 
-    public R visitExchange(ExchangeNode node, C context)
+    public R visitRemoteSource(RemoteSourceNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -70,6 +70,16 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitValues(ValuesNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitIndexSource(IndexSourceNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitJoin(JoinNode node, C context)
     {
         return visitPlan(node, context);
@@ -80,12 +90,12 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitSort(SortNode node, C context)
+    public R visitIndexJoin(IndexJoinNode node, C context)
     {
         return visitPlan(node, context);
     }
 
-    public R visitSink(SinkNode node, C context)
+    public R visitSort(SortNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -100,12 +110,17 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitTableCommit(TableCommitNode node, C context)
+    public R visitDelete(DeleteNode node, C context)
     {
         return visitPlan(node, context);
     }
 
-    public R visitMaterializedViewWriter(MaterializedViewWriterNode node, C context)
+    public R visitMetadataDelete(MetadataDeleteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableCommit(TableCommitNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -115,12 +130,27 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitUnnest(UnnestNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitMarkDistinct(MarkDistinctNode node, C context)
     {
         return visitPlan(node, context);
     }
 
-    public R visitMaterializeSample(MaterializeSampleNode node, C context)
+    public R visitRowNumber(RowNumberNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTopNRowNumber(TopNRowNumberNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitExchange(ExchangeNode node, C context)
     {
         return visitPlan(node, context);
     }

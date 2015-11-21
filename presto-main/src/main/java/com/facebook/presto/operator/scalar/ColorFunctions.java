@@ -13,54 +13,76 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.ColorType;
+import com.facebook.presto.type.SqlType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.awt.Color;
 
 import static com.facebook.presto.operator.scalar.StringFunctions.upper;
-import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class ColorFunctions
 {
     private static final String ANSI_RESET = "\u001b[0m";
 
-    private static final Slice RENDERED_TRUE = render(Slices.copiedBuffer("\u2713", Charsets.UTF_8), color(Slices.copiedBuffer("green", Charsets.UTF_8)));
-    private static final Slice RENDERED_FALSE = render(Slices.copiedBuffer("\u2717", Charsets.UTF_8), color(Slices.copiedBuffer("red", Charsets.UTF_8)));
+    private static final Slice RENDERED_TRUE = render(Slices.copiedBuffer("\u2713", UTF_8), color(Slices.copiedBuffer("green", UTF_8)));
+    private static final Slice RENDERED_FALSE = render(Slices.copiedBuffer("\u2717", UTF_8), color(Slices.copiedBuffer("red", UTF_8)));
 
-    private enum SystemColor
+    public enum SystemColor
     {
-        BLACK(0),
-        RED(1),
-        GREEN(2),
-        YELLOW(3),
-        BLUE(4),
-        MAGENTA(5),
-        CYAN(6),
-        WHITE(7);
+        BLACK(0, "black"),
+        RED(1, "red"),
+        GREEN(2, "green"),
+        YELLOW(3, "yellow"),
+        BLUE(4, "blue"),
+        MAGENTA(5, "magenta"),
+        CYAN(6, "cyan"),
+        WHITE(7, "white");
 
         private final int index;
+        private final String name;
 
-        SystemColor(int index)
+        SystemColor(int index, String name)
         {
             this.index = index;
+            this.name = name;
         }
 
         private int getIndex()
         {
             return index;
         }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public static SystemColor valueOf(int index)
+        {
+            for (SystemColor color : values()) {
+                if (index == color.getIndex()) {
+                    return color;
+                }
+            }
+            throw new PrestoException(INTERNAL_ERROR, "Invalid color index: " + index);
+        }
     }
 
     private ColorFunctions() {}
 
     @ScalarFunction
-    public static long color(Slice color)
+    @SqlType(ColorType.NAME)
+    public static long color(@SqlType(StandardTypes.VARCHAR) Slice color)
     {
         int rgb = parseRgb(color);
 
@@ -75,16 +97,17 @@ public final class ColorFunctions
             return -(index + 1);
         }
         catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(format("Invalid color: '%s'", color.toString(Charsets.UTF_8)), e);
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid color: '%s'", color.toString(UTF_8)), e);
         }
     }
 
     @ScalarFunction
-    public static long rgb(long red, long green, long blue)
+    @SqlType(ColorType.NAME)
+    public static long rgb(@SqlType(StandardTypes.BIGINT) long red, @SqlType(StandardTypes.BIGINT) long green, @SqlType(StandardTypes.BIGINT) long blue)
     {
-        checkArgument(red >= 0 && red <= 255, "red must be between 0 and 255");
-        checkArgument(green >= 0 && green <= 255, "green must be between 0 and 255");
-        checkArgument(blue >= 0 && blue <= 255, "blue must be between 0 and 255");
+        checkCondition(red >= 0 && red <= 255, INVALID_FUNCTION_ARGUMENT, "red must be between 0 and 255");
+        checkCondition(green >= 0 && green <= 255, INVALID_FUNCTION_ARGUMENT, "green must be between 0 and 255");
+        checkCondition(blue >= 0 && blue <= 255, INVALID_FUNCTION_ARGUMENT, "blue must be between 0 and 255");
 
         return (red << 16) | (green << 8) | blue;
     }
@@ -96,7 +119,13 @@ public final class ColorFunctions
      * Color must be a valid rgb value of the form #rgb
      */
     @ScalarFunction
-    public static long color(double value, double low, double high, Slice lowColor, Slice highColor)
+    @SqlType(ColorType.NAME)
+    public static long color(
+            @SqlType(StandardTypes.DOUBLE) double value,
+            @SqlType(StandardTypes.DOUBLE) double low,
+            @SqlType(StandardTypes.DOUBLE) double high,
+            @SqlType(ColorType.NAME) long lowColor,
+            @SqlType(ColorType.NAME) long highColor)
     {
         return color((value - low) * 1.0 / (high - low), lowColor, highColor);
     }
@@ -108,59 +137,67 @@ public final class ColorFunctions
      * Color must be a valid rgb value of the form #rgb
      */
     @ScalarFunction
-    public static long color(double fraction, Slice lowColor, Slice highColor)
+    @SqlType(ColorType.NAME)
+    public static long color(@SqlType(StandardTypes.DOUBLE) double fraction, @SqlType(ColorType.NAME) long lowColor, @SqlType(ColorType.NAME) long highColor)
     {
-        int lowRgb = parseRgb(lowColor);
-        int highRgb = parseRgb(highColor);
-
-        Preconditions.checkArgument(lowRgb != -1, "lowColor not a valid RGB color: %s", lowColor.toString(Charsets.UTF_8));
-        Preconditions.checkArgument(highRgb != -1, "highColor not a valid RGB color: %s", lowColor.toString(Charsets.UTF_8));
+        checkCondition(lowColor >= 0, INVALID_FUNCTION_ARGUMENT, "lowColor not a valid RGB color");
+        checkCondition(highColor >= 0, INVALID_FUNCTION_ARGUMENT, "highColor not a valid RGB color");
 
         fraction = Math.min(1, fraction);
         fraction = Math.max(0, fraction);
 
-        return interpolate((float) fraction, lowRgb, highRgb);
+        return interpolate((float) fraction, lowColor, highColor);
     }
 
     @ScalarFunction
-    public static Slice render(Slice value, long color)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice render(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(ColorType.NAME) long color)
     {
         StringBuilder builder = new StringBuilder(value.length());
 
         // color
         builder.append(ansiColorEscape(color))
-                .append(value.toString(Charsets.UTF_8))
+                .append(value.toString(UTF_8))
                 .append(ANSI_RESET);
 
-        return Slices.copiedBuffer(builder.toString(), Charsets.UTF_8);
+        return Slices.copiedBuffer(builder.toString(), UTF_8);
     }
 
     @ScalarFunction
-    public static Slice render(long value, long color)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice render(@SqlType(StandardTypes.BIGINT) long value, @SqlType(ColorType.NAME) long color)
     {
-        return render(Slices.copiedBuffer(Long.toString(value), Charsets.UTF_8), color);
+        return render(Slices.copiedBuffer(Long.toString(value), UTF_8), color);
     }
 
     @ScalarFunction
-    public static Slice render(double value, long color)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice render(@SqlType(StandardTypes.DOUBLE) double value, @SqlType(ColorType.NAME) long color)
     {
-        return render(Slices.copiedBuffer(Double.toString(value), Charsets.UTF_8), color);
+        return render(Slices.copiedBuffer(Double.toString(value), UTF_8), color);
     }
 
     @ScalarFunction
-    public static Slice render(boolean value)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice render(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? RENDERED_TRUE : RENDERED_FALSE;
     }
 
     @ScalarFunction
-    public static Slice bar(double percent, long width)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice bar(@SqlType(StandardTypes.DOUBLE) double percent, @SqlType(StandardTypes.BIGINT) long width)
     {
         return bar(percent, width, rgb(255, 0, 0), rgb(0, 255, 0));
     }
 
     @ScalarFunction
-    public static Slice bar(double percent, long width, long lowColor, long highColor)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice bar(
+            @SqlType(StandardTypes.DOUBLE) double percent,
+            @SqlType(StandardTypes.BIGINT) long width,
+            @SqlType(ColorType.NAME) long lowColor,
+            @SqlType(ColorType.NAME) long highColor)
     {
         long count = (int) (percent * width);
         count = Math.min(width, count);
@@ -184,7 +221,7 @@ public final class ColorFunctions
             builder.append(' ');
         }
 
-        return Slices.copiedBuffer(builder.toString(), Charsets.UTF_8);
+        return Slices.copiedBuffer(builder.toString(), UTF_8);
     }
 
     private static int interpolate(float fraction, long lowRgb, long highRgb)
@@ -256,7 +293,7 @@ public final class ColorFunctions
     @VisibleForTesting
     static int getRed(long color)
     {
-        checkArgument(color >= 0, "color is not a valid rgb value");
+        checkCondition(color >= 0, INVALID_FUNCTION_ARGUMENT, "color is not a valid rgb value");
 
         return (int) ((color >>> 16) & 0xff);
     }
@@ -264,7 +301,7 @@ public final class ColorFunctions
     @VisibleForTesting
     static int getGreen(long color)
     {
-        checkArgument(color >= 0, "color is not a valid rgb value");
+        checkCondition(color >= 0, INVALID_FUNCTION_ARGUMENT, "color is not a valid rgb value");
 
         return (int) ((color >>> 8) & 0xff);
     }
@@ -272,7 +309,7 @@ public final class ColorFunctions
     @VisibleForTesting
     static int getBlue(long color)
     {
-        checkArgument(color >= 0, "color is not a valid rgb value");
+        checkCondition(color >= 0, INVALID_FUNCTION_ARGUMENT, "color is not a valid rgb value");
 
         return (int) (color & 0xff);
     }

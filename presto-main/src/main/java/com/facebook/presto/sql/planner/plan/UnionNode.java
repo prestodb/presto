@@ -15,14 +15,17 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -30,9 +33,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.ExpressionUtils.symbolToQualifiedNameReference;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class UnionNode
@@ -48,9 +51,9 @@ public class UnionNode
     {
         super(id);
 
-        checkNotNull(sources, "sources is null");
+        requireNonNull(sources, "sources is null");
         checkArgument(!sources.isEmpty(), "Must have at least one source");
-        checkNotNull(symbolMapping, "symbolMapping is null");
+        requireNonNull(symbolMapping, "symbolMapping is null");
 
         this.sources = ImmutableList.copyOf(sources);
         this.symbolMapping = ImmutableListMultimap.copyOf(symbolMapping);
@@ -89,9 +92,9 @@ public class UnionNode
     public List<Symbol> sourceOutputLayout(int sourceIndex)
     {
         // Make sure the sourceOutputLayout symbols are listed in the same order as the corresponding output symbols
-        return IterableTransformer.<Symbol>on(getOutputSymbols())
-                .transform(outputToSourceSymbolFunction(sourceIndex))
-                .list();
+        return getOutputSymbols().stream()
+                .map(symbol -> symbolMapping.get(symbol).get(sourceIndex))
+                .collect(toImmutableList());
     }
 
     /**
@@ -99,34 +102,29 @@ public class UnionNode
      */
     public Map<Symbol, QualifiedNameReference> sourceSymbolMap(int sourceIndex)
     {
-        return IterableTransformer.<Symbol>on(getOutputSymbols())
-                .toMap(outputToSourceSymbolFunction(sourceIndex))
-                .<QualifiedNameReference>transformValues(symbolToQualifiedNameReference())
-                .immutableMap();
+        ImmutableMap.Builder<Symbol, QualifiedNameReference> builder = ImmutableMap.<Symbol, QualifiedNameReference>builder();
+        for (Map.Entry<Symbol, Collection<Symbol>> entry : symbolMapping.asMap().entrySet()) {
+            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toQualifiedNameReference());
+        }
+
+        return builder.build();
     }
 
     /**
-     * Returns the input to output symbol mapping for the given source channel
+     * Returns the input to output symbol mapping for the given source channel.
+     * A single input symbol can map to multiple output symbols, thus requiring a Multimap.
      */
-    public Map<Symbol, QualifiedNameReference> outputSymbolMap(int sourceIndex)
+    public Multimap<Symbol, QualifiedNameReference> outputSymbolMap(int sourceIndex)
     {
-        return IterableTransformer.<Symbol>on(getOutputSymbols())
+        return Multimaps.transformValues(FluentIterable.from(getOutputSymbols())
                 .toMap(outputToSourceSymbolFunction(sourceIndex))
-                .inverse()
-                .<QualifiedNameReference>transformValues(symbolToQualifiedNameReference())
-                .immutableMap();
+                .asMultimap()
+                .inverse(), Symbol::toQualifiedNameReference);
     }
 
     private Function<Symbol, Symbol> outputToSourceSymbolFunction(final int sourceIndex)
     {
-        return new Function<Symbol, Symbol>()
-        {
-            @Override
-            public Symbol apply(Symbol outputSymbol)
-            {
-                return Iterables.get(symbolMapping.get(outputSymbol), sourceIndex);
-            }
-        };
+        return outputSymbol -> symbolMapping.get(outputSymbol).get(sourceIndex);
     }
 
     @Override

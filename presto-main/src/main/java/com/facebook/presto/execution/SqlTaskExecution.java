@@ -13,43 +13,40 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.execution.SharedBuffer.QueueState;
+import com.facebook.presto.execution.SharedBuffer.BufferState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.operator.OutputFactory;
+import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.util.SetThreadName;
-import com.google.common.base.Objects;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
+import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.lang.ref.WeakReference;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -59,32 +56,30 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.util.Failures.toFailures;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecution
-        implements TaskExecution
 {
     private final TaskId taskId;
-    private final URI location;
-    private final TaskExecutor taskExecutor;
-    private final Executor notificationExecutor;
     private final TaskStateMachine taskStateMachine;
     private final TaskContext taskContext;
     private final SharedBuffer sharedBuffer;
 
-    private final QueryMonitor queryMonitor;
-
     private final TaskHandle taskHandle;
+    private final TaskExecutor taskExecutor;
+
+    private final Executor notificationExecutor;
+
+    private final QueryMonitor queryMonitor;
 
     private final List<WeakReference<Driver>> drivers = new CopyOnWriteArrayList<>();
 
@@ -100,120 +95,87 @@ public class SqlTaskExecution
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
 
-    private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
-
     private final PlanNodeId partitionedSourceId;
     private final DriverSplitRunnerFactory partitionedDriverFactory;
 
     private final List<DriverSplitRunnerFactory> unpartitionedDriverFactories;
 
-    private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
-
-    public static SqlTaskExecution createSqlTaskExecution(Session session,
-            TaskId taskId,
-            URI location,
+    public static SqlTaskExecution createSqlTaskExecution(
+            TaskStateMachine taskStateMachine,
+            TaskContext taskContext,
+            SharedBuffer sharedBuffer,
             PlanFragment fragment,
             List<TaskSource> sources,
-            OutputBuffers outputBuffers,
             LocalExecutionPlanner planner,
-            DataSize maxBufferSize,
             TaskExecutor taskExecutor,
-            ExecutorService notificationExecutor,
-            DataSize maxTaskMemoryUsage,
-            DataSize operatorPreAllocatedMemory,
-            QueryMonitor queryMonitor,
-            boolean cpuTimerEnabled)
+            Executor notificationExecutor,
+            QueryMonitor queryMonitor)
     {
-        SqlTaskExecution task = new SqlTaskExecution(session,
-                taskId,
-                location,
-                fragment,
-                outputBuffers,
+        SqlTaskExecution task = new SqlTaskExecution(
+                taskStateMachine, taskContext, sharedBuffer, fragment,
                 planner,
-                maxBufferSize,
                 taskExecutor,
-                maxTaskMemoryUsage,
-                operatorPreAllocatedMemory,
                 queryMonitor,
-                notificationExecutor,
-                cpuTimerEnabled
+                notificationExecutor
         );
 
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
             task.start();
             task.addSources(sources);
-            task.recordHeartbeat();
             return task;
         }
     }
 
-    private SqlTaskExecution(Session session,
-            TaskId taskId,
-            URI location,
+    private SqlTaskExecution(
+            TaskStateMachine taskStateMachine,
+            TaskContext taskContext,
+            SharedBuffer sharedBuffer,
             PlanFragment fragment,
-            OutputBuffers outputBuffers,
             LocalExecutionPlanner planner,
-            DataSize maxBufferSize,
             TaskExecutor taskExecutor,
-            DataSize maxTaskMemoryUsage,
-            DataSize operatorPreAllocatedMemory,
             QueryMonitor queryMonitor,
-            Executor notificationExecutor,
-            boolean cpuTimerEnabled)
+            Executor notificationExecutor)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
-            this.taskId = checkNotNull(taskId, "taskId is null");
-            this.location = checkNotNull(location, "location is null");
-            this.taskExecutor = checkNotNull(taskExecutor, "driverExecutor is null");
-            this.notificationExecutor = checkNotNull(notificationExecutor, "notificationExecutor is null");
+        this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
+        this.taskId = taskStateMachine.getTaskId();
+        this.taskContext = requireNonNull(taskContext, "taskContext is null");
+        this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
 
-            this.taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
-            taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-            {
-                @Override
-                public void stateChanged(TaskState taskState)
-                {
-                    if (taskState.isDone()) {
-                        SqlTaskExecution.this.taskExecutor.removeTask(taskHandle);
-                        // make sure buffers are cleaned up
-                        if (taskState != TaskState.FAILED) {
-                            // don't close buffers for a failed query
-                            // closed buffers signal to upstream tasks that everything finished cleanly
-                            sharedBuffer.destroy();
-                        }
-                    }
+        this.taskExecutor = requireNonNull(taskExecutor, "driverExecutor is null");
+        this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+
+        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
+
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+            List<DriverFactory> driverFactories;
+            try {
+                OutputFactory outputOperatorFactory;
+                switch (fragment.getOutputPartitioning()) {
+                    case NONE:
+                        outputOperatorFactory = new TaskOutputFactory(sharedBuffer);
+                        break;
+                    case HASH:
+                    case ROUND_ROBIN:
+                        outputOperatorFactory = new PartitionedOutputFactory(sharedBuffer);
+                        break;
+                    default:
+                        throw new PrestoException(NOT_SUPPORTED, format("OutputPartitioning %s is not supported", fragment.getOutputPartitioning()));
                 }
-            });
 
-            this.taskContext = new TaskContext(taskStateMachine,
-                    notificationExecutor,
-                    session,
-                    checkNotNull(maxTaskMemoryUsage, "maxTaskMemoryUsage is null"),
-                    checkNotNull(operatorPreAllocatedMemory, "operatorPreAllocatedMemory is null"),
-                    cpuTimerEnabled);
-
-            this.sharedBuffer = new SharedBuffer(
-                    taskId,
-                    notificationExecutor,
-                    checkNotNull(maxBufferSize, "maxBufferSize is null"),
-                    outputBuffers);
-            sharedBuffer.addStateChangeListener(new StateChangeListener<QueueState>()
-            {
-                @Override
-                public void stateChanged(QueueState taskState)
-                {
-                    if (taskState == QueueState.FINISHED) {
-                        checkTaskCompletion();
-                    }
-                }
-            });
-
-            this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
-
-            taskHandle = taskExecutor.addTask(taskId);
-
-            LocalExecutionPlan localExecutionPlan = planner.plan(session, fragment.getRoot(), fragment.getSymbols(), new TaskOutputFactory(sharedBuffer));
-            List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
+                LocalExecutionPlan localExecutionPlan = planner.plan(
+                        taskContext.getSession(),
+                        fragment.getRoot(),
+                        fragment.getOutputLayout(),
+                        fragment.getSymbols(),
+                        fragment.getDistribution(),
+                        outputOperatorFactory);
+                driverFactories = localExecutionPlan.getDriverFactories();
+            }
+            catch (Throwable e) {
+                // planning failed
+                taskStateMachine.failed(e);
+                throw Throwables.propagate(e);
+            }
 
             // index driver factories
             DriverSplitRunnerFactory partitionedDriverFactory = null;
@@ -234,6 +196,17 @@ public class SqlTaskExecution
             }
             this.partitionedSourceId = fragment.getPartitionedSource();
             this.partitionedDriverFactory = partitionedDriverFactory;
+
+            // don't register the task if it is already completed (most likely failed during planning above)
+            if (!taskStateMachine.getState().isDone()) {
+                taskHandle = taskExecutor.addTask(taskId);
+                taskStateMachine.addStateChangeListener(new RemoveTaskHandleWhenDone(taskExecutor, taskHandle));
+            }
+            else {
+                taskHandle = null;
+            }
+
+            sharedBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
         }
     }
 
@@ -245,66 +218,30 @@ public class SqlTaskExecution
         // start unpartitioned drivers
         List<DriverSplitRunner> runners = new ArrayList<>();
         for (DriverSplitRunnerFactory driverFactory : unpartitionedDriverFactories) {
-            runners.add(driverFactory.createDriverRunner(null));
+            for (int i = 0; i < driverFactory.getDriverInstances(); i++) {
+                runners.add(driverFactory.createDriverRunner(null, false));
+            }
             driverFactory.setNoMoreSplits();
         }
         enqueueDrivers(true, runners);
     }
 
-    @Override
     public TaskId getTaskId()
     {
         return taskId;
     }
 
-    @Override
     public TaskContext getTaskContext()
     {
         return taskContext;
     }
 
-    @Override
-    public void waitForStateChange(TaskState currentState, Duration maxWait)
-            throws InterruptedException
-    {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
-            taskStateMachine.waitForStateChange(currentState, maxWait);
-        }
-    }
-
-    @Override
-    public TaskInfo getTaskInfo(boolean full)
-    {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
-            checkTaskCompletion();
-
-            TaskState state = taskStateMachine.getState();
-            List<FailureInfo> failures = ImmutableList.of();
-            if (state == TaskState.FAILED) {
-                failures = toFailures(taskStateMachine.getFailureCauses());
-            }
-
-            return new TaskInfo(
-                    taskStateMachine.getTaskId(),
-                    nextTaskInfoVersion.getAndIncrement(),
-                    state,
-                    location,
-                    lastHeartbeat.get(),
-                    sharedBuffer.getInfo(),
-                    getNoMoreSplits(),
-                    taskContext.getTaskStats(),
-                    failures,
-                    taskContext.getOutputItems());
-        }
-    }
-
-    @Override
     public void addSources(List<TaskSource> sources)
     {
-        checkNotNull(sources, "sources is null");
+        requireNonNull(sources, "sources is null");
         checkState(!Thread.holdsLock(this), "Can not add sources while holding a lock on the %s", getClass().getSimpleName());
 
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // update our record of sources and schedule drivers for new partitioned splits
             Map<PlanNodeId, TaskSource> updatedUnpartitionedSources = updateSources(sources);
 
@@ -326,6 +263,9 @@ public class SqlTaskExecution
                     }
                 }
             }
+
+            // we may have transitioned to no more splits, so check for completion
+            checkTaskCompletion();
         }
     }
 
@@ -346,7 +286,7 @@ public class SqlTaskExecution
                     // only add a split if we have not already scheduled it
                     if (scheduledSplit.getSequenceId() > maxAcknowledgedSplit) {
                         // create a new driver for the split
-                        runners.add(partitionedDriverFactory.createDriverRunner(scheduledSplit));
+                        runners.add(partitionedDriverFactory.createDriverRunner(scheduledSplit, true));
                         newMaxAcknowledgedSplit = max(scheduledSplit.getSequenceId(), newMaxAcknowledgedSplit);
                     }
                 }
@@ -386,16 +326,6 @@ public class SqlTaskExecution
         return updatedUnpartitionedSources;
     }
 
-    @Override
-    public synchronized void addResultQueue(OutputBuffers outputBuffers)
-    {
-        checkNotNull(outputBuffers, "outputBuffers is null");
-
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
-            sharedBuffer.setOutputBuffers(outputBuffers);
-        }
-    }
-
     private synchronized void enqueueDrivers(boolean forceRunSplit, List<DriverSplitRunner> runners)
     {
         // schedule driver to be executed
@@ -414,44 +344,49 @@ public class SqlTaskExecution
                 @Override
                 public void onSuccess(Object result)
                 {
-                    try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+                    try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
                         // record driver is finished
                         remainingDrivers.decrementAndGet();
 
                         checkTaskCompletion();
 
-                        queryMonitor.splitCompletionEvent(taskId, splitRunner.getDriverContext().getDriverStats());
+                        queryMonitor.splitCompletionEvent(taskId, getDriverStats());
                     }
                 }
 
                 @Override
                 public void onFailure(Throwable cause)
                 {
-                    try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+                    try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
                         taskStateMachine.failed(cause);
 
                         // record driver is finished
                         remainingDrivers.decrementAndGet();
 
-                        DriverContext driverContext = splitRunner.getDriverContext();
-                        DriverStats driverStats;
-                        if (driverContext != null) {
-                            driverStats = driverContext.getDriverStats();
-                        }
-                        else {
-                            // split runner did not start successfully
-                            driverStats = new DriverStats();
-                        }
-
                         // fire failed event with cause
-                        queryMonitor.splitFailedEvent(taskId, driverStats, cause);
+                        queryMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
                     }
+                }
+
+                private DriverStats getDriverStats()
+                {
+                    DriverContext driverContext = splitRunner.getDriverContext();
+                    DriverStats driverStats;
+                    if (driverContext != null) {
+                        driverStats = driverContext.getDriverStats();
+                    }
+                    else {
+                        // split runner did not start successfully
+                        driverStats = new DriverStats();
+                    }
+
+                    return driverStats;
                 }
             }, notificationExecutor);
         }
     }
 
-    private Set<PlanNodeId> getNoMoreSplits()
+    public Set<PlanNodeId> getNoMoreSplits()
     {
         ImmutableSet.Builder<PlanNodeId> noMoreSplits = ImmutableSet.builder();
         if (partitionedDriverFactory != null && partitionedDriverFactory.isNoMoreSplits()) {
@@ -481,7 +416,7 @@ public class SqlTaskExecution
         }
 
         // no more output will be created
-        sharedBuffer.finish();
+        sharedBuffer.setNoMorePages();
 
         // are there still pages in the output buffer
         if (!sharedBuffer.isFinished()) {
@@ -492,54 +427,25 @@ public class SqlTaskExecution
         taskStateMachine.finished();
     }
 
-    @Override
     public void cancel()
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        // todo this should finish all input sources and let the task finish naturally
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             taskStateMachine.cancel();
         }
     }
 
-    @Override
     public void fail(Throwable cause)
     {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             taskStateMachine.failed(cause);
         }
     }
 
     @Override
-    public BufferResult getResults(String outputId, long startingSequenceId, DataSize maxSize, Duration maxWait)
-            throws InterruptedException
-    {
-        checkNotNull(outputId, "outputId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
-        checkNotNull(maxWait, "maxWait is null");
-        checkState(!Thread.holdsLock(this), "Can not get result data while holding a lock on the %s", getClass().getSimpleName());
-
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
-            return sharedBuffer.get(outputId, startingSequenceId, maxSize, maxWait);
-        }
-    }
-
-    @Override
-    public void abortResults(String outputId)
-    {
-        try (SetThreadName setThreadName = new SetThreadName("Task-%s", taskId)) {
-            sharedBuffer.abort(outputId);
-        }
-    }
-
-    @Override
-    public void recordHeartbeat()
-    {
-        this.lastHeartbeat.set(DateTime.now());
-    }
-
-    @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("remainingDrivers", remainingDrivers)
                 .add("unpartitionedSources", unpartitionedSources)
@@ -560,15 +466,18 @@ public class SqlTaskExecution
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.isInputDriver(), driverFactory.isOutputDriver());
         }
 
-        private DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit)
+        private DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit, boolean partitioned)
         {
             pendingCreation.incrementAndGet();
-            return new DriverSplitRunner(this, partitionedSplit);
+            // create driver context immediately so the driver existence is recorded in the stats
+            // the number of drivers is used to balance work across nodes
+            DriverContext driverContext = pipelineContext.addDriverContext(partitioned);
+            return new DriverSplitRunner(this, driverContext, partitionedSplit);
         }
 
-        private Driver createDriver(@Nullable ScheduledSplit partitionedSplit)
+        private Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
-            Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
+            Driver driver = driverFactory.createDriver(driverContext);
 
             // record driver so other threads add unpartitioned sources can see the driver
             // NOTE: this MUST be done before reading unpartitionedSources, so we see a consistent view of the unpartitioned sources
@@ -607,12 +516,21 @@ public class SqlTaskExecution
                 driverFactory.close();
             }
         }
+
+        public int getDriverInstances()
+        {
+            return driverFactory.getDriverInstances();
+        }
     }
 
     private static class DriverSplitRunner
             implements SplitRunner
     {
         private final DriverSplitRunnerFactory driverSplitRunnerFactory;
+        private final DriverContext driverContext;
+
+        @GuardedBy("this")
+        private boolean closed;
 
         @Nullable
         private final ScheduledSplit partitionedSplit;
@@ -620,9 +538,10 @@ public class SqlTaskExecution
         @GuardedBy("this")
         private Driver driver;
 
-        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, @Nullable ScheduledSplit partitionedSplit)
+        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
-            this.driverSplitRunnerFactory = checkNotNull(driverSplitRunnerFactory, "driverFactory is null");
+            this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverFactory is null");
+            this.driverContext = requireNonNull(driverContext, "driverContext is null");
             this.partitionedSplit = partitionedSplit;
         }
 
@@ -637,24 +556,98 @@ public class SqlTaskExecution
         @Override
         public synchronized boolean isFinished()
         {
+            if (closed) {
+                return true;
+            }
+
+            if (driver == null) {
+                return false;
+            }
+
             return driver.isFinished();
         }
 
         @Override
-        public synchronized ListenableFuture<?> processFor(Duration duration)
+        public ListenableFuture<?> processFor(Duration duration)
         {
-            if (driver == null) {
-                driver = driverSplitRunnerFactory.createDriver(partitionedSplit);
+            Driver driver;
+            synchronized (this) {
+                // if close() was called before we get here, there's not point in even creating the driver
+                if (closed) {
+                    return Futures.immediateFuture(null);
+                }
+
+                if (this.driver == null) {
+                    this.driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
+                }
+
+                driver = this.driver;
             }
 
             return driver.processFor(duration);
         }
 
         @Override
-        public synchronized void close()
+        public String getInfo()
         {
+            return (partitionedSplit == null) ? "" : partitionedSplit.getSplit().getInfo().toString();
+        }
+
+        @Override
+        public void close()
+        {
+            Driver driver;
+            synchronized (this) {
+                closed = true;
+                driver = this.driver;
+            }
+
             if (driver != null) {
                 driver.close();
+            }
+        }
+    }
+
+    private static final class RemoveTaskHandleWhenDone
+            implements StateChangeListener<TaskState>
+    {
+        private final TaskExecutor taskExecutor;
+        private final TaskHandle taskHandle;
+
+        private RemoveTaskHandleWhenDone(TaskExecutor taskExecutor, TaskHandle taskHandle)
+        {
+            this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
+            this.taskHandle = requireNonNull(taskHandle, "taskHandle is null");
+        }
+
+        @Override
+        public void stateChanged(TaskState newState)
+        {
+            if (newState.isDone()) {
+                taskExecutor.removeTask(taskHandle);
+            }
+        }
+    }
+
+    private static final class CheckTaskCompletionOnBufferFinish
+            implements StateChangeListener<BufferState>
+    {
+        private final WeakReference<SqlTaskExecution> sqlTaskExecutionReference;
+
+        public CheckTaskCompletionOnBufferFinish(SqlTaskExecution sqlTaskExecution)
+        {
+            // we are only checking for completion of the task, so don't hold up GC if the task is dead
+            this.sqlTaskExecutionReference = new WeakReference<>(sqlTaskExecution);
+        }
+
+        @Override
+        public void stateChanged(BufferState newState)
+        {
+            if (newState == BufferState.FINISHED) {
+                SqlTaskExecution sqlTaskExecution = sqlTaskExecutionReference.get();
+                if (sqlTaskExecution != null) {
+                    sqlTaskExecution.checkTaskCompletion();
+                }
             }
         }
     }

@@ -14,9 +14,20 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Doubles;
+import io.airlift.slice.Slice;
 
 import java.util.concurrent.ThreadLocalRandom;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.Failures.checkCondition;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Character.MAX_RADIX;
+import static java.lang.Character.MIN_RADIX;
+import static java.lang.String.format;
 
 public final class MathFunctions
 {
@@ -24,83 +35,103 @@ public final class MathFunctions
 
     @Description("absolute value")
     @ScalarFunction
-    public static long abs(long num)
+    @SqlType(StandardTypes.BIGINT)
+    public static long abs(@SqlType(StandardTypes.BIGINT) long num)
     {
         return Math.abs(num);
     }
 
     @Description("absolute value")
     @ScalarFunction
-    public static double abs(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double abs(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.abs(num);
     }
 
     @Description("arc cosine")
     @ScalarFunction
-    public static double acos(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double acos(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.acos(num);
     }
 
     @Description("arc sine")
     @ScalarFunction
-    public static double asin(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double asin(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.asin(num);
     }
 
     @Description("arc tangent")
     @ScalarFunction
-    public static double atan(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double atan(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.atan(num);
     }
 
     @Description("arc tangent of given fraction")
     @ScalarFunction
-    public static double atan2(double num1, double num2)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double atan2(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
     {
         return Math.atan2(num1, num2);
     }
 
     @Description("cube root")
     @ScalarFunction
-    public static double cbrt(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cbrt(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.cbrt(num);
     }
 
     @Description("round up to nearest integer")
     @ScalarFunction(alias = "ceil")
-    public static long ceiling(long num)
+    @SqlType(StandardTypes.BIGINT)
+    public static long ceiling(@SqlType(StandardTypes.BIGINT) long num)
     {
         return num;
     }
 
     @Description("round up to nearest integer")
     @ScalarFunction(alias = "ceil")
-    public static double ceiling(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double ceiling(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.ceil(num);
     }
 
     @Description("cosine")
     @ScalarFunction
-    public static double cos(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cos(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.cos(num);
     }
 
     @Description("hyperbolic cosine")
     @ScalarFunction
-    public static double cosh(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cosh(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.cosh(num);
     }
 
+    @Description("converts an angle in radians to degrees")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double degrees(@SqlType(StandardTypes.DOUBLE) double radians)
+    {
+        return Math.toDegrees(radians);
+    }
+
     @Description("Euler's number")
     @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
     public static double e()
     {
         return Math.E;
@@ -108,83 +139,103 @@ public final class MathFunctions
 
     @Description("Euler's number raised to the given power")
     @ScalarFunction
-    public static double exp(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double exp(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.exp(num);
     }
 
     @Description("round down to nearest integer")
     @ScalarFunction
-    public static long floor(long num)
+    @SqlType(StandardTypes.BIGINT)
+    public static long floor(@SqlType(StandardTypes.BIGINT) long num)
     {
         return num;
     }
 
     @Description("round down to nearest integer")
     @ScalarFunction
-    public static double floor(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double floor(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.floor(num);
     }
 
     @Description("natural logarithm")
     @ScalarFunction
-    public static double ln(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double ln(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.log(num);
     }
 
     @Description("logarithm to base 2")
     @ScalarFunction
-    public static double log2(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double log2(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.log(num) / Math.log(2);
     }
 
     @Description("logarithm to base 10")
     @ScalarFunction
-    public static double log10(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double log10(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.log10(num);
     }
 
     @Description("logarithm to given base")
     @ScalarFunction
-    public static double log(double num, double base)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double log(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.DOUBLE) double base)
     {
         return Math.log(num) / Math.log(base);
     }
 
     @Description("remainder of given quotient")
     @ScalarFunction
-    public static long mod(long num1, long num2)
+    @SqlType(StandardTypes.BIGINT)
+    public static long mod(@SqlType(StandardTypes.BIGINT) long num1, @SqlType(StandardTypes.BIGINT) long num2)
     {
         return num1 % num2;
     }
 
     @Description("remainder of given quotient")
     @ScalarFunction
-    public static double mod(double num1, double num2)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double mod(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
     {
         return num1 % num2;
     }
 
     @Description("the constant Pi")
     @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
     public static double pi()
     {
         return Math.PI;
     }
 
     @Description("value raised to the power of exponent")
-    @ScalarFunction
-    public static double pow(double num, double exponent)
+    @ScalarFunction(alias = "pow")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double power(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.DOUBLE) double exponent)
     {
         return Math.pow(num, exponent);
     }
 
+    @Description("converts an angle in degrees to radians")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double radians(@SqlType(StandardTypes.DOUBLE) double degrees)
+    {
+        return Math.toRadians(degrees);
+    }
+
     @Description("a pseudo-random value")
     @ScalarFunction(alias = "rand", deterministic = false)
+    @SqlType(StandardTypes.DOUBLE)
     public static double random()
     {
         return ThreadLocalRandom.current().nextDouble();
@@ -192,28 +243,32 @@ public final class MathFunctions
 
     @Description("round to nearest integer")
     @ScalarFunction
-    public static long round(long num)
+    @SqlType(StandardTypes.BIGINT)
+    public static long round(@SqlType(StandardTypes.BIGINT) long num)
     {
         return round(num, 0);
     }
 
     @Description("round to nearest integer")
     @ScalarFunction
-    public static long round(long num, long decimals)
+    @SqlType(StandardTypes.BIGINT)
+    public static long round(@SqlType(StandardTypes.BIGINT) long num, @SqlType(StandardTypes.BIGINT) long decimals)
     {
         return num;
     }
 
     @Description("round to nearest integer")
     @ScalarFunction
-    public static double round(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double round(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return round(num, 0);
     }
 
     @Description("round to given number of decimal places")
     @ScalarFunction
-    public static double round(double num, long decimals)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.BIGINT) long decimals)
     {
         if (num == 0.0) {
             return 0;
@@ -228,55 +283,63 @@ public final class MathFunctions
 
     @Description("sine")
     @ScalarFunction
-    public static double sin(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double sin(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.sin(num);
     }
 
     @Description("square root")
     @ScalarFunction
-    public static double sqrt(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double sqrt(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.sqrt(num);
     }
 
     @Description("tangent")
     @ScalarFunction
-    public static double tan(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double tan(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.tan(num);
     }
 
     @Description("hyperbolic tangent")
     @ScalarFunction
-    public static double tanh(double num)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double tanh(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.tanh(num);
     }
 
     @Description("test if value is not-a-number")
     @ScalarFunction("is_nan")
-    public static boolean isNaN(double num)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNaN(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Double.isNaN(num);
     }
 
     @Description("test if value is finite")
     @ScalarFunction
-    public static boolean isFinite(double num)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isFinite(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Doubles.isFinite(num);
     }
 
     @Description("test if value is infinite")
     @ScalarFunction
-    public static boolean isInfinite(double num)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isInfinite(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Double.isInfinite(num);
     }
 
     @Description("constant representing not-a-number")
     @ScalarFunction("nan")
+    @SqlType(StandardTypes.DOUBLE)
     public static double NaN()
     {
         return Double.NaN;
@@ -284,8 +347,38 @@ public final class MathFunctions
 
     @Description("Infinity")
     @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
     public static double infinity()
     {
         return Double.POSITIVE_INFINITY;
+    }
+
+    @Description("convert a number to a string in the given base")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice toBase(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long radix)
+    {
+        checkRadix(radix);
+        return utf8Slice(Long.toString(value, (int) radix));
+    }
+
+    @Description("convert a string in the given base to a number")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long fromBase(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.BIGINT) long radix)
+    {
+        checkRadix(radix);
+        try {
+            return Long.parseLong(value.toStringUtf8(), (int) radix);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Not a valid base-%d number: %s", radix, value.toStringUtf8()), e);
+        }
+    }
+
+    private static void checkRadix(long radix)
+    {
+        checkCondition(radix >= MIN_RADIX && radix <= MAX_RADIX,
+                INVALID_FUNCTION_ARGUMENT, "Radix must be between %d and %d", MIN_RADIX, MAX_RADIX);
     }
 }

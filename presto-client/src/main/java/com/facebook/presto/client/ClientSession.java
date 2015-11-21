@@ -13,11 +13,19 @@
  */
 package com.facebook.presto.client;
 
-import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
 
 import java.net.URI;
+import java.nio.charset.CharsetEncoder;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Map.Entry;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Objects.requireNonNull;
 
 public class ClientSession
 {
@@ -26,38 +34,76 @@ public class ClientSession
     private final String source;
     private final String catalog;
     private final String schema;
+    private final String timeZoneId;
+    private final Locale locale;
+    private final Map<String, String> properties;
     private final boolean debug;
 
-    public static ClientSession withCatalog(ClientSession session, String catalog)
+    public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
     {
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
                 catalog,
-                session.getSchema(),
+                schema,
+                session.getTimeZoneId(),
+                session.getLocale(),
+                session.getProperties(),
                 session.isDebug());
     }
 
-    public static ClientSession withSchema(ClientSession session, String schema)
+    public static ClientSession withSessionProperties(ClientSession session, Map<String, String> sessionProperties)
+    {
+        Map<String, String> properties = new HashMap<>(session.getProperties());
+        properties.putAll(sessionProperties);
+
+        return new ClientSession(
+                session.getServer(),
+                session.getUser(),
+                session.getSource(),
+                session.getCatalog(),
+                session.getSchema(),
+                session.getTimeZoneId(),
+                session.getLocale(),
+                properties,
+                session.isDebug());
+    }
+
+    public static ClientSession withProperties(ClientSession session, Map<String, String> properties)
     {
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
                 session.getSource(),
                 session.getCatalog(),
-                schema,
+                session.getSchema(),
+                session.getTimeZoneId(),
+                session.getLocale(),
+                properties,
                 session.isDebug());
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, boolean debug)
+    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug)
     {
-        this.server = checkNotNull(server, "server is null");
+        this.server = requireNonNull(server, "server is null");
         this.user = user;
         this.source = source;
         this.catalog = catalog;
         this.schema = schema;
+        this.locale = locale;
+        this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
         this.debug = debug;
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+
+        // verify the properties are valid
+        CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
+        for (Entry<String, String> entry : properties.entrySet()) {
+            checkArgument(!entry.getKey().isEmpty(), "Session property name is empty");
+            checkArgument(entry.getKey().indexOf('=') < 0, "Session property name must not contain '=': %s", entry.getKey());
+            checkArgument(charsetEncoder.canEncode(entry.getKey()), "Session property name is not US_ASCII: %s", entry.getKey());
+            checkArgument(charsetEncoder.canEncode(entry.getValue()), "Session property value is not US_ASCII: %s", entry.getValue());
+        }
     }
 
     public URI getServer()
@@ -85,6 +131,21 @@ public class ClientSession
         return schema;
     }
 
+    public String getTimeZoneId()
+    {
+        return timeZoneId;
+    }
+
+    public Locale getLocale()
+    {
+        return locale;
+    }
+
+    public Map<String, String> getProperties()
+    {
+        return properties;
+    }
+
     public boolean isDebug()
     {
         return debug;
@@ -93,11 +154,14 @@ public class ClientSession
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("server", server)
                 .add("user", user)
                 .add("catalog", catalog)
                 .add("schema", schema)
+                .add("timeZone", timeZoneId)
+                .add("locale", locale)
+                .add("properties", properties)
                 .add("debug", debug)
                 .toString();
     }

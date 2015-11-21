@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.spi.classloader;
 
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -37,34 +40,26 @@ public final class ClassLoaderSafeConnectorSplitManager
     }
 
     @Override
-    public String getConnectorId()
+    public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getConnectorId();
+            return delegate.getPartitions(session, table, tupleDomain);
         }
     }
 
     @Override
-    public boolean canHandle(TableHandle handle)
+    public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canHandle(handle);
+            return delegate.getPartitionSplits(session, table, partitions);
         }
     }
 
     @Override
-    public PartitionResult getPartitions(TableHandle table, TupleDomain tupleDomain)
+    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitions(table, tupleDomain);
-        }
-    }
-
-    @Override
-    public SplitSource getPartitionSplits(TableHandle table, List<Partition> partitions)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionSplits(table, partitions);
+            return delegate.getSplits(session, layout);
         }
     }
 

@@ -13,44 +13,41 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.tuple.TupleInfo;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import it.unimi.dsi.fastutil.longs.LongHash;
-import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.SliceHashStrategy.LOOKUP_SLICE_INDEX;
-import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import java.util.List;
+import java.util.Optional;
+
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public class ChannelSet
 {
-    private final SliceHashStrategy strategy;
-    private final AddressValueSet addressValueSet;
+    private final GroupByHash hash;
     private final boolean containsNull;
 
-    public ChannelSet(ChannelSet channelSet)
+    public ChannelSet(GroupByHash hash, boolean containsNull)
     {
-        checkNotNull(channelSet, "channelSet is null");
-        this.strategy = new SliceHashStrategy(channelSet.strategy);
-        this.addressValueSet = new AddressValueSet(channelSet.addressValueSet, strategy);
-        this.containsNull = channelSet.containsNull;
+        this.hash = hash;
+        this.containsNull = containsNull;
     }
 
-    private ChannelSet(SliceHashStrategy strategy, AddressValueSet addressValueSet, boolean containsNull)
+    public Type getType()
     {
-        this.strategy = strategy;
-        this.addressValueSet = addressValueSet;
-        this.containsNull = containsNull;
+        return hash.getTypes().get(0);
+    }
+
+    public long getEstimatedSizeInBytes()
+    {
+        return hash.getEstimatedSize();
+    }
+
+    public int size()
+    {
+        return hash.getGroupCount();
     }
 
     public boolean containsNull()
@@ -58,112 +55,47 @@ public class ChannelSet
         return containsNull;
     }
 
-    public void setLookupSlice(Slice lookupSlice)
+    public boolean contains(int position, Page page)
     {
-        strategy.setLookupSlice(lookupSlice);
-    }
-
-    public boolean contains(BlockCursor cursor)
-    {
-        return addressValueSet.contains(SyntheticAddress.encodeSyntheticAddress(LOOKUP_SLICE_INDEX, cursor.getRawOffset()));
-    }
-
-    public int size()
-    {
-        return addressValueSet.size();
-    }
-
-    public DataSize getEstimatedSize()
-    {
-        return new DataSize(addressValueSet.getEstimatedSize().toBytes() + strategy.getEstimatedSize().toBytes(), BYTE);
-    }
-
-    private static class AddressValueSet
-            extends LongOpenCustomHashSet
-    {
-        private AddressValueSet(int expected, LongHash.Strategy strategy)
-        {
-            super(expected, strategy);
-        }
-
-        private AddressValueSet(AddressValueSet addressValueSet, LongHash.Strategy strategy)
-        {
-            super(addressValueSet, strategy);
-        }
-
-        public DataSize getEstimatedSize()
-        {
-            return new DataSize(sizeOf(this.key) + sizeOf(this.used), BYTE);
-        }
+        return hash.contains(position, page);
     }
 
     public static class ChannelSetBuilder
     {
-        private final SliceHashStrategy strategy;
-        private final AddressValueSet addressValueSet;
+        private final GroupByHash hash;
         private final OperatorContext operatorContext;
-        private final TupleInfo tupleInfo;
+        private final Page nullBlockPage;
 
-        private int currentBlockId;
-        private boolean containsNull;
-        private BlockBuilder blockBuilder;
-
-        // Note: Supporting multi-field channel sets (e.g. tuples) is much more difficult because of null handling, and hence is not supported by this class.
-        public ChannelSetBuilder(TupleInfo tupleInfo, int expectedPositions, OperatorContext operatorContext)
+        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext)
         {
-            this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
-            checkArgument(expectedPositions >= 0, "expectedPositions must be greater than or equal to zero");
-            this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-
-            // Construct the set from the source
-            strategy = new SliceHashStrategy(tupleInfo);
-            addressValueSet = new AddressValueSet(expectedPositions, strategy);
-
-            // allocate the first slice of the set
-            Slice slice = Slices.allocate((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes());
-            strategy.addSlice(slice);
-            blockBuilder = new BlockBuilder(tupleInfo, slice.length(), slice.getOutput());
-        }
-
-        public void addBlock(Block sourceBlock)
-        {
-            operatorContext.setMemoryReservation(getEstimatedSize());
-
-            BlockCursor sourceCursor = sourceBlock.cursor();
-            Slice sourceSlice = ((UncompressedBlock) sourceBlock).getSlice();
-            strategy.setLookupSlice(sourceSlice);
-
-            for (int position = 0; position < sourceBlock.getPositionCount(); position++) {
-                checkState(sourceCursor.advanceNextPosition());
-
-                // Record whether we have seen a null
-                containsNull |= sourceCursor.isNull();
-
-                long sourceAddress = encodeSyntheticAddress(LOOKUP_SLICE_INDEX, sourceCursor.getRawOffset());
-
-                if (!addressValueSet.contains(sourceAddress)) {
-                    int length = tupleInfo.size(sourceSlice, sourceCursor.getRawOffset());
-                    if (blockBuilder.writableBytes() < length) {
-                        Slice slice = Slices.allocate(Math.max((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes(), length));
-                        strategy.addSlice(slice);
-                        blockBuilder = new BlockBuilder(tupleInfo, slice.length(), slice.getOutput());
-                        currentBlockId++;
-                    }
-                    int blockRawOffset = blockBuilder.size();
-                    blockBuilder.appendTuple(sourceSlice, sourceCursor.getRawOffset(), length);
-                    addressValueSet.add(encodeSyntheticAddress(currentBlockId, blockRawOffset));
-                }
-            }
-        }
-
-        public long getEstimatedSize()
-        {
-            return addressValueSet.getEstimatedSize().toBytes() + strategy.getEstimatedSize().toBytes();
+            List<Type> types = ImmutableList.of(type);
+            this.hash = createGroupByHash(types, new int[] {0}, Optional.<Integer>empty(), hashChannel, expectedPositions);
+            this.operatorContext = operatorContext;
+            this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize()).appendNull().build());
         }
 
         public ChannelSet build()
         {
-            return new ChannelSet(strategy, addressValueSet, containsNull);
+            return new ChannelSet(hash, hash.contains(0, nullBlockPage));
+        }
+
+        public long getEstimatedSize()
+        {
+            return hash.getEstimatedSize();
+        }
+
+        public int size()
+        {
+            return hash.getGroupCount();
+        }
+
+        public void addPage(Page page)
+        {
+            hash.addPage(page);
+
+            if (operatorContext != null) {
+                operatorContext.setMemoryReservation(hash.getEstimatedSize());
+            }
         }
     }
 }

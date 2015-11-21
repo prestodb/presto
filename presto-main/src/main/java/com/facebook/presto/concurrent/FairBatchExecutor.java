@@ -15,7 +15,6 @@ package com.facebook.presto.concurrent;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Longs;
 import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -192,7 +191,7 @@ public class FairBatchExecutor
         @Override
         public int compareTo(PrioritizedFutureTask o)
         {
-            return Longs.compare(priority, o.priority);
+            return Long.compare(priority, o.priority);
         }
     }
 }

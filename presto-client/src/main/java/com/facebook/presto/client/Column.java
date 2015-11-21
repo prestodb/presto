@@ -15,23 +15,27 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 
 import javax.annotation.concurrent.Immutable;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class Column
 {
     private final String name;
     private final String type;
+    private final ClientTypeSignature typeSignature;
 
     @JsonCreator
-    public Column(@JsonProperty("name") String name, @JsonProperty("type") String type)
+    public Column(
+            @JsonProperty("name") String name,
+            @JsonProperty("type") String type,
+            @JsonProperty("typeSignature") ClientTypeSignature typeSignature)
     {
-        this.name = checkNotNull(name, "name is null");
-        this.type = checkNotNull(type, "type is null");
+        this.name = requireNonNull(name, "name is null");
+        this.type = requireNonNull(type, "type is null");
+        this.typeSignature = typeSignature;
     }
 
     @JsonProperty
@@ -46,27 +50,9 @@ public class Column
         return type;
     }
 
-    public static Function<Column, String> nameGetter()
+    @JsonProperty
+    public ClientTypeSignature getTypeSignature()
     {
-        return new Function<Column, String>()
-        {
-            @Override
-            public String apply(Column input)
-            {
-                return input.getName();
-            }
-        };
-    }
-
-    public static Function<Column, String> typeGetter()
-    {
-        return new Function<Column, String>()
-        {
-            @Override
-            public String apply(Column input)
-            {
-                return input.getType();
-            }
-        };
+        return typeSignature;
     }
 }

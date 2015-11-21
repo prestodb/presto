@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Set;
 
@@ -32,12 +33,17 @@ public class TestHostAddressFactory
             throws Exception
     {
         Set<Host> hosts = ImmutableSet.<Host>of(
-                new TestHost(InetAddress.getByAddress(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16})),
-                new TestHost(InetAddress.getByAddress(new byte[] {1, 2, 3, 4})));
+                new TestHost(
+                    new InetSocketAddress(
+                        InetAddress.getByAddress(new byte[] {
+                            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+                        }),
+                        3000)),
+                new TestHost(new InetSocketAddress(InetAddress.getByAddress(new byte[] {1, 2, 3, 4}), 3000)));
 
         HostAddressFactory hostAddressFactory = new HostAddressFactory();
         List<HostAddress> list = hostAddressFactory.toHostAddressList(hosts);
 
-        assertEquals("[[102:304:506:708:90a:b0c:d0e:f10], 1.2.3.4]", list.toString());
+        assertEquals(list.toString(), "[[102:304:506:708:90a:b0c:d0e:f10], 1.2.3.4]");
     }
 }

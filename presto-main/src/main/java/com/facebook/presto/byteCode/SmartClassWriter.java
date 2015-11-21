@@ -28,6 +28,7 @@ public class SmartClassWriter
         this.classInfoLoader = classInfoLoader;
     }
 
+    @Override
     protected String getCommonSuperClass(String aType, String bType)
     {
         ClassInfo aClassInfo = classInfoLoader.loadClassInfo(typeFromPathName(aType));

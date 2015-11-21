@@ -13,220 +13,123 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Function;
-import com.google.common.collect.ContiguousSet;
-import com.google.common.collect.DiscreteDomain;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Range;
-import io.airlift.slice.Slice;
-import org.testng.Assert;
-
-import javax.annotation.Nullable;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.ArrayType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.block.BlockIterables.createBlockIterable;
-import static com.google.common.base.Charsets.UTF_8;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public final class BlockAssertions
 {
-    private BlockAssertions() {}
+    private BlockAssertions()
+    {
+    }
 
-    public static Object getOnlyValue(Block block)
+    public static Object getOnlyValue(Type type, Block block)
     {
         assertEquals(block.getPositionCount(), 1, "Block positions");
-
-        BlockCursor cursor = block.cursor();
-        Assert.assertTrue(cursor.advanceNextPosition());
-        Object value = cursor.getTuple().getObjectValue();
-        Assert.assertFalse(cursor.advanceNextPosition());
-
-        return value;
+        return type.getObjectValue(SESSION, block, 0);
     }
 
-    public static void assertBlocksEquals(BlockIterable actual, BlockIterable expected)
-    {
-        Iterator<Block> expectedIterator = expected.iterator();
-        for (Block actualBlock : actual) {
-            assertTrue(expectedIterator.hasNext());
-            Block expectedBlock = expectedIterator.next();
-            assertBlockEquals(actualBlock, expectedBlock);
-        }
-        assertFalse(expectedIterator.hasNext());
-    }
-
-    public static List<Object> toValues(BlockIterable blocks)
+    public static List<Object> toValues(Type type, Iterable<Block> blocks)
     {
         List<Object> values = new ArrayList<>();
         for (Block block : blocks) {
-            BlockCursor cursor = block.cursor();
-            while (cursor.advanceNextPosition()) {
-                values.add(cursor.getTuple().getObjectValue());
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                values.add(type.getObjectValue(SESSION, block, position));
             }
         }
         return Collections.unmodifiableList(values);
     }
 
-    public static List<Object> toValues(Block block)
-    {
-        BlockCursor cursor = block.cursor();
-        return toValues(cursor);
-    }
-
-    public static List<Object> toValues(BlockCursor cursor)
+    public static List<Object> toValues(Type type, Block block)
     {
         List<Object> values = new ArrayList<>();
-        while (cursor.advanceNextPosition()) {
-            values.add(cursor.getTuple().getObjectValue());
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            values.add(type.getObjectValue(SESSION, block, position));
         }
         return Collections.unmodifiableList(values);
     }
 
-    public static void assertBlockEquals(Block actual, Block expected)
+    public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
-        Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
-        assertCursorsEquals(actual.cursor(), expected.cursor());
-    }
-
-    public static void assertCursorsEquals(BlockCursor actualCursor, BlockCursor expectedCursor)
-    {
-        Assert.assertEquals(actualCursor.getTupleInfo(), expectedCursor.getTupleInfo());
-        while (advanceAllCursorsToNextPosition(actualCursor, expectedCursor)) {
-            assertEquals(actualCursor.getTuple(), expectedCursor.getTuple());
+        for (int position = 0; position < actual.getPositionCount(); position++) {
+            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
         }
-        assertTrue(actualCursor.isFinished());
-        assertTrue(expectedCursor.isFinished());
     }
 
-    public static void assertBlockEqualsIgnoreOrder(Block actual, Block expected)
+    public static Block createStringsBlock(String... values)
     {
-        Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
+        requireNonNull(values, "varargs 'values' is null");
 
-        List<Tuple> actualTuples = toTuplesList(actual);
-        List<Tuple> expectedTuples = toTuplesList(expected);
-        assertEqualsIgnoreOrder(actualTuples, expectedTuples);
-    }
-
-    public static List<Tuple> toTuplesList(Block block)
-    {
-        ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
-        BlockCursor actualCursor = block.cursor();
-        while (actualCursor.advanceNextPosition()) {
-            tuples.add(actualCursor.getTuple());
-        }
-        return tuples.build();
-    }
-
-    public static boolean advanceAllCursorsToNextPosition(BlockCursor... cursors)
-    {
-        boolean allAdvanced = true;
-        for (BlockCursor cursor : cursors) {
-            allAdvanced = cursor.advanceNextPosition() && allAdvanced;
-        }
-        return allAdvanced;
-    }
-
-    public static Iterable<Long> createLongSequence(long start, long end)
-    {
-        return ContiguousSet.create(Range.closedOpen(start, end), DiscreteDomain.longs());
-    }
-
-    public static Iterable<Double> createDoubleSequence(long start, long end)
-    {
-        return Iterables.transform(createLongSequence(start, end), new Function<Long, Double>()
-        {
-            @Override
-            public Double apply(Long input)
-            {
-                return (double) input;
-            }
-        });
-    }
-
-    public static Iterable<String> createStringSequence(long start, long end)
-    {
-        return Iterables.transform(createLongSequence(start, end), new Function<Long, String>()
-        {
-            @Override
-            public String apply(Long input)
-            {
-                return String.valueOf(input);
-            }
-        });
-    }
-
-    public static Iterable<Long> createLongNullSequence(int count)
-    {
-        Long[] values = new Long[count];
-        Arrays.fill(values, null);
-        return Arrays.asList(values);
-    }
-
-    public static Iterable<Double> createDoubleNullSequence(int count)
-    {
-        Double[] values = new Double[count];
-        Arrays.fill(values, null);
-        return Arrays.asList(values);
-    }
-
-    public static Iterable<String> createStringNullSequence(int count)
-    {
-        String[] values = new String[count];
-        Arrays.fill(values, null);
-        return Arrays.asList(values);
-    }
-
-    public static Block createStringsBlock(@Nullable String... values)
-    {
         return createStringsBlock(Arrays.asList(values));
     }
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (String value : values) {
             if (value == null) {
                 builder.appendNull();
             }
             else {
-                builder.append(value.getBytes(UTF_8));
+                VARCHAR.writeString(builder, value);
             }
         }
 
         return builder.build();
     }
 
-    public static BlockIterable createStringsBlockIterable(@Nullable String... values)
-    {
-        return BlockIterables.createBlockIterable(createStringsBlock(values));
-    }
-
     public static Block createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (int i = start; i < end; i++) {
-            builder.append(String.valueOf(i));
+            VARCHAR.writeString(builder, String.valueOf(i));
         }
 
         return builder.build();
     }
 
-    public static Block createBooleansBlock(@Nullable Boolean... values)
+    public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
     {
+        ArrayType arrayType = new ArrayType(VARCHAR);
+        BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 100);
+
+        for (Iterable<String> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                arrayType.writeObject(builder, createStringsBlock(value));
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static Block createBooleansBlock(Boolean... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+
         return createBooleansBlock(Arrays.asList(values));
     }
 
@@ -237,193 +140,184 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Iterable<Boolean> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
+        BlockBuilder builder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (Boolean value : values) {
             if (value == null) {
                 builder.appendNull();
             }
             else {
-                builder.append(value);
+                BOOLEAN.writeBoolean(builder, value);
             }
         }
 
         return builder.build();
     }
 
+    public static Block createEmptyLongsBlock()
+    {
+        return BIGINT.createFixedSizeBlockBuilder(0).build();
+    }
+
     // This method makes it easy to create blocks without having to add an L to every value
     public static Block createLongsBlock(int... values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (int value : values) {
-            builder.append((long) value);
+            BIGINT.writeLong(builder, (long) value);
         }
 
         return builder.build();
     }
 
-    public static Block createLongsBlock(@Nullable Long... values)
+    public static Block createLongsBlock(Long... values)
     {
+        requireNonNull(values, "varargs 'values' is null");
+
         return createLongsBlock(Arrays.asList(values));
     }
 
     public static Block createLongsBlock(Iterable<Long> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (Long value : values) {
             if (value == null) {
                 builder.appendNull();
             }
             else {
-                builder.append(value);
+                BIGINT.writeLong(builder, value);
             }
         }
 
         return builder.build();
     }
 
-    public static BlockIterable createLongsBlockIterable(int... values)
-    {
-        return BlockIterables.createBlockIterable(createLongsBlock(values));
-    }
-
-    public static BlockIterable createLongsBlockIterable(@Nullable Long... values)
-    {
-        return BlockIterables.createBlockIterable(createLongsBlock(values));
-    }
-
     public static Block createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            builder.append(i);
+            BIGINT.writeLong(builder, i);
         }
 
+        return builder.build();
+    }
+
+    public static Block createLongRepeatBlock(int value, int length)
+    {
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(length);
+        for (int i = 0; i < length; i++) {
+            BIGINT.writeLong(builder, value);
+        }
+        return builder.build();
+    }
+
+    public static Block createTimestampsWithTimezoneBlock(Long... values)
+    {
+        BlockBuilder builder = TIMESTAMP_WITH_TIME_ZONE.createFixedSizeBlockBuilder(values.length);
+        for (long value : values) {
+            TIMESTAMP_WITH_TIME_ZONE.writeLong(builder, value);
+        }
         return builder.build();
     }
 
     public static Block createBooleanSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_BOOLEAN);
+        BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            builder.append(i % 2 == 0);
+            BOOLEAN.writeBoolean(builder, i % 2 == 0);
         }
 
         return builder.build();
     }
 
-    public static Block createDoublesBlock(@Nullable Double... values)
+    public static Block createDoublesBlock(Double... values)
     {
+        requireNonNull(values, "varargs 'values' is null");
+
         return createDoublesBlock(Arrays.asList(values));
     }
 
     public static Block createDoublesBlock(Iterable<Double> values)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_DOUBLE);
+        BlockBuilder builder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (Double value : values) {
             if (value == null) {
                 builder.appendNull();
             }
             else {
-                builder.append(value);
+                DOUBLE.writeDouble(builder, value);
             }
         }
 
         return builder.build();
-    }
-
-    public static BlockIterable createDoublesBlockIterable(@Nullable Double... values)
-    {
-        return createBlockIterable(createDoublesBlock(values));
     }
 
     public static Block createDoubleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_DOUBLE);
+        BlockBuilder builder = DOUBLE.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            builder.append((double) i);
+            DOUBLE.writeDouble(builder, (double) i);
         }
 
         return builder.build();
     }
 
-    public static BlockIterableBuilder blockIterableBuilder(Type type)
+    public static Block createArrayBigintBlock(Iterable<? extends Iterable<Long>> values)
     {
-        return new BlockIterableBuilder(new TupleInfo(type));
+        ArrayType arrayType = new ArrayType(BIGINT);
+        BlockBuilder builder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 100);
+
+        for (Iterable<Long> value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                arrayType.writeObject(builder, createLongsBlock(value));
+            }
+        }
+
+        return builder.build();
     }
 
-    public static class BlockIterableBuilder
+    public static Block createDateSequenceBlock(int start, int end)
     {
-        private final List<Block> blocks = new ArrayList<>();
-        private BlockBuilder blockBuilder;
+        BlockBuilder builder = DATE.createFixedSizeBlockBuilder(end - start);
 
-        private BlockIterableBuilder(TupleInfo tupleInfo)
-        {
-            blockBuilder = new BlockBuilder(tupleInfo);
+        for (int i = start; i < end; i++) {
+            DATE.writeLong(builder, i);
         }
 
-        public BlockIterableBuilder append(Tuple tuple)
-        {
-            blockBuilder.append(tuple);
-            return this;
+        return builder.build();
+    }
+
+    public static Block createTimestampSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = TIMESTAMP.createFixedSizeBlockBuilder(end - start);
+
+        for (int i = start; i < end; i++) {
+            TIMESTAMP.writeLong(builder, i);
         }
 
-        public BlockIterableBuilder append(Slice value)
-        {
-            blockBuilder.append(value);
-            return this;
-        }
+        return builder.build();
+    }
 
-        public BlockIterableBuilder append(double value)
-        {
-            blockBuilder.append(value);
-            return this;
-        }
+    public static RunLengthEncodedBlock createRLEBlock(double value, int positionCount)
+    {
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 1);
+        DOUBLE.writeDouble(blockBuilder, value);
+        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+    }
 
-        public BlockIterableBuilder append(long value)
-        {
-            blockBuilder.append(value);
-            return this;
-        }
-
-        public BlockIterableBuilder append(String value)
-        {
-            blockBuilder.append(value.getBytes(UTF_8));
-            return this;
-        }
-
-        public BlockIterableBuilder append(byte[] value)
-        {
-            blockBuilder.append(value);
-            return this;
-        }
-
-        public BlockIterableBuilder appendNull()
-        {
-            blockBuilder.appendNull();
-            return this;
-        }
-
-        public BlockIterableBuilder newBlock()
-        {
-            if (!blockBuilder.isEmpty()) {
-                Block block = blockBuilder.build();
-                blocks.add(block);
-                blockBuilder = new BlockBuilder(block.getTupleInfo());
-            }
-            return this;
-        }
-
-        public BlockIterable build()
-        {
-            newBlock();
-            return createBlockIterable(blocks);
-        }
+    public static RunLengthEncodedBlock createRLEBlock(long value, int positionCount)
+    {
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BIGINT.writeLong(blockBuilder, value);
+        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }
 }

@@ -13,41 +13,40 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
-import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.tree.Input;
-import com.facebook.presto.util.MaterializedResult;
-import com.google.common.base.Optional;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
-import static com.facebook.presto.operator.OperatorAssertion.appendSampleWeight;
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.operator.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.operator.aggregation.AverageAggregations.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.CountColumnAggregations.COUNT_STRING_COLUMN;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
-import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.util.MaterializedResult.resultBuilder;
-import static com.facebook.presto.util.Threads.daemonThreadsNamed;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
+@Test(singleThreaded = true)
 public class TestAggregationOperator
 {
     private ExecutorService executor;
@@ -56,9 +55,9 @@ public class TestAggregationOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test"));
-        Session session = new Session("user", "source", "catalog", "schema", "address", "agent");
-        driverContext = new TaskContext(new TaskId("query", "stage", "task"), executor, session)
+        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+
+        driverContext = createTaskContext(executor, TEST_SESSION)
                 .addPipelineContext(true, true)
                 .addDriverContext();
     }
@@ -70,58 +69,30 @@ public class TestAggregationOperator
     }
 
     @Test
-    public void testSampledAggregation()
-            throws Exception
-    {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_VARBINARY)
-                .addSequencePage(100, 0, 0, 300, 500, 500, 500)
-                .build();
-
-        input = appendSampleWeight(input, 2);
-
-        Optional<Input> sampleWeightInput = Optional.of(new Input(input.get(0).getChannelCount() - 1));
-        OperatorFactory operatorFactory = new AggregationOperatorFactory(
-                0,
-                Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), sampleWeightInput, 1.0),
-                        aggregation(LONG_SUM, ImmutableList.of(new Input(1)), Optional.<Input>absent(), sampleWeightInput, 1.0),
-                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(1)), Optional.<Input>absent(), sampleWeightInput, 1.0),
-                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(2)), Optional.<Input>absent(), sampleWeightInput, 1.0),
-                        aggregation(COUNT_STRING_COLUMN, ImmutableList.of(new Input(0)), Optional.<Input>absent(), sampleWeightInput, 1.0),
-                        aggregation(LONG_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), sampleWeightInput, 1.0),
-                        aggregation(DOUBLE_SUM, ImmutableList.of(new Input(4)), Optional.<Input>absent(), sampleWeightInput, 1.0),
-                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(5)), Optional.<Input>absent(), sampleWeightInput, 1.0)));
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY)
-                .row(200, 2 * 4950, 49.5, "399", 200, 2 * 54950, 2 * 54950.0, "599")
-                .build();
-
-        assertOperatorEquals(operator, input, expected);
-    }
-
-    @Test
     public void testAggregation()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(SINGLE_VARBINARY, SINGLE_LONG, SINGLE_VARBINARY, SINGLE_LONG, SINGLE_DOUBLE, SINGLE_VARBINARY)
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        InternalAggregationFunction countVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("count", AGGREGATE, StandardTypes.BIGINT, StandardTypes.VARCHAR));
+        InternalAggregationFunction maxVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max", AGGREGATE, StandardTypes.VARCHAR, StandardTypes.VARCHAR));
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 500, 500)
                 .build();
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(LONG_SUM, ImmutableList.of(new Input(1)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(LONG_AVERAGE, ImmutableList.of(new Input(1)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(2)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(COUNT_STRING_COLUMN, ImmutableList.of(new Input(0)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(LONG_SUM, ImmutableList.of(new Input(3)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(DOUBLE_SUM, ImmutableList.of(new Input(4)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0),
-                        aggregation(VAR_BINARY_MAX, ImmutableList.of(new Input(5)), Optional.<Input>absent(), Optional.<Input>absent(), 1.0)));
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
+                        LONG_SUM.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0),
+                        LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0),
+                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
+                        countVarcharColumn.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
+                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
+                        DOUBLE_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
+                        maxVarcharColumn.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0)));
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        MaterializedResult expected = resultBuilder(FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR)
                 .row(100, 4950, 49.5, "399", 100, 54950, 54950.0, "599")
                 .build();
 

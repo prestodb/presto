@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.execution;
 
-import com.google.common.base.Predicate;
+import java.util.Set;
+import java.util.stream.Stream;
+
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 
 public enum TaskState
 {
@@ -36,13 +39,20 @@ public enum TaskState
      */
     CANCELED(true),
     /**
+     * Task was aborted due to a failure in the query.  The failure
+     * was not in this task.
+     */
+    ABORTED(true),
+    /**
      * Task execution failed.
      */
     FAILED(true);
 
+    public static final Set<TaskState> TERMINAL_TASK_STATES = Stream.of(TaskState.values()).filter(TaskState::isDone).collect(toImmutableSet());
+
     private final boolean doneState;
 
-    private TaskState(boolean doneState)
+    TaskState(boolean doneState)
     {
         this.doneState = doneState;
     }
@@ -53,17 +63,5 @@ public enum TaskState
     public boolean isDone()
     {
         return doneState;
-    }
-
-    public static Predicate<TaskState> inDoneState()
-    {
-        return new Predicate<TaskState>()
-        {
-            @Override
-            public boolean apply(TaskState state)
-            {
-                return state.isDone();
-            }
-        };
     }
 }

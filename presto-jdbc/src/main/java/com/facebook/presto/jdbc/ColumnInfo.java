@@ -13,13 +13,29 @@
  */
 package com.facebook.presto.jdbc;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.collect.ImmutableList;
+
+import java.sql.Types;
+import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 class ColumnInfo
 {
+    private static final int VARCHAR_MAX = 1024 * 1024 * 1024;
+    private static final int VARBINARY_MAX = 1024 * 1024 * 1024;
+    private static final int TIME_ZONE_MAX = 40; // current longest time zone is 32
+    private static final int TIME_MAX = "HH:mm:ss.SSS".length();
+    private static final int TIME_WITH_TIME_ZONE_MAX = TIME_MAX + TIME_ZONE_MAX;
+    private static final int TIMESTAMP_MAX = "yyyy-MM-dd HH:mm:ss.SSS".length();
+    private static final int TIMESTAMP_WITH_TIME_ZONE_MAX = TIMESTAMP_MAX + TIME_ZONE_MAX;
+    private static final int DATE_MAX = "yyyy-MM-dd".length();
+
     private final int columnType;
-    private final String columnTypeName;
-    private final int nullable;
+    private final List<Integer> columnParameterTypes;
+    private final TypeSignature columnTypeSignature;
+    private final Nullable nullable;
     private final boolean currency;
     private final boolean signed;
     private final int precision;
@@ -31,23 +47,146 @@ class ColumnInfo
     private final String schemaName;
     private final String catalogName;
 
+    public enum Nullable
+    {
+        NO_NULLS, NULLABLE, UNKNOWN
+    }
+
     public ColumnInfo(
-            int columnType, String columnTypeName, int nullable, boolean currency, boolean signed, int precision, int scale,
-            int columnDisplaySize, String columnLabel, String columnName, String tableName, String schemaName, String catalogName)
+            int columnType,
+            List<Integer> columnParameterTypes,
+            TypeSignature columnTypeSignature,
+            Nullable nullable,
+            boolean currency,
+            boolean signed,
+            int precision,
+            int scale,
+            int columnDisplaySize,
+            String columnLabel,
+            String columnName,
+            String tableName,
+            String schemaName,
+            String catalogName)
     {
         this.columnType = columnType;
-        this.columnTypeName = checkNotNull(columnTypeName, "columnTypeName is null");
-        this.nullable = nullable;
+        this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
+        this.columnTypeSignature = requireNonNull(columnTypeSignature, "columnTypeName is null");
+        this.nullable = requireNonNull(nullable, "nullable is null");
         this.currency = currency;
         this.signed = signed;
         this.precision = precision;
         this.scale = scale;
         this.columnDisplaySize = columnDisplaySize;
-        this.columnLabel = checkNotNull(columnLabel, "columnLabel is null");
-        this.columnName = checkNotNull(columnName, "columnName is null");
-        this.tableName = checkNotNull(tableName, "tableName is null");
-        this.schemaName = checkNotNull(schemaName, "schemaName is null");
-        this.catalogName = checkNotNull(catalogName, "catalogName is null");
+        this.columnLabel = requireNonNull(columnLabel, "columnLabel is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+    }
+
+    public static void setTypeInfo(Builder builder, TypeSignature type)
+    {
+        builder.setColumnType(getType(type));
+        ImmutableList.Builder<Integer> parameterTypes = ImmutableList.builder();
+        for (TypeSignature parameter : type.getParameters()) {
+            parameterTypes.add(getType(parameter));
+        }
+        builder.setColumnParameterTypes(parameterTypes.build());
+        switch (type.toString()) {
+            case "boolean":
+                builder.setColumnDisplaySize(5);
+                break;
+            case "bigint":
+                builder.setSigned(true);
+                builder.setPrecision(19);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(20);
+                break;
+            case "double":
+                builder.setSigned(true);
+                builder.setPrecision(17);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(24);
+                break;
+            case "varchar":
+                builder.setSigned(true);
+                builder.setPrecision(VARCHAR_MAX);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(VARCHAR_MAX);
+                break;
+            case "varbinary":
+                builder.setSigned(true);
+                builder.setPrecision(VARBINARY_MAX);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(VARBINARY_MAX);
+                break;
+            case "time":
+                builder.setSigned(true);
+                builder.setPrecision(3);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(TIME_MAX);
+                break;
+            case "time with time zone":
+                builder.setSigned(true);
+                builder.setPrecision(3);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(TIME_WITH_TIME_ZONE_MAX);
+                break;
+            case "timestamp":
+                builder.setSigned(true);
+                builder.setPrecision(3);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(TIMESTAMP_MAX);
+                break;
+            case "timestamp with time zone":
+                builder.setSigned(true);
+                builder.setPrecision(3);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(TIMESTAMP_WITH_TIME_ZONE_MAX);
+                break;
+            case "date":
+                builder.setSigned(true);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(DATE_MAX);
+                break;
+            case "interval year to month":
+                builder.setColumnDisplaySize(TIMESTAMP_MAX);
+                break;
+            case "interval day to second":
+                builder.setColumnDisplaySize(TIMESTAMP_MAX);
+                break;
+        }
+    }
+
+    private static int getType(TypeSignature type)
+    {
+        if (type.getBase().equals("array")) {
+            return Types.ARRAY;
+        }
+        switch (type.toString()) {
+            case "boolean":
+                return Types.BOOLEAN;
+            case "bigint":
+                return Types.BIGINT;
+            case "double":
+                return Types.DOUBLE;
+            case "varchar":
+                return Types.LONGNVARCHAR;
+            case "varbinary":
+                return Types.LONGVARBINARY;
+            case "time":
+                return Types.TIME;
+            case "time with time zone":
+                return Types.TIME;
+            case "timestamp":
+                return Types.TIMESTAMP;
+            case "timestamp with time zone":
+                return Types.TIMESTAMP;
+            case "date":
+                return Types.DATE;
+            default:
+                return Types.JAVA_OBJECT;
+        }
     }
 
     public int getColumnType()
@@ -55,12 +194,22 @@ class ColumnInfo
         return columnType;
     }
 
-    public String getColumnTypeName()
+    public List<Integer> getColumnParameterTypes()
     {
-        return columnTypeName;
+        return columnParameterTypes;
     }
 
-    public int getNullable()
+    public String getColumnTypeName()
+    {
+        return columnTypeSignature.toString();
+    }
+
+    public TypeSignature getColumnTypeSignature()
+    {
+        return columnTypeSignature;
+    }
+
+    public Nullable getNullable()
     {
         return nullable;
     }
@@ -118,8 +267,9 @@ class ColumnInfo
     static class Builder
     {
         private int columnType;
-        private String columnTypeName;
-        private int nullable;
+        private List<Integer> columnParameterTypes;
+        private TypeSignature columnTypeSignature;
+        private Nullable nullable;
         private boolean currency;
         private boolean signed;
         private int precision;
@@ -137,13 +287,18 @@ class ColumnInfo
             return this;
         }
 
-        public Builder setColumnTypeName(String columnTypeName)
+        public void setColumnParameterTypes(List<Integer> columnParameterTypes)
         {
-            this.columnTypeName = columnTypeName;
+            this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
+        }
+
+        public Builder setColumnTypeSignature(TypeSignature columnTypeSignature)
+        {
+            this.columnTypeSignature = columnTypeSignature;
             return this;
         }
 
-        public Builder setNullable(int nullable)
+        public Builder setNullable(Nullable nullable)
         {
             this.nullable = nullable;
             return this;
@@ -212,8 +367,20 @@ class ColumnInfo
         public ColumnInfo build()
         {
             return new ColumnInfo(
-                    columnType, columnTypeName, nullable, currency, signed, precision, scale,
-                    columnDisplaySize, columnLabel, columnName, tableName, schemaName, catalogName);
+                    columnType,
+                    columnParameterTypes,
+                    columnTypeSignature,
+                    nullable,
+                    currency,
+                    signed,
+                    precision,
+                    scale,
+                    columnDisplaySize,
+                    columnLabel,
+                    columnName,
+                    tableName,
+                    schemaName,
+                    catalogName);
         }
     }
 }

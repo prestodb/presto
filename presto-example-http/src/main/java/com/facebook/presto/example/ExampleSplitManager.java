@@ -13,26 +13,23 @@
  */
 package com.facebook.presto.example;
 
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.Partition;
-import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.Split;
-import com.facebook.presto.spi.SplitSource;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TupleDomain;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.facebook.presto.example.Types.checkType;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class ExampleSplitManager
         implements ConnectorSplitManager
@@ -43,52 +40,22 @@ public class ExampleSplitManager
     @Inject
     public ExampleSplitManager(ExampleConnectorId connectorId, ExampleClient exampleClient)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.exampleClient = checkNotNull(exampleClient, "client is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.exampleClient = requireNonNull(exampleClient, "client is null");
     }
 
     @Override
-    public String getConnectorId()
+    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        return connectorId;
-    }
-
-    @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        return tableHandle instanceof ExampleTableHandle && ((ExampleTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public PartitionResult getPartitions(TableHandle tableHandle, TupleDomain tupleDomain)
-    {
-        checkArgument(tableHandle instanceof ExampleTableHandle, "tableHandle is not an instance of ExampleTableHandle");
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
-
-        // example connector has only one partition
-        List<Partition> partitions = ImmutableList.<Partition>of(new ExamplePartition(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName()));
-        // example connector does not do any additional processing/filtering with the TupleDomain, so just return the whole TupleDomain
-        return new PartitionResult(partitions, tupleDomain);
-    }
-
-    @Override
-    public SplitSource getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
-    {
-        checkNotNull(partitions, "partitions is null");
-        checkArgument(partitions.size() == 1, "Expected one partition but got %s", partitions.size());
-        Partition partition = partitions.get(0);
-
-        checkArgument(partition instanceof ExamplePartition, "partition is not an instance of ExamplePartition");
-        ExamplePartition examplePartition = (ExamplePartition) partition;
-
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
-        ExampleTable table = exampleClient.getTable(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
+        ExampleTableLayoutHandle layoutHandle = checkType(layout, ExampleTableLayoutHandle.class, "layout");
+        ExampleTableHandle tableHandle = layoutHandle.getTable();
+        ExampleTable table = exampleClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
         // this can happen if table is removed during a query
-        checkState(table != null, "Table %s.%s no longer exists", exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
+        checkState(table != null, "Table %s.%s no longer exists", tableHandle.getSchemaName(), tableHandle.getTableName());
 
-        List<Split> splits = Lists.newArrayList();
+        List<ConnectorSplit> splits = new ArrayList<>();
         for (URI uri : table.getSources()) {
-            splits.add(new ExampleSplit(connectorId, examplePartition.getSchemaName(), examplePartition.getTableName(), uri));
+            splits.add(new ExampleSplit(connectorId, tableHandle.getSchemaName(), tableHandle.getTableName(), uri));
         }
         Collections.shuffle(splits);
 

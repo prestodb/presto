@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class HiveConnectorId
 {
@@ -24,7 +24,7 @@ public class HiveConnectorId
 
     public HiveConnectorId(String connectorId)
     {
-        checkNotNull(connectorId, "connectorId is null");
+        requireNonNull(connectorId, "connectorId is null");
         checkArgument(!connectorId.isEmpty(), "connectorId is empty");
         this.connectorId = connectorId;
     }
@@ -32,7 +32,7 @@ public class HiveConnectorId
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(connectorId);
+        return Objects.hash(connectorId);
     }
 
     @Override
@@ -45,7 +45,7 @@ public class HiveConnectorId
             return false;
         }
         HiveConnectorId other = (HiveConnectorId) obj;
-        return Objects.equal(this.connectorId, other.connectorId);
+        return Objects.equals(this.connectorId, other.connectorId);
     }
 
     @Override

@@ -13,18 +13,19 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class DistinctLimitOperator
         implements Operator
@@ -33,22 +34,27 @@ public class DistinctLimitOperator
             implements OperatorFactory
     {
         private final int operatorId;
-        private final List<TupleInfo> tupleInfos;
+        private final List<Integer> distinctChannels;
+        private final List<Type> types;
         private final long limit;
+        private final Optional<Integer> hashChannel;
         private boolean closed;
 
-        public DistinctLimitOperatorFactory(int operatorId, List<TupleInfo> tupleInfos, long limit)
+        public DistinctLimitOperatorFactory(int operatorId, List<? extends Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
-            this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.distinctChannels = requireNonNull(distinctChannels, "distinctChannels is null");
+
             checkArgument(limit >= 0, "limit must be at least zero");
             this.limit = limit;
+            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         }
 
         @Override
-        public List<TupleInfo> getTupleInfos()
+        public List<Type> getTypes()
         {
-            return tupleInfos;
+            return types;
         }
 
         @Override
@@ -56,7 +62,7 @@ public class DistinctLimitOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, DistinctLimitOperator.class.getSimpleName());
-            return new DistinctLimitOperator(operatorContext, tupleInfos, limit);
+            return new DistinctLimitOperator(operatorContext, types, distinctChannels, limit, hashChannel);
         }
 
         @Override
@@ -67,8 +73,7 @@ public class DistinctLimitOperator
     }
 
     private final OperatorContext operatorContext;
-    private final List<TupleInfo> tupleInfos;
-    private final BlockCursor[] cursors;
+    private final List<Type> types;
 
     private final PageBuilder pageBuilder;
     private Page outputPage;
@@ -79,23 +84,20 @@ public class DistinctLimitOperator
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public DistinctLimitOperator(OperatorContext operatorContext, List<TupleInfo> tupleInfos, long limit)
+    public DistinctLimitOperator(OperatorContext operatorContext, List<Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel)
     {
-        this.operatorContext = checkNotNull(operatorContext, "operatorContext is null");
-        this.tupleInfos = ImmutableList.copyOf(checkNotNull(tupleInfos, "tupleInfos is null"));
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        requireNonNull(distinctChannels, "distinctChannels is null");
         checkArgument(limit >= 0, "limit must be at least zero");
+        requireNonNull(hashChannel, "hashChannel is null");
 
-        ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
-        ImmutableList.Builder<Integer> distinctChannels = ImmutableList.builder();
-        for (int i = 0; i < tupleInfos.size(); i++) {
-            types.add(tupleInfos.get(i).getType());
-            distinctChannels.add(i);
+        ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
+        for (int channel : distinctChannels) {
+            distinctTypes.add(types.get(channel));
         }
-
-        this.groupByHash = new GroupByHash(types.build(), Ints.toArray(distinctChannels.build()), 10_000);
-
-        this.cursors = new BlockCursor[tupleInfos.size()];
-        this.pageBuilder = new PageBuilder(getTupleInfos());
+        this.groupByHash = createGroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels), Optional.<Integer>empty(), hashChannel, Math.min((int) limit, 10_000));
+        this.pageBuilder = new PageBuilder(types);
         remainingLimit = limit;
     }
 
@@ -106,16 +108,15 @@ public class DistinctLimitOperator
     }
 
     @Override
-    public List<TupleInfo> getTupleInfos()
+    public List<Type> getTypes()
     {
-        return tupleInfos;
+        return types;
     }
 
     @Override
     public void finish()
     {
         finishing = true;
-        Arrays.fill(cursors, null);
         pageBuilder.reset();
     }
 
@@ -123,12 +124,6 @@ public class DistinctLimitOperator
     public boolean isFinished()
     {
         return (finishing && outputPage == null) || (remainingLimit == 0 && outputPage == null);
-    }
-
-    @Override
-    public ListenableFuture<?> isBlocked()
-    {
-        return NOT_BLOCKED;
     }
 
     @Override
@@ -144,18 +139,15 @@ public class DistinctLimitOperator
         checkState(needsInput());
         operatorContext.setMemoryReservation(groupByHash.getEstimatedSize());
 
-        // open cursors
-        for (int i = 0; i < page.getChannelCount(); i++) {
-            cursors[i] = page.getBlock(i).cursor();
-        }
         pageBuilder.reset();
 
         GroupByIdBlock ids = groupByHash.getGroupIds(page);
-        for (int i = 0; i < ids.getPositionCount(); i++) {
-            checkState(advanceNextCursorPosition());
-            if (ids.getGroupId(i) == nextDistinctId) {
-                for (int j = 0; j < cursors.length; j++) {
-                    cursors[j].appendTupleTo(pageBuilder.getBlockBuilder(j));
+        for (int position = 0; position < ids.getPositionCount(); position++) {
+            if (ids.getGroupId(position) == nextDistinctId) {
+                pageBuilder.declarePosition();
+                for (int channel = 0; channel < types.size(); channel++) {
+                    Type type = types.get(channel);
+                    type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
                 }
                 remainingLimit--;
                 nextDistinctId++;
@@ -167,21 +159,6 @@ public class DistinctLimitOperator
         if (!pageBuilder.isEmpty()) {
             outputPage = pageBuilder.build();
         }
-    }
-
-    private boolean advanceNextCursorPosition()
-    {
-        // advance all cursors
-        boolean advanced = cursors[0].advanceNextPosition();
-        for (int i = 1; i < cursors.length; i++) {
-            checkState(advanced == cursors[i].advanceNextPosition());
-        }
-
-        if (!advanced) {
-            Arrays.fill(cursors, null);
-        }
-
-        return advanced;
     }
 
     @Override

@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class ShowColumns
         extends Statement
@@ -24,7 +26,18 @@ public class ShowColumns
 
     public ShowColumns(QualifiedName table)
     {
-        this.table = checkNotNull(table, "table is null");
+        this(Optional.empty(), table);
+    }
+
+    public ShowColumns(NodeLocation location, QualifiedName table)
+    {
+        this(Optional.of(location), table);
+    }
+
+    private ShowColumns(Optional<NodeLocation> location, QualifiedName table)
+    {
+        super(location);
+        this.table = requireNonNull(table, "table is null");
     }
 
     public QualifiedName getTable()
@@ -41,7 +54,7 @@ public class ShowColumns
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(table);
+        return Objects.hash(table);
     }
 
     @Override
@@ -54,13 +67,13 @@ public class ShowColumns
             return false;
         }
         ShowColumns o = (ShowColumns) obj;
-        return Objects.equal(table, o.table);
+        return Objects.equals(table, o.table);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("table", table)
                 .toString();
     }

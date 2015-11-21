@@ -13,60 +13,116 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.instruction.Constant;
-import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractCache;
-import com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
-import com.facebook.presto.sql.gen.DefaultFunctionBinder;
-import com.facebook.presto.sql.gen.FunctionBinder;
-import com.facebook.presto.sql.gen.FunctionBinding;
-import com.facebook.presto.sql.gen.TypedByteCodeNode;
-import com.facebook.presto.util.ThreadLocalCache;
+import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.JsonPathType;
+import com.facebook.presto.type.SqlType;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.google.common.base.Charsets;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
+import com.fasterxml.jackson.databind.MappingJsonFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Doubles;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import io.airlift.slice.SliceOutput;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
+import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_FALSE;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
-import static java.lang.invoke.MethodHandles.lookup;
-import static java.lang.invoke.MethodType.methodType;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class JsonFunctions
 {
-    private static final String JSON_EXTRACT_SCALAR_FUNCTION_NAME = "json_extract_scalar";
-    private static final String JSON_EXTRACT_FUNCTION_NAME = "json_extract";
-
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
 
+    private static final JsonFactory MAPPING_JSON_FACTORY = new MappingJsonFactory()
+            .disable(CANONICALIZE_FIELD_NAMES);
+
+    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+
     private JsonFunctions() {}
+
+    @ScalarOperator(OperatorType.CAST)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice castJsonToVarchar(@SqlType(StandardTypes.JSON) Slice slice)
+    {
+        // TEMPORARY: added to ease migrating user away from cast between json and varchar
+        throw new PrestoException(NOT_SUPPORTED,
+                "`CAST (jsonValue as VARCHAR)` is removed. Use `JSON_FORMAT(jsonValue)`.");
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @SqlType(StandardTypes.JSON)
+    public static Slice castVarcharToJson(@SqlType(StandardTypes.VARCHAR) Slice slice) throws IOException
+    {
+        // TEMPORARY: added to ease migrating user away from cast between json and varchar
+        throw new PrestoException(NOT_SUPPORTED,
+                "`CAST (varcharValue as JSON)` is removed. Use `JSON_PARSE(varcharValue)`.");
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @SqlType(JsonPathType.NAME)
+    public static JsonPath castToJsonPath(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    {
+        return new JsonPath(pattern.toString(UTF_8));
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Slice slice)
+    {
+        return slice;
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.JSON)
+    public static Slice jsonParse(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        try {
+            byte[] in = slice.getBytes();
+            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(in.length);
+            SORTED_MAPPER.writeValue(dynamicSliceOutput, SORTED_MAPPER.readValue(in, Object.class));
+            return dynamicSliceOutput.slice();
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert '%s' to JSON", slice.toStringUtf8()));
+        }
+    }
+
+    @Nullable
+    @ScalarFunction("json_array_length")
+    @SqlType(StandardTypes.BIGINT)
+    public static Long varcharJsonArrayLength(@SqlType(StandardTypes.VARCHAR) Slice json)
+    {
+        return jsonArrayLength(json);
+    }
 
     @Nullable
     @ScalarFunction
-    public static Long jsonArrayLength(Slice json)
+    @SqlType(StandardTypes.BIGINT)
+    public static Long jsonArrayLength(@SqlType(StandardTypes.JSON) Slice json)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -93,8 +149,17 @@ public final class JsonFunctions
     }
 
     @Nullable
+    @ScalarFunction("json_array_contains")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean varcharJsonArrayContains(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return jsonArrayContains(json, value);
+    }
+
+    @Nullable
     @ScalarFunction
-    public static Boolean jsonArrayContains(Slice json, boolean value)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -123,8 +188,17 @@ public final class JsonFunctions
     }
 
     @Nullable
+    @ScalarFunction("json_array_contains")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean varcharJsonArrayContains(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.BIGINT) long value)
+    {
+        return jsonArrayContains(json, value);
+    }
+
+    @Nullable
     @ScalarFunction
-    public static Boolean jsonArrayContains(Slice json, long value)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long value)
     {
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -154,8 +228,17 @@ public final class JsonFunctions
     }
 
     @Nullable
+    @ScalarFunction("json_array_contains")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean varcharJsonArrayContains(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        return jsonArrayContains(json, value);
+    }
+
+    @Nullable
     @ScalarFunction
-    public static Boolean jsonArrayContains(Slice json, double value)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.DOUBLE) double value)
     {
         if (!Doubles.isFinite(value)) {
             return false;
@@ -189,10 +272,19 @@ public final class JsonFunctions
     }
 
     @Nullable
-    @ScalarFunction
-    public static Boolean jsonArrayContains(Slice json, Slice value)
+    @ScalarFunction("json_array_contains")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean varcharJsonArrayContains(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
-        String valueString = value.toString(Charsets.UTF_8);
+        return jsonArrayContains(json, value);
+    }
+
+    @Nullable
+    @ScalarFunction
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.VARCHAR) Slice value)
+    {
+        String valueString = value.toString(UTF_8);
 
         try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
@@ -220,17 +312,26 @@ public final class JsonFunctions
     }
 
     @Nullable
-    @ScalarFunction
-    public static Slice jsonArrayGet(Slice json, long index)
+    @ScalarFunction("json_array_get")
+    @SqlType(StandardTypes.JSON)
+    public static Slice varcharJsonArrayGet(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
-        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
+        return jsonArrayGet(json, index);
+    }
+
+    @Nullable
+    @ScalarFunction
+    @SqlType(StandardTypes.JSON)
+    public static Slice jsonArrayGet(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long index)
+    {
+        try (JsonParser parser = MAPPING_JSON_FACTORY.createJsonParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
 
             List<String> tokens = null;
             if (index < 0) {
-                tokens = new LinkedList<String>();
+                tokens = new LinkedList<>();
             }
 
             long count = 0;
@@ -241,22 +342,26 @@ public final class JsonFunctions
                 }
                 if (token == END_ARRAY) {
                     if (tokens != null && count >= index * -1) {
-                        return Slices.utf8Slice(tokens.get(0));
+                        return utf8Slice(tokens.get(0));
                     }
 
                     return null;
                 }
-                parser.skipChildren();
+
+                String arrayElement;
+                if (token == START_OBJECT || token == START_ARRAY) {
+                    arrayElement = parser.readValueAsTree().toString();
+                }
+                else {
+                    arrayElement = parser.getValueAsString();
+                }
 
                 if (count == index) {
-                    if (parser.getValueAsString() == null) {
-                        return null;
-                    }
-                    return Slices.utf8Slice(parser.getValueAsString());
+                    return arrayElement == null ? null : utf8Slice(arrayElement);
                 }
 
                 if (tokens != null) {
-                    tokens.add(parser.getValueAsString());
+                    tokens.add(arrayElement);
 
                     if (count >= index * -1) {
                         tokens.remove(0);
@@ -271,90 +376,51 @@ public final class JsonFunctions
         }
     }
 
-    @ScalarFunction(value = JSON_EXTRACT_SCALAR_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
-    public static Slice jsonExtractScalar(Slice json, Slice jsonPath)
+    @ScalarFunction("json_extract_scalar")
+    @Nullable
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice varcharJsonExtractScalar(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        try {
-            return JsonExtract.extractScalar(json, jsonPath);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        return JsonExtract.extract(json, jsonPath.getScalarExtractor());
     }
 
-    @ScalarFunction(value = JSON_EXTRACT_FUNCTION_NAME, functionBinder = JsonFunctionBinder.class)
-    public static Slice jsonExtract(Slice json, Slice jsonPath)
+    @ScalarFunction
+    @Nullable
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice jsonExtractScalar(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        try {
-            return JsonExtract.extractJson(json, jsonPath);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        return JsonExtract.extract(json, jsonPath.getScalarExtractor());
     }
 
-    public static class JsonFunctionBinder
-            implements FunctionBinder
+    @ScalarFunction("json_extract")
+    @Nullable
+    @SqlType(StandardTypes.JSON)
+    public static Slice varcharJsonExtract(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        private static final MethodHandle constantJsonExtract;
-        private static final MethodHandle dynamicJsonExtract;
+        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+    }
 
-        static {
-            try {
-                constantJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, Slice.class, JsonExtractor.class));
-                dynamicJsonExtract = lookup().findStatic(JsonExtract.class, "extract", methodType(Slice.class, ThreadLocalCache.class, Slice.class, Slice.class));
-            }
-            catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
-        }
+    @ScalarFunction
+    @Nullable
+    @SqlType(StandardTypes.JSON)
+    public static Slice jsonExtract(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    {
+        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+    }
 
-        @Override
-        public FunctionBinding bindFunction(long bindingId, String name, ByteCodeNode getSessionByteCode, List<TypedByteCodeNode> arguments)
-        {
-            TypedByteCodeNode patternNode = arguments.get(1);
+    @ScalarFunction("json_size")
+    @Nullable
+    @SqlType(StandardTypes.BIGINT)
+    public static Long varcharJsonSize(@SqlType(StandardTypes.VARCHAR) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    {
+        return JsonExtract.extract(json, jsonPath.getSizeExtractor());
+    }
 
-            MethodHandle methodHandle;
-            if (patternNode.getNode() instanceof Constant) {
-                Slice patternSlice = (Slice) ((Constant) patternNode.getNode()).getValue();
-                String pattern = patternSlice.toString(Charsets.UTF_8);
-
-                JsonExtractor jsonExtractor;
-                switch (name) {
-                    case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
-                        jsonExtractor = generateExtractor(pattern, true);
-                        break;
-                    case JSON_EXTRACT_FUNCTION_NAME:
-                        jsonExtractor = generateExtractor(pattern, false);
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported method " + name);
-                }
-
-                methodHandle = MethodHandles.insertArguments(constantJsonExtract, 1, jsonExtractor);
-
-                // remove the pattern argument
-                arguments = new ArrayList<>(arguments);
-                arguments.remove(1);
-                arguments = ImmutableList.copyOf(arguments);
-            }
-            else {
-                ThreadLocalCache<Slice, JsonExtractor> cache;
-                switch (name) {
-                    case JSON_EXTRACT_SCALAR_FUNCTION_NAME:
-                        cache = new JsonExtractCache(20, true);
-                        break;
-                    case JSON_EXTRACT_FUNCTION_NAME:
-                        cache = new JsonExtractCache(20, false);
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported method " + name);
-                }
-
-                methodHandle = dynamicJsonExtract.bindTo(cache);
-            }
-
-            return DefaultFunctionBinder.bindConstantArguments(bindingId, name, getSessionByteCode, arguments, methodHandle, true);
-        }
+    @ScalarFunction
+    @Nullable
+    @SqlType(StandardTypes.BIGINT)
+    public static Long jsonSize(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    {
+        return JsonExtract.extract(json, jsonPath.getSizeExtractor());
     }
 }

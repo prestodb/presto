@@ -17,16 +17,14 @@ import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorOutputHandleResolver;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
-import com.google.common.base.Objects;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNull;
 
 public class TpchConnectorFactory
         implements ConnectorFactory
@@ -41,7 +39,7 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode)
     {
-        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
     }
 
@@ -52,7 +50,7 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, final Map<String, String> properties)
+    public Connector create(final String connectorId, Map<String, String> properties)
     {
         final int splitsPerNode = getSplitsPerNode(properties);
 
@@ -78,19 +76,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new TpchRecordSetProvider(connectorId);
-            }
-
-            @Override
-            public ConnectorRecordSinkProvider getRecordSinkProvider()
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ConnectorOutputHandleResolver getOutputHandleResolver()
-            {
-                throw new UnsupportedOperationException();
+                return new TpchRecordSetProvider();
             }
         };
     }
@@ -98,7 +84,7 @@ public class TpchConnectorFactory
     private int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return Integer.parseInt(Objects.firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");

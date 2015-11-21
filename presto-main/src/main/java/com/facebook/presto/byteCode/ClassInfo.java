@@ -37,12 +37,11 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ParameterizedType.pathToParameterizedType;
-import static com.facebook.presto.byteCode.ParameterizedType.toParameterizedType;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author Eugene Kuleshov
@@ -62,8 +61,8 @@ public class ClassInfo
                 typeFromPathName(classNode.name),
                 classNode.access,
                 classNode.superName == null ? null : typeFromPathName(classNode.superName),
-                transform(classNode.interfaces, pathToParameterizedType()),
-                classNode.methods);
+                transform((List<String>) classNode.interfaces, ParameterizedType::typeFromPathName),
+                (List<MethodNode>) classNode.methods);
     }
 
     public ClassInfo(ClassInfoLoader loader, Class<?> aClass)
@@ -72,15 +71,15 @@ public class ClassInfo
                 type(aClass),
                 aClass.getModifiers(),
                 aClass.getSuperclass() == null ? null : type(aClass.getSuperclass()),
-                transform(asList(aClass.getInterfaces()), toParameterizedType()),
+                transform(asList(aClass.getInterfaces()), ParameterizedType::type),
                 null);
     }
 
     public ClassInfo(ClassInfoLoader loader, ParameterizedType type, int access, ParameterizedType superClass, Iterable<ParameterizedType> interfaces, Iterable<MethodNode> methods)
     {
-        Preconditions.checkNotNull(loader, "loader is null");
-        Preconditions.checkNotNull(type, "type is null");
-        Preconditions.checkNotNull(interfaces, "interfaces is null");
+        requireNonNull(loader, "loader is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(interfaces, "interfaces is null");
 
         this.loader = loader;
         this.type = type;
@@ -159,7 +158,7 @@ public class ClassInfo
         return false;
     }
 
-    public boolean isAssignableFrom(final ClassInfo that)
+    public boolean isAssignableFrom(ClassInfo that)
     {
         if (this == that) {
             return true;

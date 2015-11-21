@@ -16,23 +16,24 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.Split;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
+
+import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
+import static com.facebook.presto.cassandra.util.Types.checkType;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class CassandraRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private static final Logger log = Logger.get(ConnectorRecordSetProvider.class);
+    private static final Logger log = Logger.get(CassandraRecordSetProvider.class);
 
     private final String connectorId;
     private final CassandraSession cassandraSession;
@@ -40,19 +41,18 @@ public class CassandraRecordSetProvider
     @Inject
     public CassandraRecordSetProvider(CassandraConnectorId connectorId, CassandraSession cassandraSession)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
-        this.cassandraSession = checkNotNull(cassandraSession, "cassandraSession is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
     }
 
     @Override
-    public RecordSet getRecordSet(Split split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        checkNotNull(split, "split is null");
-        checkArgument(split instanceof CassandraSplit, "expected instance of %s: %s", CassandraSplit.class, split.getClass());
-        CassandraSplit cassandraSplit = (CassandraSplit) split;
+        CassandraSplit cassandraSplit = checkType(split, CassandraSplit.class, "split");
 
-        checkNotNull(columns, "columns is null");
-        List<CassandraColumnHandle> cassandraColumns = ImmutableList.copyOf(transform(columns, CassandraColumnHandle.cassandraColumnHandle()));
+        List<CassandraColumnHandle> cassandraColumns = columns.stream()
+                .map(column -> checkType(column, CassandraColumnHandle.class, "columnHandle"))
+                .collect(toList());
 
         String selectCql = CassandraCqlUtils.selectFrom(cassandraSplit.getCassandraTableHandle(), cassandraColumns).getQueryString();
         StringBuilder sb = new StringBuilder(selectCql);
@@ -63,19 +63,13 @@ public class CassandraRecordSetProvider
         String cql = sb.toString();
         log.debug("Creating record set: %s", cql);
 
-        return new CassandraRecordSet(cassandraSession, cql, cassandraColumns);
-    }
-
-    @Override
-    public boolean canHandle(Split split)
-    {
-        return split instanceof CassandraSplit && ((CassandraSplit) split).getConnectorId().equals(connectorId);
+        return new CassandraRecordSet(cassandraSession, cassandraSplit.getSchema(), cql, cassandraColumns);
     }
 
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .toString();
     }

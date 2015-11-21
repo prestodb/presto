@@ -13,156 +13,30 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.util.array.BooleanBigArray;
-import com.facebook.presto.util.array.LongBigArray;
-import com.google.common.base.Optional;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.SqlType;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-
-public class LongSumAggregation
-        extends SimpleAggregationFunction
+@AggregationFunction("sum")
+public final class LongSumAggregation
 {
-    public static final LongSumAggregation LONG_SUM = new LongSumAggregation();
+    public static final InternalAggregationFunction LONG_SUM = new AggregationCompiler().generateAggregationFunction(LongSumAggregation.class);
 
-    public LongSumAggregation()
+    private LongSumAggregation() {}
+
+    @InputFunction
+    @IntermediateInputFunction
+    public static void sum(NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        super(SINGLE_LONG, SINGLE_LONG, FIXED_INT_64);
+        state.setNull(false);
+        state.setLong(state.getLong() + value);
     }
 
-    @Override
-    protected GroupedAccumulator createGroupedAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
+    @OutputFunction(StandardTypes.BIGINT)
+    public static void output(NullableLongState state, BlockBuilder out)
     {
-        checkArgument(confidence == 1.0, "sum does not support approximate queries");
-        return new LongSumGroupedAccumulator(valueChannel, maskChannel, sampleWeightChannel);
-    }
-
-    public static class LongSumGroupedAccumulator
-            extends SimpleGroupedAccumulator
-    {
-        private final BooleanBigArray notNull;
-        private final LongBigArray sums;
-
-        public LongSumGroupedAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
-        {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
-
-            this.notNull = new BooleanBigArray();
-
-            this.sums = new LongBigArray();
-        }
-
-        @Override
-        public long getEstimatedSize()
-        {
-            return notNull.sizeOf() + sums.sizeOf();
-        }
-
-        @Override
-        protected void processInput(GroupByIdBlock groupIdsBlock, Block valuesBlock, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            notNull.ensureCapacity(groupIdsBlock.getGroupCount());
-            sums.ensureCapacity(groupIdsBlock.getGroupCount());
-
-            BlockCursor values = valuesBlock.cursor();
-            BlockCursor masks = null;
-            if (maskBlock.isPresent()) {
-                masks = maskBlock.get().cursor();
-            }
-            BlockCursor sampleWeights = null;
-            if (sampleWeightBlock.isPresent()) {
-                sampleWeights = sampleWeightBlock.get().cursor();
-            }
-
-            for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
-                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
-
-                long groupId = groupIdsBlock.getGroupId(position);
-
-                long sampleWeight = computeSampleWeight(masks, sampleWeights);
-                if (!values.isNull() && sampleWeight > 0) {
-                    notNull.set(groupId, true);
-
-                    long value = values.getLong();
-                    sums.add(groupId, sampleWeight * value);
-                }
-            }
-            checkState(!values.advanceNextPosition());
-        }
-
-        @Override
-        public void evaluateFinal(int groupId, BlockBuilder output)
-        {
-            if (notNull.get((long) groupId)) {
-                long value = sums.get((long) groupId);
-                output.append(value);
-            }
-            else {
-                output.appendNull();
-            }
-        }
-    }
-
-    @Override
-    protected Accumulator createAccumulator(Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence, int valueChannel)
-    {
-        checkArgument(confidence == 1.0, "sum does not support approximate queries");
-        return new LongSumAccumulator(valueChannel, maskChannel, sampleWeightChannel);
-    }
-
-    public static class LongSumAccumulator
-            extends SimpleAccumulator
-    {
-        private boolean notNull;
-        private long sum;
-
-        public LongSumAccumulator(int valueChannel, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel)
-        {
-            super(valueChannel, SINGLE_LONG, SINGLE_LONG, maskChannel, sampleWeightChannel);
-        }
-
-        @Override
-        protected void processInput(Block block, Optional<Block> maskBlock, Optional<Block> sampleWeightBlock)
-        {
-            BlockCursor values = block.cursor();
-            BlockCursor masks = null;
-            if (maskBlock.isPresent()) {
-                masks = maskBlock.get().cursor();
-            }
-            BlockCursor sampleWeights = null;
-            if (sampleWeightBlock.isPresent()) {
-                sampleWeights = sampleWeightBlock.get().cursor();
-            }
-
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                checkState(values.advanceNextPosition());
-                checkState(masks == null || masks.advanceNextPosition());
-                checkState(sampleWeights == null || sampleWeights.advanceNextPosition());
-                long sampleWeight = computeSampleWeight(masks, sampleWeights);
-                if (!values.isNull() && sampleWeight > 0) {
-                    notNull = true;
-                    sum += sampleWeight * values.getLong();
-                }
-            }
-        }
-
-        @Override
-        public void evaluateFinal(BlockBuilder out)
-        {
-            if (notNull) {
-                out.append(sum);
-            }
-            else {
-                out.appendNull();
-            }
-        }
+        NullableLongState.write(BigintType.BIGINT, state, out);
     }
 }

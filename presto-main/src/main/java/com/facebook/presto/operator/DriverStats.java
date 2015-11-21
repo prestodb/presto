@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -25,9 +26,10 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Immutable
@@ -41,14 +43,18 @@ public class DriverStats
     private final Duration elapsedTime;
 
     private final DataSize memoryReservation;
+    private final DataSize systemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
     private final Duration totalUserTime;
     private final Duration totalBlockedTime;
+    private final boolean fullyBlocked;
+    private final Set<BlockedReason> blockedReasons;
 
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
+    private final Duration rawInputReadTime;
 
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
@@ -67,14 +73,18 @@ public class DriverStats
         this.elapsedTime = new Duration(0, MILLISECONDS);
 
         this.memoryReservation = new DataSize(0, BYTE);
+        this.systemMemoryReservation = new DataSize(0, BYTE);
 
         this.totalScheduledTime = new Duration(0, MILLISECONDS);
         this.totalCpuTime = new Duration(0, MILLISECONDS);
         this.totalUserTime = new Duration(0, MILLISECONDS);
         this.totalBlockedTime = new Duration(0, MILLISECONDS);
+        this.fullyBlocked = false;
+        this.blockedReasons = ImmutableSet.of();
 
         this.rawInputDataSize = new DataSize(0, BYTE);
         this.rawInputPositions = 0;
+        this.rawInputReadTime = new Duration(0, MILLISECONDS);
 
         this.processedInputDataSize = new DataSize(0, BYTE);
         this.processedInputPositions = 0;
@@ -94,14 +104,18 @@ public class DriverStats
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
+            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("rawInputReadTime") Duration rawInputReadTime,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
@@ -111,32 +125,36 @@ public class DriverStats
 
             @JsonProperty("operatorStats") List<OperatorStats> operatorStats)
     {
-        this.createTime = checkNotNull(createTime, "createTime is null");
+        this.createTime = requireNonNull(createTime, "createTime is null");
         this.startTime = startTime;
         this.endTime = endTime;
-        this.queuedTime = checkNotNull(queuedTime, "queuedTime is null");
-        this.elapsedTime = checkNotNull(elapsedTime, "elapsedTime is null");
+        this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
 
-        this.memoryReservation = checkNotNull(memoryReservation, "memoryReservation is null");
+        this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
+        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
-        this.totalScheduledTime = checkNotNull(totalScheduledTime, "totalScheduledTime is null");
-        this.totalCpuTime = checkNotNull(totalCpuTime, "totalCpuTime is null");
-        this.totalUserTime = checkNotNull(totalUserTime, "totalUserTime is null");
-        this.totalBlockedTime = checkNotNull(totalBlockedTime, "totalBlockedTime is null");
+        this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
+        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
+        this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
+        this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
+        this.fullyBlocked = fullyBlocked;
+        this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        this.rawInputDataSize = checkNotNull(rawInputDataSize, "rawInputDataSize is null");
+        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         Preconditions.checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
+        this.rawInputReadTime = requireNonNull(rawInputReadTime, "rawInputReadTime is null");
 
-        this.processedInputDataSize = checkNotNull(processedInputDataSize, "processedInputDataSize is null");
+        this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         Preconditions.checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
-        this.outputDataSize = checkNotNull(outputDataSize, "outputDataSize is null");
+        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         Preconditions.checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        this.operatorStats = ImmutableList.copyOf(checkNotNull(operatorStats, "operatorStats is null"));
+        this.operatorStats = ImmutableList.copyOf(requireNonNull(operatorStats, "operatorStats is null"));
     }
 
     @JsonProperty
@@ -178,6 +196,12 @@ public class DriverStats
     }
 
     @JsonProperty
+    public DataSize getSystemMemoryReservation()
+    {
+        return systemMemoryReservation;
+    }
+
+    @JsonProperty
     public Duration getTotalScheduledTime()
     {
         return totalScheduledTime;
@@ -202,9 +226,27 @@ public class DriverStats
     }
 
     @JsonProperty
+    public boolean isFullyBlocked()
+    {
+        return fullyBlocked;
+    }
+
+    @JsonProperty
+    public Set<BlockedReason> getBlockedReasons()
+    {
+        return blockedReasons;
+    }
+
+    @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
+    }
+
+    @JsonProperty
+    public Duration getRawInputReadTime()
+    {
+        return rawInputReadTime;
     }
 
     @JsonProperty

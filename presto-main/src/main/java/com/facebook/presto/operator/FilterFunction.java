@@ -14,11 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.spi.block.Block;
 
 public interface FilterFunction
 {
-    boolean filter(TupleReadable... cursors);
+    boolean filter(int position, Block... blocks);
 
     boolean filter(RecordCursor cursor);
 }
