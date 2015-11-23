@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class NestedLoopJoinPages
 {
-    private final TaskContext taskContext;
+    private final OperatorContext operatorContext;
     private final ImmutableList<Page> pages;
     private final DataSize estimatedSize;
     @GuardedBy("this")
@@ -35,17 +35,10 @@ public final class NestedLoopJoinPages
     NestedLoopJoinPages(List<Page> pages, DataSize estimatedSize, OperatorContext operatorContext)
     {
         requireNonNull(pages, "pages is null");
-        requireNonNull(operatorContext, "operatorContext is null");
         this.pages = ImmutableList.copyOf(pages);
-        this.taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.estimatedSize = requireNonNull(estimatedSize, "estimatedSize is null");
-        long transferredBytes = operatorContext.transferMemoryToTaskContext();
-        if (estimatedSize.toBytes() > transferredBytes) {
-            taskContext.reserveMemory(estimatedSize.toBytes() - transferredBytes);
-        }
-        else {
-            taskContext.freeMemory(transferredBytes - estimatedSize.toBytes());
-        }
+        operatorContext.transferMemoryToTaskContext(estimatedSize.toBytes());
     }
 
     public List<Page> getPages()
@@ -57,6 +50,6 @@ public final class NestedLoopJoinPages
     {
         checkState(!freed, "Memory already freed");
         freed = true;
-        taskContext.freeMemory(estimatedSize.toBytes());
+        operatorContext.getTaskContext().freeMemory(estimatedSize.toBytes());
     }
 }
