@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<meta property="og:url" content="https://prestodb.io/faq/" />
+	<meta property="og:site_name" content="Presto"/>
+	<meta property="og:title" content="FAQ" />
+	<meta property="og:image" content="https://prestodb.io/static/og_image.png" />
+	<meta property="og:description" content="Presto is an open source distributed SQL query engine for running interactive analytic queries against data sources of all sizes ranging from gigabytes to petabytes. 
+" />
+
+  <link rel="stylesheet" type="text/css" media="screen" href="/css/main.css">
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.5/styles/default.min.css">
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+  <link rel="stylesheet" type="text/css" href="//cloud.typography.com/7491092/677688/css/fonts.css" /> 
+
+  <link rel="icon" href="static/favicon.png" type="image/x-icon">
+
+  <base href="/" />
+
+  <script src="https://fb.me/react-with-addons-0.13.1.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.5/highlight.min.js"></script>
+
+  <title>FAQ &mdash; Presto</title>
+  <meta name="description" content="Presto is an open source distributed SQL query engine for running interactive analytic queries against data sources of all sizes ranging from gigabytes to petabytes. 
+">
+
+  <link rel="canonical" href="https://prestodb.io/faq/">
+  <link rel="alternate" type="application/rss+xml" title="Presto" href="https://prestodb.io/feed.xml" />
+</head>
+
+  <body>    
+    <div id="fixed_header" class="fixedHeaderContainer visible">
+  <header>
+    <a href="/">
+      <img src="/static/logo.png" height="30" alt="">
+      <h2>Presto</h2>
+    </a>
+    <div class="navigationWrapper navigationFull" id="flat_nav">
+      <nav class="navigation">
+        <ul>
+          
+          <li class="navItem ">
+            <a href="docs/current/">Docs</a>
+          </li>
+          
+          <li class="navItem ">
+            <a href="faq/">FAQ</a>
+          </li>
+          
+          <li class="navItem ">
+            <a href="community/">Community</a>
+          </li>
+          
+          <li class="navItem ">
+            <a href="tools/">Tools</a>
+          </li>
+          
+          <li class="navItem ">
+            <a href="https://github.com/facebook/presto">GitHub</a>
+          </li>
+          
+        </ul>
+      </nav>
+    </div>
+    <div class="navigationWrapper navigationSlider" id="navigation_wrap"></div>
+  </header>
+  <script>
+    var event = document.createEvent('Event');
+    event.initEvent('slide', true, true);
+    document.addEventListener('slide', function (e) {
+      document.body.classList.toggle('sliderActive');
+    }, false);
+    var navData = [
+      
+      {
+        href       : "docs/current/",
+        text       : "Docs",
+      },
+      
+      {
+        href       : "faq/",
+        text       : "FAQ",
+      },
+      
+      {
+        href       : "community/",
+        text       : "Community",
+      },
+      
+      {
+        href       : "tools/",
+        text       : "Tools",
+      },
+      
+      {
+        href       : "https://github.com/facebook/presto",
+        text       : "GitHub",
+      },
+      
+    ];
+  </script>
+  <script type="text/javascript">  
+    var Nav = React.createClass({displayName: "Nav",
+      getInitialState: function() {
+        return {
+          currentPath: window.location.pathname,
+          slideoutActive: false,
+        };
+      },
+      getDefaultProps: function() {
+        return {
+          data: navData,
+        }
+      },
+      handleClick: function(id) {
+        this.setState({
+          slideoutActive: false,
+        });
+        document.dispatchEvent(event);
+      },
+      handleSlide: function(id) {
+        this.setState({
+          slideoutActive: !this.state.slideoutActive,
+        });
+        document.dispatchEvent(event);
+      },
+      render: function() {
+        var classes = React.addons.classSet({
+          'navSlideout': true,
+          'navSlideoutActive': this.state.slideoutActive,
+        });
+        var navClasses = React.addons.classSet({
+          'slidingNav': true,
+          'slidingNavActive': this.state.slideoutActive,
+        });
+        return (
+          React.createElement("div", null, 
+            React.createElement("div", {className: classes, onClick: this.handleSlide}, 
+              React.createElement("i", {className: "fa fa-bars"})
+            ), 
+            React.createElement("nav", {className: navClasses}, 
+              React.createElement("ul", null, 
+                this.props.data.map(this.renderNavItems)
+              )
+            )
+          )
+        );
+      },
+      renderNavItems: function(child, index) {
+        var classes = React.addons.classSet({
+          'navItem': true,
+          'navItemActive': this.state.currentPath === child.href,
+        });
+        return (
+          React.createElement("li", {key: index, className: classes}, 
+            React.createElement("a", {onClick: this.handleClick, href: child.href}, child.text)
+          )
+        );
+      },
+    });
+
+    function render(navData) {
+      React.render(
+        React.createElement(Nav, {data: navData}),
+        document.getElementById('navigation_wrap')
+      );
+    }
+    render(navData);
+  </script>
+</div>
+
+    <div class="navPusher">
+      <div class="headerContainer">
+  <div id="header_wrap" class="wrapper headerWrapper miniHeaderWrapper">
+    <div class="inner">
+      <h2 id="project_tagline" class="fbossFontLight">FAQ</h2>
+    </div>
+  </div>
+</div>
+
+      <div class="mainContainer blogContainer postContainer">
+  <div id="main_wrap" class="wrapper mainWrapper">
+    <div>
+</div>
+<nav class='toc' id="doc_nav"></nav>
+<script>
+  var docnavData = [
+    
+    {
+      group     : "Running Presto",
+      items     : [
+        
+        {
+          key : "memory",
+          title : "How much memory should I give a worker node?",
+          url : "faq/#memory",
+        }
+        
+      ],
+    },
+    
+    {
+      group     : "Compatibility and Support",
+      items     : [
+        
+        {
+          key : "hadoopversion",
+          title : "What versions of Hadoop does Presto support?",
+          url : "faq/#hadoopversion",
+        },
+        
+        {
+          key : "cassandra-connector",
+          title : "Does Presto connect to Cassandra?",
+          url : "faq/#cassandra-connector",
+        },
+        
+        {
+          key : "mysql-postgre",
+          title : "Does Presto connect to MySQL or PostgreSQL?",
+          url : "faq/#mysql-postgre",
+        }
+        
+      ],
+    },
+    
+    {
+      group     : "Common Errors and Troubleshooting",
+      items     : [
+        
+        {
+          key : "showtables",
+          title : "Why can I run SHOW TABLES but I can't SELECT from any of them?",
+          url : "faq/#showtables",
+        },
+        
+        {
+          key : "discovery-server",
+          title : "Why do I see a '_Cannot connect to discovery server for refresh_' error on startup?",
+          url : "faq/#discovery-server",
+        },
+        
+        {
+          key : "performance-slow",
+          title : "Queries are running slower than expected. What are the factors that influence Presto performance?",
+          url : "faq/#performance-slow",
+        }
+        
+      ],
+    },
+    
+    {
+      group     : "Running Presto Queries",
+      items     : [
+        
+        {
+          key : "interfaces",
+          title : "Is there a user-friendly interface for running Presto queries?",
+          url : "faq/#interfaces",
+        }
+        
+      ],
+    },
+    
+  ];
+</script>
+<script type="text/javascript">  
+  var DocNav = React.createClass({displayName: "DocNav",
+    getInitialState: function() {
+      return {
+        toggleActive: false,
+      };
+    },
+    getDefaultProps: function() {
+      return {
+        currentDoc: "FAQ",
+        currentGroup: "",
+        data: docnavData,
+      }
+    },
+    handleSlide: function(id) {
+      this.setState({
+        toggleActive: !this.state.toggleActive,
+      });
+    },
+    render: function() {
+      var classes = React.addons.classSet({
+        'navToggle': true,
+        'navToggleActive': this.state.toggleActive,
+      });
+      var navClasses = React.addons.classSet({
+        'toggleNav': true,
+        'toggleNavActive': this.state.toggleActive,
+      });
+      return (
+        React.createElement("div", {className: navClasses}, 
+          React.createElement("section", null, 
+            this.props.data.map(this.renderNavGroups)
+          ), 
+          React.createElement("div", {className: classes, onClick: this.handleSlide}, React.createElement("i", {className: "fa fa-chevron-circle-down"}))
+        )
+      );
+    },
+    renderNavGroups: function(child, index) {
+      var classes = React.addons.classSet({
+        'navGroup': true,
+        'navGroupActive': this.props.currentGroup === child.group,
+      });
+      return (
+        React.createElement("div", {className: classes, key: index}, 
+          React.createElement("h3", null, child.group), 
+          React.createElement("ul", null, 
+            child.items.map(this.renderNavItems)
+          )
+        )
+      );
+    },
+    renderNavItems: function(child, index) {
+      var itemClasses = React.addons.classSet({
+        'navListItem': true,
+        'navListItemActive': this.props.currentDoc === child.title,
+      });
+      var classes = React.addons.classSet({
+        'navItem': true,
+        'navItemActive': this.props.currentDoc === child.title,
+      });
+      return (
+        React.createElement("li", {className: itemClasses, key: index}, React.createElement("a", {className: classes, href: child.url},  child.title))
+      );
+    },
+  });
+
+  function docNavRender(docnavData) {
+    React.render(
+      React.createElement(DocNav, {data: docnavData}),
+      document.getElementById('doc_nav')
+    );
+  }
+  docNavRender(docnavData);
+</script>
+    <div class="post">
+      
+      <div class="faqGroup">
+        <h2 id="running">Running Presto</h2>
+        
+        <h3 id="memory">How much memory should I give a worker node?</h3>
+        <p>The answer to this question will depend on the size of the data sets you are working with and the nature of the queries you are running, but Facebook typically runs Presto with a 16 GB heap (this is the amount specified by the example JVM config file in the deployment instructions).</p>
+
+        
+      </div>
+      
+      <div class="faqGroup">
+        <h2 id="compatibility">Compatibility and Support</h2>
+        
+        <h3 id="hadoopversion">What versions of Hadoop does Presto support?</h3>
+        <p>The <a href="docs/current/connector/hive.html">Hive Connector</a> supports all popular versions of Hadoop.</p>
+
+        
+        <h3 id="cassandra-connector">Does Presto connect to Cassandra?</h3>
+        <p>Yes, via the <a href="docs/current/connector/cassandra.html">Cassandra Connector</a>.</p>
+
+        
+        <h3 id="mysql-postgre">Does Presto connect to MySQL or PostgreSQL?</h3>
+        <p>Yes, via the <a href="docs/current/connector/mysql.html">MySQL Connector</a> or <a href="docs/current/connector/postgresql.html">PostgreSQL Connector</a>. Both of these connectors extend a base JDBC connector that is easy to extend to connect other databases. Presto also includes a <a href="docs/current/installation/jdbc.html">JDBC Driver</a> that allows Java applications to connect to Presto.</p>
+
+        
+      </div>
+      
+      <div class="faqGroup">
+        <h2 id="errors">Common Errors and Troubleshooting</h2>
+        
+        <h3 id="showtables">Why can I run SHOW TABLES but I can't SELECT from any of them?</h3>
+        <p>If you can run metadata commands like <code>SHOW TABLES</code> but can&rsquo;t read from them, this means that Presto is able to access your Hive metastore but not your HDFS cluster. You might see one of these error messages:</p>
+
+<ul>
+<li><code>java.io.IOException: Response is null</code></li>
+<li><code>InvalidProtocolBufferException: Message missing required fields</code></li>
+</ul>
+
+<p>There is probably a mismatch between your Hadoop version and the <a href="docs/current/connector/hive.html">Hive Connector</a> version you have selected. Make sure that you set the catalog property <code>connector.name</code> appropriately for your version of Hadoop.</p>
+
+        
+        <h3 id="discovery-server">Why do I see a '_Cannot connect to discovery server for refresh_' error on startup?</h3>
+        <p>This is usually not a problem. The error message appears because the discovery client starts before the embedded discovery server is ready. You will see a <code>succeeded for refresh</code> message shortly after the error message in the logs which shows that everything is working. We will fix the log message eventually but it is purely a cosmetic issue.</p>
+
+        
+        <h3 id="performance-slow">Queries are running slower than expected. What are the factors that influence Presto performance?</h3>
+        <p>The first things to check are the basic machine stats for your workers and coordinators. Measure the load, network, and disk utilization over time to understand where Presto is running out of resources.</p>
+
+<ul>
+<li>If the Presto process is mostly idle, this means that Presto can not retrieve data fast enough from the HDFS data node. This could be caused by network or disk bandwidth or CPU on the data node.</li>
+<li>If the Presto process is using 100% cpu, it might be caused by the use of an expensive to parse input format. For example, the Textfile is a very expensive input format to parse.</li>
+<li>If neither of the above are true, the Presto process may have some sort of internal resource starvation. If this is the case you should take a thread dump of your coordinators and workers with a tool like jstack as a starting point for your investigation.</li>
+</ul>
+
+        
+      </div>
+      
+      <div class="faqGroup">
+        <h2 id="querying">Running Presto Queries</h2>
+        
+        <h3 id="interfaces">Is there a user-friendly interface for running Presto queries?</h3>
+        <p>The <a href="resources.html">resources page</a> lists several external projects designed to provide a user-friendly GUI interface for Presto queries.</p>
+
+        
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+      <div class="footerContainer">
+  <div id="footer_wrap" class="wrapper footerWrapper">
+    <section id="footer_links" class="footerLinks">
+      <div class="footerSection">
+        <h2>Quick Links</h2>
+        <ul>
+          
+          <li><a href="docs/current/">Documentation</a></li>
+          
+          <li><a href="faq/">FAQ</a></li>
+          
+          <li><a href="community/">Community</a></li>
+          
+          <li><a href="tools/">Tools</a></li>
+          
+        </ul>
+      </div><div class="footerSection">
+        <h2>Support</h2>
+        <ul>
+          
+          <li><a href="https://groups.google.com/group/presto-users">Presto-users group</a></li>
+          
+          <li><a href="mailto:presto-users@googlegroups.com">Message Us</a></li>
+          
+          <li><a href="https://github.com/facebook/presto/issues/new">Report An Issue</a></li>
+          
+          <li><a href="https://webchat.freenode.net/?channels=prestodb">IRC on freenode</a></li>
+          
+        </ul>
+      </div><div class="footerSection">
+        <h2>Connect</h2>
+        <ul>
+          
+          <li><a href="https://www.facebook.com/prestodb">Facebook</a></li>
+          
+          <li><a href="https://twitter.com/prestodb">Twitter</a></li>
+          
+        </ul>
+      </div><div class="footerSection">
+        <h2>Open Source</h2>
+        <ul>
+          
+          <li><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License v2</a></li>
+          
+          <li><a href="https://github.com/facebook/presto/blob/master/CONTRIBUTING.md">Contributing</a></li>
+          
+        </ul>
+      </div>
+    </section>
+    <section id="fb_oss" class="fbOpenSourceFooter">
+      <a href="https://code.facebook.com/projects/" target="_blank"><img src="/static/oss_logo.png" alt="Facebook Open Source" title="Facebook Open Source" /></a>
+    </section>
+    <script>hljs.initHighlightingOnLoad();</script>
+  </div>
+</div>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-44373548-11', 'auto');
+  ga('send', 'pageview');
+</script>
+
+
+    </div>
+  </body>
+
+</html>
