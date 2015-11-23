@@ -16,7 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -220,28 +219,28 @@ public final class TypeJsonUtils
             blockBuilder.appendNull();
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = ((ArrayType) type).getElementType().createBlockBuilder(new BlockBuilderStatus(), TypeUtils.EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
             }
-            type.writeObject(blockBuilder, subBlockBuilder);
+            blockBuilder.closeEntry();
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW) && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), TypeUtils.EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             int field = 0;
             for (Object subElement : (Iterable<?>) element) {
                 appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
                 field++;
             }
-            type.writeObject(blockBuilder, subBlockBuilder);
+            blockBuilder.closeEntry();
         }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP) && element instanceof Map<?, ?>) {
-            BlockBuilder subBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), TypeUtils.EXPECTED_ARRAY_SIZE);
+            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
                 appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
                 appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
             }
-            type.writeObject(blockBuilder, subBlockBuilder);
+            blockBuilder.closeEntry();
         }
 
         else if (javaType == boolean.class) {
