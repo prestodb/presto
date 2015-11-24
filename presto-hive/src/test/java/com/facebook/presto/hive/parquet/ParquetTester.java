@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
@@ -164,12 +166,17 @@ public class ParquetTester
         FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
         MessageType fileSchema = fileMetaData.getSchema();
 
+        FileSystem fileSystem = path.getFileSystem(jobConf);
+        long size = fileSystem.getFileStatus(path).getLen();
+        FSDataInputStream inputStream = fileSystem.open(path);
+        ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream);
+
         ParquetReader parquetReader = new ParquetReader(fileSchema,
                                                         fileMetaData.getKeyValueMetaData(),
                                                         fileSchema,
-                                                        path,
                                                         parquetMetadata.getBlocks(),
-                                                        jobConf);
+                                                        jobConf,
+                                                        dataSource);
         assertEquals(parquetReader.getPosition(), 0);
 
         int rowsProcessed = 0;
