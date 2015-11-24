@@ -47,6 +47,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
+    public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
@@ -149,6 +150,14 @@ public final class SystemSessionProperties
                         VARCHAR,
                         Duration.class,
                         queryManagerConfig.getQueryMaxRunTime(),
+                        false,
+                        value -> Duration.valueOf((String) value)),
+                new PropertyMetadata<>(
+                        QUERY_MAX_CPU_TIME,
+                        "Maximum CPU time of a query",
+                        VARCHAR,
+                        Duration.class,
+                        queryManagerConfig.getQueryMaxCpuTime(),
                         false,
                         value -> Duration.valueOf((String) value)),
                 new PropertyMetadata<>(
@@ -327,5 +336,10 @@ public final class SystemSessionProperties
     public static Duration getSplitConcurrencyAdjustmentInterval(Session session)
     {
         return session.getProperty(SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL, Duration.class);
+    }
+
+    public static Duration getQueryMaxCpuTime(Session session)
+    {
+        return session.getProperty(QUERY_MAX_CPU_TIME, Duration.class);
     }
 }

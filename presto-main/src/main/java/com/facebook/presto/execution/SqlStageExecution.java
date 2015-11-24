@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -44,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -180,6 +182,14 @@ public final class SqlStageExecution
         return getAllTasks().stream()
                 .mapToLong(task -> task.getTaskInfo().getStats().getMemoryReservation().toBytes())
                 .sum();
+    }
+
+    public synchronized Duration getTotalCpuTime()
+    {
+        long millis = getAllTasks().stream()
+                .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
+                .sum();
+        return new Duration(millis, TimeUnit.MILLISECONDS);
     }
 
     public StageInfo getStageInfo()
