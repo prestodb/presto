@@ -15,12 +15,11 @@ package com.facebook.presto.hive.parquet.reader;
 
 import com.facebook.presto.hive.parquet.ParquetCodecFactory;
 import com.facebook.presto.hive.parquet.ParquetCorruptionException;
+import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.Path;
 import parquet.column.ColumnDescriptor;
 import parquet.column.page.PageReadStore;
 import parquet.hadoop.metadata.BlockMetaData;
@@ -41,13 +40,11 @@ public class ParquetReader
 {
     public static final int MAX_VECTOR_LENGTH = 1024;
 
-    private final Path file;
     private final MessageType fileSchema;
     private final Map<String, String> extraMetadata;
     private final MessageType requestedSchema;
     private final List<BlockMetaData> blocks;
-    private final Configuration configuration;
-    private final FSDataInputStream inputStream;
+    private final ParquetDataSource dataSource;
     private final ParquetCodecFactory codecFactory;
 
     private int currentBlock;
@@ -62,18 +59,16 @@ public class ParquetReader
     public ParquetReader(MessageType fileSchema,
             Map<String, String> extraMetadata,
             MessageType requestedSchema,
-            Path file,
             List<BlockMetaData> blocks,
-            Configuration configuration)
+            Configuration configuration,
+            ParquetDataSource dataSource)
             throws IOException
     {
         this.fileSchema = fileSchema;
         this.extraMetadata = extraMetadata;
         this.requestedSchema = requestedSchema;
-        this.file = file;
         this.blocks = blocks;
-        this.configuration = configuration;
-        inputStream = file.getFileSystem(configuration).open(file);
+        this.dataSource = dataSource;
         codecFactory = new ParquetCodecFactory(configuration);
         for (BlockMetaData block : blocks) {
             fileRowCount += block.getRowCount();
@@ -85,7 +80,7 @@ public class ParquetReader
     public void close()
             throws IOException
     {
-        inputStream.close();
+        dataSource.close();
         codecFactory.release();
     }
 
@@ -153,10 +148,9 @@ public class ParquetReader
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group having 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
             long startingPosition = metadata.getStartingPos();
-            inputStream.seek(startingPosition);
             int totalSize = Ints.checkedCast(metadata.getTotalSize());
             byte[] buffer = new byte[totalSize];
-            inputStream.readFully(buffer);
+            dataSource.readFully(startingPosition, buffer);
             ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, startingPosition, totalSize);
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0, codecFactory);
             columnReader.setPageReader(columnChunk.readAllPages());
