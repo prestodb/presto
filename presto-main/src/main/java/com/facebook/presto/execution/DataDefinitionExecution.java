@@ -30,6 +30,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -76,6 +77,12 @@ public class DataDefinitionExecution<T extends Statement>
     public long getTotalMemoryReservation()
     {
         return 0;
+    }
+
+    @Override
+    public Duration getTotalCpuTime()
+    {
+        return new Duration(0, TimeUnit.SECONDS);
     }
 
     @Override

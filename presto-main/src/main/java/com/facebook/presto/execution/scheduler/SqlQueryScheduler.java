@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.SetThreadName;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -299,6 +300,14 @@ public class SqlQueryScheduler
         return stages.values().stream()
                 .mapToLong(SqlStageExecution::getMemoryReservation)
                 .sum();
+    }
+
+    public Duration getTotalCpuTime()
+    {
+        long millis = stages.values().stream()
+                .mapToLong(stage -> stage.getTotalCpuTime().toMillis())
+                .sum();
+        return new Duration(millis, MILLISECONDS);
     }
 
     public void start()

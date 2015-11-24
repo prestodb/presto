@@ -188,6 +188,17 @@ public final class SqlQueryExecution
     }
 
     @Override
+    public Duration getTotalCpuTime()
+    {
+        SqlQueryScheduler scheduler = queryScheduler.get();
+        QueryInfo queryInfo = finalQueryInfo.get();
+        if (queryInfo != null) {
+            return queryInfo.getQueryStats().getTotalCpuTime();
+        }
+        return scheduler.getTotalCpuTime();
+    }
+
+    @Override
     public Session getSession()
     {
         return stateMachine.getSession();

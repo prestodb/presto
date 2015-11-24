@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static java.util.Objects.requireNonNull;
@@ -74,6 +75,12 @@ public class FailedQueryExecution
     public long getTotalMemoryReservation()
     {
         return 0;
+    }
+
+    @Override
+    public Duration getTotalCpuTime()
+    {
+        return new Duration(0, TimeUnit.SECONDS);
     }
 
     @Override
