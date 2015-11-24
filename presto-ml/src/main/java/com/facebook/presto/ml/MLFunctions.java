@@ -162,7 +162,7 @@ public final class MLFunctions
 
     private static Block featuresHelper(double... features)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), features.length * (8 + 8));
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), features.length, 8 + 8);
 
         for (int i = 0; i < features.length; i++) {
             BigintType.BIGINT.writeLong(blockBuilder, i);

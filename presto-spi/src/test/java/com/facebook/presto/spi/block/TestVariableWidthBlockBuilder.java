@@ -37,7 +37,7 @@ public class TestVariableWidthBlockBuilder
 
     private void testIsFull(PageBuilderStatus pageBuilderStatus)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(pageBuilderStatus.createBlockBuilderStatus());
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), 32, 32);
         assertTrue(pageBuilderStatus.isEmpty());
         while (!pageBuilderStatus.isFull()) {
             VARCHAR.writeSlice(blockBuilder, Slices.allocate(VARCHAR_VALUE_SIZE));
