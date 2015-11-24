@@ -39,18 +39,13 @@ public class FixedWidthBlockBuilder
 
     private int currentEntrySize;
 
-    public FixedWidthBlockBuilder(int fixedSize, BlockBuilderStatus blockBuilderStatus)
-    {
-        this(fixedSize, blockBuilderStatus, blockBuilderStatus.getMaxBlockSizeInBytes());
-    }
-
-    public FixedWidthBlockBuilder(int fixedSize, BlockBuilderStatus blockBuilderStatus, int expectedSize)
+    public FixedWidthBlockBuilder(int fixedSize, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         super(fixedSize);
 
         this.blockBuilderStatus = blockBuilderStatus;
-        this.sliceOutput = new DynamicSliceOutput(expectedSize);
-        this.valueIsNull = new DynamicSliceOutput(1024);
+        this.sliceOutput = new DynamicSliceOutput(fixedSize * expectedEntries);
+        this.valueIsNull = new DynamicSliceOutput(expectedEntries);
     }
 
     public FixedWidthBlockBuilder(int fixedSize, int positionCount)
