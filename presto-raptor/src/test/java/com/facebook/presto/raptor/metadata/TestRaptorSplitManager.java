@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -94,7 +95,7 @@ public class TestRaptorSplitManager
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
         String nodeName = UUID.randomUUID().toString();
-        nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
+        nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, Instant.EPOCH));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         RaptorMetadata metadata = new RaptorMetadata(connectorId, dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
@@ -167,7 +168,7 @@ public class TestRaptorSplitManager
             throws InterruptedException, URISyntaxException
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN);
+        PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, Instant.EPOCH);
         nodeManager.addNode("fbraptor", node);
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), nodeManager, shardManager, true);
 

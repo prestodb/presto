@@ -29,10 +29,13 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
+import org.joda.time.DateTime;
+import org.joda.time.format.ISODateTimeFormat;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -63,15 +66,15 @@ public class TestDiscoveryNodeManager
         testHttpClient = new TestingHttpClient(input -> new TestingResponse(OK, ArrayListMultimap.create(), ACTIVE.name().getBytes()));
 
         expectedVersion = new NodeVersion("1");
-        coordinator = new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion);
+        coordinator = new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, Instant.now());
         activeNodes = ImmutableList.of(
-                new PrestoNode(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion),
-                new PrestoNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion),
-                new PrestoNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion),
+                new PrestoNode(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion, Instant.now()),
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion, Instant.now()),
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion, Instant.now()),
                 coordinator);
         inactiveNodes = ImmutableList.of(
-                new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN),
-                new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"))
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, Instant.EPOCH),
+                new PrestoNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), Instant.now())
         );
 
         List<ServiceDescriptor> descriptors = new ArrayList<>();
@@ -81,6 +84,7 @@ public class TestDiscoveryNodeManager
                     .addProperty("http", node.getHttpUri().toString())
                     .addProperty("node_version", node.getNodeVersion().toString())
                     .addProperty("coordinator", String.valueOf(node.equals(coordinator)))
+                    .addProperty("start_time", ISODateTimeFormat.basicDateTime().print(DateTime.now()))
                     .build());
         }
 

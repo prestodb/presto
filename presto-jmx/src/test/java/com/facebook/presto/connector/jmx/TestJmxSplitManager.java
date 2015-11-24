@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -47,8 +48,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestJmxSplitManager
 {
-    private final Node localNode = new TestingNode("host1");
-    private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2"), new TestingNode("host3"));
+    private final Node localNode = new TestingNode("host1", Instant.now());
+    private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2", Instant.now()), new TestingNode("host3", Instant.now()));
 
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", VARCHAR);
     private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle));
@@ -161,10 +162,12 @@ public class TestJmxSplitManager
             implements Node
     {
         private final String hostname;
+        private final Instant startTime;
 
-        public TestingNode(String hostname)
+        public TestingNode(String hostname, Instant startTime)
         {
             this.hostname = hostname;
+            this.startTime = startTime;
         }
 
         @Override
@@ -177,6 +180,12 @@ public class TestJmxSplitManager
         public URI getHttpUri()
         {
             return URI.create(format("http://%s:8080", hostname));
+        }
+
+        @Override
+        public Instant getStartTime()
+        {
+            return startTime;
         }
 
         @Override

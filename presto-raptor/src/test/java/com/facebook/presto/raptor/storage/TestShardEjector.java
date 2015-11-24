@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -250,6 +251,12 @@ public class TestShardEjector
         public URI getHttpUri()
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Instant getStartTime()
+        {
+            return Instant.EPOCH;
         }
 
         @Override

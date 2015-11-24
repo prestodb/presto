@@ -14,12 +14,15 @@
 package com.facebook.presto.spi;
 
 import java.net.URI;
+import java.time.Instant;
 
 public interface Node
 {
     HostAddress getHostAndPort();
 
     URI getHttpUri();
+
+    Instant getStartTime();
 
     String getNodeIdentifier();
 }

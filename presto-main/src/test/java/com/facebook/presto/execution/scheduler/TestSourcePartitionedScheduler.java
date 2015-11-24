@@ -60,6 +60,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -96,9 +97,9 @@ public class TestSourcePartitionedScheduler
     public TestSourcePartitionedScheduler()
     {
         nodeManager.addNode(CONNECTOR_ID,
-                new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN),
-                new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN),
-                new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
+                new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, Instant.EPOCH),
+                new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, Instant.EPOCH),
+                new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, Instant.EPOCH));
     }
 
     @BeforeClass
@@ -314,9 +315,9 @@ public class TestSourcePartitionedScheduler
         // use private node manager so we can add a node later
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         nodeManager.addNode(CONNECTOR_ID,
-                new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN),
-                new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN),
-                new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
+                new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, Instant.EPOCH),
+                new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, Instant.EPOCH),
+                new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, Instant.EPOCH));
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 
         // Schedule 15 splits - there are 3 nodes, each node should get 5 splits
@@ -334,7 +335,7 @@ public class TestSourcePartitionedScheduler
         }
 
         // Add new node
-        Node additionalNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
+        Node additionalNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, Instant.EPOCH);
         nodeManager.addNode(CONNECTOR_ID, additionalNode);
 
         // Schedule 5 splits in another query. Since the new node does not have any splits, all 5 splits are assigned to the new node

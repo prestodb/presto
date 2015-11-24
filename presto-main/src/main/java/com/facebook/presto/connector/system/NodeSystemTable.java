@@ -37,6 +37,8 @@ import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -49,6 +51,7 @@ public class NodeSystemTable
             .column("node_id", VARCHAR)
             .column("http_uri", VARCHAR)
             .column("node_version", VARCHAR)
+            .column("start_time", TIMESTAMP_WITH_TIME_ZONE)
             .column("coordinator", BOOLEAN)
             .column("state", VARCHAR)
             .build();
@@ -78,17 +81,22 @@ public class NodeSystemTable
     {
         Builder table = InMemoryRecordSet.builder(NODES_TABLE);
         AllNodes allNodes = nodeManager.getAllNodes();
-        addRows(table, allNodes.getActiveNodes(), ACTIVE);
-        addRows(table, allNodes.getInactiveNodes(), INACTIVE);
-        addRows(table, allNodes.getShuttingDownNodes(), SHUTTING_DOWN);
+        addRows(table, allNodes.getActiveNodes(), session, ACTIVE);
+        addRows(table, allNodes.getInactiveNodes(), session, INACTIVE);
+        addRows(table, allNodes.getShuttingDownNodes(), session, SHUTTING_DOWN);
         return table.build().cursor();
     }
 
-    private void addRows(Builder table, Set<Node> nodes, NodeState state)
+    private void addRows(Builder table, Set<Node> nodes, ConnectorSession session, NodeState state)
     {
         for (Node node : nodes) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase());
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), getNodeStartTime(node, session), isCoordinator(node), state.toString().toLowerCase());
         }
+    }
+
+    private static long getNodeStartTime(Node node, ConnectorSession session)
+    {
+        return packDateTimeWithZone(node.getStartTime().toEpochMilli(), session.getTimeZoneKey());
     }
 
     private static String getNodeVersion(Node node)
