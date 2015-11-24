@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
@@ -181,6 +182,17 @@ public final class SqlQueryExecution
             return queryInfo.getQueryStats().getTotalMemoryReservation().toBytes();
         }
         return scheduler.getTotalMemoryReservation();
+    }
+
+    @Override
+    public Duration getTotalCpuTime()
+    {
+        SqlQueryScheduler scheduler = queryScheduler.get();
+        QueryInfo queryInfo = finalQueryInfo.get();
+        if (queryInfo != null) {
+            return queryInfo.getQueryStats().getTotalCpuTime();
+        }
+        return new Duration(scheduler.getTotalCpuTime(), TimeUnit.MILLISECONDS);
     }
 
     @Override

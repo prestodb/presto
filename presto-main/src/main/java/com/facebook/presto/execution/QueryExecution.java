@@ -36,6 +36,8 @@ public interface QueryExecution
 
     long getTotalMemoryReservation();
 
+    Duration getTotalCpuTime();
+
     Session getSession();
 
     void start();

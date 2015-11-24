@@ -279,6 +279,13 @@ public class SqlQueryScheduler
                 .sum();
     }
 
+    public long getTotalCpuTime()
+    {
+        return stages.values().stream()
+                .mapToLong(SqlStageExecution::getCpuTime)
+                .sum();
+    }
+
     public void start()
     {
         if (started.compareAndSet(false, true)) {

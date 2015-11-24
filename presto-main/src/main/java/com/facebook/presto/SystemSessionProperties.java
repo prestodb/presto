@@ -47,6 +47,7 @@ public final class SystemSessionProperties
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
+    public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String COLUMNAR_PROCESSING = "columnar_processing";
@@ -143,6 +144,14 @@ public final class SystemSessionProperties
                         VARCHAR,
                         Duration.class,
                         queryManagerConfig.getQueryMaxRunTime(),
+                        false,
+                        value -> Duration.valueOf((String) value)),
+                new PropertyMetadata<>(
+                        QUERY_MAX_CPU_TIME,
+                        "Maximum CPU time of a query",
+                        VARCHAR,
+                        Duration.class,
+                        queryManagerConfig.getQueryMaxCpuTime(),
                         false,
                         value -> Duration.valueOf((String) value)),
                 new PropertyMetadata<>(
@@ -253,6 +262,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxRunTime(Session session)
     {
         return session.getProperty(QUERY_MAX_RUN_TIME, Duration.class);
+    }
+
+    public static Duration getQueryMaxCpuTime(Session session)
+    {
+        return session.getProperty(QUERY_MAX_CPU_TIME, Duration.class);
     }
 
     private static <T> T getPropertyOr(Session session, String propertyName, String defaultPropertyName, Class<T> type)
