@@ -32,7 +32,7 @@ public class ExampleSplit
     private final String tableName;
     private final URI uri;
     private final boolean remotelyAccessible;
-    private final ImmutableList<HostAddress> addresses;
+    private final List<HostAddress> addresses;
 
     @JsonCreator
     public ExampleSplit(
