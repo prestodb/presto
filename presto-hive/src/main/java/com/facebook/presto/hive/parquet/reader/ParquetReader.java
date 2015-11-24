@@ -65,6 +65,7 @@ public class ParquetReader
         for (BlockMetaData block : blocks) {
             fileRowCount += block.getRowCount();
         }
+        initializeColumnReaders();
     }
 
     public void close()
@@ -107,6 +108,10 @@ public class ParquetReader
 
         nextRowInGroup += batchSize;
         currentPosition += batchSize;
+        for (ColumnDescriptor column : requestedSchema.getColumns()) {
+            ParquetColumnReader columnReader = columnReadersMap.get(column);
+            columnReader.prepareNextRead(batchSize);
+        }
         return batchSize;
     }
 
@@ -117,23 +122,27 @@ public class ParquetReader
         if (rowCount == -1) {
             return false;
         }
-        nextRowInGroup = 0;
+        nextRowInGroup = 0L;
         currentGroupRowCount = rowCount;
         columnReadersMap.clear();
+        initializeColumnReaders();
         return true;
     }
 
-    public Block readBlock(ColumnDescriptor columnDescriptor, int vectorSize, Type type)
+    public Block readBlock(ColumnDescriptor columnDescriptor, Type type)
             throws IOException
     {
-        ParquetColumnReader columnReader;
-        if (columnReadersMap.containsKey(columnDescriptor)) {
-            columnReader = columnReadersMap.get(columnDescriptor);
+        ParquetColumnReader columnReader = columnReadersMap.get(columnDescriptor);
+        if (columnReader.getPageReader() == null) {
+            columnReader.setPageReader(fileReader.readColumn(columnDescriptor));
         }
-        else {
-            columnReader = new ParquetColumnReader(columnDescriptor, fileReader.readColumn(columnDescriptor));
-            columnReadersMap.put(columnDescriptor, columnReader);
+        return columnReader.readBlock(type);
+    }
+
+    private void initializeColumnReaders()
+    {
+        for (ColumnDescriptor column : this.requestedSchema.getColumns()) {
+            this.columnReadersMap.put(column, ParquetColumnReader.createReader(column));
         }
-        return columnReader.readBlock(vectorSize, type);
     }
 }
