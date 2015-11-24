@@ -70,10 +70,16 @@ public class TupleDomainParquetPredicate<C>
 
         for (ColumnReference<C> columnReference : columnReferences) {
             Statistics<?> statistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
-            Domain domain = getDomain(columnReference.getType(), numberOfRows, statistics);
-            if (domain != null) {
-                domains.put(columnReference.getColumn(), domain);
+
+            Domain domain;
+            if (statistics == null || statistics.isEmpty()) {
+                // no stats for column
+                domain = Domain.all(columnReference.getType());
             }
+            else {
+                domain = getDomain(columnReference.getType(), numberOfRows, statistics);
+            }
+            domains.put(columnReference.getColumn(), domain);
         }
         TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
@@ -100,8 +106,8 @@ public class TupleDomainParquetPredicate<C>
     @VisibleForTesting
     public static Domain getDomain(Type type, long rowCount, Statistics<?> statistics)
     {
-        if (statistics == null || statistics.isEmpty() || !(Comparable.class.isAssignableFrom(type.getJavaType()))) {
-            return null;
+        if (statistics == null || statistics.isEmpty()) {
+            return Domain.all(type);
         }
 
         if (statistics.getNumNulls() == rowCount) {
