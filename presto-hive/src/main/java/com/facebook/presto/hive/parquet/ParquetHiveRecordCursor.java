@@ -57,12 +57,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
@@ -360,6 +363,7 @@ public class ParquetHiveRecordCursor
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
+        ParquetDataSource dataSource = buildHdfsParquetDataSource(path, configuration, start, length);
         try {
             ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path, NO_FILTER);
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
@@ -387,7 +391,7 @@ public class ParquetHiveRecordCursor
             if (predicatePushdownEnabled) {
                 ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
                 splitGroup = splitGroup.stream()
-                        .filter(block -> predicateMatches(parquetPredicate, block, configuration, path, requestedSchema, effectivePredicate))
+                        .filter(block -> predicateMatches(parquetPredicate, block, configuration, dataSource, requestedSchema, effectivePredicate))
                         .collect(toList());
             }
 
@@ -404,12 +408,24 @@ public class ParquetHiveRecordCursor
             realReader.initialize(split, taskContext);
             return realReader;
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+        catch (Exception e) {
+            try {
+                dataSource.close();
+            }
+            catch (IOException ignored) {
+            }
+            if (e instanceof PrestoException) {
+                throw (PrestoException) e;
+            }
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
+            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+            }
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
     }
 
