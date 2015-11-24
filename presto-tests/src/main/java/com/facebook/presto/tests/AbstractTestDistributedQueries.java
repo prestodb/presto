@@ -171,6 +171,18 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testCreateTableAsSelectUnionAllPushdown()
+            throws Exception
+    {
+        assertCreateTableAsSelect(
+                "test_union_all",
+                "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 0 UNION ALL " +
+                        "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 1",
+                "SELECT orderdate, orderkey, totalprice FROM orders",
+                "SELECT count(*) FROM orders");
+    }
+
+    @Test
     public void testCreateTableAsSelectSampled()
             throws Exception
     {

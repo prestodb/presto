@@ -33,7 +33,6 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -41,9 +40,12 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static java.util.stream.Collectors.toSet;
 
 /*
  * Major HACK alert!!!
@@ -65,11 +67,11 @@ public class BeginTableWrite
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan, new Context());
     }
 
     private class Rewriter
-            extends SimplePlanRewriter<Void>
+            extends SimplePlanRewriter<Context>
     {
         private final Session session;
 
@@ -79,15 +81,16 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Void> context)
+        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Context> context)
         {
-            // TODO: begin create table or insert in pre-execution step, not here
             // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
             // callback can create the table and abort the table creation if the query fails.
+
+            TableWriterNode.WriterTarget writerTarget = context.get().getMaterializedHandle(node.getTarget()).get();
             return new TableWriterNode(
                     node.getId(),
                     node.getSource().accept(this, context),
-                    createWriterTarget(node.getTarget()),
+                    writerTarget,
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getOutputSymbols(),
@@ -95,26 +98,29 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
+        public PlanNode visitDelete(DeleteNode node, RewriteContext<Context> context)
         {
-            // TODO: begin delete in pre-execution step, not here
-            TableHandle handle = metadata.beginDelete(session, node.getTarget().getHandle());
+            TableWriterNode.DeleteHandle deleteHandle = (TableWriterNode.DeleteHandle) context.get().getMaterializedHandle(node.getTarget()).get();
             return new DeleteNode(
                     node.getId(),
-                    rewriteDeleteTableScan(node.getSource(), handle, context),
-                    new DeleteHandle(handle),
+                    rewriteDeleteTableScan(node.getSource(), deleteHandle.getHandle(), context),
+                    deleteHandle,
                     node.getRowId(),
                     node.getOutputSymbols());
         }
 
         @Override
-        public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<Void> context)
+        public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<Context> context)
         {
-            PlanNode child = node.getSource().accept(this, context);
+            PlanNode child = node.getSource();
 
-            TableWriterNode.WriterTarget target = getTarget(child);
+            TableWriterNode.WriterTarget originalTarget = getTarget(child);
+            TableWriterNode.WriterTarget newTarget = createWriterTarget(originalTarget);
 
-            return new TableCommitNode(node.getId(), child, target, node.getOutputSymbols());
+            context.get().addMaterializedHandle(originalTarget, newTarget);
+            child = child.accept(this, context);
+
+            return new TableCommitNode(node.getId(), child, newTarget, node.getOutputSymbols());
         }
 
         public TableWriterNode.WriterTarget getTarget(PlanNode node)
@@ -126,14 +132,17 @@ public class BeginTableWrite
                 return ((DeleteNode) node).getTarget();
             }
             if (node instanceof ExchangeNode) {
-                PlanNode source = Iterables.getOnlyElement(node.getSources());
-                return getTarget(source);
+                Set<TableWriterNode.WriterTarget> writerTargets = node.getSources().stream()
+                        .map(this::getTarget)
+                        .collect(toSet());
+                return Iterables.getOnlyElement(writerTargets);
             }
             throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
         }
 
         private TableWriterNode.WriterTarget createWriterTarget(TableWriterNode.WriterTarget target)
         {
+            // TODO: begin these operations in pre-execution step, not here
             if (target instanceof TableWriterNode.CreateName) {
                 TableWriterNode.CreateName create = (TableWriterNode.CreateName) target;
                 return new TableWriterNode.CreateHandle(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata()));
@@ -142,10 +151,14 @@ public class BeginTableWrite
                 TableWriterNode.InsertReference insert = (TableWriterNode.InsertReference) target;
                 return new TableWriterNode.InsertHandle(metadata.beginInsert(session, insert.getHandle()));
             }
+            if (target instanceof TableWriterNode.DeleteHandle) {
+                TableWriterNode.DeleteHandle delete = (TableWriterNode.DeleteHandle) target;
+                return new TableWriterNode.DeleteHandle(metadata.beginDelete(session, delete.getHandle()));
+            }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
-        private PlanNode rewriteDeleteTableScan(PlanNode node, TableHandle handle, RewriteContext<Void> context)
+        private PlanNode rewriteDeleteTableScan(PlanNode node, TableHandle handle, RewriteContext<Context> context)
         {
             if (node instanceof TableScanNode) {
                 TableScanNode scan = (TableScanNode) node;
@@ -181,6 +194,25 @@ public class BeginTableWrite
                 return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode: " + node.getClass().getName());
+        }
+    }
+
+    public static class Context
+    {
+        private Optional<TableWriterNode.WriterTarget> handle = Optional.empty();
+        private Optional<TableWriterNode.WriterTarget> materializedHandle = Optional.empty();
+
+        public void addMaterializedHandle(TableWriterNode.WriterTarget handle, TableWriterNode.WriterTarget materializedHandle)
+        {
+            checkState(!this.handle.isPresent(), "can only have one WriterTarget in a subtree");
+            this.handle = Optional.of(handle);
+            this.materializedHandle = Optional.of(materializedHandle);
+        }
+
+        public Optional<TableWriterNode.WriterTarget> getMaterializedHandle(TableWriterNode.WriterTarget handle)
+        {
+            checkState(this.handle.get().equals(handle), "can't find materialized handle for WriterTarget");
+            return materializedHandle;
         }
     }
 }

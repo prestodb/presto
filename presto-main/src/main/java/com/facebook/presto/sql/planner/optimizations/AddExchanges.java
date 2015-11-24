@@ -710,6 +710,12 @@ public class AddExchanges
         public PlanWithProperties visitTableCommit(TableCommitNode node, Context context)
         {
             PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
+
+            // if the child is already a gathering exchange, don't add another
+            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType().equals(ExchangeNode.Type.GATHER)) {
+                return rebaseAndDeriveProperties(node, child);
+            }
+
             if (child.getProperties().isDistributed() || !child.getProperties().isCoordinatorOnly()) {
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), child.getNode()),
