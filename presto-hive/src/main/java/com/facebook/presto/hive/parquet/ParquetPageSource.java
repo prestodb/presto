@@ -232,7 +232,7 @@ class ParquetPageSource
                 }
                 else {
                     ColumnDescriptor columnDescriptor = this.requestedSchema.getColumns().get(fieldId);
-                    blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(columnDescriptor, batchSize, type));
+                    blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(columnDescriptor, type));
                 }
             }
             Page page = new Page(batchSize, blocks);
@@ -287,14 +287,12 @@ class ParquetPageSource
             implements LazyBlockLoader<LazyBlock>
     {
         private final int expectedBatchId = batchId;
-        private final int batchSize;
         private final ColumnDescriptor columnDescriptor;
         private final Type type;
         private boolean loaded;
 
-        public ParquetBlockLoader(ColumnDescriptor columnDescriptor, int batchSize, Type type)
+        public ParquetBlockLoader(ColumnDescriptor columnDescriptor, Type type)
         {
-            this.batchSize = batchSize;
             this.columnDescriptor = columnDescriptor;
             this.type = requireNonNull(type, "type is null");
         }
@@ -309,7 +307,7 @@ class ParquetPageSource
             checkState(batchId == expectedBatchId);
 
             try {
-                Block block = parquetReader.readBlock(columnDescriptor, batchSize, type);
+                Block block = parquetReader.readBlock(columnDescriptor, type);
                 lazyBlock.setBlock(block);
             }
             catch (IOException e) {
