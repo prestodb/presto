@@ -42,7 +42,6 @@ import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
-import com.facebook.presto.operator.scalar.FailureFunction;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonOperators;
@@ -348,7 +347,6 @@ public class FunctionRegistry
                 .scalar(ArrayFunctions.class)
                 .scalar(CombineHashFunction.class)
                 .scalar(JsonOperators.class)
-                .scalar(FailureFunction.class)
                 .function(IDENTITY_CAST)
                 .functions(ARRAY_CONTAINS, ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
                 .functions(ARRAY_MIN, ARRAY_MAX)
