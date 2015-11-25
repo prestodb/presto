@@ -36,7 +36,7 @@ public class OdsBenchmarkResultWriter
         requireNonNull(outputStream, "outputStream is null");
         this.entity = entity;
         try {
-            jsonGenerator = new JsonFactory().createJsonGenerator(outputStream, JsonEncoding.UTF8);
+            jsonGenerator = new JsonFactory().createGenerator(outputStream, JsonEncoding.UTF8);
             jsonGenerator.writeStartArray();
         }
         catch (IOException e) {
