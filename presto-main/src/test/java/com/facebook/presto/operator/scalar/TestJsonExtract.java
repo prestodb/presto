@@ -320,7 +320,7 @@ public class TestJsonExtract
             throws IOException
     {
         JsonFactory jsonFactory = new JsonFactory();
-        JsonParser jsonParser = jsonFactory.createJsonParser(json);
+        JsonParser jsonParser = jsonFactory.createParser(json);
         jsonParser.nextToken(); // Advance to the first token
         Slice extract = jsonExtractor.extract(jsonParser);
         return (extract == null) ? null : extract.toStringUtf8();

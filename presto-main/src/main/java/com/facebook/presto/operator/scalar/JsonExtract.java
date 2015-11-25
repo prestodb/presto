@@ -124,7 +124,7 @@ public final class JsonExtract
     {
         requireNonNull(jsonInput, "jsonInput is null");
         try {
-            try (JsonParser jsonParser = JSON_FACTORY.createJsonParser(jsonInput.getInput())) {
+            try (JsonParser jsonParser = JSON_FACTORY.createParser(jsonInput.getInput())) {
                 // Initialize by advancing to first token and make sure it exists
                 if (jsonParser.nextToken() == null) {
                     throw new JsonParseException("Missing starting token", jsonParser.getCurrentLocation());
@@ -287,7 +287,7 @@ public final class JsonExtract
             }
 
             DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createJsonGenerator(dynamicSliceOutput)) {
+            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
                 jsonGenerator.copyCurrentStructure(jsonParser);
             }
             return dynamicSliceOutput.slice();
