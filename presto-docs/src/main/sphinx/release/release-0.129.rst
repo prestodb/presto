@@ -17,3 +17,5 @@ Hive Changes
   in your Hive catalog properties file. Enabling this feature is required
   to access S3 data in the China isolated region, but prevents accessing
   data outside the current region.
+* Server-side encryption is now supported for S3. To enable this feature,
+  use ``hive.s3.sse.enabled=true`` in your Hive catalog properties file.

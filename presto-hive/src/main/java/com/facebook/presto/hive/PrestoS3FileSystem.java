@@ -37,6 +37,7 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.Transfer;
@@ -128,6 +129,7 @@ public class PrestoS3FileSystem
     public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
     public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
     public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
+    public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -143,6 +145,7 @@ public class PrestoS3FileSystem
     private Duration maxRetryTime;
     private boolean useInstanceCredentials;
     private boolean pinS3ClientToCurrentRegion;
+    private boolean sseEnabled;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -170,6 +173,7 @@ public class PrestoS3FileSystem
         long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
+        this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -310,7 +314,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile),
+                new PrestoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile, sseEnabled),
                 statistics);
     }
 
@@ -846,10 +850,11 @@ public class PrestoS3FileSystem
         private final String host;
         private final String key;
         private final File tempFile;
+        private final boolean sseEnabled;
 
         private boolean closed;
 
-        public PrestoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key, File tempFile)
+        public PrestoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key, File tempFile, boolean sseEnabled)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -860,6 +865,7 @@ public class PrestoS3FileSystem
             this.host = requireNonNull(host, "host is null");
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
+            this.sseEnabled = sseEnabled;
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -892,7 +898,14 @@ public class PrestoS3FileSystem
             try {
                 log.debug("Starting upload for host: %s, key: %s, file: %s, size: %s", host, key, tempFile, tempFile.length());
                 STATS.uploadStarted();
-                Upload upload = transferManager.upload(host, key, tempFile);
+
+                PutObjectRequest request = new PutObjectRequest(host, key, tempFile);
+                if (sseEnabled) {
+                    ObjectMetadata metadata = new ObjectMetadata();
+                    metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
+                    request.setMetadata(metadata);
+                }
+                Upload upload = transferManager.upload(request);
 
                 if (log.isDebugEnabled()) {
                     upload.addProgressListener(createProgressListener(upload));
