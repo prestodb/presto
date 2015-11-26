@@ -118,6 +118,16 @@ public interface SchemaDao
             ")")
     void createTableDeletedShards();
 
+    @SqlUpdate("CREATE INDEX IF NOT EXISTS\n" +
+            " deleted_shards_delete_time_clean_time\n" +
+            " ON deleted_shards (delete_time, clean_time)")
+    void createIndexDeletedShardsCleanTime();
+
+    @SqlUpdate("CREATE INDEX IF NOT EXISTS\n" +
+            " deleted_shards_delete_time_purge_time\n" +
+            " ON deleted_shards (delete_time, purge_time)")
+    void createIndexDeletedShardsPurgeTime();
+
     @SqlUpdate("CREATE TABLE IF NOT EXISTS deleted_shard_nodes (\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
             "  node_id INT,\n" +
@@ -127,4 +137,14 @@ public interface SchemaDao
             "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
             ")")
     void createTableDeletedShardNodes();
+
+    @SqlUpdate("CREATE INDEX IF NOT EXISTS\n" +
+            " deleted_shard_nodes_nodeid_delete_time_clean_time\n" +
+            " ON deleted_shard_nodes (node_id, delete_time, clean_time)")
+    void createIndexDeletedShardNodesCleanTime();
+
+    @SqlUpdate("CREATE INDEX IF NOT EXISTS\n" +
+            " deleted_shard_nodes_nodeid_delete_time_purge_time\n" +
+            " ON deleted_shard_nodes (node_id, delete_time, purge_time)")
+    void createIndexDeletedShardNodesPurgeTime();
 }

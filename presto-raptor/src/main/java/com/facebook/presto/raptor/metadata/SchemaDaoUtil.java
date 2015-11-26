@@ -57,6 +57,12 @@ public final class SchemaDaoUtil
         dao.createTableCreatedShardNodes();
         dao.createTableDeletedShards();
         dao.createTableDeletedShardNodes();
+
+        // create indexes
+        dao.createIndexDeletedShardsCleanTime();
+        dao.createIndexDeletedShardsPurgeTime();
+        dao.createIndexDeletedShardNodesCleanTime();
+        dao.createIndexDeletedShardNodesPurgeTime();
     }
 
     private static void sleep(Duration duration)
