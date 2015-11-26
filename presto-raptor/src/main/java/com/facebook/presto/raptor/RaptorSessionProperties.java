@@ -48,7 +48,7 @@ public class RaptorSessionProperties
                         true),
                 dataSizeSessionProperty(
                         READER_MAX_MERGE_DISTANCE,
-                        "Reader: Maximum size of gap between to reads to merge into a single read",
+                        "Reader: Maximum size of gap between two reads to merge into a single read",
                         config.getOrcMaxMergeDistance(),
                         false),
                 dataSizeSessionProperty(
