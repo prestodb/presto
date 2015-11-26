@@ -44,6 +44,7 @@ public class HdfsConfigurationUpdater
     private final String s3AwsSecretKey;
     private final boolean s3UseInstanceCredentials;
     private final boolean s3SslEnabled;
+    private final boolean s3SseEnabled;
     private final int s3MaxClientRetries;
     private final int s3MaxErrorRetries;
     private final Duration s3MaxBackoffTime;
@@ -72,6 +73,7 @@ public class HdfsConfigurationUpdater
         this.s3AwsSecretKey = hiveClientConfig.getS3AwsSecretKey();
         this.s3UseInstanceCredentials = hiveClientConfig.isS3UseInstanceCredentials();
         this.s3SslEnabled = hiveClientConfig.isS3SslEnabled();
+        this.s3SseEnabled = hiveClientConfig.isS3SseEnabled();
         this.s3MaxClientRetries = hiveClientConfig.getS3MaxClientRetries();
         this.s3MaxErrorRetries = hiveClientConfig.getS3MaxErrorRetries();
         this.s3MaxBackoffTime = hiveClientConfig.getS3MaxBackoffTime();
@@ -135,6 +137,7 @@ public class HdfsConfigurationUpdater
         // set config for S3
         config.setBoolean(PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS, s3UseInstanceCredentials);
         config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, s3SslEnabled);
+        config.setBoolean(PrestoS3FileSystem.S3_SSE_ENABLED, s3SseEnabled);
         config.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, s3MaxClientRetries);
         config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, s3MaxErrorRetries);
         config.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, s3MaxBackoffTime.toString());

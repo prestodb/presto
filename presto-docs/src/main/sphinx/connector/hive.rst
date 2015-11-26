@@ -99,6 +99,8 @@ Property Name                                      Description                  
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
+
+``hive.s3.sse.enabled``                            Enable S3 server-side encryption.                            ``false``
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
