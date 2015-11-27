@@ -38,19 +38,19 @@ public abstract class SqlAggregationFunction
         return new SimpleSqlAggregationFunction(name, description, function);
     }
 
-    protected SqlAggregationFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes)
+    protected SqlAggregationFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes)
     {
-        this(name, typeParameters, returnType, argumentTypes, AGGREGATE);
+        this(name, typeParameterRequirements, returnType, argumentTypes, AGGREGATE);
     }
 
-    protected SqlAggregationFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, FunctionKind kind)
+    protected SqlAggregationFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes, FunctionKind kind)
     {
         requireNonNull(name, "name is null");
-        requireNonNull(typeParameters, "typeParameters is null");
+        requireNonNull(typeParameterRequirements, "typeParameters is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
         checkArgument(kind == AGGREGATE || kind == APPROXIMATE_AGGREGATE, "kind must be an aggregate");
-        this.signature = new Signature(name, kind, ImmutableList.copyOf(typeParameters), returnType, ImmutableList.copyOf(argumentTypes), false);
+        this.signature = new Signature(name, kind, ImmutableList.copyOf(typeParameterRequirements), returnType, ImmutableList.copyOf(argumentTypes), false);
     }
 
     @Override
@@ -85,7 +85,7 @@ public abstract class SqlAggregationFunction
                 InternalAggregationFunction function)
         {
             super(name,
-                    ImmutableList.<TypeParameter>of(),
+                    ImmutableList.<TypeParameterRequirement>of(),
                     function.getFinalType().getTypeSignature().toString(),
                     function.getParameterTypes().stream()
                             .map(Type::getTypeSignature)

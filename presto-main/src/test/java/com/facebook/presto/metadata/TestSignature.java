@@ -79,7 +79,7 @@ public class TestSignature
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        Signature signature = new Signature("foo", SCALAR, ImmutableList.<TypeParameter>of(), "boolean", ImmutableList.of("bigint"), false);
+        Signature signature = new Signature("foo", SCALAR, ImmutableList.<TypeParameterRequirement>of(), "boolean", ImmutableList.of("bigint"), false);
         assertNotNull(signature.bindTypeParameters(ImmutableList.of(BIGINT), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(VARCHAR), true, typeManager));
         assertNull(signature.bindTypeParameters(ImmutableList.of(VARCHAR, BIGINT), true, typeManager));

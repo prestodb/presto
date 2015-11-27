@@ -63,7 +63,7 @@ public class TestFunctionRegistry
             if (operatorType == OperatorType.CAST) {
                 continue;
             }
-            if (!function.getSignature().getTypeParameters().isEmpty()) {
+            if (!function.getSignature().getTypeParameterRequirements().isEmpty()) {
                 continue;
             }
             Signature exactOperator = registry.resolveOperator(operatorType, resolveTypes(function.getSignature().getArgumentTypes(), typeManager));

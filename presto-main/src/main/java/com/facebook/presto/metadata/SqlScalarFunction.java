@@ -47,18 +47,18 @@ public abstract class SqlScalarFunction
         return new SimpleSqlScalarFunction(signature, description, hidden, methodHandle, instanceFactory, deterministic, nullable, nullableArguments);
     }
 
-    protected SqlScalarFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes)
+    protected SqlScalarFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes)
     {
-        this(name, typeParameters, returnType, argumentTypes, false);
+        this(name, typeParameterRequirements, returnType, argumentTypes, false);
     }
 
-    protected SqlScalarFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity)
+    protected SqlScalarFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes, boolean variableArity)
     {
         requireNonNull(name, "name is null");
-        requireNonNull(typeParameters, "typeParameters is null");
+        requireNonNull(typeParameterRequirements, "typeParameters is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        this.signature = new Signature(name, SCALAR, ImmutableList.copyOf(typeParameters), returnType, ImmutableList.copyOf(argumentTypes), variableArity);
+        this.signature = new Signature(name, SCALAR, ImmutableList.copyOf(typeParameterRequirements), returnType, ImmutableList.copyOf(argumentTypes), variableArity);
     }
 
     @Override
@@ -96,7 +96,7 @@ public abstract class SqlScalarFunction
                     signature.getArgumentTypes().stream()
                             .map(TypeSignature::toString)
                             .collect(ImmutableCollectors.toImmutableList()));
-            checkArgument(signature.getTypeParameters().isEmpty(), "%s is parametric", signature);
+            checkArgument(signature.getTypeParameterRequirements().isEmpty(), "%s is parametric", signature);
             this.description = description;
             this.hidden = hidden;
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
