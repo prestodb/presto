@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,8 +27,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 
 @Immutable
@@ -36,33 +39,25 @@ public class ClientTypeSignature
     private static final Pattern PATTERN = Pattern.compile(".*[<>,].*");
     private final String rawType;
     private final List<ClientTypeSignatureParameter> typeArguments;
-    private final List<Object> literalArguments;
 
     public ClientTypeSignature(TypeSignature typeSignature)
     {
         this(
                 typeSignature.getBase(),
-                Lists.transform(typeSignature.getParameters(), ClientTypeSignatureParameter::new),
-                typeSignature.getLiteralParameters());
+                Lists.transform(typeSignature.getParameters(), ClientTypeSignatureParameter::new));
     }
 
     @JsonCreator
     public ClientTypeSignature(
             @JsonProperty("rawType") String rawType,
-            @JsonProperty("typeArguments") List<ClientTypeSignatureParameter> typeArguments,
-            @JsonProperty("literalArguments") List<Object> literalArguments)
+            @JsonProperty("typeArguments") List<ClientTypeSignatureParameter> typeArguments)
     {
         checkArgument(rawType != null, "rawType is null");
         this.rawType = rawType;
         checkArgument(!rawType.isEmpty(), "rawType is empty");
         checkArgument(!PATTERN.matcher(rawType).matches(), "Bad characters in rawType type: %s", rawType);
         checkArgument(typeArguments != null, "typeArguments is null");
-        checkArgument(literalArguments != null, "literalArguments is null");
-        for (Object literal : literalArguments) {
-            checkArgument(literal instanceof String || literal instanceof Long, "Unsupported literal type: %s", literal.getClass());
-        }
         this.typeArguments = unmodifiableList(new ArrayList<>(typeArguments));
-        this.literalArguments = unmodifiableList(new ArrayList<>(literalArguments));
     }
 
     @JsonProperty
@@ -77,12 +72,6 @@ public class ClientTypeSignature
         return typeArguments;
     }
 
-    @JsonProperty
-    public List<Object> getLiteralArguments()
-    {
-        return literalArguments;
-    }
-
     @Override
     public String toString()
     {
@@ -90,50 +79,39 @@ public class ClientTypeSignature
             return rowToString();
         }
         else {
-            return toString("(", ")");
+            StringBuilder typeName = new StringBuilder(rawType);
+            if (!typeArguments.isEmpty()) {
+                typeName.append("(");
+                boolean first = true;
+                for (ClientTypeSignatureParameter argument : typeArguments) {
+                    if (!first) {
+                        typeName.append(",");
+                    }
+                    first = false;
+                    typeName.append(argument.toString());
+                }
+                typeName.append(")");
+            }
+            return typeName.toString();
         }
     }
 
     @Deprecated
     private String rowToString()
     {
-        return toString("<", ">");
-    }
+        String types = typeArguments.stream()
+                .map(ClientTypeSignatureParameter::getNamedTypeSignature)
+                .map(NamedTypeSignature::getTypeSignature)
+                .map(TypeSignature::toString)
+                .collect(Collectors.joining(","));
 
-    private String toString(String leftParameterBracket, String rightParameterBracket)
-    {
-        StringBuilder typeName = new StringBuilder(rawType);
-        if (!typeArguments.isEmpty()) {
-            typeName.append(leftParameterBracket);
-            boolean first = true;
-            for (ClientTypeSignatureParameter argument : typeArguments) {
-                if (!first) {
-                    typeName.append(",");
-                }
-                first = false;
-                typeName.append(argument.toString());
-            }
-            typeName.append(rightParameterBracket);
-        }
-        if (!literalArguments.isEmpty()) {
-            typeName.append("(");
-            boolean first = true;
-            for (Object parameter : literalArguments) {
-                if (!first) {
-                    typeName.append(",");
-                }
-                first = false;
-                if (parameter instanceof String) {
-                    typeName.append("'").append(parameter).append("'");
-                }
-                else {
-                    typeName.append(parameter.toString());
-                }
-            }
-            typeName.append(")");
-        }
+        String fieldNames = typeArguments.stream()
+                .map(ClientTypeSignatureParameter::getNamedTypeSignature)
+                .map(NamedTypeSignature::getName)
+                .map(name -> format("'%s'", name))
+                .collect(Collectors.joining(","));
 
-        return typeName.toString();
+        return format("row<%s>(%s)", types, fieldNames);
     }
 
     @Override
@@ -149,13 +127,12 @@ public class ClientTypeSignature
         ClientTypeSignature other = (ClientTypeSignature) o;
 
         return Objects.equals(this.rawType.toLowerCase(Locale.ENGLISH), other.rawType.toLowerCase(Locale.ENGLISH)) &&
-                Objects.equals(this.typeArguments, other.typeArguments) &&
-                Objects.equals(this.literalArguments, other.literalArguments);
+                Objects.equals(this.typeArguments, other.typeArguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rawType.toLowerCase(Locale.ENGLISH), typeArguments, literalArguments);
+        return Objects.hash(rawType.toLowerCase(Locale.ENGLISH), typeArguments);
     }
 }

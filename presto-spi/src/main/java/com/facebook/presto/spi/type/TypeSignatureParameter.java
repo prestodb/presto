@@ -15,6 +15,7 @@ package com.facebook.presto.spi.type;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -34,6 +35,11 @@ public class TypeSignatureParameter
         return new TypeSignatureParameter(ParameterKind.LONG_LITERAL, longLiteral);
     }
 
+    public static TypeSignatureParameter of(NamedTypeSignature namedTypeSignature)
+    {
+        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE_SIGNATURE, namedTypeSignature);
+    }
+
     private TypeSignatureParameter(ParameterKind kind, Object value)
     {
         this.kind = requireNonNull(kind, "kind is null");
@@ -51,6 +57,21 @@ public class TypeSignatureParameter
         return kind;
     }
 
+    public boolean isTypeSignature()
+    {
+        return kind == ParameterKind.TYPE_SIGNATURE;
+    }
+
+    public boolean isLongLiteral()
+    {
+        return kind == ParameterKind.LONG_LITERAL;
+    }
+
+    public boolean isNamedTypeSignature()
+    {
+        return kind == ParameterKind.NAMED_TYPE_SIGNATURE;
+    }
+
     private <A> A getValue(ParameterKind expectedParameterKind, Class<A> target)
     {
         verify(kind == expectedParameterKind, format("ParameterKind is [%s] but expected [%s]", kind, expectedParameterKind));
@@ -65,6 +86,23 @@ public class TypeSignatureParameter
     public Long getLongLiteral()
     {
         return getValue(ParameterKind.LONG_LITERAL, Long.class);
+    }
+
+    public NamedTypeSignature getNamedTypeSignature()
+    {
+        return getValue(ParameterKind.NAMED_TYPE_SIGNATURE, NamedTypeSignature.class);
+    }
+
+    public Optional<TypeSignature> getTypeSignatureOrNamedTypeSignature()
+    {
+        switch (kind) {
+            case TYPE_SIGNATURE:
+                return Optional.of(getTypeSignature());
+            case NAMED_TYPE_SIGNATURE:
+                return Optional.of(getNamedTypeSignature().getTypeSignature());
+            default:
+                return Optional.empty();
+        }
     }
 
     @Override
@@ -94,6 +132,10 @@ public class TypeSignatureParameter
         switch (kind) {
             case TYPE_SIGNATURE:
                 return TypeSignatureParameter.of(getTypeSignature().bindParameters(boundParameters));
+            case NAMED_TYPE_SIGNATURE:
+                return TypeSignatureParameter.of(new NamedTypeSignature(
+                        getNamedTypeSignature().getName(),
+                        getNamedTypeSignature().getTypeSignature().bindParameters(boundParameters)));
             default:
                 return this;
         }
