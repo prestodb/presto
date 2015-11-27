@@ -847,7 +847,6 @@ public class PrestoS3FileSystem
             try {
                 log.debug("Starting upload for host: %s, key: %s, file: %s, size: %s", host, key, tempFile, tempFile.length());
                 STATS.uploadStarted();
-                //Upload upload = transferManager.upload(host, key, tempFile);
                 ObjectMetadata objectMetadata = new ObjectMetadata();
                 if (this.isS3SseEnabled) {
                     objectMetadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
