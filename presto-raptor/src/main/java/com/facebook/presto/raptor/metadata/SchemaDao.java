@@ -120,7 +120,7 @@ public interface SchemaDao
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS deleted_shard_nodes (\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
-            "  node_id INT,\n" +
+            "  node_id INT NOT NULL,\n" +
             "  delete_time DATETIME NOT NULL,\n" +
             "  clean_time DATETIME,\n" +
             "  purge_time DATETIME,\n" +
