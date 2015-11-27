@@ -19,6 +19,7 @@ import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
@@ -56,6 +57,7 @@ import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class PrestoConnection
         implements Connection
@@ -586,7 +588,8 @@ public class PrestoConnection
                 timeZoneId.get(),
                 locale.get(),
                 ImmutableMap.copyOf(sessionProperties),
-                false);
+                false,
+                new Duration(2, MINUTES));
 
         return queryExecutor.startQuery(session, sql);
     }

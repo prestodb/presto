@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
@@ -80,7 +81,9 @@ public abstract class AbstractTestingPrestoClient<T>
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
-        try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, session.toClientSession(prestoServer.getBaseUrl(), true), sql)) {
+        ClientSession clientSession = session.toClientSession(prestoServer.getBaseUrl(), true, new Duration(2, TimeUnit.MINUTES));
+
+        try (StatementClient client = new StatementClient(httpClient, QUERY_RESULTS_CODEC, clientSession, sql)) {
             while (client.isValid()) {
                 QueryResults results = client.current();
 
