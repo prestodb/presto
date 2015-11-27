@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -41,6 +42,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
@@ -239,7 +241,7 @@ public class ShardCleaner
             for (UUID uuid : uuids) {
                 deleteFile(storageService.getStorageFile(uuid));
             }
-            dao.updateCleanedShardNodes(uuids);
+            dao.updateCleanedShardNodes(uuids, getCurrentNodeId());
         }
     }
 
@@ -255,7 +257,7 @@ public class ShardCleaner
             for (UUID uuid : uuids) {
                 deleteFile(storageService.getStorageFile(uuid));
             }
-            dao.updatePurgedShardNodes(uuids);
+            dao.updatePurgedShardNodes(uuids, getCurrentNodeId());
         }
     }
 
@@ -325,6 +327,15 @@ public class ShardCleaner
                 }
             }
         }
+    }
+
+    private int getCurrentNodeId()
+    {
+        Integer nodeId = dao.getNodeId(currentNode);
+        if (nodeId == null) {
+            throw new PrestoException(RAPTOR_ERROR, "Node does not exist: " + currentNode);
+        }
+        return nodeId;
     }
 
     private static Timestamp maxTimestamp(Duration duration)
