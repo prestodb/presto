@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeParameter;
 
 import java.util.List;
 
@@ -36,10 +38,13 @@ public final class ArrayParametricType
     }
 
     @Override
-    public ArrayType createType(List<Type> types, List<Object> literals)
+    public Type createType(List<TypeParameter> parameters)
     {
-        checkArgument(types.size() == 1, "Expected only one type, got %s", types);
-        checkArgument(literals.isEmpty(), "Unexpected literals: %s", literals);
-        return new ArrayType(types.get(0));
+        checkArgument(parameters.size() == 1, "Array type expects exactly one type as a parameter, got %s", parameters);
+        checkArgument(
+                parameters.get(0).getKind() == ParameterKind.TYPE_SIGNATURE,
+                "Array expects type as a parameter, got %s",
+                parameters);
+        return new ArrayType(parameters.get(0).getType());
     }
 }

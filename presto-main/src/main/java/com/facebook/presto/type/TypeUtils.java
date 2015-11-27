@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -112,7 +113,11 @@ public final class TypeUtils
 
     public static TypeSignature parameterizedTypeName(String base, TypeSignature... argumentNames)
     {
-        return new TypeSignature(base, ImmutableList.copyOf(argumentNames), ImmutableList.of());
+        ImmutableList.Builder<TypeSignatureParameter> parameters = ImmutableList.builder();
+        for (TypeSignature signature : argumentNames) {
+            parameters.add(TypeSignatureParameter.of(signature));
+        }
+        return new TypeSignature(base, parameters.build());
     }
 
     public static int getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)
