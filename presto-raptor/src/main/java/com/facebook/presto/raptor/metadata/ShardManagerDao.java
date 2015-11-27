@@ -279,11 +279,17 @@ public interface ShardManagerDao
 
     @SqlBatch("UPDATE deleted_shard_nodes SET clean_time = CURRENT_TIMESTAMP\n" +
             "WHERE shard_uuid = :shardUuid\n" +
+            "  AND node_id = :nodeId\n" +
             "  AND clean_time IS NULL\n")
-    void updateCleanedShardNodes(@Bind("shardUuid") Iterable<UUID> shardUuids);
+    void updateCleanedShardNodes(
+            @Bind("shardUuid") Iterable<UUID> shardUuids,
+            @Bind("nodeId") int nodeId);
 
     @SqlBatch("UPDATE deleted_shard_nodes SET purge_time = CURRENT_TIMESTAMP\n" +
             "WHERE shard_uuid = :shardUuid\n" +
+            "  AND node_id = :nodeId\n" +
             "  AND purge_time IS NULL\n")
-    void updatePurgedShardNodes(@Bind("shardUuid") Iterable<UUID> shardUuids);
+    void updatePurgedShardNodes(
+            @Bind("shardUuid") Iterable<UUID> shardUuids,
+            @Bind("nodeId") int nodeId);
 }
