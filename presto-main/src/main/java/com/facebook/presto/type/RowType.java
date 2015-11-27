@@ -50,7 +50,6 @@ public class RowType
                         "row",
                         Lists.transform(fieldTypes, Type::getTypeSignature),
                         fieldNames.orElse(ImmutableList.of()).stream()
-                                .map(Object.class::cast)
                                 .collect(toImmutableList())),
                 Block.class);
 

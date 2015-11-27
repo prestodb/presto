@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -40,6 +41,8 @@ public class ClientTypeSignatureParameter
             case LONG_LITERAL:
                 value = typeParameterSignature.getLongLiteral();
                 break;
+            case NAMED_TYPE_SIGNATURE:
+                value = typeParameterSignature.getNamedTypeSignature();
             default:
                 throw new UnsupportedOperationException(format("Unknown kind [%s]", kind));
         }
@@ -82,6 +85,11 @@ public class ClientTypeSignatureParameter
     public Long getLongLiteral()
     {
         return getValue(ParameterKind.LONG_LITERAL, Long.class);
+    }
+
+    public NamedTypeSignature getNamedTypeSignature()
+    {
+        return getValue(ParameterKind.NAMED_TYPE_SIGNATURE, NamedTypeSignature.class);
     }
 
     @Override

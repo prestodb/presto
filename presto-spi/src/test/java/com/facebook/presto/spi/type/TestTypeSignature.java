@@ -68,28 +68,23 @@ public class TestTypeSignature
         assertRowSignature(
                 "row<bigint,varchar>('a','b')",
                 "row",
-                ImmutableList.of("bigint", "varchar"),
-                ImmutableList.of("a", "b"));
+                ImmutableList.of("a bigint", "b varchar"));
         assertRowSignature(
                 "row<bigint,array(bigint),row<bigint>('a')>('a','b','c')",
                 "row",
-                ImmutableList.of("bigint", "array(bigint)", "row<bigint>('a')"),
-                ImmutableList.of("a", "b", "c"));
+                ImmutableList.of("a bigint", "b array(bigint)", "c row<bigint>('a')"));
         assertRowSignature(
                 "row<varchar(10),row<bigint>('a')>('a','b')",
                 "row",
-                ImmutableList.of("varchar(10)", "row<bigint>('a')"),
-                ImmutableList.of("a", "b"));
+                ImmutableList.of("a varchar(10)", "b row<bigint>('a')"));
         assertRowSignature(
                 "array(row<bigint,double>('col0','col1'))",
                 "array",
-                ImmutableList.of("row<bigint,double>('col0','col1')"),
-                ImmutableList.of());
+                ImmutableList.of("row<bigint,double>('col0','col1')"));
         assertRowSignature(
                 "row<array(row<bigint,double>('col0','col1'))>('col0')",
                 "row",
-                ImmutableList.of("array(row<bigint,double>('col0','col1'))"),
-                ImmutableList.of("col0"));
+                ImmutableList.of("col0 array(row<bigint,double>('col0','col1'))"));
     }
 
     @Test
@@ -134,22 +129,20 @@ public class TestTypeSignature
     private static void assertRowSignature(
             String typeName,
             String base,
-            List<String> parameters,
-            List<Object> literalParameters)
+            List<String> parameters)
     {
-        assertSignature(typeName, base, parameters, literalParameters, typeName);
+        assertSignature(typeName, base, parameters, typeName);
     }
 
     private static void assertSignature(String typeName, String base, List<String> parameters)
     {
-        assertSignature(typeName, base, parameters, ImmutableList.of(), typeName.replace("<", "(").replace(">", ")"));
+        assertSignature(typeName, base, parameters, typeName.replace("<", "(").replace(">", ")"));
     }
 
     private static void assertSignature(
             String typeName,
             String base,
             List<String> parameters,
-            List<Object> literalParameters,
             String expectedTypeName)
     {
         TypeSignature signature = parseTypeSignature(typeName);
@@ -158,7 +151,6 @@ public class TestTypeSignature
         for (int i = 0; i < signature.getParameters().size(); i++) {
             assertEquals(signature.getParameters().get(i).toString(), parameters.get(i));
         }
-        assertEquals(signature.getLiteralParameters(), literalParameters);
         assertEquals(signature.toString(), expectedTypeName);
     }
 

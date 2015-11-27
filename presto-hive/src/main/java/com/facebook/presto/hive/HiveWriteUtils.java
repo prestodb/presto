@@ -156,8 +156,8 @@ public final class HiveWriteUtils
         }
         else if (isRowType(type)) {
             return ObjectInspectorFactory.getStandardStructObjectInspector(
-                    type.getTypeSignature().getLiteralParameters().stream()
-                            .map(String.class::cast)
+                    type.getTypeSignature().getParameters().stream()
+                            .map(parameter -> parameter.getNamedTypeSignature().getName())
                             .collect(toList()),
                     type.getTypeParameters().stream()
                             .map(HiveWriteUtils::getJavaObjectInspector)

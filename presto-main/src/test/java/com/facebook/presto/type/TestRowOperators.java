@@ -48,7 +48,8 @@ public class TestRowOperators
     {
         functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('a')"));
         Type type = functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('b')"));
-        assertEquals(type.getTypeSignature().getLiteralParameters(), ImmutableList.of("b"));
+        assertEquals(type.getTypeSignature().getParameters().size(), 1);
+        assertEquals(type.getTypeSignature().getParameters().get(0).getNamedTypeSignature().getName(), "b");
     }
 
     @Test

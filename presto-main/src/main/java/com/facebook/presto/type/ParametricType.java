@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeParameter;
 
 import java.util.List;
 
@@ -21,5 +22,5 @@ public interface ParametricType
 {
     String getName();
 
-    Type createType(List<Type> types, List<Object> literals);
+    Type createType(List<TypeParameter> parameters);
 }

@@ -51,7 +51,7 @@ public interface Type
      * expression execution. This value is used to determine which method should
      * be called on Cursor, RecordSet or RandomAccessBlock to fetch a value of
      * this type.
-     *
+     * <p/>
      * Currently, this must be boolean, long, double, or Slice.
      */
     Class<?> getJavaType();

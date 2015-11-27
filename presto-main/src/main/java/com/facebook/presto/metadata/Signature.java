@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
@@ -292,11 +293,10 @@ public final class Signature
 
     private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameterRequirement> typeParameters, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
     {
-        // TODO: add literals to Types and switch to TypeSignatureParameter so boundParameters map includes also literal parameter bindings
-        List<TypeSignature> typeSignatures = parameter.getTypeParametersAsTypeSignatures();
+        List<TypeSignatureParameter> parameters = parameter.getParameters();
         // If this parameter is already bound, then match (with coercion)
         if (boundParameters.containsKey(parameter.getBase())) {
-            checkArgument(typeSignatures.isEmpty(), "Unexpected parameteric type");
+            checkArgument(parameters.isEmpty(), "Unexpected parameteric type");
             if (allowCoercion) {
                 if (canCoerce(type, boundParameters.get(parameter.getBase()))) {
                     return true;
@@ -314,13 +314,27 @@ public final class Signature
         }
 
         // Recurse into component types
-        if (!typeSignatures.isEmpty()) {
-            if (type.getTypeParameters().size() != typeSignatures.size()) {
+        if (!parameters.isEmpty()) {
+            // TODO: add support for types with both literal and type parameters? Now for such types this check will fail
+            if (type.getTypeParameters().size() != parameters.size()) {
                 return false;
             }
-            for (int i = 0; i < typeSignatures.size(); i++) {
+            for (int i = 0; i < parameters.size(); i++) {
                 Type componentType = type.getTypeParameters().get(i);
-                TypeSignature componentSignature = typeSignatures.get(i);
+                TypeSignatureParameter componentParameter = parameters.get(i);
+                TypeSignature componentSignature;
+                switch (componentParameter.getKind()) {
+                    case TYPE_SIGNATURE:
+                        componentSignature = componentParameter.getTypeSignature();
+                        break;
+                    case NAMED_TYPE_SIGNATURE:
+                        componentSignature = componentParameter.getNamedTypeSignature().getTypeSignature();
+                        break;
+                    default:
+                        // TODO: add support for types with both literal and type parameters?
+                        return false;
+                }
+
                 if (!matchAndBind(boundParameters, typeParameters, componentSignature, componentType, allowCoercion, typeManager)) {
                     return false;
                 }
@@ -338,7 +352,7 @@ public final class Signature
         }
 
         // We've already checked all the components, so just match the base type
-        if (!typeSignatures.isEmpty()) {
+        if (!parameters.isEmpty()) {
             return type.getTypeSignature().getBase().equals(parameter.getBase());
         }
 
