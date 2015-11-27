@@ -34,7 +34,7 @@ public interface TypeManager
      * This method is deprecated and above generalized version should be used.
      */
     @Deprecated
-    Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters);
+    Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<String> literalParameters);
 
     /**
      * Gets a list of all registered types.

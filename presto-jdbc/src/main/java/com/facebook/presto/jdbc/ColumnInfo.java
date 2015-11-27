@@ -161,11 +161,11 @@ class ColumnInfo
 
     private static int getType(TypeSignatureParameter typeParameter)
     {
-        if (typeParameter.getTypeSignature().isPresent()) {
-            return getType(typeParameter.getTypeSignature().get());
-        }
-        else {
-            return Types.JAVA_OBJECT;
+        switch (typeParameter.getKind()) {
+            case TYPE_SIGNATURE:
+                return getType(typeParameter.getTypeSignature());
+            default:
+                return Types.JAVA_OBJECT;
         }
     }
 
