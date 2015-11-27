@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -34,6 +35,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BenchmarkDriverOptions
 {
@@ -79,6 +81,9 @@ public class BenchmarkDriverOptions
     @Option(name = "--socks", title = "socks", description = "Socks proxy to use")
     public HostAndPort socksProxy;
 
+    @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
+    public Duration clientRequestTimeout = new Duration(2, MINUTES);
+
     public ClientSession getClientSession()
     {
         return new ClientSession(
@@ -90,7 +95,8 @@ public class BenchmarkDriverOptions
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(this.sessionProperties),
-                debug);
+                debug,
+                clientRequestTimeout);
     }
 
     private static URI parseServer(String server)
