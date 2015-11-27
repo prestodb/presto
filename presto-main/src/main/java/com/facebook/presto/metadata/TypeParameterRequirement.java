@@ -23,7 +23,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class TypeParameter
+public final class TypeParameterRequirement
 {
     private final String name;
     private final boolean comparableRequired;
@@ -31,7 +31,7 @@ public final class TypeParameter
     private final String variadicBound;
 
     @JsonCreator
-    public TypeParameter(
+    public TypeParameterRequirement(
             @JsonProperty("name") String name,
             @JsonProperty("comparableRequired") boolean comparableRequired,
             @JsonProperty("orderableRequired") boolean orderableRequired,
@@ -107,7 +107,7 @@ public final class TypeParameter
             return false;
         }
 
-        TypeParameter other = (TypeParameter) o;
+        TypeParameterRequirement other = (TypeParameterRequirement) o;
 
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.comparableRequired, other.comparableRequired) &&
