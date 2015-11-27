@@ -21,6 +21,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.security.Principal;
@@ -240,7 +241,7 @@ public final class Session
                 sessionPropertyManager);
     }
 
-    public ClientSession toClientSession(URI server, boolean debug)
+    public ClientSession toClientSession(URI server, boolean debug, Duration clientRequestTimeout)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(systemProperties);
@@ -260,7 +261,8 @@ public final class Session
                 timeZoneKey.getId(),
                 locale,
                 properties.build(),
-                debug);
+                debug,
+                clientRequestTimeout);
     }
 
     public SessionRepresentation toSessionRepresentation()

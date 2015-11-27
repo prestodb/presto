@@ -14,6 +14,7 @@
 package com.facebook.presto.client;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
@@ -38,6 +39,7 @@ public class ClientSession
     private final Locale locale;
     private final Map<String, String> properties;
     private final boolean debug;
+    private final Duration clientRequestTimeout;
 
     public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
     {
@@ -50,7 +52,8 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 session.getProperties(),
-                session.isDebug());
+                session.isDebug(),
+                session.getClientRequestTimeout());
     }
 
     public static ClientSession withSessionProperties(ClientSession session, Map<String, String> sessionProperties)
@@ -67,7 +70,8 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 properties,
-                session.isDebug());
+                session.isDebug(),
+                session.getClientRequestTimeout());
     }
 
     public static ClientSession withProperties(ClientSession session, Map<String, String> properties)
@@ -81,10 +85,11 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 properties,
-                session.isDebug());
+                session.isDebug(),
+                session.getClientRequestTimeout());
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug)
+    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug, Duration clientRequestTimeout)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -95,6 +100,7 @@ public class ClientSession
         this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
         this.debug = debug;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.clientRequestTimeout = clientRequestTimeout;
 
         // verify the properties are valid
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
@@ -149,6 +155,11 @@ public class ClientSession
     public boolean isDebug()
     {
         return debug;
+    }
+
+    public Duration getClientRequestTimeout()
+    {
+        return clientRequestTimeout;
     }
 
     @Override

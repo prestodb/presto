@@ -60,7 +60,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class StatementClient
@@ -82,6 +82,7 @@ public class StatementClient
     private final AtomicBoolean gone = new AtomicBoolean();
     private final AtomicBoolean valid = new AtomicBoolean(true);
     private final String timeZoneId;
+    private final long requestTimeoutNanos;
 
     public StatementClient(HttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
@@ -95,6 +96,7 @@ public class StatementClient
         this.debug = session.isDebug();
         this.timeZoneId = session.getTimeZoneId();
         this.query = query;
+        this.requestTimeoutNanos = session.getClientRequestTimeout().roundTo(NANOSECONDS);
 
         Request request = buildQueryRequest(session, query);
         JsonResponse<QueryResults> response = httpClient.execute(request, responseHandler);
@@ -251,7 +253,7 @@ public class StatementClient
                 throw requestFailedException("fetching next", request, response);
             }
         }
-        while ((System.nanoTime() - start) < MINUTES.toNanos(2) && !isClosed());
+        while (((System.nanoTime() - start) < requestTimeoutNanos) && !isClosed());
 
         gone.set(true);
         throw new RuntimeException("Error fetching next", cause);
