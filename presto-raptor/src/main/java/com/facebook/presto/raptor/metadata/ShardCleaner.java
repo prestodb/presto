@@ -19,6 +19,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
@@ -41,7 +42,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.callable;
@@ -50,7 +50,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.skife.jdbi.v2.TransactionIsolationLevel.REPEATABLE_READ;
 
 public class ShardCleaner
 {
@@ -209,17 +208,23 @@ public class ShardCleaner
     @VisibleForTesting
     void deleteOldShards()
     {
-        runTransaction(dbi, REPEATABLE_READ, (handle, status) -> {
+        try (Handle handle = dbi.open()) {
             ShardManagerDao dao = handle.attach(ShardManagerDao.class);
 
+            dao.dropTableTemporaryCreatedShards();
+            dao.createTableTemporaryCreatedShards();
+            dao.insertTemporaryCreatedShards();
             dao.insertDeletedShardsFromCreated();
             dao.deleteOldCreatedShards();
+            dao.dropTableTemporaryCreatedShards();
 
+            dao.dropTableTemporaryCreatedShardNodes();
+            dao.createTableTemporaryCreatedShardNodes();
+            dao.insertTemporaryCreatedShardNodes();
             dao.insertDeletedShardNodesFromCreated();
             dao.deleteOldCreatedShardNodes();
-
-            return null;
-        });
+            dao.dropTableTemporaryCreatedShardNodes();
+        }
     }
 
     @VisibleForTesting
