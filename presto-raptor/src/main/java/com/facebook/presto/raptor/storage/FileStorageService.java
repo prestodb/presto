@@ -119,8 +119,8 @@ public class FileStorageService
             throw new IOException("Failed to list directory: " + dir);
         }
         for (File file : files) {
-            Files.delete(file.toPath());
+            Files.deleteIfExists(file.toPath());
         }
-        Files.delete(dir.toPath());
+        Files.deleteIfExists(dir.toPath());
     }
 }
