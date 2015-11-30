@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
@@ -20,6 +21,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -33,7 +35,7 @@ public class TestMySqlDistributedQueries
     public TestMySqlDistributedQueries()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", "tpch"));
+        this(new TestingMySqlServer("testuser", "testpass", "tpch", "test_database"));
     }
 
     public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
@@ -50,13 +52,23 @@ public class TestMySqlDistributedQueries
     }
 
     @Test
-    public void testDropTable()
+    public void testTableLifecycleWithNamesContainingUnderscores()
             throws Exception
     {
-        assertQueryTrue("CREATE TABLE test_drop AS SELECT 123 x");
-        assertTrue(queryRunner.tableExists(getSession(), "test_drop"));
+        Session session = testSessionBuilder()
+                .setCatalog("mysql")
+                .setSchema("test_database")
+                .build();
 
-        assertQueryTrue("DROP TABLE test_drop");
-        assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
+        String tableName = "test_table_with_name_containing_underscores";
+        assertFalse(queryRunner.tableExists(session, tableName));
+
+        assertQuery(session, "CREATE TABLE " + tableName + " AS SELECT 123 x", "SELECT true");
+        assertTrue(queryRunner.tableExists(session, tableName));
+
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT 123");
+
+        assertQuery(session, "DROP TABLE " + tableName, "SELECT true");
+        assertFalse(queryRunner.tableExists(session, tableName));
     }
 }
