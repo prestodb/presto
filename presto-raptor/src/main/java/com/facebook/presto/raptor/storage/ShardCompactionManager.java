@@ -426,7 +426,6 @@ public class ShardCompactionManager
                 .map(TableColumn::toColumnInfo)
                 .collect(toList());
         return new TableMetadata(tableId, columns, sortColumnIds);
-
     }
 
     @Managed

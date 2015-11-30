@@ -208,7 +208,6 @@ public final class TestingOrcPredicate
                 if (!columnStatistics.getDoubleStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
                     return false;
                 }
-
             }
             return true;
         }

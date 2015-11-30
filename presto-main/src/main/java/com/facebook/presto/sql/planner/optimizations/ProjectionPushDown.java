@@ -131,7 +131,6 @@ public class ProjectionPushDown
                                 projections.put(symbol, nameReference);
                                 inputs.add(symbol);
                             });
-
                 }
                 if (exchange.getHashSymbol().isPresent()) {
                     // Need to retain the hash symbol for the exchange

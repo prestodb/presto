@@ -48,7 +48,6 @@ public final class ParallelLookupSourceSupplier
         lookupSourceFuture = Futures.transform(Futures.allAsList(partitions), (List<SharedLookupSource> input) -> {
             return new PartitionedLookupSource(input, hashChannelTypes);
         });
-
     }
 
     @Override

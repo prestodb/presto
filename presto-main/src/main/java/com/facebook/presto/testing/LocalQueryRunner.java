@@ -358,7 +358,6 @@ public class LocalQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -371,7 +370,6 @@ public class LocalQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -407,7 +405,6 @@ public class LocalQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override

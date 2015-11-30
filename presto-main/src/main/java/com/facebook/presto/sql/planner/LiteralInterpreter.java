@@ -271,7 +271,6 @@ public final class LiteralInterpreter
             else {
                 return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
             }
-
         }
 
         @Override

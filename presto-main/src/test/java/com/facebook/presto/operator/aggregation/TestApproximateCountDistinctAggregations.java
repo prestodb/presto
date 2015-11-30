@@ -37,7 +37,6 @@ public class TestApproximateCountDistinctAggregations
         Assert.assertEquals(standardErrorToBuckets(0.0162), 8192);
         Assert.assertEquals(standardErrorToBuckets(0.0116), 8192);
         Assert.assertEquals(standardErrorToBuckets(0.0115), 8192);
-
     }
 
     @Test

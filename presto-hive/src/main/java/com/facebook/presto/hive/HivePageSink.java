@@ -380,7 +380,6 @@ public class HivePageSink
 
             target = locationService.targetPath(locationHandle, partition.get(), partitionName.get());
             write = locationService.writePath(locationHandle, partitionName).orElse(target);
-
         }
         return new HiveRecordWriter(
                 schemaName,

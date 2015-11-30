@@ -388,7 +388,6 @@ public class TestMathFunctions
             assertFunction("sin(" + doubleValue + ")", DOUBLE, Math.sin(doubleValue));
         }
         assertFunction("sin(NULL)", DOUBLE, null);
-
     }
 
     @Test

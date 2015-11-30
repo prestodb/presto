@@ -796,7 +796,6 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s in (33.0, null, 9.0, -9, -33)", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value) ? true : null);
-
         }
 
         for (Double value : doubleLefts) {

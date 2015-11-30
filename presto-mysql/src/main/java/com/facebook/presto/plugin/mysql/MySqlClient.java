@@ -105,7 +105,6 @@ public class MySqlClient
         return new SchemaTableName(
                 resultSet.getString("TABLE_CAT").toLowerCase(ENGLISH),
                 resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
-
     }
 
     @Override

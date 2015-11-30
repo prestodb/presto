@@ -56,7 +56,6 @@ public class WindowFunctionDefinition
     public Type getType()
     {
         return type;
-
     }
 
     public WindowFunction createWindowFunction()

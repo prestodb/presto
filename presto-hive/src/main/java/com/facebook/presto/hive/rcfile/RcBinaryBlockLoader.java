@@ -386,7 +386,6 @@ public class RcBinaryBlockLoader
                 throw Throwables.propagate(e);
             }
         }
-
     }
 
     private static final class LazyDateBlockLoader
@@ -441,7 +440,6 @@ public class RcBinaryBlockLoader
                 throw Throwables.propagate(e);
             }
         }
-
     }
 
     private static final class LazyTimestampBlockLoader

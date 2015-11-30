@@ -277,7 +277,6 @@ public class RcTextBlockLoader
                 throw Throwables.propagate(e);
             }
         }
-
     }
 
     private static final class LazyTimestampBlockLoader
