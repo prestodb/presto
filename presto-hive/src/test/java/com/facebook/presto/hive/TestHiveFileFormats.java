@@ -327,37 +327,37 @@ public class TestHiveFileFormats
         RowType personType = new RowType(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)), Optional.empty());
 
         List<TestColumn> testColumns = ImmutableList.of(
-            new TestColumn(
-                "persons",
-                getStandardListObjectInspector(
-                    getStandardStructObjectInspector(
-                        ImmutableList.of("name", "id", "email", "phones"),
+                new TestColumn(
+                        "persons",
+                        getStandardListObjectInspector(
+                                getStandardStructObjectInspector(
+                                        ImmutableList.of("name", "id", "email", "phones"),
                                         ImmutableList.of(
-                            getStandardStructObjectInspector(
-                              ImmutableList.of("first_name", "last_name"),
-                              ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
-                            ),
-                            javaIntObjectInspector,
-                            javaStringObjectInspector,
-                            getStandardListObjectInspector(
-                              getStandardStructObjectInspector(
-                                ImmutableList.of("number", "type"),
-                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
-                              )
-                            )
-                        )
-                    )
-                ),
-                null,
-                arrayBlockOf(personType,
-                        rowBlockOf(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)),
-                                rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
-                                0,
-                                "bob.roberts@example.com",
-                                arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
+                                                getStandardStructObjectInspector(
+                                                        ImmutableList.of("first_name", "last_name"),
+                                                        ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+                                                ),
+                                                javaIntObjectInspector,
+                                                javaStringObjectInspector,
+                                                getStandardListObjectInspector(
+                                                        getStandardStructObjectInspector(
+                                                                ImmutableList.of("number", "type"),
+                                                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)
+                                                        )
+                                                )
+                                        )
+                                )
+                        ),
+                        null,
+                        arrayBlockOf(personType,
+                                rowBlockOf(ImmutableList.of(nameType, BIGINT, VARCHAR, new ArrayType(phoneType)),
+                                        rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "Bob", "Roberts"),
+                                        0,
+                                        "bob.roberts@example.com",
+                                        arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(VARCHAR, VARCHAR), "1234567890", null))
+                                )
                         )
                 )
-            )
         );
 
         InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
