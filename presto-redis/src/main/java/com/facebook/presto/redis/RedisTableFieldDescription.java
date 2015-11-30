@@ -115,7 +115,7 @@ public final class RedisTableFieldDescription
                 false);
     }
 
-    ColumnMetadata getColumnMetadata(int index)
+    ColumnMetadata getColumnMetadata()
     {
         return new ColumnMetadata(getName(), getType(), false, getComment(), isHidden());
     }

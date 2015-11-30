@@ -40,7 +40,7 @@ public class EmbeddedRedis
     }
 
     public void start()
-            throws InterruptedException, IOException
+            throws IOException
     {
         redisServer.start();
         jedisPool = new JedisPool(new JedisPoolConfig(), getConnectString(), getPort());

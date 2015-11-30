@@ -64,7 +64,7 @@ public final class RedisTestUtils
             throws IOException
     {
         RedisTableDescription tpchTemplate;
-        try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/tpch/" + dataFormat + "/%s.json", schemaTableName.getTableName()))) {
+        try (InputStream data = RedisTestUtils.class.getResourceAsStream(format("/tpch/%s/%s.json", dataFormat, schemaTableName.getTableName()))) {
             tpchTemplate = tableDescriptionJsonCodec.fromJson(ByteStreams.toByteArray(data));
         }
 

@@ -49,7 +49,7 @@ import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
 public class RedisRecordCursor
         implements RecordCursor
 {
-    private static final Logger log = Logger.get(RedisRecordSet.class);
+    private static final Logger log = Logger.get(RedisRecordCursor.class);
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
     private final RowDecoder keyDecoder;
@@ -320,11 +320,10 @@ public class RedisRecordCursor
                     keysIterator = keys.iterator();
                 }
                 break;
-                case ZSET: {
+                case ZSET:
                     Set<String> keys = jedis.zrange(split.getKeyName(), split.getStart(), split.getEnd());
                     keysIterator = keys.iterator();
-                }
-                break;
+                    break;
                 default:
                     log.debug("Redis type of key %s is unsupported", split.getKeyDataFormat());
                     return false;
@@ -347,22 +346,20 @@ public class RedisRecordCursor
         // whereas for the STRING type decoders are optional
         try (Jedis jedis = jedisPool.getResource()) {
             switch (split.getValueDataType()) {
-                case STRING: {
+                case STRING:
                     valueString = jedis.get(keyString);
                     if (valueString == null) {
                         log.warn("Redis data modified while query was running, string value at key %s deleted", keyString);
                         return false;
                     }
-                }
-                break;
-                case HASH: {
+                    break;
+                case HASH:
                     valueMap = jedis.hgetAll(keyString);
                     if (valueMap == null) {
                         log.warn("Redis data modified while query was running, hash value at key %s deleted", keyString);
                         return false;
                     }
-                }
-                break;
+                    break;
                 default:
                     log.debug("Redis type for key %s is unsupported", keyString);
                     return false;

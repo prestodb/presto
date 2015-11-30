@@ -116,7 +116,7 @@ public class RedisInternalFieldDescription
                 true);
     }
 
-    ColumnMetadata getColumnMetadata(int index, boolean hidden)
+    ColumnMetadata getColumnMetadata(boolean hidden)
     {
         return new ColumnMetadata(name, type, false, comment, hidden);
     }

@@ -89,7 +89,7 @@ public class RedisSplitManager
             stride = numberOfKeys / REDIS_MAX_SPLITS;
         }
 
-        for (long startIndex = 0; startIndex < numberOfKeys; startIndex = startIndex + stride) {
+        for (long startIndex = 0; startIndex < numberOfKeys; startIndex += stride) {
             long endIndex = startIndex + stride - 1;
             if (endIndex >= numberOfKeys) {
                 endIndex = -1;

@@ -108,7 +108,7 @@ public class RedisLoader
 
                     try (Jedis jedis = jedisPool.getResource()) {
                         switch (dataFormat) {
-                            case "string": {
+                            case "string":
                                 ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
                                 for (int i = 0; i < fields.size(); i++) {
                                     Type type = types.get().get(i);
@@ -118,9 +118,8 @@ public class RedisLoader
                                     }
                                 }
                                 jedis.set(redisKey, jsonEncoder.toString(builder.build()));
-                            }
-                            break;
-                            case "hash": {
+                                break;
+                            case "hash":
                                 // add keys to zset
                                 String redisZset = "keyset:" + tableName;
                                 jedis.zadd(redisZset, count.get(), redisKey);
@@ -128,8 +127,7 @@ public class RedisLoader
                                 for (int i = 0; i < fields.size(); i++) {
                                     jedis.hset(redisKey, columns.get(i).getName(), fields.get(i).toString());
                                 }
-                            }
-                            break;
+                                break;
                             default:
                                 throw new AssertionError("unhandled value type: " + dataFormat);
                         }
