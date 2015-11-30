@@ -56,10 +56,10 @@ public class TestPostgreSqlDistributedQueries
     public void testDropTable()
             throws Exception
     {
-        assertQueryTrue("CREATE TABLE test_drop AS SELECT 123 x");
+        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
         assertTrue(queryRunner.tableExists(getSession(), "test_drop"));
 
-        assertQueryTrue("DROP TABLE test_drop");
+        assertUpdate("DROP TABLE test_drop");
         assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
     }
 }

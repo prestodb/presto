@@ -89,6 +89,14 @@ public abstract class AbstractTestingPrestoClient<T>
             }
 
             if (!client.isFailed()) {
+                QueryResults results = client.finalResults();
+                if (results.getUpdateType() != null) {
+                    resultsSession.setUpdateType(results.getUpdateType());
+                }
+                if (results.getUpdateCount() != null) {
+                    resultsSession.setUpdateCount(results.getUpdateCount());
+                }
+
                 return resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
             }
 

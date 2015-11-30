@@ -68,12 +68,12 @@ public class TestMySqlIntegrationSmokeTest
 
         assertFalse(queryRunner.tableExists(session, "test_table"));
 
-        assertQuery(session, "CREATE TABLE test_table AS SELECT 123 x", "SELECT 1");
+        assertUpdate(session, "CREATE TABLE test_table AS SELECT 123 x", 1);
         assertTrue(queryRunner.tableExists(session, "test_table"));
 
         assertQuery(session, "SELECT * FROM test_table", "SELECT 123");
 
-        assertQueryTrue(session, "DROP TABLE test_table");
+        assertUpdate(session, "DROP TABLE test_table");
         assertFalse(queryRunner.tableExists(session, "test_table"));
     }
 }
