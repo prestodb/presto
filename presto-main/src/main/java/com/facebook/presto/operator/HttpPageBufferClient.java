@@ -616,6 +616,5 @@ public final class HttpPageBufferClient
                     .add("clientComplete", clientComplete)
                     .toString();
         }
-
     }
 }

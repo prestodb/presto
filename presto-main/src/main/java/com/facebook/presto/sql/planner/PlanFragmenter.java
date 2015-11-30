@@ -310,7 +310,6 @@ public class PlanFragmenter
             this.nullPartitionPolicy = Optional.of(NullPartitioning.HASH);
                 this.partitionBy = partitionKeys.map(ImmutableList::copyOf);
                 this.hash = hash;
-
             }
             else {
                 this.outputPartitioning = Optional.of(OutputPartitioning.ROUND_ROBIN);

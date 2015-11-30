@@ -83,7 +83,6 @@ public final class StandaloneQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -96,7 +95,6 @@ public final class StandaloneQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -196,7 +194,6 @@ public final class StandaloneQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -209,7 +206,6 @@ public final class StandaloneQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override

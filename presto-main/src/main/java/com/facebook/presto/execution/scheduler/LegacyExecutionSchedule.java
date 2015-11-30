@@ -43,7 +43,6 @@ public class LegacyExecutionSchedule
             if (state == SCHEDULED || state == RUNNING || state.isDone()) {
                 iterator.remove();
             }
-
         }
         return schedulingStages;
     }

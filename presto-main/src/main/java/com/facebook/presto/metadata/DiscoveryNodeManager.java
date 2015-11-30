@@ -132,7 +132,6 @@ public final class DiscoveryNodeManager
 
                 // Schedule refresh
                 nodeStates.values().forEach(RemoteNodeState::asyncRefresh);
-
             }, 1, 5, TimeUnit.SECONDS);
         }
     }

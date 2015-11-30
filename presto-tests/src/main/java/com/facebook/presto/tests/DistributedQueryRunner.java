@@ -257,7 +257,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -270,7 +269,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -283,7 +281,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -296,7 +293,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
