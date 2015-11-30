@@ -15,9 +15,6 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -28,7 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Redis specific {@link com.facebook.presto.spi.ConnectorHandleResolver} implementation.
+ * Redis specific {@link ConnectorHandleResolver} implementation.
  */
 public class RedisHandleResolver
         implements ConnectorHandleResolver
@@ -67,24 +64,6 @@ public class RedisHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return RedisTableHandle.class;
@@ -103,27 +82,9 @@ public class RedisHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         return RedisTableLayoutHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
     }
 
     RedisTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
