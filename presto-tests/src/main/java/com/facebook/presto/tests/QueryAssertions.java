@@ -27,6 +27,7 @@ import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.util.Types.checkType;
 import static io.airlift.units.Duration.nanosSince;
@@ -46,12 +47,34 @@ public final class QueryAssertions
     {
     }
 
+    public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count)
+    {
+        long start = System.nanoTime();
+        MaterializedResult results = queryRunner.execute(session, sql);
+        log.info("FINISHED in presto: %s", nanosSince(start));
+
+        if (!results.getUpdateType().isPresent()) {
+            fail("update type is not set");
+        }
+
+        if (results.getUpdateCount().isPresent()) {
+            if (!count.isPresent()) {
+                fail("update count should not be present");
+            }
+            assertEquals(results.getUpdateCount().isPresent(), count.isPresent(), "update count");
+        }
+        else if (count.isPresent()) {
+            fail("update count is not present");
+        }
+    }
+
     public static void assertQuery(QueryRunner actualQueryRunner,
             Session session,
             @Language("SQL") String actual,
             H2QueryRunner h2QueryRunner,
             @Language("SQL") String expected,
-            boolean ensureOrdering)
+            boolean ensureOrdering,
+            boolean compareUpdate)
             throws Exception
     {
         long start = System.nanoTime();
@@ -62,8 +85,32 @@ public final class QueryAssertions
         MaterializedResult expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
         log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), nanosSince(start));
 
+        if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
+            if (!actualResults.getUpdateType().isPresent()) {
+                fail("update count present without update type");
+            }
+            if (!compareUpdate) {
+                fail("update type should not be present (use assertUpdate)");
+            }
+        }
+
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
+
+        if (compareUpdate) {
+            if (!actualResults.getUpdateType().isPresent()) {
+                fail("update type not present");
+            }
+            if (!actualResults.getUpdateCount().isPresent()) {
+                fail("update count not present");
+            }
+            assertEquals(actualRows.size(), 1);
+            assertEquals(expectedRows.size(), 1);
+            MaterializedRow row = expectedRows.get(0);
+            assertEquals(row.getFieldCount(), 1);
+            assertEquals(row.getField(0), actualResults.getUpdateCount().getAsLong());
+        }
+
         if (ensureOrdering) {
             if (!actualRows.equals(expectedRows)) {
                 assertEquals(actualRows, expectedRows);

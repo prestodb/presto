@@ -30,6 +30,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -55,6 +57,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZo
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Objects.requireNonNull;
 
 public class TestingPrestoClient
         extends AbstractTestingPrestoClient<MaterializedResult>
@@ -80,11 +83,26 @@ public class TestingPrestoClient
 
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
 
+        private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
+        private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
+
         private final TimeZoneKey timeZoneKey;
 
         private MaterializedResultSession(Session session)
         {
             this.timeZoneKey = session.getTimeZoneKey();
+        }
+
+        @Override
+        public void setUpdateType(String type)
+        {
+            updateType.set(Optional.of(requireNonNull("update type is null")));
+        }
+
+        @Override
+        public void setUpdateCount(long count)
+        {
+            updateCount.set(OptionalLong.of(count));
         }
 
         @Override
@@ -108,7 +126,13 @@ public class TestingPrestoClient
         public MaterializedResult build(Map<String, String> setSessionProperties, Set<String> resetSessionProperties)
         {
             checkState(types.get() != null, "never received types for the query");
-            return new MaterializedResult(rows.build(), types.get(), setSessionProperties, resetSessionProperties);
+            return new MaterializedResult(
+                    rows.build(),
+                    types.get(),
+                    setSessionProperties,
+                    resetSessionProperties,
+                    updateType.get(),
+                    updateCount.get());
         }
     }
 
