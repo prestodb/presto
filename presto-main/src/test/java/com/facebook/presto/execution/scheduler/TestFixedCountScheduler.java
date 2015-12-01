@@ -27,6 +27,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
@@ -124,7 +125,7 @@ public class TestFixedCountScheduler
     {
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
         for (int i = 0; i < count; i++) {
-            nodes.add(new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+            nodes.add(new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, Instant.EPOCH));
         }
         return nodes.build();
     }

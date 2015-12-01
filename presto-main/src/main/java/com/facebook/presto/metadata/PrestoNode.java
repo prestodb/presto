@@ -18,6 +18,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 
 import java.net.URI;
+import java.time.Instant;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
@@ -33,13 +34,15 @@ public class PrestoNode
     private final String nodeIdentifier;
     private final URI httpUri;
     private final NodeVersion nodeVersion;
+    private final Instant startTime;
 
-    public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion)
+    public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion, Instant startTime)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.httpUri = requireNonNull(httpUri, "httpUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.startTime = requireNonNull(startTime, "startTime is null");
     }
 
     @Override
@@ -52,6 +55,12 @@ public class PrestoNode
     public URI getHttpUri()
     {
         return httpUri;
+    }
+
+    @Override
+    public Instant getStartTime()
+    {
+        return startTime;
     }
 
     @Override

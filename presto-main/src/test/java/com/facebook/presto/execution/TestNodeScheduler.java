@@ -30,6 +30,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,9 +66,9 @@ public class TestNodeScheduler
         nodeManager = new InMemoryNodeManager();
 
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
+        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, Instant.EPOCH));
+        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, Instant.EPOCH));
+        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, Instant.EPOCH));
         ImmutableList<Node> nodes = nodeBuilder.build();
         nodeManager.addNode("foo", nodes);
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
@@ -162,7 +163,7 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNode()
             throws Exception
     {
-        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
+        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, Instant.EPOCH);
         nodeManager.addNode("foo", newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
@@ -199,7 +200,7 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNodePerTask()
             throws Exception
     {
-        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
+        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, Instant.EPOCH);
         nodeManager.addNode("foo", newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();

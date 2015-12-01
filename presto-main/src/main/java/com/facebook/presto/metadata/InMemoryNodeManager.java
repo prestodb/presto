@@ -25,6 +25,7 @@ import com.google.common.collect.SetMultimap;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Set;
 
 public class InMemoryNodeManager
@@ -41,7 +42,7 @@ public class InMemoryNodeManager
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN);
+        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, Instant.EPOCH);
     }
 
     public void addCurrentNodeDatasource(String datasourceName)

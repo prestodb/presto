@@ -24,6 +24,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -49,7 +50,7 @@ public class TestCurrentNodeScheduler
 
         CurrentNodeScheduler nodeScheduler = new CurrentNodeScheduler(
                 node -> taskFactory.createTableScanTask(new TaskId(new StageId("test", "1"), "1"), node, ImmutableList.of(), new PartitionedSplitCountTracker(delta -> { })),
-                () -> new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+                () -> new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, Instant.EPOCH));
 
         ScheduleResult result = nodeScheduler.schedule();
         assertTrue(result.isFinished());

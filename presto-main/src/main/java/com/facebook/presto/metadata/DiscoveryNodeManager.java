@@ -28,6 +28,8 @@ import io.airlift.discovery.client.ServiceType;
 import io.airlift.http.client.HttpClient;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
+import org.joda.time.format.ISODateTimeFormat;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -37,6 +39,7 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -169,8 +172,9 @@ public final class DiscoveryNodeManager
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service);
             NodeVersion nodeVersion = getNodeVersion(service);
+            Instant nodeStartTime = getNodeStartTime(service);
             if (uri != null && nodeVersion != null) {
-                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion);
+                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion, nodeStartTime);
                 NodeState nodeState = getNodeState(node);
 
                 // record current node
@@ -216,6 +220,13 @@ public final class DiscoveryNodeManager
 
         checkState(currentNode != null, "INVARIANT: current node not returned from service selector");
         return currentNode;
+    }
+
+    private Instant getNodeStartTime(ServiceDescriptor descriptor)
+    {
+        String startTime = descriptor.getProperties().get("start_time");
+        DateTime startDateTime = ISODateTimeFormat.basicDateTime().parseDateTime(startTime);
+        return Instant.ofEpochMilli(startDateTime.getMillis());
     }
 
     private synchronized void refreshIfNecessary()

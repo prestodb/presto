@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -129,6 +130,12 @@ public class TestKafkaPlugin
         public URI getHttpUri()
         {
             return URI.create("http://localhost:8080/");
+        }
+
+        @Override
+        public Instant getStartTime()
+        {
+            return Instant.EPOCH;
         }
 
         @Override

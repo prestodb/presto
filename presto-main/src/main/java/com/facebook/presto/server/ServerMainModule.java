@@ -99,6 +99,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
+import org.joda.time.format.ISODateTimeFormat;
 
 import javax.inject.Singleton;
 
@@ -284,7 +286,8 @@ public class ServerMainModule
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
-                .addProperty("datasources", nullToEmpty(serverConfig.getDataSources()));
+                .addProperty("datasources", nullToEmpty(serverConfig.getDataSources()))
+                .addProperty("start_time", ISODateTimeFormat.basicDateTime().print(DateTime.now()));
 
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
