@@ -460,6 +460,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
             else {
                 slices[column] = LongDecimalType.unscaledValueToSlice(unscaledDecimal);
             }
+            nulls[column] = false;
         }
     }
 
