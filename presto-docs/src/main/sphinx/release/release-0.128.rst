@@ -2,6 +2,14 @@
 Release 0.128
 =============
 
+Graceful Shutdown
+-----------------
+
+Workers can now be instructed to shutdown. This is done by submiting a ``PUT``
+request to ``/v1/info/state`` with the body ``"SHUTTING_DOWN"``. Once instructed
+to shutdown, the worker will no longer receive new tasks, and will exit once
+all existing tasks have completed.
+
 General Changes
 ---------------
 
