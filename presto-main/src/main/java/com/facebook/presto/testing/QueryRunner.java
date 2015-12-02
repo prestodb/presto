@@ -15,7 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.Plugin;
 import org.intellij.lang.annotations.Language;
 
@@ -42,7 +42,7 @@ public interface QueryRunner
 
     MaterializedResult execute(Session session, @Language("SQL") String sql);
 
-    List<QualifiedTableName> listTables(Session session, String catalog, String schema);
+    List<QualifiedObjectName> listTables(Session session, String catalog, String schema);
 
     boolean tableExists(Session session, String table);
 
