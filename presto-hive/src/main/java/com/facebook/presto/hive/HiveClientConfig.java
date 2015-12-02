@@ -94,6 +94,7 @@ public class HiveClientConfig
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
     private boolean useParquetColumnNames;
+    private String s3AwsRoleArn = null;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
     private boolean respectTableFormat = true;
@@ -831,6 +832,18 @@ public class HiveClientConfig
     public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public String getS3AwsRoleArn()
+    {
+        return s3AwsRoleArn;
+    }
+
+    @Config("hive.s3.aws-role-arn")
+    public HiveClientConfig setS3AwsRoleArn(String s3AwsRoleArn)
+    {
+        this.s3AwsRoleArn = s3AwsRoleArn;
         return this;
     }
 }

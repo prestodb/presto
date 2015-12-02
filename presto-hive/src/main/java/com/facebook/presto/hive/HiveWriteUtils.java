@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -302,7 +303,7 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path getTableDefaultLocation(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    public static Path getTableDefaultLocation(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName, ConnectorSession session)
     {
         String location = getDatabase(metastore, schemaName).getLocationUri();
         if (isNullOrEmpty(location)) {
@@ -310,10 +311,10 @@ public final class HiveWriteUtils
         }
 
         Path databasePath = new Path(location);
-        if (!pathExists(hdfsEnvironment, databasePath)) {
+        if (!pathExists(hdfsEnvironment, databasePath, session)) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
         }
-        if (!isDirectory(hdfsEnvironment, databasePath)) {
+        if (!isDirectory(hdfsEnvironment, databasePath, session)) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not a directory: %s", schemaName, databasePath));
         }
 
@@ -325,39 +326,39 @@ public final class HiveWriteUtils
         return metastore.getDatabase(database).orElseThrow(() -> new SchemaNotFoundException(database));
     }
 
-    public static boolean pathExists(HdfsEnvironment hdfsEnvironment, Path path)
+    public static boolean pathExists(HdfsEnvironment hdfsEnvironment, Path path, ConnectorSession session)
     {
         try {
-            return hdfsEnvironment.getFileSystem(path).exists(path);
+            return hdfsEnvironment.getFileSystem(path, session).exists(path);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
-    private static boolean isDirectory(HdfsEnvironment hdfsEnvironment, Path path)
+    private static boolean isDirectory(HdfsEnvironment hdfsEnvironment, Path path, ConnectorSession session)
     {
         try {
-            return hdfsEnvironment.getFileSystem(path).isDirectory(path);
+            return hdfsEnvironment.getFileSystem(path, session).isDirectory(path);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
-    public static void renameDirectory(HdfsEnvironment hdfsEnvironment, String schemaName, String tableName, Path source, Path target)
+    public static void renameDirectory(HdfsEnvironment hdfsEnvironment, String schemaName, String tableName, Path source, Path target, ConnectorSession session)
     {
-        if (pathExists(hdfsEnvironment, target)) {
+        if (pathExists(hdfsEnvironment, target, session)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS,
                     format("Unable to commit creation of table '%s.%s': target directory already exists: %s", schemaName, tableName, target));
         }
 
-        if (!pathExists(hdfsEnvironment, target.getParent())) {
-            createDirectory(hdfsEnvironment, target.getParent());
+        if (!pathExists(hdfsEnvironment, target.getParent(), session)) {
+            createDirectory(hdfsEnvironment, target.getParent(), session);
         }
 
         try {
-            if (!hdfsEnvironment.getFileSystem(source).rename(source, target)) {
+            if (!hdfsEnvironment.getFileSystem(source, session).rename(source, target)) {
                 throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s: rename returned false", source, target));
             }
         }
@@ -366,7 +367,7 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path createTemporaryPath(HdfsEnvironment hdfsEnvironment, Path targetPath)
+    public static Path createTemporaryPath(HdfsEnvironment hdfsEnvironment, Path targetPath, ConnectorSession session)
     {
         // use a per-user temporary directory to avoid permission problems
         // TODO: this should use Hadoop UserGroupInformation
@@ -376,15 +377,15 @@ public final class HiveWriteUtils
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
         Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
 
-        createDirectory(hdfsEnvironment, temporaryPath);
+        createDirectory(hdfsEnvironment, temporaryPath, session);
 
         return temporaryPath;
     }
 
-    public static void createDirectory(HdfsEnvironment hdfsEnvironment, Path path)
+    public static void createDirectory(HdfsEnvironment hdfsEnvironment, Path path, ConnectorSession session)
     {
         try {
-            if (!hdfsEnvironment.getFileSystem(path).mkdirs(path, ALL_PERMISSIONS)) {
+            if (!hdfsEnvironment.getFileSystem(path, session).mkdirs(path, ALL_PERMISSIONS)) {
                 throw new IOException("mkdirs returned false");
             }
         }
@@ -394,7 +395,7 @@ public final class HiveWriteUtils
 
         // explicitly set permission since the default umask overrides it on creation
         try {
-            hdfsEnvironment.getFileSystem(path).setPermission(path, ALL_PERMISSIONS);
+            hdfsEnvironment.getFileSystem(path, session).setPermission(path, ALL_PERMISSIONS);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);

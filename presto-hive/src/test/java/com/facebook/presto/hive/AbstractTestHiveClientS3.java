@@ -209,7 +209,7 @@ public abstract class AbstractTestHiveClientS3
         Path basePath = new Path("s3://presto-test-hive/");
         Path tablePath = new Path(basePath, "presto_test_s3");
         Path filePath = new Path(tablePath, "test1.csv");
-        FileSystem fs = hdfsEnvironment.getFileSystem(basePath);
+        FileSystem fs = hdfsEnvironment.getFileSystem(basePath, SESSION);
 
         assertTrue(isDirectory(fs.getFileStatus(basePath)));
         assertTrue(isDirectory(fs.getFileStatus(tablePath)));
@@ -222,7 +222,7 @@ public abstract class AbstractTestHiveClientS3
             throws Exception
     {
         Path basePath = new Path(format("s3://%s/rename/%s/", writableBucket, UUID.randomUUID()));
-        FileSystem fs = hdfsEnvironment.getFileSystem(basePath);
+        FileSystem fs = hdfsEnvironment.getFileSystem(basePath, SESSION);
         assertFalse(fs.exists(basePath));
 
         // create file foo.txt
@@ -445,7 +445,7 @@ public abstract class AbstractTestHiveClientS3
                 // drop data
                 for (String location : locations) {
                     Path path = new Path(location);
-                    hdfsEnvironment.getFileSystem(path).delete(path, true);
+                    hdfsEnvironment.getFileSystem(path, SESSION).delete(path, true);
                 }
             }
             catch (Exception e) {

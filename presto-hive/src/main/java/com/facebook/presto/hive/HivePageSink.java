@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
@@ -86,6 +87,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 public class HivePageSink
         implements ConnectorPageSink
 {
+    private final ConnectorSession session;
     private final String schemaName;
     private final String tableName;
 
@@ -121,6 +123,7 @@ public class HivePageSink
     private HiveRecordWriter[] writers = new HiveRecordWriter[0];
 
     public HivePageSink(
+            ConnectorSession session,
             String schemaName,
             String tableName,
             boolean isCreateTable,
@@ -138,6 +141,7 @@ public class HivePageSink
             boolean immutablePartitions,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
+        this.session = requireNonNull(session, "session is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
 
@@ -209,7 +213,7 @@ public class HivePageSink
             this.table = null;
             Optional<Path> writePath = locationService.writePathRoot(locationHandle);
             checkArgument(writePath.isPresent(), "CREATE TABLE must have a write path");
-            conf = new JobConf(hdfsEnvironment.getConfiguration(writePath.get()));
+            conf = new JobConf(hdfsEnvironment.getConfiguration(writePath.get(), session));
         }
         else {
             Optional<Table> table = metastore.getTable(schemaName, tableName);
@@ -218,7 +222,7 @@ public class HivePageSink
             }
             this.table = table.get();
             Path hdfsEnvironmentPath = locationService.writePathRoot(locationHandle).orElseGet(() -> locationService.targetPathRoot(locationHandle));
-            conf = new JobConf(hdfsEnvironment.getConfiguration(hdfsEnvironmentPath));
+            conf = new JobConf(hdfsEnvironment.getConfiguration(hdfsEnvironmentPath, session));
         }
     }
 
@@ -319,10 +323,9 @@ public class HivePageSink
                         .collect(Collectors.joining(":")));
                 target = locationService.targetPath(locationHandle, partitionName);
                 write = locationService.writePath(locationHandle, partitionName).get();
-
                 if (partitionName.isPresent()) {
                     // verify the target directory for the partition does not already exist
-                    if (HiveWriteUtils.pathExists(hdfsEnvironment, target)) {
+                    if (HiveWriteUtils.pathExists(hdfsEnvironment, target, session)) {
                         throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                 partitionName,
                                 schemaName,
