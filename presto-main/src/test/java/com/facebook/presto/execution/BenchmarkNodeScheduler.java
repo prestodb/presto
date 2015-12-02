@@ -14,6 +14,13 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
+import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NetworkLocation;
+import com.facebook.presto.execution.scheduler.NetworkTopology;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelector;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.Split;
@@ -57,7 +64,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.execution.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 
 @SuppressWarnings("MethodMayBeStatic")

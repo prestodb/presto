@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.scheduler.ResettableRandomizedIterator;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 

@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.Multimap;

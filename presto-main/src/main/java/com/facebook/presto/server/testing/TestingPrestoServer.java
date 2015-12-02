@@ -14,12 +14,12 @@
 package com.facebook.presto.server.testing;
 
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.execution.FlatNetworkTopology;
-import com.facebook.presto.execution.LegacyNetworkTopology;
-import com.facebook.presto.execution.NetworkTopology;
-import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
+import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NetworkTopology;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -78,7 +78,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
-import static com.facebook.presto.execution.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
 import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
 import static com.google.common.base.Strings.nullToEmpty;
