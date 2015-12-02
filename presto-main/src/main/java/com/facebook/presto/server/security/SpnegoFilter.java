@@ -188,10 +188,11 @@ public class SpnegoFilter
                         Optional.ofNullable(outputToken),
                         new KerberosPrincipal(context.getSrcName().toString())));
             }
+            LOG.debug("gsscontext failed with token %s", token);
         }
         catch (GSSException e) {
             // ignore and fail the authentication
-            LOG.debug(e, "auth failed");
+            LOG.debug(e, "auth failed with token %s", token);
         }
         finally {
             try {
