@@ -14,12 +14,9 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.execution.LegacyNetworkTopology;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory.MockRemoteTask;
-import com.facebook.presto.execution.NodeScheduler;
-import com.facebook.presto.execution.NodeSchedulerConfig;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.RemoteTask;

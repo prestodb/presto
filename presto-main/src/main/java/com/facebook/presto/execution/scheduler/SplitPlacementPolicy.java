@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.execution.NodeSelector;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
