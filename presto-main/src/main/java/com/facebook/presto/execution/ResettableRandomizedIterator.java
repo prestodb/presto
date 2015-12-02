@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ThreadLocalRandom;
 
-class ResettableRandomizedIterator<T>
+public class ResettableRandomizedIterator<T>
         implements Iterator<T>
 {
     private final List<T> list;
