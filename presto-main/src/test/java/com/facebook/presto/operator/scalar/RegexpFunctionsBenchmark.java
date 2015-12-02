@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import io.airlift.joni.Regex;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -36,6 +35,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.scalar.RegexpFunctions.regexpLike;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -65,7 +65,7 @@ public class RegexpFunctionsBenchmark
         @Param({ "1024", "32768" })
         private int sourceLength;
 
-        private Regex pattern;
+        private RegexpGenericPattern regexpGenericPattern;
         private Slice source;
 
         @Setup
@@ -74,24 +74,24 @@ public class RegexpFunctionsBenchmark
             SliceOutput sliceOutput = new DynamicSliceOutput(sourceLength);
             switch (patternString) {
                 case ".*x.*":
-                    pattern = RegexpFunctions.castToRegexp(Slices.utf8Slice(".*x.*"));
+                    regexpGenericPattern = RegexpFunctions.castToRegexp(TEST_SESSION.toConnectorSession(), Slices.utf8Slice(".*x.*"));
                     IntStream.generate(() -> 97).limit(sourceLength).forEach(sliceOutput::appendByte);
                     break;
                 case ".*(x|y).*":
-                    pattern = RegexpFunctions.castToRegexp(Slices.utf8Slice(".*(x|y).*"));
+                    regexpGenericPattern = RegexpFunctions.castToRegexp(TEST_SESSION.toConnectorSession(), Slices.utf8Slice(".*(x|y).*"));
                     IntStream.generate(() -> 97).limit(sourceLength).forEach(sliceOutput::appendByte);
                     break;
                 case "longdotstar":
-                    pattern = RegexpFunctions.castToRegexp(Slices.utf8Slice(".*coolfunctionname.*"));
+                    regexpGenericPattern = RegexpFunctions.castToRegexp(TEST_SESSION.toConnectorSession(), Slices.utf8Slice(".*coolfunctionname.*"));
                     ThreadLocalRandom.current().ints(97, 123).limit(sourceLength).forEach(sliceOutput::appendByte);
                     break;
                 case "phone":
-                    pattern = RegexpFunctions.castToRegexp(Slices.utf8Slice("\\d{3}/\\d{3}/\\d{4}"));
+                    regexpGenericPattern = RegexpFunctions.castToRegexp(TEST_SESSION.toConnectorSession(), Slices.utf8Slice("\\d{3}/\\d{3}/\\d{4}"));
                     // 47: '/', 48-57: '0'-'9'
                     ThreadLocalRandom.current().ints(47, 58).limit(sourceLength).forEach(sliceOutput::appendByte);
                     break;
                 case "literal":
-                    pattern = RegexpFunctions.castToRegexp(Slices.utf8Slice("literal"));
+                    regexpGenericPattern = RegexpFunctions.castToRegexp(TEST_SESSION.toConnectorSession(), Slices.utf8Slice("literal"));
                     // 97-122: 'a'-'z'
                     ThreadLocalRandom.current().ints(97, 123).limit(sourceLength).forEach(sliceOutput::appendByte);
                     break;
@@ -105,9 +105,9 @@ public class RegexpFunctionsBenchmark
             return source;
         }
 
-        public Regex getPattern()
+        public RegexpGenericPattern getPattern()
         {
-            return pattern;
+            return regexpGenericPattern;
         }
     }
 

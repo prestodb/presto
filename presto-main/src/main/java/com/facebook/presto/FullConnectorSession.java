@@ -35,6 +35,7 @@ public class FullConnectorSession
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final long startTime;
+    private final Map<String, String> systemProperties;
     private final Map<String, String> properties;
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
@@ -44,13 +45,15 @@ public class FullConnectorSession
             Identity identity,
             TimeZoneKey timeZoneKey,
             Locale locale,
-            long startTime)
+            long startTime,
+            Map<String, String> systemProperties)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
+        this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
 
         this.properties = null;
         this.catalog = null;
@@ -63,6 +66,7 @@ public class FullConnectorSession
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime,
+            Map<String, String> systemProperties,
             Map<String, String> properties,
             String catalog,
             SessionPropertyManager sessionPropertyManager)
@@ -72,6 +76,7 @@ public class FullConnectorSession
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
+        this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
 
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -106,6 +111,12 @@ public class FullConnectorSession
     public long getStartTime()
     {
         return startTime;
+    }
+
+    @Override
+    public <T> T getSystemProperty(String name, Class<T> type)
+    {
+       return type.cast(systemProperties.get(name));
     }
 
     @Override

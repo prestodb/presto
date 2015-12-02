@@ -65,6 +65,12 @@ public class TestVariableWidthBlockEncoding
         }
 
         @Override
+        public <T> T getSystemProperty(String name, Class<T> type)
+        {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown system session property " + name);
+        }
+
+        @Override
         public <T> T getProperty(String name, Class<T> type)
         {
             throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);

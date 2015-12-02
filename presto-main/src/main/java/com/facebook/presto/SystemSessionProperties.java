@@ -49,6 +49,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String EXECUTION_POLICY = "execution_policy";
+    public static final String REGEX_LIBRARY = "regex_library";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -69,6 +70,11 @@ public final class SystemSessionProperties
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
                         queryManagerConfig.getQueryExecutionPolicy(),
+                        false),
+                stringSessionProperty(
+                        REGEX_LIBRARY,
+                        "Select the regex library",
+                        "JONI",
                         false),
                 booleanSessionProperty(
                         OPTIMIZE_HASH_GENERATION,
