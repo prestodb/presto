@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TablePropertyManager;
@@ -918,7 +918,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        metadata.createView(SESSION, new QualifiedTableName("tpch", "s1", "v1"), viewData1, false);
+        metadata.createView(SESSION, new QualifiedObjectName("tpch", "s1", "v1"), viewData1, false);
 
         // stale view (different column type)
         String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -928,7 +928,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", VARCHAR)),
                         Optional.of("user")));
-        metadata.createView(SESSION, new QualifiedTableName("tpch", "s1", "v2"), viewData2, false);
+        metadata.createView(SESSION, new QualifiedObjectName("tpch", "s1", "v2"), viewData2, false);
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -938,7 +938,7 @@ public class TestAnalyzer
                         Optional.of("s2"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("owner")));
-        metadata.createView(SESSION, new QualifiedTableName("c3", "s3", "v3"), viewData3, false);
+        metadata.createView(SESSION, new QualifiedObjectName("c3", "s3", "v3"), viewData3, false);
 
         this.metadata = metadata;
         analyzer = createAnalyzer("tpch", "s1", true);

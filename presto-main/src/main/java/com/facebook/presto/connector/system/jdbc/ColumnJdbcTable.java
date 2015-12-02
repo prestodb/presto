@@ -15,7 +15,7 @@ package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -109,14 +109,14 @@ public class ColumnJdbcTable
         Builder table = InMemoryRecordSet.builder(METADATA);
         for (String catalog : filter(metadata.getCatalogNames().keySet(), catalogFilter)) {
             QualifiedTablePrefix prefix = FilterUtil.tablePrefix(catalog, schemaFilter, tableFilter);
-            for (Entry<QualifiedTableName, List<ColumnMetadata>> entry : metadata.listTableColumns(session, prefix).entrySet()) {
+            for (Entry<QualifiedObjectName, List<ColumnMetadata>> entry : metadata.listTableColumns(session, prefix).entrySet()) {
                 addColumnRows(table, entry.getKey(), entry.getValue());
             }
         }
         return table.build().cursor();
     }
 
-    private static void addColumnRows(Builder builder, QualifiedTableName tableName, List<ColumnMetadata> columns)
+    private static void addColumnRows(Builder builder, QualifiedObjectName tableName, List<ColumnMetadata> columns)
     {
         int ordinalPosition = 1;
         for (ColumnMetadata column : columns) {
@@ -126,7 +126,7 @@ public class ColumnJdbcTable
             builder.addRow(
                     tableName.getCatalogName(),
                     tableName.getSchemaName(),
-                    tableName.getTableName(),
+                    tableName.getObjectName(),
                     column.getName(),
                     jdbcDataType(column.getType()),
                     column.getType().getDisplayName(),

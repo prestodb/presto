@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.security;
 
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
 
 import static java.util.Objects.requireNonNull;
@@ -29,25 +29,25 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanSelectFromTable(Identity identity, QualifiedObjectName tableName)
     {
         delegate.checkCanCreateViewWithSelectFromTable(identity, tableName);
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, QualifiedTableName viewName)
+    public void checkCanSelectFromView(Identity identity, QualifiedObjectName viewName)
     {
         delegate.checkCanCreateViewWithSelectFromView(identity, viewName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedObjectName tableName)
     {
         delegate.checkCanCreateViewWithSelectFromTable(identity, tableName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedTableName viewName)
+    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedObjectName viewName)
     {
         delegate.checkCanCreateViewWithSelectFromView(identity, viewName);
     }

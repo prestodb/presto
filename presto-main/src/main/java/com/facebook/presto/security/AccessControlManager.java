@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.security;
 
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.security.Identity;
@@ -151,7 +151,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanCreateTable(Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -163,7 +163,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanDropTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanDropTable(Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -175,7 +175,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanRenameTable(Identity identity, QualifiedTableName tableName, QualifiedTableName newTableName)
+    public void checkCanRenameTable(Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -188,7 +188,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanAddColumns(Identity identity, QualifiedTableName tableName)
+    public void checkCanAddColumns(Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -200,7 +200,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanRenameColumn(Identity identity, QualifiedTableName tableName)
+    public void checkCanRenameColumn(Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -212,7 +212,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanSelectFromTable(Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -224,7 +224,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanInsertIntoTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanInsertIntoTable(Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -236,7 +236,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanDeleteFromTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanDeleteFromTable(Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -248,7 +248,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateView(Identity identity, QualifiedTableName viewName)
+    public void checkCanCreateView(Identity identity, QualifiedObjectName viewName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(viewName, "viewName is null");
@@ -260,7 +260,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanDropView(Identity identity, QualifiedTableName viewName)
+    public void checkCanDropView(Identity identity, QualifiedObjectName viewName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(viewName, "viewName is null");
@@ -272,7 +272,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, QualifiedTableName viewName)
+    public void checkCanSelectFromView(Identity identity, QualifiedObjectName viewName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(viewName, "viewName is null");
@@ -284,7 +284,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedObjectName tableName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -296,7 +296,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedTableName viewName)
+    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedObjectName viewName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(viewName, "viewName is null");

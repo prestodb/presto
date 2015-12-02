@@ -24,34 +24,34 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.MetadataUtil.checkObjectName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class QualifiedTableName
+public class QualifiedObjectName
 {
     @JsonCreator
-    public static QualifiedTableName valueOf(String tableName)
+    public static QualifiedObjectName valueOf(String name)
     {
-        requireNonNull(tableName, "tableName is null");
+        requireNonNull(name, "name is null");
 
-        ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(tableName));
-        checkArgument(ids.size() == 3, "Invalid tableName %s", tableName);
+        ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
+        checkArgument(ids.size() == 3, "Invalid name %s", name);
 
-        return new QualifiedTableName(ids.get(0), ids.get(1), ids.get(2));
+        return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2));
     }
 
     private final String catalogName;
     private final String schemaName;
-    private final String tableName;
+    private final String objectName;
 
-    public QualifiedTableName(String catalogName, String schemaName, String tableName)
+    public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
-        checkTableName(catalogName, schemaName, tableName);
+        checkObjectName(catalogName, schemaName, objectName);
         this.catalogName = catalogName;
         this.schemaName = schemaName;
-        this.tableName = tableName;
+        this.objectName = objectName;
     }
 
     public String getCatalogName()
@@ -64,14 +64,14 @@ public class QualifiedTableName
         return schemaName;
     }
 
-    public String getTableName()
+    public String getObjectName()
     {
-        return tableName;
+        return objectName;
     }
 
     public SchemaTableName asSchemaTableName()
     {
-        return new SchemaTableName(schemaName, tableName);
+        return new SchemaTableName(schemaName, objectName);
     }
 
     @Override
@@ -83,27 +83,27 @@ public class QualifiedTableName
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        QualifiedTableName o = (QualifiedTableName) obj;
+        QualifiedObjectName o = (QualifiedObjectName) obj;
         return Objects.equals(catalogName, o.catalogName) &&
                 Objects.equals(schemaName, o.schemaName) &&
-                Objects.equals(tableName, o.tableName);
+                Objects.equals(objectName, o.objectName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schemaName, tableName);
+        return Objects.hash(catalogName, schemaName, objectName);
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName + '.' + tableName;
+        return catalogName + '.' + schemaName + '.' + objectName;
     }
 
-    public static Function<SchemaTableName, QualifiedTableName> convertFromSchemaTableName(final String catalogName)
+    public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
     {
-        return input -> new QualifiedTableName(catalogName, input.getSchemaName(), input.getTableName());
+        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName());
     }
 }

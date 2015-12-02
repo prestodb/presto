@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -165,8 +165,8 @@ public final class QueryAssertions
     public static void copyAllTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Session session)
             throws Exception
     {
-        for (QualifiedTableName table : queryRunner.listTables(session, sourceCatalog, sourceSchema)) {
-            if (table.getTableName().equalsIgnoreCase("dual")) {
+        for (QualifiedObjectName table : queryRunner.listTables(session, sourceCatalog, sourceSchema)) {
+            if (table.getObjectName().equalsIgnoreCase("dual")) {
                 continue;
             }
             copyTable(queryRunner, table, session);
@@ -176,16 +176,16 @@ public final class QueryAssertions
     public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
             throws Exception
     {
-        QualifiedTableName table = new QualifiedTableName(sourceCatalog, sourceSchema, sourceTable);
+        QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
         copyTable(queryRunner, table, session);
     }
 
-    public static void copyTable(QueryRunner queryRunner, QualifiedTableName table, Session session)
+    public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
     {
         long start = System.nanoTime();
-        log.info("Running import for %s", table.getTableName());
-        @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getTableName(), table);
+        log.info("Running import for %s", table.getObjectName());
+        @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
         long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
-        log.info("Imported %s rows for %s in %s", rows, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 }

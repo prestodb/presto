@@ -14,7 +14,7 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.redis.util.EmbeddedRedis;
 import com.facebook.presto.redis.util.JsonEncoder;
@@ -110,7 +110,7 @@ public class TestMinimalFunctionality
     public void testTableExists()
             throws Exception
     {
-        QualifiedTableName name = new QualifiedTableName("redis", "default", tableName);
+        QualifiedObjectName name = new QualifiedObjectName("redis", "default", tableName);
         Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(SESSION, name);
         assertTrue(handle.isPresent());
     }

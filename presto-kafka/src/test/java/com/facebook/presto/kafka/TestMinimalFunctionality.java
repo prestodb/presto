@@ -16,7 +16,7 @@ package com.facebook.presto.kafka;
 import com.facebook.presto.Session;
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.kafka.util.TestUtils;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
@@ -105,7 +105,7 @@ public class TestMinimalFunctionality
     public void testTopicExists()
             throws Exception
     {
-        QualifiedTableName name = new QualifiedTableName("kafka", "default", topicName);
+        QualifiedObjectName name = new QualifiedObjectName("kafka", "default", topicName);
         Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(SESSION, name);
         assertTrue(handle.isPresent());
     }

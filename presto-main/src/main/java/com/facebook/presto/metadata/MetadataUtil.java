@@ -78,11 +78,11 @@ public final class MetadataUtil
         return checkLowerCase(catalogName, "catalogName");
     }
 
-    public static void checkTableName(String catalogName, String schemaName, String tableName)
+    public static void checkObjectName(String catalogName, String schemaName, String objectName)
     {
         checkLowerCase(catalogName, "catalogName");
         checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(tableName, "tableName");
+        checkLowerCase(objectName, "objectName");
     }
 
     public static Optional<String> checkLowerCase(Optional<String> value, String name)
@@ -112,20 +112,20 @@ public final class MetadataUtil
         return null;
     }
 
-    public static QualifiedTableName createQualifiedTableName(Session session, Node node, QualifiedName name)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
         checkArgument(name.getParts().size() <= 3, "Too many dots in table name: %s", name);
 
         List<String> parts = Lists.reverse(name.getParts());
-        String tableName = parts.get(0);
+        String objectName = parts.get(0);
         String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
                 new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
         String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
                 new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
 
-        return new QualifiedTableName(catalogName, schemaName, tableName);
+        return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 
     public static boolean tableExists(Metadata metadata, Session session, String table)
@@ -133,7 +133,7 @@ public final class MetadataUtil
         if (!session.getCatalog().isPresent() || !session.getSchema().isPresent()) {
             return false;
         }
-        QualifiedTableName name = new QualifiedTableName(session.getCatalog().get(), session.getSchema().get(), table);
+        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
         return metadata.getTableHandle(session, name).isPresent();
     }
 

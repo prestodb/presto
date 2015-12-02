@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
@@ -424,7 +424,7 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, new QualifiedTableName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, new QualifiedObjectName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
         assertTrue(tableHandle.isPresent());
         return metadata.getTableMetadata(session, tableHandle.get());
     }
@@ -433,7 +433,7 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, new QualifiedTableName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, new QualifiedObjectName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
         assertTrue(tableHandle.isPresent());
 
         List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());

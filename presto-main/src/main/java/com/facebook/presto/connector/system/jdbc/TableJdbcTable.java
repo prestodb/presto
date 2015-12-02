@@ -15,7 +15,7 @@ package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -83,13 +83,13 @@ public class TableJdbcTable
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             if (FilterUtil.emptyOrEquals(typeFilter, "TABLE")) {
-                for (QualifiedTableName name : metadata.listTables(session, prefix)) {
+                for (QualifiedObjectName name : metadata.listTables(session, prefix)) {
                     table.addRow(tableRow(name, "TABLE"));
                 }
             }
 
             if (FilterUtil.emptyOrEquals(typeFilter, "VIEW")) {
-                for (QualifiedTableName name : metadata.listViews(session, prefix)) {
+                for (QualifiedObjectName name : metadata.listViews(session, prefix)) {
                     table.addRow(tableRow(name, "VIEW"));
                 }
             }
@@ -97,9 +97,9 @@ public class TableJdbcTable
         return table.build().cursor();
     }
 
-    private static Object[] tableRow(QualifiedTableName name, String type)
+    private static Object[] tableRow(QualifiedObjectName name, String type)
     {
-        return new Object[] {name.getCatalogName(), name.getSchemaName(), name.getTableName(), type,
+        return new Object[] {name.getCatalogName(), name.getSchemaName(), name.getObjectName(), type,
                              null, null, null, null, null, null};
     }
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.redis.util;
 
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.redis.RedisPlugin;
 import com.facebook.presto.redis.RedisTableDescription;
 import com.facebook.presto.spi.SchemaTableName;
@@ -51,7 +51,7 @@ public final class RedisTestUtils
         queryRunner.createCatalog("redis", "redis", redisConfig);
     }
 
-    public static void loadTpchTable(EmbeddedRedis embeddedRedis, TestingPrestoClient prestoClient, String tableName, QualifiedTableName tpchTableName, String dataFormat)
+    public static void loadTpchTable(EmbeddedRedis embeddedRedis, TestingPrestoClient prestoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
     {
         RedisLoader tpchLoader = new RedisLoader(prestoClient.getServer(), prestoClient.getDefaultSession(), embeddedRedis.getJedisPool(), tableName, dataFormat);
         tpchLoader.execute(format("SELECT * from %s", tpchTableName));

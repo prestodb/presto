@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.security;
 
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
@@ -76,7 +76,7 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = new AccessControlManager();
         accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
 
-        accessControlManager.checkCanSelectFromTable(new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedTableName("catalog", "schema", "table"));
+        accessControlManager.checkCanSelectFromTable(new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"));
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table schema.table")
@@ -87,7 +87,7 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
 
         accessControlManager.addCatalogAccessControl("catalog", new DenyConnectorAccessControl());
-        accessControlManager.checkCanSelectFromTable(new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedTableName("catalog", "schema", "table"));
+        accessControlManager.checkCanSelectFromTable(new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"));
     }
 
     private static class TestSystemAccessControlFactory

@@ -53,7 +53,7 @@ public interface Metadata
      * Returns a table handle for the specified table name.
      */
     @NotNull
-    Optional<TableHandle> getTableHandle(Session session, QualifiedTableName tableName);
+    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
 
     @NotNull
     List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
@@ -73,7 +73,7 @@ public interface Metadata
      * Get the names that match the specified table prefix (never null).
      */
     @NotNull
-    List<QualifiedTableName> listTables(Session session, QualifiedTablePrefix prefix);
+    List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Returns the handle for the sample weight column.
@@ -109,7 +109,7 @@ public interface Metadata
      * Gets the metadata for all columns that match the specified table prefix.
      */
     @NotNull
-    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
+    Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Creates a table using the specified table metadata.
@@ -120,7 +120,7 @@ public interface Metadata
     /**
      * Rename the specified table.
      */
-    void renameTable(Session session, TableHandle tableHandle, QualifiedTableName newTableName);
+    void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName);
 
     /**
      * Rename the specified column.
@@ -213,29 +213,29 @@ public interface Metadata
      * Get the names that match the specified table prefix (never null).
      */
     @NotNull
-    List<QualifiedTableName> listViews(Session session, QualifiedTablePrefix prefix);
+    List<QualifiedObjectName> listViews(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Get the view definitions that match the specified table prefix (never null).
      */
     @NotNull
-    Map<QualifiedTableName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix);
+    Map<QualifiedObjectName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Returns the view definition for the specified view name.
      */
     @NotNull
-    Optional<ViewDefinition> getView(Session session, QualifiedTableName viewName);
+    Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName);
 
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedTableName viewName, String viewData, boolean replace);
+    void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace);
 
     /**
      * Drops the specified view.
      */
-    void dropView(Session session, QualifiedTableName viewName);
+    void dropView(Session session, QualifiedObjectName viewName);
 
     FunctionRegistry getFunctionRegistry();
 
