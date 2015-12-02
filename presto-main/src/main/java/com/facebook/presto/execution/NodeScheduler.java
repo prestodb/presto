@@ -13,34 +13,26 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,11 +40,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -170,230 +160,25 @@ public class NodeScheduler
         }, 5, TimeUnit.SECONDS);
 
         if (useNetworkTopology) {
-            return new TopologyAwareNodeSelector(nodeMap);
+            return new TopologyAwareNodeSelector(
+                    nodeManager,
+                    nodeTaskMap,
+                    includeCoordinator,
+                    doubleScheduling,
+                    nodeMap,
+                    minCandidates,
+                    maxSplitsPerNode,
+                    maxSplitsPerNodePerTaskWhenFull,
+                    topologicalSplitCounters,
+                    networkLocationSegmentNames,
+                    networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeMap);
+            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, minCandidates, maxSplitsPerNode, maxSplitsPerNodePerTaskWhenFull);
         }
     }
 
-    public class TopologyAwareNodeSelector
-            implements NodeSelector
-    {
-        private final AtomicReference<Supplier<NodeMap>> nodeMap;
-
-        public TopologyAwareNodeSelector(Supplier<NodeMap> nodeMap)
-        {
-            this.nodeMap = new AtomicReference<>(nodeMap);
-        }
-
-        @Override
-        public void lockDownNodes()
-        {
-            nodeMap.set(Suppliers.ofInstance(nodeMap.get().get()));
-        }
-
-        @Override
-        public List<Node> allNodes()
-        {
-            return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
-        }
-
-        @Override
-        public Node selectCurrentNode()
-        {
-            // TODO: this is a hack to force scheduling on the coordinator
-            return nodeManager.getCurrentNode();
-        }
-
-        @Override
-        public List<Node> selectRandomNodes(int limit)
-        {
-            return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator), doubleScheduling);
-        }
-
-        @Override
-        public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
-        {
-            NodeMap nodeMap = this.nodeMap.get().get();
-            Collection<Node> allNodes = nodeMap.getNodesByHostAndPort().values();
-            Multimap<Node, Split> assignment = HashMultimap.create();
-            NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
-
-            int[] topologicCounters = new int[topologicalSplitCounters.size()];
-            Set<NetworkLocation> filledLocations = new HashSet<>();
-            for (Split split : splits) {
-                if (!split.isRemotelyAccessible()) {
-                    List<Node> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
-                    if (candidateNodes.isEmpty()) {
-                        log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
-                        throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
-                    }
-                    Node chosenNode = bestNodeSplitCount(candidateNodes.iterator(), minCandidates, maxSplitsPerNodePerTaskWhenFull, assignmentStats);
-                    if (chosenNode != null) {
-                        assignment.put(chosenNode, split);
-                        assignmentStats.addAssignedSplit(chosenNode);
-                    }
-                    continue;
-                }
-
-                Node chosenNode = null;
-                int depth = networkLocationSegmentNames.size();
-                int chosenDepth = 0;
-                List<NetworkLocation> locations = new ArrayList<>();
-                for (HostAddress host : split.getAddresses()) {
-                    try {
-                        locations.add(networkLocationCache.get(host));
-                    }
-                    catch (ExecutionException | UncheckedExecutionException e) {
-                        // Skip addresses we can't locate
-                    }
-                }
-                if (locations.isEmpty()) {
-                    // Add the root location
-                    locations.add(new NetworkLocation());
-                    depth = 0;
-                }
-                // Try each address at progressively shallower network locations
-                for (int i = depth; i >= 0 && chosenNode == null; i--) {
-                    for (NetworkLocation location : locations) {
-                        location = location.subLocation(0, i);
-                        if (filledLocations.contains(location)) {
-                            continue;
-                        }
-                        Set<Node> nodes = nodeMap.getWorkersByNetworkPath().get(location);
-                        double queueFraction = (1.0 + i) / (1.0 + depth);
-                        chosenNode = bestNodeSplitCount(new ResettableRandomizedIterator<>(nodes), minCandidates, (int) Math.ceil(queueFraction * maxSplitsPerNodePerTaskWhenFull), assignmentStats);
-                        if (chosenNode != null) {
-                            chosenDepth = i;
-                            break;
-                        }
-                        filledLocations.add(location);
-                    }
-                }
-                if (chosenNode != null) {
-                    assignment.put(chosenNode, split);
-                    assignmentStats.addAssignedSplit(chosenNode);
-                    topologicCounters[chosenDepth]++;
-                }
-            }
-            for (int i = 0; i < topologicCounters.length; i++) {
-                if (topologicCounters[i] > 0) {
-                    topologicalSplitCounters.get(i).update(topologicCounters[i]);
-                }
-            }
-            return assignment;
-        }
-
-        @Nullable
-        private Node bestNodeSplitCount(Iterator<Node> candidates, int minCandidatesWhenFull, int maxSplitsPerNodePerTaskWhenFull, NodeAssignmentStats assignmentStats)
-        {
-            Node bestQueueNotFull = null;
-            int min = Integer.MAX_VALUE;
-            int fullCandidatesConsidered = 0;
-
-            while (candidates.hasNext() && (fullCandidatesConsidered < minCandidatesWhenFull || bestQueueNotFull == null)) {
-                Node node = candidates.next();
-                if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
-                    return node;
-                }
-                fullCandidatesConsidered++;
-                int totalSplitCount = assignmentStats.getTotalQueuedSplitCount(node);
-                if (totalSplitCount < min && totalSplitCount < maxSplitsPerNodePerTaskWhenFull) {
-                    bestQueueNotFull = node;
-                }
-            }
-            return bestQueueNotFull;
-        }
-    }
-
-    public class SimpleNodeSelector
-            implements NodeSelector
-    {
-        private final AtomicReference<Supplier<NodeMap>> nodeMap;
-
-        public SimpleNodeSelector(Supplier<NodeMap> nodeMap)
-        {
-            this.nodeMap = new AtomicReference<>(nodeMap);
-        }
-
-        @Override
-        public void lockDownNodes()
-        {
-            nodeMap.set(Suppliers.ofInstance(nodeMap.get().get()));
-        }
-
-        @Override
-        public List<Node> allNodes()
-        {
-            return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
-        }
-
-        @Override
-        public Node selectCurrentNode()
-        {
-            // TODO: this is a hack to force scheduling on the coordinator
-            return nodeManager.getCurrentNode();
-        }
-
-        @Override
-        public List<Node> selectRandomNodes(int limit)
-        {
-            return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator), doubleScheduling);
-        }
-
-        @Override
-        public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
-        {
-            Multimap<Node, Split> assignment = HashMultimap.create();
-            NodeMap nodeMap = this.nodeMap.get().get();
-            NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
-
-            ResettableRandomizedIterator<Node> randomCandidates = randomizedNodes(nodeMap, includeCoordinator);
-            for (Split split : splits) {
-                randomCandidates.reset();
-
-                List<Node> candidateNodes;
-                if (!split.isRemotelyAccessible()) {
-                    candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
-                }
-                else {
-                    candidateNodes = selectNodes(minCandidates, randomCandidates, doubleScheduling);
-                }
-                if (candidateNodes.isEmpty()) {
-                    log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
-                    throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
-                }
-
-                Node chosenNode = null;
-                int min = Integer.MAX_VALUE;
-
-                for (Node node : candidateNodes) {
-                    int totalSplitCount = assignmentStats.getTotalSplitCount(node);
-                    if (totalSplitCount < min && totalSplitCount < maxSplitsPerNode) {
-                        chosenNode = node;
-                        min = totalSplitCount;
-                    }
-                }
-                if (chosenNode == null) {
-                    for (Node node : candidateNodes) {
-                        int totalSplitCount = assignmentStats.getTotalQueuedSplitCount(node);
-                        if (totalSplitCount < min && totalSplitCount < maxSplitsPerNodePerTaskWhenFull) {
-                            chosenNode = node;
-                            min = totalSplitCount;
-                        }
-                    }
-                }
-                if (chosenNode != null) {
-                    assignment.put(chosenNode, split);
-                    assignmentStats.addAssignedSplit(chosenNode);
-                }
-            }
-            return assignment;
-        }
-    }
-
-    private static List<Node> selectNodes(int limit, Iterator<Node> candidates, boolean doubleScheduling)
+    public static List<Node> selectNodes(int limit, Iterator<Node> candidates, boolean doubleScheduling)
     {
         checkArgument(limit > 0, "limit must be at least 1");
 
@@ -417,7 +202,7 @@ public class NodeScheduler
         return selected;
     }
 
-    private static ResettableRandomizedIterator<Node> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator)
+    public static ResettableRandomizedIterator<Node> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator)
     {
         ImmutableList<Node> nodes = nodeMap.getNodesByHostAndPort().values().stream()
                 .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
@@ -425,7 +210,7 @@ public class NodeScheduler
         return new ResettableRandomizedIterator<>(nodes);
     }
 
-    private static List<Node> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
+    public static List<Node> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
     {
         Set<Node> chosen = new LinkedHashSet<>();
         Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
@@ -480,44 +265,5 @@ public class NodeScheduler
         }
 
         return ImmutableList.copyOf(chosen);
-    }
-
-    public static class NodeMap
-    {
-        private final SetMultimap<HostAddress, Node> nodesByHostAndPort;
-        private final SetMultimap<InetAddress, Node> nodesByHost;
-        private final SetMultimap<NetworkLocation, Node> workersByNetworkPath;
-        private final Set<String> coordinatorNodeIds;
-
-        public NodeMap(SetMultimap<HostAddress, Node> nodesByHostAndPort,
-                SetMultimap<InetAddress, Node> nodesByHost,
-                SetMultimap<NetworkLocation, Node> workersByNetworkPath,
-                Set<String> coordinatorNodeIds)
-        {
-            this.nodesByHostAndPort = nodesByHostAndPort;
-            this.nodesByHost = nodesByHost;
-            this.workersByNetworkPath = workersByNetworkPath;
-            this.coordinatorNodeIds = coordinatorNodeIds;
-        }
-
-        public SetMultimap<HostAddress, Node> getNodesByHostAndPort()
-        {
-            return nodesByHostAndPort;
-        }
-
-        public SetMultimap<InetAddress, Node> getNodesByHost()
-        {
-            return nodesByHost;
-        }
-
-        public SetMultimap<NetworkLocation, Node> getWorkersByNetworkPath()
-        {
-            return workersByNetworkPath;
-        }
-
-        public Set<String> getCoordinatorNodeIds()
-        {
-            return coordinatorNodeIds;
-        }
     }
 }

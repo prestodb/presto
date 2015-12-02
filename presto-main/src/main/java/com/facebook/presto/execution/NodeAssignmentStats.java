@@ -28,7 +28,7 @@ public final class NodeAssignmentStats
     private final Map<Node, Integer> splitCountByNode = new HashMap<>();
     private final Map<String, Integer> queuedSplitCountByNode = new HashMap<>();
 
-    public NodeAssignmentStats(NodeTaskMap nodeTaskMap, NodeScheduler.NodeMap nodeMap, List<RemoteTask> existingTasks)
+    public NodeAssignmentStats(NodeTaskMap nodeTaskMap, NodeMap nodeMap, List<RemoteTask> existingTasks)
     {
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
 
