@@ -28,3 +28,4 @@ This chapter describes the SQL syntax used in Presto.
     sql/show-session
     sql/show-tables
     sql/use
+    sql/values
