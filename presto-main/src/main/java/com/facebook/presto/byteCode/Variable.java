@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.add;
+import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
 import static java.util.Objects.requireNonNull;
 
 public class Variable
@@ -41,6 +43,11 @@ public class Variable
     public ByteCodeExpression set(ByteCodeExpression value)
     {
         return new SetVariableByteCodeExpression(this, value);
+    }
+
+    public ByteCodeExpression increment()
+    {
+        return new SetVariableByteCodeExpression(this, add(this, constantInt(1)));
     }
 
     @Override
