@@ -256,6 +256,34 @@ public final class ByteCodeExpressions
     }
 
     //
+    // Array
+    //
+    public static ByteCodeExpression newArray(ParameterizedType type, int length)
+    {
+        return new NewArrayByteCodeExpression(type, length);
+    }
+
+    public static ByteCodeExpression newArray(ParameterizedType type, ByteCodeExpression length)
+    {
+        return new NewArrayByteCodeExpression(type, length);
+    }
+
+    public static ByteCodeExpression length(ByteCodeExpression instance)
+    {
+        return new ArrayLengthByteCodeExpression(instance);
+    }
+
+    public static ByteCodeExpression get(ByteCodeExpression instance, ByteCodeExpression index)
+    {
+        return new GetElementByteCodeExpression(instance, index);
+    }
+
+    public static ByteCodeExpression set(ByteCodeExpression instance, ByteCodeExpression index, ByteCodeExpression value)
+    {
+        return new SetArrayElementByteCodeExpression(instance, index, value);
+    }
+
+    //
     // Invoke static method
     //
 

@@ -16,30 +16,38 @@ package com.facebook.presto.byteCode.expression;
 import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.MethodGenerationContext;
+import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.instruction.InstructionNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.facebook.presto.byteCode.ArrayOpCode.getArrayOpCode;
+import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-class GetElementByteCodeExpression
+class SetArrayElementByteCodeExpression
         extends ByteCodeExpression
 {
     private final ByteCodeExpression instance;
     private final ByteCodeExpression index;
-    private final InstructionNode arrayLoadInstruction;
+    private final ByteCodeExpression value;
+    private final InstructionNode arrayStoreInstruction;
 
-    public GetElementByteCodeExpression(ByteCodeExpression instance, ByteCodeExpression index)
+    public SetArrayElementByteCodeExpression(ByteCodeExpression instance, ByteCodeExpression index, ByteCodeExpression value)
     {
-        super(instance.getType().getArrayComponentType());
+        super(type(void.class));
+
         this.instance = requireNonNull(instance, "instance is null");
         this.index = requireNonNull(index, "index is null");
+        this.value = requireNonNull(value, "value is null");
 
+        ParameterizedType componentType = instance.getType().getArrayComponentType();
         checkArgument(index.getType().getPrimitiveType() == int.class, "index must be int type, but is " + index.getType());
-        this.arrayLoadInstruction = getArrayOpCode(instance.getType().getArrayComponentType()).getLoad();
+        checkArgument(componentType.equals(value.getType()), "value must be %s type, but is %s", componentType, value.getType());
+
+        this.arrayStoreInstruction = getArrayOpCode(componentType).getStore();
     }
 
     @Override
@@ -48,18 +56,19 @@ class GetElementByteCodeExpression
         return new ByteCodeBlock()
                 .append(instance.getByteCode(generationContext))
                 .append(index)
-                .append(arrayLoadInstruction);
+                .append(value)
+                .append(arrayStoreInstruction);
     }
 
     @Override
     protected String formatOneLine()
     {
-        return instance + "[" + index + "]";
+        return instance + "[" + index + "] = " + value;
     }
 
     @Override
     public List<ByteCodeNode> getChildNodes()
     {
-        return ImmutableList.<ByteCodeNode>of(index);
+        return ImmutableList.<ByteCodeNode>of(index, value);
     }
 }

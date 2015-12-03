@@ -25,6 +25,7 @@ import com.facebook.presto.byteCode.SmartClassWriter;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.ClassWriter;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
@@ -43,27 +44,62 @@ public final class ByteCodeExpressionAssertions
 
     private static final boolean DUMP_BYTE_CODE_TREE = false;
 
+    static void assertByteCodeExpressionType(ByteCodeExpression expression, ParameterizedType type)
+    {
+        assertEquals(expression.getType(), type);
+    }
+
     public static void assertByteCodeExpression(ByteCodeExpression expression, Object expected, String expectedRendering)
+            throws Exception
+    {
+        assertByteCodeExpression(expression, expected, expectedRendering, Optional.empty());
+    }
+
+    public static void assertByteCodeExpression(ByteCodeExpression expression, Object expected, String expectedRendering, Optional<ClassLoader> parentClassLoader)
             throws Exception
     {
         assertEquals(expression.toString(), expectedRendering);
 
-        assertByteCodeNode(expression.ret(), expression.getType(), expected);
+        assertByteCodeNode(expression.ret(), expression.getType(), expected, parentClassLoader);
+    }
+
+    public static void assertByteCodeExpression(ByteCodeExpression expression, Object expected, ClassLoader parentClassLoader)
+            throws Exception
+    {
+        assertByteCodeExpression(expression, expected, Optional.of(parentClassLoader));
+    }
+
+    public static void assertByteCodeExpression(ByteCodeExpression expression, Object expected, Optional<ClassLoader> parentClassLoader)
+            throws Exception
+    {
+        assertByteCodeNode(expression.ret(), expression.getType(), expected, parentClassLoader);
     }
 
     public static void assertByteCodeNode(ByteCodeNode node, ParameterizedType returnType, Object expected)
             throws Exception
     {
-        assertEquals(execute(context -> node, returnType), expected);
+        assertByteCodeNode(node, returnType, expected, Optional.empty());
+    }
+
+    public static void assertByteCodeNode(ByteCodeNode node, ParameterizedType returnType, Object expected, Optional<ClassLoader> parentClassLoader)
+            throws Exception
+    {
+        assertEquals(execute(context -> node, returnType, parentClassLoader), expected);
     }
 
     public static void assertByteCodeNode(Function<Scope, ByteCodeNode> nodeGenerator, ParameterizedType returnType, Object expected)
             throws Exception
     {
-        assertEquals(execute(nodeGenerator, returnType), expected);
+        assertByteCodeNode(nodeGenerator, returnType, expected, Optional.empty());
     }
 
-    public static Object execute(Function<Scope, ByteCodeNode> nodeGenerator, ParameterizedType returnType)
+    public static void assertByteCodeNode(Function<Scope, ByteCodeNode> nodeGenerator, ParameterizedType returnType, Object expected, Optional<ClassLoader> parentClassLoader)
+            throws Exception
+    {
+        assertEquals(execute(nodeGenerator, returnType, parentClassLoader), expected);
+    }
+
+    public static Object execute(Function<Scope, ByteCodeNode> nodeGenerator, ParameterizedType returnType, Optional<ClassLoader> parentClassLoader)
             throws Exception
     {
         ClassDefinition classDefinition = new ClassDefinition(
@@ -80,7 +116,7 @@ public final class ByteCodeExpressionAssertions
             dumpByteCode.visitClass(classDefinition);
         }
 
-        DynamicClassLoader classLoader = new DynamicClassLoader();
+        DynamicClassLoader classLoader = parentClassLoader.isPresent() ? new DynamicClassLoader(parentClassLoader.get()) : new DynamicClassLoader();
         ClassWriter cw = new SmartClassWriter(ClassInfoLoader.createClassInfoLoader(ImmutableList.of(classDefinition), classLoader));
         classDefinition.visit(cw);
 

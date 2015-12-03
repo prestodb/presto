@@ -16,30 +16,23 @@ package com.facebook.presto.byteCode.expression;
 import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.MethodGenerationContext;
-import com.facebook.presto.byteCode.instruction.InstructionNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.ArrayOpCode.getArrayOpCode;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.byteCode.OpCode.ARRAYLENGTH;
+import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static java.util.Objects.requireNonNull;
 
-class GetElementByteCodeExpression
-        extends ByteCodeExpression
+class ArrayLengthByteCodeExpression
+    extends ByteCodeExpression
 {
     private final ByteCodeExpression instance;
-    private final ByteCodeExpression index;
-    private final InstructionNode arrayLoadInstruction;
 
-    public GetElementByteCodeExpression(ByteCodeExpression instance, ByteCodeExpression index)
+    public ArrayLengthByteCodeExpression(ByteCodeExpression instance)
     {
-        super(instance.getType().getArrayComponentType());
+        super(type(int.class));
         this.instance = requireNonNull(instance, "instance is null");
-        this.index = requireNonNull(index, "index is null");
-
-        checkArgument(index.getType().getPrimitiveType() == int.class, "index must be int type, but is " + index.getType());
-        this.arrayLoadInstruction = getArrayOpCode(instance.getType().getArrayComponentType()).getLoad();
     }
 
     @Override
@@ -47,19 +40,18 @@ class GetElementByteCodeExpression
     {
         return new ByteCodeBlock()
                 .append(instance.getByteCode(generationContext))
-                .append(index)
-                .append(arrayLoadInstruction);
+                .append(ARRAYLENGTH);
     }
 
     @Override
     protected String formatOneLine()
     {
-        return instance + "[" + index + "]";
+        return instance + ".length";
     }
 
     @Override
     public List<ByteCodeNode> getChildNodes()
     {
-        return ImmutableList.<ByteCodeNode>of(index);
+        return ImmutableList.<ByteCodeNode>of();
     }
 }
