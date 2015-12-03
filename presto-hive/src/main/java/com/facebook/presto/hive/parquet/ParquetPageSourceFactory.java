@@ -171,6 +171,7 @@ public class ParquetPageSourceFactory
                     dataSource);
 
             return new ParquetPageSource(parquetReader,
+                    fileSchema,
                     requestedSchema,
                     path,
                     length,
@@ -178,7 +179,8 @@ public class ParquetPageSourceFactory
                     columns,
                     partitionKeys,
                     effectivePredicate,
-                    typeManager);
+                    typeManager,
+                    useParquetColumnNames);
         }
         catch (Exception e) {
             try {
