@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
@@ -68,14 +69,18 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.joni.Regex;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import org.jetbrains.annotations.NotNull;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -398,8 +403,9 @@ public class ExpressionInterpreter
             }
             catch (RuntimeException e) {
                 // HACK
-                // Certain operations like 0 / 0 or likeExpression may throw exceptions
-                return expression;
+                // Certain operations like 0 / 0 or likeExpression may throw exceptions.
+                // Wrap them a FunctionCall that will throw the exception if the expression is actually executed
+                return createFailureFunction(e, type(expression));
             }
         }
 
@@ -1031,6 +1037,19 @@ public class ExpressionInterpreter
             }
             throw Throwables.propagate(throwable);
         }
+    }
+
+    @VisibleForTesting
+    @NotNull
+    public static Expression createFailureFunction(RuntimeException exception, Type type)
+    {
+        requireNonNull(exception, "Exception is null");
+
+        String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
+        FunctionCall jsonParse = new FunctionCall(QualifiedName.of("json_parse"), ImmutableList.of(new StringLiteral(failureInfo)));
+        FunctionCall failureFunction = new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(jsonParse));
+
+        return new Cast(failureFunction, type.getTypeSignature().toString());
     }
 
     private static boolean isArray(Type type)
