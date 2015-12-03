@@ -26,6 +26,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.sql.Types;
 
@@ -130,6 +131,20 @@ public class TestJdbcResultSet
             assertFalse(rs.next());
             assertNotNull(rs.getStats());
         }
+    }
+
+    @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
+    public void testSetSession()
+        throws Exception
+    {
+        statement.execute("SET SESSION hash_partition_count = 16");
+    }
+
+    @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "SET/RESET SESSION .*")
+    public void testResetSession()
+        throws Exception
+    {
+        statement.execute("RESET SESSION hash_partition_count");
     }
 
     private Connection createConnection()
