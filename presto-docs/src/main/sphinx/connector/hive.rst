@@ -328,3 +328,50 @@ The following configuration properties may have an impact on connector performan
  * **Type:** ``String`` (data size, at least ``5 MB``)
  * **Default value:** ``5 MB``
  * **Description:** Defines the minimum part size for upload parts. Decreasing the minimum part size causes multipart uploads to be split into a larger number of smaller parts. Setting this value too low has a negative effect on transfer speeds, causing extra latency and network communication for each part.
+
+Character data types
+--------------------
+
+Hive supports three character data types:
+ - ``STRING``
+ - ``CHAR(n)``
+ - ``VARCHAR(n)``
+
+Currently columns for all those data types are exposed in presto as unparametrized ``VARCHAR`` type.
+This implies semantic inconsistencies for columns defined as ``CHAR(x)`` between Hive and Presto.
+
+Following example documents basic semantic differences:
+
+**Create table in Hive**
+
+.. code-block:: none
+
+    hive> create table string_test (c char(5), v varchar(5), s string) stored as orc;
+    hive> insert into string_test values ('ala', 'ala', 'ala'), ('ala ', 'ala ', 'ala ');
+
+
+**Query the table in Hive**
+
+.. code-block:: none
+
+    hive> select concat('x', c, 'x'), concat('x', v, 'x'), concat('x', s, 'x'), length(c), length(v), length(s) from string_test;
+    OK
+    xalax	xalax	 xalax	 3	3	3
+    xalax	xala x	 xala x	 3	4	4
+
+**Query the table in Presto**
+
+.. code-block:: none
+
+    presto:default> select concat('x',c,'x'), concat('x', v, 'x'), concat('x', s, 'x'), length(c), length(v), length(s) from string_test;
+      _col0  | _col1  | _col2  | _col3 | _col4 | _col5
+    ---------+--------+--------+-------+-------+-------
+     xala  x | xalax  | xalax  |     5 |     3 |     3
+     xala  x | xala x | xala x |     5 |     4 |     4
+
+Also for ``CHAR(x)`` datatype padding whitespace should not be taken into consideration during comparisons.
+So ``'ala  '`` should be equal to ``'ala        '``. This is currently not the case in Presto.
+
+
+**Note:** Ultimately Presto presto will implement native ``CHAR(x)`` data type. It will follow ANSI SQL semantics which differs from
+ Hive's. This will cause backward incompatibilities of queries using Hive's ``CHAR(x)`` columns.
