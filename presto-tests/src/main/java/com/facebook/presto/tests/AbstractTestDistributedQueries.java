@@ -345,59 +345,54 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
         assertUpdate("DELETE FROM test_delete WHERE rand() < 0", 0);
         assertUpdate("DROP TABLE test_delete");
-    }
 
-    @Test
-    public void testDeleteSemiJoin()
-            throws Exception
-    {
         // delete using a subquery
 
-        assertUpdate("CREATE TABLE test_delete_semi_join AS SELECT * FROM lineitem", "SELECT count(*) FROM lineitem");
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM lineitem", "SELECT count(*) FROM lineitem");
 
         assertUpdate(
-                "DELETE FROM test_delete_semi_join WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')",
+                "DELETE FROM test_delete WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')",
                 "SELECT count(*) FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')");
         assertQuery(
-                "SELECT * FROM test_delete_semi_join",
+                "SELECT * FROM test_delete",
                 "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus <> 'F')");
 
-        assertUpdate("DROP TABLE test_delete_semi_join");
+        assertUpdate("DROP TABLE test_delete");
 
         // delete with multiple SemiJoin
 
-        assertUpdate("CREATE TABLE test_delete_semi_join AS SELECT * FROM lineitem", "SELECT count(*) FROM lineitem");
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM lineitem", "SELECT count(*) FROM lineitem");
 
         assertUpdate(
-                "DELETE FROM test_delete_semi_join\n" +
-                "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')\n" +
-                "  AND orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)\n",
+                "DELETE FROM test_delete\n" +
+                        "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')\n" +
+                        "  AND orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)\n",
                 "SELECT count(*) FROM lineitem\n" +
-                "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')\n" +
-                "  AND orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)");
+                        "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus = 'F')\n" +
+                        "  AND orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 = 0)");
         assertQuery(
-                "SELECT * FROM test_delete_semi_join",
+                "SELECT * FROM test_delete",
                 "SELECT * FROM lineitem\n" +
-                "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus <> 'F')\n" +
-                "  OR orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 <> 0)");
+                        "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderstatus <> 'F')\n" +
+                        "  OR orderkey IN (SELECT orderkey FROM orders WHERE custkey % 5 <> 0)");
 
-        assertUpdate("DROP TABLE test_delete_semi_join");
+        assertUpdate("DROP TABLE test_delete");
 
         // delete with SemiJoin null handling
 
-        assertUpdate("CREATE TABLE test_delete_semi_join AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 
         assertUpdate(
-                "DELETE FROM test_delete_semi_join\n" +
+                "DELETE FROM test_delete\n" +
                         "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL\n",
                 "SELECT count(*) FROM orders\n" +
                         "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NULL\n");
         assertQuery(
-                "SELECT * FROM test_delete_semi_join",
+                "SELECT * FROM test_delete",
                 "SELECT * FROM orders\n" +
                         "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NOT NULL\n");
 
-        assertUpdate("DROP TABLE test_delete_semi_join");
+        assertUpdate("DROP TABLE test_delete");
     }
 
     @Test
