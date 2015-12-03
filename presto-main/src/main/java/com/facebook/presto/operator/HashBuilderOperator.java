@@ -87,6 +87,12 @@ public class HashBuilderOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new HashBuilderOperatorFactory(operatorId, lookupSourceSupplier.getTypes(), hashChannels, hashChannel, expectedPositions);
+        }
     }
 
     private final OperatorContext operatorContext;

@@ -94,7 +94,7 @@ public interface SchemaDao
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS created_shards (\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
-            "  transaction_id bigint NOT NULL,\n" +
+            "  transaction_id BIGINT NOT NULL,\n" +
             "  PRIMARY KEY (shard_uuid),\n" +
             "  FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id)\n" +
             ")")
@@ -103,7 +103,7 @@ public interface SchemaDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS created_shard_nodes (\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
             "  node_id INT NOT NULL,\n" +
-            "  transaction_id bigint NOT NULL,\n" +
+            "  transaction_id BIGINT NOT NULL,\n" +
             "  PRIMARY KEY (shard_uuid, node_id),\n" +
             "  FOREIGN KEY (node_id) REFERENCES nodes (node_id),\n" +
             "  FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id)\n" +
@@ -120,7 +120,7 @@ public interface SchemaDao
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS deleted_shard_nodes (\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
-            "  node_id INT,\n" +
+            "  node_id INT NOT NULL,\n" +
             "  delete_time DATETIME NOT NULL,\n" +
             "  clean_time DATETIME,\n" +
             "  purge_time DATETIME,\n" +

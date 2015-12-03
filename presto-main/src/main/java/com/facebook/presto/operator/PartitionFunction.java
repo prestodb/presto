@@ -14,28 +14,13 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.google.common.base.MoreObjects;
 
-public class RoundRobinPartitionGenerator
-    implements PartitionGenerator
+public interface PartitionFunction
 {
-    private int counter;
+    int getPartitionCount();
 
-    public RoundRobinPartitionGenerator() {}
-
-    @Override
-    public int getPartitionBucket(int partitionCount, int position, Page page)
-    {
-        int bucket = counter % partitionCount;
-        counter = (counter + 1) & 0x7fff_ffff;
-        return bucket;
-    }
-
-    @Override
-    public String toString()
-    {
-        return MoreObjects.toStringHelper(this)
-                .add("counter", counter)
-                .toString();
-    }
+    /**
+     * @param functionArguments the arguments to partition function in order (no extra columns)
+     */
+    int getPartition(Page functionArguments, int position);
 }

@@ -16,8 +16,6 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
-import com.facebook.presto.execution.NodeScheduler;
-import com.facebook.presto.execution.NodeScheduler.NodeSelector;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
@@ -28,6 +26,7 @@ import com.facebook.presto.execution.SqlStageExecution.ExchangeLocation;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
@@ -44,12 +43,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
 import static com.facebook.presto.execution.StageState.FAILED;
@@ -86,7 +87,6 @@ public class SqlQueryScheduler
             RemoteTaskFactory remoteTaskFactory,
             Session session,
             int splitBatchSize,
-            int initialHashPartitions,
             ExecutorService executor,
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
@@ -108,7 +108,6 @@ public class SqlQueryScheduler
                 remoteTaskFactory,
                 session,
                 splitBatchSize,
-                initialHashPartitions,
                 executor,
                 nodeTaskMap,
                 stageSchedulers,
@@ -167,7 +166,6 @@ public class SqlQueryScheduler
             RemoteTaskFactory remoteTaskFactory,
             Session session,
             int splitBatchSize,
-            int initialHashPartitions,
             ExecutorService executor,
             NodeTaskMap nodeTaskMap,
             ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers,
@@ -187,17 +185,27 @@ public class SqlQueryScheduler
 
         stages.add(stage);
 
+        OptionalInt partitionCount = OptionalInt.empty();
         if (plan.getFragment().getDistribution() == PlanDistribution.SINGLE) {
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-            stageSchedulers.put(stageId, new FixedCountScheduler(stage, nodeSelector, 1));
+            stageSchedulers.put(stageId, new FixedCountScheduler(stage, ImmutableMap.of(0, nodeSelector.selectRandomNodes(1).get(0))));
+            partitionCount = OptionalInt.of(1);
         }
         else if (plan.getFragment().getDistribution() == PlanDistribution.FIXED) {
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-            stageSchedulers.put(stageId, new FixedCountScheduler(stage, nodeSelector, initialHashPartitions));
+            ImmutableMap.Builder<Integer, Node> partitionToNode = ImmutableMap.builder();
+            int partition = 0;
+            for (Node node : nodeSelector.selectRandomNodes(getHashPartitionCount(session))) {
+                partitionToNode.put(partition, node);
+                partition++;
+            }
+            stageSchedulers.put(stageId, new FixedCountScheduler(stage, partitionToNode.build()));
+            partitionCount = OptionalInt.of(partition);
         }
         else if (plan.getFragment().getDistribution() == PlanDistribution.COORDINATOR_ONLY) {
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-            stageSchedulers.put(stageId, new CurrentNodeScheduler(stage, nodeSelector));
+            stageSchedulers.put(stageId, new FixedCountScheduler(stage, ImmutableMap.of(0, nodeSelector.selectCurrentNode())));
+            partitionCount = OptionalInt.of(1);
         }
         else if (plan.getFragment().getDistribution() == PlanDistribution.SOURCE) {
             SplitSource splitSource = plan.getDataSource().get();
@@ -214,12 +222,11 @@ public class SqlQueryScheduler
                     Optional.of(stage),
                     nextStageId,
                     locationFactory,
-                    subStagePlan,
+                    subStagePlan.withPartitionCount(partitionCount),
                     nodeScheduler,
                     remoteTaskFactory,
                     session,
                     splitBatchSize,
-                    initialHashPartitions,
                     executor,
                     nodeTaskMap,
                     stageSchedulers,
@@ -380,15 +387,11 @@ public class SqlQueryScheduler
             this.parent = parent;
             this.childOutputBufferManagers = children.stream()
                     .map(childStage -> {
-                        switch (childStage.getFragment().getOutputPartitioning()) {
-                            case NONE:
-                                return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
-                            case HASH:
-                                return new PartitionedOutputBufferManager(childStage::setOutputBuffers, new HashPartitionFunctionGenerator(childStage.getFragment()));
-                            case ROUND_ROBIN:
-                                return new PartitionedOutputBufferManager(childStage::setOutputBuffers, new RoundRobinPartitionFunctionGenerator());
-                            default:
-                                throw new UnsupportedOperationException("Unsupported output partitioning " + childStage.getFragment().getOutputPartitioning());
+                        if (childStage.getFragment().getPartitionFunction().isPresent()) {
+                            return new PartitionedOutputBufferManager(childStage::setOutputBuffers);
+                        }
+                        else {
+                            return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
                         }
                     })
                     .collect(toImmutableSet());
@@ -411,7 +414,7 @@ public class SqlQueryScheduler
                     parent.get().addExchangeLocation(new ExchangeLocation(currentStageFragmentId, remoteTask.getTaskInfo().getSelf()));
                 }
                 // when a task is created, add an output buffer to the child stages
-                childOutputBufferManagers.forEach(child -> child.addOutputBuffer(remoteTask.getTaskInfo().getTaskId()));
+                childOutputBufferManagers.forEach(child -> child.addOutputBuffer(remoteTask.getTaskId(), remoteTask.getPartition()));
             }
 
             switch (newState) {

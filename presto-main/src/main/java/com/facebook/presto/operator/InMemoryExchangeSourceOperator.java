@@ -81,6 +81,12 @@ public class InMemoryExchangeSourceOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            throw new UnsupportedOperationException("Source operator factories can not be duplicated");
+        }
     }
 
     private final OperatorContext operatorContext;

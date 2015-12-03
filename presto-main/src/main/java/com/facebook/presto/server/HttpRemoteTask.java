@@ -95,6 +95,7 @@ import static com.facebook.presto.util.Failures.WORKER_RESTARTED_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -116,6 +117,7 @@ public final class HttpRemoteTask
     private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(2, TimeUnit.MINUTES);
 
     private final TaskId taskId;
+    private final int partition;
 
     private final Session session;
     private final String nodeId;
@@ -158,6 +160,7 @@ public final class HttpRemoteTask
     public HttpRemoteTask(Session session,
             TaskId taskId,
             String nodeId,
+            int partition,
             URI location,
             PlanFragment planFragment,
             Multimap<PlanNodeId, Split> initialSplits,
@@ -175,6 +178,7 @@ public final class HttpRemoteTask
         requireNonNull(taskId, "taskId is null");
         requireNonNull(nodeId, "nodeId is null");
         requireNonNull(location, "location is null");
+        checkArgument(partition >= 0, "partition is negative");
         requireNonNull(planFragment, "planFragment1 is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         requireNonNull(httpClient, "httpClient is null");
@@ -187,6 +191,7 @@ public final class HttpRemoteTask
             this.taskId = taskId;
             this.session = session;
             this.nodeId = nodeId;
+            this.partition = partition;
             this.planFragment = planFragment;
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
@@ -243,6 +248,12 @@ public final class HttpRemoteTask
     public String getNodeId()
     {
         return nodeId;
+    }
+
+    @Override
+    public int getPartition()
+    {
+        return partition;
     }
 
     @Override
@@ -483,6 +494,7 @@ public final class HttpRemoteTask
             if (getTaskInfo().getState().isDone()) {
                 return;
             }
+            checkState(continuousTaskInfoFetcher.isRunning(), "Cannot cancel task when it is not running");
 
             URI uri = getTaskInfo().getSelf();
             if (uri == null) {
@@ -805,6 +817,11 @@ public final class HttpRemoteTask
 
                 failTask(cause);
             }
+        }
+
+        public synchronized boolean isRunning()
+        {
+            return running;
         }
     }
 

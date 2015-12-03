@@ -192,6 +192,21 @@ public abstract class ByteCodeExpression
         return new GetElementByteCodeExpression(this, index);
     }
 
+    public final ByteCodeExpression setElement(int index, ByteCodeExpression value)
+    {
+        return new SetArrayElementByteCodeExpression(this, constantInt(index), value);
+    }
+
+    public final ByteCodeExpression setElement(ByteCodeExpression index, ByteCodeExpression value)
+    {
+        return new SetArrayElementByteCodeExpression(this, index, value);
+    }
+
+    public final ByteCodeExpression length()
+    {
+        return new ArrayLengthByteCodeExpression(this);
+    }
+
     public final ByteCodeExpression ret()
     {
         return new ReturnByteCodeExpression(this);
@@ -215,5 +230,10 @@ public abstract class ByteCodeExpression
     public final <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
     {
         return visitor.visitByteCodeExpression(parent, this);
+    }
+
+    public ByteCodeExpression instanceOf(Class<?> type)
+    {
+        return InstanceOfByteCodeExpression.instanceOf(this, type);
     }
 }

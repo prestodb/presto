@@ -24,6 +24,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -113,6 +114,21 @@ public class HashAggregationOperator
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new HashAggregationOperatorFactory(
+                    operatorId,
+                    groupByTypes,
+                    groupByChannels,
+                    step,
+                    accumulatorFactories,
+                    maskChannel,
+                    hashChannel,
+                    expectedGroups,
+                    new DataSize(maxPartialMemory, Unit.BYTE));
         }
     }
 

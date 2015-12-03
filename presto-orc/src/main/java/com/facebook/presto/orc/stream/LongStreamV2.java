@@ -251,7 +251,6 @@ public class LongStreamV2
                 literals[numLiterals++] = base + unpacked[i];
             }
         }
-
     }
 
     // This comes from the Apache Hive ORC code

@@ -39,7 +39,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning.NONE;
 import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -190,9 +189,6 @@ public class TestPhasedExecutionSchedule
                 planNode.getOutputSymbols(),
                 SOURCE,
                 planNode.getId(),
-                NONE,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
     }
 }

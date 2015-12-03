@@ -61,6 +61,12 @@ public class MaterializingOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new MaterializingOperatorFactory(operatorId, sourceTypes);
+        }
     }
 
     private final OperatorContext operatorContext;
@@ -72,6 +78,12 @@ public class MaterializingOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         resultBuilder = MaterializedResult.resultBuilder(operatorContext.getSession(), sourceTypes);
+    }
+
+    public MaterializingOperator(OperatorContext operatorContext, MaterializedResult.Builder resultBuilder)
+    {
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.resultBuilder = requireNonNull(resultBuilder, "resultBuilder is null");
     }
 
     public boolean isClosed()

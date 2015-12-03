@@ -80,6 +80,12 @@ public class NestedLoopJoinOperator
             closed = true;
             nestedLoopJoinPagesSupplier.release();
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new NestedLoopJoinOperatorFactory(operatorId, nestedLoopJoinPagesSupplier, probeTypes);
+        }
     }
 
     private final NestedLoopJoinPagesSupplier buildPagesSupplier;

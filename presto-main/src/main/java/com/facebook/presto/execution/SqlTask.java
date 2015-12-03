@@ -371,4 +371,9 @@ public class SqlTask
             return new SqlTaskIoStats(taskContext.getInputDataSize(), taskContext.getInputPositions(), taskContext.getOutputDataSize(), taskContext.getOutputPositions());
         }
     }
+
+    public void addStateChangeListener(StateChangeListener<TaskState> stateChangeListener)
+    {
+        taskStateMachine.addStateChangeListener(stateChangeListener);
+    }
 }

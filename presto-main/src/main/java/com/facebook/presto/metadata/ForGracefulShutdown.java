@@ -11,19 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.scheduler;
+package com.facebook.presto.metadata;
 
-import com.facebook.presto.PagePartitionFunction;
-import com.facebook.presto.PartitionedPagePartitionFunction;
+import javax.inject.Qualifier;
 
-import java.util.function.BiFunction;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-public class RoundRobinPartitionFunctionGenerator
-        implements BiFunction<Integer, Integer, PagePartitionFunction>
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForGracefulShutdown
 {
-    @Override
-    public PagePartitionFunction apply(Integer partition, Integer partitionCount)
-    {
-        return new PartitionedPagePartitionFunction(partition, partitionCount);
-    }
 }

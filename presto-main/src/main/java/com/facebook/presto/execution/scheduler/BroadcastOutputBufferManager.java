@@ -14,7 +14,6 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.TaskId;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -22,6 +21,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.function.Consumer;
 
+import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static java.util.Objects.requireNonNull;
 
@@ -40,7 +40,7 @@ class BroadcastOutputBufferManager
     }
 
     @Override
-    public void addOutputBuffer(TaskId bufferId)
+    public void addOutputBuffer(TaskId bufferId, int partition)
     {
         OutputBuffers newOutputBuffers;
         synchronized (this) {
@@ -50,7 +50,8 @@ class BroadcastOutputBufferManager
                 return;
             }
 
-            newOutputBuffers = outputBuffers.withBuffer(bufferId, new UnpartitionedPagePartitionFunction());
+            // Note: it does not matter which partition id the task is using, in broadcast all tasks read from the same partition
+            newOutputBuffers = outputBuffers.withBuffer(bufferId, BROADCAST_PARTITION_ID);
             if (newOutputBuffers == outputBuffers) {
                 return;
             }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.security;
 
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
 
 import java.security.Principal;
@@ -27,67 +27,67 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanCreateTable(Identity identity, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanDropTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanDropTable(Identity identity, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanRenameTable(Identity identity, QualifiedTableName tableName, QualifiedTableName newTableName)
+    public void checkCanRenameTable(Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
     }
 
     @Override
-    public void checkCanAddColumns(Identity identity, QualifiedTableName tableName)
+    public void checkCanAddColumns(Identity identity, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanRenameColumn(Identity identity, QualifiedTableName tableName)
+    public void checkCanRenameColumn(Identity identity, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanSelectFromTable(Identity identity, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanInsertIntoTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanInsertIntoTable(Identity identity, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanDeleteFromTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanDeleteFromTable(Identity identity, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanCreateView(Identity identity, QualifiedTableName viewName)
+    public void checkCanCreateView(Identity identity, QualifiedObjectName viewName)
     {
     }
 
     @Override
-    public void checkCanDropView(Identity identity, QualifiedTableName viewName)
+    public void checkCanDropView(Identity identity, QualifiedObjectName viewName)
     {
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, QualifiedTableName viewName)
+    public void checkCanSelectFromView(Identity identity, QualifiedObjectName viewName)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedTableName viewName)
+    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedObjectName viewName)
     {
     }
 

@@ -17,7 +17,7 @@ import com.facebook.presto.execution.TaskId;
 
 interface OutputBufferManager
 {
-    void addOutputBuffer(TaskId bufferId);
+    void addOutputBuffer(TaskId bufferId, int partition);
 
     void noMoreOutputBuffers();
 }

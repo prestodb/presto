@@ -73,14 +73,14 @@ public class SetBuilderOperator
 
         public SetBuilderOperatorFactory(
                 int operatorId,
-                List<Type> types,
+                Type type,
                 int setChannel,
                 Optional<Integer> hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
             Preconditions.checkArgument(setChannel >= 0, "setChannel is negative");
-            this.setProvider = new SetSupplier(requireNonNull(types, "types is null").get(setChannel));
+            this.setProvider = new SetSupplier(requireNonNull(type, "type is null"));
             this.setChannel = setChannel;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.expectedPositions = expectedPositions;
@@ -109,6 +109,12 @@ public class SetBuilderOperator
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new SetBuilderOperatorFactory(operatorId, setProvider.getType(), setChannel, hashChannel, expectedPositions);
         }
     }
 

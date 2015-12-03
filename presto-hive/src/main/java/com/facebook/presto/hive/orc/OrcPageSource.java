@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -83,13 +84,16 @@ public class OrcPageSource
     private int batchId;
     private boolean closed;
 
+    private final AggregatedMemoryContext systemMemoryContext;
+
     public OrcPageSource(
             OrcRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            AggregatedMemoryContext systemMemoryContext)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
@@ -185,6 +189,8 @@ public class OrcPageSource
         }
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
+
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -273,6 +279,12 @@ public class OrcPageSource
                 .add("columnNames", columnNames)
                 .add("types", types)
                 .toString();
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return systemMemoryContext.getBytes();
     }
 
     protected void closeWithSuppression(Throwable throwable)

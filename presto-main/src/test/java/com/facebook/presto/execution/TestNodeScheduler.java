@@ -14,23 +14,34 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NetworkLocation;
+import com.facebook.presto.execution.scheduler.NetworkTopology;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelector;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.util.FinalizerService;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -42,9 +53,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestNodeScheduler
@@ -52,7 +65,7 @@ public class TestNodeScheduler
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
-    private NodeScheduler.NodeSelector nodeSelector;
+    private NodeSelector nodeSelector;
     private Map<Node, RemoteTask> taskMap;
     private ExecutorService remoteTaskExecutor;
 
@@ -75,7 +88,7 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerNodePerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector("foo");
@@ -99,9 +112,106 @@ public class TestNodeScheduler
         Split split = new Split("foo", new TestSplitLocal());
         Set<Split> splits = ImmutableSet.of(split);
 
-        Map.Entry<Node, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, taskMap.values()).entries());
+        Map.Entry<Node, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).entries());
         assertEquals(assignment.getKey().getHostAndPort(), split.getAddresses().get(0));
         assertEquals(assignment.getValue(), split);
+    }
+
+    @Test
+    public void testTopologyAwareScheduling()
+            throws UnknownHostException
+    {
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+
+        ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
+        nodeBuilder.add(new PrestoNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN));
+        nodeBuilder.add(new PrestoNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN));
+        nodeBuilder.add(new PrestoNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN));
+        ImmutableList<Node> nodes = nodeBuilder.build();
+        nodeManager.addNode("foo", nodes);
+
+        // contents of taskMap indicate the node-task map for the current stage
+        Map<Node, RemoteTask> taskMap = new HashMap<>();
+        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+                .setMaxSplitsPerNode(20)
+                .setIncludeCoordinator(false)
+                .setNetworkTopology("test")
+                .setMaxPendingSplitsPerNodePerTask(15);
+
+        TestNetworkTopology topology = new TestNetworkTopology();
+        NodeScheduler nodeScheduler = new NodeScheduler(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector("foo");
+
+        // Fill up the nodes with non-local data
+        ImmutableSet.Builder<Split> nonRackLocalBuilder = ImmutableSet.builder();
+        for (int i = 0; i < 26 * 3; i++) {
+            nonRackLocalBuilder.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("data.other_rack", 1))));
+        }
+        Set<Split> nonRackLocalSplits = nonRackLocalBuilder.build();
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(nonRackLocalSplits, ImmutableList.copyOf(taskMap.values()));
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
+        int task = 0;
+        for (Node node : assignments.keySet()) {
+            TaskId taskId = new TaskId(new StageId("test", "1"), String.valueOf(task));
+            task++;
+            MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
+            remoteTask.startSplits(20);
+            nodeTaskMap.addTask(node, remoteTask);
+            taskMap.put(node, remoteTask);
+        }
+        // Continue assigning to fill up part of the queue
+        nonRackLocalSplits = Sets.difference(nonRackLocalSplits, new HashSet<>(assignments.values()));
+        assignments = nodeSelector.computeAssignments(nonRackLocalSplits, ImmutableList.copyOf(taskMap.values()));
+        for (Node node : assignments.keySet()) {
+            RemoteTask remoteTask = taskMap.get(node);
+            remoteTask.addSplits(new PlanNodeId("sourceId"), assignments.get(node));
+        }
+        nonRackLocalSplits = Sets.difference(nonRackLocalSplits, new HashSet<>(assignments.values()));
+        // Check that 3 of the splits were rejected, since they're non-local
+        assertEquals(nonRackLocalSplits.size(), 3);
+
+        // Assign rack-local splits
+        ImmutableSet.Builder<Split> rackLocalSplits = ImmutableSet.builder();
+        for (int i = 0; i < 6 * 2; i++) {
+            rackLocalSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("data.rack1", 1))));
+        }
+        for (int i = 0; i < 6; i++) {
+            rackLocalSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("data.rack2", 1))));
+        }
+        assignments = nodeSelector.computeAssignments(rackLocalSplits.build(), ImmutableList.copyOf(taskMap.values()));
+        for (Node node : assignments.keySet()) {
+            RemoteTask remoteTask = taskMap.get(node);
+            remoteTask.addSplits(new PlanNodeId("sourceId"), assignments.get(node));
+        }
+        Set<Split> unassigned = Sets.difference(rackLocalSplits.build(), new HashSet<>(assignments.values()));
+        assertEquals(unassigned.size(), 3);
+        int rack1 = 0;
+        int rack2 = 0;
+        for (Split split : unassigned) {
+            String rack = topology.locate(split.getAddresses().get(0)).getSegments().get(0);
+            switch (rack) {
+                case "rack1":
+                    rack1++;
+                    break;
+                case "rack2":
+                    rack2++;
+                    break;
+                default:
+                    fail();
+            }
+        }
+        assertEquals(rack1, 2);
+        assertEquals(rack2, 1);
+
+        // Assign local splits
+        ImmutableSet.Builder<Split> localSplits = ImmutableSet.builder();
+        localSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("host1.rack1", 1))));
+        localSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("host2.rack1", 1))));
+        localSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("host3.rack2", 1))));
+        assignments = nodeSelector.computeAssignments(localSplits.build(), ImmutableList.copyOf(taskMap.values()));
+        assertEquals(assignments.size(), 3);
+        assertEquals(assignments.keySet().size(), 3);
     }
 
     @Test
@@ -112,13 +222,13 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerNodePerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(nodeManager, nodeSchedulerConfig, nodeTaskMap);
-        NodeScheduler.NodeSelector nodeSelector = nodeScheduler.createNodeSelector("foo");
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector("foo");
         List<Node> nodes = nodeSelector.selectRandomNodes(10);
         assertEquals(nodes.size(), 3);
 
         nodeSchedulerConfig.setMultipleTasksPerNodeEnabled(true);
-        nodeScheduler = new NodeScheduler(nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
         nodeSelector = nodeScheduler.createNodeSelector("foo");
         nodes = nodeSelector.selectRandomNodes(9);
         assertEquals(nodes.size(), 9);
@@ -138,7 +248,7 @@ public class TestNodeScheduler
     {
         Set<Split> splits = new HashSet<>();
         splits.add(new Split("foo", new TestSplitRemote()));
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, taskMap.values());
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
         assertEquals(assignments.size(), 1);
     }
 
@@ -151,7 +261,7 @@ public class TestNodeScheduler
         for (int i = 0; i < 3; i++) {
             splits.add(new Split("foo", new TestSplitRemote()));
         }
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, taskMap.values());
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
         assertEquals(assignments.entries().size(), 3);
         for (Node node : nodeManager.getActiveDatasourceNodes("foo")) {
             assertTrue(assignments.keySet().contains(node));
@@ -184,7 +294,7 @@ public class TestNodeScheduler
         for (int i = 0; i < 5; i++) {
             splits.add(new Split("foo", new TestSplitRemote()));
         }
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, taskMap.values());
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
 
         // no split should be assigned to the newNode, as it already has maxNodeSplits assigned to it
         assertFalse(assignments.keySet().contains(newNode));
@@ -228,7 +338,7 @@ public class TestNodeScheduler
         for (int i = 0; i < 5; i++) {
             splits.add(new Split("foo", new TestSplitRemote()));
         }
-        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, taskMap.values());
+        Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
 
         // no split should be assigned to the newNode, as it already has
         // maxSplitsPerNode + maxSplitsPerNodePerTask assigned to it
@@ -293,7 +403,7 @@ public class TestNodeScheduler
         assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
     }
 
-    private class TestSplitLocal
+    private static class TestSplitLocal
             implements ConnectorSplit
     {
         @Override
@@ -315,9 +425,21 @@ public class TestNodeScheduler
         }
     }
 
-    private class TestSplitRemote
+    private static class TestSplitRemote
             implements ConnectorSplit
     {
+        private final List<HostAddress> hosts;
+
+        public TestSplitRemote()
+        {
+            this(HostAddress.fromString("127.0.0.1:" + ThreadLocalRandom.current().nextInt(5000)));
+        }
+
+        public TestSplitRemote(HostAddress host)
+        {
+            this.hosts = ImmutableList.of(requireNonNull(host, "host is null"));
+        }
+
         @Override
         public boolean isRemotelyAccessible()
         {
@@ -327,14 +449,31 @@ public class TestNodeScheduler
         @Override
         public List<HostAddress> getAddresses()
         {
-            int randomPort = ThreadLocalRandom.current().nextInt(5000);
-            return ImmutableList.of(HostAddress.fromString("127.0.0.1:" + randomPort));
+            return hosts;
         }
 
         @Override
         public Object getInfo()
         {
             return this;
+        }
+    }
+
+    private static class TestNetworkTopology
+            implements NetworkTopology
+    {
+        @Override
+        public NetworkLocation locate(HostAddress address)
+        {
+            List<String> parts = new ArrayList<>(ImmutableList.copyOf(Splitter.on(".").split(address.getHostText())));
+            Collections.reverse(parts);
+            return new NetworkLocation(parts);
+        }
+
+        @Override
+        public List<String> getLocationSegmentNames()
+        {
+            return ImmutableList.of("rack", "machine");
         }
     }
 }

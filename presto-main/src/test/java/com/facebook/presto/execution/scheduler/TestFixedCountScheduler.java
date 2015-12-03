@@ -21,22 +21,20 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestFixedCountScheduler
 {
@@ -59,9 +57,11 @@ public class TestFixedCountScheduler
             throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                node -> taskFactory.createTableScanTask(new TaskId(new StageId("test", "1"), "1"), node, ImmutableList.of(), new PartitionedSplitCountTracker(delta -> { })),
-                TestFixedCountScheduler::generateRandomNodes,
-                1);
+                (node, partition) -> taskFactory.createTableScanTask(
+                        new TaskId(new StageId("test", "1"), "1"),
+                        (Node) node, ImmutableList.of(),
+                        new PartitionedSplitCountTracker(delta -> { })),
+                generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
         assertTrue(result.isFinished());
@@ -75,9 +75,11 @@ public class TestFixedCountScheduler
             throws Exception
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                node -> taskFactory.createTableScanTask(new TaskId(new StageId("test", "1"), "1"), node, ImmutableList.of(), new PartitionedSplitCountTracker(delta -> { })),
-                TestFixedCountScheduler::generateRandomNodes,
-                5);
+                (node, partition) -> taskFactory.createTableScanTask(
+                        new TaskId(new StageId("test", "1"), "1"),
+                        (Node) node, ImmutableList.of(),
+                        new PartitionedSplitCountTracker(delta -> { })),
+                generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();
         assertTrue(result.isFinished());
@@ -86,45 +88,11 @@ public class TestFixedCountScheduler
         assertEquals(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size(), 5);
     }
 
-    @Test
-    public void testNotEnoughNodes()
-            throws Exception
+    private static Map<Integer, Node> generateRandomNodes(int count)
     {
-        FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                node -> taskFactory.createTableScanTask(new TaskId(new StageId("test", "1"), "1"), node, ImmutableList.of(), new PartitionedSplitCountTracker(delta -> { })),
-                count -> generateRandomNodes(3),
-                5);
-
-        ScheduleResult result = nodeScheduler.schedule();
-        assertTrue(result.isFinished());
-        assertTrue(result.getBlocked().isDone());
-        assertEquals(result.getNewTasks().size(), 3);
-        assertEquals(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size(), 3);
-    }
-
-    @Test
-    public void testNoNodes()
-            throws Exception
-    {
-        try {
-            FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                    node -> taskFactory.createTableScanTask(new TaskId(new StageId("test", "1"), "1"), (Node) node, ImmutableList.of(), new PartitionedSplitCountTracker(delta -> { })),
-                    count -> generateRandomNodes(0),
-                    5);
-
-            nodeScheduler.schedule();
-            fail("expected PrestoException");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NO_NODES_AVAILABLE.toErrorCode());
-        }
-    }
-
-    private static List<Node> generateRandomNodes(int count)
-    {
-        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        ImmutableMap.Builder<Integer, Node> nodes = ImmutableMap.builder();
         for (int i = 0; i < count; i++) {
-            nodes.add(new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+            nodes.put(i, new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
         }
         return nodes.build();
     }

@@ -53,7 +53,7 @@ public final class HiveSessionProperties
                         true),
                 dataSizeSessionProperty(
                         ORC_MAX_MERGE_DISTANCE,
-                        "ORC: Maximum size of gap between to reads to merge into a single read",
+                        "ORC: Maximum size of gap between two reads to merge into a single read",
                         config.getOrcMaxMergeDistance(),
                         false),
                 dataSizeSessionProperty(

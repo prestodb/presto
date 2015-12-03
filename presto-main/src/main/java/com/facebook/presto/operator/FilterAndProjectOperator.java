@@ -138,5 +138,11 @@ public class FilterAndProjectOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new FilterAndProjectOperatorFactory(operatorId, processor, types);
+        }
     }
 }

@@ -16,13 +16,12 @@ package com.facebook.presto.byteCode.expression;
 import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.MethodGenerationContext;
-import com.facebook.presto.byteCode.OpCode;
-import com.facebook.presto.byteCode.ParameterizedType;
 import com.facebook.presto.byteCode.instruction.InstructionNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.ArrayOpCode.getArrayOpCode;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -38,15 +37,17 @@ class GetElementByteCodeExpression
         super(instance.getType().getArrayComponentType());
         this.instance = requireNonNull(instance, "instance is null");
         this.index = requireNonNull(index, "index is null");
+
         checkArgument(index.getType().getPrimitiveType() == int.class, "index must be int type, but is " + index.getType());
-        this.arrayLoadInstruction = arrayLoadInstruction(instance.getType().getArrayComponentType());
+        this.arrayLoadInstruction = getArrayOpCode(instance.getType().getArrayComponentType()).getLoad();
     }
 
     @Override
     public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
     {
         return new ByteCodeBlock()
-                .append(instance.getByteCode(generationContext)).append(index)
+                .append(instance.getByteCode(generationContext))
+                .append(index)
                 .append(arrayLoadInstruction);
     }
 
@@ -59,37 +60,6 @@ class GetElementByteCodeExpression
     @Override
     public List<ByteCodeNode> getChildNodes()
     {
-        return ImmutableList.<ByteCodeNode>of(instance, index);
-    }
-
-    private static InstructionNode arrayLoadInstruction(ParameterizedType componentType)
-    {
-        Class<?> primitiveType = componentType.getPrimitiveType();
-        if (primitiveType == null) {
-            return OpCode.AALOAD;
-        }
-
-        if (primitiveType == byte.class || primitiveType == boolean.class) {
-            return OpCode.BALOAD;
-        }
-        if (primitiveType == char.class) {
-            return OpCode.CALOAD;
-        }
-        if (primitiveType == short.class) {
-            return OpCode.SALOAD;
-        }
-        if (primitiveType == int.class) {
-            return OpCode.IALOAD;
-        }
-        if (primitiveType == long.class) {
-            return OpCode.LALOAD;
-        }
-        if (primitiveType == float.class) {
-            return OpCode.FALOAD;
-        }
-        if (primitiveType == double.class) {
-            return OpCode.DALOAD;
-        }
-        throw new IllegalArgumentException("Unsupported array type: " + primitiveType);
+        return ImmutableList.<ByteCodeNode>of(index);
     }
 }

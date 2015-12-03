@@ -37,6 +37,7 @@ import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateCons
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TablePropertyManager
@@ -69,9 +70,10 @@ public class TablePropertyManager
 
         // Fill in user-specified properties
         for (Map.Entry<String, Expression> sqlProperty : sqlPropertyValues.entrySet()) {
-            PropertyMetadata<?> tableProperty = supportedTableProperties.get(sqlProperty.getKey());
+            String property = sqlProperty.getKey().toLowerCase(ENGLISH);
+            PropertyMetadata<?> tableProperty = supportedTableProperties.get(property);
             if (tableProperty == null) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Catalog '%s' does not support table property '%s'", catalog, sqlProperty.getKey()));
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Catalog '%s' does not support table property '%s'", catalog, property));
             }
 
             Object sqlObjectValue;

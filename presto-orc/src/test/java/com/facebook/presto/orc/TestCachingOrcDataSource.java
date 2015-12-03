@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.OrcTester.Compression;
 import com.facebook.presto.orc.OrcTester.Format;
 import com.facebook.presto.orc.OrcTester.TempFile;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.spi.block.Block;
@@ -198,7 +199,11 @@ public class TestCachingOrcDataSource
         //verify wrapped by CachingOrcReader
         assertInstanceOf(wrapWithCacheIfTinyStripes(orcDataSource, stripes, maxMergeDistance, maxReadSize), CachingOrcDataSource.class);
 
-        OrcRecordReader orcRecordReader = orcReader.createRecordReader(ImmutableMap.of(0, VARCHAR), (numberOfRows, statisticsByColumnIndex) -> true, HIVE_STORAGE_TIME_ZONE);
+        OrcRecordReader orcRecordReader = orcReader.createRecordReader(
+                ImmutableMap.of(0, VARCHAR),
+                (numberOfRows, statisticsByColumnIndex) -> true,
+                HIVE_STORAGE_TIME_ZONE,
+                new AggregatedMemoryContext());
         int positionCount = 0;
         while (true) {
             int batchSize = orcRecordReader.nextBatch();

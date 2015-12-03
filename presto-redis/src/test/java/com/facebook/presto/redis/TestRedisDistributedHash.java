@@ -121,8 +121,13 @@ public class TestRedisDistributedHash
     }
 
     //
-    // Redis connector does not table column.
+    // Redis connector does not add/rename table column.
     //
+
+    @Override
+    public void testAddColumn()
+    {
+    }
 
     @Override
     public void testRenameColumn()

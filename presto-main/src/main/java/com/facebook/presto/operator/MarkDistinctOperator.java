@@ -36,16 +36,15 @@ public class MarkDistinctOperator
     {
         private final int operatorId;
         private final Optional<Integer> hashChannel;
-        private final int[] markDistinctChannels;
+        private final List<Integer> markDistinctChannels;
         private final List<Type> types;
         private boolean closed;
 
         public MarkDistinctOperatorFactory(int operatorId, List<? extends Type> sourceTypes, Collection<Integer> markDistinctChannels, Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
-            requireNonNull(markDistinctChannels, "markDistinctChannels is null");
+            this.markDistinctChannels = ImmutableList.copyOf(requireNonNull(markDistinctChannels, "markDistinctChannels is null"));
             checkArgument(!markDistinctChannels.isEmpty(), "markDistinctChannels is empty");
-            this.markDistinctChannels = Ints.toArray(markDistinctChannels);
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.types = ImmutableList.<Type>builder()
                     .addAll(sourceTypes)
@@ -72,6 +71,12 @@ public class MarkDistinctOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new MarkDistinctOperatorFactory(operatorId, types.subList(0, types.size() - 1), markDistinctChannels, hashChannel);
+        }
     }
 
     private final OperatorContext operatorContext;
@@ -81,18 +86,19 @@ public class MarkDistinctOperator
     private Page outputPage;
     private boolean finishing;
 
-    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, int[] markDistinctChannels, Optional<Integer> hashChannel)
+    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, List<Integer> markDistinctChannels, Optional<Integer> hashChannel)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         requireNonNull(hashChannel, "hashChannel is null");
+        requireNonNull(markDistinctChannels, "markDistinctChannels is null");
 
         ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
         for (int channel : markDistinctChannels) {
             distinctTypes.add(types.get(channel));
         }
-        this.markDistinctHash = new MarkDistinctHash(distinctTypes.build(), markDistinctChannels, hashChannel);
+        this.markDistinctHash = new MarkDistinctHash(distinctTypes.build(), Ints.toArray(markDistinctChannels), hashChannel);
     }
 
     @Override
