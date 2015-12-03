@@ -23,7 +23,6 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -51,8 +50,8 @@ class BroadcastOutputBufferManager
                 return;
             }
 
-            checkArgument(partition == BROADCAST_PARTITION_ID, "Broadcast partition must be %s", BROADCAST_PARTITION_ID);
-            newOutputBuffers = outputBuffers.withBuffer(bufferId, partition);
+            // Note: it does not matter which partition id the task is using, in broadcast all tasks read from the same partition
+            newOutputBuffers = outputBuffers.withBuffer(bufferId, BROADCAST_PARTITION_ID);
             if (newOutputBuffers == outputBuffers) {
                 return;
             }
