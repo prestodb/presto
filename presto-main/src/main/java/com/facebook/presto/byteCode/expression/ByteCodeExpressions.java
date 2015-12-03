@@ -14,6 +14,7 @@
 package com.facebook.presto.byteCode.expression;
 
 import com.facebook.presto.byteCode.FieldDefinition;
+import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.OpCode;
 import com.facebook.presto.byteCode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
@@ -258,6 +259,11 @@ public final class ByteCodeExpressions
     // Invoke static method
     //
 
+    public static ByteCodeExpression invokeStatic(MethodDefinition method,  ByteCodeExpression... parameters)
+    {
+        return invokeStatic(method.getDeclaringClass().getType(), method.getName(), method.getReturnType(), ImmutableList.copyOf(parameters));
+    }
+
     public static ByteCodeExpression invokeStatic(Method method,  ByteCodeExpression... parameters)
     {
         return invokeStatic(method, ImmutableList.copyOf(requireNonNull(parameters, "parameters is null")));
@@ -279,18 +285,26 @@ public final class ByteCodeExpressions
             Class<?> returnType,
             Iterable<? extends ByteCodeExpression> parameters)
     {
+        return invokeStatic(type(methodTargetType), methodName, type(returnType), parameters);
+    }
+
+    public static ByteCodeExpression invokeStatic(
+            ParameterizedType methodTargetType,
+            String methodName,
+            ParameterizedType returnType,
+            Iterable<? extends ByteCodeExpression> parameters)
+    {
         requireNonNull(methodTargetType, "methodTargetType is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(parameters, "parameters is null");
 
         return invokeStatic(
-                type(methodTargetType),
+                methodTargetType,
                 methodName,
-                type(returnType),
+                returnType,
                 ImmutableList.copyOf(transform(parameters, ByteCodeExpression::getType)),
                 parameters);
     }
-
     public static ByteCodeExpression invokeStatic(
             Class<?> methodTargetType,
             String methodName,
