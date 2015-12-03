@@ -85,6 +85,7 @@ public class TestArrayOperators
     public void testArrayElements()
             throws Exception
     {
+        assertFunction("CAST(ARRAY [null] AS ARRAY<BIGINT>)", new ArrayType(BIGINT), asList((Long) null));
         assertFunction("CAST(ARRAY [1, 2, 3] AS ARRAY<BIGINT>)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L));
         assertFunction("CAST(ARRAY [1, null, 3] AS ARRAY<BIGINT>)", new ArrayType(BIGINT), asList(1L, null, 3L));
 
