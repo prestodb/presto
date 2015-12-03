@@ -51,9 +51,8 @@ public class PrestoStatement
     public ResultSet executeQuery(String sql)
             throws SQLException
     {
-        boolean isQueryStatement = execute(sql);
-        if (!isQueryStatement) {
-            throw new SQLException("Not a query statement: " + sql);
+        if (!execute(sql)) {
+            throw new SQLException("SQL statement is not a query: " + sql);
         }
         return currentResult.get();
     }
@@ -167,14 +166,15 @@ public class PrestoStatement
             throws SQLException
     {
         clearCurrentResults();
-
         checkOpen();
-        requireNonNull(sql, "null sql statement");
 
-        StatementClient client = null;
         ResultSet resultSet = null;
+        StatementClient client = null;
         try {
             client = connection().startQuery(sql);
+            if (client.isFailed()) {
+                throw PrestoResultSet.resultsException(client.finalResults());
+            }
             resultSet = new PrestoResultSet(client);
             QueryResults queryResults = client.current();
 
@@ -194,15 +194,8 @@ public class PrestoStatement
             }
             queryResults = client.finalResults();
 
-            Long queryUpdateCount = queryResults.getUpdateCount();
-            if (queryUpdateCount != null) {
-                // dml statement
-                currentUpdateCount.set(queryUpdateCount);
-            }
-            else {
-                // ddl statement
-                currentUpdateCount.set(0L);
-            }
+            Long updateCount = queryResults.getUpdateCount();
+            currentUpdateCount.set((updateCount != null) ? updateCount : 0);
 
             return false;
         }
@@ -210,7 +203,6 @@ public class PrestoStatement
             throw new SQLException("Error executing query", e);
         }
         finally {
-            // update statement - close result set and statement client
             if (currentResult.get() == null) {
                 if (resultSet != null) {
                     resultSet.close();
@@ -241,7 +233,7 @@ public class PrestoStatement
             throws SQLException
     {
         checkOpen();
-        return Ints.checkedCast(getLargeUpdateCount());
+        return Ints.saturatedCast(getLargeUpdateCount());
     }
 
     @Override
@@ -403,9 +395,8 @@ public class PrestoStatement
     public long executeLargeUpdate(String sql)
             throws SQLException
     {
-        boolean isQueryStatement = execute(sql);
-        if (isQueryStatement) {
-            throw new SQLException("Not an update statement: " + sql);
+        if (execute(sql)) {
+            throw new SQLException("SQL is not an update statement: " + sql);
         }
         return currentUpdateCount.get();
     }
