@@ -118,4 +118,10 @@ public class TypeInstruction
     {
         return visitor.visitInstruction(parent, this);
     }
+
+    @Override
+    public String toString()
+    {
+        return opCode + " " + type;
+    }
 }
