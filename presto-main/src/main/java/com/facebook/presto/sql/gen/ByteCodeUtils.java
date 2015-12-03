@@ -41,6 +41,7 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.consta
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeDynamic;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
 public final class ByteCodeUtils
@@ -176,6 +177,7 @@ public final class ByteCodeUtils
             else {
                 block.append(arguments.get(index));
                 if (!function.getNullableArguments().get(index)) {
+                    checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
                     block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
                 }
                 else {
@@ -202,7 +204,11 @@ public final class ByteCodeUtils
         Class<?> unboxedType = Primitives.unwrap(boxedType);
         Variable wasNull = scope.getVariable("wasNull");
 
-        if (unboxedType.isPrimitive() && unboxedType != void.class) {
+        if (unboxedType == void.class) {
+            block.pop(boxedType)
+                    .append(wasNull.set(constantTrue()));
+        }
+        else if (unboxedType.isPrimitive()) {
             LabelNode notNull = new LabelNode("notNull");
             block.dup(boxedType)
                     .ifNotNullGoto(notNull)

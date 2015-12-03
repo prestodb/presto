@@ -24,7 +24,6 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.Iterables;
 
 import java.lang.invoke.MethodHandle;
@@ -87,9 +86,6 @@ public class ExpressionOptimizer
             Signature signature = call.getSignature();
 
             if (signature.getName().equals(CAST)) {
-                if (call.getArguments().get(0).getType().equals(UnknownType.UNKNOWN)) {
-                    return constantNull(call.getType());
-                }
                 Signature functionSignature = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
                 function = registry.getScalarFunctionImplementation(functionSignature);
             }

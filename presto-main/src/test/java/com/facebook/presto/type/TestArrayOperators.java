@@ -185,8 +185,11 @@ public class TestArrayOperators
 
         assertInvalidFunction("ARRAY [ARRAY[1]] || ARRAY[ARRAY[true], ARRAY[false]]", FUNCTION_NOT_FOUND);
 
+        // This query is ambiguous. The result can be [[1], NULL] or [[1], [NULL]] depending on interpretation
+        assertFunction("ARRAY [ARRAY [1]] || ARRAY [NULL]", new ArrayType(new ArrayType(BIGINT)), asList(ImmutableList.of(1L), null));
+
         try {
-            assertFunction("ARRAY [ARRAY[1]] || ARRAY[NULL]", new ArrayType(new ArrayType(BIGINT)), null);
+            assertFunction("ARRAY [ARRAY [1]] || ARRAY [ARRAY ['x']]", new ArrayType(new ArrayType(BIGINT)), null);
             fail("arrays must be of the same type");
         }
         catch (RuntimeException e) {
@@ -214,6 +217,14 @@ public class TestArrayOperators
                 sqlTimestamp(100_000), sqlTimestamp(1000)));
         assertFunction("ARRAY [2, 8] || ARRAY[ARRAY[3, 6], ARRAY[4]]", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(2L, 8L), ImmutableList.of(3L, 6L), ImmutableList.of(4L)));
         assertFunction("ARRAY [ARRAY [1], ARRAY [2, 8]] || ARRAY [3, 6]", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(2L, 8L), ImmutableList.of(3L, 6L)));
+
+        try {
+            assertFunction("ARRAY [ARRAY[1]] || ARRAY ['x']", new ArrayType(new ArrayType(BIGINT)), null);
+            fail("arrays must be of the same type");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
     }
 
     @Test
