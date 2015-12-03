@@ -216,4 +216,9 @@ public abstract class ByteCodeExpression
     {
         return visitor.visitByteCodeExpression(parent, this);
     }
+
+    public ByteCodeExpression instanceOf(Class<?> type)
+    {
+        return InstanceOfByteCodeExpression.instanceOf(this, type);
+    }
 }
