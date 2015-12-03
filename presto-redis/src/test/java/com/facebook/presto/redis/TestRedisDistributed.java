@@ -106,11 +106,6 @@ public class TestRedisDistributed
     {
     }
 
-    @Override
-    public void testDeleteSemiJoin()
-    {
-    }
-
     //
     // Redis connector does not table rename.
     //

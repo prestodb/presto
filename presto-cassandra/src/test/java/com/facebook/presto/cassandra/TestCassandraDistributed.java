@@ -85,11 +85,4 @@ public class TestCassandraDistributed
     {
         // Cassandra connector currently does not support delete
     }
-
-    @Override
-    public void testDeleteSemiJoin()
-            throws Exception
-    {
-        // Cassandra connector currently does not support delete
-    }
 }
