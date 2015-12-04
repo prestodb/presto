@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 
 import static com.facebook.presto.verifier.QueryResult.State;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -85,30 +84,31 @@ public class Validator
 
     private boolean deterministic = true;
 
-    public Validator(VerifierConfig config, QueryPair queryPair)
+    public Validator(
+            String controlGateway,
+            String testGateway,
+            Duration controlTimeout,
+            Duration testTimeout,
+            int maxRowCount,
+            boolean explainOnly,
+            int precision,
+            boolean checkCorrectness,
+            boolean verboseResultsComparison,
+            QueryPair queryPair)
     {
-        requireNonNull(config, "config is null");
         this.testUsername = requireNonNull(queryPair.getTest().getUsername(), "test username is null");
         this.controlUsername = requireNonNull(queryPair.getControl().getUsername(), "control username is null");
         this.testPassword = queryPair.getTest().getPassword();
         this.controlPassword = queryPair.getControl().getPassword();
-        this.controlGateway = requireNonNull(config.getControlGateway(), "controlGateway is null");
-        this.testGateway = requireNonNull(config.getTestGateway(), "testGateway is null");
-        this.controlTimeout = config.getControlTimeout();
-        this.testTimeout = config.getTestTimeout();
-        this.maxRowCount = config.getMaxRowCount();
-        this.explainOnly = config.isExplainOnly();
-        this.precision = config.getDoublePrecision();
-        // Check if either the control query or the test query matches the regex
-        if (Pattern.matches(config.getSkipCorrectnessRegex(), queryPair.getTest().getQuery()) ||
-                Pattern.matches(config.getSkipCorrectnessRegex(), queryPair.getControl().getQuery())) {
-            // If so disable correctness checking
-            this.checkCorrectness = false;
-        }
-        else {
-            this.checkCorrectness = config.isCheckCorrectnessEnabled();
-        }
-        this.verboseResultsComparison = config.isVerboseResultsComparison();
+        this.controlGateway = requireNonNull(controlGateway, "controlGateway is null");
+        this.testGateway = requireNonNull(testGateway, "testGateway is null");
+        this.controlTimeout = controlTimeout;
+        this.testTimeout = testTimeout;
+        this.maxRowCount = maxRowCount;
+        this.explainOnly = explainOnly;
+        this.precision = precision;
+        this.checkCorrectness = checkCorrectness;
+        this.verboseResultsComparison = verboseResultsComparison;
 
         this.queryPair = requireNonNull(queryPair, "queryPair is null");
         // Test and Control always have the same session properties.

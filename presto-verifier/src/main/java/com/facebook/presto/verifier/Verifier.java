@@ -28,6 +28,7 @@ import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
@@ -91,7 +92,17 @@ public class Verifier
                         log.debug("Query %s is blacklisted", query.getName());
                         continue;
                     }
-                    Validator validator = new Validator(config, query);
+                    Validator validator = new Validator(
+                            config.getControlGateway(),
+                            config.getTestGateway(),
+                            config.getControlTimeout(),
+                            config.getTestTimeout(),
+                            config.getMaxRowCount(),
+                            config.isExplainOnly(),
+                            config.getDoublePrecision(),
+                            isCheckCorrectness(query),
+                            config.isVerboseResultsComparison(),
+                            query);
                     completionService.submit(validateTask(validator), validator);
                     queriesSubmitted++;
                 }
@@ -144,6 +155,19 @@ public class Verifier
 
         log.info("Results: %s / %s (%s skipped)", valid, failed, skipped);
         return failed;
+    }
+
+    private boolean isCheckCorrectness(QueryPair query)
+    {
+        // Check if either the control query or the test query matches the regex
+        if (Pattern.matches(config.getSkipCorrectnessRegex(), query.getTest().getQuery()) ||
+                Pattern.matches(config.getSkipCorrectnessRegex(), query.getControl().getQuery())) {
+            // If so disable correctness checking
+            return false;
+        }
+        else {
+            return config.isCheckCorrectnessEnabled();
+        }
     }
 
     private VerifierQueryEvent buildEvent(Validator validator)
