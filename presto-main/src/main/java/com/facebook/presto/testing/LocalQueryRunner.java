@@ -119,6 +119,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
@@ -658,6 +659,18 @@ public class LocalQueryRunner
         public void project(RecordCursor cursor, BlockBuilder output)
         {
             throw new UnsupportedOperationException("Operation not supported");
+        }
+
+        @Override
+        public Set<Integer> getInputChannels()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

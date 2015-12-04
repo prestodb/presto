@@ -36,7 +36,9 @@ public class TestFeaturesConfig
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeHashGeneration(true)
                 .setOptimizeSingleDistinct(true)
-                .setIntermediateAggregationsEnabled(false));
+                .setIntermediateAggregationsEnabled(false)
+                .setColumnarProcessing(false)
+                .setColumnarProcessingDictionary(false));
     }
 
     @Test
@@ -51,6 +53,8 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
                 .put("optimizer.use-intermediate-aggregations", "true")
+                .put("optimizer.columnar-processing", "true")
+                .put("optimizer.columnar-processing-dictionary", "true")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -61,6 +65,8 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
                 .put("optimizer.use-intermediate-aggregations", "true")
+                .put("optimizer.columnar-processing", "true")
+                .put("optimizer.columnar-processing-dictionary", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -71,7 +77,9 @@ public class TestFeaturesConfig
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeSingleDistinct(false)
-                .setIntermediateAggregationsEnabled(true);
+                .setIntermediateAggregationsEnabled(true)
+                .setColumnarProcessing(true)
+                .setColumnarProcessingDictionary(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);

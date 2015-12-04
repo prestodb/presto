@@ -20,11 +20,13 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
@@ -142,6 +144,18 @@ public class TestFilterAndProjectOperator
             else {
                 BIGINT.writeLong(output, cursor.getLong(channelIndex) + 5);
             }
+        }
+
+        @Override
+        public Set<Integer> getInputChannels()
+        {
+            return ImmutableSet.of(channelIndex);
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return true;
         }
     }
 }

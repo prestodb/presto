@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.predicate.Utils;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -26,6 +28,12 @@ public class RunLengthEncodedBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(RunLengthEncodedBlock.class).instanceSize();
+
+    public static Block create(Type type, Object value, int positionCount)
+    {
+        Block block = Utils.nativeValueToBlock(type, value);
+        return new RunLengthEncodedBlock(block, positionCount);
+    }
 
     private final Block value;
     private final int positionCount;

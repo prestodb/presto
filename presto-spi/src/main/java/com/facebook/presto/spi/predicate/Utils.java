@@ -27,7 +27,7 @@ public final class Utils
     {
     }
 
-    static Block nativeValueToBlock(Type type, Object object)
+    public static Block nativeValueToBlock(Type type, Object object)
     {
         if (!Primitives.wrap(type.getJavaType()).isInstance(object)) {
             throw new IllegalArgumentException(String.format("Object '%s' does not match type %s", object, type.getJavaType()));

@@ -26,6 +26,8 @@ public class FeaturesConfig
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
     private boolean intermediateAggregationsEnabled = false;
+    private boolean columnarProcessing = false;
+    private boolean columnarProcessingDictionary = false;
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
@@ -121,6 +123,30 @@ public class FeaturesConfig
     public FeaturesConfig setIntermediateAggregationsEnabled(boolean intermediateAggregationsEnabled)
     {
         this.intermediateAggregationsEnabled = intermediateAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isColumnarProcessing()
+    {
+        return columnarProcessing;
+    }
+
+    @Config("optimizer.columnar-processing")
+    public FeaturesConfig setColumnarProcessing(boolean columnarProcessing)
+    {
+        this.columnarProcessing = columnarProcessing;
+        return this;
+    }
+
+    public boolean isColumnarProcessingDictionary()
+    {
+        return columnarProcessingDictionary;
+    }
+
+    @Config("optimizer.columnar-processing-dictionary")
+    public FeaturesConfig setColumnarProcessingDictionary(boolean columnarProcessingDictionary)
+    {
+        this.columnarProcessingDictionary = columnarProcessingDictionary;
         return this;
     }
 }

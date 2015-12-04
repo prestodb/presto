@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.isColumnarProcessingDictionaryEnabled;
+import static com.facebook.presto.SystemSessionProperties.isColumnarProcessingEnabled;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +33,8 @@ public class FilterAndProjectOperator
 
     private final PageBuilder pageBuilder;
     private final PageProcessor processor;
+    private final boolean columnarProcessingEnabled;
+    private final boolean columnarProcessingDictionaryEnabled;
     private Page currentPage;
     private int currentPosition;
     private boolean finishing;
@@ -40,6 +44,8 @@ public class FilterAndProjectOperator
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.columnarProcessingEnabled = isColumnarProcessingEnabled(operatorContext.getSession());
+        this.columnarProcessingDictionaryEnabled = isColumnarProcessingDictionaryEnabled(operatorContext.getSession());
         this.pageBuilder = new PageBuilder(getTypes());
     }
 
@@ -88,10 +94,24 @@ public class FilterAndProjectOperator
     public final Page getOutput()
     {
         if (!pageBuilder.isFull() && currentPage != null) {
-            currentPosition = processor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
-            if (currentPosition == currentPage.getPositionCount()) {
+            if (columnarProcessingDictionaryEnabled) {
+                Page page = processor.processColumnarDictionary(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
                 currentPage = null;
                 currentPosition = 0;
+                return page;
+            }
+            else if (columnarProcessingEnabled) {
+                Page page = processor.processColumnar(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
+                currentPage = null;
+                currentPosition = 0;
+                return page;
+            }
+            else {
+                currentPosition = processor.process(operatorContext.getSession().toConnectorSession(), currentPage, currentPosition, currentPage.getPositionCount(), pageBuilder);
+                if (currentPosition == currentPage.getPositionCount()) {
+                    currentPage = null;
+                    currentPosition = 0;
+                }
             }
         }
 

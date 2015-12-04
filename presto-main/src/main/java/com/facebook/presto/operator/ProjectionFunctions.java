@@ -18,7 +18,10 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -89,6 +92,18 @@ public final class ProjectionFunctions
                     throw new UnsupportedOperationException("not yet implemented: " + javaType);
                 }
             }
+        }
+
+        @Override
+        public Set<Integer> getInputChannels()
+        {
+            return ImmutableSet.of(channelIndex);
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return true;
         }
     }
 }

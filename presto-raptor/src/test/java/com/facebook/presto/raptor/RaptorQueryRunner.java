@@ -88,6 +88,7 @@ public final class RaptorQueryRunner
         return testSessionBuilder()
                 .setCatalog("raptor")
                 .setSchema(schema)
+                .setSystemProperties(ImmutableMap.of("columnar_processing_dictionary", "true"))
                 .build();
     }
 
