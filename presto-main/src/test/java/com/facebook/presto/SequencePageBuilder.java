@@ -70,4 +70,29 @@ public final class SequencePageBuilder
 
         return new Page(blocks);
     }
+
+    public static Page createSequencePageWithDictionaryBlocks(List<? extends Type> types, int length)
+    {
+        return createSequencePageWithDictionaryBlocks(types, length, new int[types.size()]);
+    }
+
+    public static Page createSequencePageWithDictionaryBlocks(List<? extends Type> types, int length, int... initialValues)
+    {
+        Block[] blocks = new Block[initialValues.length];
+        for (int i = 0; i < blocks.length; i++) {
+            Type type = types.get(i);
+            int initialValue = initialValues[i];
+            if (type.equals(VARCHAR)) {
+                blocks[i] = BlockAssertions.createStringDictionaryBlock(initialValue, initialValue + length);
+            }
+            else if (type.equals(BIGINT)) {
+                blocks[i] = BlockAssertions.createLongDictionaryBlock(initialValue, initialValue + length);
+            }
+            else {
+                throw new IllegalStateException("Unsupported type " + type);
+            }
+        }
+
+        return new Page(blocks);
+    }
 }

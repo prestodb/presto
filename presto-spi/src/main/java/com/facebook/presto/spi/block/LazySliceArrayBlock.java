@@ -282,6 +282,30 @@ public class LazySliceArrayBlock
         return ids;
     }
 
+    public DictionaryBlock createDictionaryBlock()
+    {
+        if (!dictionary) {
+            throw new IllegalStateException("cannot create dictionary block");
+        }
+        // if nulls are encoded in values, we can create a new dictionary block
+        if (isNull == null) {
+            return new DictionaryBlock(getPositionCount(), new SliceArrayBlock(values.length, values), wrappedIntArray(ids));
+        }
+
+        boolean hasNulls = false;
+        int[] newIds = Arrays.copyOf(ids, ids.length);
+        for (int position = 0; position < positionCount; position++) {
+            if (isEntryNull(position)) {
+                hasNulls = true;
+                newIds[position] = values.length;
+            }
+        }
+
+        // if we found a null, create a new values array with null at the end
+        Slice[] newValues = hasNulls ? Arrays.copyOf(values, values.length + 1) : values;
+        return new DictionaryBlock(getPositionCount(), new SliceArrayBlock(newValues.length, newValues), wrappedIntArray(newIds));
+    }
+
     public boolean isDictionary()
     {
         assureLoaded();
@@ -320,23 +344,6 @@ public class LazySliceArrayBlock
         if (!dictionary) {
             return new SliceArrayBlock(getPositionCount(), values);
         }
-
-        // if nulls are encoded in values, we can create a new dictionary block
-        if (isNull == null) {
-            return new DictionaryBlock(getPositionCount(), new SliceArrayBlock(values.length, values), wrappedIntArray(ids));
-        }
-
-        boolean hasNulls = false;
-        int[] newIds = Arrays.copyOf(ids, ids.length);
-        for (int position = 0; position < positionCount; position++) {
-            if (isEntryNull(position)) {
-                hasNulls = true;
-                newIds[position] = values.length;
-            }
-        }
-
-        // if we found a null, create a new values array with null at the end
-        Slice[] newValues = hasNulls ? Arrays.copyOf(values, values.length + 1) : values;
-        return new DictionaryBlock(getPositionCount(), new SliceArrayBlock(newValues.length, newValues), wrappedIntArray(newIds));
+        return createDictionaryBlock();
     }
 }

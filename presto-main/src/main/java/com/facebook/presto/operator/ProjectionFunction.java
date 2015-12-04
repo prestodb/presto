@@ -18,6 +18,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
+import java.util.Set;
+
 public interface ProjectionFunction
 {
     Type getType();
@@ -25,4 +27,8 @@ public interface ProjectionFunction
     void project(int position, Block[] blocks, BlockBuilder output);
 
     void project(RecordCursor cursor, BlockBuilder output);
+
+    Set<Integer> getInputChannels();
+
+    boolean isDeterministic();
 }

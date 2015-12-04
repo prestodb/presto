@@ -612,4 +612,13 @@ public final class ByteCodeExpressions
     {
         return new InlineIfByteCodeExpression(condition, ifTrue, ifFalse);
     }
+
+    //
+    // Print
+    //
+    public static ByteCodeExpression print(ByteCodeExpression variable)
+    {
+        ByteCodeExpression out = getStatic(System.class, "out");
+        return out.invoke("println", void.class, variable);
+    }
 }

@@ -71,6 +71,38 @@ public class TupleFilterProcessor
         return end;
     }
 
+    @Override
+    public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
+    {
+        PageBuilder pageBuilder = new PageBuilder(types);
+        int positionCount = page.getPositionCount();
+
+        int[] selectedPositions = new int[positionCount];
+        int selectedCount = 0;
+        for (int i = 0; i < positionCount; i++) {
+            if (matches(i, page)) {
+                selectedPositions[selectedCount++] = i;
+            }
+        }
+
+        for (int i = 0; i < outputTypes.size(); i++) {
+            Type type = outputTypes.get(i);
+            Block block = page.getBlock(i);
+            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
+            for (int position : selectedPositions) {
+                type.appendTo(block, position, blockBuilder);
+            }
+        }
+        pageBuilder.declarePositions(selectedCount);
+        return pageBuilder.build();
+    }
+
+    @Override
+    public Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types)
+    {
+        return processColumnar(session, page, types);
+    }
+
     private boolean matches(int position, Page page)
     {
         for (int i = 0; i < outputTupleChannels.length; i++) {
