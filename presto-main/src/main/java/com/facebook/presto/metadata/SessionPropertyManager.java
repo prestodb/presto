@@ -143,8 +143,9 @@ public final class SessionPropertyManager
                     sessionProperty.getFullyQualifiedName(),
                     sessionProperty.getCatalogName(),
                     sessionProperty.getPropertyName(),
-                    sessionProperty.getMetadata().getDescription(),
-                    sessionProperty.getMetadata().getSqlType().getTypeSignature().toString()));
+                    propertyMetadata.getDescription(),
+                    propertyMetadata.getSqlType().getTypeSignature().toString(),
+                    propertyMetadata.isHidden()));
         }
 
         // sort properties by catalog then property
@@ -303,6 +304,7 @@ public final class SessionPropertyManager
         private final String type;
         private final String value;
         private final String defaultValue;
+        private final boolean hidden;
 
         private SessionPropertyValue(String value,
                 String defaultValue,
@@ -310,7 +312,8 @@ public final class SessionPropertyManager
                 Optional<String> catalogName,
                 String propertyName,
                 String description,
-                String type)
+                String type,
+                boolean hidden)
         {
             this.fullyQualifiedName = fullyQualifiedName;
             this.catalogName = catalogName;
@@ -319,6 +322,7 @@ public final class SessionPropertyManager
             this.type = type;
             this.value = value;
             this.defaultValue = defaultValue;
+            this.hidden = hidden;
         }
 
         public String getFullyQualifiedName()
@@ -354,6 +358,11 @@ public final class SessionPropertyManager
         public String getDefaultValue()
         {
             return defaultValue;
+        }
+
+        public boolean isHidden()
+        {
+            return hidden;
         }
     }
 

@@ -469,6 +469,10 @@ class StatementAnalyzer
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session);
         for (SessionPropertyValue sessionProperty : sessionProperties) {
+            if (sessionProperty.isHidden()) {
+                continue;
+            }
+
             String value = sessionProperty.getValue();
             String defaultValue = sessionProperty.getDefaultValue();
             rows.add(row(
