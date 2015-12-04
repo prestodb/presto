@@ -208,8 +208,30 @@ public class TestTruncatedHistogram
                 aggregationFunction,
                 1.0,
                 // the d=1 and e=2 buckets are truncated and overflow onto the b=10 and c=12 buckets
+                // This result means a appeared at least 13 times and b and c appeared at least once each.
                 ImmutableMap.of("a", 25L, "b", 13L, "c", 13L),
                 createRLEBlock(3, 25 + 10 + 12 + 1 + 2),
                 createStringsBlock("a", "b", "c", "d", "e", "e", "c", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c"));
+    }
+
+    @Test
+    public void testHighCardinality()
+            throws Exception
+    {
+        MapType mapType = new MapType(VARCHAR, BIGINT);
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.VARCHAR));
+        assertAggregation(
+                aggregationFunction,
+                1.0,
+                // The 6 cdefghij overflow onto the 2 ab buckets, resulting in 9+ of each of a and b
+                // Due to extra compactions, the result is actually 10 each
+                // Note that this result merely means that:
+                // - a and b appeared 1-10 times
+                // - there are up to 20 values.
+                // - nothing appeared more than 10 times
+                ImmutableMap.of("a", 10L, "b", 10L),
+                createRLEBlock(2, 6 * (2 + 1)),
+                // c [ab] d [ab] e [ab] f [ab] g [ab] h [ab]
+                createStringsBlock("c", "a", "b", "d", "a", "b", "e", "a", "b", "f", "a", "b", "g", "a", "b", "h", "a", "b"));
     }
 }
