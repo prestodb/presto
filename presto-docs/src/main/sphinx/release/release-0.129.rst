@@ -15,6 +15,7 @@ General Changes
 * The JDBC driver now properly supports non-query statements.
   The ``Statement`` interface supports all variants of the ``execute`` methods.
   It also supports the ``getUpdateCount`` and ``getLargeUpdateCount`` methods.
+* Fix :doc:`/sql/show-session` to not show hidden session properties.
 
 Hive Changes
 ------------
