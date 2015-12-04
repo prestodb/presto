@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeLiteralCalculation;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -44,6 +49,26 @@ import static org.testng.Assert.assertNull;
 
 public class TestSignature
 {
+    @Test
+    public void testBindUnknown()
+    {
+        // given function(varchar(x)):boolean
+        Signature function = new Signature(
+                "function",
+                SCALAR,
+                ImmutableList.of(),
+                BooleanType.BOOLEAN.getTypeSignature(),
+                ImmutableList.of(new TypeSignature(StandardTypes.VARCHAR, ImmutableList.of(TypeSignatureParameter.of(new TypeLiteralCalculation("x"))))),
+                false,
+                ImmutableSet.of("x"));
+
+        // does it bind to argument UNKNOWN
+        // without coercion
+        assertEquals(function.bindTypeParameters(ImmutableList.of(UNKNOWN), false, new TypeRegistry()), null);
+        // with coercion
+        assertEquals(function.bindTypeParameters(ImmutableList.of(UNKNOWN), true, new TypeRegistry()), true);
+    }
+
     @Test
     public void testRoundTrip()
     {
