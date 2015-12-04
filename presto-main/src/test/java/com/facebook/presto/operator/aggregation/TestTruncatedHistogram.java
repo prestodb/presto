@@ -49,35 +49,39 @@ public class TestTruncatedHistogram
             throws Exception
     {
         MapType mapType = new MapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.VARCHAR));
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
+                createRLEBlock(251, 3),
                 createStringsBlock("a", "b", "c"));
 
         mapType = new MapType(BIGINT, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.BIGINT));
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
+                createRLEBlock(251, 3),
                 createLongsBlock(100L, 200L, 300L));
 
         mapType = new MapType(DOUBLE, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.DOUBLE));
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
+                createRLEBlock(251, 3),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
         mapType = new MapType(BOOLEAN, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BOOLEAN));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.BOOLEAN));
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(true, 1L, false, 1L),
+                createRLEBlock(251, 2),
                 createBooleansBlock(true, false));
     }
 
@@ -86,21 +90,23 @@ public class TestTruncatedHistogram
             throws Exception
     {
         MapType mapType = new MapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.VARCHAR));
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of("a", 2L, "b", 1L),
+                createRLEBlock(251, 3),
                 createStringsBlock("a", "b", "a"));
 
         mapType = new MapType(TIMESTAMP_WITH_TIME_ZONE, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
         long timestampWithTimeZone1 = packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         long timestampWithTimeZone2 = packDateTimeWithZone(new DateTime(2015, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(new SqlTimestampWithTimeZone(timestampWithTimeZone1), 2L, new SqlTimestampWithTimeZone(timestampWithTimeZone2), 1L),
+                createRLEBlock(251, 3),
                 createLongsBlock(timestampWithTimeZone1, timestampWithTimeZone1, timestampWithTimeZone2));
     }
 
@@ -109,20 +115,29 @@ public class TestTruncatedHistogram
             throws Exception
     {
         MapType mapType = new MapType(BIGINT, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.BIGINT));
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(1L, 1L, 2L, 1L),
+                createRLEBlock(251, 3),
                 createLongsBlock(2L, null, 1L));
 
         mapType = new MapType(BIGINT, BIGINT);
-        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT));
+        aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.BIGINT));
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 null,
+                createRLEBlock(251, 1),
                 createLongsBlock((Long) null));
+        //noinspection RedundantArrayCreation
+        assertAggregation(
+                aggregationFunction,
+                1.0,
+                null,
+                createRLEBlock(251, 0),
+                createLongsBlock(new Long[0]));
     }
 
     @Test
@@ -131,12 +146,13 @@ public class TestTruncatedHistogram
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = new MapType(arrayType, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), arrayType.getTypeSignature().toString()));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, arrayType.getTypeSignature().toString()));
 
         assertAggregation(
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(ImmutableList.of("a", "b", "c"), 1L, ImmutableList.of("d", "e", "f"), 1L, ImmutableList.of("c", "b", "a"), 1L),
+                createRLEBlock(251, 3),
                 createStringArraysBlock(ImmutableList.of(ImmutableList.of("a", "b", "c"), ImmutableList.of("d", "e", "f"), ImmutableList.of("c", "b", "a"))));
     }
 
@@ -146,7 +162,7 @@ public class TestTruncatedHistogram
     {
         MapType innerMapType = new MapType(VARCHAR, VARCHAR);
         MapType mapType = new MapType(innerMapType, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), innerMapType.getTypeSignature().toString()));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, innerMapType.getTypeSignature().toString()));
 
         BlockBuilder builder = innerMapType.createBlockBuilder(new BlockBuilderStatus(), 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
@@ -157,6 +173,7 @@ public class TestTruncatedHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(ImmutableMap.of("a", "b"), 1L, ImmutableMap.of("c", "d"), 1L, ImmutableMap.of("e", "f"), 1L),
+                createRLEBlock(251, 3),
                 builder.build());
     }
 
@@ -166,7 +183,7 @@ public class TestTruncatedHistogram
     {
         RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
         MapType mapType = new MapType(innerRowType, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), innerRowType.getTypeSignature().toString()));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, innerRowType.getTypeSignature().toString()));
 
         BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
         innerRowType.writeObject(builder, testRowBigintBigint(1L, 1.0));
@@ -177,6 +194,7 @@ public class TestTruncatedHistogram
                 aggregationFunction,
                 1.0,
                 ImmutableMap.of(ImmutableList.of(1L, 1.0), 1L, ImmutableList.of(2L, 2.0), 1L, ImmutableList.of(3L, 3.0), 1L),
+                createRLEBlock(251, 3),
                 builder.build());
     }
 
@@ -185,11 +203,13 @@ public class TestTruncatedHistogram
             throws Exception
     {
         MapType mapType = new MapType(VARCHAR, BIGINT);
-        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.VARCHAR));
+        InternalAggregationFunction aggregationFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME, AGGREGATE, mapType.getTypeSignature().toString(), StandardTypes.BIGINT, StandardTypes.VARCHAR));
         assertAggregation(
                 aggregationFunction,
                 1.0,
-                ImmutableMap.of("a", 25L, "b", 10L, "c", 12L, "d", 1L, "e", 2L),
+                // the d=1 and e=2 buckets are truncated and overflow onto the b=10 and c=12 buckets
+                ImmutableMap.of("a", 25L, "b", 13L, "c", 13L),
+                createRLEBlock(3, 25 + 10 + 12 + 1 + 2),
                 createStringsBlock("a", "b", "c", "d", "e", "e", "c", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c"));
     }
 }
