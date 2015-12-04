@@ -195,6 +195,24 @@ Approximate Aggregate Functions
     for all ``value``\ s. This function is equivalent to the variant of
     :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
 
+.. function:: truncated_histogram(buckets, value) -> map<[same as value], bigint>
+
+    Computes a truncated histogram with up to ``buckets`` number of buckets
+    for all ``value``\ s. The algorithm periodically truncates the histogram
+    to ``buckets`` entries and overflows the truncated entries by setting the
+    lowest retained entries to a constant, rounding up.
+    The resulting histogram's counts are an upper bound on the true count.
+    Furthermore, the error is less than the minimum count retained in the histogram.
+
+    The algorithm is based loosely on:
+
+    .. code-block:: none
+
+        Ahmed Metwally, Divyakant Agrawal, and Amr El Abbadi,
+        "Efficient Computation of Frequent and Top-*k* Elements in Data Streams",
+        https://icmi.cs.ucsb.edu/research/tech_reports/reports/2005-23.pdf
+
+
 Statistical Aggregate Functions
 -------------------------------
 
