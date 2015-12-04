@@ -13,17 +13,30 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.*;
-import com.facebook.presto.spi.block.*;
-import com.facebook.presto.spi.type.*;
-import com.facebook.presto.type.*;
-import com.google.common.collect.*;
-import org.joda.time.*;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.MapType;
+import com.facebook.presto.type.RowType;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.block.BlockAssertions.*;
+import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
+import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
+import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.TruncatedHistogram.NAME;

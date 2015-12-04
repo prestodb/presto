@@ -15,21 +15,30 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.metadata.*;
-import com.facebook.presto.operator.aggregation.state.*;
+import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.*;
-import com.facebook.presto.spi.type.*;
-import com.facebook.presto.type.*;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.*;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -145,5 +154,4 @@ public class TruncatedHistogram
             typedHistogram.writeMapTo(out);
         }
     }
-
 }

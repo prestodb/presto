@@ -1,9 +1,12 @@
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.block.*;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.MapType;
-import com.facebook.presto.util.array.*;
+import com.facebook.presto.util.array.IntBigArray;
+import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
@@ -22,7 +25,8 @@ import static java.util.Objects.requireNonNull;
 /**
  * A histogram that periodically truncates infrequent items and overflows their counters onto other items.
  */
-public class TypedTruncatedHistogram {
+public class TypedTruncatedHistogram
+{
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedTruncatedHistogram.class).instanceSize();
 
     private static final float FILL_RATIO = 0.75f;
@@ -39,7 +43,8 @@ public class TypedTruncatedHistogram {
     private IntBigArray hashPositions;
     private final LongBigArray counts;
 
-    public TypedTruncatedHistogram(Type type, int expectedSize, int compactLimit) {
+    public TypedTruncatedHistogram(Type type, int expectedSize, int compactLimit)
+    {
         this.type = type;
         this.compactLimit = compactLimit;
 
@@ -56,22 +61,26 @@ public class TypedTruncatedHistogram {
         counts.ensureCapacity(hashSize);
     }
 
-    public long getEstimatedSize() {
+    public long getEstimatedSize()
+    {
         return INSTANCE_SIZE +
                 values.getRetainedSizeInBytes() +
                 counts.sizeOf() +
                 hashPositions.sizeOf();
     }
 
-    private Block getValues() {
+    private Block getValues()
+    {
         return values.build();
     }
 
-    private LongBigArray getCounts() {
+    private LongBigArray getCounts()
+    {
         return counts;
     }
 
-    public void addAll(TypedTruncatedHistogram other) {
+    public void addAll(TypedTruncatedHistogram other)
+    {
         Block otherValues = other.getValues();
         LongBigArray otherCounts = other.getCounts();
         for (int i = 0; i < otherValues.getPositionCount(); i++) {
@@ -82,7 +91,8 @@ public class TypedTruncatedHistogram {
         }
     }
 
-    public void add(int position, Block block, long count) {
+    public void add(int position, Block block, long count)
+    {
         int hashPosition = getHashPosition(com.facebook.presto.type.TypeUtils.hashPosition(type, block, position), mask);
 
         // look for an empty slot or a slot containing this key
@@ -103,7 +113,8 @@ public class TypedTruncatedHistogram {
         addNewGroup(hashPosition, position, block, count);
     }
 
-    private void addNewGroup(int hashPosition, int position, Block block, long count) {
+    private void addNewGroup(int hashPosition, int position, Block block, long count)
+    {
         hashPositions.set(hashPosition, values.getPositionCount());
         counts.set(values.getPositionCount(), count);
         type.appendTo(block, position, values);
@@ -117,7 +128,8 @@ public class TypedTruncatedHistogram {
         }
     }
 
-    private void rehashIfNeeded() {
+    private void rehashIfNeeded()
+    {
         // increase capacity, if necessary
         if (values.getPositionCount() >= maxFill) {
             int size = maxFill * 2;
@@ -127,7 +139,8 @@ public class TypedTruncatedHistogram {
         }
     }
 
-    private void rehash() {
+    private void rehash()
+    {
         int hashSize = mask + 1;
         IntBigArray newHashPositions = new IntBigArray(-1);
         newHashPositions.ensureCapacity(hashSize);
@@ -152,7 +165,8 @@ public class TypedTruncatedHistogram {
     /**
      * Call {@link #compact()} if over {@link #COMPACT_RATIO} of the value/count pairs exceeds {@link #compactLimit}.
      */
-    private void compactIfNeeded() {
+    private void compactIfNeeded()
+    {
         if (values.getPositionCount() * COMPACT_RATIO > compactLimit) {
             compact();
         }
@@ -166,7 +180,8 @@ public class TypedTruncatedHistogram {
      * In addition, the over-estimation is less than the minimum retained count.
      * This is because every overflow increases the minimum retained count by the most.
      */
-    private void compact() {
+    private void compact()
+    {
         if (values.getPositionCount() <= compactLimit) {
             return;
         }
@@ -235,11 +250,13 @@ public class TypedTruncatedHistogram {
         rehash();
     }
 
-    private static int getHashPosition(long rawHash, int mask) {
+    private static int getHashPosition(long rawHash, int mask)
+    {
         return ((int) murmurHash3(rawHash)) & mask;
     }
 
-    private static int calculateMaxFill(int hashSize) {
+    private static int calculateMaxFill(int hashSize)
+    {
         checkArgument(hashSize > 0, "hashSize must greater than 0");
         int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
         if (maxFill == hashSize) {
@@ -249,7 +266,8 @@ public class TypedTruncatedHistogram {
         return maxFill;
     }
 
-    public void writeMapTo(BlockBuilder out) {
+    public void writeMapTo(BlockBuilder out)
+    {
         compact();
 
         Block valuesBlock = values.build();
@@ -261,7 +279,8 @@ public class TypedTruncatedHistogram {
         out.closeEntry();
     }
 
-    public void serialize(BlockBuilder out) {
+    public void serialize(BlockBuilder out)
+    {
         BlockBuilder blockBuilder = out.beginBlockEntry();
 
         BIGINT.writeLong(blockBuilder, compactLimit);
@@ -270,7 +289,8 @@ public class TypedTruncatedHistogram {
         out.closeEntry();
     }
 
-    public static TypedTruncatedHistogram deserialize(Type type, Block block) {
+    public static TypedTruncatedHistogram deserialize(Type type, Block block)
+    {
         requireNonNull(block, "block is null");
         int compactLimit = Ints.checkedCast(BIGINT.getLong(block, 0));
         final TypedTruncatedHistogram histogram = new TypedTruncatedHistogram(type, TruncatedHistogram.EXPECTED_SIZE_FOR_HASHING, compactLimit);
