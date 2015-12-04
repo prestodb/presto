@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.StatementClient;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -46,7 +48,9 @@ public class PrestoStatement
             throws SQLException
     {
         try {
-            ResultSet result = new PrestoResultSet(connection().startQuery(sql));
+            StatementClient statementClient = connection().startQuery(sql);
+            ResultSet result = new PrestoResultSet(statementClient);
+            checkSetOrResetSession(statementClient);
             currentResult.set(result);
             return result;
         }
@@ -442,5 +446,13 @@ public class PrestoStatement
         return (direction == ResultSet.FETCH_FORWARD) ||
                 (direction == ResultSet.FETCH_REVERSE) ||
                 (direction == ResultSet.FETCH_UNKNOWN);
+    }
+
+    private void checkSetOrResetSession(StatementClient statementClient) throws SQLException
+    {
+        if (!statementClient.getSetSessionProperties().isEmpty() || !statementClient.getResetSessionProperties().isEmpty()) {
+            statementClient.close();
+            throw new SQLFeatureNotSupportedException("SET/RESET SESSION");
+        }
     }
 }
