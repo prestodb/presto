@@ -176,7 +176,7 @@ public class TopNOperator
     @Override
     public boolean needsInput()
     {
-        return !finishing && outputIterator == null && (topNBuilder == null || !topNBuilder.isFull());
+        return !finishing && (outputIterator == null || !outputIterator.hasNext()) && (topNBuilder == null || !topNBuilder.isFull());
     }
 
     @Override
