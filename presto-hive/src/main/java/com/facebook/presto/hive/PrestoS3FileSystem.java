@@ -123,6 +123,7 @@ public class PrestoS3FileSystem
     public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
     public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
     public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
+    public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -138,6 +139,7 @@ public class PrestoS3FileSystem
     private Duration maxRetryTime;
     private boolean useInstanceCredentials;
     private boolean s3SseEnabled;
+    private boolean pinS3ClientToCurrentRegion;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -165,6 +167,7 @@ public class PrestoS3FileSystem
         long minPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.s3SseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
+        this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -559,10 +562,13 @@ public class PrestoS3FileSystem
         AmazonS3Client client = new AmazonS3Client(credentials, clientConfig, METRIC_COLLECTOR);
 
         // use local region when running inside of EC2
-        Region region = Regions.getCurrentRegion();
-        if (region != null) {
-            client.setRegion(region);
+        if (pinS3ClientToCurrentRegion) {
+            Region region = Regions.getCurrentRegion();
+            if (region != null) {
+                client.setRegion(region);
+            }
         }
+
         return client;
     }
 

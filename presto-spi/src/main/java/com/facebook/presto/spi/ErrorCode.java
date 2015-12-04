@@ -16,6 +16,8 @@ package com.facebook.presto.spi;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
 public final class ErrorCode
@@ -49,5 +51,25 @@ public final class ErrorCode
     public String toString()
     {
         return name + ":" + code;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        ErrorCode that = (ErrorCode) obj;
+        return Objects.equals(this.code, that.code);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(code);
     }
 }
