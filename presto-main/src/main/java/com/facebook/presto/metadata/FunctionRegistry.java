@@ -14,30 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockSerdeUtil;
-import com.facebook.presto.operator.aggregation.ApproximateAverageAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateCountAggregation;
-import com.facebook.presto.operator.aggregation.ApproximateCountColumnAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
-import com.facebook.presto.operator.aggregation.ApproximateSumAggregations;
-import com.facebook.presto.operator.aggregation.AverageAggregations;
-import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
-import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
-import com.facebook.presto.operator.aggregation.CorrelationAggregation;
-import com.facebook.presto.operator.aggregation.CountAggregation;
-import com.facebook.presto.operator.aggregation.CountIfAggregation;
-import com.facebook.presto.operator.aggregation.CovarianceAggregation;
-import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
-import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
-import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
-import com.facebook.presto.operator.aggregation.NumericHistogramAggregation;
-import com.facebook.presto.operator.aggregation.RegressionAggregation;
-import com.facebook.presto.operator.aggregation.VarianceAggregation;
+import com.facebook.presto.operator.aggregation.*;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
@@ -129,6 +106,7 @@ import static com.facebook.presto.operator.aggregation.ArrayAggregationFunction.
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
+import static com.facebook.presto.operator.aggregation.TruncatedHistogram.TRUNCATED_HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
@@ -346,6 +324,7 @@ public class FunctionRegistry
                 .functions(MAP_CONSTRUCTOR, MAP_CARDINALITY, MAP_SUBSCRIPT, MAP_TO_JSON, JSON_TO_MAP, MAP_KEYS, MAP_VALUES)
                 .functions(MAP_AGG, MULTIMAP_AGG)
                 .function(HISTOGRAM)
+                .function(TRUNCATED_HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
                 .function(ARBITRARY_AGGREGATION)
                 .function(ARRAY_AGGREGATION)
