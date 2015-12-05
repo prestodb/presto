@@ -180,6 +180,7 @@ public class PredicatePushDown
                 return new ExchangeNode(
                         node.getId(),
                         node.getType(),
+                        node.getScope(),
                         node.getPartitionFunction(),
                         builder.build(),
                         node.getInputs());

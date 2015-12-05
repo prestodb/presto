@@ -39,6 +39,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode.Scope;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -73,6 +74,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.GraphvizPrinter;
+import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
@@ -99,6 +101,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctDataSize;
@@ -794,7 +797,18 @@ public class PlanPrinter
         @Override
         public Void visitExchange(ExchangeNode node, Integer indent)
         {
-            print(indent, "- Exchange[%s] => %s", node.getType(), formatOutputs(node.getOutputSymbols()));
+            if (node.getScope() == Scope.LOCAL) {
+                print(indent, "- LocalExchange[%s] (%s) => %s",
+                        node.getPartitionFunction().getPartitioningHandle(),
+                        Joiner.on(", ").join(node.getPartitionFunction().getPartitionFunctionArguments()),
+                        formatOutputs(node.getOutputSymbols()));
+            }
+            else {
+                print(indent, "- %sExchange[%s] => %s",
+                        UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString()),
+                        node.getType(),
+                        formatOutputs(node.getOutputSymbols()));
+            }
             printStats(indent + 2, node.getId());
 
             return processChildren(node, indent + 1);

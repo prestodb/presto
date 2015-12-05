@@ -497,6 +497,7 @@ public class HashGenerationOptimizer
                     new ExchangeNode(
                             idAllocator.getNextId(),
                             node.getType(),
+                            node.getScope(),
                             partitionFunction,
                             newSources.build(),
                             newInputs.build()),

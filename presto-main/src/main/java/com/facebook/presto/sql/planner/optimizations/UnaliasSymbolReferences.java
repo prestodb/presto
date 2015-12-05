@@ -276,7 +276,7 @@ public class UnaliasSymbolReferences
                     node.getPartitionFunction().isReplicateNulls(),
                     node.getPartitionFunction().getBucketToPartition());
 
-            return new ExchangeNode(node.getId(), node.getType(), partitionFunction, sources, inputs);
+            return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitionFunction, sources, inputs);
         }
 
         @Override
