@@ -114,6 +114,8 @@ import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grou
 import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
@@ -788,7 +790,7 @@ public class AddExchanges
             PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
 
             // if the child is already a gathering exchange, don't add another
-            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType().equals(ExchangeNode.Type.GATHER)) {
+            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType().equals(GATHER)) {
                 return rebaseAndDeriveProperties(node, child);
             }
 
@@ -1063,7 +1065,8 @@ public class AddExchanges
                     // NOTE: this must provide the explicit imput mapping as unions may drop or duplicate symbols
                     result = new ExchangeNode(
                             idAllocator.getNextId(),
-                            ExchangeNode.Type.GATHER,
+                            GATHER,
+                            REMOTE,
                             new PartitionFunctionBinding(SINGLE_DISTRIBUTION, node.getOutputSymbols(), ImmutableList.of()),
                             partitionedChildren,
                             partitionedOutputLayouts);

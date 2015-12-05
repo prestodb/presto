@@ -28,6 +28,8 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -43,7 +45,14 @@ public class ExchangeNode
         REPLICATE
     }
 
+    public enum Scope
+    {
+        LOCAL,
+        REMOTE
+    }
+
     private final Type type;
+    private final Scope scope;
 
     private final List<PlanNode> sources;
 
@@ -56,6 +65,7 @@ public class ExchangeNode
     public ExchangeNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
+            @JsonProperty("scope") Scope scope,
             @JsonProperty("partitionFunction") PartitionFunctionBinding partitionFunction,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("inputs") List<List<Symbol>> inputs)
@@ -63,6 +73,7 @@ public class ExchangeNode
         super(id);
 
         requireNonNull(type, "type is null");
+        requireNonNull(scope, "scope is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(partitionFunction, "partitionFunction is null");
         requireNonNull(inputs, "inputs is null");
@@ -73,8 +84,12 @@ public class ExchangeNode
             checkArgument(sources.get(i).getOutputSymbols().containsAll(inputs.get(i)), "Source does not supply all required input symbols");
         }
 
+        checkArgument(scope != LOCAL || partitionFunction.getPartitionFunctionArguments().stream().allMatch(PartitionFunctionArgumentBinding::isVariable),
+                "local exchanges do not support constant partition function arguments");
+
         this.type = type;
         this.sources = sources;
+        this.scope = scope;
         this.partitionFunction = partitionFunction;
         this.inputs = ImmutableList.copyOf(inputs);
     }
@@ -98,6 +113,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPARTITION,
+                REMOTE,
                 partitionFunction,
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
@@ -108,6 +124,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPLICATE,
+                REMOTE,
                 new PartitionFunctionBinding(FIXED_BROADCAST_DISTRIBUTION, child.getOutputSymbols(), ImmutableList.of()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
@@ -118,6 +135,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.GATHER,
+                REMOTE,
                 new PartitionFunctionBinding(SINGLE_DISTRIBUTION, child.getOutputSymbols(), ImmutableList.of()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
@@ -128,6 +146,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.GATHER,
+                REMOTE,
                 new PartitionFunctionBinding(SINGLE_DISTRIBUTION, outputLayout, ImmutableList.of()),
                 children,
                 children.stream()
@@ -139,6 +158,12 @@ public class ExchangeNode
     public Type getType()
     {
         return type;
+    }
+
+    @JsonProperty
+    public Scope getScope()
+    {
+        return scope;
     }
 
     @Override

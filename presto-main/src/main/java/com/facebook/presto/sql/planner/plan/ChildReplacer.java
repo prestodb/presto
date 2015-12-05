@@ -88,6 +88,7 @@ public class ChildReplacer
         return new ExchangeNode(
                 node.getId(),
                 node.getType(),
+                node.getScope(),
                 node.getPartitionFunction(),
                 newChildren,
                 node.getInputs());
