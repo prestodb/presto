@@ -194,11 +194,6 @@ public class SharedBuffer
         return new SharedBufferInfo(state, state.canAddBuffers(), state.canAddPages(), totalBufferedBytes, totalBufferedPages, totalQueuedPages, totalPagesSent, infos.build());
     }
 
-    public ListenableFuture<OutputBuffers> getFinalOutputBuffers()
-    {
-        return finalOutputBuffers;
-    }
-
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
