@@ -57,6 +57,7 @@ public final class SystemSessionProperties
     public static final String COLUMNAR_PROCESSING_DICTIONARY = "columnar_processing_dictionary";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
+    public static final String COLOCATED_JOIN = "colocated_join";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
@@ -219,6 +220,11 @@ public final class SystemSessionProperties
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
                         "Experimental: Adapt plan to pre-partitioned tables",
                         true,
+                        false),
+                booleanSessionProperty(
+                        COLOCATED_JOIN,
+                        "Experimental: Use a colocated join when possible",
+                        false,
                         false));
     }
 
@@ -320,6 +326,11 @@ public final class SystemSessionProperties
     public static boolean planWithTableNodePartitioning(Session session)
     {
         return session.getProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
+    }
+
+    public static boolean isColocatedJoinEnabled(Session session)
+    {
+        return session.getProperty(COLOCATED_JOIN, Boolean.class);
     }
 
     public static int getInitialSplitsPerNode(Session session)

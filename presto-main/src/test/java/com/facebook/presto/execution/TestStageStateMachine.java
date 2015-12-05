@@ -326,7 +326,7 @@ public class TestStageStateMachine
                         ImmutableList.of(ImmutableList.of(new StringLiteral("foo")))),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
-                valuesNodeId,
+                ImmutableList.of(valuesNodeId),
                 new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(symbol), ImmutableList.of()));
 
         return planFragment;

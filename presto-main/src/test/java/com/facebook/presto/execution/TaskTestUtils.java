@@ -66,9 +66,9 @@ public final class TaskTestUtils
 
     public static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create("test");
 
-    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
-
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
+
+    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split("test", TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
 
     public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
 
@@ -86,7 +86,7 @@ public final class TaskTestUtils
                     null),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
             SOURCE_DISTRIBUTION,
-            TABLE_SCAN_NODE_ID,
+            ImmutableList.of(TABLE_SCAN_NODE_ID),
             new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(SYMBOL), ImmutableList.of())
                     .withBucketToPartition(Optional.of(new int[1])));
 

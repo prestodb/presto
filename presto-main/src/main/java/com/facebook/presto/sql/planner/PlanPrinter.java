@@ -321,7 +321,7 @@ public class PlanPrinter
                 plan,
                 types,
                 SINGLE_DISTRIBUTION,
-                plan.getId(),
+                ImmutableList.of(plan.getId()),
                 new PartitionFunctionBinding(SINGLE_DISTRIBUTION, plan.getOutputSymbols(), ImmutableList.of()));
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }

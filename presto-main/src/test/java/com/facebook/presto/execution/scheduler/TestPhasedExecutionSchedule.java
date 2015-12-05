@@ -238,7 +238,7 @@ public class TestPhasedExecutionSchedule
                 planNode,
                 types.build(),
                 SOURCE_DISTRIBUTION,
-                planNode.getId(),
+                ImmutableList.of(planNode.getId()),
                 new PartitionFunctionBinding(SINGLE_DISTRIBUTION, planNode.getOutputSymbols(), ImmutableList.of()));
     }
 }
