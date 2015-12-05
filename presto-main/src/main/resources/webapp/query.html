@@ -91,6 +91,9 @@
         <dt>End Time</dt>
         <dd id="endTime"></dd>
 
+        <dt>Queued Time</dt>
+        <dd id="queuedTime"></dd>
+
         <dt>Memory Pool</dt>
         <dd id="memoryPool"></dd>
 
@@ -185,6 +188,7 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
         var formatter = d3.time.format("%x %X");
         d3.select('#endTime').text(formatter(new Date(query.queryStats.endTime)));
     }
+    d3.select('#queuedTime').text(query.queryStats.queuedTime);
     d3.select('#memoryPool').text(query.memoryPool);
     d3.select('#memory').text(query.queryStats.totalMemoryReservation);
     d3.select('#cpuTime').text(query.queryStats.totalCpuTime);
