@@ -539,7 +539,7 @@ public class LocalQueryRunner
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
                 for (Split split : getFutureValue(splitSource.getNextBatch(1000))) {
-                    scheduledSplits.add(new ScheduledSplit(sequenceId++, split));
+                    scheduledSplits.add(new ScheduledSplit(sequenceId++, tableScan.getId(), split));
                 }
             }
 

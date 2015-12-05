@@ -237,7 +237,8 @@ public class IndexLoader
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
         PlanNodeId planNodeId = Iterables.getOnlyElement(driverFactory.getSourceIds());
-        driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new ConnectorTransactionHandle() {}, new IndexSplit(pageRecordSet)))), true));
+        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split("index", new ConnectorTransactionHandle() {}, new IndexSplit(pageRecordSet)));
+        driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(split), true));
 
         return new StreamingIndexedData(outputTypes, keyTypes, indexKeyTuple, pageBuffer, driver);
     }
@@ -321,7 +322,8 @@ public class IndexLoader
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
                 PlanNodeId sourcePlanNodeId = Iterables.getOnlyElement(driverFactory.getSourceIds());
-                driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(new ScheduledSplit(0, new Split("index", new ConnectorTransactionHandle() {}, new IndexSplit(recordSetForLookupSource)))), true));
+                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split("index", new ConnectorTransactionHandle() {}, new IndexSplit(recordSetForLookupSource)));
+                driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
                     ListenableFuture<?> process = driver.process();
                     checkState(process.isDone(), "Driver should never block");

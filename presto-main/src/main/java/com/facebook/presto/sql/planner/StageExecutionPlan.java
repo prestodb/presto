@@ -15,9 +15,11 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -27,17 +29,17 @@ import static java.util.Objects.requireNonNull;
 public class StageExecutionPlan
 {
     private final PlanFragment fragment;
-    private final Optional<SplitSource> dataSource;
+    private final Map<PlanNodeId, SplitSource> splitSources;
     private final List<StageExecutionPlan> subStages;
     private final Optional<List<String>> fieldNames;
 
     public StageExecutionPlan(
             PlanFragment fragment,
-            Optional<SplitSource> dataSource,
+            Map<PlanNodeId, SplitSource> splitSources,
             List<StageExecutionPlan> subStages)
     {
         this.fragment = requireNonNull(fragment, "fragment is null");
-        this.dataSource = requireNonNull(dataSource, "dataSource is null");
+        this.splitSources = requireNonNull(splitSources, "dataSource is null");
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "dependencies is null"));
 
         fieldNames = (fragment.getRoot() instanceof OutputNode) ?
@@ -56,9 +58,9 @@ public class StageExecutionPlan
         return fragment;
     }
 
-    public Optional<SplitSource> getDataSource()
+    public Map<PlanNodeId, SplitSource> getSplitSources()
     {
-        return dataSource;
+        return splitSources;
     }
 
     public List<StageExecutionPlan> getSubStages()
@@ -68,7 +70,7 @@ public class StageExecutionPlan
 
     public StageExecutionPlan withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new StageExecutionPlan(fragment.withBucketToPartition(bucketToPartition), dataSource, subStages);
+        return new StageExecutionPlan(fragment.withBucketToPartition(bucketToPartition), splitSources, subStages);
     }
 
     @Override
@@ -76,7 +78,7 @@ public class StageExecutionPlan
     {
         return toStringHelper(this)
                 .add("fragment", fragment)
-                .add("dataSource", dataSource)
+                .add("splitSources", splitSources)
                 .add("subStages", subStages)
                 .toString();
     }

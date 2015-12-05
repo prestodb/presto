@@ -100,7 +100,7 @@ public class MockRemoteTaskFactory
                         null),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
-                sourceId,
+                ImmutableList.of(sourceId),
                 new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(symbol), ImmutableList.of()));
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
@@ -275,7 +275,7 @@ public class MockRemoteTaskFactory
         {
             noMoreSplits.add(sourceId);
 
-            boolean allSourcesComplete = Stream.concat(Stream.of(fragment.getPartitionedSourceNode()), fragment.getRemoteSourceNodes().stream())
+            boolean allSourcesComplete = Stream.concat(fragment.getPartitionedSourceNodes().stream(), fragment.getRemoteSourceNodes().stream())
                     .filter(Objects::nonNull)
                     .map(PlanNode::getId)
                     .allMatch(noMoreSplits::contains);
@@ -323,11 +323,12 @@ public class MockRemoteTaskFactory
                 return 0;
             }
             synchronized (this) {
-                Collection<Split> partitionedSplits = splits.get(fragment.getPartitionedSource());
-                if (partitionedSplits == null) {
-                    return 0;
+                int count = 0;
+                for (PlanNodeId partitionedSource : fragment.getPartitionedSources()) {
+                    Collection<Split> partitionedSplits = splits.get(partitionedSource);
+                    count += partitionedSplits.size();
                 }
-                return partitionedSplits.size();
+                return count;
             }
         }
 

@@ -100,6 +100,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
@@ -844,10 +845,8 @@ public class AddExchanges
                         leftToRight.put(leftSymbols.get(i), rightSymbols.get(i));
                     }
 
-                    // Currently, a connector provided partitioning can not be co-distributed as
-                    // this would result in plan fragments with multiple table sources, and a
-                    // plan with multiple table sources can not be executed.
-                    boolean customConnectorPartitioning = !(left.getNode() instanceof ExchangeNode) &&
+                    // if colocated joins are disabled, force redistribute when using a custom partitioning
+                    boolean customConnectorPartitioning = !isColocatedJoinEnabled(session) && !(left.getNode() instanceof ExchangeNode) &&
                             left.getProperties().getNodePartitioningHandle().flatMap(PartitioningHandle::getConnectorId).isPresent();
 
                     if (customConnectorPartitioning || !left.getProperties().isNodePartitionedWith(right.getProperties(), leftToRight::get)) {
@@ -937,10 +936,8 @@ public class AddExchanges
                     sourceToFilteringSource.put(sourceSymbols.get(i), filteringSourceSymbols.get(i));
                 }
 
-                // Currently, a connector provided partitioning can not be co-distributed as
-                // this would result in plan fragments with multiple table sources, and a
-                // plan with multiple table sources can not be executed.
-                boolean customConnectorPartitioning = !(source.getNode() instanceof ExchangeNode) &&
+                // if colocated joins are disabled, force redistribute when using a custom partitioning
+                boolean customConnectorPartitioning = !isColocatedJoinEnabled(session) && !(source.getNode() instanceof ExchangeNode) &&
                         source.getProperties().getNodePartitioningHandle().flatMap(PartitioningHandle::getConnectorId).isPresent();
 
                 if (customConnectorPartitioning || !source.getProperties().isNodePartitionedWith(filteringSource.getProperties(), sourceToFilteringSource::get)) {

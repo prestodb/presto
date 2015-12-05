@@ -28,8 +28,8 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -43,9 +43,10 @@ public class PlanFragment
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;
     private final PartitioningHandle partitioning;
-    private final PlanNodeId partitionedSource;
+    private final List<PlanNodeId> partitionedSources;
+    private final Set<PlanNodeId> partitionedSourcesSet;
     private final List<Type> types;
-    private final PlanNode partitionedSourceNode;
+    private final Set<PlanNode> partitionedSourceNodes;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitionFunctionBinding partitionFunction;
 
@@ -55,15 +56,17 @@ public class PlanFragment
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
-            @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
+            @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("partitionFunction") PartitionFunctionBinding partitionFunction)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
         this.symbols = requireNonNull(symbols, "symbols is null");
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
-        this.partitionedSource = partitionedSource;
+        this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
+        this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
 
+        checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitionFunction.getOutputLayout()),
                 "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), partitionFunction.getOutputLayout());
 
@@ -71,7 +74,7 @@ public class PlanFragment
                 .map(symbols::get)
                 .collect(toImmutableList());
 
-        this.partitionedSourceNode = findSource(root, partitionedSource);
+        this.partitionedSourceNodes = findSources(root, partitionedSources);
 
         ImmutableList.Builder<RemoteSourceNode> remoteSourceNodes = ImmutableList.builder();
         findRemoteSourceNodes(root, remoteSourceNodes);
@@ -105,9 +108,14 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public PlanNodeId getPartitionedSource()
+    public List<PlanNodeId> getPartitionedSources()
     {
-        return partitionedSource;
+        return partitionedSources;
+    }
+
+    public boolean isPartitionedSources(PlanNodeId nodeId)
+    {
+        return partitionedSourcesSet.contains(nodeId);
     }
 
     @JsonProperty
@@ -121,9 +129,9 @@ public class PlanFragment
         return types;
     }
 
-    public PlanNode getPartitionedSourceNode()
+    public Set<PlanNode> getPartitionedSourceNodes()
     {
-        return partitionedSourceNode;
+        return partitionedSourceNodes;
     }
 
     public boolean isLeaf()
@@ -136,17 +144,22 @@ public class PlanFragment
         return remoteSourceNodes;
     }
 
-    private static PlanNode findSource(PlanNode node, PlanNodeId nodeId)
+    private static Set<PlanNode> findSources(PlanNode node, Iterable<PlanNodeId> nodeIds)
     {
-        if (node.getId().equals(nodeId)) {
-            return node;
+        ImmutableSet.Builder<PlanNode> nodes = ImmutableSet.builder();
+        findSources(node, ImmutableSet.copyOf(nodeIds), nodes);
+        return nodes.build();
+    }
+
+    private static void findSources(PlanNode node, Set<PlanNodeId> nodeIds, ImmutableSet.Builder<PlanNode> nodes)
+    {
+        if (nodeIds.contains(node.getId())) {
+            nodes.add(node);
         }
 
-        return node.getSources().stream()
-                .map(source -> findSource(source, nodeId))
-                .filter(Objects::nonNull)
-                .findAny()
-                .orElse(null);
+        node.getSources().stream()
+                .flatMap(source -> findSources(source, nodeIds).stream())
+                .forEach(nodes::add);
     }
 
     private static void findRemoteSourceNodes(PlanNode node, Builder<RemoteSourceNode> builder)
@@ -162,7 +175,7 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSource, partitionFunction.withBucketToPartition(bucketToPartition));
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitionFunction.withBucketToPartition(bucketToPartition));
     }
 
     @Override
@@ -171,7 +184,7 @@ public class PlanFragment
         return toStringHelper(this)
                 .add("id", id)
                 .add("partitioning", partitioning)
-                .add("partitionedSource", partitionedSource)
+                .add("partitionedSource", partitionedSources)
                 .add("partitionFunction", partitionFunction)
                 .toString();
     }

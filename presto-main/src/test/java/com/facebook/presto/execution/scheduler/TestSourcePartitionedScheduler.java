@@ -54,6 +54,7 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -294,7 +295,8 @@ public class TestSourcePartitionedScheduler
 
             SourcePartitionedScheduler scheduler = new SourcePartitionedScheduler(
                     stage,
-                    plan.getDataSource().get(),
+                    Iterables.getOnlyElement(plan.getSplitSources().keySet()),
+                    Iterables.getOnlyElement(plan.getSplitSources().values()),
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector("test"), stage::getAllTasks),
                     2);
             scheduler.schedule();
@@ -407,9 +409,10 @@ public class TestSourcePartitionedScheduler
                 .setMaxPendingSplitsPerNodePerTask(0);
         NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
 
-        SplitSource splitSource = plan.getDataSource().get();
+        PlanNodeId sourceNode = Iterables.getOnlyElement(plan.getSplitSources().keySet());
+        SplitSource splitSource = Iterables.getOnlyElement(plan.getSplitSources().values());
         SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getDataSourceName()), stage::getAllTasks);
-        return new SourcePartitionedScheduler(stage, splitSource, placementPolicy, splitBatchSize);
+        return new SourcePartitionedScheduler(stage, sourceNode, splitSource, placementPolicy, splitBatchSize);
     }
 
     private static StageExecutionPlan createPlan(ConnectorSplitSource splitSource)
@@ -436,10 +439,13 @@ public class TestSourcePartitionedScheduler
                         Optional.<Symbol>empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
-                tableScanNodeId,
+                ImmutableList.of(tableScanNodeId),
                 new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(symbol), ImmutableList.of()));
 
-        return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(CONNECTOR_ID), splitSource)), ImmutableList.of());
+        return new StageExecutionPlan(
+                testFragment,
+                ImmutableMap.of(tableScanNodeId, new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(CONNECTOR_ID), splitSource)),
+                ImmutableList.of());
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)

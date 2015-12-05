@@ -198,15 +198,13 @@ public final class HttpRemoteTask
             this.stats = stats;
 
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
-                ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getValue());
+                ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
                 pendingSplits.put(entry.getKey(), scheduledSplit);
             }
-            if (initialSplits.containsKey(planFragment.getPartitionedSource())) {
-                pendingSourceSplitCount = initialSplits.get(planFragment.getPartitionedSource()).size();
-            }
-            else {
-                pendingSourceSplitCount = 0;
-            }
+            pendingSourceSplitCount = planFragment.getPartitionedSources().stream()
+                    .filter(initialSplits::containsKey)
+                    .mapToInt(partitionedSource -> initialSplits.get(partitionedSource).size())
+                    .sum();
 
             List<BufferInfo> bufferStates = outputBuffers.getBuffers()
                     .keySet().stream()
@@ -314,11 +312,11 @@ public final class HttpRemoteTask
                 checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
                 int added = 0;
                 for (Split split : splits) {
-                    if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), split))) {
+                    if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), sourceId, split))) {
                         added++;
                     }
                 }
-                if (sourceId.equals(planFragment.getPartitionedSource())) {
+                if (planFragment.isPartitionedSources(sourceId)) {
                     pendingSourceSplitCount += added;
                     partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
                 }
@@ -406,7 +404,7 @@ public final class HttpRemoteTask
                     removed++;
                 }
             }
-            if (planNodeId.equals(planFragment.getPartitionedSource())) {
+            if (planFragment.isPartitionedSources(planNodeId)) {
                 pendingSourceSplitCount -= removed;
             }
         }
@@ -483,7 +481,7 @@ public final class HttpRemoteTask
 
     private synchronized List<TaskSource> getSources()
     {
-        return Stream.concat(Stream.of(planFragment.getPartitionedSourceNode()), planFragment.getRemoteSourceNodes().stream())
+        return Stream.concat(planFragment.getPartitionedSourceNodes().stream(), planFragment.getRemoteSourceNodes().stream())
                 .filter(Objects::nonNull)
                 .map(PlanNode::getId)
                 .map(this::getSource)

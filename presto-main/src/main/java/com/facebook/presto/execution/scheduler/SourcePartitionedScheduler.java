@@ -18,6 +18,8 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -42,12 +44,14 @@ public class SourcePartitionedScheduler
     private final SplitSource splitSource;
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final int splitBatchSize;
+    private final PlanNodeId partitionedNode;
 
     private CompletableFuture<List<Split>> batchFuture;
     private Set<Split> pendingSplits = ImmutableSet.of();
 
     public SourcePartitionedScheduler(
             SqlStageExecution stage,
+            PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize)
@@ -58,6 +62,8 @@ public class SourcePartitionedScheduler
 
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
         this.splitBatchSize = splitBatchSize;
+
+        this.partitionedNode = partitionedNode;
     }
 
     @Override
@@ -129,7 +135,9 @@ public class SourcePartitionedScheduler
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         for (Entry<Node, Collection<Split>> taskSplits : splitAssignment.asMap().entrySet()) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
-            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), BROADCAST_PARTITION_ID, taskSplits.getValue()));
+            newTasks.addAll(stage.scheduleSplits(taskSplits.getKey(), BROADCAST_PARTITION_ID, ImmutableMultimap.<PlanNodeId, Split>builder()
+                    .putAll(partitionedNode, taskSplits.getValue())
+                    .build()));
         }
         return newTasks.build();
     }

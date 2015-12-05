@@ -114,7 +114,7 @@ public class PhasedExecutionSchedule
 
     private static boolean hasSourceDistributedStage(Set<SqlStageExecution> phase)
     {
-        return phase.stream().anyMatch(stage -> stage.getFragment().getPartitionedSource() != null);
+        return phase.stream().anyMatch(stage -> !stage.getFragment().getPartitionedSources().isEmpty());
     }
 
     @Override
