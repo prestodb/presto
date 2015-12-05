@@ -21,7 +21,6 @@ import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
@@ -46,7 +45,6 @@ import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -115,7 +113,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice currentTimeZone(ConnectorSession session)
     {
-        return Slices.copiedBuffer(session.getTimeZoneKey().getId(), UTF_8);
+        return utf8Slice(session.getTimeZoneKey().getId());
     }
 
     @Description("current timestamp with time zone")
@@ -393,7 +391,7 @@ public final class DateTimeFunctions
 
     private static DateTimeField getDateField(ISOChronology chronology, Slice unit)
     {
-        String unitString = unit.toString(UTF_8).toLowerCase(ENGLISH);
+        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
         switch (unitString) {
             case "day":
                 return chronology.dayOfMonth();
@@ -411,7 +409,7 @@ public final class DateTimeFunctions
 
     private static DateTimeField getTimeField(ISOChronology chronology, Slice unit)
     {
-        String unitString = unit.toString(UTF_8).toLowerCase(ENGLISH);
+        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
         switch (unitString) {
             case "millisecond":
                 return chronology.millisOfSecond();
@@ -427,7 +425,7 @@ public final class DateTimeFunctions
 
     private static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
     {
-        String unitString = unit.toString(UTF_8).toLowerCase(ENGLISH);
+        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
         switch (unitString) {
             case "millisecond":
                 return chronology.millisOfSecond();
@@ -456,13 +454,13 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long parseDatetime(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice datetime, @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        String pattern = formatString.toString(UTF_8);
+        String pattern = formatString.toStringUtf8();
         DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern)
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withOffsetParsed()
                 .withLocale(session.getLocale());
 
-        String datetimeString = datetime.toString(UTF_8);
+        String datetimeString = datetime.toStringUtf8();
         return packDateTimeWithZone(parseDateTimeHelper(formatter, datetimeString));
     }
 
@@ -497,13 +495,13 @@ public final class DateTimeFunctions
 
     private static Slice formatDatetime(ISOChronology chronology, Locale locale, long timestamp, Slice formatString)
     {
-        String pattern = formatString.toString(UTF_8);
+        String pattern = formatString.toStringUtf8();
         DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern)
                 .withChronology(chronology)
                 .withLocale(locale);
 
         String datetimeString = formatter.print(timestamp);
-        return Slices.wrappedBuffer(datetimeString.getBytes(UTF_8));
+        return utf8Slice(datetimeString);
     }
 
     @ScalarFunction
@@ -529,7 +527,7 @@ public final class DateTimeFunctions
                 .withChronology(chronology)
                 .withLocale(locale);
 
-        return Slices.copiedBuffer(formatter.print(timestamp), UTF_8);
+        return utf8Slice(formatter.print(timestamp));
     }
 
     @ScalarFunction
@@ -541,7 +539,7 @@ public final class DateTimeFunctions
                 .withLocale(session.getLocale());
 
         try {
-            return formatter.parseMillis(dateTime.toString(UTF_8));
+            return formatter.parseMillis(dateTime.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -909,7 +907,7 @@ public final class DateTimeFunctions
     {
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
 
-        String formatString = format.toString(UTF_8);
+        String formatString = format.toStringUtf8();
         boolean escaped = false;
         for (int i = 0; i < format.length(); i++) {
             char character = formatString.charAt(i);

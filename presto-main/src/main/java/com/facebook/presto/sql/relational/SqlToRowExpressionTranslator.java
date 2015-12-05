@@ -58,9 +58,7 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.airlift.slice.Slices;
 
-import java.nio.charset.StandardCharsets;
 import java.util.IdentityHashMap;
 import java.util.List;
 
@@ -100,6 +98,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
@@ -197,13 +196,13 @@ public final class SqlToRowExpressionTranslator
                 return call(
                         new Signature("json_parse", SCALAR, types.get(node).getTypeSignature(), VARCHAR.getTypeSignature()),
                         types.get(node),
-                        constant(Slices.copiedBuffer(node.getValue(), StandardCharsets.UTF_8), VARCHAR));
+                        constant(utf8Slice(node.getValue()), VARCHAR));
             }
 
             return call(
                     castSignature(types.get(node), VARCHAR),
                     types.get(node),
-                    constant(Slices.copiedBuffer(node.getValue(), StandardCharsets.UTF_8), VARCHAR));
+                    constant(utf8Slice(node.getValue()), VARCHAR));
         }
 
         @Override

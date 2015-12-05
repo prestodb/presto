@@ -14,10 +14,8 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.ScalarOperator;
-import com.facebook.presto.spi.type.SqlIntervalDayTime;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import static com.facebook.presto.metadata.OperatorType.ADD;
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
@@ -33,7 +31,8 @@ import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.facebook.presto.spi.type.SqlIntervalDayTime.formatMillis;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public final class IntervalDayTimeOperators
 {
@@ -153,7 +152,7 @@ public final class IntervalDayTimeOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToSlice(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
-        return Slices.copiedBuffer(SqlIntervalDayTime.formatMillis(value), UTF_8);
+        return utf8Slice(formatMillis(value));
     }
 
     @ScalarOperator(HASH_CODE)

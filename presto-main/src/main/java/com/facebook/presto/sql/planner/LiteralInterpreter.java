@@ -64,7 +64,6 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralInterpreter
@@ -135,7 +134,7 @@ public final class LiteralInterpreter
 
         if (type.equals(VARCHAR)) {
             if (object instanceof Slice) {
-                return new StringLiteral(((Slice) object).toString(UTF_8));
+                return new StringLiteral(((Slice) object).toStringUtf8());
             }
 
             if (object instanceof String) {

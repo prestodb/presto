@@ -31,6 +31,7 @@ import java.net.URLDecoder;
 import java.util.Iterator;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class UrlFunctions
@@ -115,14 +116,14 @@ public final class UrlFunctions
         }
 
         Slice query = slice(uri.getQuery());
-        String parameter = parameterName.toString(UTF_8);
-        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toString(UTF_8));
+        String parameter = parameterName.toStringUtf8();
+        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toStringUtf8());
 
         for (String queryArg : queryArgs) {
             Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
             if (arg.next().equals(parameter)) {
                 if (arg.hasNext()) {
-                    return Slices.copiedBuffer(arg.next(), UTF_8);
+                    return utf8Slice(arg.next());
                 }
                 // first matched key is empty
                 return Slices.EMPTY_SLICE;
@@ -139,7 +140,7 @@ public final class UrlFunctions
     public static Slice urlEncode(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
         Escaper escaper = UrlEscapers.urlFormParameterEscaper();
-        return slice(escaper.escape(value.toString(UTF_8)));
+        return slice(escaper.escape(value.toStringUtf8()));
     }
 
     @Description("unescape a URL-encoded string")
@@ -148,7 +149,7 @@ public final class UrlFunctions
     public static Slice urlDecode(@SqlType(StandardTypes.VARCHAR) Slice value)
     {
         try {
-            return slice(URLDecoder.decode(value.toString(UTF_8), UTF_8.name()));
+            return slice(URLDecoder.decode(value.toStringUtf8(), UTF_8.name()));
         }
         catch (UnsupportedEncodingException e) {
             throw new AssertionError(e);
@@ -157,14 +158,14 @@ public final class UrlFunctions
 
     private static Slice slice(@Nullable String s)
     {
-        return Slices.copiedBuffer(nullToEmpty(s), UTF_8);
+        return utf8Slice(nullToEmpty(s));
     }
 
     @Nullable
     private static URI parseUrl(Slice url)
     {
         try {
-            return new URI(url.toString(UTF_8));
+            return new URI(url.toStringUtf8());
         }
         catch (URISyntaxException e) {
             return null;

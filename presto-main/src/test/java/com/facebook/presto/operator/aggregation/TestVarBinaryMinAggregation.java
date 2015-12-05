@@ -26,7 +26,6 @@ import io.airlift.slice.Slices;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestVarBinaryMinAggregation
         extends AbstractTestAggregationFunction
@@ -52,7 +51,7 @@ public class TestVarBinaryMinAggregation
             Slice slice = Slices.wrappedBuffer(Ints.toByteArray(i));
             min = (min == null) ? slice : Ordering.natural().min(min, slice);
         }
-        return min.toString(UTF_8);
+        return min.toStringUtf8();
     }
 
     @Override

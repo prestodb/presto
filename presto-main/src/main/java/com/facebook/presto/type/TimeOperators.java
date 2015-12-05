@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
 import static com.facebook.presto.metadata.OperatorType.CAST;
@@ -33,7 +32,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithoutTimeZone;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public final class TimeOperators
 {
@@ -115,7 +114,7 @@ public final class TimeOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToSlice(ConnectorSession session, @SqlType(StandardTypes.TIME) long value)
     {
-        return Slices.copiedBuffer(printTimeWithoutTimeZone(session.getTimeZoneKey(), value), UTF_8);
+        return utf8Slice(printTimeWithoutTimeZone(session.getTimeZoneKey(), value));
     }
 
     @ScalarOperator(CAST)

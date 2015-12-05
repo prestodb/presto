@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
@@ -41,7 +40,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static io.airlift.slice.SliceUtf8.trim;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public final class TimestampWithTimeZoneOperators
 {
@@ -140,7 +139,7 @@ public final class TimestampWithTimeZoneOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castToSlice(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        return Slices.copiedBuffer(printTimestampWithTimeZone(value), UTF_8);
+        return utf8Slice(printTimestampWithTimeZone(value));
     }
 
     @ScalarOperator(CAST)

@@ -126,7 +126,7 @@ public final class LikeFunctions
     @SuppressWarnings("NumericCastThatLosesPrecision")
     private static char getEscapeChar(Slice escape)
     {
-        String escapeString = escape.toString(UTF_8);
+        String escapeString = escape.toStringUtf8();
         if (escapeString.isEmpty()) {
             // escaping disabled
             return (char) -1; // invalid character

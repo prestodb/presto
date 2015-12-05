@@ -39,7 +39,6 @@ import io.airlift.joni.Regex;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -74,7 +73,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -914,7 +912,7 @@ public class TestExpressionCompiler
                         expected = null;
                     }
                     else {
-                        expected = StringFunctions.substr(Slices.copiedBuffer(value, UTF_8), start, length).toString(UTF_8);
+                        expected = StringFunctions.substr(utf8Slice(value), start, length).toStringUtf8();
                     }
                     assertExecute(generateExpression("substr(%s, %s, %s)", value, start, length), VARCHAR, expected);
                 }
@@ -953,17 +951,17 @@ public class TestExpressionCompiler
             for (String pattern : jsonPatterns) {
                 assertExecute(generateExpression("json_extract(%s, %s)", value, pattern),
                         JSON,
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s)", value, pattern),
                         VARCHAR,
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(utf8Slice(value), new JsonPath(pattern)));
 
                 assertExecute(generateExpression("json_extract(%s, %s || '')", value, pattern),
                         JSON,
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s || '')", value, pattern),
                         VARCHAR,
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(Slices.copiedBuffer(value, UTF_8), new JsonPath(pattern)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(utf8Slice(value), new JsonPath(pattern)));
             }
         }
 
@@ -1053,7 +1051,7 @@ public class TestExpressionCompiler
                 Boolean expected = null;
                 if (value != null && pattern != null) {
                     Regex regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
-                    expected = LikeFunctions.like(Slices.copiedBuffer(value, UTF_8), regex);
+                    expected = LikeFunctions.like(utf8Slice(value), regex);
                 }
                 assertExecute(generateExpression("%s like %s", value, pattern), BOOLEAN, expected);
             }
@@ -1270,7 +1268,7 @@ public class TestExpressionCompiler
     private void assertExecute(List<String> expressions, Type expectedType, Object expected)
     {
         if (expected instanceof Slice) {
-            expected = ((Slice) expected).toString(UTF_8);
+            expected = ((Slice) expected).toStringUtf8();
         }
         for (String expression : expressions) {
             assertExecute(expression, expectedType, expected);

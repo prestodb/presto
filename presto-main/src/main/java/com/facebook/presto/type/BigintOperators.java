@@ -17,7 +17,6 @@ import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import static com.facebook.presto.metadata.OperatorType.ADD;
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
@@ -35,7 +34,8 @@ import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.valueOf;
 
 public final class BigintOperators
 {
@@ -163,7 +163,7 @@ public final class BigintOperators
     public static Slice castToVarchar(@SqlType(StandardTypes.BIGINT) long value)
     {
         // todo optimize me
-        return Slices.copiedBuffer(String.valueOf(value), UTF_8);
+        return utf8Slice(valueOf(value));
     }
 
     @ScalarOperator(HASH_CODE)

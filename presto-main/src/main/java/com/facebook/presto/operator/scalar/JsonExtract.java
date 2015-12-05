@@ -24,7 +24,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 
@@ -36,7 +35,7 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -272,7 +271,7 @@ public final class JsonExtract
             if (!token.isScalarValue() || token == VALUE_NULL) {
                 return null;
             }
-            return Slices.wrappedBuffer(jsonParser.getText().getBytes(UTF_8));
+            return utf8Slice(jsonParser.getText());
         }
     }
 

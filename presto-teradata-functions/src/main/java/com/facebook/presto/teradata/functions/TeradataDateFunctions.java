@@ -22,7 +22,6 @@ import com.facebook.presto.teradata.functions.dateformat.DateFormatParser;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.util.ThreadLocalCache;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.joda.time.format.DateTimeFormatter;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -30,6 +29,7 @@ import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.type.TimestampOperators.castToDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TeradataDateFunctions
@@ -39,7 +39,7 @@ public final class TeradataDateFunctions
         @Override
         protected DateTimeFormatter load(Slice format)
         {
-            String formatString = format.toString(UTF_8);
+            String formatString = format.toStringUtf8();
             return DateFormatParser.createDateTimeFormatter(formatString);
         }
     };
@@ -60,7 +60,7 @@ public final class TeradataDateFunctions
                 .withChronology(unpackChronology(timestampWithTimeZone))
                 .withLocale(session.getLocale());
 
-        return Slices.copiedBuffer(formatter.print(unpackMillisUtc(timestampWithTimeZone)), UTF_8);
+        return utf8Slice(formatter.print(unpackMillisUtc(timestampWithTimeZone)));
     }
 
     @Description("Converts a string to a DATE data type")
