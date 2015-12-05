@@ -98,7 +98,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.any;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionInterpreter
@@ -851,7 +850,7 @@ public class ExpressionInterpreter
 
             // if pattern is a constant without % or _ replace with a comparison
             if (pattern instanceof Slice && escape == null) {
-                String stringPattern = ((Slice) pattern).toString(UTF_8);
+                String stringPattern = ((Slice) pattern).toStringUtf8();
                 if (!stringPattern.contains("%") && !stringPattern.contains("_")) {
                     return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
                             toExpression(value, expressionTypes.get(node.getValue())),
