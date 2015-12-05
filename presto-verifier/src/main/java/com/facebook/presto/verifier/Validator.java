@@ -82,6 +82,11 @@ public class Validator
     private QueryResult controlResult;
     private QueryResult testResult;
 
+    private final List<QueryResult> controlPreQueryResults = new ArrayList<>();
+    private final List<QueryResult> controlPostQueryResults = new ArrayList<>();
+    private final List<QueryResult> testPreQueryResults = new ArrayList<>();
+    private final List<QueryResult> testPostQueryResults = new ArrayList<>();
+
     private boolean deterministic = true;
 
     public Validator(
@@ -210,10 +215,12 @@ public class Validator
         return resultsMatch(controlResult, testResult, precision) || checkForDeterministicAndRerunTestQueriesIfNeeded();
     }
 
-    private QueryResult tearDown(Query query, Function<String, QueryResult> executor)
+    private QueryResult tearDown(Query query, List<QueryResult> postQueryResults, Function<String, QueryResult> executor)
     {
+        postQueryResults.clear();
         for (String postqueryString : query.getPostQueries()) {
             QueryResult queryResult = executor.apply(postqueryString);
+            postQueryResults.add(queryResult);
             if (queryResult.getState() != State.SUCCESS) {
                 return new QueryResult(State.FAILED_TO_TEARDOWN, queryResult.getException(), queryResult.getDuration(), ImmutableList.<List<Object>>of());
             }
@@ -222,10 +229,12 @@ public class Validator
         return new QueryResult(State.SUCCESS, null, null, ImmutableList.of());
     }
 
-    private QueryResult setup(Query query, Function<String, QueryResult> executor)
+    private QueryResult setup(Query query, List<QueryResult> preQueryResults, Function<String, QueryResult> executor)
     {
+        preQueryResults.clear();
         for (String prequeryString : query.getPreQueries()) {
             QueryResult queryResult = executor.apply(prequeryString);
+            preQueryResults.add(queryResult);
             if (queryResult.getState() != State.SUCCESS) {
                 return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getDuration(), ImmutableList.<List<Object>>of());
             }
@@ -271,7 +280,7 @@ public class Validator
         QueryResult queryResult = new QueryResult(State.INVALID, null, null, ImmutableList.<List<Object>>of());
         try {
             // startup
-            queryResult = setup(query, testPrequery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPrequery, testTimeout, sessionProperties));
+            queryResult = setup(query, testPreQueryResults, testPrequery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPrequery, testTimeout, sessionProperties));
 
             // if startup is successful -> execute query
             if (queryResult.getState() == State.SUCCESS) {
@@ -280,7 +289,7 @@ public class Validator
         }
         finally {
             // teardown no matter what
-            QueryResult tearDownResult = tearDown(query, testPostquery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPostquery, testTimeout, sessionProperties));
+            QueryResult tearDownResult = tearDown(query, testPostQueryResults, testPostquery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPostquery, testTimeout, sessionProperties));
 
             // if teardown is not successful the query fails
             queryResult = tearDownResult.getState() == State.SUCCESS ? queryResult : tearDownResult;
@@ -294,7 +303,7 @@ public class Validator
         QueryResult queryResult = new QueryResult(State.INVALID, null, null, ImmutableList.<List<Object>>of());
         try {
             // startup
-            queryResult = setup(query, controlPrequery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPrequery, controlTimeout, sessionProperties));
+            queryResult = setup(query, controlPreQueryResults, controlPrequery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPrequery, controlTimeout, sessionProperties));
 
             // if startup is successful -> execute query
             if (queryResult.getState() == State.SUCCESS) {
@@ -303,7 +312,7 @@ public class Validator
         }
         finally {
             // teardown no matter what
-            QueryResult tearDownResult = tearDown(query, controlPostquery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPostquery, controlTimeout, sessionProperties));
+            QueryResult tearDownResult = tearDown(query, controlPostQueryResults, controlPostquery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPostquery, controlTimeout, sessionProperties));
 
             // if teardown is not successful the query fails
             queryResult = tearDownResult.getState() == State.SUCCESS ? queryResult : tearDownResult;
@@ -324,6 +333,26 @@ public class Validator
     public QueryResult getTestResult()
     {
         return testResult;
+    }
+
+    public List<QueryResult> getControlPreQueryResults()
+    {
+        return controlPreQueryResults;
+    }
+
+    public List<QueryResult> getControlPostQueryResults()
+    {
+        return controlPostQueryResults;
+    }
+
+    public List<QueryResult> getTestPreQueryResults()
+    {
+        return testPreQueryResults;
+    }
+
+    public List<QueryResult> getTestPostQueryResults()
+    {
+        return testPostQueryResults;
     }
 
     private QueryResult executeQuery(String url, String username, String password, Query query, String sql, Duration timeout, Map<String, String> sessionProperties)
