@@ -17,6 +17,11 @@ General Changes
   It also supports the ``getUpdateCount`` and ``getLargeUpdateCount`` methods.
 * Fix :doc:`/sql/show-session` to not show hidden session properties.
 
+CLI Changes
+-----------
+
+* Always clear screen when canceling query with ``ctrl-C``.
+
 Hive Changes
 ------------
 
