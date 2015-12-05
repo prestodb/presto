@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -73,7 +72,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Path("/v1/task")
 public class TaskResource
 {
-    private static final DataSize DEFAULT_MAX_SIZE = new DataSize(10, Unit.MEGABYTE);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(1, SECONDS);
 
     private final TaskManager taskManager;
