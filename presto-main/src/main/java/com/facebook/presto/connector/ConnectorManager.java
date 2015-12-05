@@ -89,7 +89,6 @@ public class ConnectorManager
             IndexManager indexManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
-            Map<String, ConnectorFactory> connectorFactories,
             NodeManager nodeManager)
     {
         this.metadataManager = metadataManager;
@@ -100,7 +99,6 @@ public class ConnectorManager
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
-        this.connectorFactories.putAll(connectorFactories);
     }
 
     @PreDestroy

@@ -194,7 +194,6 @@ public class LocalQueryRunner
                 indexManager,
                 pageSinkManager,
                 new HandleResolver(),
-                ImmutableMap.<String, ConnectorFactory>of(),
                 nodeManager
         );
 
