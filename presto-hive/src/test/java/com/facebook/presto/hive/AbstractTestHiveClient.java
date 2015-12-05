@@ -404,8 +404,14 @@ public abstract class AbstractTestHiveClient
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 4L)), false)))
                 )),
                 ImmutableList.of());
-        List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.<HiveColumnHandle>all()));
-        unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(clientId, unpartitionedPartitions, TupleDomain.all()));
+        List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.all()));
+        unpartitionedTableLayout = new ConnectorTableLayout(
+                new HiveTableLayoutHandle(clientId, unpartitionedPartitions, TupleDomain.all()),
+                Optional.empty(),
+                TupleDomain.all(),
+                Optional.empty(),
+                Optional.of(ImmutableList.of(TupleDomain.all())),
+                ImmutableList.of());
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
