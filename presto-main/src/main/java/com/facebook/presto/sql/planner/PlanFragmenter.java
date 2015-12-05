@@ -39,6 +39,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -147,6 +148,10 @@ public class PlanFragmenter
         @Override
         public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
         {
+            if (exchange.getScope() != REMOTE) {
+                return context.defaultRewrite(exchange, context.get());
+            }
+
             PartitionFunctionBinding partitionFunction = exchange.getPartitionFunction();
 
             ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
