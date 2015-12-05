@@ -48,6 +48,7 @@ public final class CompilerUtils
 {
     private static final Logger log = Logger.get(CompilerUtils.class);
 
+    private static final boolean ADD_FAKE_LINE_NUMBER = false;
     private static final boolean DUMP_BYTE_CODE_TREE = false;
     private static final boolean DUMP_BYTE_CODE_RAW = false;
     private static final boolean RUN_ASM_VERIFIER = false; // verifier doesn't work right now
@@ -101,7 +102,7 @@ public final class CompilerUtils
         for (ClassDefinition classDefinition : classDefinitions) {
             ClassWriter cw = new SmartClassWriter(classInfoLoader);
             try {
-                classDefinition.visit(cw);
+                classDefinition.visit(ADD_FAKE_LINE_NUMBER ? new AddFakeLineNumberClassVisitor(cw) : cw);
             }
             catch (IndexOutOfBoundsException e) {
                 Printer printer = new Textifier();
