@@ -16,6 +16,8 @@ package com.facebook.presto;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +31,9 @@ import java.util.List;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 
 public final class SystemSessionProperties
 {
@@ -39,6 +43,7 @@ public final class SystemSessionProperties
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
+    public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_JOIN_CONCURRENCY = "task_join_concurrency";
     public static final String TASK_HASH_BUILD_CONCURRENCY = "task_hash_build_concurrency";
     public static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
@@ -118,6 +123,22 @@ public final class SystemSessionProperties
                         "Parallelize writes when using UNION ALL in queries that write data",
                         featuresConfig.isPushTableWriteThroughUnion(),
                         false),
+                new PropertyMetadata<>(
+                        TASK_CONCURRENCY,
+                        "Default number of local parallel jobs per worker",
+                        BIGINT,
+                        Integer.class,
+                        taskManagerConfig.getTaskConcurrency(),
+                        false,
+                        value -> {
+                            int concurrency = ((Number) value).intValue();
+                            if (Integer.bitCount(concurrency) != 1) {
+                                throw new PrestoException(
+                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
+                                        format("%s must be a power of 2: %s", TASK_CONCURRENCY, concurrency));
+                            }
+                            return concurrency;
+                        }),
                 integerSessionProperty(
                         TASK_JOIN_CONCURRENCY,
                         "Experimental: Default number of local parallel join jobs per worker",
@@ -255,6 +276,11 @@ public final class SystemSessionProperties
     public static boolean isPushTableWriteThroughUnion(Session session)
     {
         return session.getProperty(PUSH_TABLE_WRITE_THROUGH_UNION, Boolean.class);
+    }
+
+    public static int getTaskConcurrency(Session session)
+    {
+        return session.getProperty(TASK_CONCURRENCY, Integer.class);
     }
 
     public static int getTaskJoinConcurrency(Session session)

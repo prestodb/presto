@@ -52,6 +52,7 @@ public class TaskManagerConfig
     private Duration infoUpdateInterval = new Duration(200, TimeUnit.MILLISECONDS);
 
     private int writerCount = 1;
+    private int taskConcurrency = 1;
     private int taskDefaultConcurrency = 1;
     private Integer taskJoinConcurrency;
     private int httpResponseThreads = 100;
@@ -289,6 +290,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskConcurrency()
+    {
+        return taskConcurrency;
+    }
+
+    @Config("task.concurrency")
+    @ConfigDescription("Default number of local parallel jobs per worker")
+    public TaskManagerConfig setTaskConcurrency(int taskConcurrency)
+    {
+        this.taskConcurrency = taskConcurrency;
         return this;
     }
 
