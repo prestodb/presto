@@ -31,11 +31,17 @@ public class LimitNode
 {
     private final PlanNode source;
     private final long count;
+    private final boolean partial;
 
     @JsonCreator
-    public LimitNode(@JsonProperty("id") PlanNodeId id, @JsonProperty("source") PlanNode source, @JsonProperty("count") long count)
+    public LimitNode(
+            @JsonProperty("id") PlanNodeId id,
+            @JsonProperty("source") PlanNode source,
+            @JsonProperty("count") long count,
+            @JsonProperty("partial") boolean partial)
     {
         super(id);
+        this.partial = partial;
 
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be greater than or equal to zero");
@@ -50,16 +56,22 @@ public class LimitNode
         return ImmutableList.of(source);
     }
 
-    @JsonProperty("source")
+    @JsonProperty
     public PlanNode getSource()
     {
         return source;
     }
 
-    @JsonProperty("count")
+    @JsonProperty
     public long getCount()
     {
         return count;
+    }
+
+    @JsonProperty
+    public boolean isPartial()
+    {
+        return partial;
     }
 
     @Override

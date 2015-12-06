@@ -464,7 +464,7 @@ public class PlanPrinter
         @Override
         public Void visitLimit(LimitNode node, Integer indent)
         {
-            print(indent, "- Limit[%s] => [%s]", node.getCount(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- Limit%s[%s] => [%s]", node.isPartial() ? "Partial" : "", node.getCount(), formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
             return processChildren(node, indent + 1);
         }
