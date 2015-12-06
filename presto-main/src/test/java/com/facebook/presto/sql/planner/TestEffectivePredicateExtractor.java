@@ -237,7 +237,8 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                1);
+                1,
+                false);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
