@@ -72,6 +72,9 @@ import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
+import com.facebook.presto.operator.exchange.LocalExchange;
+import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
+import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
 import com.facebook.presto.operator.index.DynamicTupleFilterFactory;
 import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
 import com.facebook.presto.operator.index.IndexBuildDriverFactoryProvider;
@@ -100,6 +103,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -173,6 +177,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskAggregationConcurrency;
+import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskHashBuildConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskJoinConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
@@ -196,6 +201,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
@@ -206,6 +212,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Boolean.TRUE;
@@ -534,6 +541,9 @@ public class LocalExecutionPlanner
         public void setDriverInstanceCount(int driverInstanceCount)
         {
             checkArgument(driverInstanceCount > 0, "driverInstanceCount must be > 0");
+            if (this.driverInstanceCount.isPresent()) {
+                checkState(this.driverInstanceCount.getAsInt() == driverInstanceCount, "driverInstance count already set to " + this.driverInstanceCount.getAsInt());
+            }
             this.driverInstanceCount = OptionalInt.of(driverInstanceCount);
         }
     }
@@ -1762,11 +1772,6 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
-            // serialize writes by forcing data through a single writer
-            PhysicalOperation exchange = createInMemoryExchange(node.getSource(), context);
-
-            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().map(exchange::symbolToChannel);
-
             // Set table writer count
             if (node.getPartitionFunction().isPresent()) {
                 context.setDriverInstanceCount(1);
@@ -1775,11 +1780,22 @@ public class LocalExecutionPlanner
                 context.setDriverInstanceCount(getTaskWriterCount(session));
             }
 
+            // serialize writes by forcing data through a single writer
+            PhysicalOperation exchange = createInMemoryExchange(node.getSource(), context);
+
+            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().map(exchange::symbolToChannel);
+
             List<Integer> inputChannels = node.getColumns().stream()
                     .map(exchange::symbolToChannel)
                     .collect(toImmutableList());
 
-            OperatorFactory operatorFactory = new TableWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), inputChannels, sampleWeightChannel,
+            OperatorFactory operatorFactory = new TableWriterOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    pageSinkManager,
+                    node.getTarget(),
+                    inputChannels,
+                    sampleWeightChannel,
                     session);
 
             Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
@@ -1909,6 +1925,76 @@ public class LocalExecutionPlanner
 
             OperatorFactory operatorFactory = new EnforceSingleRowOperator.EnforceSingleRowOperatorFactory(context.getNextOperatorId(), node.getId(), type);
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
+        }
+
+        @Override
+        public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
+        {
+            checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
+
+            int driverInstanceCount;
+            if (node.getType() == ExchangeNode.Type.GATHER) {
+                driverInstanceCount = 1;
+                context.setDriverInstanceCount(1);
+            }
+            else if (context.getDriverInstanceCount().isPresent()) {
+                driverInstanceCount = context.getDriverInstanceCount().getAsInt();
+            }
+            else {
+                driverInstanceCount = getTaskConcurrency(session);
+                context.setDriverInstanceCount(driverInstanceCount);
+            }
+
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            List<Integer> channels = node.getPartitionFunction().getPartitionFunctionArguments().stream()
+                    .map(argument -> node.getOutputSymbols().indexOf(argument.getColumn()))
+                    .collect(toImmutableList());
+            Optional<Integer> hashChannel = node.getPartitionFunction().getHashColumn()
+                    .map(symbol -> node.getOutputSymbols().indexOf(symbol));
+
+            LocalExchange localExchange = new LocalExchange(node.getPartitionFunction().getPartitioningHandle(), driverInstanceCount, types, channels, hashChannel);
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode sourceNode = node.getSources().get(i);
+                List<Symbol> expectedLayout = node.getInputs().get(i);
+
+                LocalExecutionPlanContext subContext = context.createSubContext();
+                PhysicalOperation source = sourceNode.accept(this, subContext);
+                List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
+
+                boolean projectionMatchesOutput = source.getLayout()
+                        .entrySet().stream()
+                        .sorted(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
+                        .map(Map.Entry::getKey)
+                        .collect(toImmutableList())
+                        .equals(expectedLayout);
+
+                if (!projectionMatchesOutput) {
+                    IdentityProjectionInfo projectionInfo = computeIdentityProjectionInfo(expectedLayout, source.getLayout(), context.getTypes());
+                    List<RowExpression> projections = projectionInfo.getProjections();
+                    operatorFactories.add(new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                            subContext.getNextOperatorId(),
+                            node.getId(),
+                            compiler.compilePageProcessor(trueExpression(), projections),
+                            projections.stream()
+                                    .map(RowExpression::getType)
+                                    .collect(toImmutableList())));
+                }
+
+                operatorFactories.add(new LocalExchangeSinkOperatorFactory(subContext.getNextOperatorId(), node.getId(), localExchange.createSinkFactory()));
+
+                DriverFactory driverFactory = new DriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount());
+                context.addDriverFactory(driverFactory);
+            }
+
+            // the main driver is not an input... the exchange sources are the input for the plan
+            context.setInputDriver(false);
+
+            // instance count must match the number of partitions in the exchange
+            verify(context.getDriverInstanceCount().getAsInt() == localExchange.getBufferCount(),
+                    "driver instance count must match the number of exchange partitions");
+
+            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node));
         }
 
         @Override
