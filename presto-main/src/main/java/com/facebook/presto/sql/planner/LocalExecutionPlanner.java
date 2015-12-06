@@ -898,23 +898,6 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
             }
 
-            if (needsLocalGather(node)) {
-                LocalExecutionPlanContext intermediateContext = context.createSubContext();
-                intermediateContext.setInputDriver(context.isInputDriver());
-
-                PhysicalOperation source = node.getSource().accept(this, intermediateContext);
-                InMemoryExchange exchange = new InMemoryExchange(source.getTypes());
-                List<OperatorFactory> factories = ImmutableList.<OperatorFactory>builder()
-                        .addAll(source.getOperatorFactories())
-                        .add(exchange.createSinkFactory(intermediateContext.getNextOperatorId(), node.getId()))
-                        .build();
-                context.addDriverFactory(new DriverFactory(intermediateContext.isInputDriver(), false, factories, intermediateContext.getDriverInstanceCount()));
-
-                OperatorFactory exchangeSource = createRandomDistribution(context.getNextOperatorId(), node.getId(), exchange);
-                source = new PhysicalOperation(exchangeSource, source.getLayout());
-                return planGroupByAggregation(node, source, context.getNextOperatorId(), Optional.empty());
-            }
-
             int aggregationConcurrency = getTaskAggregationConcurrency(session);
             if (node.getStep() == Step.PARTIAL || !context.isAllowLocalParallel() || context.getDriverInstanceCount().isPresent() || aggregationConcurrency <= 1) {
                 PhysicalOperation source = node.getSource().accept(this, context);
@@ -965,17 +948,6 @@ public class LocalExecutionPlanner
             operation = addInMemoryExchange(context, node.getId(), operation, parallelContext);
 
             return operation;
-        }
-
-        private boolean needsLocalGather(AggregationNode node)
-        {
-            // a final aggregation with a partial as a source needs is used to signal a plan that is
-            // distributed on the grouped keys but not partitioned on the group keys.
-            if (node.getStep() != Step.FINAL || node.getSources().size() != 1) {
-                return false;
-            }
-            PlanNode source = node.getSources().get(0);
-            return source instanceof AggregationNode && ((AggregationNode) source).getStep() == Step.PARTIAL;
         }
 
         @Override

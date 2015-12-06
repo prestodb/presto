@@ -1860,6 +1860,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testColocatedJoinWithLocalUnion()
+            throws Exception
+    {
+        assertQuery(
+                "select count(*) from ((select * from orders) union all (select * from orders)) join orders using (orderkey)",
+                "select 2 * count(*) from orders");
+    }
+
+    @Test
     public void testJoinWithNonJoinExpression()
             throws Exception
     {
@@ -3174,7 +3183,7 @@ public abstract class AbstractTestQueries
                 ") WHERE rn <= 10000");
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 10000";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
-        assertEquals(actual, expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test

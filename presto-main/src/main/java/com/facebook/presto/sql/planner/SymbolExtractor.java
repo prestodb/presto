@@ -348,6 +348,10 @@ public final class SymbolExtractor
         @Override
         public Void visitExchange(ExchangeNode node, Void context)
         {
+            for (PlanNode subPlanNode : node.getSources()) {
+                subPlanNode.accept(this, context);
+            }
+
             builder.addAll(node.getOutputSymbols());
 
             return null;

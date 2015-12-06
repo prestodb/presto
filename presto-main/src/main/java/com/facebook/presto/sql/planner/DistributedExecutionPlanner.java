@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -51,6 +52,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -292,8 +294,19 @@ public class DistributedExecutionPlanner
         @Override
         public Optional<SplitSource> visitUnion(UnionNode node, Void context)
         {
+            return processSources(context, node.getSources());
+        }
+
+        @Override
+        public Optional<SplitSource> visitExchange(ExchangeNode node, Void context)
+        {
+            return processSources(context, node.getSources());
+        }
+
+        private Optional<SplitSource> processSources(Void context, List<PlanNode> sources)
+        {
             Optional<SplitSource> result = Optional.empty();
-            for (PlanNode child : node.getSources()) {
+            for (PlanNode child : sources) {
                 Optional<SplitSource> source = child.accept(this, context);
 
                 if (result.isPresent() && source.isPresent()) {
