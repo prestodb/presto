@@ -72,7 +72,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitDistinctLimit(DistinctLimitNode node, List<PlanNode> newChildren)
     {
-        return new DistinctLimitNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getLimit(), node.getHashSymbol());
+        return new DistinctLimitNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getLimit(), node.isPartial(), node.getHashSymbol());
     }
 
     @Override

@@ -140,7 +140,7 @@ public class LimitPushDown
                     node.getOutputSymbols().containsAll(node.getGroupBy())) {
                 checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), Optional.empty());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, Optional.empty());
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {
