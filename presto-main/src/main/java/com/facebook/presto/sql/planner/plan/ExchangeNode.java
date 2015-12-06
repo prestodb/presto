@@ -29,7 +29,6 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BRO
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -94,10 +93,11 @@ public class ExchangeNode
         this.inputs = ImmutableList.copyOf(inputs);
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns)
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns)
     {
         return partitionedExchange(
                 id,
+                scope,
                 child,
                 new PartitionFunctionBinding(
                         FIXED_HASH_DISTRIBUTION,
@@ -108,45 +108,45 @@ public class ExchangeNode
                         hashColumns));
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, PlanNode child, PartitionFunctionBinding partitionFunction)
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, PartitionFunctionBinding partitionFunction)
     {
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPARTITION,
-                REMOTE,
+                scope,
                 partitionFunction,
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
     }
 
-    public static ExchangeNode replicatedExchange(PlanNodeId id, PlanNode child)
+    public static ExchangeNode replicatedExchange(PlanNodeId id, Scope scope, PlanNode child)
     {
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPLICATE,
-                REMOTE,
+                scope,
                 new PartitionFunctionBinding(FIXED_BROADCAST_DISTRIBUTION, child.getOutputSymbols(), ImmutableList.of()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
     }
 
-    public static ExchangeNode gatheringExchange(PlanNodeId id, PlanNode child)
+    public static ExchangeNode gatheringExchange(PlanNodeId id, Scope scope, PlanNode child)
     {
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.GATHER,
-                REMOTE,
+                scope,
                 new PartitionFunctionBinding(SINGLE_DISTRIBUTION, child.getOutputSymbols(), ImmutableList.of()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
     }
 
-    public static ExchangeNode gatheringExchange(PlanNodeId id, List<Symbol> outputLayout, List<PlanNode> children)
+    public static ExchangeNode gatheringExchange(PlanNodeId id, Scope scope, List<Symbol> outputLayout, List<PlanNode> children)
     {
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.GATHER,
-                REMOTE,
+                scope,
                 new PartitionFunctionBinding(SINGLE_DISTRIBUTION, outputLayout, ImmutableList.of()),
                 children,
                 children.stream()
@@ -167,6 +167,7 @@ public class ExchangeNode
     }
 
     @Override
+    @JsonProperty
     public List<PlanNode> getSources()
     {
         return sources;

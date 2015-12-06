@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
+import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.optimizations.CountConstantOptimizer;
@@ -105,6 +106,9 @@ public class PlanOptimizersFactory
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
         builder.add(new PruneIdentityProjections());
+
+        // Optimizers above this don't understand local exchanges, so be careful moving this.
+        builder.add(new AddLocalExchanges(metadata));
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
