@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -27,6 +28,8 @@ import static java.util.Objects.requireNonNull;
 public class GroupByIdBlock
         implements Block
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupByIdBlock.class).instanceSize();
+
     private final long groupCount;
     private final Block block;
 
@@ -182,7 +185,7 @@ public class GroupByIdBlock
     @Override
     public int getRetainedSizeInBytes()
     {
-        return block.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + block.getRetainedSizeInBytes();
     }
 
     @Override

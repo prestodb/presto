@@ -16,6 +16,7 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.IdentityHashMap;
@@ -27,6 +28,8 @@ import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositi
 public class SliceArrayBlock
         extends AbstractVariableWidthBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceArrayBlock.class).instanceSize();
+
     private final int positionCount;
     private final Slice[] values;
     private final int sizeInBytes;
@@ -49,7 +52,7 @@ public class SliceArrayBlock
         sizeInBytes = getSliceArraySizeInBytes(values);
 
         // if values are distinct, use the already computed value
-        retainedSizeInBytes = valueSlicesAreDistinct ? sizeInBytes : getSliceArrayRetainedSizeInBytes(values);
+        retainedSizeInBytes = INSTANCE_SIZE + (valueSlicesAreDistinct ? sizeInBytes : getSliceArrayRetainedSizeInBytes(values));
     }
 
     public Slice[] getValues()

@@ -190,10 +190,4 @@ public abstract class AbstractArrayElementBlock
     {
         throw new UnsupportedOperationException();
     }
-
-    @Override
-    public int getRetainedSizeInBytes()
-    {
-        return getBlock().getRetainedSizeInBytes();
-    }
 }

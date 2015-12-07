@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import static java.util.Objects.requireNonNull;
 
@@ -24,6 +25,8 @@ public class ArrayBlockBuilder
         extends AbstractArrayBlock
         implements BlockBuilder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+
     private final BlockBuilderStatus blockBuilderStatus;
     private final BlockBuilder values;
     private final SliceOutput offsets;
@@ -76,6 +79,12 @@ public class ArrayBlockBuilder
     public int getPositionCount()
     {
         return valueIsNull.size();
+    }
+
+    @Override
+    public int getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + values.getRetainedSizeInBytes() + offsets.getUnderlyingSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
     }
 
     @Override
