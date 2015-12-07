@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.byteCode;
 
+import com.facebook.presto.byteCode.expression.ByteCodeExpression;
 import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
 
@@ -100,6 +101,13 @@ public class Scope
         variables.put(variableName, variable);
         allVariables.add(variable);
 
+        return variable;
+    }
+
+    public Variable declareVariable(String variableName, ByteCodeBlock block, ByteCodeExpression initialValue)
+    {
+        Variable variable = declareVariable(initialValue.getType(), variableName);
+        block.append(variable.set(initialValue));
         return variable;
     }
 }
