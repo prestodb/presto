@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -24,6 +25,8 @@ import static java.util.Objects.requireNonNull;
 public class RunLengthEncodedBlock
         implements Block
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RunLengthEncodedBlock.class).instanceSize();
+
     private final Block value;
     private final int positionCount;
 
@@ -67,7 +70,7 @@ public class RunLengthEncodedBlock
     @Override
     public int getRetainedSizeInBytes()
     {
-        return value.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + value.getRetainedSizeInBytes();
     }
 
     @Override

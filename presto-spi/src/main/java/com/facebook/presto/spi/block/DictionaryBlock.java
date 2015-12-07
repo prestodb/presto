@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,6 +30,8 @@ import static java.util.stream.Collectors.toList;
 public class DictionaryBlock
         implements Block
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryBlock.class).instanceSize();
+
     private final int positionCount;
     private final Block dictionary;
     private final Slice ids;
@@ -51,7 +54,7 @@ public class DictionaryBlock
         this.dictionary = dictionary;
         this.ids = ids;
 
-        this.sizeInBytes = dictionary.getRetainedSizeInBytes() + ids.getRetainedSize();
+        this.sizeInBytes = INSTANCE_SIZE + dictionary.getRetainedSizeInBytes() + ids.getRetainedSize();
     }
 
     @Override

@@ -16,6 +16,7 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,6 +26,8 @@ import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositi
 public class FixedWidthBlock
         extends AbstractFixedWidthBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedWidthBlock.class).instanceSize();
+
     private final int positionCount;
     private final Slice slice;
     private final Slice valueIsNull;
@@ -77,7 +80,7 @@ public class FixedWidthBlock
     @Override
     public int getRetainedSizeInBytes()
     {
-        long size = getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize();
+        long size = INSTANCE_SIZE + getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }

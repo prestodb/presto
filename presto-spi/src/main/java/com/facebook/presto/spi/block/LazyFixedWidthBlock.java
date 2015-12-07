@@ -17,6 +17,7 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
@@ -28,6 +29,8 @@ import static java.util.Objects.requireNonNull;
 public class LazyFixedWidthBlock
         extends AbstractFixedWidthBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazyFixedWidthBlock.class).instanceSize();
+
     private final int positionCount;
     private LazyBlockLoader<LazyFixedWidthBlock> loader;
     private Slice slice;
@@ -88,7 +91,14 @@ public class LazyFixedWidthBlock
     public int getRetainedSizeInBytes()
     {
         // TODO: This should account for memory used by the loader.
-        return getSizeInBytes();
+        long size = INSTANCE_SIZE + SizeOf.sizeOf(valueIsNull);
+        if (slice != null) {
+            size += slice.getRetainedSize();
+        }
+        if (size > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) size;
     }
 
     @Override

@@ -17,6 +17,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -32,6 +33,8 @@ public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock
         implements BlockBuilder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedWidthBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+
     private final BlockBuilderStatus blockBuilderStatus;
     private final SliceOutput sliceOutput;
     private final SliceOutput valueIsNull;
@@ -85,7 +88,7 @@ public class FixedWidthBlockBuilder
     @Override
     public int getRetainedSizeInBytes()
     {
-        long size = getRawSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
+        long size = INSTANCE_SIZE + getRawSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }

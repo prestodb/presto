@@ -14,12 +14,15 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 public class LazyArrayBlock
         extends AbstractArrayBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazyArrayBlock.class).instanceSize();
+
     private Block values;
     private Slice offsets;
     private Slice valueIsNull;
@@ -116,8 +119,8 @@ public class LazyArrayBlock
     {
         if (loader != null) {
             // This block hasn't been loaded. Return a value close to empty.
-            return Integer.BYTES;
+            return INSTANCE_SIZE;
         }
-        return super.getSizeInBytes();
+        return INSTANCE_SIZE + values.getRetainedSizeInBytes() + offsets.getRetainedSize() + valueIsNull.getRetainedSize();
     }
 }

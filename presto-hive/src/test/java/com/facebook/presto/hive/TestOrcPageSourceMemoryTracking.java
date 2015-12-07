@@ -27,6 +27,7 @@ import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -295,7 +296,9 @@ public class TestOrcPageSourceMemoryTracking
 
         // No data is left
         assertTrue(operator.isFinished());
-        assertEquals(driverContext.getSystemMemoryUsage(), 131082); // an empty page builder of two variable width block builder
+        // an empty page builder of two variable width block builders is left in ScanFilterAndProjectOperator
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR, VARCHAR));
+        assertEquals(driverContext.getSystemMemoryUsage(), pageBuilder.getRetainedSizeInBytes());
     }
 
     private class TestPreparer

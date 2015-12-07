@@ -47,7 +47,7 @@
         <dep.antlr.version>4.5.1</dep.antlr.version>
         <dep.airlift.version>0.119</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.15</dep.slice.version>
+        <dep.slice.version>0.17</dep.slice.version>
         <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
 
         <cli.skip-execute>true</cli.skip-execute>

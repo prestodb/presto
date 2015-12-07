@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.SliceArrayBlock.deepCopyAndCompact;
+import static com.facebook.presto.spi.block.SliceArrayBlock.getSliceArrayRetainedSizeInBytes;
 import static com.facebook.presto.spi.block.SliceArrayBlock.getSliceArraySizeInBytes;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -34,8 +37,11 @@ import static java.util.stream.Collectors.toList;
 public class LazySliceArrayBlock
         extends AbstractVariableWidthBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazySliceArrayBlock.class).instanceSize();
+
     private final int positionCount;
     private final AtomicInteger sizeInBytes = new AtomicInteger(-1);
+    private final AtomicInteger retainedSizeInBytes = new AtomicInteger(-1);
 
     private LazyBlockLoader<LazySliceArrayBlock> loader;
     private Slice[] values;
@@ -133,7 +139,17 @@ public class LazySliceArrayBlock
     public int getRetainedSizeInBytes()
     {
         // TODO: This should account for memory used by the loader.
-        return getSizeInBytes();
+        int sizeInBytes = this.retainedSizeInBytes.get();
+        if (sizeInBytes < 0) {
+            assureLoaded();
+            sizeInBytes = INSTANCE_SIZE + getSliceArrayRetainedSizeInBytes(values);
+            if (dictionary) {
+                sizeInBytes += SizeOf.sizeOf(ids);
+                sizeInBytes += SizeOf.sizeOf(isNull);
+            }
+            this.retainedSizeInBytes.set(sizeInBytes);
+        }
+        return sizeInBytes;
     }
 
     @Override
