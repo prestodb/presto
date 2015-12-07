@@ -702,6 +702,11 @@ public class TestArrayOperators
         assertFunction("ARRAY_REMOVE(ARRAY [TRUE, FALSE, TRUE], FALSE)", new ArrayType(BOOLEAN), ImmutableList.of(true, true));
         assertFunction("ARRAY_REMOVE(ARRAY [NULL, FALSE, TRUE], TRUE)", new ArrayType(BOOLEAN), asList(null, false));
         assertFunction("ARRAY_REMOVE(ARRAY [ARRAY ['foo'], ARRAY ['bar'], ARRAY ['baz']], ARRAY ['bar'])", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(ImmutableList.of("foo"), ImmutableList.of("baz")));
+        assertFunction("ARRAY_REMOVE(ARRAY [1, 2, NULL, 3, NULL, 4, 5], NULL)", new ArrayType(BIGINT), asList(1L, 2L, 3L, 4L, 5L));
+        assertFunction("ARRAY_REMOVE(ARRAY ['foo', NULL, 'bar', NULL], NULL)", new ArrayType(VARCHAR), asList("foo", "bar"));
+        assertFunction("ARRAY_REMOVE(ARRAY [1.0, NULL, nan(), -1.23, NULL], NULL)", new ArrayType(DOUBLE), asList(1.0, NaN, -1.23));
+        assertFunction("ARRAY_REMOVE(ARRAY [TRUE, NULL, FALSE, TRUE, NULL], NULL)", new ArrayType(BOOLEAN), asList(true, false, true));
+//        assertFunction("ARRAY_REMOVE(ARRAY [NULL, NULL, NULL], NULL)", new ArrayType(UNKNOWN), asList());
     }
 
     public void assertInvalidFunction(String projection, SemanticErrorCode errorCode)
