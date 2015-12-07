@@ -46,9 +46,9 @@ public final class ArrayRemoveFunction
     public static final ArrayRemoveFunction ARRAY_REMOVE_FUNCTION = new ArrayRemoveFunction();
     private static final String FUNCTION_NAME = "array_remove";
 
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, Boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, Long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, Double.class);
     private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, Slice.class);
     private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(ArrayRemoveFunction.class, "remove", MethodHandle.class, Type.class, Block.class, Object.class);
 
@@ -100,7 +100,7 @@ public final class ArrayRemoveFunction
         }
 
         MethodHandle methodHandle = baseMethodHandle.bindTo(equalsFunction).bindTo(type);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false, true), methodHandle, isDeterministic());
     }
 
     public static Block remove(MethodHandle equalsFunction, Type type, Block array, Slice value)
@@ -108,17 +108,17 @@ public final class ArrayRemoveFunction
         return remove(equalsFunction, type, array, (Object) value);
     }
 
-    public static Block remove(MethodHandle equalsFunction, Type type, Block array, long value)
+    public static Block remove(MethodHandle equalsFunction, Type type, Block array, Long value)
     {
         return remove(equalsFunction, type, array, (Object) value);
     }
 
-    public static Block remove(MethodHandle equalsFunction, Type type, Block array, double value)
+    public static Block remove(MethodHandle equalsFunction, Type type, Block array, Double value)
     {
         return remove(equalsFunction, type, array, (Object) value);
     }
 
-    public static Block remove(MethodHandle equalsFunction, Type type, Block array, boolean value)
+    public static Block remove(MethodHandle equalsFunction, Type type, Block array, Boolean value)
     {
         return remove(equalsFunction, type, array, (Object) value);
     }
@@ -132,7 +132,9 @@ public final class ArrayRemoveFunction
             Object element = readNativeValue(type, array, i);
 
             try {
-                if (element == null || !(boolean) equalsFunction.invoke(element, value)) {
+                if ((element == null && value != null)
+                        || (element != null && value == null)
+                        || (element != null && value != null && !(boolean) equalsFunction.invoke(element, value))) {
                     positions.add(i);
                     sizeAfterRemove += array.getLength(i);
                 }
