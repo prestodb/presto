@@ -15,6 +15,11 @@ package com.facebook.presto.server.testing;
 
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
+import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NetworkTopology;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -22,8 +27,10 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.server.GracefulShutdownHandler;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerMainModule;
+import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.SplitManager;
@@ -56,6 +63,8 @@ import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.io.Closeable;
 import java.net.URI;
 import java.nio.file.Files;
@@ -67,11 +76,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TestingPrestoServer
         implements Closeable
@@ -90,6 +103,37 @@ public class TestingPrestoServer
     private final ServiceSelectorManager serviceSelectorManager;
     private final Announcer announcer;
     private final QueryManager queryManager;
+    private final TaskManager taskManager;
+    private final GracefulShutdownHandler gracefulShutdownHandler;
+    private final ShutdownAction shutdownAction;
+    private final boolean coordinator;
+
+    public static class TestShutdownAction
+            implements ShutdownAction
+    {
+        private final CountDownLatch shutdownCalled = new CountDownLatch(1);
+
+        @GuardedBy("this")
+        private boolean isWorkerShutdown = false;
+
+        @Override
+        public synchronized void onShutdown()
+        {
+            isWorkerShutdown = true;
+            shutdownCalled.countDown();
+        }
+
+        public void waitForShutdownComplete(long millis)
+                throws InterruptedException
+        {
+            shutdownCalled.await(millis, MILLISECONDS);
+        }
+
+        public synchronized boolean isWorkerShutdown()
+        {
+            return isWorkerShutdown;
+        }
+    }
 
     public TestingPrestoServer()
             throws Exception
@@ -106,6 +150,7 @@ public class TestingPrestoServer
     public TestingPrestoServer(boolean coordinator, Map<String, String> properties, String environment, URI discoveryUri, List<Module> additionalModules)
             throws Exception
     {
+        this.coordinator = coordinator;
         baseDataDir = Files.createTempDirectory("PrestoTest");
 
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
@@ -136,6 +181,14 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerMainModule(new SqlParserOptions()))
+                .add(installModuleIf(
+                        NodeSchedulerConfig.class,
+                        config -> LEGACY_NETWORK_TOPOLOGY.equalsIgnoreCase(config.getNetworkTopology()),
+                        binder -> binder.bind(NetworkTopology.class).to(LegacyNetworkTopology.class).in(Scopes.SINGLETON)))
+                .add(installModuleIf(
+                        NodeSchedulerConfig.class,
+                        config -> "flat".equalsIgnoreCase(config.getNetworkTopology()),
+                        binder -> binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)))
                 .add(new Module() {
                     @Override
                     public void configure(Binder binder)
@@ -143,6 +196,15 @@ public class TestingPrestoServer
                         binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                         binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                         binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+                    }
+                })
+                .add(new Module()
+                {
+                    @Override
+                    public void configure(Binder binder)
+                    {
+                        binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
+                        binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     }
                 });
 
@@ -189,6 +251,9 @@ public class TestingPrestoServer
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
+        gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
+        taskManager = injector.getInstance(TaskManager.class);
+        shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
 
         announcer.forceAnnounce();
@@ -276,6 +341,26 @@ public class TestingPrestoServer
     public ClusterMemoryManager getClusterMemoryManager()
     {
         return clusterMemoryManager;
+    }
+
+    public GracefulShutdownHandler getGracefulShutdownHandler()
+    {
+        return gracefulShutdownHandler;
+    }
+
+    public TaskManager getTaskManager()
+    {
+        return taskManager;
+    }
+
+    public ShutdownAction getShutdownAction()
+    {
+        return shutdownAction;
+    }
+
+    public boolean isCoordinator()
+    {
+        return coordinator;
     }
 
     public final AllNodes refreshNodes()

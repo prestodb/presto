@@ -41,17 +41,12 @@ public class VariableWidthBlockBuilder
     private int positions;
     private int currentEntrySize;
 
-    public VariableWidthBlockBuilder(BlockBuilderStatus blockBuilderStatus)
-    {
-        this(blockBuilderStatus, (int) (blockBuilderStatus.getMaxBlockSizeInBytes() * 1.2));
-    }
-
-    public VariableWidthBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedSizeInBytes)
+    public VariableWidthBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         this.blockBuilderStatus = Objects.requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
-        this.sliceOutput = new DynamicSliceOutput(expectedSizeInBytes);
-        this.valueIsNull = new DynamicSliceOutput(1024);
-        this.offsets = new DynamicSliceOutput(1024 * SIZE_OF_INT);
+        this.sliceOutput = new DynamicSliceOutput(expectedBytesPerEntry * expectedEntries);
+        this.valueIsNull = new DynamicSliceOutput(expectedEntries);
+        this.offsets = new DynamicSliceOutput(SIZE_OF_INT * expectedEntries);
 
         offsets.appendInt(0);
     }

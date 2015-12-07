@@ -16,9 +16,9 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -55,8 +55,8 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -66,7 +66,7 @@ public final class SqlQueryExecution
         implements QueryExecution
 {
     private static final OutputBuffers ROOT_OUTPUT_BUFFERS = INITIAL_EMPTY_OUTPUT_BUFFERS
-            .withBuffer(new TaskId("output", "buffer", "id"), new UnpartitionedPagePartitionFunction())
+            .withBuffer(new TaskId("output", "buffer", "id"), BROADCAST_PARTITION_ID)
             .withNoMoreBufferIds();
 
     private final QueryStateMachine stateMachine;
@@ -81,7 +81,6 @@ public final class SqlQueryExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
-    private final int initialHashPartitions;
     private final boolean experimentalSyntaxEnabled;
     private final ExecutorService queryExecutor;
 
@@ -106,7 +105,6 @@ public final class SqlQueryExecution
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             int scheduleSplitBatchSize,
-            int initialHashPartitions,
             boolean experimentalSyntaxEnabled,
             ExecutorService queryExecutor,
             NodeTaskMap nodeTaskMap,
@@ -131,9 +129,6 @@ public final class SqlQueryExecution
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
-
-            checkArgument(initialHashPartitions > 0, "initialHashPartitions must be greater than 0");
-            this.initialHashPartitions = initialHashPartitions;
 
             requireNonNull(queryId, "queryId is null");
             requireNonNull(query, "query is null");
@@ -304,7 +299,6 @@ public final class SqlQueryExecution
                 remoteTaskFactory,
                 stateMachine.getSession(),
                 scheduleSplitBatchSize,
-                initialHashPartitions,
                 queryExecutor,
                 ROOT_OUTPUT_BUFFERS,
                 nodeTaskMap,
@@ -511,7 +505,6 @@ public final class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     scheduleSplitBatchSize,
-                    getHashPartitionCount(session),
                     experimentalSyntaxEnabled,
                     executor,
                     nodeTaskMap,

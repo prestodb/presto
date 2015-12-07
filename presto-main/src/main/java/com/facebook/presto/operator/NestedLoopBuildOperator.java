@@ -67,6 +67,12 @@ public class NestedLoopBuildOperator
             closed = true;
             nestedLoopJoinPagesSupplier.release();
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new NestedLoopBuildOperatorFactory(operatorId, getTypes());
+        }
     }
 
     private final OperatorContext operatorContext;

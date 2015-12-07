@@ -83,7 +83,7 @@ import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
+import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
@@ -95,7 +95,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
-import static com.google.common.collect.Maps.transformValues;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -268,7 +267,7 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedTableName table)
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
     {
         requireNonNull(table, "table is null");
 
@@ -295,7 +294,7 @@ public class MetadataManager
         TupleDomain<ColumnHandle> summary = constraint.getSummary();
         String connectorId = table.getConnectorId();
         ConnectorTableHandle connectorTable = table.getConnectorHandle();
-        Predicate<Map<ColumnHandle, ?>> predicate = constraint.predicate();
+        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate();
 
         List<ConnectorTableLayoutResult> layouts;
         ConnectorMetadataEntry entry = getConnectorMetadata(connectorId);
@@ -309,7 +308,7 @@ public class MetadataManager
 
             List<ConnectorPartition> partitions = result.getPartitions().stream()
                     .filter(partition -> !partition.getTupleDomain().isNone())
-                    .filter(partition -> predicate.test(transformValues(extractFixedValues(partition.getTupleDomain()).get(), NullableValue::getValue)))
+                    .filter(partition -> predicate.test(extractFixedValues(partition.getTupleDomain()).get()))
                     .collect(toImmutableList());
 
             List<TupleDomain<ColumnHandle>> partitionDomains = partitions.stream()
@@ -378,15 +377,15 @@ public class MetadataManager
     }
 
     @Override
-    public List<QualifiedTableName> listTables(Session session, QualifiedTablePrefix prefix)
+    public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
 
         String schemaNameOrNull = prefix.getSchemaName().orElse(null);
-        Set<QualifiedTableName> tables = new LinkedHashSet<>();
+        Set<QualifiedObjectName> tables = new LinkedHashSet<>();
         for (ConnectorMetadataEntry entry : allConnectorsFor(prefix.getCatalogName())) {
             ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
-            for (QualifiedTableName tableName : transform(entry.getMetadata().listTables(connectorSession, schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
+            for (QualifiedObjectName tableName : transform(entry.getMetadata().listTables(connectorSession, schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
                 tables.add(tableName);
             }
         }
@@ -412,18 +411,18 @@ public class MetadataManager
     }
 
     @Override
-    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
         SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
 
-        Map<QualifiedTableName, List<ColumnMetadata>> tableColumns = new HashMap<>();
+        Map<QualifiedObjectName, List<ColumnMetadata>> tableColumns = new HashMap<>();
         for (ConnectorMetadataEntry connectorMetadata : allConnectorsFor(prefix.getCatalogName())) {
             ConnectorMetadata metadata = connectorMetadata.getMetadata();
 
             ConnectorSession connectorSession = session.toConnectorSession(connectorMetadata.getCatalog());
             for (Entry<SchemaTableName, List<ColumnMetadata>> entry : metadata.listTableColumns(connectorSession, tablePrefix).entrySet()) {
-                QualifiedTableName tableName = new QualifiedTableName(
+                QualifiedObjectName tableName = new QualifiedObjectName(
                         prefix.getCatalogName(),
                         entry.getKey().getSchemaName(),
                         entry.getKey().getTableName());
@@ -432,7 +431,7 @@ public class MetadataManager
 
             // if table and view names overlap, the view wins
             for (Entry<SchemaTableName, ConnectorViewDefinition> entry : metadata.getViews(connectorSession, tablePrefix).entrySet()) {
-                QualifiedTableName tableName = new QualifiedTableName(
+                QualifiedObjectName tableName = new QualifiedObjectName(
                         prefix.getCatalogName(),
                         entry.getKey().getSchemaName(),
                         entry.getKey().getTableName());
@@ -458,7 +457,7 @@ public class MetadataManager
     }
 
     @Override
-    public void renameTable(Session session, TableHandle tableHandle, QualifiedTableName newTableName)
+    public void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName)
     {
         String catalogName = newTableName.getCatalogName();
         ConnectorMetadataEntry target = connectorsByCatalog.get(catalogName);
@@ -597,15 +596,15 @@ public class MetadataManager
     }
 
     @Override
-    public List<QualifiedTableName> listViews(Session session, QualifiedTablePrefix prefix)
+    public List<QualifiedObjectName> listViews(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
 
         String schemaNameOrNull = prefix.getSchemaName().orElse(null);
-        Set<QualifiedTableName> views = new LinkedHashSet<>();
+        Set<QualifiedObjectName> views = new LinkedHashSet<>();
         for (ConnectorMetadataEntry entry : allConnectorsFor(prefix.getCatalogName())) {
             ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
-            for (QualifiedTableName tableName : transform(entry.getMetadata().listViews(connectorSession, schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
+            for (QualifiedObjectName tableName : transform(entry.getMetadata().listViews(connectorSession, schemaNameOrNull), convertFromSchemaTableName(prefix.getCatalogName()))) {
                 views.add(tableName);
             }
         }
@@ -613,16 +612,16 @@ public class MetadataManager
     }
 
     @Override
-    public Map<QualifiedTableName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedObjectName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
         SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
 
-        Map<QualifiedTableName, ViewDefinition> views = new LinkedHashMap<>();
+        Map<QualifiedObjectName, ViewDefinition> views = new LinkedHashMap<>();
         for (ConnectorMetadataEntry metadata : allConnectorsFor(prefix.getCatalogName())) {
             ConnectorSession connectorSession = session.toConnectorSession(metadata.getCatalog());
             for (Entry<SchemaTableName, ConnectorViewDefinition> entry : metadata.getMetadata().getViews(connectorSession, tablePrefix).entrySet()) {
-                QualifiedTableName viewName = new QualifiedTableName(
+                QualifiedObjectName viewName = new QualifiedObjectName(
                         prefix.getCatalogName(),
                         entry.getKey().getSchemaName(),
                         entry.getKey().getTableName());
@@ -633,7 +632,7 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<ViewDefinition> getView(Session session, QualifiedTableName viewName)
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
         ConnectorMetadataEntry entry = getConnectorFor(viewName);
         if (entry != null) {
@@ -650,7 +649,7 @@ public class MetadataManager
     }
 
     @Override
-    public void createView(Session session, QualifiedTableName viewName, String viewData, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace)
     {
         ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(viewName.getCatalogName());
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", viewName.getCatalogName());
@@ -658,7 +657,7 @@ public class MetadataManager
     }
 
     @Override
-    public void dropView(Session session, QualifiedTableName viewName)
+    public void dropView(Session session, QualifiedObjectName viewName)
     {
         ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(viewName.getCatalogName());
         checkArgument(connectorMetadata != null, "Catalog %s does not exist", viewName.getCatalogName());
@@ -727,7 +726,7 @@ public class MetadataManager
         return builder.build();
     }
 
-    private ConnectorMetadataEntry getConnectorFor(QualifiedTableName name)
+    private ConnectorMetadataEntry getConnectorFor(QualifiedObjectName name)
     {
         String catalog = name.getCatalogName();
         String schema = name.getSchemaName();

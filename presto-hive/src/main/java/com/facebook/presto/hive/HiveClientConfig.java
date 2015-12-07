@@ -95,6 +95,7 @@ public class HiveClientConfig
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
     private boolean useParquetColumnNames;
     private boolean useOrcColumnNames;
+    private boolean pinS3ClientToCurrentRegion;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
     private boolean respectTableFormat = true;
@@ -726,6 +727,19 @@ public class HiveClientConfig
     public HiveClientConfig setS3MultipartMinPartSize(DataSize size)
     {
         this.s3MultipartMinPartSize = size;
+        return this;
+    }
+
+    public boolean isPinS3ClientToCurrentRegion()
+    {
+        return pinS3ClientToCurrentRegion;
+    }
+
+    @Config("hive.s3.pin-client-to-current-region")
+    @ConfigDescription("Should the S3 client be pinned to the current EC2 region")
+    public HiveClientConfig setPinS3ClientToCurrentRegion(boolean pinS3ClientToCurrentRegion)
+    {
+        this.pinS3ClientToCurrentRegion = pinS3ClientToCurrentRegion;
         return this;
     }
 

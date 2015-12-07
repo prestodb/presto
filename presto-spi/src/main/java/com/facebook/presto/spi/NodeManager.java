@@ -17,7 +17,7 @@ import java.util.Set;
 
 public interface NodeManager
 {
-    Set<Node> getActiveNodes();
+    Set<Node> getNodes(NodeState state);
 
     Set<Node> getActiveDatasourceNodes(String datasourceName);
 

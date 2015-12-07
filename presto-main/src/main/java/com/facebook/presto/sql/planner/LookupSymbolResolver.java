@@ -14,23 +14,22 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
 
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class LookupSymbolResolver
         implements SymbolResolver
 {
     private final Map<Symbol, ColumnHandle> assignments;
-    private final Map<ColumnHandle, ?> bindings;
+    private final Map<ColumnHandle, NullableValue> bindings;
 
-    public LookupSymbolResolver(Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, ?> bindings)
+    public LookupSymbolResolver(Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings)
     {
         requireNonNull(assignments, "assignments is null");
         requireNonNull(bindings, "bindings is null");
@@ -49,12 +48,6 @@ public class LookupSymbolResolver
             return new QualifiedNameReference(symbol.toQualifiedName());
         }
 
-        Object value = bindings.get(column);
-
-        if (value instanceof String) {
-            return Slices.wrappedBuffer(((String) value).getBytes(UTF_8));
-        }
-
-        return value;
+        return bindings.get(column).getValue();
     }
 }

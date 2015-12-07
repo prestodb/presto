@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 
@@ -25,7 +28,11 @@ import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.regex.Pattern;
 
+import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.spi.StandardErrorCode.WORKER_RESTARTED;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -35,6 +42,12 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class Verifier
 {
     private static final Logger log = Logger.get(Verifier.class);
+
+    private static final Set<ErrorCode> EXPECTED_ERRORS = ImmutableSet.<ErrorCode>builder()
+            .add(WORKER_RESTARTED.toErrorCode())
+            .add(TOO_MANY_REQUESTS_FAILED.toErrorCode())
+            .add(PAGE_TRANSPORT_TIMEOUT.toErrorCode())
+            .build();
 
     private final VerifierConfig config;
     private final Set<EventClient> eventClients;
@@ -79,7 +92,17 @@ public class Verifier
                         log.debug("Query %s is blacklisted", query.getName());
                         continue;
                     }
-                    Validator validator = new Validator(config, query);
+                    Validator validator = new Validator(
+                            config.getControlGateway(),
+                            config.getTestGateway(),
+                            config.getControlTimeout(),
+                            config.getTestTimeout(),
+                            config.getMaxRowCount(),
+                            config.isExplainOnly(),
+                            config.getDoublePrecision(),
+                            isCheckCorrectness(query),
+                            config.isVerboseResultsComparison(),
+                            query);
                     completionService.submit(validateTask(validator), validator);
                     queriesSubmitted++;
                 }
@@ -134,6 +157,19 @@ public class Verifier
         return failed;
     }
 
+    private boolean isCheckCorrectness(QueryPair query)
+    {
+        // Check if either the control query or the test query matches the regex
+        if (Pattern.matches(config.getSkipCorrectnessRegex(), query.getTest().getQuery()) ||
+                Pattern.matches(config.getSkipCorrectnessRegex(), query.getControl().getQuery())) {
+            // If so disable correctness checking
+            return false;
+        }
+        else {
+            return config.isCheckCorrectnessEnabled();
+        }
+    }
+
     private VerifierQueryEvent buildEvent(Validator validator)
     {
         String errorMessage = null;
@@ -143,8 +179,9 @@ public class Verifier
 
         if (!validator.valid()) {
             errorMessage = format("Test state %s, Control state %s\n", test.getState(), control.getState());
-            if (test.getException() != null) {
-                errorMessage += getStackTraceAsString(test.getException());
+            Exception e = test.getException();
+            if (e != null && shouldAddStackTrace(e)) {
+                errorMessage += getStackTraceAsString(e);
             }
             else {
                 errorMessage += validator.getResultsComparison(precision).trim();
@@ -197,5 +234,16 @@ public class Verifier
                 validator.valid();
             }
         };
+    }
+
+    private static boolean shouldAddStackTrace(Exception e)
+    {
+        if (e instanceof PrestoException) {
+            ErrorCode errorCode = ((PrestoException) e).getErrorCode();
+            if (EXPECTED_ERRORS.contains(errorCode)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

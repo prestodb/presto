@@ -44,26 +44,26 @@ public class TestRaptorDistributedQueries
     public void testCreateArrayTable()
             throws Exception
     {
-        assertQuery("CREATE TABLE array_test AS SELECT ARRAY [1, 2, 3] AS c", "SELECT 1");
+        assertUpdate("CREATE TABLE array_test AS SELECT ARRAY [1, 2, 3] AS c", 1);
         assertQuery("SELECT cardinality(c) FROM array_test", "SELECT 3");
-        assertQueryTrue("DROP TABLE array_test");
+        assertUpdate("DROP TABLE array_test");
     }
 
     @Test
     public void testMapTable()
             throws Exception
     {
-        assertQuery("CREATE TABLE map_test AS SELECT MAP(ARRAY [1, 2, 3], ARRAY ['hi', 'bye', NULL]) AS c", "SELECT 1");
+        assertUpdate("CREATE TABLE map_test AS SELECT MAP(ARRAY [1, 2, 3], ARRAY ['hi', 'bye', NULL]) AS c", 1);
         assertQuery("SELECT c[1] FROM map_test", "SELECT 'hi'");
         assertQuery("SELECT c[3] FROM map_test", "SELECT NULL");
-        assertQueryTrue("DROP TABLE map_test");
+        assertUpdate("DROP TABLE map_test");
     }
 
     @Test
     public void testShardUuidHiddenColumn()
             throws Exception
     {
-        assertQuery("CREATE TABLE test_shard_uuid AS " + "SELECT orderdate, orderkey FROM orders", "SELECT count(*) FROM orders");
+        assertUpdate("CREATE TABLE test_shard_uuid AS SELECT orderdate, orderkey FROM orders", "SELECT count(*) FROM orders");
         MaterializedResult actualResults = computeActual("SELECT *, \"$shard_uuid\" FROM test_shard_uuid");
         assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, VARCHAR));
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
@@ -73,5 +73,13 @@ public class TestRaptorDistributedQueries
             // check that the string can be parsed into a UUID
             UUID.fromString((String) uuid);
         }
+    }
+
+    @Test
+    public void testTableProperties()
+            throws Exception
+    {
+        computeActual("CREATE TABLE test_table_properties_1 (foo BIGINT, bar BIGINT, ds DATE) WITH (ordering=array['foo','bar'], temporal_column='ds')");
+        computeActual("CREATE TABLE test_table_properties_2 (foo BIGINT, bar BIGINT, ds DATE) WITH (ORDERING=array['foo','bar'], TEMPORAL_COLUMN='ds')");
     }
 }

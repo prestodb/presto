@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.execution.NodeScheduler.NodeSelector;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
@@ -28,9 +27,9 @@ import static java.util.Objects.requireNonNull;
 public class SplitPlacementPolicy
 {
     private final NodeSelector nodeSelector;
-    private final Supplier<? extends Iterable<RemoteTask>> remoteTasks;
+    private final Supplier<List<RemoteTask>> remoteTasks;
 
-    public SplitPlacementPolicy(NodeSelector nodeSelector, Supplier<? extends Iterable<RemoteTask>> remoteTasks)
+    public SplitPlacementPolicy(NodeSelector nodeSelector, Supplier<List<RemoteTask>> remoteTasks)
     {
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
         this.remoteTasks = requireNonNull(remoteTasks, "remoteTasks is null");

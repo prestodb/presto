@@ -157,6 +157,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -265,7 +266,6 @@ public abstract class AbstractTestHiveClient
     protected HdfsEnvironment hdfsEnvironment;
     protected LocationService locationService;
 
-    protected TypeManager typeManager;
     protected ConnectorMetadata metadata;
     protected HiveMetastore metastoreClient;
     protected ConnectorSplitManager splitManager;
@@ -404,7 +404,7 @@ public abstract class AbstractTestHiveClient
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 4L)), false)))
                 )),
                 ImmutableList.of());
-        List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.<HiveColumnHandle>all()));
+        List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.all()));
         unpartitionedTableLayout = new ConnectorTableLayout(
                 new HiveTableLayoutHandle(clientId, unpartitionedPartitions, TupleDomain.all()),
                 Optional.empty(),
@@ -438,7 +438,7 @@ public abstract class AbstractTestHiveClient
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
         locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
-        typeManager = new TypeRegistry();
+        TypeManager typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadata = new HiveMetadata(
                 connectorId,
@@ -454,7 +454,8 @@ public abstract class AbstractTestHiveClient
                 true,
                 typeManager,
                 locationService,
-                partitionUpdateCodec);
+                partitionUpdateCodec,
+                newFixedThreadPool(2));
         splitManager = new HiveSplitManager(
                 connectorId,
                 metastoreClient,
@@ -1990,7 +1991,7 @@ public abstract class AbstractTestHiveClient
         // delete ds=2015-07-03
         session = newSession();
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumnHandle, NullableValue.of(VARCHAR, utf8Slice("2015-07-03"))));
-        Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(typeManager, tupleDomain));
+        Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(tupleDomain));
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
         ConnectorTableLayoutHandle tableLayoutHandle = Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
         metadata.metadataDelete(session, tableHandle, tableLayoutHandle);
@@ -2006,7 +2007,7 @@ public abstract class AbstractTestHiveClient
         session = newSession();
         TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
                 ImmutableMap.of(dsColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
-        Constraint<ColumnHandle> constraint2 = new Constraint<>(tupleDomain2, convertToPredicate(typeManager, tupleDomain2));
+        Constraint<ColumnHandle> constraint2 = new Constraint<>(tupleDomain2, convertToPredicate(tupleDomain2));
         List<ConnectorTableLayoutResult> tableLayoutResults2 = metadata.getTableLayouts(session, tableHandle, constraint2, Optional.empty());
         ConnectorTableLayoutHandle tableLayoutHandle2 = Iterables.getOnlyElement(tableLayoutResults2).getTableLayout().getHandle();
         metadata.metadataDelete(session, tableHandle, tableLayoutHandle2);

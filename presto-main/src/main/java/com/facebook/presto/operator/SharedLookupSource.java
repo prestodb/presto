@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import it.unimi.dsi.fastutil.longs.LongIterator;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -35,19 +34,19 @@ public final class SharedLookupSource
         requireNonNull(operatorContext, "operatorContext is null");
         this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
         this.taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
-        long transferredBytes = operatorContext.transferMemoryToTaskContext();
-        if (lookupSource.getInMemorySizeInBytes() > transferredBytes) {
-            taskContext.reserveMemory(lookupSource.getInMemorySizeInBytes() - transferredBytes);
-        }
-        else {
-            taskContext.freeMemory(transferredBytes - lookupSource.getInMemorySizeInBytes());
-        }
+        operatorContext.transferMemoryToTaskContext(lookupSource.getInMemorySizeInBytes());
     }
 
     @Override
     public int getChannelCount()
     {
         return lookupSource.getChannelCount();
+    }
+
+    @Override
+    public int getJoinPositionCount()
+    {
+        return lookupSource.getJoinPositionCount();
     }
 
     @Override
@@ -78,12 +77,6 @@ public final class SharedLookupSource
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         lookupSource.appendTo(position, pageBuilder, outputChannelOffset);
-    }
-
-    @Override
-    public LongIterator getUnvisitedJoinPositions()
-    {
-        return lookupSource.getUnvisitedJoinPositions();
     }
 
     synchronized void freeMemory()

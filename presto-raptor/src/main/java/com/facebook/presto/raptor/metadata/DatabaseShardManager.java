@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -56,12 +57,12 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
-import static com.facebook.presto.raptor.metadata.SqlUtils.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
+import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
@@ -85,6 +86,7 @@ public class DatabaseShardManager
 
     private final IDBI dbi;
     private final ShardManagerDao dao;
+    private final NodeSupplier nodeSupplier;
 
     private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
             .maximumSize(10_000)
@@ -98,10 +100,11 @@ public class DatabaseShardManager
             });
 
     @Inject
-    public DatabaseShardManager(@ForMetadata IDBI dbi)
+    public DatabaseShardManager(@ForMetadata IDBI dbi, NodeSupplier nodeSupplier)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = onDemandDao(dbi, ShardManagerDao.class);
+        this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
 
         createTablesWithRetry(dbi);
     }

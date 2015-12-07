@@ -47,7 +47,7 @@ public class TestExchangeClientConfig
                 .put("exchange.max-buffer-size", "1GB")
                 .put("exchange.concurrent-request-multiplier", "13")
                 .put("exchange.min-error-duration", "13s")
-                .put("exchange.max-response-size", "1kB")
+                .put("exchange.max-response-size", "1MB")
                 .put("exchange.client-threads", "2")
                 .build();
 
@@ -55,7 +55,7 @@ public class TestExchangeClientConfig
                 .setMaxBufferSize(new DataSize(1, Unit.GIGABYTE))
                 .setConcurrentRequestMultiplier(13)
                 .setMinErrorDuration(new Duration(13, TimeUnit.SECONDS))
-                .setMaxResponseSize(new DataSize(1, Unit.KILOBYTE))
+                .setMaxResponseSize(new DataSize(1, Unit.MEGABYTE))
                 .setClientThreads(2);
 
         assertFullMapping(properties, expected);

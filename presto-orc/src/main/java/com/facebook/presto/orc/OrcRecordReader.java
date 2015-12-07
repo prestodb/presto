@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -66,6 +68,7 @@ public class OrcRecordReader
     private final List<StripeInformation> stripes;
     private final StripeReader stripeReader;
     private int currentStripe = -1;
+    private AggregatedMemoryContext currentStripeSystemMemoryContext;
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
@@ -74,6 +77,8 @@ public class OrcRecordReader
     private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
     private long currentGroupRowCount;
     private long nextRowInGroup;
+
+    private final AbstractAggregatedMemoryContext systemMemoryUsage;
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
@@ -92,7 +97,8 @@ public class OrcRecordReader
             DateTimeZone hiveStorageTimeZone,
             MetadataReader metadataReader,
             DataSize maxMergeDistance,
-            DataSize maxReadSize)
+            DataSize maxReadSize,
+            AbstractAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         requireNonNull(includedColumns, "includedColumns is null");
@@ -161,6 +167,9 @@ public class OrcRecordReader
                 .map(StripeInfo::getStripe)
                 .mapToLong(StripeInformation::getNumberOfRows)
                 .sum();
+
+        this.systemMemoryUsage = requireNonNull(systemMemoryUsage, "systemMemoryUsage is null").newAggregatedMemoryContext();
+        this.currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -342,6 +351,10 @@ public class OrcRecordReader
     private void advanceToNextStripe()
             throws IOException
     {
+        currentStripeSystemMemoryContext.close();
+        currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+        rowGroups = ImmutableList.<RowGroup>of().iterator();
+
         currentStripe++;
         if (currentStripe >= stripes.size()) {
             return;
@@ -352,7 +365,8 @@ public class OrcRecordReader
         }
 
         StripeInformation stripeInformation = stripes.get(currentStripe);
-        Stripe stripe = stripeReader.readStripe(stripeInformation);
+
+        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
         if (stripe != null) {
             // Give readers access to dictionary streams
             StreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
@@ -364,9 +378,6 @@ public class OrcRecordReader
             }
 
             rowGroups = stripe.getRowGroups().iterator();
-        }
-        else {
-            rowGroups = ImmutableList.<RowGroup>of().iterator();
         }
     }
 

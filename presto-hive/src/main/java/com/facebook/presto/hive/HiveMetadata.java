@@ -35,7 +35,6 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +43,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -62,7 +62,6 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.joda.time.DateTimeZone;
 
-import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
@@ -78,10 +77,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
@@ -116,7 +113,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -144,7 +140,7 @@ public class HiveMetadata
     private final TypeManager typeManager;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
-    private final ExecutorService renameExecutionService;
+    private final BoundedExecutor renameExecution;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -172,7 +168,8 @@ public class HiveMetadata
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 typeManager,
                 locationService,
-                partitionUpdateCodec);
+                partitionUpdateCodec,
+                executorService);
     }
 
     public HiveMetadata(
@@ -189,7 +186,8 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             TypeManager typeManager,
             LocationService locationService,
-            JsonCodec<PartitionUpdate> partitionUpdateCodec)
+            JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            ExecutorService executorService)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
@@ -214,13 +212,7 @@ public class HiveMetadata
                     timeZone.getID());
         }
 
-        renameExecutionService = Executors.newFixedThreadPool(maxConcurrentFileRenames, daemonThreadsNamed("HDFS-file-rename-%s"));
-    }
-
-    @PreDestroy
-    public void destroy()
-    {
-        renameExecutionService.shutdownNow();
+        renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
     }
 
     public HiveMetastore getMetastore()
@@ -829,7 +821,7 @@ public class HiveMetadata
                                 catch (IOException e) {
                                     throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving INSERT data from %s to final location %s", source, target), e);
                                 }
-                            }, renameExecutionService));
+                            }, renameExecution));
                         }
                     }
                 }
@@ -1210,25 +1202,16 @@ public class HiveMetadata
         }
         else {
             TupleDomain<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
-            Predicate<Map<ColumnHandle, ?>> predicate = convertToPredicate(typeManager, promisedPredicate);
+            Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(promisedPredicate);
             List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(promisedPredicate, predicate), Optional.empty());
             return checkType(Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle(), HiveTableLayoutHandle.class, "tableLayoutHandle").getPartitions().get();
         }
     }
 
     @VisibleForTesting
-    static Predicate<Map<ColumnHandle, ?>> convertToPredicate(TypeManager typeManager, TupleDomain<ColumnHandle> tupleDomain)
+    static Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
     {
-        return map -> {
-            Map<ColumnHandle, NullableValue> fixedValues = map.entrySet().stream()
-                    .map(entry -> {
-                        HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "map.key");
-                        Type type = typeManager.getType(hiveColumnHandle.getTypeSignature());
-                        return Maps.immutableEntry(entry.getKey(), NullableValue.of(type, entry.getValue()));
-                    })
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-            return tupleDomain.contains(TupleDomain.fromFixedValues(fixedValues));
-        };
+        return bindings -> tupleDomain.contains(TupleDomain.fromFixedValues(bindings));
     }
 
     @Override

@@ -39,13 +39,7 @@ public final class NestedLoopJoinPages
         this.pages = ImmutableList.copyOf(pages);
         this.taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
         this.estimatedSize = requireNonNull(estimatedSize, "estimatedSize is null");
-        long transferredBytes = operatorContext.transferMemoryToTaskContext();
-        if (estimatedSize.toBytes() > transferredBytes) {
-            taskContext.reserveMemory(estimatedSize.toBytes() - transferredBytes);
-        }
-        else {
-            taskContext.freeMemory(transferredBytes - estimatedSize.toBytes());
-        }
+        operatorContext.transferMemoryToTaskContext(estimatedSize.toBytes());
     }
 
     public List<Page> getPages()

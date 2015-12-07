@@ -230,6 +230,8 @@ public final class SqlStageExecution
                 return;
             }
 
+            currentOutputBuffers.checkValidTransition(outputBuffers);
+
             if (this.outputBuffers.compareAndSet(currentOutputBuffers, outputBuffers)) {
                 for (RemoteTask task : getAllTasks()) {
                     task.setOutputBuffers(outputBuffers);
@@ -267,14 +269,14 @@ public final class SqlStageExecution
         return firstCompletedFuture(stateChangeFutures, true);
     }
 
-    public synchronized RemoteTask scheduleTask(Node node)
+    public synchronized RemoteTask scheduleTask(Node node, int partition)
     {
         requireNonNull(node, "node is null");
 
-        return scheduleTask(node, null, ImmutableList.<Split>of());
+        return scheduleTask(node, partition, null, ImmutableList.<Split>of());
     }
 
-    public synchronized Set<RemoteTask> scheduleSplits(Node node, Iterable<Split> splits)
+    public synchronized Set<RemoteTask> scheduleSplits(Node node, int partition, Iterable<Split> splits)
     {
         requireNonNull(node, "node is null");
         requireNonNull(splits, "splits is null");
@@ -285,7 +287,7 @@ public final class SqlStageExecution
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);
         if (tasks == null) {
-            newTasks.add(scheduleTask(node, partitionedSource, splits));
+            newTasks.add(scheduleTask(node, partition, partitionedSource, splits));
         }
         else {
             RemoteTask task = tasks.iterator().next();
@@ -294,7 +296,7 @@ public final class SqlStageExecution
         return newTasks.build();
     }
 
-    private synchronized RemoteTask scheduleTask(Node node, PlanNodeId sourceId, Iterable<Split> sourceSplits)
+    private synchronized RemoteTask scheduleTask(Node node, int partition, PlanNodeId sourceId, Iterable<Split> sourceSplits)
     {
         TaskId taskId = new TaskId(stateMachine.getStageId(), String.valueOf(nextTaskId.getAndIncrement()));
 
@@ -310,10 +312,11 @@ public final class SqlStageExecution
                 stateMachine.getSession(),
                 taskId,
                 node,
+                partition,
                 stateMachine.getFragment(),
                 initialSplits.build(),
                 outputBuffers.get(),
-                nodeTaskMap.getSplitCountChangeListener(node));
+                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
 
         completeSources.forEach(task::noMoreSplits);
 
@@ -358,10 +361,15 @@ public final class SqlStageExecution
         }
         else {
             // stage finished while we were scheduling this task
-            task.cancel();
+            task.abort();
         }
 
         return task;
+    }
+
+    public Set<Node> getScheduledNodes()
+    {
+        return ImmutableSet.copyOf(tasks.keySet());
     }
 
     public void recordGetSplitTime(long start)

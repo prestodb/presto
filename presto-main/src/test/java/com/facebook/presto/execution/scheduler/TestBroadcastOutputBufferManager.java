@@ -14,7 +14,6 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.UnpartitionedPagePartitionFunction;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import org.testng.annotations.Test;
@@ -37,16 +36,16 @@ public class TestBroadcastOutputBufferManager
         BroadcastOutputBufferManager hashOutputBufferManager = new BroadcastOutputBufferManager(outputBufferTarget::set);
         assertNull(outputBufferTarget.get());
 
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "0"));
-        OutputBuffers expectedOutputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(new TaskId(STAGE_ID, "0"), new UnpartitionedPagePartitionFunction());
+        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "0"), 0);
+        OutputBuffers expectedOutputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(new TaskId(STAGE_ID, "0"), 0);
         assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
 
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "1"));
-        expectedOutputBuffers = expectedOutputBuffers.withBuffer(new TaskId(STAGE_ID, "1"), new UnpartitionedPagePartitionFunction());
+        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "1"), 0);
+        expectedOutputBuffers = expectedOutputBuffers.withBuffer(new TaskId(STAGE_ID, "1"), 0);
         assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
 
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "2"));
-        expectedOutputBuffers = expectedOutputBuffers.withBuffer(new TaskId(STAGE_ID, "2"), new UnpartitionedPagePartitionFunction());
+        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "2"), 0);
+        expectedOutputBuffers = expectedOutputBuffers.withBuffer(new TaskId(STAGE_ID, "2"), 0);
         assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
 
         // set no more buffers, which causes buffers to be created
@@ -56,7 +55,7 @@ public class TestBroadcastOutputBufferManager
 
         // try to add another buffer, which should not result in an error
         // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "4"));
+        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "4"), 0);
         assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
 
         // try to set no more buffers again, which should not result in an error

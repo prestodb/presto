@@ -106,6 +106,8 @@ MAP
 
     A map between the given component types.
 
+    Example: ``MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])``
+
 .. _row_type:
 
 ROW

@@ -15,7 +15,7 @@
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -105,9 +105,9 @@ public class BlackHoleSmokeTest
     {
         assertThatQueryReturnsValue("CREATE TABLE nation as SELECT * FROM tpch.tiny.nation", 25L);
 
-        List<QualifiedTableName> tableNames = listBlackHoleTables();
+        List<QualifiedObjectName> tableNames = listBlackHoleTables();
         assertTrue(tableNames.size() == 1, "Expected only one table.");
-        assertTrue(tableNames.get(0).getTableName().equals("nation"), "Expected 'nation' table.");
+        assertTrue(tableNames.get(0).getObjectName().equals("nation"), "Expected 'nation' table.");
 
         assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
 
@@ -205,7 +205,7 @@ public class BlackHoleSmokeTest
         assertTrue(listBlackHoleTables().size() == 0, "No blackhole tables expected");
     }
 
-    private List<QualifiedTableName> listBlackHoleTables()
+    private List<QualifiedObjectName> listBlackHoleTables()
     {
         return queryRunner.listTables(createSession(), "blackhole", "default");
     }

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import javax.inject.Inject;
 
@@ -57,6 +58,13 @@ public class RaptorHandleResolver
     }
 
     @Override
+    public boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return (handle instanceof RaptorTableLayoutHandle) &&
+                ((RaptorTableLayoutHandle) handle).getTable().getConnectorId().equals(connectorId);
+    }
+
+    @Override
     public boolean canHandle(ConnectorOutputTableHandle tableHandle)
     {
         return (tableHandle instanceof RaptorOutputTableHandle) &&
@@ -80,6 +88,12 @@ public class RaptorHandleResolver
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return RaptorColumnHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return RaptorTableLayoutHandle.class;
     }
 
     @Override

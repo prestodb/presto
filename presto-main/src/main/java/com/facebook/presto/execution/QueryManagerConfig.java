@@ -170,6 +170,7 @@ public class QueryManagerConfig
     }
 
     @NotNull
+    @MinDuration("1s")
     public Duration getRemoteTaskMinErrorDuration()
     {
         return remoteTaskMinErrorDuration;

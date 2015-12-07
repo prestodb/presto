@@ -112,3 +112,8 @@ tt.docutils.literal, code.docutils.literal {
     border-radius: 3px;
     white-space: nowrap;
 }
+
+/* hide children of Release Notes */
+div.toctree-wrapper > ul > li:last-child > ul {
+    display: none;
+}

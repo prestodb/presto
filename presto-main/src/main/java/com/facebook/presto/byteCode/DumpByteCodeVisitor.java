@@ -320,10 +320,10 @@ public class DumpByteCodeVisitor
         printLine("if {");
         indentLevel++;
         visitNestedNode("condition", ifStatement.condition(), ifStatement);
-        if (ifStatement.ifTrue() != null) {
+        if (!ifStatement.ifTrue().isEmpty()) {
             visitNestedNode("ifTrue", ifStatement.ifTrue(), ifStatement);
         }
-        if (ifStatement.ifFalse() != null) {
+        if (!ifStatement.ifFalse().isEmpty()) {
             visitNestedNode("ifFalse", ifStatement.ifFalse(), ifStatement);
         }
         indentLevel--;

@@ -1233,6 +1233,56 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSingleEmptyGroupBy()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY ()",
+                "SELECT SUM(quantity) " +
+                        "FROM lineitem");
+    }
+
+    @Test
+    public void testSingleEmptyGroupingSet()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY GROUPING SETS (())",
+                "SELECT SUM(quantity) " +
+                        "FROM lineitem");
+    }
+
+    @Test
+    public void testSingleGroupingSet()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT suppkey, SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY GROUPING SETS (suppkey) ",
+                "SELECT suppkey, SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY suppkey");
+    }
+
+    @Test
+    public void testSingleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT linenumber, suppkey, SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY GROUPING SETS ((linenumber, suppkey)) ",
+                "SELECT linenumber, suppkey, SUM(quantity) " +
+                        "FROM lineitem " +
+                        "GROUP BY linenumber, suppkey");
+    }
+
+    @Test
     public void testCountAllWithComparison()
             throws Exception
     {
@@ -3973,6 +4023,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinProjectionPushDown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT *\n" +
+                "FROM\n" +
+                "  (SELECT orderkey, abs(orderkey) a FROM orders) t\n" +
+                "JOIN\n" +
+                "  (SELECT orderkey, abs(orderkey) a FROM orders) u\n" +
+                "ON\n" +
+                "  t.orderkey = u.orderkey");
+    }
+
+    @Test
     public void testUnion()
             throws Exception
     {
@@ -4297,6 +4361,21 @@ public abstract class AbstractTestQueries
                 "SELECT a, b " +
                 "FROM (VALUES (1, 1)) " +
                 "CROSS JOIN (SELECT 0 AS a, 0 AS b UNION ALL SELECT 1, 1) t");
+    }
+
+    @Test
+    public void testCrossJoinUnnestWithUnion()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT col, COUNT(*)\n" +
+                "FROM ((\n" +
+                "    SELECT ARRAY[1, 2] AS a\n" +
+                "    UNION ALL\n" +
+                "    SELECT ARRAY[1, 3] AS a)  unionresult\n" +
+                "  CROSS JOIN UNNEST(unionresult.a) t(col))\n" +
+                "GROUP BY col",
+                "SELECT * FROM VALUES (1, 2), (2, 1), (3, 1)");
     }
 
     @Test

@@ -18,16 +18,13 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
 import com.facebook.presto.raptor.util.SynchronizedResultIterator;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
@@ -51,9 +48,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
@@ -65,21 +60,21 @@ public class RaptorSplitManager
         implements ConnectorSplitManager
 {
     private final String connectorId;
-    private final NodeManager nodeManager;
+    private final NodeSupplier nodeSupplier;
     private final ShardManager shardManager;
     private final boolean backupAvailable;
     private final ExecutorService executor;
 
     @Inject
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeManager nodeManager, ShardManager shardManager, BackupService backupService)
+    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService)
     {
-        this(connectorId, nodeManager, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
+        this(connectorId, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
     }
 
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeManager nodeManager, ShardManager shardManager, boolean backupAvailable)
+    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.backupAvailable = backupAvailable;
         this.executor = newCachedThreadPool(daemonThreadsNamed("raptor-split-" + connectorId + "-%s"));
@@ -92,23 +87,12 @@ public class RaptorSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "table");
-        ConnectorPartition partition = new RaptorPartition(handle.getTableId(), tupleDomain);
-        return new ConnectorPartitionResult(ImmutableList.of(partition), tupleDomain);
-    }
-
-    @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
-    {
-        RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-
-        checkArgument(partitions.size() == 1, "expected exactly one partition");
-        RaptorPartition partition = checkType(getOnlyElement(partitions), RaptorPartition.class, "partition");
-        TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(partition.getEffectivePredicate());
-
-        return new RaptorSplitSource(raptorTableHandle.getTableId(), effectivePredicate, raptorTableHandle.getTransactionId());
+        RaptorTableLayoutHandle handle = checkType(layout, RaptorTableLayoutHandle.class, "layout");
+        RaptorTableHandle table = handle.getTable();
+        TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(handle.getConstraint());
+        return new RaptorSplitSource(table.getTableId(), effectivePredicate, table.getTransactionId());
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -138,7 +122,7 @@ public class RaptorSplitManager
     private class RaptorSplitSource
             implements ConnectorSplitSource
     {
-        private final Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node::getNodeIdentifier);
+        private final Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
         private final long tableId;
         private final TupleDomain<RaptorColumnHandle> effectivePredicate;
         private final OptionalLong transactionId;
@@ -216,7 +200,7 @@ public class RaptorSplitManager
 
                 // Pick a random node and optimistically assign the shard to it.
                 // That node will restore the shard from the backup location.
-                Set<Node> availableNodes = nodeManager.getActiveDatasourceNodes(connectorId);
+                Set<Node> availableNodes = nodeSupplier.getWorkerNodes();
                 if (availableNodes.isEmpty()) {
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }

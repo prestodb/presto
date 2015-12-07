@@ -91,7 +91,7 @@ public class MySqlClient
         DatabaseMetaData metadata = connection.getMetaData();
         String escape = metadata.getSearchStringEscape();
         return metadata.getTables(
-                escapeNamePattern(schemaName, escape),
+                schemaName,
                 null,
                 escapeNamePattern(tableName, escape),
                 new String[] {"TABLE"});
@@ -105,7 +105,6 @@ public class MySqlClient
         return new SchemaTableName(
                 resultSet.getString("TABLE_CAT").toLowerCase(ENGLISH),
                 resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
-
     }
 
     @Override

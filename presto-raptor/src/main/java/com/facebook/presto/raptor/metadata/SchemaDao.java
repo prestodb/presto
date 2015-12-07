@@ -21,7 +21,7 @@ public interface SchemaDao
             "  table_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  schema_name VARCHAR(255) NOT NULL,\n" +
             "  table_name VARCHAR(255) NOT NULL,\n" +
-            "  temporal_column_id BIGINT DEFAULT NULL,\n" +
+            "  temporal_column_id BIGINT,\n" +
             "  compaction_enabled BOOLEAN NOT NULL,\n" +
             "  UNIQUE (schema_name, table_name)\n" +
             ")")
@@ -33,10 +33,11 @@ public interface SchemaDao
             "  column_name VARCHAR(255) NOT NULL,\n" +
             "  ordinal_position INT NOT NULL,\n" +
             "  data_type VARCHAR(255) NOT NULL,\n" +
-            "  sort_ordinal_position INT DEFAULT NULL,\n" +
+            "  sort_ordinal_position INT,\n" +
             "  PRIMARY KEY (table_id, column_id),\n" +
             "  UNIQUE (table_id, column_name),\n" +
             "  UNIQUE (table_id, ordinal_position),\n" +
+            "  UNIQUE (table_id, sort_ordinal_position),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createTableColumns();
@@ -94,7 +95,7 @@ public interface SchemaDao
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS created_shards (\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
-            "  transaction_id bigint NOT NULL,\n" +
+            "  transaction_id BIGINT NOT NULL,\n" +
             "  PRIMARY KEY (shard_uuid),\n" +
             "  FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id)\n" +
             ")")
@@ -103,7 +104,7 @@ public interface SchemaDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS created_shard_nodes (\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
             "  node_id INT NOT NULL,\n" +
-            "  transaction_id bigint NOT NULL,\n" +
+            "  transaction_id BIGINT NOT NULL,\n" +
             "  PRIMARY KEY (shard_uuid, node_id),\n" +
             "  FOREIGN KEY (node_id) REFERENCES nodes (node_id),\n" +
             "  FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id)\n" +
@@ -120,7 +121,7 @@ public interface SchemaDao
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS deleted_shard_nodes (\n" +
             "  shard_uuid BINARY(16) NOT NULL,\n" +
-            "  node_id INT,\n" +
+            "  node_id INT NOT NULL,\n" +
             "  delete_time DATETIME NOT NULL,\n" +
             "  clean_time DATETIME,\n" +
             "  purge_time DATETIME,\n" +

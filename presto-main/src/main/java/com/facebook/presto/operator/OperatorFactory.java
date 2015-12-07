@@ -27,4 +27,6 @@ public interface OperatorFactory
 
     @Override
     void close();
+
+    OperatorFactory duplicate();
 }

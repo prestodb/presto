@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
@@ -59,7 +59,7 @@ public class Analysis
     private final IdentityHashMap<Expression, Integer> resolvedNames = new IdentityHashMap<>();
 
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> aggregates = new IdentityHashMap<>();
-    private final IdentityHashMap<QuerySpecification, List<FieldOrExpression>> groupByExpressions = new IdentityHashMap<>();
+    private final IdentityHashMap<QuerySpecification, List<List<FieldOrExpression>>> groupByExpressions = new IdentityHashMap<>();
     private final IdentityHashMap<Node, Expression> where = new IdentityHashMap<>();
     private final IdentityHashMap<QuerySpecification, Expression> having = new IdentityHashMap<>();
     private final IdentityHashMap<Node, List<FieldOrExpression>> orderByExpressions = new IdentityHashMap<>();
@@ -82,7 +82,7 @@ public class Analysis
     private final IdentityHashMap<SampledRelation, Double> sampleRatios = new IdentityHashMap<>();
 
     // for create table
-    private Optional<QualifiedTableName> createTableDestination = Optional.empty();
+    private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
     private boolean createTableAsSelectWithData = true;
 
@@ -172,12 +172,12 @@ public class Analysis
         return coercions.get(expression);
     }
 
-    public void setGroupByExpressions(QuerySpecification node, List<FieldOrExpression> expressions)
+    public void setGroupingSets(QuerySpecification node, List<List<FieldOrExpression>> expressions)
     {
         groupByExpressions.put(node, expressions);
     }
 
-    public List<FieldOrExpression> getGroupByExpressions(QuerySpecification node)
+    public List<List<FieldOrExpression>> getGroupingSets(QuerySpecification node)
     {
         return groupByExpressions.get(node);
     }
@@ -338,12 +338,12 @@ public class Analysis
         return columns.get(field);
     }
 
-    public void setCreateTableDestination(QualifiedTableName destination)
+    public void setCreateTableDestination(QualifiedObjectName destination)
     {
         this.createTableDestination = Optional.of(destination);
     }
 
-    public Optional<QualifiedTableName> getCreateTableDestination()
+    public Optional<QualifiedObjectName> getCreateTableDestination()
     {
         return createTableDestination;
     }

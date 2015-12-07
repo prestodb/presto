@@ -21,7 +21,6 @@ import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.metadata.ColumnStats;
-import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
@@ -67,6 +66,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -139,7 +139,7 @@ public class TestOrcStorageManager
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        ShardManager shardManager = new DatabaseShardManager(dbi);
+        ShardManager shardManager = createShardManager(dbi);
         Duration discoveryInterval = new Duration(5, TimeUnit.MINUTES);
         recoveryManager = new ShardRecoveryManager(storageService, backupStore, nodeManager, shardManager, discoveryInterval, 10);
 
@@ -369,6 +369,40 @@ public class TestOrcStorageManager
     }
 
     @Test
+    public void testWriterRollback()
+            throws Exception
+    {
+        // verify staging directory does not exist
+        File staging = new File(new File(temporary, "data"), "staging");
+        assertFalse(staging.exists());
+
+        // create a shard in staging
+        OrcStorageManager manager = createOrcStorageManager();
+
+        List<Long> columnIds = ImmutableList.of(3L, 7L);
+        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
+
+        StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
+        List<Page> pages = rowPagesBuilder(columnTypes)
+                .row(123, "hello")
+                .row(456, "bye")
+                .build();
+        sink.appendPages(pages);
+
+        sink.flush();
+
+        // verify shard exists in staging
+        String[] files = staging.list();
+        assertEquals(files.length, 1);
+        assertTrue(files[0].endsWith(".orc"));
+
+        // rollback should cleanup staging files
+        sink.rollback();
+
+        assertEquals(staging.list(), new String[] {});
+    }
+
+    @Test
     public void testShardStatsBigint()
     {
         List<ColumnStats> stats = columnStats(types(BIGINT),
@@ -528,6 +562,12 @@ public class TestOrcStorageManager
     public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary)
             throws IOException
     {
+        return createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
+    }
+
+    public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary, int maxShardRows)
+            throws IOException
+    {
         File directory = new File(temporary, "data");
         StorageService storageService = new FileStorageService(directory);
         storageService.start();
@@ -537,7 +577,7 @@ public class TestOrcStorageManager
         fileBackupStore.start();
         Optional<BackupStore> backupStore = Optional.of(fileBackupStore);
 
-        ShardManager shardManager = new DatabaseShardManager(dbi);
+        ShardManager shardManager = createShardManager(dbi);
         ShardRecoveryManager recoveryManager = new ShardRecoveryManager(
                 storageService,
                 backupStore,
@@ -550,7 +590,7 @@ public class TestOrcStorageManager
                 backupStore,
                 recoveryManager,
                 new InMemoryShardRecorder(),
-                MAX_SHARD_ROWS,
+                maxShardRows,
                 MAX_FILE_SIZE);
     }
 

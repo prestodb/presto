@@ -15,28 +15,26 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.predicate.DiscreteValues;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.Ranges;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
@@ -49,13 +47,13 @@ import com.google.common.math.DoubleMath;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
@@ -70,11 +68,9 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THA
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
-import static com.facebook.presto.type.ColorType.COLOR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.primitives.Primitives.wrap;
 import static java.math.RoundingMode.CEILING;
 import static java.math.RoundingMode.FLOOR;
 import static java.util.Objects.requireNonNull;
@@ -82,10 +78,6 @@ import static java.util.stream.Collectors.toList;
 
 public final class DomainTranslator
 {
-    private static final String DATE_LITERAL = getMagicLiteralFunctionSignature(DATE).getName();
-    private static final String TIMESTAMP_LITERAL = getMagicLiteralFunctionSignature(TIMESTAMP).getName();
-    private static final String COLOR_LITERAL = getMagicLiteralFunctionSignature(COLOR).getName();
-
     private DomainTranslator()
     {
     }
@@ -239,13 +231,13 @@ public final class DomainTranslator
             extends AstVisitor<ExtractionResult, Boolean>
     {
         private final Metadata metadata;
-        private final ConnectorSession session;
+        private final Session session;
         private final Map<Symbol, Type> types;
 
         private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.session = requireNonNull(session, "session is null").toConnectorSession();
+            this.session = requireNonNull(session, "session is null");
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
         }
 
@@ -350,31 +342,26 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitComparisonExpression(ComparisonExpression node, Boolean complement)
         {
-            if (isSimpleMagicLiteralComparison(node)) {
-                node = normalizeSimpleComparison(node);
-                node = convertMagicLiteralComparison(node);
-            }
-            else if (isSimpleComparison(node)) {
-                node = normalizeSimpleComparison(node);
-            }
-            else {
+            Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(session, metadata, types, node);
+            if (!optionalNormalized.isPresent()) {
                 return super.visitComparisonExpression(node, complement);
             }
+            NormalizedSimpleComparison normalized = optionalNormalized.get();
 
-            Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) node.getLeft()).getName());
+            Symbol symbol = Symbol.fromQualifiedName(normalized.getNameReference().getName());
             Type type = checkedTypeLookup(symbol);
-            Object value = LiteralInterpreter.evaluate(metadata, session, node.getRight());
+            NullableValue value = normalized.getValue();
 
             // Handle the cases where implicit coercions can happen in comparisons
             // TODO: how to abstract this out
-            if (value instanceof Double && type.equals(BIGINT)) {
-                return process(coerceDoubleToLongComparison(node), complement);
+            if (value.getType().equals(DOUBLE) && type.equals(BIGINT)) {
+                return process(coerceDoubleToLongComparison(normalized), complement);
             }
-            if (value instanceof Long && type.equals(DoubleType.DOUBLE)) {
-                value = ((Long) value).doubleValue();
+            if (value.getType().equals(BIGINT) && type.equals(DOUBLE)) {
+                value = NullableValue.of(DOUBLE, ((Long) value.getValue()).doubleValue());
             }
-            verifyType(type, value);
-            return createComparisonExtractionResult(node.getType(), symbol, type, value, complement);
+            checkState(value.isNull() || value.getType().equals(type), "INVARIANT: comparison should be working on the same types");
+            return createComparisonExtractionResult(normalized.getComparisonType(), symbol, type, value.getValue(), complement);
         }
 
         private ExtractionResult createComparisonExtractionResult(ComparisonExpression.Type comparisonType, Symbol column, Type type, @Nullable Object value, boolean complement)
@@ -456,11 +443,6 @@ public final class DomainTranslator
             }
         }
 
-        private static void verifyType(Type type, Object value)
-        {
-            checkState(value == null || wrap(type.getJavaType()).isInstance(value), "Value %s is not of expected type %s", value, type);
-        }
-
         @Override
         protected ExtractionResult visitInPredicate(InPredicate node, Boolean complement)
         {
@@ -532,44 +514,68 @@ public final class DomainTranslator
         }
     }
 
-    private static boolean isSimpleComparison(ComparisonExpression comparison)
-    {
-        return (comparison.getLeft() instanceof QualifiedNameReference && comparison.getRight() instanceof Literal) ||
-                (comparison.getLeft() instanceof Literal && comparison.getRight() instanceof QualifiedNameReference);
-    }
-
     /**
-     * Normalize a simple comparison between a QualifiedNameReference and a Literal such that the QualifiedNameReference will always be on the left and the Literal on the right.
+     * Extract a normalized simple comparison between a QualifiedNameReference and a native value if possible.
      */
-    private static ComparisonExpression normalizeSimpleComparison(ComparisonExpression comparison)
+    private static Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(Session session, Metadata metadata, Map<Symbol, Type> types, ComparisonExpression comparison)
     {
-        if (comparison.getLeft() instanceof QualifiedNameReference) {
-            return comparison;
+        IdentityHashMap<Expression, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, comparison);
+        Object left = ExpressionInterpreter.expressionOptimizer(comparison.getLeft(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
+        Object right = ExpressionInterpreter.expressionOptimizer(comparison.getRight(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
+
+        if (left instanceof QualifiedNameReference && !(right instanceof Expression)) {
+            return Optional.of(new NormalizedSimpleComparison((QualifiedNameReference) left, comparison.getType(), new NullableValue(expressionTypes.get(comparison.getRight()), right)));
         }
-        if (comparison.getRight() instanceof QualifiedNameReference) {
-            return new ComparisonExpression(flipComparison(comparison.getType()), comparison.getRight(), comparison.getLeft());
+        if (right instanceof QualifiedNameReference && !(left instanceof Expression)) {
+            return Optional.of(new NormalizedSimpleComparison((QualifiedNameReference) right, flipComparison(comparison.getType()), new NullableValue(expressionTypes.get(comparison.getLeft()), left)));
         }
-        throw new IllegalArgumentException("ComparisonExpression not a simple literal comparison: " + comparison);
+        return Optional.empty();
     }
 
-    private static Expression coerceDoubleToLongComparison(ComparisonExpression comparison)
+    private static class NormalizedSimpleComparison
     {
-        comparison = normalizeSimpleComparison(comparison);
+        private final QualifiedNameReference nameReference;
+        private final ComparisonExpression.Type comparisonType;
+        private final NullableValue value;
 
-        checkArgument(comparison.getLeft() instanceof QualifiedNameReference, "Left must be a QualifiedNameReference");
-        checkArgument(comparison.getRight() instanceof DoubleLiteral, "Right must be a DoubleLiteral");
+        public NormalizedSimpleComparison(QualifiedNameReference nameReference, ComparisonExpression.Type comparisonType, NullableValue value)
+        {
+            this.nameReference = requireNonNull(nameReference, "nameReference is null");
+            this.comparisonType = requireNonNull(comparisonType, "comparisonType is null");
+            this.value = requireNonNull(value, "value is null");
+        }
 
-        QualifiedNameReference reference = (QualifiedNameReference) comparison.getLeft();
-        Double value = ((DoubleLiteral) comparison.getRight()).getValue();
+        public QualifiedNameReference getNameReference()
+        {
+            return nameReference;
+        }
 
-        switch (comparison.getType()) {
+        public ComparisonExpression.Type getComparisonType()
+        {
+            return comparisonType;
+        }
+
+        public NullableValue getValue()
+        {
+            return value;
+        }
+    }
+
+    private static Expression coerceDoubleToLongComparison(NormalizedSimpleComparison normalized)
+    {
+        checkArgument(normalized.getValue().getType().equals(DOUBLE), "Value should be of DOUBLE type");
+        checkArgument(!normalized.getValue().isNull(), "Value should not be null");
+        QualifiedNameReference reference = normalized.getNameReference();
+        Double value = (Double) normalized.getValue().getValue();
+
+        switch (normalized.getComparisonType()) {
             case GREATER_THAN_OR_EQUAL:
             case LESS_THAN:
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(DoubleMath.roundToLong(value, CEILING), BIGINT));
+                return new ComparisonExpression(normalized.getComparisonType(), reference, toExpression(DoubleMath.roundToLong(value, CEILING), BIGINT));
 
             case GREATER_THAN:
             case LESS_THAN_OR_EQUAL:
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(DoubleMath.roundToLong(value, FLOOR), BIGINT));
+                return new ComparisonExpression(normalized.getComparisonType(), reference, toExpression(DoubleMath.roundToLong(value, FLOOR), BIGINT));
 
             case EQUAL:
                 Long equalValue = DoubleMath.roundToLong(value, FLOOR);
@@ -578,7 +584,7 @@ public final class DomainTranslator
                     return and(new ComparisonExpression(EQUAL, reference, new LongLiteral("0")),
                             new ComparisonExpression(NOT_EQUAL, reference, new LongLiteral("0")));
                 }
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(equalValue, BIGINT));
+                return new ComparisonExpression(normalized.getComparisonType(), reference, toExpression(equalValue, BIGINT));
 
             case NOT_EQUAL:
                 Long notEqualValue = DoubleMath.roundToLong(value, FLOOR);
@@ -587,17 +593,17 @@ public final class DomainTranslator
                     return or(new ComparisonExpression(EQUAL, reference, new LongLiteral("0")),
                             new ComparisonExpression(NOT_EQUAL, reference, new LongLiteral("0")));
                 }
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(notEqualValue, BIGINT));
+                return new ComparisonExpression(normalized.getComparisonType(), reference, toExpression(notEqualValue, BIGINT));
 
             case IS_DISTINCT_FROM:
                 Long distinctValue = DoubleMath.roundToLong(value, FLOOR);
                 if (distinctValue.doubleValue() != value) {
                     return TRUE_LITERAL;
                 }
-                return new ComparisonExpression(comparison.getType(), reference, toExpression(distinctValue, BIGINT));
+                return new ComparisonExpression(normalized.getComparisonType(), reference, toExpression(distinctValue, BIGINT));
 
             default:
-                throw new AssertionError("Unhandled type: " + comparison.getType());
+                throw new AssertionError("Unhandled type: " + normalized.getComparisonType());
         }
     }
 
@@ -621,36 +627,5 @@ public final class DomainTranslator
         {
             return remainingExpression;
         }
-    }
-
-    // TODO: remove this horrible hack
-    private static boolean isSimpleMagicLiteralComparison(ComparisonExpression node)
-    {
-        FunctionCall call;
-        if ((node.getLeft() instanceof QualifiedNameReference) && (node.getRight() instanceof FunctionCall)) {
-            call = (FunctionCall) node.getRight();
-        }
-        else if ((node.getLeft() instanceof FunctionCall) && (node.getRight() instanceof QualifiedNameReference)) {
-            call = (FunctionCall) node.getLeft();
-        }
-        else {
-            return false;
-        }
-
-        if (call.getName().getPrefix().isPresent()) {
-            return false;
-        }
-        String name = call.getName().getSuffix();
-
-        return name.equals(DATE_LITERAL) || name.equals(TIMESTAMP_LITERAL) || name.equals(COLOR_LITERAL);
-    }
-
-    private static ComparisonExpression convertMagicLiteralComparison(ComparisonExpression node)
-    {
-        // "magic literal" functions use the stack type value for the argument
-        checkArgument(isSimpleMagicLiteralComparison(node), "not a simple magic literal comparison");
-        FunctionCall call = (FunctionCall) node.getRight();
-        Expression value = call.getArguments().get(0);
-        return new ComparisonExpression(node.getType(), node.getLeft(), value);
     }
 }

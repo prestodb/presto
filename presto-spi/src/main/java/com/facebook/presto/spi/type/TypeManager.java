@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.type;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TypeManager
 {
@@ -31,4 +32,8 @@ public interface TypeManager
      * Gets a list of all registered types.
      */
     List<Type> getTypes();
+
+    Optional<Type> getCommonSuperType(List<? extends Type> types);
+
+    Optional<Type> getCommonSuperType(Type firstType, Type secondType);
 }

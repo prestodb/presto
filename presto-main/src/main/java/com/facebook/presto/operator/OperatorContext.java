@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
+import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -35,7 +37,9 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -78,7 +82,7 @@ public class OperatorContext
     private final AtomicLong finishUserNanos = new AtomicLong();
 
     private final AtomicLong memoryReservation = new AtomicLong();
-    private final AtomicLong systemMemoryReservation = new AtomicLong();
+    private final OperatorSystemMemoryContext systemMemoryContext;
     private final long maxMemoryReservation;
 
     private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
@@ -91,6 +95,7 @@ public class OperatorContext
         this.maxMemoryReservation = maxMemoryReservation;
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
+        this.systemMemoryContext = new OperatorSystemMemoryContext(this.driverContext);
         this.executor = requireNonNull(executor, "executor is null");
         SettableFuture<Object> future = SettableFuture.create();
         future.set(null);
@@ -253,13 +258,6 @@ public class OperatorContext
         }
     }
 
-    public void reserveSystemMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "bytes is negative");
-        driverContext.reserveSystemMemory(bytes);
-        systemMemoryReservation.addAndGet(bytes);
-    }
-
     public boolean tryReserveMemory(long bytes)
     {
         if (!driverContext.tryReserveMemory(bytes)) {
@@ -283,12 +281,14 @@ public class OperatorContext
         memoryReservation.getAndAdd(-bytes);
     }
 
-    public void freeSystemMemory(long bytes)
+    public AbstractAggregatedMemoryContext getSystemMemoryContext()
     {
-        checkArgument(bytes >= 0, "bytes is negative");
-        checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more memory than is reserved");
-        driverContext.freeSystemMemory(bytes);
-        systemMemoryReservation.getAndAdd(-bytes);
+        return systemMemoryContext;
+    }
+
+    public void closeSystemMemoryContext()
+    {
+        systemMemoryContext.close();
     }
 
     public void moreMemoryAvailable()
@@ -296,11 +296,24 @@ public class OperatorContext
         memoryFuture.get().set(null);
     }
 
-    public long transferMemoryToTaskContext()
+    public void transferMemoryToTaskContext(long taskBytes)
     {
         long bytes = memoryReservation.getAndSet(0);
         driverContext.transferMemoryToTaskContext(bytes);
-        return bytes;
+
+        TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
+        if (taskBytes > bytes) {
+            try {
+                taskContext.reserveMemory(taskBytes - bytes);
+            }
+            catch (ExceededMemoryLimitException e) {
+                taskContext.freeMemory(bytes);
+                throw e;
+            }
+        }
+        else {
+            taskContext.freeMemory(bytes - taskBytes);
+        }
     }
 
     public void setMemoryReservation(long newMemoryReservation)
@@ -392,7 +405,7 @@ public class OperatorContext
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                new DataSize(systemMemoryContext.getReservedBytes(), BYTE).convertToMostSuccinctDataSize(),
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
     }
@@ -440,6 +453,60 @@ public class OperatorContext
         public long getBlockedTime()
         {
             return nanosBetween(start, System.nanoTime());
+        }
+    }
+
+    private static class OperatorSystemMemoryContext
+            extends AbstractAggregatedMemoryContext
+    {
+        // TODO: remove this class. See comment in AbstractAggregatedMemoryContext
+
+        private final DriverContext driverContext;
+
+        private boolean closed;
+        private long reservedBytes;
+
+        public OperatorSystemMemoryContext(DriverContext driverContext)
+        {
+            this.driverContext = driverContext;
+        }
+
+        public void close()
+        {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            driverContext.freeSystemMemory(reservedBytes);
+            reservedBytes = 0;
+        }
+
+        @Override
+        protected void updateBytes(long bytes)
+        {
+            checkState(!closed);
+            if (bytes > 0) {
+                driverContext.reserveSystemMemory(bytes);
+            }
+            else {
+                checkArgument(reservedBytes + bytes >= 0, "tried to free %s bytes of memory from %s bytes reserved", -bytes, reservedBytes);
+                driverContext.freeSystemMemory(-bytes);
+            }
+            reservedBytes += bytes;
+        }
+
+        public long getReservedBytes()
+        {
+            return reservedBytes;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("usedBytes", reservedBytes)
+                    .add("closed", closed)
+                    .toString();
         }
     }
 }

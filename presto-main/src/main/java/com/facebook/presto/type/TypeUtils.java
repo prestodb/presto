@@ -158,30 +158,6 @@ public final class TypeUtils
         return new Page(blocks);
     }
 
-    public static Object castValue(Type type, Block block, int position)
-    {
-        Class<?> javaType = type.getJavaType();
-
-        if (block.isNull(position)) {
-            return null;
-        }
-        else if (javaType == boolean.class) {
-            return type.getBoolean(block, position);
-        }
-        else if (javaType == long.class) {
-            return type.getLong(block, position);
-        }
-        else if (javaType == double.class) {
-            return type.getDouble(block, position);
-        }
-        else if (type.getJavaType() == Slice.class) {
-            return type.getSlice(block, position);
-        }
-        else {
-            return type.getObject(block, position);
-        }
-    }
-
     public static void checkElementNotNull(boolean isNull, String errorMsg)
     {
         if (isNull) {

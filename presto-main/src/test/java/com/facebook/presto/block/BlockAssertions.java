@@ -16,8 +16,8 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.testing.RunLengthEncodedBlock;
 import com.facebook.presto.type.ArrayType;
 
 import java.util.ArrayList;

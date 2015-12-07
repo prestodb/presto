@@ -52,6 +52,7 @@ public class TopNRowNumberOperator
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
         private final int maxRowCountPerPartition;
+        private final boolean partial;
         private final Optional<Integer> hashChannel;
         private final int expectedPositions;
 
@@ -81,6 +82,7 @@ public class TopNRowNumberOperator
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels));
             this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder));
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
+            this.partial = partial;
             checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
             this.maxRowCountPerPartition = maxRowCountPerPartition;
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
@@ -125,6 +127,12 @@ public class TopNRowNumberOperator
         public void close()
         {
             closed = true;
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new TopNRowNumberOperatorFactory(operatorId, sourceTypes, outputChannels, partitionChannels, partitionTypes, sortChannels, sortOrder, maxRowCountPerPartition, partial, hashChannel, expectedPositions);
         }
     }
 

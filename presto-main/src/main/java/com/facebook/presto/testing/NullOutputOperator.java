@@ -68,6 +68,12 @@ public class NullOutputOperator
         public void close()
         {
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new NullOutputOperatorFactory(operatorId, types);
+        }
     }
 
     private final OperatorContext operatorContext;

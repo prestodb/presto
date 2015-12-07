@@ -31,7 +31,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
@@ -39,6 +38,7 @@ import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.testing.TestingSplit;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -76,9 +76,6 @@ public final class TaskTestUtils
             ImmutableList.of(SYMBOL),
             PlanDistribution.SOURCE,
             TABLE_SCAN_NODE_ID,
-            OutputPartitioning.NONE,
-            Optional.empty(),
-            Optional.empty(),
             Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()

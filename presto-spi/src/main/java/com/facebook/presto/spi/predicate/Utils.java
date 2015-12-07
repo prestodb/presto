@@ -14,8 +14,12 @@
 package com.facebook.presto.spi.predicate;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 
 public final class Utils
 {
@@ -28,13 +32,13 @@ public final class Utils
         if (!Primitives.wrap(type.getJavaType()).isInstance(object)) {
             throw new IllegalArgumentException(String.format("Object '%s' does not match type %s", object, type.getJavaType()));
         }
-        return type.createBlockBuilder(new BlockBuilderStatus(), 1)
-                .write(type, object)
-                .build();
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        writeNativeValue(type, blockBuilder, object);
+        return blockBuilder.build();
     }
 
     static Object blockToNativeValue(Type type, Block block)
     {
-        return block.read(type, 0);
+        return readNativeValue(type, block, 0);
     }
 }

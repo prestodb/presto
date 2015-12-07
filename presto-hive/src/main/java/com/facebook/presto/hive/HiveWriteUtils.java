@@ -47,6 +47,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.sql.Date;
@@ -83,6 +84,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
+import static org.joda.time.DateTimeZone.UTC;
 
 public final class HiveWriteUtils
 {
@@ -178,9 +180,8 @@ public final class HiveWriteUtils
             return type.getSlice(block, position).getBytes();
         }
         if (DateType.DATE.equals(type)) {
-            // todo should this be adjusted to midnight in JVM timezone?
             long days = type.getLong(block, position);
-            return new Date(TimeUnit.DAYS.toMillis(days));
+            return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), TimeUnit.DAYS.toMillis(days)));
         }
         if (TimestampType.TIMESTAMP.equals(type)) {
             long millisUtc = type.getLong(block, position);

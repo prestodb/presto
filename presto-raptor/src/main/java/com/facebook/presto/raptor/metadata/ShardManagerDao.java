@@ -68,8 +68,8 @@ public interface ShardManagerDao
     String getNodeIdentifier(@Bind("nodeId") int nodeId);
 
     @SqlQuery("SELECT node_id, node_identifier FROM nodes")
-    @Mapper(Node.Mapper.class)
-    List<Node> getNodes();
+    @Mapper(RaptorNode.Mapper.class)
+    List<RaptorNode> getNodes();
 
     @SqlQuery("SELECT shard_uuid FROM shards WHERE table_id = :tableId")
     List<UUID> getShards(@Bind("tableId") long tableId);
@@ -174,32 +174,61 @@ public interface ShardManagerDao
             "WHERE s.table_id = :tableId")
     void insertDeletedShardNodes(@Bind("tableId") long tableId);
 
-    @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
-            "SELECT s.shard_uuid, CURRENT_TIMESTAMP\n" +
+    @SqlUpdate("DROP TABLE IF EXISTS tmp_created_shards")
+    void dropTableTemporaryCreatedShards();
+
+    @SqlUpdate("CREATE TEMPORARY TABLE tmp_created_shards (\n" +
+            "  shard_uuid BINARY(16) NOT NULL PRIMARY KEY\n" +
+            ")")
+    void createTableTemporaryCreatedShards();
+
+    @SqlUpdate("INSERT INTO tmp_created_shards (shard_uuid)\n" +
+            "SELECT DISTINCT s.shard_uuid\n" +
             "FROM created_shards s\n" +
             "JOIN transactions t ON (s.transaction_id = t.transaction_id)\n" +
             "WHERE NOT t.successful")
+    void insertTemporaryCreatedShards();
+
+    @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
+            "SELECT shard_uuid, CURRENT_TIMESTAMP\n" +
+            "FROM tmp_created_shards\n")
     void insertDeletedShardsFromCreated();
 
     @SqlUpdate("DELETE FROM created_shards\n" +
-            "WHERE transaction_id IN (\n" +
-            "  SELECT transaction_id\n" +
-            "  FROM transactions\n" +
-            "  WHERE NOT successful)")
+            "WHERE shard_uuid IN (\n" +
+            "  SELECT shard_uuid\n" +
+            "  FROM tmp_created_shards)")
     void deleteOldCreatedShards();
 
-    @SqlUpdate("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time)\n" +
-            "SELECT s.shard_uuid, s.node_id, CURRENT_TIMESTAMP\n" +
+    @SqlUpdate("DROP TABLE IF EXISTS tmp_created_shard_nodes")
+    void dropTableTemporaryCreatedShardNodes();
+
+    @SqlUpdate("CREATE TEMPORARY TABLE tmp_created_shard_nodes (\n" +
+            "  shard_uuid BINARY(16) NOT NULL,\n" +
+            "  node_id INT NOT NULL,\n" +
+            "  PRIMARY KEY (shard_uuid, node_id)\n" +
+            ")")
+    void createTableTemporaryCreatedShardNodes();
+
+    @SqlUpdate("INSERT INTO tmp_created_shard_nodes (shard_uuid, node_id)\n" +
+            "SELECT DISTINCT s.shard_uuid, s.node_id\n" +
             "FROM created_shard_nodes s\n" +
             "JOIN transactions t ON (s.transaction_id = t.transaction_id)\n" +
             "WHERE NOT t.successful")
+    void insertTemporaryCreatedShardNodes();
+
+    @SqlUpdate("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time)\n" +
+            "SELECT shard_uuid, node_id, CURRENT_TIMESTAMP\n" +
+            "FROM tmp_created_shard_nodes")
     void insertDeletedShardNodesFromCreated();
 
+    // use EXISTS instead of IN because H2 does not support row values
     @SqlUpdate("DELETE FROM created_shard_nodes\n" +
-            "WHERE transaction_id IN (\n" +
-            "  SELECT transaction_id\n" +
-            "  FROM transactions\n" +
-            "  WHERE NOT successful)")
+            "WHERE EXISTS (\n" +
+            "  SELECT TRUE\n" +
+            "  FROM tmp_created_shard_nodes t\n" +
+            "  WHERE created_shard_nodes.shard_uuid = t.shard_uuid\n" +
+            "    AND created_shard_nodes.node_id = t.node_id)")
     void deleteOldCreatedShardNodes();
 
     @SqlQuery("SELECT shard_uuid\n" +
@@ -250,11 +279,17 @@ public interface ShardManagerDao
 
     @SqlBatch("UPDATE deleted_shard_nodes SET clean_time = CURRENT_TIMESTAMP\n" +
             "WHERE shard_uuid = :shardUuid\n" +
+            "  AND node_id = :nodeId\n" +
             "  AND clean_time IS NULL\n")
-    void updateCleanedShardNodes(@Bind("shardUuid") Iterable<UUID> shardUuids);
+    void updateCleanedShardNodes(
+            @Bind("shardUuid") Iterable<UUID> shardUuids,
+            @Bind("nodeId") int nodeId);
 
     @SqlBatch("UPDATE deleted_shard_nodes SET purge_time = CURRENT_TIMESTAMP\n" +
             "WHERE shard_uuid = :shardUuid\n" +
+            "  AND node_id = :nodeId\n" +
             "  AND purge_time IS NULL\n")
-    void updatePurgedShardNodes(@Bind("shardUuid") Iterable<UUID> shardUuids);
+    void updatePurgedShardNodes(
+            @Bind("shardUuid") Iterable<UUID> shardUuids,
+            @Bind("nodeId") int nodeId);
 }

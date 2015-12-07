@@ -16,6 +16,7 @@ package com.facebook.presto.spi.type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -51,5 +52,17 @@ public class TestingTypeManager
     public List<Type> getTypes()
     {
         return ImmutableList.<Type>of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG);
+    }
+
+    @Override
+    public Optional<Type> getCommonSuperType(List<? extends Type> types)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+    {
+        throw new UnsupportedOperationException();
     }
 }

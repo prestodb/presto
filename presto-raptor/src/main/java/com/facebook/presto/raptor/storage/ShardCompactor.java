@@ -23,6 +23,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.stats.DistributionStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -45,6 +46,8 @@ import static java.util.stream.Collectors.toList;
 
 public final class ShardCompactor
 {
+    private static final Logger log = Logger.get(ShardCompactor.class);
+
     private final StorageManager storageManager;
 
     private final DistributionStat inputShardsPerCompaction = new DistributionStat();
@@ -68,6 +71,26 @@ public final class ShardCompactor
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
         StoragePageSink storagePageSink = storageManager.createStoragePageSink(transactionId, columnIds, columnTypes);
+
+        List<ShardInfo> shardInfos;
+        try {
+            shardInfos = compact(storagePageSink, uuids, columnIds, columnTypes);
+        }
+        catch (IOException | RuntimeException e) {
+            storagePageSink.rollback();
+            throw e;
+        }
+
+        inputShardsPerCompaction.add(uuids.size());
+        outputShardsPerCompaction.add(shardInfos.size());
+        compactionLatencyMillis.add(Duration.nanosSince(start).toMillis());
+
+        return shardInfos;
+    }
+
+    private List<ShardInfo> compact(StoragePageSink storagePageSink, Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
+            throws IOException
+    {
         for (UUID uuid : uuids) {
             try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
                 while (!pageSource.isFinished()) {
@@ -82,13 +105,7 @@ public final class ShardCompactor
                 }
             }
         }
-        List<ShardInfo> shardInfos = storagePageSink.commit();
-
-        inputShardsPerCompaction.add(uuids.size());
-        outputShardsPerCompaction.add(shardInfos.size());
-        compactionLatencyMillis.add(Duration.nanosSince(start).toMillis());
-
-        return shardInfos;
+        return storagePageSink.commit();
     }
 
     public List<ShardInfo> compactSorted(long transactionId, Set<UUID> uuids, List<ColumnInfo> columns, List<Long> sortColumnIds, List<SortOrder> sortOrders)
@@ -97,11 +114,15 @@ public final class ShardCompactor
         checkArgument(sortColumnIds.size() == sortOrders.size(), "sortColumnIds and sortOrders must be of the same size");
 
         long start = System.nanoTime();
+
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
         checkArgument(columnIds.containsAll(sortColumnIds), "sortColumnIds must be a subset of columnIds");
-        List<Integer> sortIndexes = ImmutableList.copyOf(sortColumnIds.stream().map(sortColumnIds::indexOf).collect(toList()));
+
+        List<Integer> sortIndexes = sortColumnIds.stream()
+                .map(columnIds::indexOf)
+                .collect(toList());
 
         Queue<SortedRowSource> rowSources = new PriorityQueue<>();
         StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, columnIds, columnTypes);
@@ -136,8 +157,11 @@ public final class ShardCompactor
 
             return shardInfos;
         }
+        catch (IOException | RuntimeException e) {
+            outputPageSink.rollback();
+            throw e;
+        }
         finally {
-            outputPageSink.flush();
             rowSources.stream().forEach(SortedRowSource::closeQuietly);
         }
     }
@@ -217,15 +241,16 @@ public final class ShardCompactor
             }
 
             for (int i = 0; i < sortIndexes.size(); i++) {
-                int index = sortIndexes.get(i);
+                int channel = sortIndexes.get(i);
+                Type type = columnTypes.get(channel);
 
-                Block leftBlock = currentPage.getBlock(index);
+                Block leftBlock = currentPage.getBlock(channel);
                 int leftBlockPosition = currentPosition;
 
-                Block rightBlock = other.currentPage.getBlock(index);
+                Block rightBlock = other.currentPage.getBlock(channel);
                 int rightBlockPosition = other.currentPosition;
 
-                int compare = sortOrders.get(i).compareBlockValue(columnTypes.get(i), leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                int compare = sortOrders.get(i).compareBlockValue(type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
                 if (compare != 0) {
                     return compare;
                 }

@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.MemoryPoolAssignment;
@@ -355,5 +356,12 @@ public class SqlTaskManager
                 .forEach(task -> tempIoStats.merge(task.getIoStats()));
 
         cachedStats.resetTo(tempIoStats);
+    }
+
+    @Override
+    public void addStateChangeListener(TaskId taskId, StateChangeListener<TaskState> stateChangeListener)
+    {
+        requireNonNull(taskId, "taskId is null");
+        tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
     }
 }

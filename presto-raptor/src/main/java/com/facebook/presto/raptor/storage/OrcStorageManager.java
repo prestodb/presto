@@ -20,6 +20,7 @@ import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.orc.memory.AggregatedMemoryContext;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.raptor.RaptorColumnHandle;
@@ -197,6 +198,8 @@ public class OrcStorageManager
     {
         OrcDataSource dataSource = openShard(shardUuid, readerAttributes);
 
+        AggregatedMemoryContext systemMemoryUsage = new AggregatedMemoryContext();
+
         try {
             OrcReader reader = new OrcReader(dataSource, new OrcMetadataReader(), readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize());
 
@@ -226,14 +229,14 @@ public class OrcStorageManager
 
             OrcPredicate predicate = getPredicate(effectivePredicate, indexMap);
 
-            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC);
+            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC, systemMemoryUsage);
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
                 shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), shardUuid));
             }
 
-            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid);
+            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, systemMemoryUsage);
         }
         catch (IOException | RuntimeException e) {
             try {
@@ -465,6 +468,7 @@ public class OrcStorageManager
         private final List<Long> columnIds;
         private final List<Type> columnTypes;
 
+        private final List<File> stagingFiles = new ArrayList<>();
         private final List<ShardInfo> shards = new ArrayList<>();
         private final List<CompletableFuture<?>> futures = new ArrayList<>();
 
@@ -548,12 +552,20 @@ public class OrcStorageManager
             return ImmutableList.copyOf(shards);
         }
 
+        @SuppressWarnings("ResultOfMethodCallIgnored")
         @Override
         public void rollback()
         {
-            if (writer != null) {
-                writer.close();
-                writer = null;
+            try {
+                if (writer != null) {
+                    writer.close();
+                    writer = null;
+                }
+            }
+            finally {
+                for (File file : stagingFiles) {
+                    file.delete();
+                }
             }
         }
 
@@ -563,6 +575,7 @@ public class OrcStorageManager
                 shardUuid = UUID.randomUUID();
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
+                stagingFiles.add(stagingFile);
                 writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
             }
         }
