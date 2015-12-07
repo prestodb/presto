@@ -136,7 +136,7 @@ public final class CompilerUtils
         if (DUMP_BYTE_CODE_RAW) {
             for (byte[] byteCode : byteCodes.values()) {
                 ClassReader classReader = new ClassReader(byteCode);
-                classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.SKIP_FRAMES);
+                classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.EXPAND_FRAMES);
             }
         }
         Map<String, Class<?>> classes = classLoader.defineClasses(byteCodes);
