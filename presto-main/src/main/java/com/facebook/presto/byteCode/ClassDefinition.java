@@ -267,6 +267,11 @@ public class ClassDefinition
             Iterable<Parameter> parameters)
     {
         MethodDefinition methodDefinition = new MethodDefinition(this, access, name, returnType, parameters);
+        for (MethodDefinition method : methods) {
+            if (name.equals(method.getName()) && method.getParameterTypes().equals(methodDefinition.getParameterTypes())) {
+                throw new IllegalArgumentException("Method with same name and signature already exists: " + name);
+            }
+        }
         methods.add(methodDefinition);
         return methodDefinition;
     }
