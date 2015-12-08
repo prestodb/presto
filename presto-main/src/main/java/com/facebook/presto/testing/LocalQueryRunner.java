@@ -231,7 +231,8 @@ public class LocalQueryRunner
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata),
                 new TablePropertiesSystemTable(metadata),
-                new TransactionsSystemTable(typeRegistry, transactionManager)));
+                new TransactionsSystemTable(typeRegistry, transactionManager)),
+                ImmutableSet.of());
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
