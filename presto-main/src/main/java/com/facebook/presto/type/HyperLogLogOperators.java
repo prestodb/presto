@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
+import io.airlift.stats.cardinality.HyperLogLog;
 
 import static com.facebook.presto.metadata.OperatorType.CAST;
 
@@ -35,6 +36,22 @@ public final class HyperLogLogOperators
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.HYPER_LOG_LOG)
     public static Slice castFromVarbinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return slice;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.P4_HYPER_LOG_LOG)
+    public static Slice castToP4Hll(@SqlType(StandardTypes.HYPER_LOG_LOG) Slice slice)
+    {
+        HyperLogLog hll = HyperLogLog.newInstance(slice);
+        hll.makeDense();
+        return hll.serialize();
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.HYPER_LOG_LOG)
+    public static Slice castFromP4Hll(@SqlType(StandardTypes.P4_HYPER_LOG_LOG) Slice slice)
     {
         return slice;
     }

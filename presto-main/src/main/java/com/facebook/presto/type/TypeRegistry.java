@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -92,6 +93,7 @@ public final class TypeRegistry
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
+        addType(P4_HYPER_LOG_LOG);
         addType(REGEXP);
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
@@ -205,6 +207,8 @@ public final class TypeRegistry
                 return StandardTypes.TIMESTAMP_WITH_TIME_ZONE.equals(toTypeBase);
             case StandardTypes.VARCHAR:
                 return RegexpType.NAME.equals(toTypeBase) || LikePatternType.NAME.equals(toTypeBase) || JsonPathType.NAME.equals(toTypeBase);
+            case StandardTypes.P4_HYPER_LOG_LOG:
+                return StandardTypes.HYPER_LOG_LOG.equals(toTypeBase);
         }
         return false;
     }
