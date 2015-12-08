@@ -61,6 +61,7 @@ public class CursorProcessorCompiler
     @Override
     public void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
     {
+        classDefinition.declareDefaultConstructor(a(PUBLIC));
         generateProcessMethod(classDefinition, projections.size());
         generateFilterMethod(classDefinition, callSiteBinder, filter);
 
