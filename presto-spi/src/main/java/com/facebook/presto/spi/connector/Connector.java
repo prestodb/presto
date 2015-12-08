@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
@@ -78,6 +79,14 @@ public interface Connector
      * @return the set of system tables provided by this connector
      */
     default Set<SystemTable> getSystemTables()
+    {
+        return emptySet();
+    }
+
+    /**
+     * @return the set of procedures provided by this connector
+     */
+    default Set<Procedure> getProcedures()
     {
         return emptySet();
     }

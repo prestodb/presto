@@ -230,6 +230,8 @@ public interface Metadata
 
     FunctionRegistry getFunctionRegistry();
 
+    ProcedureRegistry getProcedureRegistry();
+
     TypeManager getTypeManager();
 
     BlockEncodingSerde getBlockEncodingSerde();

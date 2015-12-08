@@ -8,6 +8,7 @@ This chapter describes the SQL syntax used in Presto.
     :maxdepth: 1
 
     sql/alter-table
+    sql/call
     sql/commit
     sql/create-table
     sql/create-table-as
