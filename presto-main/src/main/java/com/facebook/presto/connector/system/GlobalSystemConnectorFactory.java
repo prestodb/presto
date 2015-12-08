@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
@@ -30,11 +31,13 @@ public class GlobalSystemConnectorFactory
         implements ConnectorFactory
 {
     private final Set<SystemTable> tables;
+    private final Set<Procedure> procedures;
 
     @Inject
-    public GlobalSystemConnectorFactory(Set<SystemTable> tables)
+    public GlobalSystemConnectorFactory(Set<SystemTable> tables, Set<Procedure> procedures)
     {
         this.tables = ImmutableSet.copyOf(requireNonNull(tables, "tables is null"));
+        this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
     }
 
     @Override
@@ -52,6 +55,6 @@ public class GlobalSystemConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> config)
     {
-        return new GlobalSystemConnector(connectorId, tables);
+        return new GlobalSystemConnector(connectorId, tables, procedures);
     }
 }

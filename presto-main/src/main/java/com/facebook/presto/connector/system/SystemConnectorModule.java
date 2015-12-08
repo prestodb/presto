@@ -27,11 +27,14 @@ import com.facebook.presto.connector.system.jdbc.TableJdbcTable;
 import com.facebook.presto.connector.system.jdbc.TableTypeJdbcTable;
 import com.facebook.presto.connector.system.jdbc.UdtJdbcTable;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.MultibindingsScanner;
+import com.google.inject.multibindings.ProvidesIntoSet;
 
 import javax.inject.Inject;
 
@@ -41,6 +44,8 @@ public class SystemConnectorModule
     @Override
     public void configure(Binder binder)
     {
+        binder.install(MultibindingsScanner.asModule());
+
         Multibinder<SystemTable> globalTableBinder = Multibinder.newSetBinder(binder, SystemTable.class);
         globalTableBinder.addBinding().to(NodeSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(QuerySystemTable.class).in(Scopes.SINGLETON);
@@ -62,8 +67,18 @@ public class SystemConnectorModule
         globalTableBinder.addBinding().to(TableTypeJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(UdtJdbcTable.class).in(Scopes.SINGLETON);
 
+        Multibinder.newSetBinder(binder, Procedure.class);
+
+        binder.bind(KillQueryProcedure.class).in(Scopes.SINGLETON);
+
         binder.bind(GlobalSystemConnectorFactory.class).in(Scopes.SINGLETON);
         binder.bind(SystemConnectorRegistrar.class).asEagerSingleton();
+    }
+
+    @ProvidesIntoSet
+    public static Procedure getKillQueryProcedure(KillQueryProcedure procedure)
+    {
+        return procedure.getProcedure();
     }
 
     private static class SystemConnectorRegistrar
