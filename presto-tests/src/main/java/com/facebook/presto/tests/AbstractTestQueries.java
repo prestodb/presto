@@ -5192,6 +5192,160 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testP4ApproxSetBigint()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(custkey) AS P4HYPERLOGLOG)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1002)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testP4ApproxSetVarchar()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(CAST(custkey AS VARCHAR)) AS P4HYPERLOGLOG)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1024)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testP4ApproxSetDouble()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(CAST(custkey AS DOUBLE)) AS P4HYPERLOGLOG)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1014)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testP4ApproxSetBigintGroupBy()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(cast(approx_set(custkey) AS P4HYPERLOGLOG)) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", 1001)
+                .row("F", 998)
+                .row("P", 308)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testP4ApproxSetVarcharGroupBy()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(cast(approx_set(CAST(custkey AS VARCHAR)) AS P4HYPERLOGLOG)) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", 1021)
+                .row("F", 1019)
+                .row("P", 302)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testP4ApproxSetDoubleGroupBy()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(cast(approx_set(CAST(custkey AS DOUBLE)) AS P4HYPERLOGLOG)) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", 1011)
+                .row("F", 1011)
+                .row("P", 306)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testP4ApproxSetWithNulls()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(IF(orderstatus = 'O', custkey)) AS P4HYPERLOGLOG)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row(1001)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testP4ApproxSetOnlyNulls()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(null) AS P4HYPERLOGLOG)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row(new Object[] { null })
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testP4ApproxSetGroupByWithOnlyNullsInOneGroup()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(cast(approx_set(IF(orderstatus != 'O', custkey)) AS P4HYPERLOGLOG)) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", null)
+                .row("F", 998)
+                .row("P", 308)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testP4ApproxSetGroupByWithNulls()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, cardinality(cast(approx_set(IF(custkey % 2 <> 0, custkey)) AS P4HYPERLOGLOG)) " +
+                "FROM orders " +
+                "GROUP BY orderstatus");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row("O", 495)
+                .row("F", 491)
+                .row("P", 153)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+    @Test
     public void testValuesWithNonTrivialType()
             throws Exception
     {
