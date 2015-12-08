@@ -26,7 +26,9 @@ import com.facebook.presto.connector.system.jdbc.SuperTypeJdbcTable;
 import com.facebook.presto.connector.system.jdbc.TableJdbcTable;
 import com.facebook.presto.connector.system.jdbc.TableTypeJdbcTable;
 import com.facebook.presto.connector.system.jdbc.UdtJdbcTable;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.SystemTable;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -61,15 +63,17 @@ public class SystemTablesModule
         globalTableBinder.addBinding().to(UdtJdbcTable.class).in(Scopes.SINGLETON);
 
         binder.bind(SystemConnector.class).in(Scopes.SINGLETON);
+        binder.bind(SystemFunctions.class).in(Scopes.SINGLETON);
         binder.bind(SystemTablesRegistrar.class).asEagerSingleton();
     }
 
     private static class SystemTablesRegistrar
     {
         @Inject
-        public SystemTablesRegistrar(ConnectorManager manager, SystemConnector connector)
+        public SystemTablesRegistrar(ConnectorManager manager, Metadata metadata, SystemConnector connector, SystemFunctions functions)
         {
             manager.createConnection(SystemConnector.NAME, connector);
+            metadata.addFunctions(ImmutableList.of(functions.createVersionFunction()));
         }
     }
 }
