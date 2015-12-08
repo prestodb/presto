@@ -1858,6 +1858,22 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOuterJoinProjectionPruning()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT count(1), count(one) " +
+                "FROM (values (1, 'a'), (2, 'a')) as l(k, a) " +
+                "LEFT JOIN (select k, 1 one from (values 1) as r(k)) r " +
+                "ON l.k = r.k GROUP BY a");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(2, 1) // (total rows, # of non null values)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testSimpleLeftJoin()
             throws Exception
     {
