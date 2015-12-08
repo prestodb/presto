@@ -116,7 +116,6 @@ import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
@@ -599,7 +598,7 @@ public class HiveMetadata
                 schemaName,
                 tableName,
                 columnHandles,
-                randomUUID().toString(), // todo this should really be the queryId
+                session.getQueryId(),
                 locationService.forNewTable(session.getQueryId(), schemaName, tableName),
                 hiveStorageFormat,
                 partitionedBy,
@@ -690,7 +689,7 @@ public class HiveMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 handles,
-                randomUUID().toString(), // todo this should really be the queryId
+                session.getQueryId(),
                 locationService.forExistingTable(session.getQueryId(), table.get()),
                 hiveStorageFormat);
     }
