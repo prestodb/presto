@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
+import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
 import com.facebook.presto.byteCode.Scope;
@@ -55,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
+import static com.facebook.presto.byteCode.Access.FINAL;
 import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
@@ -99,6 +101,7 @@ public class PageProcessorCompiler
         }
         List<MethodDefinition> projectionMethodDefinitions = projectionMethods.build();
 
+        generateConstructor(classDefinition, projections.size());
         generateProcessMethod(classDefinition, filter, projections, projectionMethodDefinitions);
         generateGetNonLazyPageMethod(classDefinition, filter, projections);
         generateProcessColumnarMethod(classDefinition, callSiteBinder, filter, projections, projectionMethodDefinitions);
@@ -106,6 +109,24 @@ public class PageProcessorCompiler
 
         generateFilterPageMethod(classDefinition, filter);
         generateFilterMethod(classDefinition, callSiteBinder, filter);
+    }
+
+    private static void generateConstructor(ClassDefinition classDefinition, int projectionCount)
+    {
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
+        FieldDefinition inputDictionaries = classDefinition.declareField(a(PRIVATE, FINAL), "inputDictionaries", Block[].class);
+        FieldDefinition outputDictionaries = classDefinition.declareField(a(PRIVATE, FINAL), "outputDictionaries", Block[].class);
+
+        ByteCodeBlock body = constructorDefinition.getBody();
+        Variable thisVariable = constructorDefinition.getThis();
+
+        body.comment("super();")
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
+
+        body.append(thisVariable.setField(inputDictionaries, newArray(type(Block[].class), projectionCount)));
+        body.append(thisVariable.setField(outputDictionaries, newArray(type(Block[].class), projectionCount)));
+        body.ret();
     }
 
     private static void generateProcessMethod(ClassDefinition classDefinition, RowExpression filter, List<RowExpression> projections, List<MethodDefinition> projectionMethods)
@@ -365,14 +386,30 @@ public class PageProcessorCompiler
                 .comment("Extract dictionary and ids")
                 .append(dictionary.set(inputBlock.cast(DictionaryBlock.class).invoke("getDictionary", Block.class)))
                 .append(ids.set(inputBlock.cast(DictionaryBlock.class).invoke("getIds", Slice.class)))
-                .append(dictionaryCount.set(dictionary.invoke("getPositionCount", int.class)))
-                .comment("Project dictionary")
+                .append(dictionaryCount.set(dictionary.invoke("getPositionCount", int.class)));
+
+        ByteCodeExpression inputDictionaries = scope.getThis().getField("inputDictionaries", Block[].class);
+        ByteCodeExpression outputDictionaries = scope.getThis().getField("outputDictionaries", Block[].class);
+
+        ByteCodeBlock projectDictionary =  new ByteCodeBlock()
                 .append(new ForLoop()
                         .initialize(position.set(constantInt(0)))
                         .condition(lessThan(position, dictionaryCount))
                         .update(position.increment())
                         .body(invokeProject(thisVariable, session, ImmutableList.of(dictionary), position, blockBuilder, projectionMethod)))
                 .append(outputDictionary.set(blockBuilder.invoke("build", Block.class)))
+                .append(inputDictionaries.setElement(projectionIndex, dictionary))
+                .append(outputDictionaries.setElement(projectionIndex, outputDictionary));
+
+        dictionaryProjection
+                .comment("Project dictionary")
+                .append(
+                        new IfStatement()
+                                .condition(equal(inputDictionaries.getElement(projectionIndex), dictionary))
+                                .ifTrue(outputDictionary.set(outputDictionaries.getElement(projectionIndex)))
+                                .ifFalse(projectDictionary));
+
+        dictionaryProjection
                 .comment("Filter ids")
                 .append(outputIds.set(newArray(type(int[].class), cardinality)))
                 .append(new ForLoop()

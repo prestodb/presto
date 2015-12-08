@@ -41,10 +41,16 @@ public class GenericPageProcessor
     private final FilterFunction filterFunction;
     private final List<ProjectionFunction> projections;
 
+    private final Block[] inputDictionaries;
+    private final Block[] outputDictionaries;
+
     public GenericPageProcessor(FilterFunction filterFunction, Iterable<? extends ProjectionFunction> projections)
     {
         this.filterFunction = filterFunction;
         this.projections = ImmutableList.copyOf(projections);
+
+        this.inputDictionaries = new Block[this.projections.size()];
+        this.outputDictionaries = new Block[this.projections.size()];
     }
 
     @Override
@@ -144,10 +150,15 @@ public class GenericPageProcessor
         return outputIds;
     }
 
-    private static Block projectDictionary(ProjectionFunction projection, Page page)
+    private Block projectDictionary(ProjectionFunction projection, Page page)
     {
         int inputChannel = getOnlyElement(projection.getInputChannels());
         Block dictionary = ((DictionaryBlock) page.getBlock(inputChannel)).getDictionary();
+
+        int projectionIndex = projections.indexOf(projection);
+        if (inputDictionaries[projectionIndex] == dictionary) {
+            return outputDictionaries[projectionIndex];
+        }
 
         BlockBuilder dictionaryBuilder = projection.getType().createBlockBuilder(new BlockBuilderStatus(), dictionary.getPositionCount());
         Block[] blocks = new Block[page.getChannelCount()];
@@ -156,7 +167,11 @@ public class GenericPageProcessor
         for (int i = 0; i < dictionary.getPositionCount(); i++) {
             projection.project(i, blocks, dictionaryBuilder);
         }
-        return dictionaryBuilder.build();
+
+        inputDictionaries[projectionIndex] = dictionary;
+        outputDictionaries[projectionIndex] = dictionaryBuilder.build();
+
+        return outputDictionaries[projectionIndex];
     }
 
     private static boolean canDictionaryProcess(ProjectionFunction projection, Page inputPage)
