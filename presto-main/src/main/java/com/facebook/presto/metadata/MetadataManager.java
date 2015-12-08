@@ -113,6 +113,7 @@ public class MetadataManager
     private final ConcurrentMap<String, ConnectorEntry> connectorsByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorEntry> connectorsById = new ConcurrentHashMap<>();
     private final FunctionRegistry functions;
+    private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
     private final SplitManager splitManager;
@@ -143,6 +144,7 @@ public class MetadataManager
             TransactionManager transactionManager)
     {
         functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig.isExperimentalSyntaxEnabled());
+        procedures = new ProcedureRegistry();
         this.typeManager = requireNonNull(typeManager, "types is null");
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -700,6 +702,12 @@ public class MetadataManager
     {
         // TODO: transactional when FunctionRegistry is made transactional
         return functions;
+    }
+
+    @Override
+    public ProcedureRegistry getProcedureRegistry()
+    {
+        return procedures;
     }
 
     @Override

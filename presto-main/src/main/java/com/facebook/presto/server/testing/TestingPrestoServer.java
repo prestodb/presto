@@ -35,6 +35,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Joiner;
@@ -98,6 +99,7 @@ public class TestingPrestoServer
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
+    private final ProcedureTester procedureTester;
     private final SplitManager splitManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
@@ -203,6 +205,7 @@ public class TestingPrestoServer
                     binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
+                    binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri != null) {
@@ -244,6 +247,7 @@ public class TestingPrestoServer
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
+        procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
@@ -329,6 +333,11 @@ public class TestingPrestoServer
     public TestingAccessControlManager getAccessControl()
     {
         return accessControl;
+    }
+
+    public ProcedureTester getProcedureTester()
+    {
+        return procedureTester;
     }
 
     public SplitManager getSplitManager()

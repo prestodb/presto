@@ -18,11 +18,14 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.ProcedureRegistry;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -121,6 +124,13 @@ public class DistributedQueryRunner
             SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
             sessionPropertyManager.addSystemSessionProperties(AbstractTestQueries.TEST_SYSTEM_PROPERTIES);
             sessionPropertyManager.addConnectorSessionProperties("connector", AbstractTestQueries.TEST_CATALOG_PROPERTIES);
+        }
+
+        TypeManager typeManager = coordinator.getMetadata().getTypeManager();
+        ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
+        TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester(), typeManager);
+        for (Procedure procedure : procedures.getProcedures(defaultSession.getSchema().get())) {
+            procedureRegistry.addProcedure(defaultSession.getCatalog().get(), procedure);
         }
     }
 

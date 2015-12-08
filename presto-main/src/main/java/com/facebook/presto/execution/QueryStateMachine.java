@@ -172,6 +172,11 @@ public class QueryStateMachine
         return session;
     }
 
+    public boolean isAutoCommit()
+    {
+        return autoCommit;
+    }
+
     public long getPeakMemoryInBytes()
     {
         return peakMemory.get();

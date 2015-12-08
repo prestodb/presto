@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.AddColumnTask;
+import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
@@ -54,6 +55,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -195,6 +197,7 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, StartTransaction.class, StartTransactionTask.class);
         bindDataDefinitionTask(binder, executionBinder, Commit.class, CommitTask.class);
         bindDataDefinitionTask(binder, executionBinder, Rollback.class, RollbackTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Call.class, CallTask.class);
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
