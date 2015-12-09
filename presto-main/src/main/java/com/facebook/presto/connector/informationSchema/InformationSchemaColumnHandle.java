@@ -23,15 +23,27 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
+
 public class InformationSchemaColumnHandle
         implements ColumnHandle
 {
+    private final String connectorId;
     private final String columnName;
 
     @JsonCreator
-    public InformationSchemaColumnHandle(@JsonProperty("columnName") String columnName)
+    public InformationSchemaColumnHandle(
+            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("columnName") String columnName)
     {
-        this.columnName = columnName;
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.columnName = requireNonNull(columnName, "columnName is null");
+    }
+
+    @JsonProperty
+    public String getConnectorId()
+    {
+        return connectorId;
     }
 
     @JsonProperty
@@ -43,7 +55,7 @@ public class InformationSchemaColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName);
+        return Objects.hash(connectorId, columnName);
     }
 
     @Override
@@ -56,20 +68,21 @@ public class InformationSchemaColumnHandle
             return false;
         }
         final InformationSchemaColumnHandle other = (InformationSchemaColumnHandle) obj;
-        return Objects.equals(this.columnName, other.columnName);
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.columnName, other.columnName);
     }
 
     @Override
     public String toString()
     {
-        return "information_schema:" + columnName;
+        return connectorId + ":" + columnName;
     }
 
-    public static Map<String, ColumnHandle> toInformationSchemaColumnHandles(ConnectorTableMetadata tableMetadata)
+    public static Map<String, ColumnHandle> toInformationSchemaColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata)
     {
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            columnHandles.put(columnMetadata.getName(), new InformationSchemaColumnHandle(columnMetadata.getName()));
+            columnHandles.put(columnMetadata.getName(), new InformationSchemaColumnHandle(connectorId, columnMetadata.getName()));
         }
 
         return columnHandles.build();

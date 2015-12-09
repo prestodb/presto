@@ -43,12 +43,14 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestJsonTableHandle
 {
+    private static final String INFORMATION_SCHEMA_CONNECTOR_ID = "information_connector_id";
     private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("type", "system",
             "schemaName", "system_schema",
             "tableName", "system_table");
 
     private static final Map<String, Object> INFORMATION_SCHEMA_AS_MAP = ImmutableMap.<String, Object>of(
             "type", "information_schema",
+            "connectorId", INFORMATION_SCHEMA_CONNECTOR_ID,
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",
             "tableName", "information_schema_table"
@@ -69,7 +71,7 @@ public class TestJsonTableHandle
                     {
                         MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = MapBinder.newMapBinder(binder, String.class, ConnectorHandleResolver.class);
                         connectorHandleResolverBinder.addBinding("system").to(SystemHandleResolver.class).in(Scopes.SINGLETON);
-                        connectorHandleResolverBinder.addBinding("information_schema").to(InformationSchemaHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("information_schema").toInstance(new InformationSchemaHandleResolver(INFORMATION_SCHEMA_CONNECTOR_ID));
                     }
                 });
 
@@ -92,6 +94,7 @@ public class TestJsonTableHandle
             throws Exception
     {
         InformationSchemaTableHandle informationSchemaTableHandle = new InformationSchemaTableHandle(
+                INFORMATION_SCHEMA_CONNECTOR_ID,
                 "information_schema_catalog",
                 "information_schema_schema",
                 "information_schema_table");
@@ -124,6 +127,7 @@ public class TestJsonTableHandle
         assertEquals(tableHandle.getClass(), InformationSchemaTableHandle.class);
         InformationSchemaTableHandle informationSchemaHandle = (InformationSchemaTableHandle) tableHandle;
 
+        assertEquals(informationSchemaHandle.getConnectorId(), INFORMATION_SCHEMA_CONNECTOR_ID);
         assertEquals(informationSchemaHandle.getCatalogName(), "information_schema_catalog");
         assertEquals(informationSchemaHandle.getSchemaName(), "information_schema_schema");
         assertEquals(informationSchemaHandle.getTableName(), "information_schema_table");

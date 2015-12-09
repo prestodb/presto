@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -166,7 +165,7 @@ public class MetadataManager
         connectorsByCatalog.put(catalogName, connectorMetadataEntry);
     }
 
-    public synchronized void addInformationSchemaMetadata(String connectorId, String catalogName, InformationSchemaMetadata metadata)
+    public synchronized void addInformationSchemaMetadata(String connectorId, String catalogName, ConnectorMetadata metadata)
     {
         checkMetadataArguments(connectorId, catalogName, metadata);
         checkArgument(!informationSchemasByCatalog.containsKey(catalogName), "Information schema for catalog '%s' is already registered", catalogName);

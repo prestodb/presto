@@ -91,11 +91,13 @@ public class InformationSchemaMetadata
                     .build())
             .build();
 
+    private final String connectorId;
     private final String catalogName;
 
-    public InformationSchemaMetadata(String catalogName)
+    public InformationSchemaMetadata(String connectorId, String catalogName)
     {
-        this.catalogName = catalogName;
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     private InformationSchemaTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
@@ -119,7 +121,7 @@ public class InformationSchemaMetadata
             return null;
         }
 
-        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName());
+        return new InformationSchemaTableHandle(connectorId, catalogName, tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
@@ -159,7 +161,7 @@ public class InformationSchemaMetadata
 
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
-        return toInformationSchemaColumnHandles(tableMetadata);
+        return toInformationSchemaColumnHandles(informationSchemaTableHandle.getConnectorId(), tableMetadata);
     }
 
     @Override

@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.connector;
 
-import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
-import com.facebook.presto.connector.informationSchema.InformationSchemaPageSourceProvider;
-import com.facebook.presto.connector.informationSchema.InformationSchemaSplitManager;
+import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
@@ -244,9 +242,11 @@ public class ConnectorManager
 
         metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
 
-        metadataManager.addInformationSchemaMetadata(makeInformationSchemaConnectorId(connectorId), catalogName, new InformationSchemaMetadata(catalogName));
-        splitManager.addConnectorSplitManager(makeInformationSchemaConnectorId(connectorId), new InformationSchemaSplitManager(nodeManager));
-        pageSourceManager.addConnectorPageSourceProvider(makeInformationSchemaConnectorId(connectorId), new InformationSchemaPageSourceProvider(metadataManager));
+        Connector informationSchemaConnector = new InformationSchemaConnector(makeInformationSchemaConnectorId(connectorId), catalogName, nodeManager, metadataManager);
+        handleResolver.addHandleResolver(makeInformationSchemaConnectorId(connectorId), informationSchemaConnector.getHandleResolver());
+        metadataManager.addInformationSchemaMetadata(makeInformationSchemaConnectorId(connectorId), catalogName, informationSchemaConnector.getMetadata());
+        splitManager.addConnectorSplitManager(makeInformationSchemaConnectorId(connectorId), informationSchemaConnector.getSplitManager());
+        pageSourceManager.addConnectorPageSourceProvider(makeInformationSchemaConnectorId(connectorId), informationSchemaConnector.getPageSourceProvider());
 
         Connector systemConnector = new SystemConnector(nodeManager, systemTables);
         metadataManager.addSystemTablesMetadata(makeSystemTablesConnectorId(connectorId), catalogName, systemConnector.getMetadata());
