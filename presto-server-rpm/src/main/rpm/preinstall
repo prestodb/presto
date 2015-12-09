@@ -5,17 +5,27 @@
 java_version() {
 # The one argument is the location of java (either $JAVA_HOME or a potential
 # candidate for JAVA_HOME.
-  "$1"/bin/java -version 2>&1 | grep "java version" | awk '{ print substr($3, 2, length($3)-2); }'
+  JAVA="$1"/bin/java
+  "$JAVA" -version 2>&1 | grep "java version" | awk '{ print substr($3, 2, length($3)-2); }'
 }
 
 java_vendor() {
 # The one argument is the location of java (either $JAVA_HOME or a potential
 # candidate for JAVA_HOME).
 # Returns the java vendor name. eg: Oracle Corporation
-  "$1"/bin/java -XshowSettings:properties -version 2>&1 | grep "java.vendor =" | awk '{ print $3 " " $4; }'
+  JAVA="$1"/bin/java
+  "$JAVA" -XshowSettings:properties -version 2>&1 | grep "java.vendor =" | awk '{ print $3 " " $4; }'
 }
 
 check_if_correct_java_version() {
+
+# If the string is empty return non-zero code.  We don't want false positives if /bin/java is
+# a valid java version because that will leave java8_home unset and the init.d scripts will
+# use the default java version, which may not be java 8.
+  if [ -z $1 ] ; then
+    return 1
+  fi
+
 # The one argument is the location of java (either $JAVA_HOME or a potential
 # candidate for JAVA_HOME).
   JAVA_VERSION=$(java_version "$1")
@@ -40,7 +50,9 @@ if ! check_if_correct_java_version "$JAVA8_HOME" && ! check_if_correct_java_vers
       /usr/java/jre1.8* \
       /usr/jdk64/jdk1.8* \
       /usr/lib/jvm/default-java \
-      /usr/java/default ; do
+      /usr/java/default \
+      / \
+      /usr ; do
       if [ -e "$candidate"/bin/java ]; then
         if check_if_correct_java_version "$candidate" ; then
           java_found=true
