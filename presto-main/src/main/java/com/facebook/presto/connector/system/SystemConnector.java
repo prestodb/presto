@@ -21,8 +21,6 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 
-import javax.inject.Inject;
-
 import java.util.Set;
 
 public class SystemConnector
@@ -30,14 +28,15 @@ public class SystemConnector
 {
     public static final String NAME = "system";
 
+    private final SystemHandleResolver handleResolver;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
 
-    @Inject
-    public SystemConnector(NodeManager nodeManager, Set<SystemTable> tables)
+    public SystemConnector(String connectorId, NodeManager nodeManager, Set<SystemTable> tables)
     {
-        metadata = new SystemTablesMetadata(tables);
+        handleResolver = new SystemHandleResolver(connectorId);
+        metadata = new SystemTablesMetadata(connectorId, tables);
         splitManager = new SystemSplitManager(nodeManager, tables);
         recordSetProvider = new SystemRecordSetProvider(tables);
     }
@@ -57,7 +56,7 @@ public class SystemConnector
     @Override
     public ConnectorHandleResolver getHandleResolver()
     {
-        return new SystemHandleResolver();
+        return handleResolver;
     }
 
     @Override

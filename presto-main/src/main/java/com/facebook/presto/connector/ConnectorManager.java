@@ -153,15 +153,6 @@ public class ConnectorManager
         addConnector(catalogName, connectorId, connector);
     }
 
-    public synchronized void createConnection(String catalogName, Connector connector)
-    {
-        checkState(!stopped.get(), "ConnectorManager is stopped");
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(connector, "connector is null");
-
-        addConnector(catalogName, getConnectorId(catalogName), connector);
-    }
-
     private synchronized void addConnector(String catalogName, String connectorId, Connector connector)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
@@ -248,7 +239,8 @@ public class ConnectorManager
         splitManager.addConnectorSplitManager(makeInformationSchemaConnectorId(connectorId), informationSchemaConnector.getSplitManager());
         pageSourceManager.addConnectorPageSourceProvider(makeInformationSchemaConnectorId(connectorId), informationSchemaConnector.getPageSourceProvider());
 
-        Connector systemConnector = new SystemConnector(nodeManager, systemTables);
+        Connector systemConnector = new SystemConnector(makeSystemTablesConnectorId(connectorId), nodeManager, systemTables);
+        handleResolver.addHandleResolver(makeSystemTablesConnectorId(connectorId), systemConnector.getHandleResolver());
         metadataManager.addSystemTablesMetadata(makeSystemTablesConnectorId(connectorId), catalogName, systemConnector.getMetadata());
         splitManager.addConnectorSplitManager(makeSystemTablesConnectorId(connectorId), systemConnector.getSplitManager());
         pageSourceManager.addConnectorPageSourceProvider(makeSystemTablesConnectorId(connectorId), new RecordPageSourceProvider(systemConnector.getRecordSetProvider()));

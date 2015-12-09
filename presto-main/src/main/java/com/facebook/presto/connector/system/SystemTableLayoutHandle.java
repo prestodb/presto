@@ -24,16 +24,25 @@ import static java.util.Objects.requireNonNull;
 public class SystemTableLayoutHandle
     implements ConnectorTableLayoutHandle
 {
+    private final String connectorId;
     private final SystemTableHandle table;
     private final TupleDomain<ColumnHandle> constraint;
 
     @JsonCreator
     public SystemTableLayoutHandle(
+            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("table") SystemTableHandle table,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.table = requireNonNull(table, "table is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+    }
+
+    @JsonProperty
+    public String getConnectorId()
+    {
+        return connectorId;
     }
 
     @JsonProperty

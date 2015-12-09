@@ -27,21 +27,31 @@ import static java.util.Objects.requireNonNull;
 public class SystemTableHandle
         implements ConnectorTableHandle
 {
+    private final String connectorId;
     private final String schemaName;
     private final String tableName;
 
     @JsonCreator
-    public SystemTableHandle(@JsonProperty("schemaName") String schemaName, @JsonProperty("tableName") String tableName)
+    public SystemTableHandle(
+            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableName") String tableName)
     {
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
     }
 
-    public SystemTableHandle(SchemaTableName tableName)
+    public static SystemTableHandle fromSchemaTableName(String connectorId, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
-        this.schemaName = tableName.getSchemaName();
-        this.tableName = tableName.getTableName();
+        return new SystemTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
+    }
+
+    @JsonProperty
+    public String getConnectorId()
+    {
+        return connectorId;
     }
 
     @JsonProperty
@@ -64,13 +74,13 @@ public class SystemTableHandle
     @Override
     public String toString()
     {
-        return "system:" + schemaName + "." + tableName;
+        return connectorId + ":" + schemaName + "." + tableName;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(connectorId, schemaName, tableName);
     }
 
     @Override
@@ -83,7 +93,8 @@ public class SystemTableHandle
             return false;
         }
         final SystemTableHandle other = (SystemTableHandle) obj;
-        return Objects.equals(this.schemaName, other.schemaName) &&
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName);
     }
 }

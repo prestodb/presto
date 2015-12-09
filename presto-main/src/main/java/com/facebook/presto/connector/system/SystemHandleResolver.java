@@ -19,31 +19,44 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
+import static java.util.Objects.requireNonNull;
+
 public class SystemHandleResolver
         implements ConnectorHandleResolver
 {
+    private final String connectorId;
+
+    public SystemHandleResolver(String connectorId)
+    {
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+    }
+
     @Override
     public boolean canHandle(ConnectorTableHandle tableHandle)
     {
-        return tableHandle instanceof SystemTableHandle;
+        return (tableHandle instanceof SystemTableHandle) &&
+                ((SystemTableHandle) tableHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
     public boolean canHandle(ColumnHandle columnHandle)
     {
-        return columnHandle instanceof SystemColumnHandle;
+        return (columnHandle instanceof SystemColumnHandle) &&
+                ((SystemColumnHandle) columnHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
     public boolean canHandle(ConnectorSplit split)
     {
-        return split instanceof SystemSplit;
+        return (split instanceof SystemSplit) &&
+                ((SystemSplit) split).getConnectorId().equals(connectorId);
     }
 
     @Override
     public boolean canHandle(ConnectorTableLayoutHandle handle)
     {
-        return handle instanceof SystemTableLayoutHandle;
+        return (handle instanceof SystemTableLayoutHandle) &&
+                ((SystemTableLayoutHandle) handle).getConnectorId().equals(connectorId);
     }
 
     @Override
