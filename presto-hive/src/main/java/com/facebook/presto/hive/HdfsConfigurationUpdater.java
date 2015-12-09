@@ -30,7 +30,6 @@ import java.io.File;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsConfigurationUpdater
@@ -125,13 +124,13 @@ public class HdfsConfigurationUpdater
         config.set("fs.s3bfs.impl", "org.apache.hadoop.fs.s3.S3FileSystem");
 
         // set AWS credentials for S3
-        for (String scheme : ImmutableList.of("s3", "s3a", "s3bfs", "s3n")) {
-            if (s3AwsAccessKey != null) {
-                config.set(format("fs.%s.awsAccessKeyId", scheme), s3AwsAccessKey);
-            }
-            if (s3AwsSecretKey != null) {
-                config.set(format("fs.%s.awsSecretAccessKey", scheme), s3AwsSecretKey);
-            }
+        if (s3AwsAccessKey != null) {
+            config.set(PrestoS3FileSystem.S3_ACCESS_KEY, s3AwsAccessKey);
+            config.set("fs.s3bfs.awsAccessKeyId", s3AwsAccessKey);
+        }
+        if (s3AwsSecretKey != null) {
+            config.set(PrestoS3FileSystem.S3_SECRET_KEY, s3AwsSecretKey);
+            config.set("fs.s3bfs.awsSecretAccessKey", s3AwsSecretKey);
         }
 
         // set config for S3
