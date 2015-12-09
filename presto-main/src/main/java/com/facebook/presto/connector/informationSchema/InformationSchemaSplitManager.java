@@ -73,6 +73,8 @@ public class InformationSchemaSplitManager
             return new FixedSplitSource(null, ImmutableList.<ConnectorSplit>of());
         }
 
+        InformationSchemaTableHandle tableHandle = checkType(table, InformationSchemaTableHandle.class, "table");
+
         ConnectorPartition partition = Iterables.getOnlyElement(partitions);
         InformationSchemaPartition informationSchemaPartition = checkType(partition, InformationSchemaPartition.class, "partition");
 
@@ -84,7 +86,7 @@ public class InformationSchemaSplitManager
             filters.put(informationSchemaColumnHandle.getColumnName(), entry.getValue());
         }
 
-        ConnectorSplit split = new InformationSchemaSplit(informationSchemaPartition.getTable(), filters.build(), localAddress);
+        ConnectorSplit split = new InformationSchemaSplit(tableHandle.getConnectorId(), informationSchemaPartition.getTable(), filters.build(), localAddress);
 
         return new FixedSplitSource(null, ImmutableList.of(split));
     }
