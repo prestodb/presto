@@ -35,7 +35,6 @@ import parquet.column.statistics.LongStatistics;
 import parquet.column.statistics.Statistics;
 import parquet.schema.PrimitiveType.PrimitiveTypeName;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -182,7 +181,9 @@ public class TupleDomainParquetPredicate<C>
         try {
             dictionary = dictionaryPage.getEncoding().initDictionary(columnDescriptor, dictionaryPage);
         }
-        catch (IOException e) {
+        catch (Exception e) {
+            // In case of exception, just continue reading the data, not using dictionary page at all
+            // OK to ignore exception when reading dictionaries
             return null;
         }
 
