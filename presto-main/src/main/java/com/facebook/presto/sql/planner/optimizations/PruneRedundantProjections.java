@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.ExpressionNodeInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -65,6 +66,31 @@ public class PruneRedundantProjections
             return context.defaultRewrite(node, assignments -> assignments.stream()
                     .flatMap(assignment -> assignment.entrySet().stream())
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
+        }
+
+        @Override
+        public Result<Map<Symbol, Expression>> visitJoin(JoinNode node, RewriteContext<Void, Map<Symbol, Expression>> context)
+        {
+            Result<Map<Symbol, Expression>> left = visitPlan(node.getLeft(), context);
+            Result<Map<Symbol, Expression>> right = visitPlan(node.getRight(), context);
+            ImmutableMap.Builder<Symbol, Expression> sourceExpressions = ImmutableMap.<Symbol, Expression>builder();
+
+            // Never remove redundant projection expressions in outer tables
+            switch (node.getType()) {
+                case FULL:
+                    break;
+                case LEFT:
+                    sourceExpressions.putAll(left.getPayload());
+                    break;
+                case RIGHT:
+                    sourceExpressions.putAll(right.getPayload());
+                    break;
+                case INNER:
+                    sourceExpressions.putAll(left.getPayload()).putAll(right.getPayload());
+                    break;
+            }
+            return new Result<>(new JoinNode(node.getId(), node.getType(), left.getPlanNode(), right.getPlanNode(), node.getCriteria(),
+                    node.getLeftHashSymbol(), node.getRightHashSymbol()), sourceExpressions.build());
         }
 
         @Override
