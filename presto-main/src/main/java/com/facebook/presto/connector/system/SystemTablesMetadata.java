@@ -47,10 +47,12 @@ import static java.util.stream.Collectors.toMap;
 public class SystemTablesMetadata
         implements ConnectorMetadata
 {
+    private final String connectorId;
     private final Map<SchemaTableName, ConnectorTableMetadata> tables;
 
-    public SystemTablesMetadata(Set<SystemTable> tables)
+    public SystemTablesMetadata(String connectorId, Set<SystemTable> tables)
     {
+        this.connectorId = connectorId;
         this.tables = tables.stream()
                 .map(SystemTable::getTableMetadata)
                 .collect(toMap(ConnectorTableMetadata::getTable, identity()));
@@ -78,14 +80,14 @@ public class SystemTablesMetadata
         if (!tables.containsKey(tableName)) {
             return null;
         }
-        return new SystemTableHandle(tableName);
+        return SystemTableHandle.fromSchemaTableName(connectorId, tableName);
     }
 
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         SystemTableHandle tableHandle = checkType(table, SystemTableHandle.class, "table");
-        ConnectorTableLayout layout = new ConnectorTableLayout(new SystemTableLayoutHandle(tableHandle, constraint.getSummary()));
+        ConnectorTableLayout layout = new ConnectorTableLayout(new SystemTableLayoutHandle(tableHandle.getConnectorId(), tableHandle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
@@ -132,7 +134,7 @@ public class SystemTablesMetadata
     {
         SystemTableHandle systemTableHandle = checkTableHandle(tableHandle);
 
-        return toSystemColumnHandles(tables.get(systemTableHandle.getSchemaTableName()));
+        return toSystemColumnHandles(systemTableHandle.getConnectorId(), tables.get(systemTableHandle.getSchemaTableName()));
     }
 
     @Override

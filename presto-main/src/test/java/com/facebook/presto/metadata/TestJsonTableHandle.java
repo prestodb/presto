@@ -27,7 +27,6 @@ import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 import com.google.inject.Stage;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.json.JsonModule;
@@ -44,7 +43,10 @@ import static org.testng.Assert.assertTrue;
 public class TestJsonTableHandle
 {
     private static final String INFORMATION_SCHEMA_CONNECTOR_ID = "information_connector_id";
-    private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of("type", "system",
+    private static final String SYSTEM_CONNECTOR_ID = "system_connector_id";
+    private static final Map<String, Object> SYSTEM_AS_MAP = ImmutableMap.<String, Object>of(
+            "type", "system",
+            "connectorId", SYSTEM_CONNECTOR_ID,
             "schemaName", "system_schema",
             "tableName", "system_table");
 
@@ -70,7 +72,7 @@ public class TestJsonTableHandle
                     public void configure(Binder binder)
                     {
                         MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = MapBinder.newMapBinder(binder, String.class, ConnectorHandleResolver.class);
-                        connectorHandleResolverBinder.addBinding("system").to(SystemHandleResolver.class).in(Scopes.SINGLETON);
+                        connectorHandleResolverBinder.addBinding("system").toInstance(new SystemHandleResolver(SYSTEM_CONNECTOR_ID));
                         connectorHandleResolverBinder.addBinding("information_schema").toInstance(new InformationSchemaHandleResolver(INFORMATION_SCHEMA_CONNECTOR_ID));
                     }
                 });
@@ -82,7 +84,7 @@ public class TestJsonTableHandle
     public void testSystemSerialize()
             throws Exception
     {
-        SystemTableHandle internalHandle = new SystemTableHandle("system_schema", "system_table");
+        SystemTableHandle internalHandle = new SystemTableHandle(SYSTEM_CONNECTOR_ID, "system_schema", "system_table");
 
         assertTrue(objectMapper.canSerialize(SystemTableHandle.class));
         String json = objectMapper.writeValueAsString(internalHandle);
@@ -114,6 +116,7 @@ public class TestJsonTableHandle
         assertEquals(tableHandle.getClass(), SystemTableHandle.class);
         SystemTableHandle systemHandle = (SystemTableHandle) tableHandle;
 
+        assertEquals(systemHandle.getConnectorId(), SYSTEM_CONNECTOR_ID);
         assertEquals(systemHandle.getSchemaTableName(), new SchemaTableName("system_schema", "system_table"));
     }
 

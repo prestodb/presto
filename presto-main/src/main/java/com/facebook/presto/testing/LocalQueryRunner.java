@@ -21,6 +21,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.connector.system.SystemConnectorFactory;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
@@ -64,7 +65,6 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
@@ -197,12 +197,12 @@ public class LocalQueryRunner
                 nodeManager
         );
 
-        Connector systemConnector = new SystemConnector(nodeManager, ImmutableSet.of(
+        SystemConnectorFactory systemConnectorFactory = new SystemConnectorFactory(nodeManager, ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata),
                 new TablePropertiesSystemTable(metadata)));
 
-        connectorManager.createConnection(SystemConnector.NAME, systemConnector);
+        connectorManager.createConnection(SystemConnector.NAME, systemConnectorFactory, ImmutableMap.of());
 
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(

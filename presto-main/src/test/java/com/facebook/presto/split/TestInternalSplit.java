@@ -29,8 +29,9 @@ public class TestInternalSplit
     public void testSerialization()
             throws Exception
     {
-        SystemTableHandle tableHandle = new SystemTableHandle("xyz", "foo");
-        SystemSplit expected = new SystemSplit(tableHandle, HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
+        String connectorId = "testid";
+        SystemTableHandle tableHandle = new SystemTableHandle(connectorId, "xyz", "foo");
+        SystemSplit expected = new SystemSplit(connectorId, tableHandle, HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
 
         JsonCodec<SystemSplit> codec = jsonCodec(SystemSplit.class);
         SystemSplit actual = codec.fromJson(codec.toJson(expected));
