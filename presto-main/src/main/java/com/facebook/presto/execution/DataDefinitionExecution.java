@@ -27,6 +27,7 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -92,9 +93,16 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            task.execute(statement, session, metadata, accessControl, stateMachine);
+            CompletableFuture<?> future = task.execute(statement, session, metadata, accessControl, stateMachine);
 
-            stateMachine.transitionToFinished();
+            future.whenComplete((o, throwable) -> {
+                if (throwable == null) {
+                    stateMachine.transitionToFinished();
+                }
+                else {
+                    fail(throwable);
+                }
+            });
         }
         catch (Throwable e) {
             fail(e);

@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -37,6 +38,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_E
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class CreateTableTask
         implements DataDefinitionTask<CreateTable>
@@ -54,7 +56,7 @@ public class CreateTableTask
     }
 
     @Override
-    public void execute(CreateTable statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(CreateTable statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -64,7 +66,7 @@ public class CreateTableTask
             if (!statement.isNotExists()) {
                 throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
             }
-            return;
+            return completedFuture(null);
         }
 
         List<ColumnMetadata> columns = new ArrayList<>();
@@ -89,5 +91,7 @@ public class CreateTableTask
                 new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, properties, session.getUser(), false));
 
         metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
+
+        return completedFuture(null);
     }
 }

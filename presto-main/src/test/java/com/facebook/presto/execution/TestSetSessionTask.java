@@ -76,7 +76,7 @@ public class TestSetSessionTask
             throws Exception
     {
         QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), executor);
-        new SetSessionTask().execute(new SetSession(QualifiedName.of("foo", "bar"), expression), TEST_SESSION, metadata, new AllowAllAccessControl(), stateMachine);
+        new SetSessionTask().execute(new SetSession(QualifiedName.of("foo", "bar"), expression), TEST_SESSION, metadata, new AllowAllAccessControl(), stateMachine).join();
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of("foo.bar", expectedValue));

@@ -24,12 +24,14 @@ import com.facebook.presto.sql.tree.RenameColumn;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class RenameColumnTask
         implements DataDefinitionTask<RenameColumn>
@@ -41,7 +43,7 @@ public class RenameColumnTask
     }
 
     @Override
-    public void execute(RenameColumn statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(RenameColumn statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
@@ -63,5 +65,7 @@ public class RenameColumnTask
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", target);
         }
         metadata.renameColumn(session, tableHandle.get(), columnHandles.get(source), target);
+
+        return completedFuture(null);
     }
 }
