@@ -371,9 +371,17 @@ public class Validator
                 if (explainOnly) {
                     sql = "EXPLAIN " + sql;
                 }
-                try (final ResultSet resultSet = limitedStatement.executeQuery(sql)) {
-                    List<List<Object>> results = limiter.callWithTimeout(getResultSetConverter(resultSet), timeout.toMillis() - stopwatch.elapsed(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS, true);
-                    return new QueryResult(State.SUCCESS, null, nanosSince(start), results);
+                try {
+                    if (limitedStatement.execute(sql)) {
+                        List<List<Object>> results = limiter.callWithTimeout(
+                                getResultSetConverter(limitedStatement.getResultSet()),
+                                timeout.toMillis() - stopwatch.elapsed(TimeUnit.MILLISECONDS),
+                                TimeUnit.MILLISECONDS, true);
+                        return new QueryResult(State.SUCCESS, null, nanosSince(start), results);
+                    }
+                    else {
+                        return new QueryResult(State.SUCCESS, null, nanosSince(start), null);
+                    }
                 }
                 catch (AssertionError e) {
                     if (e.getMessage().startsWith("unimplemented type:")) {
