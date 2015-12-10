@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import javax.inject.Inject;
 
@@ -59,9 +60,21 @@ public class JdbcHandleResolver
     }
 
     @Override
+    public boolean canHandle(ConnectorTableLayoutHandle handle)
+    {
+        return (handle instanceof JdbcTableLayoutHandle) && ((JdbcTableLayoutHandle) handle).getTable().getConnectorId().equals(connectorId);
+    }
+
+    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return JdbcTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return JdbcTableLayoutHandle.class;
     }
 
     @Override
