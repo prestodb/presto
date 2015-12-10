@@ -46,7 +46,7 @@ public class MultiChannelGroupByHash
 {
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
 
-    private static final float FILL_RATIO = 0.9f;
+    private static final float FILL_RATIO = 0.75f;
     private final List<Type> types;
     private final int[] channels;
 
