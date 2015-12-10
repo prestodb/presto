@@ -17,6 +17,7 @@ General Changes
   It also supports the ``getUpdateCount`` and ``getLargeUpdateCount`` methods.
 * Fix :doc:`/sql/show-session` to not show hidden session properties.
 * Fix hang in large queries with ``ORDER BY`` and ``LIMIT``.
+* Fix cast from ``array<unknown>`` to ``array<T>``.
 
 CLI Changes
 -----------
