@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -31,6 +32,7 @@ import java.util.Optional;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
@@ -287,7 +289,7 @@ public class MultiChannelGroupByHash
 
         // increase capacity, if necessary
         if (nextGroupId >= maxFill) {
-            rehash(maxFill * 2);
+            rehash();
         }
         return groupId;
     }
@@ -304,14 +306,18 @@ public class MultiChannelGroupByHash
         }
     }
 
-    private void rehash(int size)
+    private void rehash()
     {
-        int newSize = arraySize(size + 1, FILL_RATIO);
+        long newCapacityLong = this.groupIdsByHash.length * 2L;
+        if (newCapacityLong > Integer.MAX_VALUE) {
+            throw new PrestoException(INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+        }
+        int newCapacity = (int) newCapacityLong;
 
-        int newMask = newSize - 1;
-        long[] newKey = new long[newSize];
+        int newMask = newCapacity - 1;
+        long[] newKey = new long[newCapacity];
         Arrays.fill(newKey, -1);
-        int[] newValue = new int[newSize];
+        int[] newValue = new int[newCapacity];
 
         int oldIndex = 0;
         for (int groupId = 0; groupId < nextGroupId; groupId++) {
@@ -336,7 +342,7 @@ public class MultiChannelGroupByHash
         }
 
         this.mask = newMask;
-        this.maxFill = calculateMaxFill(newSize);
+        this.maxFill = calculateMaxFill(newCapacity);
         this.groupAddressByHash = newKey;
         this.groupIdsByHash = newValue;
         groupAddressByGroupId.ensureCapacity(maxFill);
