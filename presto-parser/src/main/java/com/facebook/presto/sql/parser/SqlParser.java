@@ -29,6 +29,7 @@ import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.EnumSet;
@@ -48,6 +49,9 @@ public class SqlParser
     };
 
     private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
+
+    @GuardedBy("static")
+    private static int invocationCount;
 
     public SqlParser()
     {
@@ -101,10 +105,19 @@ public class SqlParser
                 tree = parseFunction.apply(parser);
             }
 
+            clearDFA(parser);
+
             return new AstBuilder().visit(tree);
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)");
+        }
+    }
+
+    private static synchronized void clearDFA(SqlBaseParser parser)
+    {
+        if (++invocationCount % 1000 == 0) { // is it too often?
+            parser.getInterpreter().clearDFA();
         }
     }
 
