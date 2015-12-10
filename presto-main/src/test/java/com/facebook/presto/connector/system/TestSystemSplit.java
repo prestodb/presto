@@ -11,10 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.split;
+package com.facebook.presto.connector.system;
 
-import com.facebook.presto.connector.system.SystemSplit;
-import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import io.airlift.json.JsonCodec;
@@ -23,7 +21,7 @@ import org.testng.annotations.Test;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
-public class TestInternalSplit
+public class TestSystemSplit
 {
     @Test
     public void testSerialization()
