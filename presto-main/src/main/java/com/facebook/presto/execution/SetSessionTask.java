@@ -24,10 +24,13 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetSession;
 
+import java.util.concurrent.CompletableFuture;
+
 import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static com.facebook.presto.metadata.SessionPropertyManager.serializeSessionProperty;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
 import static java.lang.String.format;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class SetSessionTask
         implements DataDefinitionTask<SetSession>
@@ -39,7 +42,7 @@ public class SetSessionTask
     }
 
     @Override
-    public void execute(SetSession statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(SetSession statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         QualifiedName propertyName = statement.getName();
         if (propertyName.getParts().size() > 2) {
@@ -71,5 +74,7 @@ public class SetSessionTask
         // verify the SQL value can be decoded by the property
         metadata.getSessionPropertyManager().decodeProperty(propertyName.toString(), value, propertyMetadata.getJavaType());
         stateMachine.addSetSessionProperties(propertyName.toString(), value);
+
+        return completedFuture(null);
     }
 }

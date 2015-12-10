@@ -19,11 +19,13 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 
+import java.util.concurrent.CompletableFuture;
+
 public interface DataDefinitionTask<T extends Statement>
 {
     String getName();
 
-    void execute(T statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine);
+    CompletableFuture<?> execute(T statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine);
 
     default String explain(T statement)
     {

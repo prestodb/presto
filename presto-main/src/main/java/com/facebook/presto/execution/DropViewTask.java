@@ -22,9 +22,11 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropView;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class DropViewTask
         implements DataDefinitionTask<DropView>
@@ -36,7 +38,7 @@ public class DropViewTask
     }
 
     @Override
-    public void execute(DropView statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(DropView statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
@@ -45,11 +47,13 @@ public class DropViewTask
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);
             }
-            return;
+            return completedFuture(null);
         }
 
         accessControl.checkCanDropView(session.getIdentity(), name);
 
         metadata.dropView(session, name);
+
+        return completedFuture(null);
     }
 }
