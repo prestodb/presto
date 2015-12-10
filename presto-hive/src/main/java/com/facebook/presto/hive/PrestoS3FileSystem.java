@@ -189,6 +189,20 @@ public class PrestoS3FileSystem
     }
 
     @Override
+    public void close()
+            throws IOException
+    {
+        try {
+            super.close();
+        }
+        finally {
+            if (s3 instanceof AmazonS3Client) {
+                ((AmazonS3Client) s3).shutdown();
+            }
+        }
+    }
+
+    @Override
     public URI getUri()
     {
         return uri;
