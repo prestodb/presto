@@ -16,6 +16,7 @@ General Changes
   The ``Statement`` interface supports all variants of the ``execute`` methods.
   It also supports the ``getUpdateCount`` and ``getLargeUpdateCount`` methods.
 * Fix :doc:`/sql/show-session` to not show hidden session properties.
+* Fix hang in large queries with ``ORDER BY`` and ``LIMIT``.
 
 CLI Changes
 -----------
