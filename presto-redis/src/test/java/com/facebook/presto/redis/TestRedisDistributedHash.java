@@ -65,11 +65,6 @@ public class TestRedisDistributedHash
     }
 
     @Override
-    public void testCreateTableAsSelectSampled()
-    {
-    }
-
-    @Override
     public void testSymbolAliasing()
     {
     }
