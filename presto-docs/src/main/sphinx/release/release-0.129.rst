@@ -16,6 +16,8 @@ General Changes
   The ``Statement`` interface supports all variants of the ``execute`` methods.
   It also supports the ``getUpdateCount`` and ``getLargeUpdateCount`` methods.
 * Fix :doc:`/sql/show-session` to not show hidden session properties.
+* Improve memory accounting. Some queries, particularly ones using
+  :func:`max_by` or :func:`min_by` may now appear to use more memory.
 
 CLI Changes
 -----------
