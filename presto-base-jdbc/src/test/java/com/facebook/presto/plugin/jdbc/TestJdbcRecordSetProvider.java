@@ -14,7 +14,6 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -183,8 +182,8 @@ public class TestJdbcRecordSetProvider
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
             throws InterruptedException
     {
-        ConnectorPartitionResult partitions = jdbcClient.getPartitions(jdbcTableHandle, domain);
-        ConnectorSplitSource splits = jdbcClient.getPartitionSplits((JdbcPartition) getOnlyElement(partitions.getPartitions()));
+        JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain);
+        ConnectorSplitSource splits = jdbcClient.getSplits(layoutHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)));
 
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
