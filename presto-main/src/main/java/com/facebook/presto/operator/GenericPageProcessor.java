@@ -116,9 +116,7 @@ public class GenericPageProcessor
             ProjectionFunction projection = projections.get(projectionIndex);
 
             if (canDictionaryProcess(projection, inputPage)) {
-                Block outputDictionary = projectDictionary(projection, inputPage);
-                int[] outputIds = filterIds(projection, inputPage, selectedPositions);
-                outputBlocks[projectionIndex] = new DictionaryBlock(selectedPositions.length, outputDictionary, wrappedIntArray(outputIds));
+                outputBlocks[projectionIndex] = projectColumnarDictionary(inputPage, selectedPositions, projection);
             }
             else {
                 outputBlocks[projectionIndex] = projectColumnar(selectedPositions, pageBuilder.getBlockBuilder(projectionIndex), inputBlocks, projection).build();
@@ -129,6 +127,13 @@ public class GenericPageProcessor
             verify(block.getPositionCount() == selectedPositions.length);
         }
         return new Page(selectedPositions.length, outputBlocks);
+    }
+
+    private Block projectColumnarDictionary(Page inputPage, int[] selectedPositions, ProjectionFunction projection)
+    {
+        Block outputDictionary = projectDictionary(projection, inputPage);
+        int[] outputIds = filterIds(projection, inputPage, selectedPositions);
+        return new DictionaryBlock(selectedPositions.length, outputDictionary, wrappedIntArray(outputIds));
     }
 
     private static BlockBuilder projectColumnar(int[] selectedPositions, BlockBuilder blockBuilder, Block[] inputBlocks, ProjectionFunction projection)
