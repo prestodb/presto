@@ -16,8 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -28,6 +26,8 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
+import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayHashCodeOperator
@@ -45,14 +45,17 @@ public class ArrayHashCodeOperator
     public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = types.get("T");
-        type = typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(type.getTypeSignature()), ImmutableList.of());
         return new ScalarFunctionImplementation(false, ImmutableList.of(false), METHOD_HANDLE.bindTo(type), isDeterministic());
     }
 
     public static long hash(Type type, Block block)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
-        blockBuilder.writeObject(block).closeEntry();
-        return type.hash(blockBuilder.build(), 0);
+        int hash = 0;
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+            // TODO: This should be migrated away from Type.hash and invoke a MethodHandle for the hash code operator instead
+            hash = (int) CombineHashFunction.getHash(hash, type.hash(block, i));
+        }
+        return hash;
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.ArrayBlockBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -26,7 +27,6 @@ import io.airlift.slice.Slice;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
@@ -86,12 +86,12 @@ public class ArrayType
     public int hash(Block block, int position)
     {
         Block array = getObject(block, position);
-        List<Integer> hashArray = new ArrayList<>(array.getPositionCount());
+        int hash = 0;
         for (int i = 0; i < array.getPositionCount(); i++) {
             checkElementNotNull(array.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            hashArray.add(elementType.hash(array, i));
+            hash = (int) CombineHashFunction.getHash(hash, elementType.hash(array, i));
         }
-        return Objects.hash(hashArray);
+        return hash;
     }
 
     @Override
