@@ -45,12 +45,19 @@ public class TestingConnectorSession
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final long startTime;
+    private final Map<String, PropertyMetadata<?>> systemProperties;
+    private final Map<String, Object> systemPropertyValues;
     private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of());
+       this("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), ImmutableList.of(), ImmutableMap.of(), properties, ImmutableMap.of());
+    }
+
+    public TestingConnectorSession(List<PropertyMetadata<?>> systemProperties, List<PropertyMetadata<?>> properties)
+    {
+        this("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), systemProperties, ImmutableMap.of(), properties, ImmutableMap.of());
     }
 
     public TestingConnectorSession(
@@ -58,6 +65,8 @@ public class TestingConnectorSession
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime,
+            List<PropertyMetadata<?>> systemPropertyMetadatas,
+            Map<String, Object> systemPropertyValues,
             List<PropertyMetadata<?>> propertyMetadatas,
             Map<String, Object> propertyValues)
     {
@@ -66,6 +75,8 @@ public class TestingConnectorSession
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
+        this.systemProperties = Maps.uniqueIndex(systemPropertyMetadatas, PropertyMetadata::getName);
+        this.systemPropertyValues = ImmutableMap.copyOf(systemPropertyValues);
         this.properties = Maps.uniqueIndex(propertyMetadatas, PropertyMetadata::getName);
         this.propertyValues = ImmutableMap.copyOf(propertyValues);
     }
@@ -98,6 +109,20 @@ public class TestingConnectorSession
     public long getStartTime()
     {
         return startTime;
+    }
+
+    @Override
+    public <T> T getSystemProperty(String name, Class<T> type)
+    {
+       PropertyMetadata<?> metadata = systemProperties.get(name);
+       if (metadata == null) {
+           throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown system session property " + name);
+       }
+       Object value = systemPropertyValues.get(name);
+       if (value == null) {
+               return type.cast(metadata.getDefaultValue());
+       }
+       return type.cast(metadata.decode(value));
     }
 
     @Override

@@ -141,6 +141,11 @@
             <artifactId>joni</artifactId>
         </dependency>
 
+	<dependency>
+            <groupId>com.google.re2j</groupId>
+            <artifactId>re2j</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift.discovery</groupId>
             <artifactId>discovery-server</artifactId>

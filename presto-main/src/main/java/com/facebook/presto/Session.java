@@ -224,7 +224,7 @@ public final class Session
 
     public ConnectorSession toConnectorSession()
     {
-        return new FullConnectorSession(queryId.toString(), identity, timeZoneKey, locale, startTime);
+        return new FullConnectorSession(queryId.toString(), identity, timeZoneKey, locale, startTime, systemProperties);
     }
 
     public ConnectorSession toConnectorSession(String catalog)
@@ -236,6 +236,7 @@ public final class Session
                 timeZoneKey,
                 locale,
                 startTime,
+                systemProperties,
                 catalogProperties.getOrDefault(catalog, ImmutableMap.of()),
                 catalog,
                 sessionPropertyManager);

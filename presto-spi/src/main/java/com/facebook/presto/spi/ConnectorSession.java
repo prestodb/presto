@@ -35,5 +35,7 @@ public interface ConnectorSession
 
     long getStartTime();
 
+    <T> T getSystemProperty(String name, Class<T> type);
+
     <T> T getProperty(String name, Class<T> type);
 }
