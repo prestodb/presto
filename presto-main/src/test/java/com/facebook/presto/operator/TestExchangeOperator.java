@@ -58,6 +58,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -373,6 +374,7 @@ public class TestExchangeOperator
             int pageToken = Integer.parseInt(parts.get(1));
 
             Builder<String, String> headers = ImmutableListMultimap.builder();
+            headers.put(PRESTO_TASK_INSTANCE_ID, "task-instance-id");
             headers.put(PRESTO_PAGE_TOKEN, String.valueOf(pageToken));
 
             TaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
