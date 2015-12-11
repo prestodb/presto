@@ -138,6 +138,13 @@ public class JdbcMetadata
     }
 
     @Override
+    public void rollbackCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
+    {
+        JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
+        jdbcClient.rollbackCreateTable(handle);
+    }
+
+    @Override
     public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
