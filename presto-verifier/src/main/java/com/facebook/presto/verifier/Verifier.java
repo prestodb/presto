@@ -31,8 +31,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
-import static com.facebook.presto.spi.StandardErrorCode.WORKER_RESTARTED;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -44,7 +44,7 @@ public class Verifier
     private static final Logger log = Logger.get(Verifier.class);
 
     private static final Set<ErrorCode> EXPECTED_ERRORS = ImmutableSet.<ErrorCode>builder()
-            .add(WORKER_RESTARTED.toErrorCode())
+            .add(REMOTE_TASK_MISMATCH.toErrorCode())
             .add(TOO_MANY_REQUESTS_FAILED.toErrorCode())
             .add(PAGE_TRANSPORT_TIMEOUT.toErrorCode())
             .build();

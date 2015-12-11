@@ -134,7 +134,6 @@ public class SqlTaskManager
             {
                 return new SqlTask(
                         taskId,
-                        nodeInfo.getInstanceId(),
                         locationFactory.createLocalTaskLocation(taskId),
                         queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
