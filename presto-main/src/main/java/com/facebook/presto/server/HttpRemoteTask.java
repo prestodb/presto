@@ -70,7 +70,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -88,15 +87,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
-import static com.facebook.presto.spi.StandardErrorCode.WORKER_RESTARTED;
+import static com.facebook.presto.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
-import static com.facebook.presto.util.Failures.WORKER_RESTARTED_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -220,7 +220,7 @@ public final class HttpRemoteTask
 
             taskInfo = new StateMachine<>("task " + taskId, executor, new TaskInfo(
                     taskId,
-                    Optional.empty(),
+                    "",
                     TaskInfo.MIN_VERSION,
                     TaskState.PLANNED,
                     location,
@@ -372,11 +372,11 @@ public final class HttpRemoteTask
         }
 
         // change to new value if old value is not changed and new value has a newer version
-        AtomicBoolean workerRestarted = new AtomicBoolean();
+        AtomicBoolean taskMismatch = new AtomicBoolean();
         taskInfo.setIf(newValue, oldValue -> {
-            // did the worker restart
-            if (oldValue.getNodeInstanceId().isPresent() && !oldValue.getNodeInstanceId().equals(newValue.getNodeInstanceId())) {
-                workerRestarted.set(true);
+            // did the task instance id change
+            if (!isNullOrEmpty(oldValue.getTaskInstanceId()) && !oldValue.getTaskInstanceId().equals(newValue.getTaskInstanceId())) {
+                taskMismatch.set(true);
                 return false;
             }
 
@@ -391,9 +391,8 @@ public final class HttpRemoteTask
             return true;
         });
 
-        if (workerRestarted.get()) {
-            PrestoException exception = new PrestoException(WORKER_RESTARTED, format("%s (%s)", WORKER_RESTARTED_ERROR, newValue.getSelf()));
-            failTask(exception);
+        if (taskMismatch.get()) {
+            failTask(new PrestoException(REMOTE_TASK_MISMATCH, REMOTE_TASK_MISMATCH_ERROR));
             abort();
         }
 
@@ -530,7 +529,7 @@ public final class HttpRemoteTask
             URI uri = taskInfo.getSelf();
 
             updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
-                    taskInfo.getNodeInstanceId(),
+                    taskInfo.getTaskInstanceId(),
                     TaskInfo.MAX_VERSION,
                     TaskState.ABORTED,
                     uri,
@@ -594,7 +593,7 @@ public final class HttpRemoteTask
             log.debug(cause, "Remote task failed: %s", taskInfo.getSelf());
         }
         updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
-                taskInfo.getNodeInstanceId(),
+                taskInfo.getTaskInstanceId(),
                 TaskInfo.MAX_VERSION,
                 TaskState.FAILED,
                 taskInfo.getSelf(),
