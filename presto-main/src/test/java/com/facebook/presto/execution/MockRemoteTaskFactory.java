@@ -65,6 +65,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -72,6 +73,7 @@ import static java.util.Objects.requireNonNull;
 public class MockRemoteTaskFactory
         implements RemoteTaskFactory
 {
+    private static final String TASK_INSTANCE_ID = "task-instance-id";
     private final Executor executor;
 
     public MockRemoteTaskFactory(Executor executor)
@@ -161,7 +163,7 @@ public class MockRemoteTaskFactory
 
             this.location = URI.create("fake://task/" + taskId);
 
-            this.sharedBuffer = new SharedBuffer(taskId, executor, requireNonNull(new DataSize(1, DataSize.Unit.BYTE), "maxBufferSize is null"));
+            this.sharedBuffer = new SharedBuffer(taskId, TASK_INSTANCE_ID, executor, requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"));
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
             checkArgument(partition >= 0, "partition is negative");
@@ -200,7 +202,7 @@ public class MockRemoteTaskFactory
 
             return new TaskInfo(
                     taskStateMachine.getTaskId(),
-                    Optional.empty(),
+                    TASK_INSTANCE_ID,
                     nextTaskInfoVersion.getAndIncrement(),
                     state,
                     location,

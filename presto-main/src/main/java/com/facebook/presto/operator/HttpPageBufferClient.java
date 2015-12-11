@@ -56,11 +56,15 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static com.facebook.presto.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -124,6 +128,8 @@ public final class HttpPageBufferClient
     private boolean completed;
     @GuardedBy("this")
     private long errorDelayMillis;
+    @GuardedBy("this")
+    private String taskInstanceId;
 
     private final AtomicInteger pagesReceived = new AtomicInteger();
 
@@ -290,6 +296,17 @@ public final class HttpPageBufferClient
 
                 List<Page> pages;
                 synchronized (HttpPageBufferClient.this) {
+                    if (taskInstanceId == null) {
+                        taskInstanceId = result.getTaskInstanceId();
+                    }
+
+                    if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
+                        // TODO: update error message
+                        Throwable t = new PrestoException(REMOTE_TASK_MISMATCH, REMOTE_TASK_MISMATCH_ERROR);
+                        handleFailure(t);
+                        return;
+                    }
+
                     if (result.getToken() == token) {
                         pages = result.getPages();
                         token = result.getNextToken();
@@ -496,7 +513,7 @@ public final class HttpPageBufferClient
             // no content means no content was created within the wait period, but query is still ok
             // if job is finished, complete is set in the response
             if (response.getStatusCode() == HttpStatus.NO_CONTENT.code()) {
-                return createEmptyPagesResponse(getToken(response), getNextToken(response), getComplete(response));
+                return createEmptyPagesResponse(getTaskInstanceId(response), getToken(response), getNextToken(response), getComplete(response));
             }
 
             // otherwise we must have gotten an OK response, everything else is considered fatal
@@ -510,17 +527,27 @@ public final class HttpPageBufferClient
                 throw new PageTransportErrorException(format("Expected %s response from server but got %s: %s", PRESTO_PAGES_TYPE, contentType, request.getUri()));
             }
 
+            String taskInstanceId = getTaskInstanceId(response);
             long token = getToken(response);
             long nextToken = getNextToken(response);
             boolean complete = getComplete(response);
 
             try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
                 List<Page> pages = ImmutableList.copyOf(readPages(blockEncodingSerde, input));
-                return createPagesResponse(token, nextToken, pages, complete);
+                return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
+        }
+
+        private static String getTaskInstanceId(Response response)
+        {
+            String taskInstanceId = response.getHeader(PRESTO_TASK_INSTANCE_ID);
+            if (taskInstanceId == null) {
+                throw new PageTransportErrorException(format("Expected %s header", PRESTO_TASK_INSTANCE_ID));
+            }
+            return taskInstanceId;
         }
 
         private static long getToken(Response response)
@@ -563,23 +590,25 @@ public final class HttpPageBufferClient
 
     public static class PagesResponse
     {
-        public static PagesResponse createPagesResponse(long token, long nextToken, Iterable<Page> pages, boolean complete)
+        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<Page> pages, boolean complete)
         {
-            return new PagesResponse(token, nextToken, pages, complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, pages, complete);
         }
 
-        public static PagesResponse createEmptyPagesResponse(long token, long nextToken, boolean complete)
+        public static PagesResponse createEmptyPagesResponse(String taskInstanceId, long token, long nextToken, boolean complete)
         {
-            return new PagesResponse(token, nextToken, ImmutableList.<Page>of(), complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.<Page>of(), complete);
         }
 
+        private final String taskInstanceId;
         private final long token;
         private final long nextToken;
         private final List<Page> pages;
         private final boolean clientComplete;
 
-        private PagesResponse(long token, long nextToken, Iterable<Page> pages, boolean clientComplete)
+        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<Page> pages, boolean clientComplete)
         {
+            this.taskInstanceId = taskInstanceId;
             this.token = token;
             this.nextToken = nextToken;
             this.pages = ImmutableList.copyOf(pages);
@@ -604,6 +633,11 @@ public final class HttpPageBufferClient
         public boolean isClientComplete()
         {
             return clientComplete;
+        }
+
+        public String getTaskInstanceId()
+        {
+            return taskInstanceId;
         }
 
         @Override

@@ -289,7 +289,6 @@ public class TestSqlTask
 
         return new SqlTask(
                 taskId,
-                "test",
                 location,
                 new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)), taskNotificationExecutor),
                 sqlTaskExecutionFactory,
