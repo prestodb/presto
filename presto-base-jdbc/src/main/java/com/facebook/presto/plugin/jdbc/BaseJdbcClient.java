@@ -358,6 +358,17 @@ public class BaseJdbcClient
     }
 
     @Override
+    public void rollbackCreateTable(JdbcOutputTableHandle handle)
+    {
+        dropTable(new JdbcTableHandle(
+                handle.getConnectorId(),
+                new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
+                handle.getCatalogName(),
+                handle.getSchemaName(),
+                handle.getTemporaryTableName()));
+    }
+
+    @Override
     public String buildInsertSql(JdbcOutputTableHandle handle)
     {
         String vars = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
