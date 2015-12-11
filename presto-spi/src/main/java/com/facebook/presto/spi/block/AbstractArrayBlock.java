@@ -148,7 +148,19 @@ public abstract class AbstractArrayBlock
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
-        blockBuilder.writeObject(getObject(position, Block.class));
+        checkReadablePosition(position);
+        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
+        int startValueOffset = getOffset(position);
+        int endValueOffset = getOffset(position + 1);
+        for (int i = startValueOffset; i < endValueOffset; i++) {
+            if (getValues().isNull(i)) {
+                entryBuilder.appendNull();
+            }
+            else {
+                getValues().writePositionTo(i, entryBuilder);
+                entryBuilder.closeEntry();
+            }
+        }
     }
 
     @Override
