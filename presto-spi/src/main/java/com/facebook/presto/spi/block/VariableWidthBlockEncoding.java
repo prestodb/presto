@@ -21,6 +21,7 @@ import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public class VariableWidthBlockEncoding
         implements BlockEncoding
@@ -47,8 +48,8 @@ public class VariableWidthBlockEncoding
         int totalLength = 0;
         for (int position = 0; position < positionCount; position++) {
             int length = variableWidthBlock.getLength(position);
-            sliceOutput.appendInt(length);
             totalLength += length;
+            sliceOutput.appendInt(totalLength);
         }
 
         encodeNullsAsBits(sliceOutput, variableWidthBlock);
@@ -82,19 +83,15 @@ public class VariableWidthBlockEncoding
         int positionCount = sliceInput.readInt();
 
         // offsets
-        int[] offsets = new int[positionCount + 1];
-        int offset = 0;
-        for (int position = 0; position < positionCount; position++) {
-            offset += sliceInput.readInt();
-            offsets[position + 1] = offset;
-        }
+        Slice offsets = Slices.allocate((positionCount + 1) * SIZE_OF_INT);
+        sliceInput.readBytes(offsets, SIZE_OF_INT, positionCount * SIZE_OF_INT);
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
 
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new VariableWidthBlock(positionCount, slice, Slices.wrappedIntArray(offsets), Slices.wrappedBooleanArray(valueIsNull));
+        return new VariableWidthBlock(positionCount, slice, offsets, Slices.wrappedBooleanArray(valueIsNull));
     }
 
     @Override
