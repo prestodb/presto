@@ -72,6 +72,16 @@ public class Query
         return client.getResetSessionProperties();
     }
 
+    public String getStartedTransactionId()
+    {
+        return client.getStartedtransactionId();
+    }
+
+    public boolean isClearTransactionId()
+    {
+        return client.isClearTransactionId();
+    }
+
     public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();

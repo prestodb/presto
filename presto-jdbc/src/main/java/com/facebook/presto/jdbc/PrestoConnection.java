@@ -72,6 +72,7 @@ public class PrestoConnection
     private final String user;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
+    private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
 
     PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
@@ -588,6 +589,7 @@ public class PrestoConnection
                 timeZoneId.get(),
                 locale.get(),
                 ImmutableMap.copyOf(sessionProperties),
+                transactionId.get(),
                 false,
                 new Duration(2, MINUTES));
 

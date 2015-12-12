@@ -44,6 +44,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -90,7 +91,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
@@ -207,6 +210,15 @@ public class StatementResource
         query.getResetSessionProperties().stream()
                 .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
 
+        // add new transaction ID
+        query.getStartedTransactionId()
+                .ifPresent(transactionId -> response.header(PRESTO_STARTED_TRANSACTION_ID, transactionId));
+
+        // add clear transaction ID directive
+        if (query.isClearTransactionId()) {
+            response.header(PRESTO_CLEAR_TRANSACTION_ID, true);
+        }
+
         return response.build();
     }
 
@@ -248,6 +260,12 @@ public class StatementResource
 
         @GuardedBy("this")
         private Set<String> resetSessionProperties;
+
+        @GuardedBy("this")
+        private Optional<TransactionId> startedTransactionId;
+
+        @GuardedBy("this")
+        private boolean clearTransactionId;
 
         @GuardedBy("this")
         private Long updateCount;
@@ -294,6 +312,16 @@ public class StatementResource
         public synchronized Set<String> getResetSessionProperties()
         {
             return resetSessionProperties;
+        }
+
+        public synchronized Optional<TransactionId> getStartedTransactionId()
+        {
+            return startedTransactionId;
+        }
+
+        public synchronized boolean isClearTransactionId()
+        {
+            return clearTransactionId;
         }
 
         public synchronized QueryResults getResults(long token, UriInfo uriInfo, Duration maxWaitTime)
@@ -375,6 +403,10 @@ public class StatementResource
             // update setSessionProperties
             setSessionProperties = queryInfo.getSetSessionProperties();
             resetSessionProperties = queryInfo.getResetSessionProperties();
+
+            // update startedTransactionId
+            startedTransactionId = queryInfo.getStartedTransactionId();
+            clearTransactionId = queryInfo.isClearTransactionId();
 
             // first time through, self is null
             QueryResults queryResults = new QueryResults(

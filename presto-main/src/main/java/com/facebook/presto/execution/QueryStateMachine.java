@@ -37,9 +37,11 @@ import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -54,6 +56,7 @@ import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.util.Failures.toFailure;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
@@ -96,6 +99,9 @@ public class QueryStateMachine
 
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
+
+    private final AtomicReference<TransactionId> startedTransactionId = new AtomicReference<>();
+    private final AtomicBoolean clearTransactionId = new AtomicBoolean();
 
     private final AtomicReference<String> updateType = new AtomicReference<>();
 
@@ -328,6 +334,8 @@ public class QueryStateMachine
                 queryStats,
                 setSessionProperties,
                 resetSessionProperties,
+                Optional.ofNullable(startedTransactionId.get()),
+                clearTransactionId.get(),
                 updateType.get(),
                 rootStage,
                 failureInfo,
@@ -375,6 +383,18 @@ public class QueryStateMachine
     public void addResetSessionProperties(String name)
     {
         resetSessionProperties.add(requireNonNull(name, "name is null"));
+    }
+
+    public void setStartedTransactionId(TransactionId startedTransactionId)
+    {
+        checkArgument(!clearTransactionId.get(), "Cannot start and clear transaction ID in the same request");
+        this.startedTransactionId.set(startedTransactionId);
+    }
+
+    public void clearTransactionId()
+    {
+        checkArgument(startedTransactionId.get() == null, "Cannot start and clear transaction ID in the same request");
+        clearTransactionId.set(true);
     }
 
     public void setUpdateType(String updateType)

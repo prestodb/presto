@@ -39,6 +39,7 @@ public class DataDefinitionExecution<T extends Statement>
 {
     private final DataDefinitionTask<T> task;
     private final T statement;
+    private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
@@ -46,12 +47,14 @@ public class DataDefinitionExecution<T extends Statement>
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
             T statement,
+            TransactionManager transactionManager,
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine)
     {
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
@@ -91,7 +94,7 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            CompletableFuture<?> future = task.execute(statement, stateMachine.getSession(), metadata, accessControl, stateMachine);
+            CompletableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine);
             future.whenComplete((o, throwable) -> {
                 if (throwable == null) {
                     stateMachine.transitionToFinishing();
@@ -212,7 +215,7 @@ public class DataDefinitionExecution<T extends Statement>
 
             QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, executor);
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, metadata, accessControl, stateMachine);
+            return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine);
         }
 
         @SuppressWarnings("unchecked")
