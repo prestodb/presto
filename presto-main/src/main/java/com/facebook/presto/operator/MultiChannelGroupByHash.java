@@ -153,8 +153,6 @@ public class MultiChannelGroupByHash
     @Override
     public void addPage(Page page)
     {
-        Block[] hashBlocks = extractHashColumns(page);
-
         Block maskBlock = null;
         if (maskChannel >= 0) {
             maskBlock = page.getBlock(maskChannel);
@@ -169,7 +167,7 @@ public class MultiChannelGroupByHash
             }
 
             // get the group for the current row
-            putIfAbsent(position, page, hashBlocks);
+            putIfAbsent(position, page);
         }
     }
 
@@ -186,9 +184,6 @@ public class MultiChannelGroupByHash
             maskBlock = page.getBlock(maskChannel);
         }
 
-        // extract the hash columns
-        Block[] hashBlocks = extractHashColumns(page);
-
         // get the group id for each position
         for (int position = 0; position < positionCount; position++) {
             // skip masked rows
@@ -198,7 +193,7 @@ public class MultiChannelGroupByHash
             }
 
             // get the group for the current row
-            int groupId = putIfAbsent(position, page, hashBlocks);
+            int groupId = putIfAbsent(position, page);
 
             // output the group id for this row
             BIGINT.writeLong(blockBuilder, groupId);
@@ -207,7 +202,7 @@ public class MultiChannelGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page)
+    public boolean contains(int position, Page page, int[] hashChannels)
     {
         int rawHash = hashStrategy.hashRow(position, page.getBlocks());
         int hashPosition = getHashPosition(rawHash, mask);
@@ -215,7 +210,7 @@ public class MultiChannelGroupByHash
         // look for a slot containing this key
         while (groupAddressByHash[hashPosition] != -1) {
             long address = groupAddressByHash[hashPosition];
-            if (hashStrategy.positionEqualsRow(decodeSliceIndex(address), decodePosition(address), position, page.getBlocks())) {
+            if (hashStrategy.positionEqualsRow(decodeSliceIndex(address), decodePosition(address), position, page, hashChannels)) {
                 // found an existing slot for this key
                 return true;
             }
@@ -229,11 +224,6 @@ public class MultiChannelGroupByHash
     @Override
     public int putIfAbsent(int position, Page page)
     {
-        return putIfAbsent(position, page, extractHashColumns(page));
-    }
-
-    private int putIfAbsent(int position, Page page, Block[] hashBlocks)
-    {
         int rawHash = hashGenerator.hashPosition(position, page);
         int hashPosition = getHashPosition(rawHash, mask);
 
@@ -241,7 +231,7 @@ public class MultiChannelGroupByHash
         int groupId = -1;
         while (groupAddressByHash[hashPosition] != -1) {
             long address = groupAddressByHash[hashPosition];
-            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, hashBlocks)) {
+            if (positionEqualsCurrentRow(decodeSliceIndex(address), decodePosition(address), position, page)) {
                 // found an existing slot for this key
                 groupId = groupIdsByHash[hashPosition];
 
@@ -348,15 +338,6 @@ public class MultiChannelGroupByHash
         groupAddressByGroupId.ensureCapacity(maxFill);
     }
 
-    private Block[] extractHashColumns(Page page)
-    {
-        Block[] hashBlocks = new Block[channels.length];
-        for (int i = 0; i < channels.length; i++) {
-            hashBlocks[i] = page.getBlock(channels[i]);
-        }
-        return hashBlocks;
-    }
-
     private int hashPosition(long sliceAddress)
     {
         int sliceIndex = decodeSliceIndex(sliceAddress);
@@ -372,9 +353,9 @@ public class MultiChannelGroupByHash
         return (int) channelBuilders.get(precomputedHashChannel.get()).get(sliceIndex).getLong(position, 0);
     }
 
-    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, Block[] blocks)
+    private boolean positionEqualsCurrentRow(int sliceIndex, int slicePosition, int position, Page page)
     {
-        return hashStrategy.positionEqualsRow(sliceIndex, slicePosition, position, blocks);
+        return hashStrategy.positionEqualsRow(sliceIndex, slicePosition, position, page, channels);
     }
 
     private static int getHashPosition(int rawHash, int mask)
