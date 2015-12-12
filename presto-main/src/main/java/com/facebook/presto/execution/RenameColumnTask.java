@@ -21,6 +21,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.transaction.TransactionManager;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,8 +44,9 @@ public class RenameColumnTask
     }
 
     @Override
-    public CompletableFuture<?> execute(RenameColumn statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
+        Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
 

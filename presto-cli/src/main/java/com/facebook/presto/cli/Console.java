@@ -49,9 +49,11 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.cli.Completion.commandCompleter;
 import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
+import static com.facebook.presto.client.ClientSession.stripTransactionId;
 import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
 import static com.facebook.presto.client.ClientSession.withProperties;
 import static com.facebook.presto.client.ClientSession.withSessionProperties;
+import static com.facebook.presto.client.ClientSession.withTransactionId;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
@@ -282,13 +284,25 @@ public class Console
         try (Query query = queryRunner.startQuery(sql)) {
             query.renderOutput(System.out, outputFormat, interactive);
 
+            ClientSession session = queryRunner.getSession();
+
             // update session properties if present
             if (!query.getSetSessionProperties().isEmpty() || !query.getResetSessionProperties().isEmpty()) {
-                Map<String, String> sessionProperties = new HashMap<>(queryRunner.getSession().getProperties());
+                Map<String, String> sessionProperties = new HashMap<>(session.getProperties());
                 sessionProperties.putAll(query.getSetSessionProperties());
                 sessionProperties.keySet().removeAll(query.getResetSessionProperties());
-                queryRunner.setSession(withProperties(queryRunner.getSession(), sessionProperties));
+                session = withProperties(session, sessionProperties);
             }
+
+            // update transaction ID if necessary
+            if (query.isClearTransactionId()) {
+                session = stripTransactionId(session);
+            }
+            if (query.getStartedTransactionId() != null) {
+                session = withTransactionId(session, query.getStartedTransactionId());
+            }
+
+            queryRunner.setSession(session);
         }
         catch (RuntimeException e) {
             System.err.println("Error running command: " + e.getMessage());

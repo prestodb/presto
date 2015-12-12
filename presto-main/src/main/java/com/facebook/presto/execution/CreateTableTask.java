@@ -25,6 +25,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.TableElement;
+import com.facebook.presto.transaction.TransactionManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,10 +57,11 @@ public class CreateTableTask
     }
 
     @Override
-    public CompletableFuture<?> execute(CreateTable statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(CreateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
+        Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isPresent()) {

@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.transaction.TransactionManager;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -38,8 +39,9 @@ public class DropViewTask
     }
 
     @Override
-    public CompletableFuture<?> execute(DropView statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(DropView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
+        Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
         Optional<ViewDefinition> view = metadata.getView(session, name);

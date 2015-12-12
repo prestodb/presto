@@ -310,6 +310,7 @@ public final class Session
                 timeZoneKey.getId(),
                 locale,
                 properties.build(),
+                transactionId.map(TransactionId::toString).orElse(null),
                 debug,
                 clientRequestTimeout);
     }

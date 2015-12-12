@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.TransactionManager;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -25,7 +25,7 @@ public interface DataDefinitionTask<T extends Statement>
 {
     String getName();
 
-    CompletableFuture<?> execute(T statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine);
+    CompletableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine);
 
     default String explain(T statement)
     {

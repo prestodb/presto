@@ -164,6 +164,7 @@ public class PerfTest
                         TimeZone.getDefault().getID(),
                         Locale.getDefault(),
                         ImmutableMap.<String, String>of(),
+                        null,
                         debug,
                         clientRequestTimeout);
                 runners.add(new QueryRunner(session, executor, timeout));

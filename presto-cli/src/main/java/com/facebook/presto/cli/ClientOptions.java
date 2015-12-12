@@ -126,6 +126,7 @@ public class ClientOptions
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(sessionProperties),
+                null,
                 debug,
                 clientRequestTimeout);
     }

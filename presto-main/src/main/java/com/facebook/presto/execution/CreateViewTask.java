@@ -28,6 +28,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
@@ -79,8 +80,9 @@ public class CreateViewTask
     }
 
     @Override
-    public CompletableFuture<?> execute(CreateView statement, Session session, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(CreateView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
+        Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
         accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), name);
