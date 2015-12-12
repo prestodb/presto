@@ -26,6 +26,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
+import javax.ws.rs.HEAD;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
