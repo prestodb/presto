@@ -183,7 +183,7 @@ public class BigintGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page)
+    public boolean contains(int position, Page page, int[] hashChannels)
     {
         Block block = page.getBlock(hashChannel);
         if (block.isNull(position)) {
