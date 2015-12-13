@@ -42,7 +42,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -114,7 +113,7 @@ public class TestingPrestoServer
         private final CountDownLatch shutdownCalled = new CountDownLatch(1);
 
         @GuardedBy("this")
-        private boolean isWorkerShutdown = false;
+        private boolean isWorkerShutdown;
 
         @Override
         public synchronized void onShutdown()
@@ -189,23 +188,12 @@ public class TestingPrestoServer
                         NodeSchedulerConfig.class,
                         config -> "flat".equalsIgnoreCase(config.getNetworkTopology()),
                         binder -> binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)))
-                .add(new Module() {
-                    @Override
-                    public void configure(Binder binder)
-                    {
-                        binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                        binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                        binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
-                    }
-                })
-                .add(new Module()
-                {
-                    @Override
-                    public void configure(Binder binder)
-                    {
-                        binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
-                        binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
-                    }
+                .add(binder -> {
+                    binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
+                    binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri != null) {
