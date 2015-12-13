@@ -93,8 +93,10 @@ public class DistributedQueryRunner
             this.servers = servers.build();
         }
         catch (Exception e) {
-            close();
-            throw e;
+            throw closer.rethrow(e, Exception.class);
+        }
+        finally {
+            closer.close();
         }
 
         this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
