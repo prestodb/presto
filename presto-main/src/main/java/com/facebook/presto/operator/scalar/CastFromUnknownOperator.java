@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.type.Type;
@@ -65,26 +66,31 @@ public final class CastFromUnknownOperator
         return new ScalarFunctionImplementation(true, ImmutableList.of(true), methodHandle, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static Long toLong(Void arg)
     {
         return null;
     }
 
+    @UsedByGeneratedCode
     public static Double toDouble(Void arg)
     {
         return null;
     }
 
+    @UsedByGeneratedCode
     public static Boolean toBoolean(Void arg)
     {
         return null;
     }
 
+    @UsedByGeneratedCode
     public static Slice toSlice(Void arg)
     {
         return null;
     }
 
+    @UsedByGeneratedCode
     public static Object toObject(Void arg)
     {
         return null;

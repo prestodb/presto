@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
@@ -80,11 +81,13 @@ public class ArraySubscriptOperator
         return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), methodHandle, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static void arrayWithUnknownType(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
     }
 
+    @UsedByGeneratedCode
     public static Long longSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
@@ -96,6 +99,7 @@ public class ArraySubscriptOperator
         return elementType.getLong(array, position);
     }
 
+    @UsedByGeneratedCode
     public static Boolean booleanSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
@@ -107,6 +111,7 @@ public class ArraySubscriptOperator
         return elementType.getBoolean(array, position);
     }
 
+    @UsedByGeneratedCode
     public static Double doubleSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
@@ -118,6 +123,7 @@ public class ArraySubscriptOperator
         return elementType.getDouble(array, position);
     }
 
+    @UsedByGeneratedCode
     public static Slice sliceSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
@@ -129,6 +135,7 @@ public class ArraySubscriptOperator
         return elementType.getSlice(array, position);
     }
 
+    @UsedByGeneratedCode
     public static Object objectSubscript(Type elementType, Block array, long index)
     {
         checkIndex(array, index);
