@@ -20,6 +20,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
@@ -61,5 +65,25 @@ public class TestPostgreSqlDistributedQueries
 
         assertUpdate("DROP TABLE test_drop");
         assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
+    }
+
+    @Test
+    public void testViews()
+            throws Exception
+    {
+        execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
+
+        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
+
+        execute("DROP VIEW IF EXISTS tpch.test_view");
+    }
+
+    private void execute(String sql)
+            throws SQLException
+    {
+        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl());
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
     }
 }

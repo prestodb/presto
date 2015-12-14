@@ -94,7 +94,7 @@ public class MySqlClient
                 schemaName,
                 null,
                 escapeNamePattern(tableName, escape),
-                new String[] {"TABLE"});
+                new String[] {"TABLE", "VIEW"});
     }
 
     @Override
