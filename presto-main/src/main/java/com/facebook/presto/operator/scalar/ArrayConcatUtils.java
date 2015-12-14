@@ -26,12 +26,15 @@ public final class ArrayConcatUtils
 
     public static Block concat(Type elementType, Block leftBlock, Block rightBlock)
     {
-        int totalSize = leftBlock.getSizeInBytes() + rightBlock.getSizeInBytes();
-        int totalEntries = leftBlock.getPositionCount() + rightBlock.getPositionCount();
-        if (totalEntries == 0) {
-            // Both are empty, so just return one of them
+        if (leftBlock.getPositionCount() == 0) {
+            return rightBlock;
+        }
+        if (rightBlock.getPositionCount() == 0) {
             return leftBlock;
         }
+
+        int totalSize = leftBlock.getSizeInBytes() + rightBlock.getSizeInBytes();
+        int totalEntries = leftBlock.getPositionCount() + rightBlock.getPositionCount();
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), totalEntries, (int) Math.ceil(totalSize / (double) totalEntries));
         for (int i = 0; i < leftBlock.getPositionCount(); i++) {
             elementType.appendTo(leftBlock, i, blockBuilder);
