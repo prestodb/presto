@@ -14,3 +14,4 @@ General Changes
   ``columnar_processing_dictionary`` session property.
 * Improve performance of aggregation queries with large numbers of groups.
 * Improve performance for queries that use :ref:`array_type` type.
+* Fix querying remote views in MySQL and PostgreSQL connectors.
