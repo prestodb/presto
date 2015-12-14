@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -93,10 +94,12 @@ public abstract class AbstractArrayMinMaxFunction
         return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static void arrayWithUnknownType(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
     }
 
+    @UsedByGeneratedCode
     public static Long longArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {
@@ -124,6 +127,7 @@ public abstract class AbstractArrayMinMaxFunction
         }
     }
 
+    @UsedByGeneratedCode
     public static Boolean booleanArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {
@@ -151,6 +155,7 @@ public abstract class AbstractArrayMinMaxFunction
         }
     }
 
+    @UsedByGeneratedCode
     public static Double doubleArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {
@@ -178,6 +183,7 @@ public abstract class AbstractArrayMinMaxFunction
         }
     }
 
+    @UsedByGeneratedCode
     public static Slice sliceArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {
@@ -205,6 +211,7 @@ public abstract class AbstractArrayMinMaxFunction
         }
     }
 
+    @UsedByGeneratedCode
     public static Object objectArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {

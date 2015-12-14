@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
@@ -88,26 +89,31 @@ public class RowFieldReference
         return new ScalarFunctionImplementation(true, ImmutableList.of(false), methodHandle, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static Long longAccessor(Type type, Integer field, Block row)
     {
         return row.isNull(field) ? null : type.getLong(row, field);
     }
 
+    @UsedByGeneratedCode
     public static Boolean booleanAccessor(Type type, Integer field, Block row)
     {
         return row.isNull(field) ? null : type.getBoolean(row, field);
     }
 
+    @UsedByGeneratedCode
     public static Double doubleAccessor(Type type, Integer field, Block row)
     {
         return row.isNull(field) ? null : type.getDouble(row, field);
     }
 
+    @UsedByGeneratedCode
     public static Slice sliceAccessor(Type type, Integer field, Block row)
     {
         return row.isNull(field) ? null : type.getSlice(row, field);
     }
 
+    @UsedByGeneratedCode
     public static Object objectAccessor(Type type, Integer field, Block row)
     {
         return row.isNull(field) ? null : type.getObject(row, field);

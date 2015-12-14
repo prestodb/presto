@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -141,6 +142,7 @@ public final class ArrayJoin
         }
     }
 
+    @UsedByGeneratedCode
     public static Slice arrayJoin(MethodHandle castFunction, Type elementType, ConnectorSession session, Block arrayBlock, Slice delimiter)
     {
         return arrayJoin(castFunction, elementType, session, arrayBlock, delimiter, null);
