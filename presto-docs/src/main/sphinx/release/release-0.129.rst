@@ -2,6 +2,12 @@
 Release 0.129
 =============
 
+.. warning::
+
+   There is a performance regression in this release for ``GROUP BY`` and ``JOIN``
+   queries when the length of the keys is between 16 and 31 bytes. This is fixed
+   in :doc:`/release/release-0.130`.
+
 General Changes
 ---------------
 
