@@ -87,7 +87,7 @@ public class VariableWidthBlockBuilder
     @Override
     public int getSizeInBytes()
     {
-        long size = sliceOutput.getUnderlyingSlice().length() + offsets.getUnderlyingSlice().length() + valueIsNull.getUnderlyingSlice().length();
+        long size = sliceOutput.size() + offsets.size() + valueIsNull.size();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
