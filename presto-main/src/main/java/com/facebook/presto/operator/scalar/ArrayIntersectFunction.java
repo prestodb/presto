@@ -97,6 +97,13 @@ public final class ArrayIntersectFunction
         int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
 
+        if (leftPositionCount == 0) {
+            return leftArray;
+        }
+        if (rightPositionCount == 0) {
+            return rightArray;
+        }
+
         int[] leftPositions = new int[leftPositionCount];
         int[] rightPositions = new int[rightPositionCount];
 
@@ -109,9 +116,17 @@ public final class ArrayIntersectFunction
         IntArrays.quickSort(leftPositions, IntBlockCompare(type, leftArray));
         IntArrays.quickSort(rightPositions, IntBlockCompare(type, rightArray));
 
+        int entrySize;
+        if (leftPositionCount < rightPositionCount) {
+            entrySize = (int) Math.ceil(leftArray.getSizeInBytes() / (double) leftPositionCount);
+        }
+        else {
+            entrySize = (int) Math.ceil(rightArray.getSizeInBytes() / (double) rightPositionCount);
+        }
         BlockBuilder resultBlockBuilder = type.createBlockBuilder(
                 new BlockBuilderStatus(),
-                Math.min(leftArray.getSizeInBytes(), rightArray.getSizeInBytes()));
+                Math.min(leftArray.getPositionCount(), rightArray.getPositionCount()),
+                entrySize);
 
         int leftCurrentPosition = 0;
         int rightCurrentPosition = 0;
