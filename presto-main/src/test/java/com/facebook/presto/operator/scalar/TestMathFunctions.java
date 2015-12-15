@@ -336,6 +336,8 @@ public class TestMathFunctions
         // random is non-deterministic
         functionAssertions.tryEvaluateWithAll("rand()", DOUBLE, TEST_SESSION);
         functionAssertions.tryEvaluateWithAll("random()", DOUBLE, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("rand(1000)", BIGINT, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("random(2000)", BIGINT, TEST_SESSION);
     }
 
     @Test
