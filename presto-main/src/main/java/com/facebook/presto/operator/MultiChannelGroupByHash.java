@@ -20,13 +20,10 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-
-import javax.ws.rs.HEAD;
 
 import java.util.Arrays;
 import java.util.List;
@@ -207,8 +204,7 @@ public class MultiChannelGroupByHash
     @Override
     public boolean contains(int position, Page page, int[] hashChannels)
     {
-        Block[] blocks = page.getBlocks();
-        int rawHash = hashStrategy.hashRow(position, blocks);
+        int rawHash = hashStrategy.hashRow(position, page.getBlocks());
         int hashPosition = getHashPosition(rawHash, mask);
 
         // look for a slot containing this key
