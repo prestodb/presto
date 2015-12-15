@@ -427,6 +427,7 @@ public class BaseJdbcClient
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
+            case Types.OTHER:
                 return VARCHAR;
             case Types.BINARY:
             case Types.VARBINARY:
