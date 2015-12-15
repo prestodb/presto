@@ -150,7 +150,7 @@ public class KeyValuePairs
         long size = INSTANCE_SIZE;
         size += keyBlockBuilder.getRetainedSizeInBytes();
         size += valueBlockBuilder.getRetainedSizeInBytes();
-        size += keySet.getEstimatedSize();
+        size += keySet.getRetainedSizeInBytes();
         return size;
     }
 
