@@ -69,7 +69,7 @@ public class MapValues
 
     public static Block getValues(Type valueType, Block block)
     {
-        BlockBuilder blockBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        BlockBuilder blockBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() / 2);
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             valueType.appendTo(block, i + 1, blockBuilder);
         }
