@@ -170,6 +170,16 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT 0");
 
         assertCreateTableAsSelect(
+                "test_sampled",
+                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
+                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
+                "SELECT 10");
+
+        // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
+
+        // WARNING: PushTableWriteThroughUnion optimizer is disabled right now. The tests below don't exercise it.
+        // WARNING: The 2nd query below fails right now if PushTableWriteThroughUnion optimizer is turned on.
+        assertCreateTableAsSelect(
                 "test_union_all",
                 "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 0 UNION ALL " +
                         "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 1",
@@ -177,26 +187,35 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT count(*) FROM orders");
 
         assertCreateTableAsSelect(
-                "test_sampled",
-                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
-                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
-                "SELECT 10");
+                getSession().withSystemProperty("redistribute_writes", "false"),
+                "test_union_all",
+                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
+                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
+                "SELECT count(*) + 1 FROM orders");
     }
 
     private void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
             throws Exception
     {
-        assertCreateTableAsSelect(table, query, query, rowCountQuery);
+        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
     }
 
     private void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
             throws Exception
     {
-        assertUpdate("CREATE TABLE " + table + " AS " + query, rowCountQuery);
-        assertQuery("SELECT * FROM " + table, expectedQuery);
-        assertUpdate("DROP TABLE " + table);
+        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
+    }
 
-        assertFalse(queryRunner.tableExists(getSession(), table));
+    private void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+            throws Exception
+    {
+        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
+        assertUpdate(session, "DROP TABLE " + table);
+
+        assertFalse(queryRunner.tableExists(session, table));
     }
 
     @Test

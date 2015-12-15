@@ -25,6 +25,7 @@ public class FeaturesConfig
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
+    private boolean pushTableWriteThroughUnion = false;
     private boolean intermediateAggregationsEnabled = false;
     private boolean columnarProcessing = false;
     private boolean columnarProcessingDictionary = false;
@@ -111,6 +112,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeSingleDistinct(boolean optimizeSingleDistinct)
     {
         this.optimizeSingleDistinct = optimizeSingleDistinct;
+        return this;
+    }
+
+    public boolean isPushTableWriteThroughUnion()
+    {
+        return pushTableWriteThroughUnion;
+    }
+
+    @Config("optimizer.push-table-write-through-union")
+    public FeaturesConfig setPushTableWriteThroughUnion(boolean pushTableWriteThroughUnion)
+    {
+        this.pushTableWriteThroughUnion = pushTableWriteThroughUnion;
         return this;
     }
 
