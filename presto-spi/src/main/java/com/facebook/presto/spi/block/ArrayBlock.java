@@ -43,6 +43,12 @@ public class ArrayBlock
     }
 
     @Override
+    public int getSizeInBytes()
+    {
+        return getValues().getSizeInBytes() + offsets.length() + valueIsNull.length();
+    }
+
+    @Override
     public int getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + values.getRetainedSizeInBytes() + offsets.getRetainedSize() + valueIsNull.getRetainedSize();

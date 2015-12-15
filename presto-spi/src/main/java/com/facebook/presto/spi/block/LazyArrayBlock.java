@@ -111,7 +111,7 @@ public class LazyArrayBlock
             // This block hasn't been loaded. Return a value close to empty.
             return Integer.BYTES;
         }
-        return super.getSizeInBytes();
+        return getValues().getSizeInBytes() + offsets.length() + valueIsNull.length();
     }
 
     @Override
