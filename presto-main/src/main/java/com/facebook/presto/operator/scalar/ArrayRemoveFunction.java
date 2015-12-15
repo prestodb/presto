@@ -149,7 +149,11 @@ public final class ArrayRemoveFunction
             return array;
         }
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), sizeAfterRemove);
+        int entrySize = 0;
+        if (!positions.isEmpty()) {
+            entrySize = (int) Math.ceil(sizeAfterRemove / (double) positions.size());
+        }
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), positions.size(), entrySize);
 
         for (int position : positions) {
             type.appendTo(array, position, blockBuilder);
