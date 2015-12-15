@@ -48,7 +48,7 @@
         <dep.airlift.version>0.120</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.17</dep.slice.version>
-        <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.10.40</dep.aws-sdk.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
