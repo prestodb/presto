@@ -431,16 +431,6 @@ public class PageProcessorCompiler
         ByteCodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
 
-        // extract blocks
-        List<Integer> allInputChannels = getInputChannels(concat(projections, ImmutableList.of(filter)));
-        ImmutableMap.Builder<Integer, Variable> builder = ImmutableMap.builder();
-        for (int channel : allInputChannels) {
-            Variable blockVariable = scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
-            builder.put(channel, blockVariable);
-        }
-        Map<Integer, Variable> channelBlocks = builder.build();
-        Map<RowExpression, List<Variable>> expressionInputBlocks = getExpressionInputBlocks(projections, filter, channelBlocks);
-
         Variable selectedPositions = scope.declareVariable("selectedPositions", body, thisVariable.invoke("filterPage", int[].class, session, page));
         Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
 
@@ -459,6 +449,16 @@ public class PageProcessorCompiler
         Variable pageBuilder = scope.declareVariable("pageBuilder", body, newInstance(PageBuilder.class, cardinality, types));
 
         body.append(page.set(thisVariable.invoke("getNonLazyPage", Page.class, page)));
+
+        // extract blocks
+        List<Integer> allInputChannels = getInputChannels(concat(projections, ImmutableList.of(filter)));
+        ImmutableMap.Builder<Integer, Variable> builder = ImmutableMap.builder();
+        for (int channel : allInputChannels) {
+            Variable blockVariable = scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
+            builder.put(channel, blockVariable);
+        }
+        Map<Integer, Variable> channelBlocks = builder.build();
+        Map<RowExpression, List<Variable>> expressionInputBlocks = getExpressionInputBlocks(projections, filter, channelBlocks);
 
         // create outputBlocks
         Variable outputBlocks = scope.declareVariable("outputBlocks", body, newArray(type(Block[].class), projections.size()));
