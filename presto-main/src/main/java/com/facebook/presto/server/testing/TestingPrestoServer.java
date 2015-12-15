@@ -82,6 +82,7 @@ import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -152,6 +153,12 @@ public class TestingPrestoServer
         this.coordinator = coordinator;
         baseDataDir = Files.createTempDirectory("PrestoTest");
 
+        properties = new HashMap<>(properties);
+        String coordinatorPort = properties.remove("http-server.http.port");
+        if (coordinatorPort == null) {
+            coordinatorPort = "0";
+        }
+
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
@@ -172,7 +179,7 @@ public class TestingPrestoServer
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
-                .add(new TestingHttpServerModule())
+                .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
                 .add(new JsonModule())
                 .add(new JaxrsModule(true))
                 .add(new MBeanModule())
