@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -40,6 +41,10 @@ public class PushTableWriteThroughUnion
         requireNonNull(types, "types is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
+
+        if (!SystemSessionProperties.isPushTableWriteThroughUnion(session)) {
+            return plan;
+        }
 
         return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, symbolAllocator), plan);
     }

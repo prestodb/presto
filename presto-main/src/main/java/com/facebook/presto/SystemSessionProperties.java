@@ -48,6 +48,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
+    public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String COLUMNAR_PROCESSING = "columnar_processing";
     public static final String COLUMNAR_PROCESSING_DICTIONARY = "columnar_processing_dictionary";
@@ -106,6 +107,11 @@ public final class SystemSessionProperties
                         REDISTRIBUTE_WRITES,
                         "Force parallel distributed writes",
                         featuresConfig.isRedistributeWrites(),
+                        false),
+                booleanSessionProperty(
+                        PUSH_TABLE_WRITE_THROUGH_UNION,
+                        "Parallelize writes when using UNION ALL in queries that write data",
+                        featuresConfig.isPushTableWriteThroughUnion(),
                         false),
                 integerSessionProperty(
                         TASK_DEFAULT_CONCURRENCY,
@@ -208,6 +214,11 @@ public final class SystemSessionProperties
     public static boolean isRedistributeWrites(Session session)
     {
         return session.getProperty(REDISTRIBUTE_WRITES, Boolean.class);
+    }
+
+    public static boolean isPushTableWriteThroughUnion(Session session)
+    {
+        return session.getProperty(PUSH_TABLE_WRITE_THROUGH_UNION, Boolean.class);
     }
 
     public static int getTaskJoinConcurrency(Session session)

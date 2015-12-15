@@ -36,6 +36,7 @@ public class TestFeaturesConfig
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeHashGeneration(true)
                 .setOptimizeSingleDistinct(true)
+                .setPushTableWriteThroughUnion(false)
                 .setIntermediateAggregationsEnabled(false)
                 .setColumnarProcessing(false)
                 .setColumnarProcessingDictionary(false));
@@ -52,6 +53,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
+                .put("optimizer.push-table-write-through-union", "true")
                 .put("optimizer.use-intermediate-aggregations", "true")
                 .put("optimizer.columnar-processing", "true")
                 .put("optimizer.columnar-processing-dictionary", "true")
@@ -64,6 +66,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
+                .put("optimizer.push-table-write-through-union", "true")
                 .put("optimizer.use-intermediate-aggregations", "true")
                 .put("optimizer.columnar-processing", "true")
                 .put("optimizer.columnar-processing-dictionary", "true")
@@ -77,6 +80,7 @@ public class TestFeaturesConfig
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeSingleDistinct(false)
+                .setPushTableWriteThroughUnion(true)
                 .setIntermediateAggregationsEnabled(true)
                 .setColumnarProcessing(true)
                 .setColumnarProcessingDictionary(true);
