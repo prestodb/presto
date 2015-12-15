@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.array.IntBigArray;
 import io.airlift.units.DataSize;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
@@ -30,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TypedSet
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
 
@@ -63,7 +65,7 @@ public class TypedSet
 
     public long getEstimatedSize()
     {
-        return elementBlock.getSizeInBytes() + blockPositionByHash.sizeOf();
+        return INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.sizeOf();
     }
 
     public boolean contains(Block block, int position)
