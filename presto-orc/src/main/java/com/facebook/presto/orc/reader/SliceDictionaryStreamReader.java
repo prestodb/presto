@@ -249,7 +249,6 @@ public class SliceDictionaryStreamReader
             ByteArrayStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
             readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, rowGroupDictionary);
         }
-        dictionaryOpen = true;
 
         presentStream = presentStreamSource.openStream();
         inDictionaryStream = inDictionaryStreamSource.openStream();
