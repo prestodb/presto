@@ -78,7 +78,7 @@ public class FixedWidthBlockBuilder
     @Override
     public int getSizeInBytes()
     {
-        long size = getRawSlice().length() + valueIsNull.getUnderlyingSlice().length();
+        long size = sliceOutput.size() + valueIsNull.size();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
