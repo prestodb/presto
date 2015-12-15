@@ -82,6 +82,12 @@ public class ArrayBlockBuilder
     }
 
     @Override
+    public int getSizeInBytes()
+    {
+        return values.getSizeInBytes() + offsets.size() + valueIsNull.size();
+    }
+
+    @Override
     public int getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + values.getRetainedSizeInBytes() + offsets.getUnderlyingSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();

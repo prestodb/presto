@@ -127,12 +127,6 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public int getSizeInBytes()
-    {
-        return getValues().getSizeInBytes() + getOffsets().length() + getValueIsNull().length();
-    }
-
-    @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
         if (clazz != Block.class) {
