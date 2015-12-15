@@ -243,6 +243,14 @@ public final class MathFunctions
         return ThreadLocalRandom.current().nextDouble();
     }
 
+    @Description("a pseudo-random number between 0 and value (exclusive)")
+    @ScalarFunction(alias = "rand", deterministic = false)
+    @SqlType(StandardTypes.BIGINT)
+    public static long random(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        return ThreadLocalRandom.current().nextLong(value);
+    }
+
     @Description("round to nearest integer")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
