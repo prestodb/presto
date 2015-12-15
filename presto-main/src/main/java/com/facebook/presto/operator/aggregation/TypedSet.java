@@ -63,7 +63,7 @@ public class TypedSet
         this.containsNullElement = false;
     }
 
-    public long getEstimatedSize()
+    public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.sizeOf();
     }
