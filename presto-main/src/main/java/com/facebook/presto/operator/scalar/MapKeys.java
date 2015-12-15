@@ -69,7 +69,7 @@ public class MapKeys
 
     public static Block getKeys(Type keyType, Block block)
     {
-        BlockBuilder blockBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        BlockBuilder blockBuilder = keyType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() / 2);
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             keyType.appendTo(block, i, blockBuilder);
         }
