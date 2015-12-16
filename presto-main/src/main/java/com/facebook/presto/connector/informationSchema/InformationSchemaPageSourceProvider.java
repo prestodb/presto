@@ -28,24 +28,23 @@ import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -71,20 +70,19 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSourceProvider
-        implements ConnectorPageSourceProvider
+        implements TransactionalConnectorPageSourceProvider
 {
     private final Metadata metadata;
 
-    @Inject
     public InformationSchemaPageSourceProvider(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        InternalTable table = getInternalTable(session, split, columns);
+        InternalTable table = getInternalTable(transactionHandle, session, split, columns);
 
         List<Integer> channels = new ArrayList<>();
         for (ColumnHandle column : columns) {
@@ -104,8 +102,9 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
     {
+        InformationSchemaTransactionHandle transaction = checkType(transactionHandle, InformationSchemaTransactionHandle.class, "transaction");
         InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
 
         requireNonNull(columns, "columns is null");
@@ -114,6 +113,7 @@ public class InformationSchemaPageSourceProvider
         Map<String, NullableValue> filters = split.getFilters();
 
         Session session = Session.builder(metadata.getSessionPropertyManager())
+                .setTransactionId(transaction.getTransactionId())
                 .setQueryId(new QueryId(connectorSession.getQueryId()))
                 .setIdentity(connectorSession.getIdentity())
                 .setSource("information_schema")

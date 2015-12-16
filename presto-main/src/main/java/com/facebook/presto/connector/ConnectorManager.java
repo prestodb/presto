@@ -175,7 +175,7 @@ public class ConnectorManager
     {
         addConnectorInternal(ConnectorType.STANDARD, catalogName, connectorId, connector);
         String informationSchemaId = makeInformationSchemaConnectorId(connectorId);
-        addConnectorInternal(ConnectorType.INFORMATION_SCHEMA, catalogName, informationSchemaId, new LegacyTransactionConnector(informationSchemaId, new InformationSchemaConnector(informationSchemaId, catalogName, nodeManager, metadataManager)));
+        addConnectorInternal(ConnectorType.INFORMATION_SCHEMA, catalogName, informationSchemaId, new InformationSchemaConnector(informationSchemaId, catalogName, nodeManager, metadataManager));
         String systemId = makeSystemTablesConnectorId(connectorId);
         addConnectorInternal(ConnectorType.SYSTEM, catalogName, systemId, new LegacyTransactionConnector(systemId, new SystemConnector(systemId, nodeManager, connector.getSystemTables())));
 

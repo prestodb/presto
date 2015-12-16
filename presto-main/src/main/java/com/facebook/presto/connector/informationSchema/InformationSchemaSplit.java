@@ -41,6 +41,7 @@ public class InformationSchemaSplit
             @JsonProperty("tableHandle") InformationSchemaTableHandle tableHandle,
             @JsonProperty("filters") Map<String, NullableValue> filters,
             @JsonProperty("addresses") List<HostAddress> addresses)
+
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
