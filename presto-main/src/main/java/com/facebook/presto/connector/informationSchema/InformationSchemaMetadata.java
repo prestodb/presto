@@ -15,12 +15,12 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -42,7 +42,7 @@ import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaMetadata
-        implements ConnectorMetadata
+        implements TransactionalConnectorMetadata
 {
     public static final String INFORMATION_SCHEMA = "information_schema";
 
@@ -161,7 +161,7 @@ public class InformationSchemaMetadata
 
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
-        return toInformationSchemaColumnHandles(informationSchemaTableHandle.getConnectorId(), tableMetadata);
+        return toInformationSchemaColumnHandles(connectorId, tableMetadata);
     }
 
     @Override

@@ -299,11 +299,21 @@ public class TransactionManager
             checkOpenTransaction();
             ConnectorTransactionMetadata transactionMetadata = connectorIdToMetadata.get(connectorId);
             if (transactionMetadata == null) {
-                transactionMetadata = new ConnectorTransactionMetadata(connectorId, connector, connector.beginTransaction(isolationLevel, readOnly));
+                transactionMetadata = new ConnectorTransactionMetadata(connectorId, connector, beginTransaction(connector));
                 // Don't use computeIfAbsent b/c the beginTransaction call might be recursive
                 checkState(connectorIdToMetadata.put(connectorId, transactionMetadata) == null);
             }
             return transactionMetadata;
+        }
+
+        private ConnectorTransactionHandle beginTransaction(TransactionalConnector connector)
+        {
+            if (connector instanceof InternalTransactionalConnector) {
+                return ((InternalTransactionalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
+            }
+            else {
+                return connector.beginTransaction(isolationLevel, readOnly);
+            }
         }
 
         public synchronized void checkConnectorWrite(String connectorId)
