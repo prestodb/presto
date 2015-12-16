@@ -33,7 +33,7 @@ Map Functions
 
 See also :func:`map_agg` and :func:`multimap_agg` for creating a map as an aggregation.
 
-.. function:: map_concat(x<K,V>, y<K,V>) -> map<V>
+.. function:: map_concat(x<K,V>, y<K,V>) -> map<K,V>
 
    Returns the union of two maps. If a key is found in both ``x`` and ``y``,
    that key's value in the resulting map comes from ``y``.
