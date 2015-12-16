@@ -27,6 +27,7 @@ import java.sql.Statement;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -67,7 +68,7 @@ public class TestPostgreSqlDistributedQueries
         assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
     }
 
-    @Test
+	@Test
     public void testViews()
             throws Exception
     {
@@ -76,6 +77,24 @@ public class TestPostgreSqlDistributedQueries
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
 
         execute("DROP VIEW IF EXISTS tpch.test_view");
+    }
+    
+    @Test
+    public void testSelectNativeDataTypeColumn()
+        throws Exception
+    {
+        execute("CREATE TABLE tpch.test_other_data_type (_foo UUID)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_other_data_type"));
+
+        execute("INSERT INTO tpch.test_other_data_type VALUES ('00000000-0000-0000-0000-000000000000')");
+        assertEquals(
+            queryRunner
+                .execute(getSession(), "SELECT _foo from test_other_data_type")
+                .getRowCount(),
+            1);
+
+        execute("DROP TABLE IF EXISTS tpch.test_other_data_type");
+        assertFalse(queryRunner.tableExists(getSession(), "test_other_data_type"));
     }
 
     private void execute(String sql)
