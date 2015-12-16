@@ -316,7 +316,7 @@ public class IndexLoader
         public boolean load(List<UpdateRequest> requests)
         {
             // Generate a RecordSet that only presents index keys that have not been cached and are deduped based on lookupSourceInputChannels
-            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests);
+            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests);
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
@@ -336,7 +336,7 @@ public class IndexLoader
             // Generate a RecordSet that presents unique index keys that have not been cached
             UnloadedIndexKeyRecordSet indexKeysRecordSet = (lookupSourceInputChannels.equals(allInputChannels))
                     ? recordSetForLookupSource
-                    : new UnloadedIndexKeyRecordSet(indexSnapshotReference.get(), allInputChannels, indexTypes, requests);
+                    : new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests);
 
             // Create lookup source with new data
             IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(indexKeysRecordSet);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -30,14 +31,13 @@ public class MarkDistinctHash
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public MarkDistinctHash(List<Type> types, int[] channels, Optional<Integer> hashChannel)
+    public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel)
     {
-        this(types, channels, hashChannel, 10_000);
+        this(session, types, channels, hashChannel, 10_000);
     }
-
-    public MarkDistinctHash(List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues)
+    public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues)
     {
-        this.groupByHash = createGroupByHash(types, channels, Optional.<Integer>empty(), hashChannel, expectedDistinctValues);
+        this.groupByHash = createGroupByHash(session, types, channels, Optional.empty(), hashChannel, expectedDistinctValues);
     }
 
     public long getEstimatedSize()

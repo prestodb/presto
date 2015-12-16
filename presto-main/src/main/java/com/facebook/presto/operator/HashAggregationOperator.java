@@ -286,7 +286,7 @@ public class HashAggregationOperator
                 Optional<Integer> hashChannel,
                 OperatorContext operatorContext)
         {
-            this.groupByHash = createGroupByHash(groupByTypes, Ints.toArray(groupByChannels), maskChannel, hashChannel, expectedGroups);
+            this.groupByHash = createGroupByHash(operatorContext.getSession(), groupByTypes, Ints.toArray(groupByChannels), maskChannel, hashChannel, expectedGroups);
             this.operatorContext = operatorContext;
             this.partial = step.isOutputPartial();
 
