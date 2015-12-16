@@ -35,9 +35,15 @@ public class DictionaryBlock
     private final int positionCount;
     private final Block dictionary;
     private final Slice ids;
+    private final int retainedSizeInBytes;
     private final int sizeInBytes;
 
     public DictionaryBlock(int positionCount, Block dictionary, Slice ids)
+    {
+        this(positionCount, dictionary, ids, false);
+    }
+
+    public DictionaryBlock(int positionCount, Block dictionary, Slice ids, boolean dictionaryIsCompacted)
     {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
@@ -54,7 +60,21 @@ public class DictionaryBlock
         this.dictionary = dictionary;
         this.ids = ids;
 
-        this.sizeInBytes = INSTANCE_SIZE + dictionary.getRetainedSizeInBytes() + ids.getRetainedSize();
+        this.retainedSizeInBytes = INSTANCE_SIZE + dictionary.getRetainedSizeInBytes() + ids.getRetainedSize();
+
+        if (dictionaryIsCompacted) {
+            this.sizeInBytes = this.retainedSizeInBytes;
+        }
+        else {
+            int sizeInBytes = 0;
+            boolean[] isReferenced = getReferencedPositions();
+            for (int position = 0; position < isReferenced.length; position++) {
+                if (isReferenced[position] && !dictionary.isNull(position)) {
+                    sizeInBytes += dictionary.getLength(position);
+                }
+            }
+            this.sizeInBytes = sizeInBytes + ids.length();
+        }
     }
 
     @Override
@@ -174,7 +194,7 @@ public class DictionaryBlock
     @Override
     public int getRetainedSizeInBytes()
     {
-        return sizeInBytes;
+        return retainedSizeInBytes;
     }
 
     @Override
@@ -248,14 +268,20 @@ public class DictionaryBlock
         return ids.getInt(position * SIZE_OF_INT);
     }
 
-    public DictionaryBlock compact()
+    private boolean[] getReferencedPositions()
     {
         int dictionarySize = dictionary.getPositionCount();
         boolean[] isReferenced = new boolean[dictionarySize];
         for (int i = 0; i < this.positionCount; i++) {
             isReferenced[getIndex(i)] = true;
         }
+        return isReferenced;
+    }
 
+    public DictionaryBlock compact()
+    {
+        int dictionarySize = dictionary.getPositionCount();
+        boolean[] isReferenced = getReferencedPositions();
         List<Integer> dictionaryPositionsToCopy = new ArrayList<>(dictionarySize);
         int[] remapIndex = new int[dictionarySize];
         Arrays.fill(remapIndex, -1);
@@ -271,7 +297,7 @@ public class DictionaryBlock
 
         // entire dictionary is referenced
         if (dictionaryPositionsToCopy.size() == dictionarySize) {
-            return this;
+            return new DictionaryBlock(positionCount, dictionary, ids, true);
         }
 
         int[] newIds = new int[positionCount];
@@ -284,7 +310,7 @@ public class DictionaryBlock
         }
         try {
             Block compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy);
-            return new DictionaryBlock(positionCount, compactDictionary, wrappedIntArray(newIds));
+            return new DictionaryBlock(positionCount, compactDictionary, wrappedIntArray(newIds), true);
         }
         catch (UnsupportedOperationException e) {
             // ignore if copy positions is not supported for the dictionary block
