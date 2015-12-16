@@ -57,6 +57,9 @@ statement
     | SHOW SESSION                                                     #showSession
     | SET SESSION qualifiedName EQ expression                          #setSession
     | RESET SESSION qualifiedName                                      #resetSession
+    | START TRANSACTION (transactionMode (',' transactionMode)*)?      #startTransaction
+    | COMMIT WORK?                                                     #commit
+    | ROLLBACK WORK?                                                   #rollback
     | SHOW PARTITIONS (FROM | IN) qualifiedName
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
@@ -336,6 +339,18 @@ explainOption
     | TYPE value=(LOGICAL | DISTRIBUTED)     #explainType
     ;
 
+transactionMode
+    : ISOLATION LEVEL levelOfIsolation    #isolationLevel
+    | READ accessMode=(ONLY | WRITE)      #transactionAccessMode
+    ;
+
+levelOfIsolation
+    : READ UNCOMMITTED                    #readUncommitted
+    | READ COMMITTED                      #readCommitted
+    | REPEATABLE READ                     #repeatableRead
+    | SERIALIZABLE                        #serializable
+    ;
+
 qualifiedName
     : identifier ('.' identifier)*
     ;
@@ -372,6 +387,7 @@ nonReserved
     | normalForm
     | POSITION
     | NO | DATA
+    | LEVEL | SERIALIZABLE | REPEATABLE | COMMITTED | UNCOMMITTED | READ
     ;
 
 normalForm
@@ -512,6 +528,20 @@ SET: 'SET';
 RESET: 'RESET';
 SESSION: 'SESSION';
 DATA: 'DATA';
+START: 'START';
+TRANSACTION: 'TRANSACTION';
+COMMIT: 'COMMIT';
+ROLLBACK: 'ROLLBACK';
+WORK: 'WORK';
+ISOLATION: 'ISOLATION';
+LEVEL: 'LEVEL';
+SERIALIZABLE: 'SERIALIZABLE';
+REPEATABLE: 'REPEATABLE';
+COMMITTED: 'COMMITTED';
+UNCOMMITTED: 'UNCOMMITTED';
+READ: 'READ';
+WRITE: 'WRITE';
+ONLY: 'ONLY';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';

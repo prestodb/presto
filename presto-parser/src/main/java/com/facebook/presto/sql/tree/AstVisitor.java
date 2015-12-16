@@ -486,4 +486,34 @@ public abstract class AstVisitor<R, C>
     {
         return visitStatement(node, context);
     }
+
+    protected R visitStartTransaction(StartTransaction node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitTransactionMode(TransactionMode node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitIsolationLevel(Isolation node, C context)
+    {
+        return visitTransactionMode(node, context);
+    }
+
+    protected R visitTransactionAccessMode(TransactionAccessMode node, C context)
+    {
+        return visitTransactionMode(node, context);
+    }
+
+    protected R visitCommit(Commit node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRollback(Rollback node, C context)
+    {
+        return visitStatement(node, context);
+    }
 }
