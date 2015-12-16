@@ -16,6 +16,7 @@ package com.facebook.presto.cli;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.io.StringWriter;
 import java.util.List;
 
@@ -83,6 +84,22 @@ public class TestTsvPrinter
         String expected = "" +
                 "hello\tworld\t123\n" +
                 "a\t\t4.5\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testCsvVarbinaryPrinting()
+            throws IOException
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
+        OutputPrinter printer = new TsvPrinter(fieldNames, writer, false);
+
+        printer.printRows(rows(row("hello".getBytes(), null, 123)), true);
+        printer.finish();
+
+        String expected = "68 65 6c 6c 6f\t\t123\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
     }

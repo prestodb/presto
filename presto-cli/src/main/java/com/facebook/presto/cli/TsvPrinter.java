@@ -20,6 +20,7 @@ import java.io.Writer;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.cli.CsvPrinter.formatValue;
 import static java.util.Objects.requireNonNull;
 
 public class TsvPrinter
@@ -64,8 +65,7 @@ public class TsvPrinter
         StringBuilder sb = new StringBuilder();
         Iterator<?> iter = row.iterator();
         while (iter.hasNext()) {
-            Object value = iter.next();
-            String s = (value == null) ? "" : value.toString();
+            String s = formatValue(iter.next());
 
             for (int i = 0; i < s.length(); i++) {
                 escapeCharacter(sb, s.charAt(i));
