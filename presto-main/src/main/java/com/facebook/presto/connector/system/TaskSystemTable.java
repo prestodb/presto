@@ -24,6 +24,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -98,7 +99,7 @@ public class TaskSystemTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(TASK_TABLE);
         for (TaskInfo taskInfo : taskManager.getAllTaskInfo()) {

@@ -15,7 +15,6 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PrestoException;
@@ -23,8 +22,10 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +46,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SystemRecordSetProvider
-        implements ConnectorRecordSetProvider
+        implements TransactionalConnectorRecordSetProvider
 {
     private final Map<SchemaTableName, SystemTable> tables;
 
@@ -55,9 +56,10 @@ public class SystemRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
+        SystemTransactionHandle systemTransaction = checkType(transactionHandle, SystemTransactionHandle.class, "transaction");
         SystemSplit systemSplit = checkType(split, SystemSplit.class, "split");
         SchemaTableName tableName = systemSplit.getTableHandle().getSchemaTableName();
         SystemTable systemTable = tables.get(tableName);
@@ -93,10 +95,10 @@ public class SystemRecordSetProvider
         }
         TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());
 
-        return new MappedRecordSet(toRecordSet(systemTable, session, newContraint), userToSystemFieldIndex.build());
+        return new MappedRecordSet(toRecordSet(systemTransaction.getTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build());
     }
 
-    private static RecordSet toRecordSet(SystemTable table, ConnectorSession session, TupleDomain<Integer> constraint)
+    private static RecordSet toRecordSet(ConnectorTransactionHandle sourceTransaction, SystemTable table, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         return new RecordSet()
         {
@@ -113,7 +115,7 @@ public class SystemRecordSetProvider
             @Override
             public RecordCursor cursor()
             {
-                return table.cursor(session, constraint);
+                return table.cursor(sourceTransaction, session, constraint);
             }
         };
     }

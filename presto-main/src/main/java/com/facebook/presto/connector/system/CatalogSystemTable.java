@@ -22,6 +22,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
@@ -62,7 +63,7 @@ public class CatalogSystemTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
         for (Map.Entry<String, String> entry : metadata.getCatalogNames().entrySet()) {

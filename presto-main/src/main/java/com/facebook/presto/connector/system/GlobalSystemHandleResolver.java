@@ -17,17 +17,16 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
 import static java.util.Objects.requireNonNull;
 
-public class SystemHandleResolver
+public class GlobalSystemHandleResolver
         implements ConnectorHandleResolver
 {
     private final String connectorId;
 
-    public SystemHandleResolver(String connectorId)
+    public GlobalSystemHandleResolver(String connectorId)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
@@ -35,65 +34,49 @@ public class SystemHandleResolver
     @Override
     public boolean canHandle(ConnectorTableHandle tableHandle)
     {
-        return (tableHandle instanceof SystemTableHandle) &&
-                ((SystemTableHandle) tableHandle).getConnectorId().equals(connectorId);
+        return false;
     }
 
     @Override
     public boolean canHandle(ColumnHandle columnHandle)
     {
-        return (columnHandle instanceof SystemColumnHandle) &&
-                ((SystemColumnHandle) columnHandle).getConnectorId().equals(connectorId);
+        return false;
     }
 
     @Override
     public boolean canHandle(ConnectorSplit split)
     {
-        return (split instanceof SystemSplit) &&
-                ((SystemSplit) split).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableLayoutHandle handle)
-    {
-        return (handle instanceof SystemTableLayoutHandle) &&
-                ((SystemTableLayoutHandle) handle).getConnectorId().equals(connectorId);
+        return false;
     }
 
     @Override
     public boolean canHandle(ConnectorTransactionHandle transactionHandle)
     {
-        return (transactionHandle instanceof SystemTransactionHandle) &&
-                ((SystemTransactionHandle) transactionHandle).getConnectorId().equals(connectorId);
+        return (transactionHandle instanceof GlobalSystemTransactionHandle) &&
+                ((GlobalSystemTransactionHandle) transactionHandle).getConnectorId().equals(connectorId);
     }
 
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
-        return SystemTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return SystemTableLayoutHandle.class;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
-        return SystemColumnHandle.class;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Class<? extends ConnectorSplit> getSplitClass()
     {
-        return SystemSplit.class;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
-        return SystemTransactionHandle.class;
+        return GlobalSystemTransactionHandle.class;
     }
 }

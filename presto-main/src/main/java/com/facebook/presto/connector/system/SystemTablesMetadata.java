@@ -15,7 +15,6 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -26,6 +25,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -45,14 +45,14 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 public class SystemTablesMetadata
-        implements ConnectorMetadata
+        implements TransactionalConnectorMetadata
 {
     private final String connectorId;
     private final Map<SchemaTableName, ConnectorTableMetadata> tables;
 
     public SystemTablesMetadata(String connectorId, Set<SystemTable> tables)
     {
-        this.connectorId = connectorId;
+        this.connectorId = requireNonNull(connectorId, "connectorId");
         this.tables = tables.stream()
                 .map(SystemTable::getTableMetadata)
                 .collect(toMap(ConnectorTableMetadata::getTable, identity()));

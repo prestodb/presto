@@ -34,7 +34,9 @@ public class TestSystemSplit
         JsonCodec<SystemSplit> codec = jsonCodec(SystemSplit.class);
         SystemSplit actual = codec.fromJson(codec.toJson(expected));
 
+        assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getTableHandle(), expected.getTableHandle());
         assertEquals(actual.getAddresses(), expected.getAddresses());
+        assertEquals(actual.getConstraint(), expected.getConstraint());
     }
 }
