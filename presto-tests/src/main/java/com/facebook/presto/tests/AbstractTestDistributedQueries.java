@@ -177,14 +177,21 @@ public abstract class AbstractTestDistributedQueries
 
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
 
-        // WARNING: PushTableWriteThroughUnion optimizer is disabled right now. The tests below don't exercise it.
-        // WARNING: The 2nd query below fails right now if PushTableWriteThroughUnion optimizer is turned on.
         assertCreateTableAsSelect(
                 "test_union_all",
                 "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 0 UNION ALL " +
                         "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 1",
                 "SELECT orderdate, orderkey, totalprice FROM orders",
                 "SELECT count(*) FROM orders");
+
+        assertCreateTableAsSelect(
+                getSession().withSystemProperty("redistribute_writes", "true"),
+                "test_union_all",
+                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
+                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
+                "SELECT count(*) + 1 FROM orders");
 
         assertCreateTableAsSelect(
                 getSession().withSystemProperty("redistribute_writes", "false"),
