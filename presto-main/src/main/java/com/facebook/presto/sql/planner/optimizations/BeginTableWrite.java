@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableCommitNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -131,7 +132,7 @@ public class BeginTableWrite
             if (node instanceof DeleteNode) {
                 return ((DeleteNode) node).getTarget();
             }
-            if (node instanceof ExchangeNode) {
+            if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<TableWriterNode.WriterTarget> writerTargets = node.getSources().stream()
                         .map(this::getTarget)
                         .collect(toSet());
