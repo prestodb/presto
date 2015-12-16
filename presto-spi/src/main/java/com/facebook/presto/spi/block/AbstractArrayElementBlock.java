@@ -151,7 +151,8 @@ public abstract class AbstractArrayElementBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return getBlock().getSingleValueBlock(position + start);
     }
 
     @Override
