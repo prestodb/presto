@@ -37,6 +37,7 @@ public class DictionaryBlock
     private final Slice ids;
     private final int retainedSizeInBytes;
     private final int sizeInBytes;
+    private final int uniqueIds;
 
     public DictionaryBlock(int positionCount, Block dictionary, Slice ids)
     {
@@ -64,16 +65,22 @@ public class DictionaryBlock
 
         if (dictionaryIsCompacted) {
             this.sizeInBytes = this.retainedSizeInBytes;
+            this.uniqueIds = dictionary.getPositionCount();
         }
         else {
             int sizeInBytes = 0;
+            int uniqueIds = 0;
             boolean[] isReferenced = getReferencedPositions();
             for (int position = 0; position < isReferenced.length; position++) {
-                if (isReferenced[position] && !dictionary.isNull(position)) {
-                    sizeInBytes += dictionary.getLength(position);
+                if (isReferenced[position]) {
+                    if (!dictionary.isNull(position)) {
+                        sizeInBytes += dictionary.getLength(position);
+                    }
+                    uniqueIds++;
                 }
             }
             this.sizeInBytes = sizeInBytes + ids.length();
+            this.uniqueIds = uniqueIds;
         }
     }
 
@@ -263,6 +270,11 @@ public class DictionaryBlock
         return ids;
     }
 
+    public boolean isCompact()
+    {
+        return uniqueIds == dictionary.getPositionCount();
+    }
+
     private int getIndex(int position)
     {
         return ids.getInt(position * SIZE_OF_INT);
@@ -280,6 +292,10 @@ public class DictionaryBlock
 
     public DictionaryBlock compact()
     {
+        if (isCompact()) {
+            return this;
+        }
+
         int dictionarySize = dictionary.getPositionCount();
         boolean[] isReferenced = getReferencedPositions();
         List<Integer> dictionaryPositionsToCopy = new ArrayList<>(dictionarySize);
@@ -297,7 +313,7 @@ public class DictionaryBlock
 
         // entire dictionary is referenced
         if (dictionaryPositionsToCopy.size() == dictionarySize) {
-            return new DictionaryBlock(positionCount, dictionary, ids, true);
+            return this;
         }
 
         int[] newIds = new int[positionCount];
