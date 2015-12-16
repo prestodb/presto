@@ -112,11 +112,14 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(5);
         DictionaryBlock dictionaryBlock = createDictionaryBlockWithUnreferencedKeys(expectedValues, 10);
+
+        assertEquals(dictionaryBlock.isCompact(), false);
         DictionaryBlock compactBlock = dictionaryBlock.compact();
 
         assertEquals(compactBlock.getDictionary().getPositionCount(), (expectedValues.length / 2) + 1);
         assertBlock(compactBlock.getDictionary(), new Slice[] { expectedValues[0], expectedValues[1], expectedValues[3] });
         assertEquals(compactBlock.getIds(), wrappedIntArray(0, 1, 1, 2, 2, 0, 1, 1, 2, 2));
+        assertEquals(compactBlock.isCompact(), true);
     }
 
     @Test
@@ -128,7 +131,9 @@ public class TestDictionaryBlock
         DictionaryBlock compactBlock = dictionaryBlock.compact();
 
         // When there is nothing to compact, we return the same block
-        assertEquals(compactBlock, dictionaryBlock);
+        assertEquals(compactBlock.getDictionary(), dictionaryBlock.getDictionary());
+        assertEquals(compactBlock.getIds(), dictionaryBlock.getIds());
+        assertEquals(compactBlock.isCompact(), true);
     }
 
     private static DictionaryBlock createDictionaryBlockWithUnreferencedKeys(Slice[] expectedValues, int positionCount)

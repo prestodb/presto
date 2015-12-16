@@ -74,7 +74,8 @@ public class DictionaryBlockEncoding
         int lengthIdsSlice = sliceInput.readInt();
         Slice ids = sliceInput.readSlice(lengthIdsSlice);
 
-        return new DictionaryBlock(positionCount, dictionaryBlock, ids);
+        // we always compact the dictionary before we send it
+        return new DictionaryBlock(positionCount, dictionaryBlock, ids, true);
     }
 
     @Override
