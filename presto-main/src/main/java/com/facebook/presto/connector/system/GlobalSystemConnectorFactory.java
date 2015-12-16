@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.transaction.TransactionalConnector;
+import com.facebook.presto.spi.transaction.TransactionalConnectorFactory;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
@@ -26,29 +25,26 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class
-        SystemConnectorFactory
-        implements ConnectorFactory
+public class GlobalSystemConnectorFactory
+        implements TransactionalConnectorFactory
 {
-    private final NodeManager nodeManager;
     private final Set<SystemTable> tables;
 
     @Inject
-    public SystemConnectorFactory(NodeManager nodeManager, Set<SystemTable> tables)
+    public GlobalSystemConnectorFactory(Set<SystemTable> tables)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tables = ImmutableSet.copyOf(requireNonNull(tables, "tables is null"));
     }
 
     @Override
     public String getName()
     {
-        return SystemConnector.NAME;
+        return GlobalSystemConnector.NAME;
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config)
+    public TransactionalConnector create(String connectorId, Map<String, String> config)
     {
-        return new SystemConnector(connectorId, nodeManager, tables);
+        return new GlobalSystemConnector(connectorId, tables);
     }
 }

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -42,7 +43,7 @@ public class SuperTableJdbcTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         return InMemoryRecordSet.builder(METADATA).build().cursor();
     }

@@ -135,7 +135,7 @@ public class TestShardMetadataRecordCursor
                         .build());
 
         List<MaterializedRow> actual;
-        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(SESSION, tupleDomain)) {
+        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, tupleDomain)) {
             actual = getMaterializedResults(cursor, SHARD_METADATA.getColumns());
         }
         assertEquals(actual.size(), 3);

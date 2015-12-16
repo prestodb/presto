@@ -22,7 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import static java.util.Objects.requireNonNull;
 
 public class SystemTableLayoutHandle
-    implements ConnectorTableLayoutHandle
+        implements ConnectorTableLayoutHandle
 {
     private final String connectorId;
     private final SystemTableHandle table;

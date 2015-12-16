@@ -38,7 +38,6 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.transaction.LegacyTransactionConnector;
 import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.log.Logger;
@@ -177,7 +176,11 @@ public class ConnectorManager
         String informationSchemaId = makeInformationSchemaConnectorId(connectorId);
         addConnectorInternal(ConnectorType.INFORMATION_SCHEMA, catalogName, informationSchemaId, new InformationSchemaConnector(informationSchemaId, catalogName, nodeManager, metadataManager));
         String systemId = makeSystemTablesConnectorId(connectorId);
-        addConnectorInternal(ConnectorType.SYSTEM, catalogName, systemId, new LegacyTransactionConnector(systemId, new SystemConnector(systemId, nodeManager, connector.getSystemTables())));
+        addConnectorInternal(ConnectorType.SYSTEM, catalogName, systemId, new SystemConnector(
+                systemId,
+                nodeManager,
+                connector.getSystemTables(),
+                transactionId -> transactionManager.getTransactionHandle(transactionId, connectorId)));
 
         // Register session and table properties once per catalog
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
