@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.spi.Page;
@@ -45,7 +46,7 @@ public class UnloadedIndexKeyRecordSet
     private final List<Type> types;
     private final List<PageAndPositions> pageAndPositions;
 
-    public UnloadedIndexKeyRecordSet(IndexSnapshot existingSnapshot, Set<Integer> channelsForDistinct, List<Type> types, List<UpdateRequest> requests)
+    public UnloadedIndexKeyRecordSet(Session session, IndexSnapshot existingSnapshot, Set<Integer> channelsForDistinct, List<Type> types, List<UpdateRequest> requests)
     {
         requireNonNull(existingSnapshot, "existingSnapshot is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -60,7 +61,7 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(distinctChannelTypes, normalizedDistinctChannels, Optional.<Integer>empty(), Optional.empty(), 10_000);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.<Integer>empty(), Optional.empty(), 10_000);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
             Block[] blocks = page.getBlocks();

@@ -98,7 +98,7 @@ public class MarkDistinctOperator
         for (int channel : markDistinctChannels) {
             distinctTypes.add(types.get(channel));
         }
-        this.markDistinctHash = new MarkDistinctHash(distinctTypes.build(), Ints.toArray(markDistinctChannels), hashChannel);
+        this.markDistinctHash = new MarkDistinctHash(operatorContext.getSession(), distinctTypes.build(), Ints.toArray(markDistinctChannels), hashChannel);
     }
 
     @Override
