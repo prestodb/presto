@@ -142,9 +142,17 @@ public class VariableWidthBlock
             throw new IndexOutOfBoundsException("Invalid position " + positionOffset + " in block with " + positionCount + " positions");
         }
 
-        Slice newOffsets = Slices.copyOf(offsets, positionOffset * SIZE_OF_INT, (length + 1) * SIZE_OF_INT);
+        SliceOutput newOffsets = Slices.allocate((length * SIZE_OF_INT) + SIZE_OF_INT).getOutput();
+        newOffsets.appendInt(0);
+        int sliceLength = 0;
+        for (int position = positionOffset; position < positionOffset + length; position++) {
+            sliceLength += getLength(position);
+            newOffsets.appendInt(sliceLength);
+        }
+
+        Slice newSlice = Slices.copyOf(slice, getPositionOffset(positionOffset), sliceLength);
         Slice newValueIsNull = Slices.copyOf(valueIsNull, positionOffset, length);
-        return new VariableWidthBlock(length, slice, newOffsets, newValueIsNull);
+        return new VariableWidthBlock(length, newSlice, newOffsets.slice(), newValueIsNull);
     }
 
     @Override

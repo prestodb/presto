@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
+
+import static java.util.Arrays.copyOfRange;
+import static org.testng.Assert.assertEquals;
 
 public class TestVariableWidthBlock
         extends AbstractTestBlock
@@ -29,6 +33,18 @@ public class TestVariableWidthBlock
         Slice[] expectedValues = createExpectedValues(100);
         assertVariableWithValues(expectedValues);
         assertVariableWithValues((Slice[]) alternatingNullValues(expectedValues));
+    }
+
+    @Test
+    public void testCopyRegion()
+            throws Exception
+    {
+        Slice[] expectedValues = createExpectedValues(100);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        Block actual = block.copyRegion(10, 10);
+        Block expected = createBlockBuilderWithValues(copyOfRange(expectedValues, 10, 20)).build();
+        assertEquals(actual.getPositionCount(), expected.getPositionCount());
+        assertEquals(actual.getSizeInBytes(), expected.getSizeInBytes());
     }
 
     @Test
