@@ -23,6 +23,7 @@ import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.connector.system.GlobalSystemConnectorFactory;
 import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
+import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
@@ -31,7 +32,9 @@ import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
+import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.SetSessionTask;
+import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
@@ -97,6 +100,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
@@ -104,7 +108,9 @@ import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
@@ -253,6 +259,9 @@ public class LocalQueryRunner
                 .put(RenameTable.class, new RenameTableTask())
                 .put(ResetSession.class, new ResetSessionTask())
                 .put(SetSession.class, new SetSessionTask())
+                .put(StartTransaction.class, new StartTransactionTask())
+                .put(Commit.class, new CommitTask())
+                .put(Rollback.class, new RollbackTask())
                 .build();
     }
 
