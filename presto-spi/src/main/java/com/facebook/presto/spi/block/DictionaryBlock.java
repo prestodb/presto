@@ -246,7 +246,8 @@ public class DictionaryBlock
             throw new IndexOutOfBoundsException("Invalid position " + position + " in block with " + positionCount + " positions");
         }
         Slice newIds = copyOf(ids, position * SIZE_OF_INT, length * SIZE_OF_INT);
-        return new DictionaryBlock(length, dictionary, newIds);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(length, dictionary, newIds);
+        return dictionaryBlock.compact();
     }
 
     @Override

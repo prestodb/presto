@@ -25,6 +25,7 @@ import java.util.List;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryBlock
         extends AbstractTestBlock
@@ -41,6 +42,17 @@ public class TestDictionaryBlock
             sizeInBytes += expectedValue.length();
         }
         assertEquals(dictionaryBlock.getSizeInBytes(), sizeInBytes + (100 * SIZE_OF_INT));
+    }
+
+    @Test
+    public void testCopyRegionCreatesCompactBlock()
+            throws Exception
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+
+        DictionaryBlock copyRegionDictionaryBlock = (DictionaryBlock) dictionaryBlock.copyRegion(1, 3);
+        assertTrue(copyRegionDictionaryBlock.isCompact());
     }
 
     @Test
