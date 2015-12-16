@@ -67,6 +67,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_ERROR;
+import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
 import static com.facebook.presto.hive.HiveWriteUtils.getJavaObjectInspectors;
@@ -283,7 +284,7 @@ public class HivePageSink
         checkArgument(partitionRow.size() == partitionColumnNames.size(), "size of partitionRow is different from partitionColumnNames");
 
         List<String> partitionValues = partitionRow.stream()
-                .map(Object::toString) // todo this seems wrong
+                .map(value -> (value == null) ? HIVE_DEFAULT_DYNAMIC_PARTITION : value.toString())
                 .collect(toList());
 
         Optional<String> partitionName;
