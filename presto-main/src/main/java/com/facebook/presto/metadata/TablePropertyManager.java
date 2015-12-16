@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 import java.util.List;
@@ -120,7 +119,7 @@ public class TablePropertyManager
 
     private static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata)
     {
-        Object value = evaluateConstantExpression(expression, expectedType, metadata, session, ImmutableSet.of());
+        Object value = evaluateConstantExpression(expression, expectedType, metadata, session);
 
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(new BlockBuilderStatus(), 1);
