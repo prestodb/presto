@@ -34,6 +34,7 @@ import java.util.List;
 public class QueryCompletionEvent
 {
     private final QueryId queryId;
+    private final String transactionId;
     private final String user;
     private final String principal;
     private final String source;
@@ -78,6 +79,7 @@ public class QueryCompletionEvent
 
     public QueryCompletionEvent(
             QueryId queryId,
+            String transactionId,
             String user,
             String principal,
             String source,
@@ -114,6 +116,7 @@ public class QueryCompletionEvent
             String sessionPropertiesJson)
     {
         this.queryId = queryId;
+        this.transactionId = transactionId;
         this.user = user;
         this.principal = principal;
         this.source = source;
@@ -172,6 +175,12 @@ public class QueryCompletionEvent
     public String getQueryId()
     {
         return queryId.toString();
+    }
+
+    @EventField
+    public String getTransactionId()
+    {
+        return transactionId;
     }
 
     @EventField

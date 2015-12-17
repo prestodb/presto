@@ -27,6 +27,7 @@ import java.net.URI;
 public class QueryCreatedEvent
 {
     private final QueryId queryId;
+    private final String transactionId;
     private final String user;
     private final String principal;
     private final String source;
@@ -42,6 +43,7 @@ public class QueryCreatedEvent
 
     public QueryCreatedEvent(
             QueryId queryId,
+            String transactionId,
             String user,
             String principal,
             String source,
@@ -56,6 +58,7 @@ public class QueryCreatedEvent
             DateTime createTime)
     {
         this.queryId = queryId;
+        this.transactionId = transactionId;
         this.user = user;
         this.principal = principal;
         this.source = source;
@@ -74,6 +77,12 @@ public class QueryCreatedEvent
     public String getQueryId()
     {
         return queryId.toString();
+    }
+
+    @EventField
+    public String getTransactionId()
+    {
+        return transactionId;
     }
 
     @EventField
