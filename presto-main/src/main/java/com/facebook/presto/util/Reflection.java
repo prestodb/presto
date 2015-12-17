@@ -14,6 +14,7 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -53,6 +54,16 @@ public final class Reflection
         }
         catch (IllegalAccessException | NoSuchMethodException e) {
             throw new PrestoException(INTERNAL_ERROR, e);
+        }
+    }
+
+    public static MethodHandle constructorMethodHandle(StandardErrorCode errorCode, Class<?> clazz, Class<?>... parameterTypes)
+    {
+        try {
+            return MethodHandles.lookup().unreflectConstructor(clazz.getConstructor(parameterTypes));
+        }
+        catch (IllegalAccessException | NoSuchMethodException e) {
+            throw new PrestoException(errorCode, e);
         }
     }
 }
