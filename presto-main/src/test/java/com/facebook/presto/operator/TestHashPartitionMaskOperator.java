@@ -39,7 +39,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.lang.Math.abs;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -95,7 +94,8 @@ public class TestHashPartitionMaskOperator
             for (int i = 0; i < ROW_COUNT; i++) {
                 int rawHash = (int) BigintOperators.hashCode(i);
                 // mix the bits so we don't use the same hash used to distribute between stages
-                rawHash = abs((int) XxHash64.hash(Integer.reverse(rawHash)));
+                rawHash = (int) XxHash64.hash(Integer.reverse(rawHash));
+                rawHash &= Integer.MAX_VALUE;
 
                 boolean active = (rawHash % PARTITION_COUNT == partition);
                 expected.row(i, active);
@@ -137,7 +137,8 @@ public class TestHashPartitionMaskOperator
             for (int i = 0; i < ROW_COUNT; i++) {
                 int rawHash = (int) BigintOperators.hashCode(i);
                 // mix the bits so we don't use the same hash used to distribute between stages
-                rawHash = abs((int) XxHash64.hash(Integer.reverse(rawHash)));
+                rawHash = (int) XxHash64.hash(Integer.reverse(rawHash));
+                rawHash &= Integer.MAX_VALUE;
 
                 boolean active = (rawHash % PARTITION_COUNT == partition);
                 boolean maskValue = i % 2 == 0;
