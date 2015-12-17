@@ -14,17 +14,24 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 public final class ArrayConcatUtils
 {
-    private ArrayConcatUtils() {}
+    private final PageBuilder pageBuilder;
 
-    public static Block concat(Type elementType, Block leftBlock, Block rightBlock)
+    public ArrayConcatUtils(Type elementType)
+    {
+        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+    }
+
+    public Block concat(Type elementType, Block leftBlock, Block rightBlock)
     {
         if (leftBlock.getPositionCount() == 0) {
             return rightBlock;
@@ -33,16 +40,20 @@ public final class ArrayConcatUtils
             return leftBlock;
         }
 
-        int totalSize = leftBlock.getSizeInBytes() + rightBlock.getSizeInBytes();
-        int totalEntries = leftBlock.getPositionCount() + rightBlock.getPositionCount();
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), totalEntries, (int) Math.ceil(totalSize / (double) totalEntries));
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
+
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
         for (int i = 0; i < leftBlock.getPositionCount(); i++) {
             elementType.appendTo(leftBlock, i, blockBuilder);
         }
         for (int i = 0; i < rightBlock.getPositionCount(); i++) {
             elementType.appendTo(rightBlock, i, blockBuilder);
         }
-        return blockBuilder.build();
+        int total = leftBlock.getPositionCount() + rightBlock.getPositionCount();
+        pageBuilder.declarePositions(total);
+        return blockBuilder.getRegion(blockBuilder.getPositionCount() - total, total);
     }
 
     // Usage of appendElement: ArrayToElementConcatFunction
