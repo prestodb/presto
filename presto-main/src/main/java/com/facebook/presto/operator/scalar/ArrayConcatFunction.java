@@ -21,16 +21,22 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.permuteArguments;
 
 public class ArrayConcatFunction
         extends SqlScalarFunction
 {
     public static final ArrayConcatFunction ARRAY_CONCAT_FUNCTION = new ArrayConcatFunction();
     private static final String FUNCTION_NAME = "concat";
+    private static final MethodHandle CONSTRUCTOR = constructorMethodHandle(FUNCTION_IMPLEMENTATION_ERROR, ArrayConcatUtils.class, Type.class);
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatUtils.class, FUNCTION_NAME, Type.class, Block.class, Block.class);
 
     public ArrayConcatFunction()
@@ -60,7 +66,16 @@ public class ArrayConcatFunction
     public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type elementType = types.get("E");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(elementType);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), methodHandle, isDeterministic());
+        MethodType newType = METHOD_HANDLE.type().changeParameterType(0, Type.class).changeParameterType(1, ArrayConcatUtils.class);
+        int[] permutedIndices = new int[newType.parameterCount()];
+        permutedIndices[0] = 1;
+        permutedIndices[1] = 0;
+        for (int i = 2; i < permutedIndices.length; i++) {
+            permutedIndices[i] = i;
+        }
+        MethodHandle methodHandle = permuteArguments(METHOD_HANDLE, newType, permutedIndices);
+        methodHandle = methodHandle.bindTo(elementType);
+        MethodHandle instanceFactory = CONSTRUCTOR.bindTo(elementType);
+        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), methodHandle, Optional.of(instanceFactory), isDeterministic());
     }
 }
