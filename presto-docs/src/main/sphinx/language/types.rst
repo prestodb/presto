@@ -5,6 +5,9 @@ Data Types
 Presto currently supports a limited set of data types.
 These types can be used with the standard ``CAST`` operator.
 
+Note that types parameterized by integers, such as VARCHAR(n) are NOT yet
+supported.
+
 BOOLEAN
 -------
 
@@ -25,7 +28,7 @@ DOUBLE
 VARCHAR
 -------
 
-    Variable length character data.
+    Variable length character data. (Note however that VARCHAR(n) is not supported.)
 
     .. note::
 
@@ -34,7 +37,7 @@ VARCHAR
 VARBINARY
 ---------
 
-    Variable length binary data.
+    Variable length binary data. (Note however that VARBINARY(n) is not supported.)
 
     .. note::
 
