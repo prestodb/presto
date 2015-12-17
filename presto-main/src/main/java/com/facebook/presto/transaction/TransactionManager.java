@@ -47,6 +47,7 @@ import static com.facebook.presto.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONF
 import static com.facebook.presto.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -136,6 +137,13 @@ public class TransactionManager
     public TransactionInfo getTransactionInfo(TransactionId transactionId)
     {
         return getTransactionMetadata(transactionId).getTransactionInfo();
+    }
+
+    public List<TransactionInfo> getAllTransactionInfos()
+    {
+        return transactions.values().stream()
+                .map(TransactionMetadata::getTransactionInfo)
+                .collect(toImmutableList());
     }
 
     public TransactionId beginTransaction(boolean autoCommitContext)

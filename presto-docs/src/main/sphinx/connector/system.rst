@@ -61,3 +61,10 @@ was queued and analyzed.
 The tasks table contains information about the tasks involved in a
 Presto query including where they were executed and and how many rows
 and bytes each task processed.
+
+``runtime.transactions``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The transactions table contains the list of currently open transactions
+and related metadata. This includes information such as the create time,
+idle time, initialization parameters, and accessed catalogs.
