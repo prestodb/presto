@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static java.util.Objects.requireNonNull;
@@ -35,10 +36,11 @@ public abstract class SqlOperator
             List<TypeSignature> argumentTypes,
             TypeSignature returnType,
             MethodHandle methodHandle,
+            Optional<MethodHandle> instanceFactory,
             boolean nullable,
             List<Boolean> nullableArguments)
     {
-        return new SimpleSqlOperator(operatorType, argumentTypes, returnType, methodHandle, nullable, nullableArguments);
+        return new SimpleSqlOperator(operatorType, argumentTypes, returnType, methodHandle, instanceFactory, nullable, nullableArguments);
     }
 
     protected SqlOperator(OperatorType operatorType, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes)
@@ -69,6 +71,7 @@ public abstract class SqlOperator
             extends SqlOperator
     {
         private final MethodHandle methodHandle;
+        private final Optional<MethodHandle> instanceFactory;
         private final boolean nullable;
         private final List<Boolean> nullableArguments;
 
@@ -77,6 +80,7 @@ public abstract class SqlOperator
                 List<TypeSignature> argumentTypes,
                 TypeSignature returnType,
                 MethodHandle methodHandle,
+                Optional<MethodHandle> instanceFactory,
                 boolean nullable,
                 List<Boolean> nullableArguments)
         {
@@ -87,6 +91,7 @@ public abstract class SqlOperator
                             .map(TypeSignature::toString)
                             .collect(ImmutableCollectors.toImmutableList()));
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+            this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
             this.nullable = nullable;
             this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
         }
@@ -94,7 +99,7 @@ public abstract class SqlOperator
         @Override
         public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
-            return new ScalarFunctionImplementation(nullable, nullableArguments, methodHandle, isDeterministic());
+            return new ScalarFunctionImplementation(nullable, nullableArguments, methodHandle, instanceFactory, isDeterministic());
         }
     }
 }

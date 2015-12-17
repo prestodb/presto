@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.ArrayGeneratorUtils;
 import com.facebook.presto.sql.gen.ArrayMapByteCodeExpression;
+import com.facebook.presto.sql.gen.CachedInstanceBinder;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerUtils;
 import com.google.common.base.Joiner;
@@ -37,7 +38,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
 import static com.facebook.presto.byteCode.Access.FINAL;
-import static com.facebook.presto.byteCode.Access.PRIVATE;
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.STATIC;
 import static com.facebook.presto.byteCode.Access.a;
@@ -84,8 +84,6 @@ public class ArrayToArrayCast
                 CompilerUtils.makeClassName(Joiner.on("$").join("ArrayCast", elementCastSignature.getArgumentTypes().get(0), elementCastSignature.getReturnType())),
                 type(Object.class));
 
-        definition.declareDefaultConstructor(a(PRIVATE));
-
         Parameter session = arg("session", ConnectorSession.class);
         Parameter value = arg("value", Block.class);
 
@@ -105,10 +103,20 @@ public class ArrayToArrayCast
         // cast map elements
         Type fromElementType = typeManager.getType(elementCastSignature.getArgumentTypes().get(0));
         Type toElementType = typeManager.getType(elementCastSignature.getReturnType());
-        ArrayMapByteCodeExpression newArray = ArrayGeneratorUtils.map(scope, binder, fromElementType, toElementType, value, elementCastSignature.getName(), elementCast);
+        CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
+        ArrayMapByteCodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCastSignature.getName(), elementCast);
 
         // return the block
         body.append(newArray.ret());
+
+        MethodDefinition constructorDefinition = definition.declareConstructor(a(PUBLIC));
+        ByteCodeBlock constructorBody = constructorDefinition.getBody();
+        Variable thisVariable = constructorDefinition.getThis();
+        constructorBody.comment("super();")
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
+        cachedInstanceBinder.generateInitializations(thisVariable, constructorBody);
+        constructorBody.ret();
 
         return defineClass(definition, Object.class, binder.getBindings(), ArrayToArrayCast.class.getClassLoader());
     }

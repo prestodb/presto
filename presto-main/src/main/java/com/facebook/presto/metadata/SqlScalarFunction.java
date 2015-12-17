@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -38,11 +39,12 @@ public abstract class SqlScalarFunction
             String description,
             boolean hidden,
             MethodHandle methodHandle,
+            Optional<MethodHandle> instanceFactory,
             boolean deterministic,
             boolean nullable,
             List<Boolean> nullableArguments)
     {
-        return new SimpleSqlScalarFunction(signature, description, hidden, methodHandle, deterministic, nullable, nullableArguments);
+        return new SimpleSqlScalarFunction(signature, description, hidden, methodHandle, instanceFactory, deterministic, nullable, nullableArguments);
     }
 
     protected SqlScalarFunction(String name, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes)
@@ -71,6 +73,7 @@ public abstract class SqlScalarFunction
             extends SqlScalarFunction
     {
         private final MethodHandle methodHandle;
+        private final Optional<MethodHandle> instanceFactory;
         private final String description;
         private final boolean hidden;
         private final boolean nullable;
@@ -82,6 +85,7 @@ public abstract class SqlScalarFunction
                 String description,
                 boolean hidden,
                 MethodHandle methodHandle,
+                Optional<MethodHandle> instanceFactory,
                 boolean deterministic,
                 boolean nullable,
                 List<Boolean> nullableArguments)
@@ -96,6 +100,7 @@ public abstract class SqlScalarFunction
             this.description = description;
             this.hidden = hidden;
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+            this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
             this.deterministic = deterministic;
             this.nullable = nullable;
             this.nullableArguments = requireNonNull(nullableArguments, "nullableArguments is null");
@@ -122,7 +127,7 @@ public abstract class SqlScalarFunction
         @Override
         public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
-            return new ScalarFunctionImplementation(nullable, nullableArguments, methodHandle, isDeterministic());
+            return new ScalarFunctionImplementation(nullable, nullableArguments, methodHandle, instanceFactory, isDeterministic());
         }
     }
 }

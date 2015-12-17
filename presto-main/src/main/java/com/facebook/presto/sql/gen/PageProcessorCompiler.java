@@ -95,11 +95,12 @@ public class PageProcessorCompiler
     @Override
     public void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
     {
+        CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
         ImmutableList.Builder<MethodDefinition> projectMethods = ImmutableList.builder();
         ImmutableList.Builder<MethodDefinition> projectColumnarMethods = ImmutableList.builder();
         ImmutableList.Builder<MethodDefinition> projectDictionaryMethods = ImmutableList.builder();
         for (int i = 0; i < projections.size(); i++) {
-            MethodDefinition project = generateProjectMethod(classDefinition, callSiteBinder, "project_" + i, projections.get(i));
+            MethodDefinition project = generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, "project_" + i, projections.get(i));
             MethodDefinition projectColumnar = generateProjectColumnarMethod(classDefinition, callSiteBinder, "projectColumnar_" + i, projections.get(i), project);
             MethodDefinition projectDictionary = generateProjectDictionaryMethod(classDefinition, "projectDictionary_" + i, projections.get(i), project, projectColumnar);
 
@@ -112,17 +113,17 @@ public class PageProcessorCompiler
         List<MethodDefinition> projectColumnarMethodDefinitions = projectColumnarMethods.build();
         List<MethodDefinition> projectDictionaryMethodDefinitions = projectDictionaryMethods.build();
 
-        generateConstructor(classDefinition, projections.size());
         generateProcessMethod(classDefinition, filter, projections, projectMethodDefinitions);
         generateGetNonLazyPageMethod(classDefinition, filter, projections);
         generateProcessColumnarMethod(classDefinition, projections, projectColumnarMethodDefinitions);
         generateProcessColumnarDictionaryMethod(classDefinition, projections, projectColumnarMethodDefinitions, projectDictionaryMethodDefinitions);
 
         generateFilterPageMethod(classDefinition, filter);
-        generateFilterMethod(classDefinition, callSiteBinder, filter);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
+        generateConstructor(classDefinition, cachedInstanceBinder, projections.size());
     }
 
-    private static void generateConstructor(ClassDefinition classDefinition, int projectionCount)
+    private static void generateConstructor(ClassDefinition classDefinition, CachedInstanceBinder cachedInstanceBinder, int projectionCount)
     {
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
         FieldDefinition inputDictionaries = classDefinition.declareField(a(PRIVATE, FINAL), "inputDictionaries", Block[].class);
@@ -137,6 +138,7 @@ public class PageProcessorCompiler
 
         body.append(thisVariable.setField(inputDictionaries, newArray(type(Block[].class), projectionCount)));
         body.append(thisVariable.setField(outputDictionaries, newArray(type(Block[].class), projectionCount)));
+        cachedInstanceBinder.generateInitializations(thisVariable, body);
         body.ret();
     }
 
@@ -549,7 +551,7 @@ public class PageProcessorCompiler
         body.append(invokeStatic(Arrays.class, "copyOf", int[].class, selectedPositions, selectedCount).ret());
     }
 
-    private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter)
+    private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter position = arg("position", int.class);
@@ -573,6 +575,7 @@ public class PageProcessorCompiler
 
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(
                 callSiteBinder,
+                cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
                 metadata.getFunctionRegistry());
         ByteCodeNode visitorBody = filter.accept(visitor, scope);
@@ -586,7 +589,7 @@ public class PageProcessorCompiler
                         .ifFalse(result.ret()));
     }
 
-    private MethodDefinition generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String methodName, RowExpression projection)
+    private MethodDefinition generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, String methodName, RowExpression projection)
     {
         Parameter session = arg("session", ConnectorSession.class);
         List<Parameter> inputs = toBlockParameters(getInputChannels(projection));
@@ -609,7 +612,7 @@ public class PageProcessorCompiler
         ByteCodeBlock body = method.getBody();
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(callSiteBinder, position, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler(callSiteBinder, position, wasNullVariable), metadata.getFunctionRegistry());
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())

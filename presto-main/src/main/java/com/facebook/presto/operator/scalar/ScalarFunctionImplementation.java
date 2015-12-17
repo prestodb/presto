@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class ScalarFunctionImplementation
@@ -25,14 +27,26 @@ public final class ScalarFunctionImplementation
     private final boolean nullable;
     private final List<Boolean> nullableArguments;
     private final MethodHandle methodHandle;
+    private final Optional<MethodHandle> instanceFactory;
     private final boolean deterministic;
 
     public ScalarFunctionImplementation(boolean nullable, List<Boolean> nullableArguments, MethodHandle methodHandle, boolean deterministic)
     {
+        this(nullable, nullableArguments, methodHandle, Optional.empty(), deterministic);
+    }
+
+    public ScalarFunctionImplementation(boolean nullable, List<Boolean> nullableArguments, MethodHandle methodHandle, Optional<MethodHandle> instanceFactory, boolean deterministic)
+    {
         this.nullable = nullable;
         this.nullableArguments = ImmutableList.copyOf(requireNonNull(nullableArguments, "nullableArguments is null"));
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+        this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
         this.deterministic = deterministic;
+
+        if (instanceFactory.isPresent()) {
+            Class<?> instanceType = instanceFactory.get().type().returnType();
+            checkArgument(instanceType.equals(methodHandle.type().parameterType(0)), "methodHandle is not an instance method");
+        }
     }
 
     public boolean isNullable()
@@ -48,6 +62,11 @@ public final class ScalarFunctionImplementation
     public MethodHandle getMethodHandle()
     {
         return methodHandle;
+    }
+
+    public Optional<MethodHandle> getInstanceFactory()
+    {
+        return instanceFactory;
     }
 
     public boolean isDeterministic()

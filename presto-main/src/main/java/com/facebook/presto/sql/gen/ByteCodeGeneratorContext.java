@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.metadata.FunctionRegistry;
@@ -21,6 +22,7 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.sql.relational.RowExpression;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateInvocation;
 import static java.util.Objects.requireNonNull;
@@ -30,6 +32,7 @@ public class ByteCodeGeneratorContext
     private final ByteCodeExpressionVisitor byteCodeGenerator;
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
+    private final CachedInstanceBinder cachedInstanceBinder;
     private final FunctionRegistry registry;
     private final Variable wasNull;
 
@@ -37,9 +40,11 @@ public class ByteCodeGeneratorContext
             ByteCodeExpressionVisitor byteCodeGenerator,
             Scope scope,
             CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
             FunctionRegistry registry)
     {
         requireNonNull(byteCodeGenerator, "byteCodeGenerator is null");
+        requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(callSiteBinder, "callSiteBinder is null");
         requireNonNull(registry, "registry is null");
@@ -47,6 +52,7 @@ public class ByteCodeGeneratorContext
         this.byteCodeGenerator = byteCodeGenerator;
         this.scope = scope;
         this.callSiteBinder = callSiteBinder;
+        this.cachedInstanceBinder = cachedInstanceBinder;
         this.registry = registry;
         this.wasNull = scope.getVariable("wasNull");
     }
@@ -77,7 +83,12 @@ public class ByteCodeGeneratorContext
     public ByteCodeNode generateCall(String name, ScalarFunctionImplementation function, List<ByteCodeNode> arguments)
     {
         Binding binding = callSiteBinder.bind(function.getMethodHandle());
-        return generateInvocation(scope, name, function, arguments, binding);
+        Optional<ByteCodeNode> instance = Optional.empty();
+        if (function.getInstanceFactory().isPresent()) {
+            FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
+            instance = Optional.of(scope.getThis().getField(field));
+        }
+        return generateInvocation(scope, name, function, instance, arguments, binding);
     }
 
     public Variable wasNull()
