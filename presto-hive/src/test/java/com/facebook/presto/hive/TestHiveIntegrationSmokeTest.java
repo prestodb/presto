@@ -43,6 +43,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.joda.time.DateTimeZone.UTC;
@@ -424,22 +425,31 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, new QualifiedObjectName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
-        assertTrue(tableHandle.isPresent());
-        return metadata.getTableMetadata(session, tableHandle.get());
+
+        return transaction(queryRunner.getTransactionManager())
+                .readOnly()
+                .execute(session, transactionSession -> {
+                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
+                    assertTrue(tableHandle.isPresent());
+                    return metadata.getTableMetadata(transactionSession, tableHandle.get());
+                });
     }
 
     private List<HivePartition> getPartitions(String tableName)
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, new QualifiedObjectName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
-        assertTrue(tableHandle.isPresent());
 
-        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
-        TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
-        List<HivePartition> partitions = ((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle()).getPartitions().get();
-        return partitions;
+        return transaction(queryRunner.getTransactionManager())
+                .readOnly()
+                .execute(session, transactionSession -> {
+                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(HIVE_CATALOG, TPCH_SCHEMA, tableName));
+                    assertTrue(tableHandle.isPresent());
+
+                    List<TableLayoutResult> layouts = metadata.getLayouts(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
+                    TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
+                    return ((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle()).getPartitions().get();
+                });
     }
 
     // TODO: These should be moved to another class, when more connectors support arrays

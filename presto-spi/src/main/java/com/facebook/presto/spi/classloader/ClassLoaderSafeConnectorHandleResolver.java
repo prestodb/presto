@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
 import static java.util.Objects.requireNonNull;
 
@@ -93,6 +94,14 @@ public class ClassLoaderSafeConnectorHandleResolver
     }
 
     @Override
+    public boolean canHandle(ConnectorTransactionHandle transactionHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canHandle(transactionHandle);
+        }
+    }
+
+    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -153,6 +162,14 @@ public class ClassLoaderSafeConnectorHandleResolver
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getInsertTableHandleClass();
+        }
+    }
+
+    @Override
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTransactionHandleClass();
         }
     }
 }

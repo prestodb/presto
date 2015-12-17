@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+
 public interface ConnectorHandleResolver
 {
     boolean canHandle(ConnectorTableHandle tableHandle);
@@ -41,6 +43,11 @@ public interface ConnectorHandleResolver
         return false;
     }
 
+    default boolean canHandle(ConnectorTransactionHandle transactionHandle)
+    {
+        return false;
+    }
+
     Class<? extends ConnectorTableHandle> getTableHandleClass();
 
     default Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
@@ -63,6 +70,11 @@ public interface ConnectorHandleResolver
     }
 
     default Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
         throw new UnsupportedOperationException();
     }

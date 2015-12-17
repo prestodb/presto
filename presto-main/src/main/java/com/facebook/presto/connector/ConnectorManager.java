@@ -19,11 +19,9 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
@@ -33,11 +31,16 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
+import com.facebook.presto.spi.transaction.TransactionalConnector;
+import com.facebook.presto.spi.transaction.TransactionalConnectorFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.transaction.LegacyTransactionConnector;
+import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
+import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.log.Logger;
 
 import javax.annotation.PreDestroy;
@@ -71,11 +74,12 @@ public class ConnectorManager
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
     private final NodeManager nodeManager;
+    private final TransactionManager transactionManager;
 
-    private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, TransactionalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     private final Set<String> catalogs = newConcurrentHashSet();
-    private final ConcurrentMap<String, Connector> connectors = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, TransactionalConnector> connectors = new ConcurrentHashMap<>();
 
     private final AtomicBoolean stopped = new AtomicBoolean();
 
@@ -87,7 +91,8 @@ public class ConnectorManager
             IndexManager indexManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
-            NodeManager nodeManager)
+            NodeManager nodeManager,
+            TransactionManager transactionManager)
     {
         this.metadataManager = metadataManager;
         this.accessControlManager = accessControlManager;
@@ -97,6 +102,7 @@ public class ConnectorManager
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
+        this.transactionManager = transactionManager;
     }
 
     @PreDestroy
@@ -106,8 +112,8 @@ public class ConnectorManager
             return;
         }
 
-        for (Map.Entry<String, Connector> entry : connectors.entrySet()) {
-            Connector connector = entry.getValue();
+        for (Map.Entry<String, TransactionalConnector> entry : connectors.entrySet()) {
+            TransactionalConnector connector = entry.getValue();
             try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
                 connector.shutdown();
             }
@@ -119,8 +125,13 @@ public class ConnectorManager
 
     public void addConnectorFactory(ConnectorFactory connectorFactory)
     {
+        addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
+    }
+
+    public void addConnectorFactory(TransactionalConnectorFactory connectorFactory)
+    {
         checkState(!stopped.get(), "ConnectorManager is stopped");
-        ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
+        TransactionalConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
         checkArgument(existingConnectorFactory == null, "Connector %s is already registered", connectorFactory.getName());
     }
 
@@ -131,7 +142,7 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         requireNonNull(properties, "properties is null");
 
-        ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
+        TransactionalConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             createConnection(catalogName, connectorFactory, properties);
@@ -139,6 +150,11 @@ public class ConnectorManager
     }
 
     public synchronized void createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    {
+        createConnection(catalogName, new LegacyTransactionConnectorFactory(connectorFactory), properties);
+    }
+
+    public synchronized void createConnection(String catalogName, TransactionalConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -149,33 +165,30 @@ public class ConnectorManager
         String connectorId = getConnectorId(catalogName);
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
 
-        Connector connector = connectorFactory.create(connectorId, properties);
+        TransactionalConnector connector = connectorFactory.create(connectorId, properties);
 
         addCatalogConnector(catalogName, connectorId, connector);
         catalogs.add(catalogName);
     }
 
-    private synchronized void addCatalogConnector(String catalogName, String connectorId, Connector connector)
+    private synchronized void addCatalogConnector(String catalogName, String connectorId, TransactionalConnector connector)
     {
         addConnectorInternal(ConnectorType.STANDARD, catalogName, connectorId, connector);
         String informationSchemaId = makeInformationSchemaConnectorId(connectorId);
-        addConnectorInternal(ConnectorType.INFORMATION_SCHEMA, catalogName, informationSchemaId, new InformationSchemaConnector(informationSchemaId, catalogName, nodeManager, metadataManager));
+        addConnectorInternal(ConnectorType.INFORMATION_SCHEMA, catalogName, informationSchemaId, new LegacyTransactionConnector(informationSchemaId, new InformationSchemaConnector(informationSchemaId, catalogName, nodeManager, metadataManager)));
         String systemId = makeSystemTablesConnectorId(connectorId);
-        addConnectorInternal(ConnectorType.SYSTEM, catalogName, systemId, new SystemConnector(systemId, nodeManager, connector.getSystemTables()));
+        addConnectorInternal(ConnectorType.SYSTEM, catalogName, systemId, new LegacyTransactionConnector(systemId, new SystemConnector(systemId, nodeManager, connector.getSystemTables())));
 
         // Register session and table properties once per catalog
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
         metadataManager.getTablePropertyManager().addTableProperties(catalogName, connector.getTableProperties());
     }
 
-    private synchronized void addConnectorInternal(ConnectorType type, String catalogName, String connectorId, Connector connector)
+    private synchronized void addConnectorInternal(ConnectorType type, String catalogName, String connectorId, TransactionalConnector connector)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
         connectors.put(connectorId, connector);
-
-        ConnectorMetadata connectorMetadata = connector.getMetadata();
-        checkState(connectorMetadata != null, "Connector %s can not provide metadata", connectorId);
 
         ConnectorSplitManager connectorSplitManager = connector.getSplitManager();
         checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
@@ -246,14 +259,16 @@ public class ConnectorManager
         // IMPORTANT: all the instances need to be fetched from the connector *before* we add them to the corresponding managers.
         // Otherwise, a broken connector would leave the managers in an inconsistent state with respect to each other
 
+        transactionManager.addConnector(connectorId, connector);
+
         if (type == ConnectorType.STANDARD) {
-            metadataManager.addConnectorMetadata(connectorId, catalogName, connectorMetadata);
+            metadataManager.registerConnectorCatalog(connectorId, catalogName);
         }
         else if (type == ConnectorType.INFORMATION_SCHEMA) {
-            metadataManager.addInformationSchemaMetadata(connectorId, catalogName, connectorMetadata);
+            metadataManager.registerInformationSchemaCatalog(connectorId, catalogName);
         }
         else if (type == ConnectorType.SYSTEM) {
-            metadataManager.addSystemTablesMetadata(connectorId, catalogName, connectorMetadata);
+            metadataManager.registerSystemTablesCatalog(connectorId, catalogName);
         }
         else {
             throw new IllegalArgumentException("Unhandled type: " + type);

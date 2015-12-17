@@ -26,6 +26,7 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -43,7 +44,7 @@ public class TestMemoryPools
         Session session = TEST_SESSION
                 .withSystemProperty("task_default_concurrency", "1");
 
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner localQueryRunner = queryRunnerWithInitialTransaction(session);
 
         // add tpch
         InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();

@@ -11,11 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.spi.transaction;
 
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorIndexResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Set;
@@ -23,12 +31,17 @@ import java.util.Set;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
-@Deprecated
-public interface Connector
+public interface TransactionalConnector
 {
+    ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly);
+
     ConnectorHandleResolver getHandleResolver();
 
-    ConnectorMetadata getMetadata();
+    /**
+     * Guaranteed to be called at most once per transaction. Resulting ConnectorMetadata will only
+     * ever be accessed in a single-threaded context.
+     */
+    ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
 
     ConnectorSplitManager getSplitManager();
 
@@ -105,11 +118,17 @@ public interface Connector
     }
 
     /**
-     * Get the transaction read isolation level supported by this connector.
+     * Commit the transaction. Will be called at most once and will not be called if abort is called.
      */
-    default IsolationLevel getIsolationLevel()
+    default void commit(ConnectorTransactionHandle transactionHandle)
     {
-        return IsolationLevel.READ_UNCOMMITTED;
+    }
+
+    /**
+     * Abort the transaction. Will be called at most once and will not be called if commit is called.
+     */
+    default void abort(ConnectorTransactionHandle transactionHandle)
+    {
     }
 
     /**

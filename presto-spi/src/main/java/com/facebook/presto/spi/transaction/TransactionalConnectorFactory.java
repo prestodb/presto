@@ -11,14 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.spi.transaction;
 
 import java.util.Map;
 
-@Deprecated
-public interface ConnectorFactory
+public interface TransactionalConnectorFactory
 {
     String getName();
 
-    Connector create(String connectorId, Map<String, String> config);
+    TransactionalConnector create(String connectorId, Map<String, String> config);
 }

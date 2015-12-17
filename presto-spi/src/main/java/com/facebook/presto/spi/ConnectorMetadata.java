@@ -27,6 +27,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 
+@Deprecated
 public interface ConnectorMetadata
 {
     /**

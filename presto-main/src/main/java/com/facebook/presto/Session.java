@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.units.Duration;
@@ -35,11 +36,13 @@ import java.util.TimeZone;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class Session
 {
     private final QueryId queryId;
+    private final Optional<TransactionId> transactionId;
     private final Identity identity;
     private final Optional<String> source;
     private final Optional<String> catalog;
@@ -55,6 +58,7 @@ public final class Session
 
     public Session(
             QueryId queryId,
+            Optional<TransactionId> transactionId,
             Identity identity,
             Optional<String> source,
             Optional<String> catalog,
@@ -69,6 +73,7 @@ public final class Session
             SessionPropertyManager sessionPropertyManager)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
+        this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.identity = identity;
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -145,6 +150,17 @@ public final class Session
         return startTime;
     }
 
+    public Optional<TransactionId> getTransactionId()
+    {
+        return transactionId;
+    }
+
+    public TransactionId getRequiredTransactionId()
+    {
+        checkState(transactionId.isPresent(), "Not in a transaction");
+        return transactionId.get();
+    }
+
     public <T> T getProperty(String name, Class<T> type)
     {
         return sessionPropertyManager.decodeProperty(name, systemProperties.get(name), type);
@@ -165,6 +181,37 @@ public final class Session
         return systemProperties;
     }
 
+    public Session withTransactionId(TransactionId transactionId)
+    {
+        requireNonNull(transactionId, "transactionId is null");
+        checkArgument(!this.transactionId.isPresent(), "Session already has an active transaction");
+        return withTransactionId(Optional.of(transactionId));
+    }
+
+    public Session withoutTransactionId()
+    {
+        return withTransactionId(Optional.empty());
+    }
+
+    private Session withTransactionId(Optional<TransactionId> transactionId)
+    {
+        return new Session(
+                queryId,
+                transactionId,
+                identity,
+                source,
+                catalog,
+                schema,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                startTime,
+                systemProperties,
+                catalogProperties,
+                sessionPropertyManager);
+    }
+
     public Session withSystemProperty(String key, String value)
     {
         requireNonNull(key, "key is null");
@@ -175,6 +222,7 @@ public final class Session
 
         return new Session(
                 queryId,
+                transactionId,
                 identity,
                 source,
                 catalog,
@@ -208,6 +256,7 @@ public final class Session
 
         return new Session(
                 queryId,
+                transactionId,
                 identity,
                 source,
                 this.catalog,
@@ -269,6 +318,7 @@ public final class Session
     {
         return new SessionRepresentation(
                 queryId.toString(),
+                transactionId,
                 identity.getUser(),
                 identity.getPrincipal().map(Principal::toString),
                 source,
@@ -288,6 +338,7 @@ public final class Session
     {
         return toStringHelper(this)
                 .add("queryId", queryId)
+                .add("transactionId", transactionId)
                 .add("user", getUser())
                 .add("principal", getIdentity().getPrincipal().orElse(null))
                 .add("source", source.orElse(null))
@@ -310,6 +361,7 @@ public final class Session
     public static class SessionBuilder
     {
         private QueryId queryId;
+        private TransactionId transactionId;
         private Identity identity;
         private String source;
         private String catalog;
@@ -331,6 +383,12 @@ public final class Session
         public SessionBuilder setQueryId(QueryId queryId)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
+            return this;
+        }
+
+        public SessionBuilder setTransactionId(TransactionId transactionId)
+        {
+            this.transactionId = transactionId;
             return this;
         }
 
@@ -415,6 +473,7 @@ public final class Session
         {
             return new Session(
                     queryId,
+                    Optional.ofNullable(transactionId),
                     identity,
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),

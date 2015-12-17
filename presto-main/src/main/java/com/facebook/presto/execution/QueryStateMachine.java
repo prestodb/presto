@@ -21,6 +21,8 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -43,6 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
+import static com.facebook.presto.execution.QueryState.FINISHING;
 import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -69,6 +72,8 @@ public class QueryStateMachine
     private final String query;
     private final Session session;
     private final URI self;
+    private final boolean autoCommit;
+    private final TransactionManager transactionManager;
 
     private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
@@ -81,6 +86,9 @@ public class QueryStateMachine
     private final AtomicReference<Duration> queuedTime = new AtomicReference<>();
     private final AtomicReference<Duration> analysisTime = new AtomicReference<>();
     private final AtomicReference<Duration> distributedPlanningTime = new AtomicReference<>();
+
+    private final AtomicReference<Long> finishingStartNanos = new AtomicReference<>();
+    private final AtomicReference<Duration> finishingTime = new AtomicReference<>();
 
     private final AtomicReference<Duration> totalPlanningTime = new AtomicReference<>();
 
@@ -97,15 +105,55 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
 
-    public QueryStateMachine(QueryId queryId, String query, Session session, URI self, Executor executor)
+    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
         this.session = requireNonNull(session, "session is null");
         this.self = requireNonNull(self, "self is null");
+        this.autoCommit = autoCommit;
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
-        queryState.addStateChangeListener(currentState -> log.debug("Query %s is %s", QueryStateMachine.this.queryId, currentState));
+    }
+
+    /**
+     * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
+     */
+    public static QueryStateMachine begin(QueryId queryId, String query, Session session, URI self, boolean transactionControl, TransactionManager transactionManager, Executor executor)
+    {
+        session.getTransactionId().ifPresent(transactionControl ? transactionManager::trySetActive : transactionManager::checkAndSetActive);
+
+        Session querySession;
+        boolean autoCommit = !session.getTransactionId().isPresent() && !transactionControl;
+        if (autoCommit) {
+            // TODO: make autocommit isolation level a session parameter
+            TransactionId transactionId = transactionManager.beginTransaction(true);
+            querySession = session.withTransactionId(transactionId);
+        }
+        else {
+            querySession = session;
+        }
+
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor);
+        queryStateMachine.addStateChangeListener(newState -> log.debug("Query %s is %s", queryId, newState));
+        queryStateMachine.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                session.getTransactionId().ifPresent(transactionManager::trySetInactive);
+            }
+        });
+
+        return queryStateMachine;
+    }
+
+    /**
+     * Create a QueryStateMachine that is already in a failed state.
+     */
+    public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Throwable throwable)
+    {
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor);
+        queryStateMachine.transitionToFailed(throwable);
+        return queryStateMachine;
     }
 
     public QueryId getQueryId()
@@ -242,6 +290,7 @@ public class QueryStateMachine
                 analysisTime.get(),
                 distributedPlanningTime.get(),
                 totalPlanningTime.get(),
+                finishingTime.get(),
 
                 totalTasks,
                 runningTasks,
@@ -365,16 +414,48 @@ public class QueryStateMachine
         totalPlanningTime.compareAndSet(null, durationSinceCreation);
         executionStartTime.compareAndSet(null, DateTime.now());
 
-        return queryState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
+        return queryState.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != FINISHING && !currentState.isDone());
     }
 
-    public boolean transitionToFinished()
+    public boolean transitionToFinishing()
     {
         Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
         queuedTime.compareAndSet(null, durationSinceCreation);
         totalPlanningTime.compareAndSet(null, durationSinceCreation);
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
+        finishingStartNanos.compareAndSet(null, System.nanoTime());
+
+        if (!queryState.setIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone())) {
+            return false;
+        }
+
+        if (autoCommit) {
+            transactionManager.asyncCommit(session.getTransactionId().get())
+                    .whenComplete((value, throwable) -> {
+                        if (throwable == null) {
+                            transitionToFinished();
+                        }
+                        else {
+                            transitionToFailed(throwable);
+                        }
+                    });
+        }
+        else {
+            transitionToFinished();
+        }
+        return true;
+    }
+
+    private boolean transitionToFinished()
+    {
+        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
+        queuedTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        DateTime now = DateTime.now();
+        executionStartTime.compareAndSet(null, now);
+        finishingStartNanos.compareAndSet(null, System.nanoTime());
+        finishingTime.compareAndSet(null, nanosSince(finishingStartNanos.get()));
         endTime.compareAndSet(null, now);
         endNanos.compareAndSet(0, System.nanoTime());
 
@@ -390,6 +471,8 @@ public class QueryStateMachine
         totalPlanningTime.compareAndSet(null, durationSinceCreation);
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
+        finishingStartNanos.compareAndSet(null, System.nanoTime());
+        finishingTime.compareAndSet(null, nanosSince(finishingStartNanos.get()));
         endTime.compareAndSet(null, now);
         endNanos.compareAndSet(0, System.nanoTime());
 
@@ -401,6 +484,9 @@ public class QueryStateMachine
         else {
             log.debug(throwable, "Failure after query %s finished", queryId);
         }
+
+        session.getTransactionId().ifPresent(autoCommit ? transactionManager::asyncAbort : transactionManager::fail);
+
         return failed;
     }
 

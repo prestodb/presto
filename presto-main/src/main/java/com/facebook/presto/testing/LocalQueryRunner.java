@@ -106,12 +106,15 @@ import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
@@ -121,6 +124,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -129,6 +134,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -136,12 +142,14 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class LocalQueryRunner
         implements QueryRunner
 {
     private final Session defaultSession;
     private final ExecutorService executor;
+    private final ScheduledExecutorService transactionCheckExecutor;
 
     private final SqlParser sqlParser;
     private final InMemoryNodeManager nodeManager;
@@ -153,6 +161,7 @@ public class LocalQueryRunner
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
     private final PageSinkManager pageSinkManager;
+    private final TransactionManager transactionManager;
 
     private final ExpressionCompiler compiler;
     private final ConnectorManager connectorManager;
@@ -164,14 +173,26 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
+        this(defaultSession, false);
+    }
+
+    private LocalQueryRunner(Session defaultSession, boolean withInitialTransaction)
+    {
         requireNonNull(defaultSession, "defaultSession is null");
+        checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
+
         this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
+        this.transactionCheckExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
 
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
         this.indexManager = new IndexManager();
         this.pageSinkManager = new PageSinkManager();
+        this.transactionManager = TransactionManager.create(
+                new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
+                transactionCheckExecutor,
+                executor);
 
         this.splitManager = new SplitManager();
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
@@ -181,7 +202,8 @@ public class LocalQueryRunner
                 splitManager,
                 blockEncodingSerde,
                 new SessionPropertyManager(),
-                new TablePropertyManager());
+                new TablePropertyManager(),
+                transactionManager);
         this.accessControl = new TestingAccessControlManager();
         this.pageSourceManager = new PageSourceManager();
 
@@ -195,8 +217,8 @@ public class LocalQueryRunner
                 indexManager,
                 pageSinkManager,
                 new HandleResolver(),
-                nodeManager
-        );
+                nodeManager,
+                transactionManager);
 
         SystemConnectorFactory systemConnectorFactory = new SystemConnectorFactory(nodeManager, ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
@@ -208,6 +230,7 @@ public class LocalQueryRunner
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(
                 defaultSession.getQueryId(),
+                withInitialTransaction ? Optional.of(transactionManager.beginTransaction(false)) : defaultSession.getTransactionId(),
                 defaultSession.getIdentity(),
                 defaultSession.getSource(),
                 defaultSession.getCatalog(),
@@ -233,10 +256,17 @@ public class LocalQueryRunner
                 .build();
     }
 
+    public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
+    {
+        checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
+        return new LocalQueryRunner(defaultSession, true);
+    }
+
     @Override
     public void close()
     {
         executor.shutdownNow();
+        transactionCheckExecutor.shutdownNow();
         connectorManager.stop();
     }
 
@@ -254,6 +284,12 @@ public class LocalQueryRunner
     public TypeRegistry getTypeManager()
     {
         return typeRegistry;
+    }
+
+    @Override
+    public TransactionManager getTransactionManager()
+    {
+        return transactionManager;
     }
 
     @Override
@@ -359,7 +395,11 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try {
-            return getMetadata().listTables(session, new QualifiedTablePrefix(catalog, schema));
+            return transaction(transactionManager)
+                    .readOnly()
+                    .execute(session, transactionSession -> {
+                        return getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
+                    });
         }
         finally {
             lock.readLock().unlock();
@@ -371,7 +411,11 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try {
-            return MetadataUtil.tableExists(getMetadata(), session, table);
+            return transaction(transactionManager)
+                    .readOnly()
+                    .execute(session, transactionSession -> {
+                        return MetadataUtil.tableExists(getMetadata(), transactionSession, table);
+                    });
         }
         finally {
             lock.readLock().unlock();
@@ -386,6 +430,15 @@ public class LocalQueryRunner
 
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
+    {
+        return transaction(transactionManager)
+                .singleStatement()
+                .execute(session, transactionSession -> {
+                    return executeInternal(transactionSession, sql);
+                });
+    }
+
+    private MaterializedResult executeInternal(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
         try {
@@ -559,7 +612,7 @@ public class LocalQueryRunner
 
         // get the split for this table
         List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
-        Split split = getLocalQuerySplit(layouts.get(0).getLayout().getHandle());
+        Split split = getLocalQuerySplit(session, layouts.get(0).getLayout().getHandle());
 
         return new OperatorFactory()
         {
@@ -603,9 +656,9 @@ public class LocalQueryRunner
                 ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))));
     }
 
-    private Split getLocalQuerySplit(TableLayoutHandle handle)
+    private Split getLocalQuerySplit(Session session, TableLayoutHandle handle)
     {
-        SplitSource splitSource = splitManager.getSplits(defaultSession, handle);
+        SplitSource splitSource = splitManager.getSplits(session, handle);
         List<Split> splits = new ArrayList<>();
         splits.addAll(getFutureValue(splitSource.getNextBatch(1000)));
         while (!splitSource.isFinished()) {

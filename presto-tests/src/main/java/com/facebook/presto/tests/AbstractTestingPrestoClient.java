@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
@@ -118,12 +119,20 @@ public abstract class AbstractTestingPrestoClient<T>
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        return prestoServer.getMetadata().listTables(session, new QualifiedTablePrefix(catalog, schema));
+        return transaction(prestoServer.getTransactionManager())
+                .readOnly()
+                .execute(session, transactionSession -> {
+                    return prestoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
+                });
     }
 
     public boolean tableExists(Session session, String table)
     {
-        return MetadataUtil.tableExists(prestoServer.getMetadata(), session, table);
+        return transaction(prestoServer.getTransactionManager())
+                .readOnly()
+                .execute(session, transactionSession -> {
+                    return MetadataUtil.tableExists(prestoServer.getMetadata(), transactionSession, table);
+                });
     }
 
     public Session getDefaultSession()

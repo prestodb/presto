@@ -129,7 +129,7 @@ public class SqlQueryScheduler
 
         rootStage.addStateChangeListener(state -> {
             if (state == FINISHED) {
-                queryStateMachine.transitionToFinished();
+                queryStateMachine.transitionToFinishing();
             }
             else if (state == CANCELED) {
                 // output stage was canceled
