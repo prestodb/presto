@@ -139,9 +139,7 @@ public class StatementClient
             builder.addHeader(PrestoHeaders.PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
         }
 
-        if (session.getTransactionId() != null) {
-            builder.setHeader(PrestoHeaders.PRESTO_TRANSACTION_ID, session.getTransactionId());
-        }
+        builder.setHeader(PrestoHeaders.PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
 
         return builder.build();
     }

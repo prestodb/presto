@@ -33,6 +33,7 @@ public final class SessionRepresentation
 {
     private final String queryId;
     private final Optional<TransactionId> transactionId;
+    private final boolean clientTransactionSupport;
     private final String user;
     private final Optional<String> principal;
     private final Optional<String> source;
@@ -50,6 +51,7 @@ public final class SessionRepresentation
     public SessionRepresentation(
             @JsonProperty("queryId") String queryId,
             @JsonProperty("transactionId") Optional<TransactionId> transactionId,
+            @JsonProperty("clientTransactionSupport") boolean clientTransactionSupport,
             @JsonProperty("user") String user,
             @JsonProperty("principal") Optional<String> principal,
             @JsonProperty("source") Optional<String> source,
@@ -65,6 +67,7 @@ public final class SessionRepresentation
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.clientTransactionSupport = clientTransactionSupport;
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.source = requireNonNull(source, "source is null");
@@ -94,6 +97,12 @@ public final class SessionRepresentation
     public Optional<TransactionId> getTransactionId()
     {
         return transactionId;
+    }
+
+    @JsonProperty
+    public boolean isClientTransactionSupport()
+    {
+        return clientTransactionSupport;
     }
 
     @JsonProperty
@@ -173,6 +182,7 @@ public final class SessionRepresentation
         return new Session(
                 new QueryId(queryId),
                 transactionId,
+                clientTransactionSupport,
                 new Identity(user, Optional.empty()),
                 source,
                 catalog,

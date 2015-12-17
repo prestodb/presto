@@ -239,6 +239,7 @@ public class LocalQueryRunner
         this.defaultSession = new Session(
                 defaultSession.getQueryId(),
                 withInitialTransaction ? Optional.of(transactionManager.beginTransaction(false)) : defaultSession.getTransactionId(),
+                defaultSession.isClientTransactionSupport(),
                 defaultSession.getIdentity(),
                 defaultSession.getSource(),
                 defaultSession.getCatalog(),
