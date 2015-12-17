@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.transaction.TransactionalConnectorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ParametricType;
 import com.facebook.presto.type.TypeRegistry;
@@ -209,6 +210,11 @@ public class PluginManager
 
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
             log.info("Registering connector %s", connectorFactory.getName());
+            connectorManager.addConnectorFactory(connectorFactory);
+        }
+
+        for (TransactionalConnectorFactory connectorFactory : plugin.getServices(TransactionalConnectorFactory.class)) {
+            log.info("Registering transactional connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
         }
 

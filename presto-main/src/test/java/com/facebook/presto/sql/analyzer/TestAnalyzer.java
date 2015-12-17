@@ -25,12 +25,19 @@ import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.transaction.TransactionalConnector;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.LegacyTransactionConnector;
+import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
@@ -39,6 +46,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -73,6 +81,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -80,16 +90,19 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
-    public static final Session SESSION = testSessionBuilder()
+    private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
+            .setSchema("s1")
+            .build();
+    private static final Session CLIENT_SESSION = testSessionBuilder()
+            .setCatalog("tpch")
             .setSchema("s1")
             .build();
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    private TransactionManager transactionManager;
     private Metadata metadata;
-    private Analyzer analyzer;
-    private Analyzer approximateDisabledAnalyzer;
 
     @Test
     public void testDuplicateRelation()
@@ -294,7 +307,7 @@ public class TestAnalyzer
     public void testApproximateNotEnabled()
             throws Exception
     {
-        assertFails(approximateDisabledAnalyzer, NOT_SUPPORTED, "SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
+        assertFailsWithoutExperimentalSyntax(NOT_SUPPORTED, "SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
     }
 
     @Test
@@ -829,20 +842,26 @@ public class TestAnalyzer
     {
         assertFails(INVALID_SCHEMA_NAME, "SHOW TABLES FROM a.b.c");
 
-        Analyzer analyzer = createAnalyzer(null, null, true);
-        assertFails(analyzer, CATALOG_NOT_SPECIFIED, "SHOW TABLES");
-        assertFails(analyzer, CATALOG_NOT_SPECIFIED, "SHOW TABLES FROM a");
-        assertMissingInformationSchema(analyzer, "SHOW TABLES FROM c2.s2");
+        Session session = testSessionBuilder()
+                .setCatalog(null)
+                .setSchema(null)
+                .build();
+        assertFails(session, CATALOG_NOT_SPECIFIED, "SHOW TABLES");
+        assertFails(session, CATALOG_NOT_SPECIFIED, "SHOW TABLES FROM a");
+        assertMissingInformationSchema(session, "SHOW TABLES FROM c2.s2");
 
-        analyzer = createAnalyzer("c2", null, true);
-        assertFails(analyzer, SCHEMA_NOT_SPECIFIED, "SHOW TABLES");
-        assertMissingInformationSchema(analyzer, "SHOW TABLES FROM s2");
+        session = testSessionBuilder()
+                .setCatalog("c2")
+                .setSchema(null)
+                .build();
+        assertFails(session, SCHEMA_NOT_SPECIFIED, "SHOW TABLES");
+        assertMissingInformationSchema(session, "SHOW TABLES FROM s2");
     }
 
-    private static void assertMissingInformationSchema(Analyzer analyzer, @Language("SQL") String query)
+    private void assertMissingInformationSchema(Session session, @Language("SQL") String query)
     {
         try {
-            analyze(analyzer, query);
+            analyze(session, query);
             fail("expected exception");
         }
         catch (SemanticException e) {
@@ -856,59 +875,66 @@ public class TestAnalyzer
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
+
+        transactionManager = createTestTransactionManager();
+        transactionManager.addConnector("tpch", createTestingConnector("tpch"));
+        transactionManager.addConnector("c2", createTestingConnector("c2"));
+        transactionManager.addConnector("c3", createTestingConnector("c3"));
+
         MetadataManager metadata = new MetadataManager(
                 new FeaturesConfig().setExperimentalSyntaxEnabled(true),
                 typeManager,
                 new SplitManager(),
                 new BlockEncodingManager(typeManager),
                 new SessionPropertyManager(),
-                new TablePropertyManager());
-        metadata.addConnectorMetadata("tpch", "tpch", new TestingMetadata());
-        metadata.addConnectorMetadata("c2", "c2", new TestingMetadata());
-        metadata.addConnectorMetadata("c3", "c3", new TestingMetadata());
+                new TablePropertyManager(),
+                transactionManager);
+        metadata.registerConnectorCatalog("tpch", "tpch");
+        metadata.registerConnectorCatalog("c2", "c2");
+        metadata.registerConnectorCatalog("c3", "c3");
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
-        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
+        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
                         new ColumnMetadata("b", BIGINT, false),
                         new ColumnMetadata("c", BIGINT, false),
-                        new ColumnMetadata("d", BIGINT, false)))));
+                        new ColumnMetadata("d", BIGINT, false))))));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
-        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
+        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false)))));
+                        new ColumnMetadata("b", BIGINT, false))))));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
-        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
+        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
                         new ColumnMetadata("b", BIGINT, false),
-                        new ColumnMetadata("x", BIGINT, false, null, true)))));
+                        new ColumnMetadata("x", BIGINT, false, null, true))))));
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
-        metadata.createTable(SESSION, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
+        inSetupTransaction(session -> metadata.createTable(session, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false)))));
+                        new ColumnMetadata("a", BIGINT, false))))));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
-        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table5,
+        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table5,
                 ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false, null, true)))));
+                        new ColumnMetadata("b", BIGINT, false, null, true))))));
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
-        metadata.createTable(SESSION, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table6,
+        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table6,
                 ImmutableList.of(
                         new ColumnMetadata("a", BIGINT, false),
                         new ColumnMetadata("b", VARCHAR, false),
                         new ColumnMetadata("c", BIGINT, false),
-                        new ColumnMetadata("d", BIGINT, false)))));
+                        new ColumnMetadata("d", BIGINT, false))))));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -918,7 +944,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        metadata.createView(SESSION, new QualifiedObjectName("tpch", "s1", "v1"), viewData1, false);
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v1"), viewData1, false));
 
         // stale view (different column type)
         String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -928,7 +954,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", VARCHAR)),
                         Optional.of("user")));
-        metadata.createView(SESSION, new QualifiedObjectName("tpch", "s1", "v2"), viewData2, false);
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v2"), viewData2, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -938,20 +964,23 @@ public class TestAnalyzer
                         Optional.of("s2"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("owner")));
-        metadata.createView(SESSION, new QualifiedObjectName("c3", "s3", "v3"), viewData3, false);
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("c3", "s3", "v3"), viewData3, false));
 
         this.metadata = metadata;
-        analyzer = createAnalyzer("tpch", "s1", true);
-        approximateDisabledAnalyzer = createAnalyzer("tpch", "s1", false);
     }
 
-    private Analyzer createAnalyzer(String catalog, String schema, boolean experimentalSyntaxEnabled)
+    private void inSetupTransaction(Consumer<Session> consumer)
+    {
+        transaction(transactionManager)
+                .singleStatement()
+                .readUncommitted()
+                .execute(SETUP_SESSION, consumer);
+    }
+
+    private static Analyzer createAnalyzer(Session session, Metadata metadata, boolean experimentalSyntaxEnabled)
     {
         return new Analyzer(
-                testSessionBuilder()
-                        .setCatalog(catalog)
-                        .setSchema(schema)
-                        .build(),
+                session,
                 metadata,
                 SQL_PARSER,
                 new AllowAllAccessControl(),
@@ -961,25 +990,44 @@ public class TestAnalyzer
 
     private void analyze(@Language("SQL") String query)
     {
-        analyze(analyzer, query);
+        analyze(CLIENT_SESSION, query);
     }
 
-    private static void analyze(Analyzer analyzer, @Language("SQL") String query)
+    private void analyze(Session clientSession, @Language("SQL") String query)
     {
-        Statement statement = SQL_PARSER.createStatement(query);
-        analyzer.analyze(statement);
+        transaction(transactionManager)
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(clientSession, session -> {
+                    Analyzer analyzer = createAnalyzer(session, metadata, true);
+                    Statement statement = SQL_PARSER.createStatement(query);
+                    analyzer.analyze(statement);
+                });
+    }
+
+    private void analyzeWithoutExperimentalSyntax(@Language("SQL") String query)
+    {
+        transaction(transactionManager)
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(CLIENT_SESSION, session -> {
+                    Analyzer analyzer = createAnalyzer(session, metadata, false);
+                    Statement statement = SQL_PARSER.createStatement(query);
+                    analyzer.analyze(statement);
+                });
     }
 
     private void assertFails(SemanticErrorCode error, @Language("SQL") String query)
     {
-        assertFails(analyzer, error, query);
+        assertFails(CLIENT_SESSION, error, query);
     }
 
-    private static void assertFails(Analyzer analyzer, SemanticErrorCode error, @Language("SQL") String query)
+    private void assertFails(Session session, SemanticErrorCode error, @Language("SQL") String query)
     {
         try {
-            Statement statement = SQL_PARSER.createStatement(query);
-            analyzer.analyze(statement);
+            analyze(session, query);
             fail(format("Expected error %s, but analysis succeeded", error));
         }
         catch (SemanticException e) {
@@ -987,5 +1035,44 @@ public class TestAnalyzer
                 fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
             }
         }
+    }
+
+    private void assertFailsWithoutExperimentalSyntax(SemanticErrorCode error, @Language("SQL") String query)
+    {
+        try {
+            analyzeWithoutExperimentalSyntax(query);
+            fail(format("Expected error %s, but analysis succeeded", error));
+        }
+        catch (SemanticException e) {
+            if (e.getCode() != error) {
+                fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
+            }
+        }
+    }
+
+    private static TransactionalConnector createTestingConnector(String connectorId)
+    {
+        return new LegacyTransactionConnector(connectorId, new Connector()
+        {
+            private final ConnectorMetadata metadata = new TestingMetadata();
+
+            @Override
+            public ConnectorHandleResolver getHandleResolver()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ConnectorMetadata getMetadata()
+            {
+                return metadata;
+            }
+
+            @Override
+            public ConnectorSplitManager getSplitManager()
+            {
+                throw new UnsupportedOperationException();
+            }
+        });
     }
 }

@@ -36,6 +36,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -94,6 +95,7 @@ public class TestingPrestoServer
     private final PluginManager pluginManager;
     private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
+    private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
     private final SplitManager splitManager;
@@ -239,6 +241,7 @@ public class TestingPrestoServer
         connectorManager = injector.getInstance(ConnectorManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
+        transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         splitManager = injector.getInstance(SplitManager.class);
@@ -311,6 +314,11 @@ public class TestingPrestoServer
     public HostAndPort getAddress()
     {
         return HostAndPort.fromParts(getBaseUrl().getHost(), getBaseUrl().getPort());
+    }
+
+    public TransactionManager getTransactionManager()
+    {
+        return transactionManager;
     }
 
     public Metadata getMetadata()

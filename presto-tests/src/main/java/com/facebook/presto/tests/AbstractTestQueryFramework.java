@@ -36,6 +36,7 @@ import org.testng.annotations.AfterClass;
 import java.util.List;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -241,13 +242,21 @@ public abstract class AbstractTestQueryFramework
     public String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan(queryRunner.getDefaultSession(), sqlParser.createStatement(query), planType);
+        return transaction(queryRunner.getTransactionManager())
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getPlan(session, sqlParser.createStatement(query), planType);
+                });
     }
 
     public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan(queryRunner.getDefaultSession(), sqlParser.createStatement(query), planType);
+        return transaction(queryRunner.getTransactionManager())
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query), planType);
+                });
     }
 
     private QueryExplainer getQueryExplainer()

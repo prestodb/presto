@@ -36,6 +36,7 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(OutputTableHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(InsertTableHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(TransactionHandleJacksonModule.class);
 
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
         MapBinder<String, ConnectorHandleResolver> connectorHandleResolverBinder = newMapBinder(binder, String.class, ConnectorHandleResolver.class);

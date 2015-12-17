@@ -31,4 +31,9 @@ public interface DataDefinitionTask<T extends Statement>
     {
         return SqlFormatter.formatSql(statement);
     }
+
+    default boolean isTransactionControl()
+    {
+        return false;
+    }
 }

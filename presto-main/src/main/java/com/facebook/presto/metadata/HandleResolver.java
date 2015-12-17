@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
@@ -132,6 +133,16 @@ public class HandleResolver
         throw new IllegalArgumentException("No connector for insert table handle: " + insertHandle);
     }
 
+    public String getId(ConnectorTransactionHandle transactionHandle)
+    {
+        for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+            if (entry.getValue().canHandle(transactionHandle)) {
+                return entry.getKey();
+            }
+        }
+        throw new IllegalArgumentException("No connector for transaction handle: " + transactionHandle);
+    }
+
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         return resolverFor(id).getTableHandleClass();
@@ -170,6 +181,11 @@ public class HandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass(String id)
     {
         return resolverFor(id).getInsertTableHandleClass();
+    }
+
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass(String id)
+    {
+        return resolverFor(id).getTransactionHandleClass();
     }
 
     public ConnectorHandleResolver resolverFor(String id)
