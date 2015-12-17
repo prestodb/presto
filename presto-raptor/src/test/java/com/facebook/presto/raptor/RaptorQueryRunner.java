@@ -32,8 +32,6 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public final class RaptorQueryRunner
 {
-    private static final Logger log = Logger.get(RaptorQueryRunner.class);
-
     private RaptorQueryRunner() {}
 
     public static DistributedQueryRunner createRaptorQueryRunner(TpchTable<?>... tables)
