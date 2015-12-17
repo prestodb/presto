@@ -27,10 +27,18 @@ VARCHAR
 
     Variable length character data.
 
+    .. note::
+
+        Character strings with length are not yet supported: ``varchar(n)``
+
 VARBINARY
 ---------
 
     Variable length binary data.
+
+    .. note::
+
+        Binary strings with length are not yet supported: ``varbinary(n)``
 
 JSON
 ----
@@ -117,4 +125,3 @@ ROW
     accessed with field reference operator ``.``
 
     Example: ``my_column.my_field``
-
