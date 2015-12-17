@@ -28,11 +28,13 @@ public class ChannelSet
 {
     private final GroupByHash hash;
     private final boolean containsNull;
+    private final int[] hashChannels;
 
-    public ChannelSet(GroupByHash hash, boolean containsNull)
+    public ChannelSet(GroupByHash hash, boolean containsNull, int[] hashChannels)
     {
         this.hash = hash;
         this.containsNull = containsNull;
+        this.hashChannels = hashChannels;
     }
 
     public Type getType()
@@ -57,11 +59,13 @@ public class ChannelSet
 
     public boolean contains(int position, Page page)
     {
-        return hash.contains(position, page);
+        return hash.contains(position, page, hashChannels);
     }
 
     public static class ChannelSetBuilder
     {
+        private static final int[] HASH_CHANNELS = { 0 };
+
         private final GroupByHash hash;
         private final OperatorContext operatorContext;
         private final Page nullBlockPage;
@@ -69,14 +73,14 @@ public class ChannelSet
         public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext)
         {
             List<Type> types = ImmutableList.of(type);
-            this.hash = createGroupByHash(types, new int[] {0}, Optional.<Integer>empty(), hashChannel, expectedPositions);
+            this.hash = createGroupByHash(types, HASH_CHANNELS, Optional.<Integer>empty(), hashChannel, expectedPositions);
             this.operatorContext = operatorContext;
             this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize()).appendNull().build());
         }
 
         public ChannelSet build()
         {
-            return new ChannelSet(hash, hash.contains(0, nullBlockPage));
+            return new ChannelSet(hash, hash.contains(0, nullBlockPage, HASH_CHANNELS), HASH_CHANNELS);
         }
 
         public long getEstimatedSize()

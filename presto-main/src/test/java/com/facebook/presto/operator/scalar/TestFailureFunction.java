@@ -14,10 +14,12 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.Failures;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public class TestFailureFunction
@@ -29,5 +31,13 @@ public class TestFailureFunction
     public void testFailure()
     {
         assertFunction("fail(json_parse('" + FAILURE_INFO + "'))", UNKNOWN, null);
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "/ by zero")
+    public void testQuery()
+    {
+        // The other test does not exercise this function during execution (i.e. inside a page processor).
+        // It only verifies constant folding works.
+        new LocalQueryRunner(TEST_SESSION).execute("select if(x, 78, 0/0) from (values rand() >= 0, rand() < 0) t(x)");
     }
 }

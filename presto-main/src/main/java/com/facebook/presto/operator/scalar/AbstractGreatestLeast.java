@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.byteCode.ByteCodeBlock;
 import com.facebook.presto.byteCode.ClassDefinition;
 import com.facebook.presto.byteCode.DynamicClassLoader;
@@ -102,6 +103,7 @@ public abstract class AbstractGreatestLeast
         return new ScalarFunctionImplementation(false, nullableParameters, methodHandle, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static void checkNotNaN(String name, double value)
     {
         if (Double.isNaN(value)) {

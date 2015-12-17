@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -328,9 +327,6 @@ public class TestStageStateMachine
                 ImmutableList.of(symbol),
                 PlanDistribution.SINGLE,
                 valuesNodeId,
-                OutputPartitioning.NONE,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         return planFragment;

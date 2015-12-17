@@ -91,19 +91,18 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
+import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.any;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionInterpreter
@@ -699,7 +698,7 @@ public class ExpressionInterpreter
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
             }
 
-            Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+            Type commonType = metadata.getTypeManager().getCommonSuperType(firstType, secondType).get();
 
             Signature firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
             Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
@@ -857,7 +856,7 @@ public class ExpressionInterpreter
 
             // if pattern is a constant without % or _ replace with a comparison
             if (pattern instanceof Slice && escape == null) {
-                String stringPattern = ((Slice) pattern).toString(UTF_8);
+                String stringPattern = ((Slice) pattern).toStringUtf8();
                 if (!stringPattern.contains("%") && !stringPattern.contains("_")) {
                     return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
                             toExpression(value, expressionTypes.get(node.getValue())),

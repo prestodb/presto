@@ -111,8 +111,6 @@ public class ExpressionCompiler
                 type(Object.class),
                 type(superType));
 
-        classDefinition.declareDefaultConstructor(a(PUBLIC));
-
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         bodyCompiler.generateMethods(classDefinition, callSiteBinder, filter, projections);
 

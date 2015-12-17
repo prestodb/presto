@@ -15,10 +15,9 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.metadata.TableHandle;
@@ -130,8 +129,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
-import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedTableName;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -314,7 +312,7 @@ class StatementAnalyzer
     @Override
     protected RelationType visitShowColumns(ShowColumns showColumns, AnalysisContext context)
     {
-        QualifiedTableName tableName = createQualifiedTableName(session, showColumns, showColumns.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
 
         if (!metadata.getView(session, tableName).isPresent() &&
                 !metadata.getTableHandle(session, tableName).isPresent()) {
@@ -331,7 +329,7 @@ class StatementAnalyzer
                 from(tableName.getCatalogName(), TABLE_COLUMNS),
                 logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                        equal(nameReference("table_name"), new StringLiteral(tableName.getTableName()))),
+                        equal(nameReference("table_name"), new StringLiteral(tableName.getObjectName()))),
                 ordering(ascending("ordinal_position")));
 
         return process(query, context);
@@ -347,7 +345,7 @@ class StatementAnalyzer
     @Override
     protected RelationType visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
     {
-        QualifiedTableName table = createQualifiedTableName(session, showPartitions, showPartitions.getTable());
+        QualifiedObjectName table = createQualifiedObjectName(session, showPartitions, showPartitions.getTable());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, table);
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, showPartitions, "Table '%s' does not exist", table);
@@ -389,7 +387,7 @@ class StatementAnalyzer
                 from(table.getCatalogName(), TABLE_INTERNAL_PARTITIONS),
                 Optional.of(logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(table.getSchemaName())),
-                        equal(nameReference("table_name"), new StringLiteral(table.getTableName())))),
+                        equal(nameReference("table_name"), new StringLiteral(table.getObjectName())))),
                 ImmutableList.of(new SimpleGroupBy(ImmutableList.of(nameReference("partition_number")))),
                 Optional.empty(),
                 ImmutableList.of(),
@@ -471,6 +469,10 @@ class StatementAnalyzer
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session);
         for (SessionPropertyValue sessionProperty : sessionProperties) {
+            if (sessionProperty.isHidden()) {
+                continue;
+            }
+
             String value = sessionProperty.getValue();
             String defaultValue = sessionProperty.getDefaultValue();
             rows.add(row(
@@ -505,7 +507,7 @@ class StatementAnalyzer
     @Override
     protected RelationType visitInsert(Insert insert, AnalysisContext context)
     {
-        QualifiedTableName targetTable = createQualifiedTableName(session, insert, insert.getTarget());
+        QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
         if (metadata.getView(session, targetTable).isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
         }
@@ -569,7 +571,7 @@ class StatementAnalyzer
     protected RelationType visitDelete(Delete node, AnalysisContext context)
     {
         Table table = node.getTable();
-        QualifiedTableName tableName = createQualifiedTableName(session, table, table.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
         if (metadata.getView(session, tableName).isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
         }
@@ -603,7 +605,7 @@ class StatementAnalyzer
         analysis.setUpdateType("CREATE TABLE");
 
         // turn this into a query that has a new table writer node on top.
-        QualifiedTableName targetTable = createQualifiedTableName(session, node, node.getName());
+        QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
         analysis.setCreateTableDestination(targetTable);
 
         for (Expression expression : node.getProperties().values()) {
@@ -645,7 +647,7 @@ class StatementAnalyzer
                 queryExplainer);
         RelationType descriptor = analyzer.process(node.getQuery(), new AnalysisContext());
 
-        QualifiedTableName viewName = createQualifiedTableName(session, node, node.getName());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
         accessControl.checkCanCreateView(session.getIdentity(), viewName);
 
         validateColumnNames(node, descriptor);
@@ -791,7 +793,7 @@ class StatementAnalyzer
             }
         }
 
-        QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table, table.getName());
+        QualifiedObjectName name = MetadataUtil.createQualifiedObjectName(session, table, table.getName());
 
         Optional<ViewDefinition> optionalView = metadata.getView(session, name);
         if (optionalView.isPresent()) {
@@ -970,7 +972,7 @@ class StatementAnalyzer
             }
             for (int i = 0; i < descriptor.getVisibleFields().size(); i++) {
                 Type descFieldType = descriptor.getFieldByIndex(i).getType();
-                Optional<Type> commonSuperType = FunctionRegistry.getCommonSuperType(outputFieldTypes[i], descFieldType);
+                Optional<Type> commonSuperType = metadata.getTypeManager().getCommonSuperType(outputFieldTypes[i], descFieldType);
                 if (!commonSuperType.isPresent()) {
                     throw new SemanticException(TYPE_MISMATCH,
                             node,
@@ -1146,7 +1148,7 @@ class StatementAnalyzer
     {
         Type leftType = analysis.getType(leftExpression);
         Type rightType = analysis.getType(rightExpression);
-        Optional<Type> superType = FunctionRegistry.getCommonSuperType(leftType, rightType);
+        Optional<Type> superType = metadata.getTypeManager().getCommonSuperType(leftType, rightType);
         if (!superType.isPresent()) {
             throw new SemanticException(TYPE_MISMATCH, node, "Join criteria has incompatible types: %s, %s", leftType.getDisplayName(), rightType.getDisplayName());
         }
@@ -1181,7 +1183,7 @@ class StatementAnalyzer
                 Type fieldType = rowType.get(i);
                 Type superType = fieldTypes.get(i);
 
-                Optional<Type> commonSuperType = getCommonSuperType(fieldType, superType);
+                Optional<Type> commonSuperType = metadata.getTypeManager().getCommonSuperType(fieldType, superType);
                 if (!commonSuperType.isPresent()) {
                     throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
                             node,
@@ -1707,7 +1709,7 @@ class StatementAnalyzer
         }
     }
 
-    private RelationType analyzeView(Query query, QualifiedTableName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)
+    private RelationType analyzeView(Query query, QualifiedObjectName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)
     {
         try {
             // run view as view owner if set; otherwise, run as session user
@@ -1743,7 +1745,7 @@ class StatementAnalyzer
         }
     }
 
-    private Query parseView(String view, QualifiedTableName name, Table node)
+    private Query parseView(String view, QualifiedObjectName name, Table node)
     {
         try {
             Statement statement = sqlParser.createStatement(view);

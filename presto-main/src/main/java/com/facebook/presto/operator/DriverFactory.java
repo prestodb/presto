@@ -84,6 +84,11 @@ public class DriverFactory
         return sourceIds;
     }
 
+    public List<OperatorFactory> getOperatorFactories()
+    {
+        return operatorFactories;
+    }
+
     public synchronized Driver createDriver(DriverContext driverContext)
     {
         checkState(!closed, "DriverFactory is already closed");

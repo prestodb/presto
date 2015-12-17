@@ -17,6 +17,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -33,6 +34,8 @@ public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
         implements BlockBuilder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
+
     private final BlockBuilderStatus blockBuilderStatus;
     private final SliceOutput sliceOutput;
     private final SliceOutput valueIsNull;
@@ -94,7 +97,7 @@ public class VariableWidthBlockBuilder
     @Override
     public int getRetainedSizeInBytes()
     {
-        long size = sliceOutput.getUnderlyingSlice().getRetainedSize() + offsets.getUnderlyingSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
+        long size = INSTANCE_SIZE + sliceOutput.getUnderlyingSlice().getRetainedSize() + offsets.getUnderlyingSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
@@ -107,9 +110,9 @@ public class VariableWidthBlockBuilder
         checkValidPositions(positions, this.positions);
 
         int finalLength = positions.stream().mapToInt(this::getLength).sum();
-        SliceOutput newSlice = new DynamicSliceOutput(finalLength);
-        SliceOutput newOffsets = new DynamicSliceOutput(positions.size() * SIZE_OF_INT);
-        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+        SliceOutput newOffsets = Slices.allocate((positions.size() * SIZE_OF_INT) + SIZE_OF_INT).getOutput();
+        SliceOutput newValueIsNull = Slices.allocate(positions.size()).getOutput();
 
         newOffsets.appendInt(0);
         for (int position : positions) {

@@ -73,6 +73,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -92,6 +93,7 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
+import static com.facebook.presto.hive.HiveTableProperties.getRetentionDays;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
@@ -394,7 +396,8 @@ public class HiveMetadata
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        createTable(session, schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy);
+        OptionalInt retentionDays = getRetentionDays(tableMetadata.getProperties());
+        createTable(session, schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, retentionDays);
     }
 
     public void createTable(
@@ -404,12 +407,13 @@ public class HiveMetadata
             String tableOwner,
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
-            List<String> partitionedBy)
+            List<String> partitionedBy,
+            OptionalInt retentionDays)
     {
         LocationHandle locationHandle = locationService.forNewTable(session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(hdfsEnvironment, targetPath);
-        createTable(schemaName, tableName, tableOwner, columnHandles, hiveStorageFormat, partitionedBy, targetPath);
+        createTable(schemaName, tableName, tableOwner, columnHandles, hiveStorageFormat, partitionedBy, retentionDays, targetPath);
     }
 
     private Table createTable(
@@ -419,6 +423,7 @@ public class HiveMetadata
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
             List<String> partitionedBy,
+            OptionalInt retentionDays,
             Path targetPath)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
@@ -472,6 +477,9 @@ public class HiveMetadata
         table.setParameters(ImmutableMap.of("comment", tableComment));
         table.setPartitionKeys(partitionColumns);
         table.setSd(sd);
+        if (retentionDays.isPresent()) {
+            table.setRetention(retentionDays.getAsInt());
+        }
 
         PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, tableOwner, PrincipalType.USER, true);
         table.setPrivileges(new PrincipalPrivilegeSet(
@@ -586,6 +594,7 @@ public class HiveMetadata
 
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+        OptionalInt retentionDays = getRetentionDays(tableMetadata.getProperties());
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -603,7 +612,8 @@ public class HiveMetadata
                 locationService.forNewTable(session.getQueryId(), schemaName, tableName),
                 hiveStorageFormat,
                 partitionedBy,
-                tableMetadata.getOwner());
+                tableMetadata.getOwner(),
+                retentionDays);
     }
 
     @Override
@@ -643,6 +653,7 @@ public class HiveMetadata
                     handle.getInputColumns(),
                     handle.getHiveStorageFormat(),
                     handle.getPartitionedBy(),
+                    handle.getRetentionDays(),
                     targetPath);
 
             if (!handle.getPartitionedBy().isEmpty()) {

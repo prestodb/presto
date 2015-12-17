@@ -15,6 +15,8 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import io.airlift.json.JsonCodec;
@@ -30,8 +32,10 @@ public final class FailureFunction
     @Description("Decodes json to an exception and throws it")
     @ScalarFunction
     @SqlType("unknown")
-    public static void fail(@SqlType(StandardTypes.JSON) Slice failureInfo)
+    public static void fail(@SqlType(StandardTypes.JSON) Slice failureInfoSlice)
     {
-        throw JSON_CODEC.fromJson(failureInfo.getBytes()).toException();
+        FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getBytes());
+        // wrap the failure in a new exception to append the current stack trace
+        throw new PrestoException(StandardErrorCode.USER_ERROR, failureInfo.toException());
     }
 }

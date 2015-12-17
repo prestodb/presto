@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.spi.block;
 
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -26,6 +26,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlock.class).instanceSize();
+
     private final int positionCount;
     private final Slice slice;
     private final Slice offsets;
@@ -84,7 +86,7 @@ public class VariableWidthBlock
     @Override
     public int getRetainedSizeInBytes()
     {
-        long size = slice.getRetainedSize() + offsets.getRetainedSize() + valueIsNull.getRetainedSize();
+        long size = INSTANCE_SIZE + slice.getRetainedSize() + offsets.getRetainedSize() + valueIsNull.getRetainedSize();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
@@ -97,9 +99,9 @@ public class VariableWidthBlock
         checkValidPositions(positions, positionCount);
 
         int finalLength = positions.stream().mapToInt(this::getLength).sum();
-        SliceOutput newSlice = new DynamicSliceOutput(finalLength);
-        SliceOutput newOffsets = new DynamicSliceOutput(positions.size() * SIZE_OF_INT);
-        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+        SliceOutput newOffsets = Slices.allocate((positions.size() * SIZE_OF_INT) + SIZE_OF_INT).getOutput();
+        SliceOutput newValueIsNull = Slices.allocate(positions.size()).getOutput();
 
         newOffsets.appendInt(0);
         for (int position : positions) {

@@ -83,6 +83,7 @@ public class HiveClientConfig
     private String s3AwsSecretKey;
     private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
+    private boolean s3SseEnabled;
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
@@ -94,6 +95,7 @@ public class HiveClientConfig
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
     private boolean useParquetColumnNames;
+    private boolean pinS3ClientToCurrentRegion;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
     private boolean respectTableFormat = true;
@@ -589,6 +591,19 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isS3SseEnabled()
+    {
+        return s3SseEnabled;
+    }
+
+    @Config("hive.s3.sse.enabled")
+    @ConfigDescription("Enable S3 server side encryption")
+    public HiveClientConfig setS3SseEnabled(boolean s3SseEnabled)
+    {
+        this.s3SseEnabled = s3SseEnabled;
+        return this;
+    }
+
     @Min(0)
     public int getS3MaxClientRetries()
     {
@@ -725,6 +740,19 @@ public class HiveClientConfig
     public HiveClientConfig setS3MultipartMinPartSize(DataSize size)
     {
         this.s3MultipartMinPartSize = size;
+        return this;
+    }
+
+    public boolean isPinS3ClientToCurrentRegion()
+    {
+        return pinS3ClientToCurrentRegion;
+    }
+
+    @Config("hive.s3.pin-client-to-current-region")
+    @ConfigDescription("Should the S3 client be pinned to the current EC2 region")
+    public HiveClientConfig setPinS3ClientToCurrentRegion(boolean pinS3ClientToCurrentRegion)
+    {
+        this.pinS3ClientToCurrentRegion = pinS3ClientToCurrentRegion;
         return this;
     }
 

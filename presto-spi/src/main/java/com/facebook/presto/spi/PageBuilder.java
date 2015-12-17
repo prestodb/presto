@@ -31,12 +31,20 @@ public class PageBuilder
 {
     private final BlockBuilder[] blockBuilders;
     private final List<Type> types;
+    private final int expectedEntries;
     private PageBuilderStatus pageBuilderStatus;
     private int declaredPositions;
 
     public PageBuilder(List<? extends Type> types)
     {
+        this(1, types);
+    }
+
+    public PageBuilder(int expectedEntries, List<? extends Type> types)
+    {
         this.types = unmodifiableList(new ArrayList<>(requireNonNull(types, "types is null")));
+        this.expectedEntries = Math.max(expectedEntries, 1);
+
         int maxBlockSizeInBytes;
         if (!types.isEmpty()) {
             maxBlockSizeInBytes = (int) (1.0 * DEFAULT_MAX_PAGE_SIZE_IN_BYTES / types.size());
@@ -49,7 +57,10 @@ public class PageBuilder
 
         blockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), 1, pageBuilderStatus.getMaxBlockSizeInBytes());
+            blockBuilders[i] = types.get(i).createBlockBuilder(
+                    pageBuilderStatus.createBlockBuilderStatus(),
+                    expectedEntries,
+                    pageBuilderStatus.getMaxBlockSizeInBytes() / expectedEntries);
         }
     }
 
@@ -62,7 +73,7 @@ public class PageBuilder
         pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes(), pageBuilderStatus.getMaxBlockSizeInBytes());
 
         for (int i = 0; i < types.size(); i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), 1, pageBuilderStatus.getMaxBlockSizeInBytes());
+            blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), expectedEntries, pageBuilderStatus.getMaxBlockSizeInBytes() / expectedEntries);
         }
     }
 
@@ -82,6 +93,11 @@ public class PageBuilder
     public void declarePosition()
     {
         declaredPositions++;
+    }
+
+    public void declarePositions(int positions)
+    {
+        declaredPositions = positions;
     }
 
     public boolean isFull()

@@ -14,15 +14,18 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
+import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
+import com.facebook.presto.operator.LookupOuterOperator.OuterLookupSourceSupplier;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 
 public class LookupJoinOperatorFactory
-        implements OperatorFactory
+        implements JoinOperatorFactory
 {
     private final int operatorId;
     private final LookupSourceSupplier lookupSourceSupplier;
@@ -51,6 +54,16 @@ public class LookupJoinOperatorFactory
                 .build();
     }
 
+    public int getOperatorId()
+    {
+        return operatorId;
+    }
+
+    public List<Type> getProbeTypes()
+    {
+        return probeTypes;
+    }
+
     @Override
     public List<Type> getTypes()
     {
@@ -73,5 +86,20 @@ public class LookupJoinOperatorFactory
         }
         closed = true;
         lookupSourceSupplier.release();
+    }
+
+    @Override
+    public OperatorFactory duplicate()
+    {
+        return new LookupJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, joinType, joinProbeFactory);
+    }
+
+    @Override
+    public Optional<OperatorFactory> createOuterOperatorFactory()
+    {
+        if (lookupSourceSupplier instanceof OuterLookupSourceSupplier) {
+            return Optional.of(new LookupOuterOperatorFactory(operatorId, (OuterLookupSourceSupplier) lookupSourceSupplier, probeTypes));
+        }
+        return Optional.empty();
     }
 }

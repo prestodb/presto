@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.SqlOperator;
@@ -89,6 +90,7 @@ public class MapSubscriptOperator
         return new ScalarFunctionImplementation(true, ImmutableList.of(false, false), methodHandle, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, boolean key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
@@ -106,6 +108,7 @@ public class MapSubscriptOperator
         return null;
     }
 
+    @UsedByGeneratedCode
     public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, long key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
@@ -123,6 +126,7 @@ public class MapSubscriptOperator
         return null;
     }
 
+    @UsedByGeneratedCode
     public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, double key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
@@ -140,6 +144,7 @@ public class MapSubscriptOperator
         return null;
     }
 
+    @UsedByGeneratedCode
     public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {
@@ -157,6 +162,7 @@ public class MapSubscriptOperator
         return null;
     }
 
+    @UsedByGeneratedCode
     public static Object subscript(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
     {
         for (int position = 0; position < map.getPositionCount(); position += 2) {

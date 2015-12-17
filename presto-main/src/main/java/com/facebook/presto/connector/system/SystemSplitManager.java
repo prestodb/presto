@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
@@ -64,7 +65,7 @@ public class SystemSplitManager
         Distribution tableDistributionMode = systemTable.getDistribution();
         if (tableDistributionMode == SINGLE_COORDINATOR) {
             HostAddress address = nodeManager.getCurrentNode().getHostAndPort();
-            ConnectorSplit split = new SystemSplit(tableHandle, address, constraint);
+            ConnectorSplit split = new SystemSplit(tableHandle.getConnectorId(), tableHandle, address, constraint);
             return new FixedSplitSource(SystemConnector.NAME, ImmutableList.of(split));
         }
 
@@ -74,11 +75,11 @@ public class SystemSplitManager
             nodes.addAll(nodeManager.getCoordinators());
         }
         else if (tableDistributionMode == ALL_NODES) {
-            nodes.addAll(nodeManager.getActiveNodes());
+            nodes.addAll(nodeManager.getNodes(ACTIVE));
         }
         Set<Node> nodeSet = nodes.build();
         for (Node node : nodeSet) {
-            splits.add(new SystemSplit(tableHandle, node.getHostAndPort(), constraint));
+            splits.add(new SystemSplit(tableHandle.getConnectorId(), tableHandle, node.getHostAndPort(), constraint));
         }
         return new FixedSplitSource(SystemConnector.NAME, splits.build());
     }

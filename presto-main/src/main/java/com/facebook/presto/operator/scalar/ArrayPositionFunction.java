@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
@@ -90,6 +91,7 @@ public final class ArrayPositionFunction
         return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), arrayPositionMethodHandle.bindTo(type).bindTo(equalMethodHandle), isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, boolean element)
     {
         int size = array.getPositionCount();
@@ -111,6 +113,7 @@ public final class ArrayPositionFunction
         return 0;
     }
 
+    @UsedByGeneratedCode
     public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, long element)
     {
         int size = array.getPositionCount();
@@ -132,6 +135,7 @@ public final class ArrayPositionFunction
         return 0;
     }
 
+    @UsedByGeneratedCode
     public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, double element)
     {
         int size = array.getPositionCount();
@@ -153,6 +157,7 @@ public final class ArrayPositionFunction
         return 0;
     }
 
+    @UsedByGeneratedCode
     public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, Slice element)
     {
         int size = array.getPositionCount();
@@ -174,6 +179,7 @@ public final class ArrayPositionFunction
         return 0;
     }
 
+    @UsedByGeneratedCode
     public static long arrayPosition(Type type, MethodHandle equalMethodHandle, Block array, Object element)
     {
         int size = array.getPositionCount();

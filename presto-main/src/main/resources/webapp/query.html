@@ -64,8 +64,6 @@
 
     <h2>Summary</h2>
 
-    <div class="sql"><pre><code id="query"></code></pre></div>
-
     <dl class="dl-horizontal">
         <dt>Query State</dt>
         <dd id="queryState"></dd>
@@ -87,6 +85,9 @@
 
         <dt>Elapsed</dt>
         <dd id="elapsedTime"></dd>
+
+        <dt>Queued</dt>
+        <dd id="queuedTime"></dd>
 
         <dt>End Time</dt>
         <dd id="endTime"></dd>
@@ -115,9 +116,6 @@
         <dt>Visualization</dt>
         <dd><a id="timelineLink">Timeline</a></dd>
 
-        <dt>Kill</dt>
-        <dd id="killQuery"></dd>
-
         <dt>Error Type</dt>
         <dd id="errorType"></dd>
 
@@ -129,7 +127,14 @@
 
         <dt>Session Properties</dt>
         <dd id="sessionProperties"></dd>
+
+        <dt>Kill</dt>
+        <dd id="killQuery"></dd>
     </dl>
+
+    <h2>Query</h2>
+
+    <div class="sql"><pre><code id="query"></code></pre></div>
 
     <h2>Stages</h2>
 
@@ -181,6 +186,7 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#sessionCatalog').text(query.session.catalog);
     d3.select('#sessionSchema').text(query.session.schema);
     d3.select('#elapsedTime').text(query.queryStats.elapsedTime);
+    d3.select('#queuedTime').text(query.queryStats.queuedTime);
     if (query.queryStats.endTime) {
         var formatter = d3.time.format("%x %X");
         d3.select('#endTime').text(formatter(new Date(query.queryStats.endTime)));

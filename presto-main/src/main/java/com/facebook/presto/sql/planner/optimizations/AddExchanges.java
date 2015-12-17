@@ -32,6 +32,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -78,7 +79,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.jetbrains.annotations.NotNull;
 
@@ -91,6 +91,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -100,12 +101,14 @@ import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.PartitionFunctionHandle.HASH;
+import static com.facebook.presto.sql.planner.PartitionFunctionHandle.ROUND_ROBIN;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchangeNullReplicate;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -270,11 +273,14 @@ public class AddExchanges
                 }
                 else {
                     if (decomposable) {
-                        return splitAggregation(node, child, partial -> partitionedExchange(idAllocator.getNextId(), partial, Optional.of(node.getGroupBy()), node.getHashSymbol()));
+                        return splitAggregation(
+                                node,
+                                child,
+                                partial -> partitionedExchange(idAllocator.getNextId(), partial, new PartitionFunctionBinding(HASH, node.getGroupBy(), node.getHashSymbol())));
                     }
                     else {
                         child = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), child.getNode(), Optional.of(node.getGroupBy()), node.getHashSymbol()),
+                                partitionedExchange(idAllocator.getNextId(), child.getNode(), new PartitionFunctionBinding(HASH, node.getGroupBy(), node.getHashSymbol())),
                                 child.getProperties());
                         return rebaseAndDeriveProperties(node, child);
                     }
@@ -350,8 +356,7 @@ public class AddExchanges
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 child.getNode(),
-                                Optional.of(node.getDistinctSymbols()),
-                                node.getHashSymbol()),
+                                new PartitionFunctionBinding(HASH, node.getDistinctSymbols(), node.getHashSymbol())),
                         child.getProperties());
             }
 
@@ -381,7 +386,7 @@ public class AddExchanges
                 }
                 else {
                     child = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), child.getNode(), Optional.of(node.getPartitionBy()), node.getHashSymbol()),
+                            partitionedExchange(idAllocator.getNextId(), child.getNode(), new PartitionFunctionBinding(HASH, node.getPartitionBy(), node.getHashSymbol())),
                             child.getProperties());
                 }
             }
@@ -443,8 +448,7 @@ public class AddExchanges
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 child.getNode(),
-                                Optional.of(node.getPartitionBy()),
-                                node.getHashSymbol()),
+                                new PartitionFunctionBinding(HASH, node.getPartitionBy(), node.getHashSymbol())),
                         child.getProperties());
             }
 
@@ -465,7 +469,7 @@ public class AddExchanges
             }
             else {
                 preferredChildProperties = PreferredProperties.derivePreferences(context.getPreferredProperties(), ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()));
-                addExchange = partial -> partitionedExchange(idAllocator.getNextId(), partial, Optional.of(node.getPartitionBy()), node.getHashSymbol());
+                addExchange = partial -> partitionedExchange(idAllocator.getNextId(), partial, new PartitionFunctionBinding(HASH, node.getPartitionBy(), node.getHashSymbol()));
             }
 
             PlanWithProperties child = planChild(node, context.withPreferredProperties(preferredChildProperties));
@@ -578,7 +582,7 @@ public class AddExchanges
             PlanWithProperties source = node.getSource().accept(this, context);
             if (redistributeWrites) {
                 source = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), source.getNode(), Optional.empty(), Optional.empty()),
+                        partitionedExchange(idAllocator.getNextId(), source.getNode(), new PartitionFunctionBinding(ROUND_ROBIN, ImmutableList.of())),
                         source.getProperties()
                 );
             }
@@ -706,6 +710,12 @@ public class AddExchanges
         public PlanWithProperties visitTableCommit(TableCommitNode node, Context context)
         {
             PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
+
+            // if the child is already a gathering exchange, don't add another
+            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType().equals(ExchangeNode.Type.GATHER)) {
+                return rebaseAndDeriveProperties(node, child);
+            }
+
             if (child.getProperties().isDistributed() || !child.getProperties().isCoordinatorOnly()) {
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), child.getNode()),
@@ -733,13 +743,13 @@ public class AddExchanges
                 // force partitioning
                 if (!left.getProperties().isHashPartitionedOn(leftSymbols)) {
                     left = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), left.getNode(), Optional.of(leftSymbols), node.getLeftHashSymbol()),
+                            partitionedExchange(idAllocator.getNextId(), left.getNode(), new PartitionFunctionBinding(HASH, leftSymbols, node.getLeftHashSymbol())),
                             left.getProperties());
                 }
 
                 if (!right.getProperties().isHashPartitionedOn(rightSymbols)) {
                     right = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), right.getNode(), Optional.of(rightSymbols), node.getRightHashSymbol()),
+                            partitionedExchange(idAllocator.getNextId(), right.getNode(), new PartitionFunctionBinding(HASH, rightSymbols, node.getRightHashSymbol())),
                             right.getProperties());
                 }
             }
@@ -752,17 +762,13 @@ public class AddExchanges
                 if (!left.getProperties().isDistributed() && right.getProperties().isDistributed()) {
                     // force single-node join
                     // TODO: if inner join, flip order and do a broadcast join
-                    right = withDerivedProperties(gatheringExchange(idAllocator.getNextId(), right.getNode()), right.getProperties());
+                    right = withDerivedProperties(
+                            gatheringExchange(idAllocator.getNextId(), right.getNode()),
+                            right.getProperties());
                 }
                 else if (left.getProperties().isDistributed() && !(left.getProperties().isHashPartitionedOn(leftSymbols) && right.getProperties().isHashPartitionedOn(rightSymbols))) {
-                    right = withDerivedProperties(new ExchangeNode(
-                                    idAllocator.getNextId(),
-                                    ExchangeNode.Type.REPLICATE,
-                                    Optional.empty(),
-                                    Optional.<Symbol>empty(),
-                                    ImmutableList.of(right.getNode()),
-                                    right.getNode().getOutputSymbols(),
-                                    ImmutableList.of(right.getNode().getOutputSymbols())),
+                    right = withDerivedProperties(
+                            replicatedExchange(idAllocator.getNextId(), right.getNode()),
                             right.getProperties());
                 }
             }
@@ -804,7 +810,7 @@ public class AddExchanges
                 // force partitioning if source isn't already partitioned on sourceSymbols
                 if (!source.getProperties().isHashPartitionedOn(sourceSymbols)) {
                     source = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), source.getNode(), Optional.of(sourceSymbols), node.getSourceHashSymbol()),
+                            partitionedExchange(idAllocator.getNextId(), source.getNode(), new PartitionFunctionBinding(HASH, sourceSymbols, node.getSourceHashSymbol())),
                             source.getProperties());
                 }
 
@@ -813,7 +819,10 @@ public class AddExchanges
                 // As a result, it is written as checkState instead.
                 checkState(!filteringSource.getProperties().isHashPartitionedOn(filteringSourceSymbols) || !filteringSource.getProperties().isNullReplication());
                 filteringSource = withDerivedProperties(
-                        partitionedExchangeNullReplicate(idAllocator.getNextId(), filteringSource.getNode(), Iterables.getOnlyElement(filteringSourceSymbols), node.getFilteringSourceHashSymbol()),
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                filteringSource.getNode(),
+                                new PartitionFunctionBinding(HASH, filteringSourceSymbols, node.getFilteringSourceHashSymbol(), true, OptionalInt.empty())),
                         filteringSource.getProperties());
             }
             else {
@@ -825,14 +834,7 @@ public class AddExchanges
                 // make filtering source match requirements of source
                 if (source.getProperties().isDistributed()) {
                     filteringSource = withDerivedProperties(
-                            new ExchangeNode(
-                                    idAllocator.getNextId(),
-                                    ExchangeNode.Type.REPLICATE,
-                                    Optional.empty(),
-                                    Optional.<Symbol>empty(),
-                                    ImmutableList.of(filteringSource.getNode()),
-                                    filteringSource.getNode().getOutputSymbols(),
-                                    ImmutableList.of(filteringSource.getNode().getOutputSymbols())),
+                            replicatedExchange(idAllocator.getNextId(), filteringSource.getNode()),
                             filteringSource.getProperties());
                 }
                 else {
@@ -861,7 +863,7 @@ public class AddExchanges
             // TODO: allow repartitioning if unpartitioned to increase parallelism
             if (shouldRepartitionForIndexJoin(joinColumns, context.getPreferredProperties(), probeProperties)) {
                 probeSource = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), probeSource.getNode(), Optional.of(joinColumns), node.getProbeHashSymbol()),
+                        partitionedExchange(idAllocator.getNextId(), probeSource.getNode(), new PartitionFunctionBinding(HASH, joinColumns, node.getProbeHashSymbol())),
                         probeProperties);
             }
 
@@ -943,7 +945,6 @@ public class AddExchanges
                             idAllocator.getNextId(),
                             ExchangeNode.Type.GATHER,
                             Optional.empty(),
-                            Optional.<Symbol>empty(),
                             partitionedChildren,
                             node.getOutputSymbols(),
                             partitionedOutputLayouts);
@@ -987,8 +988,7 @@ public class AddExchanges
                             partitionedExchange(
                                     idAllocator.getNextId(),
                                     source.getNode(),
-                                    Optional.of(sourceHashColumns),
-                                    Optional.empty()),
+                                    new PartitionFunctionBinding(HASH, sourceHashColumns, Optional.empty())),
                             source.getProperties());
                 }
                 partitionedSources.add(source.getNode());

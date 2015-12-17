@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -24,6 +25,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -35,6 +37,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -51,6 +54,7 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.RegexpType.REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -89,6 +93,7 @@ public final class TypeRegistry
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
+        addType(P4_HYPER_LOG_LOG);
         addType(REGEXP);
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
@@ -163,5 +168,155 @@ public final class TypeRegistry
     public static void verifyTypeClass(Type type)
     {
         requireNonNull(type, "type is null");
+    }
+
+    public static boolean canCoerce(List<? extends Type> actualTypes, List<Type> expectedTypes)
+    {
+        if (actualTypes.size() != expectedTypes.size()) {
+            return false;
+        }
+        for (int i = 0; i < expectedTypes.size(); i++) {
+            Type expectedType = expectedTypes.get(i);
+            Type actualType = actualTypes.get(i);
+            if (!canCoerce(actualType, expectedType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean canCastTypeBase(String fromTypeBase, String toTypeBase)
+    {
+        // canCastTypeBase and isCovariantParameterPosition defines all hand-coded rules for type coercion.
+        // Other methods should reference these two functions instead of hand-code new rules.
+
+        if (UnknownType.NAME.equals(fromTypeBase)) {
+            return true;
+        }
+        if (toTypeBase.equals(fromTypeBase)) {
+            return true;
+        }
+        switch (fromTypeBase) {
+            case StandardTypes.BIGINT:
+                return StandardTypes.DOUBLE.equals(toTypeBase);
+            case StandardTypes.DATE:
+                return StandardTypes.TIMESTAMP.equals(toTypeBase) || StandardTypes.TIMESTAMP_WITH_TIME_ZONE.equals(toTypeBase);
+            case StandardTypes.TIME:
+                return StandardTypes.TIME_WITH_TIME_ZONE.equals(toTypeBase);
+            case StandardTypes.TIMESTAMP:
+                return StandardTypes.TIMESTAMP_WITH_TIME_ZONE.equals(toTypeBase);
+            case StandardTypes.VARCHAR:
+                return RegexpType.NAME.equals(toTypeBase) || LikePatternType.NAME.equals(toTypeBase) || JsonPathType.NAME.equals(toTypeBase);
+            case StandardTypes.P4_HYPER_LOG_LOG:
+                return StandardTypes.HYPER_LOG_LOG.equals(toTypeBase);
+        }
+        return false;
+    }
+
+    private static boolean isCovariantParameterPosition(String firstTypeBase, int position)
+    {
+        // canCastTypeBase and isCovariantParameterPosition defines all hand-coded rules for type coercion.
+        // Other methods should reference these two functions instead of hand-code new rules.
+
+        // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
+        return firstTypeBase.equals(StandardTypes.ARRAY);
+    }
+
+    public static boolean canCoerce(Type actualType, Type expectedType)
+    {
+        return canCoerce(actualType.getTypeSignature(), expectedType.getTypeSignature());
+    }
+
+    public static boolean canCoerce(TypeSignature actualType, TypeSignature expectedType)
+    {
+        Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(actualType, expectedType);
+        return commonSuperTypeSignature.isPresent() && commonSuperTypeSignature.get().equals(expectedType);
+    }
+
+    @Override
+    public Optional<Type> getCommonSuperType(List<? extends Type> types)
+    {
+        checkArgument(!types.isEmpty(), "types is empty");
+        Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(
+                types.stream()
+                        .map(Type::getTypeSignature)
+                        .collect(toImmutableList()));
+        return commonSuperTypeSignature.map(this::getType);
+    }
+
+    @Override
+    public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+    {
+        return getCommonSuperTypeSignature(firstType.getTypeSignature(), secondType.getTypeSignature()).map(this::getType);
+    }
+
+    private static Optional<String> getCommonSuperTypeBase(String firstTypeBase, String secondTypeBase)
+    {
+        if (canCastTypeBase(firstTypeBase, secondTypeBase)) {
+            return Optional.of(secondTypeBase);
+        }
+        if (canCastTypeBase(secondTypeBase, firstTypeBase)) {
+            return Optional.of(firstTypeBase);
+        }
+        return Optional.empty();
+    }
+
+    public static Optional<TypeSignature> getCommonSuperTypeSignature(List<? extends TypeSignature> typeSignatures)
+    {
+        checkArgument(!typeSignatures.isEmpty(), "typeSignatures is empty");
+        TypeSignature superTypeSignature = UNKNOWN.getTypeSignature();
+        for (TypeSignature typeSignature : typeSignatures) {
+            Optional<TypeSignature> commonSuperTypeSignature = getCommonSuperTypeSignature(superTypeSignature, typeSignature);
+            if (!commonSuperTypeSignature.isPresent()) {
+                return Optional.empty();
+            }
+            superTypeSignature = commonSuperTypeSignature.get();
+        }
+        return Optional.of(superTypeSignature);
+    }
+
+    public static Optional<TypeSignature> getCommonSuperTypeSignature(TypeSignature firstType, TypeSignature secondType)
+    {
+        // Special handling for UnknownType is necessary because we forbid cast between types with different number of type parameters.
+        // Without this, cast from null to map<bigint, bigint> will not be allowed.
+        if (UnknownType.NAME.equals(firstType.getBase())) {
+            return Optional.of(secondType);
+        }
+        if (UnknownType.NAME.equals(secondType.getBase())) {
+            return Optional.of(firstType);
+        }
+
+        List<TypeSignature> firstTypeTypeParameters = firstType.getParameters();
+        List<TypeSignature> secondTypeTypeParameters = secondType.getParameters();
+        if (firstTypeTypeParameters.size() != secondTypeTypeParameters.size()) {
+            return Optional.empty();
+        }
+        if (!firstType.getLiteralParameters().equals(secondType.getLiteralParameters())) {
+            return Optional.empty();
+        }
+
+        Optional<String> commonSuperTypeBase = getCommonSuperTypeBase(firstType.getBase(), secondType.getBase());
+        if (!commonSuperTypeBase.isPresent()) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<TypeSignature> typeParameters = ImmutableList.builder();
+        for (int i = 0; i < firstTypeTypeParameters.size(); i++) {
+            if (isCovariantParameterPosition(commonSuperTypeBase.get(), i)) {
+                Optional<TypeSignature> commonSuperType = getCommonSuperTypeSignature(firstTypeTypeParameters.get(i), secondTypeTypeParameters.get(i));
+                if (!commonSuperType.isPresent()) {
+                    return Optional.empty();
+                }
+                typeParameters.add(commonSuperType.get());
+            }
+            else {
+                if (!firstTypeTypeParameters.get(i).equals(secondTypeTypeParameters.get(i))) {
+                    return Optional.empty();
+                }
+                typeParameters.add(firstTypeTypeParameters.get(i));
+            }
+        }
+
+        return Optional.of(new TypeSignature(commonSuperTypeBase.get(), typeParameters.build(), firstType.getLiteralParameters()));
     }
 }

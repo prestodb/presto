@@ -98,6 +98,7 @@ public class InMemoryExchange
 
     public synchronized OperatorFactory createSinkFactory(int operatorId)
     {
+        checkState(!noMoreSinkFactories, "No more sink factories already set");
         sinkFactories++;
         return new InMemoryExchangeSinkOperatorFactory(operatorId);
     }
@@ -115,7 +116,7 @@ public class InMemoryExchange
         updateState();
     }
 
-    public synchronized void noMoreSinkFactories()
+    private synchronized void noMoreSinkFactories()
     {
         this.noMoreSinkFactories = true;
         updateState();
@@ -246,7 +247,7 @@ public class InMemoryExchange
     }
 
     private class InMemoryExchangeSinkOperatorFactory
-            implements OperatorFactory
+            implements OperatorFactory, LocalPlannerAware
     {
         private final int operatorId;
         private boolean closed;
@@ -278,6 +279,18 @@ public class InMemoryExchange
                 closed = true;
                 sinkFactoryClosed();
             }
+        }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return createSinkFactory(operatorId);
+        }
+
+        @Override
+        public void localPlannerComplete()
+        {
+            noMoreSinkFactories();
         }
     }
 }

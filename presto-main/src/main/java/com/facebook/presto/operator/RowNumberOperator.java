@@ -100,6 +100,12 @@ public class RowNumberOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new RowNumberOperatorFactory(operatorId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions);
+        }
     }
 
     private final OperatorContext operatorContext;

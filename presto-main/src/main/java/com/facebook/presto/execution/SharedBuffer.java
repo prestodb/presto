@@ -14,12 +14,9 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.PagePartitionFunction;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Sets.SetView;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -43,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.execution.BufferResult.emptyResults;
 import static com.facebook.presto.execution.SharedBuffer.BufferState.FAILED;
@@ -143,23 +141,24 @@ public class SharedBuffer
     private final Set<TaskId> abortedBuffers = new HashSet<>();
 
     private final StateMachine<BufferState> state;
+    private final String taskInstanceId;
 
     @GuardedBy("this")
     private final List<GetBufferResult> stateChangeListeners = new ArrayList<>();
 
     private final SharedBufferMemoryManager memoryManager;
 
-    public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize)
+    public SharedBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize)
     {
-        this(taskId, executor, maxBufferSize, deltaMemory -> { });
+        this(taskId, taskInstanceId, executor, maxBufferSize, deltaMemory -> { });
     }
 
-    public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
+    public SharedBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(executor, "executor is null");
+        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
-
         requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
@@ -196,11 +195,6 @@ public class SharedBuffer
         return new SharedBufferInfo(state, state.canAddBuffers(), state.canAddPages(), totalBufferedBytes, totalBufferedPages, totalQueuedPages, totalPagesSent, infos.build());
     }
 
-    public ListenableFuture<OutputBuffers> getFinalOutputBuffers()
-    {
-        return finalOutputBuffers;
-    }
-
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
@@ -211,19 +205,16 @@ public class SharedBuffer
         }
 
         // verify this is valid state change
-        SetView<TaskId> missingBuffers = Sets.difference(outputBuffers.getBuffers().keySet(), newOutputBuffers.getBuffers().keySet());
-        checkArgument(missingBuffers.isEmpty(), "newOutputBuffers does not have existing buffers %s", missingBuffers);
-        checkArgument(!outputBuffers.isNoMoreBufferIds() || newOutputBuffers.isNoMoreBufferIds(), "Expected newOutputBuffers to have noMoreBufferIds set");
+        outputBuffers.checkValidTransition(newOutputBuffers);
         outputBuffers = newOutputBuffers;
 
         // add the new buffers
-        for (Entry<TaskId, PagePartitionFunction> entry : outputBuffers.getBuffers().entrySet()) {
+        for (Entry<TaskId, Integer> entry : outputBuffers.getBuffers().entrySet()) {
             TaskId bufferId = entry.getKey();
             if (!namedBuffers.containsKey(bufferId)) {
                 checkState(state.get().canAddBuffers(), "Cannot add buffers to %s", SharedBuffer.class.getSimpleName());
-                PagePartitionFunction partitionFunction = entry.getValue();
 
-                int partition = partitionFunction.getPartition();
+                int partition = entry.getValue();
 
                 PartitionBuffer partitionBuffer = createOrGetPartitionBuffer(partition);
                 NamedBuffer namedBuffer = new NamedBuffer(bufferId, partitionBuffer);
@@ -256,7 +247,7 @@ public class SharedBuffer
 
     public synchronized ListenableFuture<?> enqueue(Page page)
     {
-        return enqueue(0, page);
+        return enqueue(BROADCAST_PARTITION_ID, page);
     }
 
     public synchronized ListenableFuture<?> enqueue(int partition, Page page)
@@ -285,7 +276,7 @@ public class SharedBuffer
         // this can happen with limit queries
         BufferState state = this.state.get();
         if (state != FAILED && !state.canAddBuffers() && namedBuffers.get(outputId) == null) {
-            return completedFuture(emptyResults(0, true));
+            return completedFuture(emptyResults(taskInstanceId, 0, true));
         }
 
         // return a future for data
@@ -479,17 +470,17 @@ public class SharedBuffer
             }
 
             if (isFinished()) {
-                return emptyResults(startingSequenceId, true);
+                return emptyResults(taskInstanceId, startingSequenceId, true);
             }
 
             List<Page> pages = partitionBuffer.getPages(maxSize, sequenceId);
 
             // if we can't have any more pages, indicate that the buffer is complete
             if (pages.isEmpty() && !state.get().canAddPages()) {
-                return emptyResults(startingSequenceId, true);
+                return emptyResults(taskInstanceId, startingSequenceId, true);
             }
 
-            return new BufferResult(startingSequenceId, startingSequenceId + pages.size(), false, pages);
+            return new BufferResult(taskInstanceId, startingSequenceId, startingSequenceId + pages.size(), false, pages);
         }
 
         public void abort()
@@ -558,7 +549,7 @@ public class SharedBuffer
                 // this could be a request for a buffer that never existed, but that is ok since the buffer
                 // could have been destroyed before the creation message was received
                 if (state.get() == FINISHED) {
-                    future.complete(emptyResults(namedBuffer == null ? 0 : namedBuffer.getSequenceId(), true));
+                    future.complete(emptyResults(taskInstanceId, namedBuffer == null ? 0 : namedBuffer.getSequenceId(), true));
                     return true;
                 }
 
@@ -569,7 +560,7 @@ public class SharedBuffer
 
                 // if request is for pages before the current position, just return an empty page
                 if (startingSequenceId < namedBuffer.getSequenceId()) {
-                    future.complete(emptyResults(startingSequenceId, false));
+                    future.complete(emptyResults(taskInstanceId, startingSequenceId, false));
                     return true;
                 }
 

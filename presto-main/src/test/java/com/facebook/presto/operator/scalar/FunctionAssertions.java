@@ -104,7 +104,6 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -207,7 +206,7 @@ public final class FunctionAssertions
             expected = ((Integer) expected).longValue();
         }
         else if (expected instanceof Slice) {
-            expected = ((Slice) expected).toString(UTF_8);
+            expected = ((Slice) expected).toStringUtf8();
         }
 
         Object actual = selectSingleValue(projection, expectedType, compiler);

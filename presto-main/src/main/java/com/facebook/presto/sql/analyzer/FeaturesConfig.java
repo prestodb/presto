@@ -25,7 +25,10 @@ public class FeaturesConfig
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
+    private boolean pushTableWriteThroughUnion = true;
     private boolean intermediateAggregationsEnabled = false;
+    private boolean columnarProcessing = false;
+    private boolean columnarProcessingDictionary = false;
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
@@ -112,6 +115,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isPushTableWriteThroughUnion()
+    {
+        return pushTableWriteThroughUnion;
+    }
+
+    @Config("optimizer.push-table-write-through-union")
+    public FeaturesConfig setPushTableWriteThroughUnion(boolean pushTableWriteThroughUnion)
+    {
+        this.pushTableWriteThroughUnion = pushTableWriteThroughUnion;
+        return this;
+    }
+
     public boolean isIntermediateAggregationsEnabled()
     {
         return intermediateAggregationsEnabled;
@@ -121,6 +136,30 @@ public class FeaturesConfig
     public FeaturesConfig setIntermediateAggregationsEnabled(boolean intermediateAggregationsEnabled)
     {
         this.intermediateAggregationsEnabled = intermediateAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isColumnarProcessing()
+    {
+        return columnarProcessing;
+    }
+
+    @Config("optimizer.columnar-processing")
+    public FeaturesConfig setColumnarProcessing(boolean columnarProcessing)
+    {
+        this.columnarProcessing = columnarProcessing;
+        return this;
+    }
+
+    public boolean isColumnarProcessingDictionary()
+    {
+        return columnarProcessingDictionary;
+    }
+
+    @Config("optimizer.columnar-processing-dictionary")
+    public FeaturesConfig setColumnarProcessingDictionary(boolean columnarProcessingDictionary)
+    {
+        this.columnarProcessingDictionary = columnarProcessingDictionary;
         return this;
     }
 }

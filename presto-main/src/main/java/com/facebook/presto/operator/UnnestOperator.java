@@ -82,6 +82,12 @@ public class UnnestOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new UnnestOperatorFactory(operatorId, replicateChannels, replicateTypes, unnestChannels, unnestTypes, withOrdinality);
+        }
     }
 
     private final OperatorContext operatorContext;

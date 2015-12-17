@@ -23,11 +23,14 @@ import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 
+import static com.facebook.presto.byteCode.ArrayOpCode.getArrayOpCode;
 import static com.facebook.presto.byteCode.OpCode.ANEWARRAY;
 import static com.facebook.presto.byteCode.OpCode.CHECKCAST;
 import static com.facebook.presto.byteCode.OpCode.INSTANCEOF;
 import static com.facebook.presto.byteCode.OpCode.NEW;
+import static com.facebook.presto.byteCode.OpCode.NEWARRAY;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.google.common.base.Preconditions.checkState;
 
 @SuppressWarnings("UnusedDeclaration")
 public class TypeInstruction
@@ -41,6 +44,11 @@ public class TypeInstruction
     public static InstructionNode newObject(ParameterizedType type)
     {
         return new TypeInstruction(NEW, type);
+    }
+
+    public static InstructionNode newPrimitiveArray(ParameterizedType type)
+    {
+        return new TypeInstruction(NEWARRAY, type);
     }
 
     public static InstructionNode newObjectArray(Class<?> type)
@@ -85,7 +93,18 @@ public class TypeInstruction
     @Override
     public void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        visitor.visitTypeInsn(opCode.getOpCode(), type.getClassName());
+        if (opCode == NEWARRAY) {
+            checkState(type.isPrimitive(), "need primitive type for NEWARRAY");
+            visitor.visitIntInsn(opCode.getOpCode(), getPrimitiveArrayType(type));
+        }
+        else {
+            visitor.visitTypeInsn(opCode.getOpCode(), type.getClassName());
+        }
+    }
+
+    private static int getPrimitiveArrayType(ParameterizedType type)
+    {
+        return getArrayOpCode(type).getAtype();
     }
 
     @Override
@@ -98,5 +117,11 @@ public class TypeInstruction
     public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
     {
         return visitor.visitInstruction(parent, this);
+    }
+
+    @Override
+    public String toString()
+    {
+        return opCode + " " + type;
     }
 }

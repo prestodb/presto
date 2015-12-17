@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.scalar.ColorFunctions.bar;
@@ -25,7 +24,7 @@ import static com.facebook.presto.operator.scalar.ColorFunctions.getRed;
 import static com.facebook.presto.operator.scalar.ColorFunctions.parseRgb;
 import static com.facebook.presto.operator.scalar.ColorFunctions.render;
 import static com.facebook.presto.operator.scalar.ColorFunctions.rgb;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
 public class TestColorFunctions
@@ -158,6 +157,6 @@ public class TestColorFunctions
 
     private static Slice toSlice(String string)
     {
-        return Slices.copiedBuffer(string, UTF_8);
+        return utf8Slice(string);
     }
 }

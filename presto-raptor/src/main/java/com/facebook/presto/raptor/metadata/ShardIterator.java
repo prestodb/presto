@@ -134,7 +134,7 @@ final class ShardIterator
 
     private void fetchNodes()
     {
-        for (Node node : dao.getNodes()) {
+        for (RaptorNode node : dao.getNodes()) {
             nodeMap.put(node.getNodeId(), node.getNodeIdentifier());
         }
     }

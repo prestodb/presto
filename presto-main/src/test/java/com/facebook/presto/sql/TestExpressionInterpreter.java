@@ -62,7 +62,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
@@ -975,7 +975,7 @@ public class TestExpressionInterpreter
 
     private static StringLiteral rawStringLiteral(final Slice slice)
     {
-        return new StringLiteral(slice.toString(UTF_8))
+        return new StringLiteral(slice.toStringUtf8())
         {
             @Override
             public Slice getSlice()
@@ -1022,7 +1022,7 @@ public class TestExpressionInterpreter
                     case "bound_long":
                         return 1234L;
                     case "bound_string":
-                        return Slices.wrappedBuffer("hello".getBytes(UTF_8));
+                        return utf8Slice("hello");
                     case "bound_double":
                         return 12.34;
                     case "bound_date":
@@ -1032,7 +1032,7 @@ public class TestExpressionInterpreter
                     case "bound_timestamp":
                         return new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis();
                     case "bound_pattern":
-                        return Slices.wrappedBuffer("%el%".getBytes(UTF_8));
+                        return utf8Slice("%el%");
                     case "bound_timestamp_with_timezone":
                         return new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 1, 0, 0, 999, DateTimeZone.UTC).getMillis(), getTimeZoneKey("Z"));
                 }

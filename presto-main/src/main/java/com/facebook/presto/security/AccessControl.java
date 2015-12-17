@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.security;
 
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
 
 import java.security.Principal;
@@ -30,79 +30,79 @@ public interface AccessControl
      * Check if identity is allowed to create the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanCreateTable(Identity identity, QualifiedTableName tableName);
+    void checkCanCreateTable(Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to drop the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanDropTable(Identity identity, QualifiedTableName tableName);
+    void checkCanDropTable(Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to rename the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRenameTable(Identity identity, QualifiedTableName tableName, QualifiedTableName newTableName);
+    void checkCanRenameTable(Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName);
 
     /**
      * Check if identity is allowed to add columns to the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanAddColumns(Identity identity, QualifiedTableName tableName);
+    void checkCanAddColumns(Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to rename a column in the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRenameColumn(Identity identity, QualifiedTableName tableName);
+    void checkCanRenameColumn(Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to select from the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSelectFromTable(Identity identity, QualifiedTableName tableName);
+    void checkCanSelectFromTable(Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to insert into the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanInsertIntoTable(Identity identity, QualifiedTableName tableName);
+    void checkCanInsertIntoTable(Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to delete from the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanDeleteFromTable(Identity identity, QualifiedTableName tableName);
+    void checkCanDeleteFromTable(Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to create the specified view.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanCreateView(Identity identity, QualifiedTableName viewName);
+    void checkCanCreateView(Identity identity, QualifiedObjectName viewName);
 
     /**
      * Check if identity is allowed to drop the specified view.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanDropView(Identity identity, QualifiedTableName viewName);
+    void checkCanDropView(Identity identity, QualifiedObjectName viewName);
 
     /**
      * Check if identity is allowed to select from the specified view.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSelectFromView(Identity identity, QualifiedTableName viewName);
+    void checkCanSelectFromView(Identity identity, QualifiedObjectName viewName);
 
     /**
      * Check if identity is allowed to create a view that selects from the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedTableName tableName);
+    void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to create a view that selects from the specified view.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedTableName viewName);
+    void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedObjectName viewName);
 
     /**
      * Check if identity is allowed to set the specified system property.

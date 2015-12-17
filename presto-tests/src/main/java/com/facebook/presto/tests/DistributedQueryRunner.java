@@ -18,7 +18,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
@@ -93,8 +93,12 @@ public class DistributedQueryRunner
             this.servers = servers.build();
         }
         catch (Exception e) {
-            close();
-            throw e;
+            try {
+                throw closer.rethrow(e, Exception.class);
+            }
+            finally {
+                closer.close();
+            }
         }
 
         this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
@@ -248,7 +252,7 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public List<QualifiedTableName> listTables(Session session, String catalog, String schema)
+    public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
         lock.readLock().lock();
         try {
@@ -257,7 +261,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -270,7 +273,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -283,7 +285,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -296,7 +297,6 @@ public class DistributedQueryRunner
         finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override

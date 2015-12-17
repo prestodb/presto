@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -61,17 +62,26 @@ public class ArrayMapByteCodeExpression
         Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder_" + NEXT_VARIABLE_ID.getAndIncrement());
         body.append(blockBuilder.set(constantType(binder, toType).invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), array.invoke("getPositionCount", int.class))));
 
-        Variable element = scope.declareVariable(fromType.getJavaType(), "element_" + NEXT_VARIABLE_ID.getAndIncrement());
-        Variable newElement = scope.declareVariable(toType.getJavaType(), "newElement_" + NEXT_VARIABLE_ID.getAndIncrement());
-        Variable position = scope.declareVariable(int.class, "position_" + NEXT_VARIABLE_ID.getAndIncrement());
-
         // get element, apply function, and write new element to block builder
-        SqlTypeByteCodeExpression elementTypeConstant = constantType(binder, fromType);
-        SqlTypeByteCodeExpression newElementTypeConstant = constantType(binder, toType);
-        ByteCodeBlock mapElement = new ByteCodeBlock()
-                .append(element.set(elementTypeConstant.getValue(array, position)))
-                .append(newElement.set(mapper.apply(element)))
-                .append(newElementTypeConstant.writeValue(blockBuilder, newElement));
+        Variable position = scope.declareVariable(int.class, "position_" + NEXT_VARIABLE_ID.getAndIncrement());
+        ByteCodeBlock mapElement;
+        String mapperDescription;
+        if (fromType instanceof UnknownType) {
+            mapElement = new ByteCodeBlock()
+                    .comment("unreachable code");
+            mapperDescription = "null";
+        }
+        else {
+            Variable element = scope.declareVariable(fromType.getJavaType(), "element_" + NEXT_VARIABLE_ID.getAndIncrement());
+            Variable newElement = scope.declareVariable(toType.getJavaType(), "newElement_" + NEXT_VARIABLE_ID.getAndIncrement());
+            SqlTypeByteCodeExpression elementTypeConstant = constantType(binder, fromType);
+            SqlTypeByteCodeExpression newElementTypeConstant = constantType(binder, toType);
+            mapElement = new ByteCodeBlock()
+                    .append(element.set(elementTypeConstant.getValue(array, position)))
+                    .append(newElement.set(mapper.apply(element)))
+                    .append(newElementTypeConstant.writeValue(blockBuilder, newElement));
+            mapperDescription = mapper.apply(element).toString();
+        }
 
         // main loop
         body.append(new ForLoop()
@@ -87,7 +97,7 @@ public class ArrayMapByteCodeExpression
         body.append(blockBuilder.invoke("build", Block.class));
 
         // pretty print
-        oneLineDescription = "arrayMap(" + array + ", element -> " + mapper.apply(element) + ")";
+        oneLineDescription = "arrayMap(" + array + ", element -> " + mapperDescription + ")";
     }
 
     @Override

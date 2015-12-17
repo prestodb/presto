@@ -44,8 +44,8 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration();
-        config.set("fs.s3n.awsSecretAccessKey", "test_secret_access_key");
-        config.set("fs.s3n.awsAccessKeyId", "test_access_key_id");
+        config.set(PrestoS3FileSystem.S3_ACCESS_KEY, "test_secret_access_key");
+        config.set(PrestoS3FileSystem.S3_SECRET_KEY, "test_access_key_id");
         // the static credentials should be preferred
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {

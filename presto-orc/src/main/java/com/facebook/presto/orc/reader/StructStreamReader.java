@@ -87,7 +87,6 @@ public class StructStreamReader
                 // skip ahead the present bit reader, but count the set bits
                 // and use this as the skip size for the field readers
                 readOffset = presentStream.countBitsSet(readOffset);
-
             }
             for (StreamReader structField : structFields) {
                 structField.prepareNextRead(readOffset);

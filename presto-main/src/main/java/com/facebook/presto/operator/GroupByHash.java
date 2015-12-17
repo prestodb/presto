@@ -44,7 +44,7 @@ public interface GroupByHash
 
     GroupByIdBlock getGroupIds(Page page);
 
-    boolean contains(int position, Page page);
+    boolean contains(int position, Page page, int[] hashChannels);
 
     int putIfAbsent(int position, Page page);
 }

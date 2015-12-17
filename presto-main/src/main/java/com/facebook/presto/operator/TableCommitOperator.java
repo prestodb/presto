@@ -65,6 +65,12 @@ public class TableCommitOperator
         {
             closed = true;
         }
+
+        @Override
+        public OperatorFactory duplicate()
+        {
+            return new TableCommitOperatorFactory(operatorId, tableCommitter);
+        }
     }
 
     private enum State

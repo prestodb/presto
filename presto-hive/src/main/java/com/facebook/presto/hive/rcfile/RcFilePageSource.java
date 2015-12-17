@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.ql.io.RCFile;
 import org.apache.hadoop.hive.ql.io.RCFile.Reader;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
@@ -75,6 +76,7 @@ public class RcFilePageSource
         implements ConnectorPageSource
 {
     private static final int MAX_PAGE_SIZE = 1024;
+    private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
     public static final int MAX_FIXED_WIDTH_SIZE = 8;
     public static final int NULL_ENTRY_SIZE = 0;
 
@@ -347,6 +349,12 @@ public class RcFilePageSource
                 .add("columnNames", columnNames)
                 .add("types", types)
                 .toString();
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return GUESSED_MEMORY_USAGE;
     }
 
     private void closeWithSuppression(Throwable throwable)

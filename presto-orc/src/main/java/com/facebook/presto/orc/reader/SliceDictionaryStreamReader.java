@@ -70,6 +70,8 @@ public class SliceDictionaryStreamReader
     @Nonnull
     private Slice[] dictionary = new Slice[1];
 
+    private Block dictionaryBlock = createNewDictionaryBlock();
+
     @Nonnull
     private StreamSource<LongStream> dictionaryLengthStreamSource = missingStreamSource(LongStream.class);
 
@@ -201,12 +203,17 @@ public class SliceDictionaryStreamReader
             }
             // copy ids into a private array for this block since data vector is reused
             Slice ids = Slices.wrappedIntArray(Arrays.copyOfRange(dataVector, 0, nextBatchSize));
-            block = new DictionaryBlock(nextBatchSize, new SliceArrayBlock(dictionarySize + 1, dictionary, true), ids);
+            block = new DictionaryBlock(nextBatchSize, dictionaryBlock, ids);
         }
 
         readOffset = 0;
         nextBatchSize = 0;
         return block;
+    }
+
+    private Block createNewDictionaryBlock()
+    {
+        return new SliceArrayBlock(dictionary.length, dictionary, true);
     }
 
     private void openRowGroup()
@@ -216,6 +223,7 @@ public class SliceDictionaryStreamReader
         if (!dictionaryOpen) {
             // We must always create a new dictionary array because we need the last slot to be null
             dictionary = new Slice[dictionarySize + 1];
+            dictionaryBlock = createNewDictionaryBlock();
             if (dictionarySize > 0) {
                 int[] dictionaryLength = new int[dictionarySize];
 
@@ -249,7 +257,6 @@ public class SliceDictionaryStreamReader
             ByteArrayStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
             readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, rowGroupDictionary);
         }
-        dictionaryOpen = true;
 
         presentStream = presentStreamSource.openStream();
         inDictionaryStream = inDictionaryStreamSource.openStream();
