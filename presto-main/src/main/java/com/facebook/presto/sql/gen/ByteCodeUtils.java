@@ -35,6 +35,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.byteCode.OpCode.NOP;
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
@@ -42,6 +43,7 @@ import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.consta
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeDynamic;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 
 public final class ByteCodeUtils
@@ -155,7 +157,7 @@ public final class ByteCodeUtils
                 binding.getType().returnType());
     }
 
-    public static ByteCodeNode generateInvocation(Scope scope, String name, ScalarFunctionImplementation function, List<ByteCodeNode> arguments, Binding binding)
+    public static ByteCodeNode generateInvocation(Scope scope, String name, ScalarFunctionImplementation function, Optional<ByteCodeNode> instance, List<ByteCodeNode> arguments, Binding binding)
     {
         MethodType methodType = binding.getType();
 
@@ -167,11 +169,20 @@ public final class ByteCodeUtils
                 .setDescription("invoke " + name);
 
         List<Class<?>> stackTypes = new ArrayList<>();
+        if (function.getInstanceFactory().isPresent()) {
+            checkArgument(instance.isPresent());
+        }
 
         int index = 0;
+        boolean boundInstance = false;
         for (Class<?> type : methodType.parameterArray()) {
             stackTypes.add(type);
-            if (type == ConnectorSession.class) {
+            if (function.getInstanceFactory().isPresent() && !boundInstance) {
+                checkState(type.equals(function.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
+                block.append(instance.get());
+                boundInstance = true;
+            }
+            else if (type == ConnectorSession.class) {
                 block.append(scope.getVariable("session"));
             }
             else {

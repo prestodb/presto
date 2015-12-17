@@ -702,16 +702,16 @@ public class ExpressionInterpreter
 
             Signature firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
             Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
-            MethodHandle firstCastHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(firstCast).getMethodHandle();
-            MethodHandle secondCastHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(secondCast).getMethodHandle();
+            ScalarFunctionImplementation firstCastFunction = metadata.getFunctionRegistry().getScalarFunctionImplementation(firstCast);
+            ScalarFunctionImplementation secondCastFunction = metadata.getFunctionRegistry().getScalarFunctionImplementation(secondCast);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = (Boolean) invokeOperator(
                     OperatorType.EQUAL,
                     ImmutableList.of(commonType, commonType),
                     ImmutableList.of(
-                            invoke(session, firstCastHandle, ImmutableList.of(first)),
-                            invoke(session, secondCastHandle, ImmutableList.of(second))));
+                            invoke(session, firstCastFunction, ImmutableList.of(first)),
+                            invoke(session, secondCastFunction, ImmutableList.of(second))));
 
             if (equal) {
                 return null;
@@ -806,7 +806,7 @@ public class ExpressionInterpreter
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
-            return invoke(session, function.getMethodHandle(), argumentValues);
+            return invoke(session, function, argumentValues);
         }
 
         @Override
@@ -923,7 +923,7 @@ public class ExpressionInterpreter
             Signature operator = metadata.getFunctionRegistry().getCoercion(expressionTypes.get(node.getExpression()), type);
 
             try {
-                return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operator).getMethodHandle(), ImmutableList.of(value));
+                return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operator), ImmutableList.of(value));
             }
             catch (RuntimeException e) {
                 if (node.isSafe()) {
@@ -997,7 +997,7 @@ public class ExpressionInterpreter
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
             Signature operatorSignature = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
-            return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorSignature).getMethodHandle(), argumentValues);
+            return invoke(session, metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorSignature), argumentValues);
         }
     }
 
@@ -1023,8 +1023,20 @@ public class ExpressionInterpreter
         }
     }
 
-    public static Object invoke(ConnectorSession session, MethodHandle handle, List<Object> argumentValues)
+    public static Object invoke(ConnectorSession session, ScalarFunctionImplementation function, List<Object> argumentValues)
     {
+        MethodHandle handle = function.getMethodHandle();
+        if (function.getInstanceFactory().isPresent()) {
+            try {
+                handle = handle.bindTo(function.getInstanceFactory().get().invoke());
+            }
+            catch (Throwable throwable) {
+                if (throwable instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                throw Throwables.propagate(throwable);
+            }
+        }
         if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
             handle = handle.bindTo(session);
         }

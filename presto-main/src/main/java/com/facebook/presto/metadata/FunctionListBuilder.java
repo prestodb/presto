@@ -25,6 +25,7 @@ import com.facebook.presto.operator.window.ValueWindowFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -47,11 +48,13 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
@@ -121,20 +124,20 @@ public class FunctionListBuilder
         return this;
     }
 
-    public FunctionListBuilder scalar(Signature signature, MethodHandle function, boolean deterministic, String description, boolean hidden, boolean nullable, List<Boolean> nullableArguments)
+    public FunctionListBuilder scalar(Signature signature, MethodHandle function, Optional<MethodHandle> instanceFactory, boolean deterministic, String description, boolean hidden, boolean nullable, List<Boolean> nullableArguments)
     {
-        functions.add(SqlScalarFunction.create(signature, description, hidden, function, deterministic, nullable, nullableArguments));
+        functions.add(SqlScalarFunction.create(signature, description, hidden, function, instanceFactory, deterministic, nullable, nullableArguments));
         return this;
     }
 
-    private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, boolean nullable, List<Boolean> nullableArguments)
+    private FunctionListBuilder operator(OperatorType operatorType, Type returnType, List<Type> parameterTypes, MethodHandle function, Optional<MethodHandle> instanceFactory, boolean nullable, List<Boolean> nullableArguments)
     {
         TypeSignature returnTypeSignature = returnType.getTypeSignature();
         List<TypeSignature> argumentTypes = parameterTypes.stream()
                 .map(Type::getTypeSignature)
                 .collect(ImmutableCollectors.toImmutableList());
         operatorType.validateSignature(returnTypeSignature, argumentTypes);
-        functions.add(SqlOperator.create(operatorType, argumentTypes, returnTypeSignature, function, nullable, nullableArguments));
+        functions.add(SqlOperator.create(operatorType, argumentTypes, returnTypeSignature, function, instanceFactory, nullable, nullableArguments));
         return this;
     }
 
@@ -177,6 +180,7 @@ public class FunctionListBuilder
             return false;
         }
         checkValidMethod(method);
+        Optional<MethodHandle> instanceFactory = getInstanceFactory(method);
         MethodHandle methodHandle = lookup().unreflect(method);
         String name = scalarFunction.value();
         if (name.isEmpty()) {
@@ -191,11 +195,26 @@ public class FunctionListBuilder
 
         List<Boolean> nullableArguments = getNullableArguments(method);
 
-        scalar(signature, methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
+        scalar(signature, methodHandle, instanceFactory, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
         for (String alias : scalarFunction.alias()) {
-            scalar(signature.withAlias(alias.toLowerCase(ENGLISH)), methodHandle, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
+            scalar(signature.withAlias(alias.toLowerCase(ENGLISH)), methodHandle, instanceFactory, scalarFunction.deterministic(), getDescription(method), scalarFunction.hidden(), method.isAnnotationPresent(Nullable.class), nullableArguments);
         }
         return true;
+    }
+
+    private static Optional<MethodHandle> getInstanceFactory(Method method)
+            throws IllegalAccessException
+    {
+        Optional<MethodHandle> instanceFactory = Optional.empty();
+        if (!Modifier.isStatic(method.getModifiers())) {
+            try {
+                instanceFactory = Optional.of(lookup().unreflectConstructor(method.getDeclaringClass().getConstructor()));
+            }
+            catch (NoSuchMethodException e) {
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("%s is non-static, but its declaring class is missing a default constructor", method));
+            }
+        }
+        return instanceFactory;
     }
 
     private static Type type(TypeManager typeManager, SqlType explicitType)
@@ -300,6 +319,7 @@ public class FunctionListBuilder
             return false;
         }
         checkValidMethod(method);
+        Optional<MethodHandle>  instanceFactory = getInstanceFactory(method);
         MethodHandle methodHandle = lookup().unreflect(method);
         OperatorType operatorType = scalarOperator.value();
 
@@ -320,7 +340,7 @@ public class FunctionListBuilder
 
         List<Boolean> nullableArguments = getNullableArguments(method);
 
-        operator(operatorType, returnType, parameterTypes, methodHandle, method.isAnnotationPresent(Nullable.class), nullableArguments);
+        operator(operatorType, returnType, parameterTypes, methodHandle, instanceFactory, method.isAnnotationPresent(Nullable.class), nullableArguments);
         return true;
     }
 
@@ -338,8 +358,6 @@ public class FunctionListBuilder
     private static void checkValidMethod(Method method)
     {
         String message = "@ScalarFunction method %s is not valid: ";
-
-        checkArgument(Modifier.isStatic(method.getModifiers()), message + "must be static", method);
 
         if (method.getAnnotation(Nullable.class) != null) {
             checkArgument(!method.getReturnType().isPrimitive(), message + "annotated with @Nullable but has primitive return type", method);
