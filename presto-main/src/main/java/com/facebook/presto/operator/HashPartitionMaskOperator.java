@@ -29,7 +29,6 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.Math.abs;
 import static java.util.Objects.requireNonNull;
 
 public class HashPartitionMaskOperator
@@ -198,7 +197,8 @@ public class HashPartitionMaskOperator
         for (int position = 0; position < page.getPositionCount(); position++) {
             int rawHash = hashGenerator.hashPosition(position, page);
             // mix the bits so we don't use the same hash used to distribute between stages
-            rawHash = abs((int) XxHash64.hash(Integer.reverse(rawHash)));
+            rawHash = (int) XxHash64.hash(Integer.reverse(rawHash));
+            rawHash &= Integer.MAX_VALUE;
 
             boolean active = (rawHash % partitionCount == partition);
             BOOLEAN.writeBoolean(activePositions, active);
