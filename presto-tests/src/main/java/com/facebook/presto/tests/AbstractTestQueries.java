@@ -3669,6 +3669,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testTransactionsTable()
+            throws Exception
+    {
+        List<MaterializedRow> result = computeActual("SELECT * FROM system.runtime.transactions").getMaterializedRows();
+        assertTrue(result.size() >= 1); // At least one row for the current transaction.
+    }
+
+    @Test
     public void testDefaultExplainTextFormat()
     {
         String query = "SELECT * FROM orders";

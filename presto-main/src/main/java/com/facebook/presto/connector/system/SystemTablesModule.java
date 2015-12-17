@@ -47,6 +47,7 @@ public class SystemTablesModule
         globalTableBinder.addBinding().to(TaskSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TablePropertiesSystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(TransactionsSystemTable.class).in(Scopes.SINGLETON);
 
         globalTableBinder.addBinding().to(AttributeJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogJdbcTable.class).in(Scopes.SINGLETON);

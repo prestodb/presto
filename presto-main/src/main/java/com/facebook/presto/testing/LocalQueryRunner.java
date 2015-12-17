@@ -23,6 +23,7 @@ import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.connector.system.GlobalSystemConnectorFactory;
 import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
+import com.facebook.presto.connector.system.TransactionsSystemTable;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
@@ -229,7 +230,8 @@ public class LocalQueryRunner
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata),
-                new TablePropertiesSystemTable(metadata)));
+                new TablePropertiesSystemTable(metadata),
+                new TransactionsSystemTable(typeRegistry, transactionManager)));
 
         connectorManager.createConnection(GlobalSystemConnector.NAME, globalSystemConnectorFactory, ImmutableMap.of());
 
