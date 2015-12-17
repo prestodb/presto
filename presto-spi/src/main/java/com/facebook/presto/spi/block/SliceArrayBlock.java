@@ -145,27 +145,6 @@ public class SliceArrayBlock
         return new SliceArrayBlock(length, deepCopyAndCompact(values, positionOffset, length));
     }
 
-    static Slice[] deepCopyAndCompactDictionary(Slice[] values, int[] ids, int positionOffset, int length)
-    {
-        Slice[] newValues = new Slice[length];
-        // Compact the slices. Use an IdentityHashMap because this could be very expensive otherwise.
-        Map<Slice, Slice> distinctValues = new IdentityHashMap<>();
-        for (int i = positionOffset; i < positionOffset + length; i++) {
-            Slice slice = values[ids[i]];
-            if (slice == null) {
-                continue;
-            }
-
-            Slice distinct = distinctValues.get(slice);
-            if (distinct == null) {
-                distinct = Slices.copyOf(slice);
-                distinctValues.put(slice, distinct);
-            }
-            newValues[i] = distinct;
-        }
-        return newValues;
-    }
-
     static Slice[] deepCopyAndCompact(Slice[] values, int positionOffset, int length)
     {
         Slice[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
