@@ -43,6 +43,7 @@ public final class Session
 {
     private final QueryId queryId;
     private final Optional<TransactionId> transactionId;
+    private final boolean clientTransactionSupport;
     private final Identity identity;
     private final Optional<String> source;
     private final Optional<String> catalog;
@@ -59,6 +60,7 @@ public final class Session
     public Session(
             QueryId queryId,
             Optional<TransactionId> transactionId,
+            boolean clientTransactionSupport,
             Identity identity,
             Optional<String> source,
             Optional<String> catalog,
@@ -74,6 +76,7 @@ public final class Session
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.clientTransactionSupport = clientTransactionSupport;
         this.identity = identity;
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -161,6 +164,11 @@ public final class Session
         return transactionId.get();
     }
 
+    public boolean isClientTransactionSupport()
+    {
+        return clientTransactionSupport;
+    }
+
     public <T> T getProperty(String name, Class<T> type)
     {
         return sessionPropertyManager.decodeProperty(name, systemProperties.get(name), type);
@@ -198,6 +206,7 @@ public final class Session
         return new Session(
                 queryId,
                 transactionId,
+                clientTransactionSupport,
                 identity,
                 source,
                 catalog,
@@ -223,6 +232,7 @@ public final class Session
         return new Session(
                 queryId,
                 transactionId,
+                clientTransactionSupport,
                 identity,
                 source,
                 catalog,
@@ -257,6 +267,7 @@ public final class Session
         return new Session(
                 queryId,
                 transactionId,
+                clientTransactionSupport,
                 identity,
                 source,
                 this.catalog,
@@ -320,6 +331,7 @@ public final class Session
         return new SessionRepresentation(
                 queryId.toString(),
                 transactionId,
+                clientTransactionSupport,
                 identity.getUser(),
                 identity.getPrincipal().map(Principal::toString),
                 source,
@@ -363,6 +375,7 @@ public final class Session
     {
         private QueryId queryId;
         private TransactionId transactionId;
+        private boolean clientTransactionSupport;
         private Identity identity;
         private String source;
         private String catalog;
@@ -390,6 +403,12 @@ public final class Session
         public SessionBuilder setTransactionId(TransactionId transactionId)
         {
             this.transactionId = transactionId;
+            return this;
+        }
+
+        public SessionBuilder setClientTransactionSupport()
+        {
+            this.clientTransactionSupport = true;
             return this;
         }
 
@@ -475,6 +494,7 @@ public final class Session
             return new Session(
                     queryId,
                     Optional.ofNullable(transactionId),
+                    clientTransactionSupport,
                     identity,
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),

@@ -45,6 +45,9 @@ public class StartTransactionTask
     public CompletableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
         Session session = stateMachine.getSession();
+        if (!session.isClientTransactionSupport()) {
+            throw new PrestoException(StandardErrorCode.INCOMPATIBLE_CLIENT, "Client does not support transactions");
+        }
         if (session.getTransactionId().isPresent()) {
             throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Nested transactions not supported");
         }

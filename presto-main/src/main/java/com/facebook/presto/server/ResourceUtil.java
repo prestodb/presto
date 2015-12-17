@@ -95,7 +95,8 @@ final class ResourceUtil
 
         String transactionId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRANSACTION_ID));
         if (transactionId != null) {
-            sessionBuilder.setTransactionId(getTransactionId(transactionId));
+            sessionBuilder.setClientTransactionSupport();
+            getTransactionId(transactionId).ifPresent(sessionBuilder::setTransactionId);
         }
 
         String timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
@@ -212,10 +213,13 @@ final class ResourceUtil
         }
     }
 
-    private static TransactionId getTransactionId(String transactionId)
+    private static Optional<TransactionId> getTransactionId(String transactionId)
     {
+        if (transactionId.toUpperCase().equals("NONE")) {
+            return Optional.empty();
+        }
         try {
-            return TransactionId.valueOf(transactionId);
+            return Optional.of(TransactionId.valueOf(transactionId));
         }
         catch (Exception e) {
             throw badRequest(e.getMessage());
