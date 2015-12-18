@@ -215,7 +215,7 @@ public class OrcPageSource
     }
 
     @Override
-    public CompletableFuture<Collection<Slice>> commit()
+    public CompletableFuture<Collection<Slice>> finish()
     {
         checkState(shardRewriter.isPresent(), "shardRewriter is missing");
         return shardRewriter.get().rewrite(rowsToDelete);

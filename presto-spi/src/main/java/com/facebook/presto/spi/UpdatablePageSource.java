@@ -24,7 +24,7 @@ public interface UpdatablePageSource
 {
     void deleteRows(Block rowIds);
 
-    CompletableFuture<Collection<Slice>> commit();
+    CompletableFuture<Collection<Slice>> finish();
 
-    default void rollback() {}
+    default void abort() {}
 }
