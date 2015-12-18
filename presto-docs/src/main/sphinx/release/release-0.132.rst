@@ -9,6 +9,9 @@ General Changes
 * Add support for creating constant arrays with more than 255 elements.
 * Fix analyzer for queries with ``GROUP BY ()`` such that errors are raised
   during analysis rather than execution.
+* Add ``resource_over_commit`` session property. This disables all memory
+  limits for the query. Instead it may be killed at any time, if the coordinator
+  needs to reclaim memory.
 
 CLI Changes
 -----------
