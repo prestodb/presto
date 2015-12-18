@@ -14,8 +14,14 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.DictionaryBlock;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
@@ -107,10 +113,22 @@ public class Page
 
         for (int i = 0; i < blocks.length; i++) {
             Block block = blocks[i];
+            if (block instanceof DictionaryBlock) {
+                continue;
+            }
             if (block.getSizeInBytes() < block.getRetainedSizeInBytes()) {
                 // Copy the block to compact its size
                 Block compactedBlock = block.copyRegion(0, block.getPositionCount());
                 blocks[i] = compactedBlock;
+            }
+        }
+
+        Map<UUID, DictionaryBlockIndexes> dictionaryBlocks = getRelatedDictionaryBlocks();
+        for (DictionaryBlockIndexes blockIndexes : dictionaryBlocks.values()) {
+            List<Block> compactBlocks = DictionaryBlock.compactBlocks(blockIndexes.getBlocks());
+            List<Integer> indexes = blockIndexes.getIndexes();
+            for (int i = 0; i < compactBlocks.size(); i++) {
+                blocks[indexes.get(i)] = compactBlocks.get(i);
             }
         }
 
@@ -119,6 +137,21 @@ public class Page
             retainedSize += block.getRetainedSizeInBytes();
         }
         retainedSizeInBytes.set(retainedSize);
+    }
+
+    private Map<UUID, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
+    {
+        Map<UUID, DictionaryBlockIndexes> relatedDictionaryBlocks = new HashMap<>();
+
+        for (int i = 0; i < blocks.length; i++) {
+            Block block = blocks[i];
+            if (block instanceof DictionaryBlock) {
+                UUID sourceId = ((DictionaryBlock) block).getDictionarySourceId();
+                relatedDictionaryBlocks.computeIfAbsent(sourceId, id -> new DictionaryBlockIndexes())
+                        .addBlock(block, i);
+            }
+        }
+        return relatedDictionaryBlocks;
     }
 
     /**
@@ -153,5 +186,27 @@ public class Page
         }
 
         return blocks[0].getPositionCount();
+    }
+
+    private static class DictionaryBlockIndexes
+    {
+        private final List<Block> blocks = new ArrayList<>();
+        private final List<Integer> indexes = new ArrayList<>();
+
+        public void addBlock(Block block, int index)
+        {
+            blocks.add(block);
+            indexes.add(index);
+        }
+
+        public List<Block> getBlocks()
+        {
+            return blocks;
+        }
+
+        public List<Integer> getIndexes()
+        {
+            return indexes;
+        }
     }
 }
