@@ -22,7 +22,7 @@ public interface ConnectorPageSink
 {
     void appendPage(Page page, Block sampleWeightBlock);
 
-    Collection<Slice> commit();
+    Collection<Slice> finish();
 
-    void rollback();
+    void abort();
 }

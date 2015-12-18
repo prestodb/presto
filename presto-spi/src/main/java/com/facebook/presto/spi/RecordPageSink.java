@@ -34,13 +34,13 @@ public class RecordPageSink
     }
 
     @Override
-    public Collection<Slice> commit()
+    public Collection<Slice> finish()
     {
         return recordSink.commit();
     }
 
     @Override
-    public void rollback()
+    public void abort()
     {
         recordSink.rollback();
     }

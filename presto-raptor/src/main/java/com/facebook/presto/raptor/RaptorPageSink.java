@@ -99,7 +99,7 @@ public class RaptorPageSink
     }
 
     @Override
-    public Collection<Slice> commit()
+    public Collection<Slice> finish()
     {
         flushPages(pageBuffer.getPages());
         List<ShardInfo> shards = storagePageSink.commit();
@@ -112,7 +112,7 @@ public class RaptorPageSink
     }
 
     @Override
-    public void rollback()
+    public void abort()
     {
         storagePageSink.rollback();
     }

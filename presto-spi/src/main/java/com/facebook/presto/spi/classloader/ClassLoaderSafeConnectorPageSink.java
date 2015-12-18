@@ -43,18 +43,18 @@ public class ClassLoaderSafeConnectorPageSink
     }
 
     @Override
-    public Collection<Slice> commit()
+    public Collection<Slice> finish()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.commit();
+            return delegate.finish();
         }
     }
 
     @Override
-    public void rollback()
+    public void abort()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.rollback();
+            delegate.abort();
         }
     }
 }
