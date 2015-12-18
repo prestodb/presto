@@ -215,8 +215,9 @@ public class QueryMonitor
 
             Duration finishing = millis(queryEndTime.getMillis() - lastTaskEndTime);
 
-            log.info("TIMELINE: Query %s :: elapsed %s :: planning %s :: scheduling %s :: running %s :: finishing %s :: begin %s :: end %s",
+            log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %s :: planning %s :: scheduling %s :: running %s :: finishing %s :: begin %s :: end %s",
                     queryInfo.getQueryId(),
+                     queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(""),
                     elapsed,
                     planning,
                     scheduling,
