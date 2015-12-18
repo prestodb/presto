@@ -224,7 +224,7 @@ public class HivePageSink
     }
 
     @Override
-    public Collection<Slice> commit()
+    public Collection<Slice> finish()
     {
         ImmutableList.Builder<Slice> partitionUpdates = ImmutableList.builder();
         for (HiveRecordWriter writer : writers) {
@@ -238,7 +238,7 @@ public class HivePageSink
     }
 
     @Override
-    public void rollback()
+    public void abort()
     {
         for (HiveRecordWriter writer : writers) {
             if (writer != null) {

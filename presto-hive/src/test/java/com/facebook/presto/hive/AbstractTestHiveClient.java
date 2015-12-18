@@ -1310,7 +1310,7 @@ public abstract class AbstractTestHiveClient
             // write the data
             ConnectorPageSink sink = pageSinkProvider.createPageSink(session, outputHandle);
             sink.appendPage(CREATE_TABLE_DATA.toPage(), null);
-            sink.commit();
+            sink.finish();
 
             // verify we have data files
             assertFalse(listAllDataFiles(outputHandle).isEmpty());
@@ -1531,7 +1531,7 @@ public abstract class AbstractTestHiveClient
 
         sink.appendPage(new Page(dataBlockBuilder.build()), sampleBlockBuilder.build());
 
-        Collection<Slice> fragments = sink.commit();
+        Collection<Slice> fragments = sink.finish();
 
         // commit the table
         metadata.commitCreateTable(session, outputHandle, fragments);
@@ -1594,7 +1594,7 @@ public abstract class AbstractTestHiveClient
         // write the data
         ConnectorPageSink sink = pageSinkProvider.createPageSink(session, outputHandle);
         sink.appendPage(CREATE_TABLE_DATA.toPage(), null);
-        Collection<Slice> fragments = sink.commit();
+        Collection<Slice> fragments = sink.finish();
 
         // verify all new files start with the unique prefix
         for (String filePath : listAllDataFiles(outputHandle)) {
@@ -1669,7 +1669,7 @@ public abstract class AbstractTestHiveClient
 
             // write data
             sink.appendPage(CREATE_TABLE_DATA.toPage(), null);
-            Collection<Slice> fragments = sink.commit();
+            Collection<Slice> fragments = sink.finish();
 
             // commit the insert
             metadata.commitInsert(session, insertTableHandle, fragments);
@@ -1701,7 +1701,7 @@ public abstract class AbstractTestHiveClient
         ConnectorPageSink sink = pageSinkProvider.createPageSink(session, insertTableHandle);
         sink.appendPage(CREATE_TABLE_DATA.toPage(), null);
         sink.appendPage(CREATE_TABLE_DATA.toPage(), null);
-        sink.commit();
+        sink.finish();
 
         // verify we did not modify the table directory
         assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
@@ -1840,7 +1840,7 @@ public abstract class AbstractTestHiveClient
         ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
         ConnectorPageSink sink = pageSinkProvider.createPageSink(session, insertTableHandle);
         sink.appendPage(CREATE_TABLE_PARTITIONED_DATA_2ND.toPage(), null);
-        sink.commit();
+        sink.finish();
 
         // verify we did not modify the table directory
         assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
@@ -1909,7 +1909,7 @@ public abstract class AbstractTestHiveClient
         ConnectorPageSink sink = pageSinkProvider.createPageSink(session, insertTableHandle);
         sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage(), null);
         sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage(), null);
-        sink.commit();
+        sink.finish();
 
         // verify we did not modify the table directory
         assertEquals(listAllDataFiles(tableName.getSchemaName(), tableName.getTableName()), existingFiles);
@@ -1943,7 +1943,7 @@ public abstract class AbstractTestHiveClient
 
         // write data
         sink.appendPage(data.toPage(), null);
-        Collection<Slice> fragments = sink.commit();
+        Collection<Slice> fragments = sink.finish();
 
         // commit the insert
         metadata.commitInsert(session, insertTableHandle, fragments);

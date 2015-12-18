@@ -50,13 +50,13 @@ public class BlackHolePageSinkProvider
         }
 
         @Override
-        public Collection<Slice> commit()
+        public Collection<Slice> finish()
         {
             return ImmutableList.of();
         }
 
         @Override
-        public void rollback()
+        public void abort()
         {
         }
     }
