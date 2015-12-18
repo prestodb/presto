@@ -30,7 +30,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -189,7 +189,7 @@ public class LogicalPlanner
                 plan.getSampleWeight());
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
-        TableCommitNode commitNode = new TableCommitNode(
+        TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 writerNode,
                 target,
@@ -204,7 +204,7 @@ public class LogicalPlanner
         DeleteNode deleteNode = planner.planDelete(analysis.getDelete().get());
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
-        TableCommitNode commitNode = new TableCommitNode(idAllocator.getNextId(), deleteNode, deleteNode.getTarget(), outputs);
+        TableFinishNode commitNode = new TableFinishNode(idAllocator.getNextId(), deleteNode, deleteNode.getTarget(), outputs);
 
         return new RelationPlan(commitNode, analysis.getOutputDescriptor(), commitNode.getOutputSymbols(), Optional.empty());
     }

@@ -120,7 +120,7 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitTableCommit(TableCommitNode node, C context)
+    public R visitTableFinish(TableFinishNode node, C context)
     {
         return visitPlan(node, context);
     }

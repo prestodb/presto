@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = TableWriterNode.class, name = "tablewriter"),
         @JsonSubTypes.Type(value = DeleteNode.class, name = "delete"),
         @JsonSubTypes.Type(value = MetadataDeleteNode.class, name = "metadatadelete"),
-        @JsonSubTypes.Type(value = TableCommitNode.class, name = "tablecommit"),
+        @JsonSubTypes.Type(value = TableFinishNode.class, name = "tablecommit"),
         @JsonSubTypes.Type(value = UnnestNode.class, name = "unnest"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
         @JsonSubTypes.Type(value = UnionNode.class, name = "union"),

@@ -219,9 +219,9 @@ public class ChildReplacer
     }
 
     @Override
-    public PlanNode visitTableCommit(TableCommitNode node, List<PlanNode> newChildren)
+    public PlanNode visitTableFinish(TableFinishNode node, List<PlanNode> newChildren)
     {
-        return new TableCommitNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getTarget(), node.getOutputSymbols());
+        return new TableFinishNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getTarget(), node.getOutputSymbols());
     }
 
     @Override

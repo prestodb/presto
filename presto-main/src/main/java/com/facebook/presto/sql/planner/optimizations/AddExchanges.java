@@ -54,7 +54,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -707,7 +707,7 @@ public class AddExchanges
         }
 
         @Override
-        public PlanWithProperties visitTableCommit(TableCommitNode node, Context context)
+        public PlanWithProperties visitTableFinish(TableFinishNode node, Context context)
         {
             PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
 

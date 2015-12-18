@@ -38,7 +38,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -545,11 +545,11 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Set<Symbol>> context)
         {
             // Maintain the existing inputs needed for TableCommitNode
             PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputSymbols()));
-            return new TableCommitNode(node.getId(), source, node.getTarget(), node.getOutputSymbols());
+            return new TableFinishNode(node.getId(), source, node.getTarget(), node.getOutputSymbols());
         }
 
         @Override

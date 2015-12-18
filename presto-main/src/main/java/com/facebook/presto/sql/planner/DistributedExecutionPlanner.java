@@ -35,7 +35,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -250,7 +250,7 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public Optional<SplitSource> visitTableCommit(TableCommitNode node, Void context)
+        public Optional<SplitSource> visitTableFinish(TableFinishNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

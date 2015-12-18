@@ -41,7 +41,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -287,7 +287,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<Void> context)
+        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
         {
             return context.defaultRewrite(node);
         }

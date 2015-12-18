@@ -28,22 +28,22 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class TableCommitOperator
+public class TableFinishOperator
         implements Operator
 {
     public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT);
 
-    public static class TableCommitOperatorFactory
+    public static class TableFinishOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
-        private final TableCommitter tableCommitter;
+        private final TableFinisher tableFinisher;
         private boolean closed;
 
-        public TableCommitOperatorFactory(int operatorId, TableCommitter tableCommitter)
+        public TableFinishOperatorFactory(int operatorId, TableFinisher tableFinisher)
         {
             this.operatorId = operatorId;
-            this.tableCommitter = requireNonNull(tableCommitter, "tableCommitter is null");
+            this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
         }
 
         @Override
@@ -56,8 +56,8 @@ public class TableCommitOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext context = driverContext.addOperatorContext(operatorId, TableCommitOperator.class.getSimpleName());
-            return new TableCommitOperator(context, tableCommitter);
+            OperatorContext context = driverContext.addOperatorContext(operatorId, TableFinishOperator.class.getSimpleName());
+            return new TableFinishOperator(context, tableFinisher);
         }
 
         @Override
@@ -69,7 +69,7 @@ public class TableCommitOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableCommitOperatorFactory(operatorId, tableCommitter);
+            return new TableFinishOperatorFactory(operatorId, tableFinisher);
         }
     }
 
@@ -79,7 +79,7 @@ public class TableCommitOperator
     }
 
     private final OperatorContext operatorContext;
-    private final TableCommitter tableCommitter;
+    private final TableFinisher tableFinisher;
 
     private State state = State.RUNNING;
     private long rowCount;
@@ -87,10 +87,10 @@ public class TableCommitOperator
     private boolean closed;
     private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
 
-    public TableCommitOperator(OperatorContext operatorContext, TableCommitter tableCommitter)
+    public TableFinishOperator(OperatorContext operatorContext, TableFinisher tableFinisher)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.tableCommitter = requireNonNull(tableCommitter, "tableCommitter is null");
+        this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
     }
 
     @Override
@@ -151,7 +151,7 @@ public class TableCommitOperator
         }
         state = State.FINISHED;
 
-        tableCommitter.commitTable(fragmentBuilder.build());
+        tableFinisher.finishTable(fragmentBuilder.build());
         committed = true;
 
         PageBuilder page = new PageBuilder(getTypes());
@@ -167,14 +167,14 @@ public class TableCommitOperator
         if (!closed) {
             closed = true;
             if (!committed) {
-                tableCommitter.rollbackTable();
+                tableFinisher.abortTable();
             }
         }
     }
 
-    public interface TableCommitter
+    public interface TableFinisher
     {
-        void commitTable(Collection<Slice> fragments);
-        void rollbackTable();
+        void finishTable(Collection<Slice> fragments);
+        void abortTable();
     }
 }

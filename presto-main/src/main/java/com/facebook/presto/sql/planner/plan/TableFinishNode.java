@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableCommitNode
+public class TableFinishNode
         extends PlanNode
 {
     private final PlanNode source;
@@ -35,7 +35,7 @@ public class TableCommitNode
     private final List<Symbol> outputs;
 
     @JsonCreator
-    public TableCommitNode(
+    public TableFinishNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") WriterTarget target,
@@ -77,6 +77,6 @@ public class TableCommitNode
     @Override
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
-        return visitor.visitTableCommit(this, context);
+        return visitor.visitTableFinish(this, context);
     }
 }

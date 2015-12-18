@@ -46,7 +46,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -249,7 +249,7 @@ class PropertyDerivations
         }
 
         @Override
-        public ActualProperties visitTableCommit(TableCommitNode node, List<ActualProperties> inputProperties)
+        public ActualProperties visitTableFinish(TableFinishNode node, List<ActualProperties> inputProperties)
         {
             return ActualProperties.builder()
                     .global(coordinatorOnly())
