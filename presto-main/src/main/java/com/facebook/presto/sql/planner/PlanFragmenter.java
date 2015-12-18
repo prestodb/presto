@@ -23,7 +23,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
@@ -109,7 +109,7 @@ public class PlanFragmenter
         }
 
         @Override
-        public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<FragmentProperties> context)
+        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<FragmentProperties> context)
         {
             context.get().setCoordinatorOnlyDistribution();
             return context.defaultRewrite(node, context.get());

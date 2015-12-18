@@ -24,7 +24,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.Iterables;
 
@@ -75,7 +75,7 @@ public class MetadataDeleteOptimizer
         }
 
         @Override
-        public PlanNode visitTableCommit(TableCommitNode node, RewriteContext<Void> context)
+        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
         {
             Optional<DeleteNode> delete = findNode(node.getSource(), DeleteNode.class);
             if (!delete.isPresent()) {

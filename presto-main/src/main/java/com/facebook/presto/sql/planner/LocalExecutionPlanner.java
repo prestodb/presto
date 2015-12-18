@@ -109,7 +109,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
@@ -170,8 +170,8 @@ import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemo
 import static com.facebook.presto.operator.InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory.createRandomDistribution;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
-import static com.facebook.presto.operator.TableCommitOperator.TableCommitOperatorFactory;
-import static com.facebook.presto.operator.TableCommitOperator.TableCommitter;
+import static com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
+import static com.facebook.presto.operator.TableFinishOperator.TableFinisher;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
@@ -1709,11 +1709,11 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitTableCommit(TableCommitNode node, LocalExecutionPlanContext context)
+        public PhysicalOperation visitTableFinish(TableFinishNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            OperatorFactory operatorFactory = new TableCommitOperatorFactory(context.getNextOperatorId(), createTableCommitter(session, node, metadata));
+            OperatorFactory operatorFactory = new TableFinishOperatorFactory(context.getNextOperatorId(), createTableFinisher(session, node, metadata));
             Map<Symbol, Integer> layout = ImmutableMap.of(node.getOutputSymbols().get(0), 0);
 
             return new PhysicalOperation(operatorFactory, layout, source);
@@ -1920,13 +1920,13 @@ public class LocalExecutionPlanner
         return builder.build();
     }
 
-    private static TableCommitter createTableCommitter(Session session, TableCommitNode node, Metadata metadata)
+    private static TableFinisher createTableFinisher(Session session, TableFinishNode node, Metadata metadata)
     {
         WriterTarget target = node.getTarget();
-        return new TableCommitter()
+        return new TableFinisher()
         {
             @Override
-            public void commitTable(Collection<Slice> fragments)
+            public void finishTable(Collection<Slice> fragments)
             {
                 if (target instanceof CreateHandle) {
                     metadata.commitCreateTable(session, ((CreateHandle) target).getHandle(), fragments);
@@ -1943,7 +1943,7 @@ public class LocalExecutionPlanner
             }
 
             @Override
-            public void rollbackTable()
+            public void abortTable()
             {
                 if (target instanceof CreateHandle) {
                     metadata.rollbackCreateTable(session, ((CreateHandle) target).getHandle());
