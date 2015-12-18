@@ -16,7 +16,6 @@ package com.facebook.presto.transaction;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
@@ -29,9 +28,12 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.transaction.TransactionalConnector;
+import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
 import static java.lang.String.format;
@@ -42,6 +44,7 @@ public class LegacyTransactionConnector
 {
     private final String connectorId;
     private final Connector connector;
+    private final ConcurrentMap<ConnectorTransactionHandle, LegacyTransactionalConnectorMetadata> metadatas = new ConcurrentHashMap<>();
 
     public LegacyTransactionConnector(String connectorId, Connector connector)
     {
@@ -65,9 +68,9 @@ public class LegacyTransactionConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    public TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
-        return connector.getMetadata();
+        return metadatas.computeIfAbsent(transactionHandle, handle -> new LegacyTransactionalConnectorMetadata(connector.getMetadata()));
     }
 
     @Override
@@ -133,11 +136,16 @@ public class LegacyTransactionConnector
     @Override
     public void commit(ConnectorTransactionHandle transactionHandle)
     {
+        metadatas.remove(transactionHandle);
     }
 
     @Override
     public void abort(ConnectorTransactionHandle transactionHandle)
     {
+        LegacyTransactionalConnectorMetadata metadata = metadatas.remove(transactionHandle);
+        if (metadata != null) {
+            metadata.tryRollback();
+        }
     }
 
     @Override

@@ -15,7 +15,6 @@ package com.facebook.presto.spi.transaction;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
@@ -38,10 +37,9 @@ public interface TransactionalConnector
     ConnectorHandleResolver getHandleResolver();
 
     /**
-     * Guaranteed to be called at most once per transaction. Resulting ConnectorMetadata will only
-     * ever be accessed in a single-threaded context.
+     * Guaranteed to be called at most once per transaction.
      */
-    ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
+    TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
 
     ConnectorSplitManager getSplitManager();
 
