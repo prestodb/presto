@@ -83,7 +83,6 @@ public class TableFinishOperator
 
     private State state = State.RUNNING;
     private long rowCount;
-    private boolean committed;
     private boolean closed;
     private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
 
@@ -152,7 +151,6 @@ public class TableFinishOperator
         state = State.FINISHED;
 
         tableFinisher.finishTable(fragmentBuilder.build());
-        committed = true;
 
         PageBuilder page = new PageBuilder(getTypes());
         page.declarePosition();
@@ -166,15 +164,11 @@ public class TableFinishOperator
     {
         if (!closed) {
             closed = true;
-            if (!committed) {
-                tableFinisher.abortTable();
-            }
         }
     }
 
     public interface TableFinisher
     {
         void finishTable(Collection<Slice> fragments);
-        void abortTable();
     }
 }

@@ -1929,30 +1929,13 @@ public class LocalExecutionPlanner
             public void finishTable(Collection<Slice> fragments)
             {
                 if (target instanceof CreateHandle) {
-                    metadata.commitCreateTable(session, ((CreateHandle) target).getHandle(), fragments);
+                    metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments);
                 }
                 else if (target instanceof InsertHandle) {
-                    metadata.commitInsert(session, ((InsertHandle) target).getHandle(), fragments);
+                    metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments);
                 }
                 else if (target instanceof DeleteHandle) {
-                    metadata.commitDelete(session, ((DeleteHandle) target).getHandle(), fragments);
-                }
-                else {
-                    throw new AssertionError("Unhandled target type: " + target.getClass().getName());
-                }
-            }
-
-            @Override
-            public void abortTable()
-            {
-                if (target instanceof CreateHandle) {
-                    metadata.rollbackCreateTable(session, ((CreateHandle) target).getHandle());
-                }
-                else if (target instanceof InsertHandle) {
-                    metadata.rollbackInsert(session, ((InsertHandle) target).getHandle());
-                }
-                else if (target instanceof DeleteHandle) {
-                    metadata.rollbackDelete(session, ((DeleteHandle) target).getHandle());
+                    metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
                 }
                 else {
                     throw new AssertionError("Unhandled target type: " + target.getClass().getName());

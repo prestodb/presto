@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.transaction.TransactionalConnector;
+import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -152,7 +152,7 @@ public class TransactionManager
         return transactionId;
     }
 
-    public ConnectorMetadata getMetadata(TransactionId transactionId, String connectorId)
+    public TransactionalConnectorMetadata getMetadata(TransactionId transactionId, String connectorId)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
         TransactionalConnector connector = getConnector(connectorId);
@@ -407,7 +407,7 @@ public class TransactionManager
             private final String connectorId;
             private final TransactionalConnector connector;
             private final ConnectorTransactionHandle transactionHandle;
-            private final Supplier<ConnectorMetadata> connectorMetadataSupplier;
+            private final Supplier<TransactionalConnectorMetadata> connectorMetadataSupplier;
             private final AtomicBoolean finished = new AtomicBoolean();
 
             public ConnectorTransactionMetadata(String connectorId, TransactionalConnector connector, ConnectorTransactionHandle transactionHandle)
@@ -428,7 +428,7 @@ public class TransactionManager
                 return connector instanceof LegacyTransactionConnector;
             }
 
-            public synchronized ConnectorMetadata getConnectorMetadata()
+            public synchronized TransactionalConnectorMetadata getConnectorMetadata()
             {
                 checkState(!finished.get(), "Already finished");
                 return connectorMetadataSupplier.get();

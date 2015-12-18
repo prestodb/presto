@@ -145,14 +145,9 @@ public interface Metadata
     OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata);
 
     /**
-     * Commit a table creation with data after the data is written.
+     * Finish a table creation with data after the data is written.
      */
-    void commitCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
-
-    /**
-     * Rollback a table creation
-     */
-    void rollbackCreateTable(Session session, OutputTableHandle tableHandle);
+    void finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Begin insert query
@@ -160,14 +155,9 @@ public interface Metadata
     InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
 
     /**
-     * Commit insert query
+     * Finish insert query
      */
-    void commitInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
-
-    /**
-     * Rollback insert query
-     */
-    void rollbackInsert(Session session, InsertTableHandle tableHandle);
+    void finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
@@ -192,14 +182,9 @@ public interface Metadata
     TableHandle beginDelete(Session session, TableHandle tableHandle);
 
     /**
-     * Commit delete query
+     * Finish delete query
      */
-    void commitDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
-
-    /**
-     * Rollback delete query
-     */
-    void rollbackDelete(Session session, TableHandle tableHandle);
+    void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Gets all the loaded catalogs
