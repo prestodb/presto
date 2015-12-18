@@ -47,6 +47,7 @@ public final class SystemSessionProperties
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
+    public static final String RESOURCE_OVER_COMMIT = "resource_over_commit";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
@@ -160,6 +161,11 @@ public final class SystemSessionProperties
                         true,
                         value -> DataSize.valueOf((String) value)),
                 booleanSessionProperty(
+                        RESOURCE_OVER_COMMIT,
+                        "Use resources which are not guaranteed to be available to the query",
+                        false,
+                        false),
+                booleanSessionProperty(
                         COLUMNAR_PROCESSING,
                         "Use columnar processing",
                         featuresConfig.isColumnarProcessing(),
@@ -264,6 +270,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxRunTime(Session session)
     {
         return session.getProperty(QUERY_MAX_RUN_TIME, Duration.class);
+    }
+
+    public static boolean resourceOverCommit(Session session)
+    {
+        return session.getProperty(RESOURCE_OVER_COMMIT, Boolean.class);
     }
 
     private static <T> T getPropertyOr(Session session, String propertyName, String defaultPropertyName, Class<T> type)
