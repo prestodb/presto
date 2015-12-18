@@ -149,6 +149,12 @@ public class LegacyTransactionConnector
     }
 
     @Override
+    public boolean isSingleStatementWritesOnly()
+    {
+        return true;
+    }
+
+    @Override
     public void shutdown()
     {
         connector.shutdown();

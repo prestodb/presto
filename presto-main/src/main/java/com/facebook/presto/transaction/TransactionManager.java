@@ -310,7 +310,7 @@ public class TransactionManager
             if (!writtenConnectorId.compareAndSet(null, connectorId) && !writtenConnectorId.get().equals(connectorId)) {
                 throw new PrestoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenConnectorId.get());
             }
-            if (transactionMetadata.isLegacyTransaction() && !autoCommitContext) {
+            if (transactionMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
                 throw new PrestoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog " + connectorId + " only supports writes using autocommit");
             }
         }
@@ -423,9 +423,9 @@ public class TransactionManager
                 return connectorId;
             }
 
-            public boolean isLegacyTransaction()
+            public boolean isSingleStatementWritesOnly()
             {
-                return connector instanceof LegacyTransactionConnector;
+                return connector.isSingleStatementWritesOnly();
             }
 
             public synchronized TransactionalConnectorMetadata getConnectorMetadata()

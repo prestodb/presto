@@ -130,6 +130,14 @@ public interface TransactionalConnector
     }
 
     /**
+     * True if the connector only supports write statements in independent transactions.
+     */
+    default boolean isSingleStatementWritesOnly()
+    {
+        return false;
+    }
+
+    /**
      * Shutdown the connector by releasing any held resources such as
      * threads, sockets, etc. This method will only be called when no
      * queries are using the connector. After this method is called,
