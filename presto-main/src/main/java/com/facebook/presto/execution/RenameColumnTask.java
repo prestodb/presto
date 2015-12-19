@@ -54,7 +54,7 @@ public class RenameColumnTask
         if (!tableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
-        accessControl.checkCanRenameColumn(session.getIdentity(), tableName);
+        accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
         if (!columnHandles.containsKey(source)) {

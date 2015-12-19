@@ -14,12 +14,19 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.security.ConnectorAccessControl;
+import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.spi.transaction.TransactionalConnector;
+import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -29,6 +36,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.security.AccessControlManager.ALLOW_ALL_ACCESS_CONTROL;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
@@ -41,7 +50,7 @@ public class TestAccessControlManager
     public void testInitializing()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager();
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.checkCanSetUser(null, "foo");
     }
 
@@ -49,7 +58,7 @@ public class TestAccessControlManager
     public void testNoneSystemAccessControl()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager();
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
         accessControlManager.checkCanSetUser(null, USER_NAME);
     }
@@ -58,7 +67,7 @@ public class TestAccessControlManager
     public void testSetAccessControl()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager();
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -73,21 +82,62 @@ public class TestAccessControlManager
     public void testNoCatalogAccessControl()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager();
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
         accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
 
-        accessControlManager.checkCanSelectFromTable(new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"));
+        transaction(transactionManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSelectFromTable(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"));
+                });
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table schema.table")
     public void testDenyCatalogAccessControl()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager();
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
         accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
 
-        accessControlManager.addCatalogAccessControl("catalog", new DenyConnectorAccessControl());
-        accessControlManager.checkCanSelectFromTable(new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"));
+        registerBogusConnector(transactionManager, "connector");
+        accessControlManager.addCatalogAccessControl("connector", "catalog", new DenyConnectorAccessControl());
+
+        transaction(transactionManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSelectFromTable(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"));
+                });
+    }
+
+    private static void registerBogusConnector(TransactionManager transactionManager, String connectorId)
+    {
+        transactionManager.addConnector(connectorId, new TransactionalConnector()
+        {
+            @Override
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            {
+                // Just return something
+                return new ConnectorTransactionHandle() {};
+            }
+
+            @Override
+            public ConnectorHandleResolver getHandleResolver()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public TransactionalConnectorSplitManager getSplitManager()
+            {
+                throw new UnsupportedOperationException();
+            }
+        });
     }
 
     private static class TestSystemAccessControlFactory
@@ -148,82 +198,82 @@ public class TestAccessControlManager
     }
 
     private static class DenyConnectorAccessControl
-            implements ConnectorAccessControl
+            implements TransactionalConnectorAccessControl
     {
         @Override
-        public void checkCanSelectFromTable(Identity identity, SchemaTableName tableName)
+        public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             denySelectTable(tableName.toString());
         }
 
         @Override
-        public void checkCanCreateTable(Identity identity, SchemaTableName tableName)
+        public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanDropTable(Identity identity, SchemaTableName tableName)
+        public void checkCanDropTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRenameTable(Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
+        public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanAddColumn(Identity identity, SchemaTableName tableName)
+        public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRenameColumn(Identity identity, SchemaTableName tableName)
+        public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanInsertIntoTable(Identity identity, SchemaTableName tableName)
+        public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanDeleteFromTable(Identity identity, SchemaTableName tableName)
+        public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanCreateView(Identity identity, SchemaTableName viewName)
+        public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanDropView(Identity identity, SchemaTableName viewName)
+        public void checkCanDropView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanSelectFromView(Identity identity, SchemaTableName viewName)
+        public void checkCanSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanCreateViewWithSelectFromTable(Identity identity, SchemaTableName tableName)
+        public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanCreateViewWithSelectFromView(Identity identity, SchemaTableName viewName)
+        public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
         {
             throw new UnsupportedOperationException();
         }

@@ -55,7 +55,7 @@ public class AddColumnTask
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
 
-        accessControl.checkCanAddColumns(session.getIdentity(), tableName);
+        accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 

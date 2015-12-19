@@ -15,6 +15,7 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.transaction.TransactionId;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,26 +30,26 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, QualifiedObjectName tableName)
+    public void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        delegate.checkCanCreateViewWithSelectFromTable(identity, tableName);
+        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, QualifiedObjectName viewName)
+    public void checkCanSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
-        delegate.checkCanCreateViewWithSelectFromView(identity, viewName);
+        delegate.checkCanCreateViewWithSelectFromView(transactionId, identity, viewName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedObjectName tableName)
+    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        delegate.checkCanCreateViewWithSelectFromTable(identity, tableName);
+        delegate.checkCanCreateViewWithSelectFromTable(transactionId, identity, tableName);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedObjectName viewName)
+    public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
-        delegate.checkCanCreateViewWithSelectFromView(identity, viewName);
+        delegate.checkCanCreateViewWithSelectFromView(transactionId, identity, viewName);
     }
 }

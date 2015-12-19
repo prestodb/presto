@@ -15,6 +15,7 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
 
@@ -43,79 +44,79 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(Identity identity, QualifiedObjectName tableName)
+    public void checkCanCreateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denyCreateTable(tableName.toString());
     }
 
     @Override
-    public void checkCanDropTable(Identity identity, QualifiedObjectName tableName)
+    public void checkCanDropTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denyDropTable(tableName.toString());
     }
 
     @Override
-    public void checkCanRenameTable(Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
+    public void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
     }
 
     @Override
-    public void checkCanAddColumns(Identity identity, QualifiedObjectName tableName)
+    public void checkCanAddColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denyAddColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanRenameColumn(Identity identity, QualifiedObjectName tableName)
+    public void checkCanRenameColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denyRenameColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, QualifiedObjectName tableName)
+    public void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denySelectTable(tableName.toString());
     }
 
     @Override
-    public void checkCanInsertIntoTable(Identity identity, QualifiedObjectName tableName)
+    public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denyInsertTable(tableName.toString());
     }
 
     @Override
-    public void checkCanDeleteFromTable(Identity identity, QualifiedObjectName tableName)
+    public void checkCanDeleteFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denyDeleteTable(tableName.toString());
     }
 
     @Override
-    public void checkCanCreateView(Identity identity, QualifiedObjectName viewName)
+    public void checkCanCreateView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
         denyCreateView(viewName.toString());
     }
 
     @Override
-    public void checkCanDropView(Identity identity, QualifiedObjectName viewName)
+    public void checkCanDropView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
         denyDropView(viewName.toString());
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, QualifiedObjectName viewName)
+    public void checkCanSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
         denySelectView(viewName.toString());
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, QualifiedObjectName tableName)
+    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denySelectTable(tableName.toString());
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, QualifiedObjectName viewName)
+    public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
         denySelectView(viewName.toString());
     }

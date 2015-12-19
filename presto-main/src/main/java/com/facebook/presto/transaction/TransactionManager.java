@@ -159,6 +159,13 @@ public class TransactionManager
         return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getConnectorMetadata();
     }
 
+    public ConnectorTransactionHandle getTransactionHandle(TransactionId transactionId, String connectorId)
+    {
+        TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
+        TransactionalConnector connector = getConnector(connectorId);
+        return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getTransactionHandle();
+    }
+
     public void checkConnectorWrite(TransactionId transactionId, String connectorId)
     {
         getTransactionMetadata(transactionId).checkConnectorWrite(connectorId);
@@ -432,6 +439,12 @@ public class TransactionManager
             {
                 checkState(!finished.get(), "Already finished");
                 return connectorMetadataSupplier.get();
+            }
+
+            public ConnectorTransactionHandle getTransactionHandle()
+            {
+                checkState(!finished.get(), "Already finished");
+                return transactionHandle;
             }
 
             public void commit()

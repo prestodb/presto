@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.presto.security.LegacyConnectorAccessControl;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
@@ -23,7 +24,7 @@ import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.security.ConnectorAccessControl;
+import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -128,9 +129,9 @@ public class LegacyTransactionConnector
     }
 
     @Override
-    public ConnectorAccessControl getAccessControl()
+    public TransactionalConnectorAccessControl getAccessControl()
     {
-        return connector.getAccessControl();
+        return new LegacyConnectorAccessControl(connector.getAccessControl());
     }
 
     @Override
