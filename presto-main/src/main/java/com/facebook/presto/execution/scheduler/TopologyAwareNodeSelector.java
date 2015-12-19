@@ -22,6 +22,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.cache.Cache;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +42,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.scheduler.NodeScheduler.NEGATIVE_CACHE_DURATION;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
@@ -63,6 +65,7 @@ public class TopologyAwareNodeSelector
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
     private final LoadingCache<HostAddress, NetworkLocation> networkLocationCache;
+    private final Cache<HostAddress, Boolean> negativeNetworkLocationCache;
 
     public TopologyAwareNodeSelector(
             NodeManager nodeManager,
@@ -75,7 +78,8 @@ public class TopologyAwareNodeSelector
             int maxSplitsPerNodePerTaskWhenFull,
             List<CounterStat> topologicalSplitCounters,
             List<String> networkLocationSegmentNames,
-            LoadingCache<HostAddress, NetworkLocation> networkLocationCache)
+            LoadingCache<HostAddress, NetworkLocation> networkLocationCache,
+            Cache<HostAddress, Boolean> negativeNetworkLocationCache)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -88,6 +92,7 @@ public class TopologyAwareNodeSelector
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkLocationSegmentNames = requireNonNull(networkLocationSegmentNames, "networkLocationSegmentNames is null");
         this.networkLocationCache = requireNonNull(networkLocationCache, "networkLocationCache is null");
+        this.negativeNetworkLocationCache = requireNonNull(negativeNetworkLocationCache, "negativeNetworkLocationCache is null");
     }
 
     @Override
@@ -146,10 +151,15 @@ public class TopologyAwareNodeSelector
             List<NetworkLocation> locations = new ArrayList<>();
             for (HostAddress host : split.getAddresses()) {
                 try {
+                    if (negativeNetworkLocationCache.getIfPresent(host) != null) {
+                        continue;
+                    }
                     locations.add(networkLocationCache.get(host));
                 }
                 catch (ExecutionException | UncheckedExecutionException e) {
                     // Skip addresses we can't locate
+                    negativeNetworkLocationCache.put(host, true);
+                    log.warn(e, "Unable to determine location of %s. Will attempt again in %s", host, NEGATIVE_CACHE_DURATION);
                 }
             }
             if (locations.isEmpty()) {
