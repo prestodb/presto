@@ -39,19 +39,11 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class PlanFragment
 {
-    public enum PlanDistribution
-    {
-        SINGLE,
-        FIXED,
-        SOURCE,
-        COORDINATOR_ONLY
-    }
-
     private final PlanFragmentId id;
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;
     private final List<Symbol> outputLayout;
-    private final PlanDistribution distribution;
+    private final PartitioningHandle partitioning;
     private final PlanNodeId partitionedSource;
     private final List<Type> types;
     private final PlanNode partitionedSourceNode;
@@ -64,7 +56,7 @@ public class PlanFragment
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
             @JsonProperty("outputLayout") List<Symbol> outputLayout,
-            @JsonProperty("distribution") PlanDistribution distribution,
+            @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("partitionFunction") Optional<PartitionFunctionBinding> partitionFunction)
     {
@@ -72,7 +64,7 @@ public class PlanFragment
         this.root = requireNonNull(root, "root is null");
         this.symbols = requireNonNull(symbols, "symbols is null");
         this.outputLayout = requireNonNull(outputLayout, "outputLayout is null");
-        this.distribution = requireNonNull(distribution, "distribution is null");
+        this.partitioning = requireNonNull(partitioning, "distribution is null");
         this.partitionedSource = partitionedSource;
 
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputLayout),
@@ -116,9 +108,9 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public PlanDistribution getDistribution()
+    public PartitioningHandle getPartitioning()
     {
-        return distribution;
+        return partitioning;
     }
 
     @JsonProperty
@@ -179,7 +171,7 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, outputLayout, distribution, partitionedSource, partitionFunction.map(function -> function.withBucketToPartition(bucketToPartition)));
+        return new PlanFragment(id, root, symbols, outputLayout, partitioning, partitionedSource, partitionFunction.map(function -> function.withBucketToPartition(bucketToPartition)));
     }
 
     @Override
@@ -187,7 +179,7 @@ public class PlanFragment
     {
         return toStringHelper(this)
                 .add("id", id)
-                .add("distribution", distribution)
+                .add("distribution", partitioning)
                 .add("partitionedSource", partitionedSource)
                 .add("partitionFunction", partitionFunction)
                 .toString();

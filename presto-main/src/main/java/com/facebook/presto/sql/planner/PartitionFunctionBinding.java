@@ -27,24 +27,25 @@ import static java.util.Objects.requireNonNull;
 
 public class PartitionFunctionBinding
 {
-    private final PartitionFunctionHandle functionHandle;
+    private final PartitioningHandle partitioningHandle;
     private final List<Symbol> partitioningColumns;
     private final Optional<Symbol> hashColumn;
     private final boolean replicateNulls;
     private final Optional<int[]> bucketToPartition;
 
-    public PartitionFunctionBinding(PartitionFunctionHandle functionHandle, List<Symbol> partitioningColumns)
+    public PartitionFunctionBinding(PartitioningHandle partitioningHandle, List<Symbol> partitioningColumns)
     {
-        this(functionHandle,
+        this(partitioningHandle,
                 partitioningColumns,
                 Optional.empty(),
                 false,
                 Optional.empty());
     }
 
-    public PartitionFunctionBinding(PartitionFunctionHandle functionHandle, List<Symbol> partitioningColumns, Optional<Symbol> hashColumn)
+    public PartitionFunctionBinding(PartitioningHandle partitioningHandle, List<Symbol> partitioningColumns, Optional<Symbol> hashColumn)
     {
-        this(functionHandle,
+        this(
+                partitioningHandle,
                 partitioningColumns,
                 hashColumn,
                 false,
@@ -53,13 +54,13 @@ public class PartitionFunctionBinding
 
     @JsonCreator
     public PartitionFunctionBinding(
-            @JsonProperty("functionHandle") PartitionFunctionHandle functionHandle,
+            @JsonProperty("partitioningHandle") PartitioningHandle partitioningHandle,
             @JsonProperty("partitioningColumns") List<Symbol> partitioningColumns,
             @JsonProperty("hashColumn") Optional<Symbol> hashColumn,
             @JsonProperty("replicateNulls") boolean replicateNulls,
             @JsonProperty("bucketToPartition") Optional<int[]> bucketToPartition)
     {
-        this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
+        this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
         this.partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
         this.hashColumn = requireNonNull(hashColumn, "hashColumn is null");
         checkArgument(!replicateNulls || partitioningColumns.size() == 1, "size of partitioningColumns is not 1 when nullPartition is REPLICATE.");
@@ -68,9 +69,9 @@ public class PartitionFunctionBinding
     }
 
     @JsonProperty
-    public PartitionFunctionHandle getFunctionHandle()
+    public PartitioningHandle getPartitioningHandle()
     {
-        return functionHandle;
+        return partitioningHandle;
     }
 
     @JsonProperty
@@ -99,7 +100,7 @@ public class PartitionFunctionBinding
 
     public PartitionFunctionBinding withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PartitionFunctionBinding(functionHandle, partitioningColumns, hashColumn, replicateNulls, bucketToPartition);
+        return new PartitionFunctionBinding(partitioningHandle, partitioningColumns, hashColumn, replicateNulls, bucketToPartition);
     }
 
     @Override
@@ -112,7 +113,7 @@ public class PartitionFunctionBinding
             return false;
         }
         PartitionFunctionBinding that = (PartitionFunctionBinding) o;
-        return Objects.equals(functionHandle, that.functionHandle) &&
+        return Objects.equals(partitioningHandle, that.partitioningHandle) &&
                 Objects.equals(partitioningColumns, that.partitioningColumns) &&
                 Objects.equals(hashColumn, that.hashColumn) &&
                 replicateNulls == that.replicateNulls &&
@@ -122,14 +123,14 @@ public class PartitionFunctionBinding
     @Override
     public int hashCode()
     {
-        return Objects.hash(functionHandle, partitioningColumns, replicateNulls, bucketToPartition);
+        return Objects.hash(partitioningHandle, partitioningColumns, replicateNulls, bucketToPartition);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("functionHandle", functionHandle)
+                .add("partitioningHandle", partitioningHandle)
                 .add("partitioningChannels", partitioningColumns)
                 .add("hashChannel", hashColumn)
                 .add("replicateNulls", replicateNulls)

@@ -226,7 +226,7 @@ public class UnaliasSymbolReferences
 
             Optional<PartitionFunctionBinding> partitionFunction = node.getPartitionFunction()
                     .map(function -> new PartitionFunctionBinding(
-                            function.getFunctionHandle(),
+                            function.getPartitioningHandle(),
                             canonicalize(function.getPartitioningColumns()),
                             canonicalize(function.getHashColumn()),
                             function.isReplicateNulls(),

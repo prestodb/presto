@@ -24,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -114,7 +115,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.GATHER,
-                Optional.empty(),
+                Optional.of(new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of())),
                 ImmutableList.of(child),
                 child.getOutputSymbols(),
                 ImmutableList.of(child.getOutputSymbols()));

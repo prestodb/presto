@@ -30,12 +30,12 @@ public class StageExecutionPlan
     private final Optional<SplitSource> dataSource;
     private final List<StageExecutionPlan> subStages;
     private final Optional<List<String>> fieldNames;
-    private final Optional<PartitioningHandle> partitioningHandle;
+    private final PartitioningHandle partitioningHandle;
 
     public StageExecutionPlan(
             PlanFragment fragment,
             Optional<SplitSource> dataSource,
-            Optional<PartitioningHandle> partitioningHandle,
+            PartitioningHandle partitioningHandle,
             List<StageExecutionPlan> subStages)
     {
         this.fragment = requireNonNull(fragment, "fragment is null");
@@ -64,7 +64,7 @@ public class StageExecutionPlan
         return dataSource;
     }
 
-    public Optional<PartitioningHandle> getPartitioningHandle()
+    public PartitioningHandle getPartitioningHandle()
     {
         return partitioningHandle;
     }
@@ -86,6 +86,7 @@ public class StageExecutionPlan
                 .add("fragment", fragment)
                 .add("dataSource", dataSource)
                 .add("subStages", subStages)
+                .add("partitioningHandle", partitioningHandle)
                 .toString();
     }
 }
