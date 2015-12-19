@@ -22,3 +22,7 @@ benchmark_outputs
 .checkstyle
 *-local.yaml
 .mvn/timing.properties
+/*/lib/
+/lib/
+*.jar
+

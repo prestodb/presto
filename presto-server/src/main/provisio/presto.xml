@@ -23,6 +23,8 @@
     <!-- Server -->
     <artifactSet to="lib">
         <artifact id="${project.groupId}:presto-main:${project.version}" />
+        <artifact id="org.anarres.lzo:lzo-hadoop:1.0.5"  />
+
     </artifactSet>
 
     <!-- Plugins -->
@@ -54,6 +56,7 @@
         <artifact id="${project.groupId}:presto-hive-cdh5:zip:${project.version}">
             <unpack />
         </artifact>
+        <artifact id="org.apache.hadoop:hadoop-lzo:0.4.15"  />
     </artifactSet>
 
     <artifactSet to="plugin/hive-hadoop1">
@@ -66,6 +69,7 @@
         <artifact id="${project.groupId}:presto-hive-hadoop2:zip:${project.version}">
             <unpack />
         </artifact>
+        <artifact id="org.apache.hadoop:hadoop-lzo:0.4.15"  />
     </artifactSet>
 
     <artifactSet to="plugin/blackhole">
