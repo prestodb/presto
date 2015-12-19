@@ -78,7 +78,7 @@ public class CreateTableTask
             columns.add(new ColumnMetadata(element.getName(), type, false));
         }
 
-        accessControl.checkCanCreateTable(session.getIdentity(), tableName);
+        accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
         Map<String, Object> properties = metadata.getTablePropertyManager().getTableProperties(
                 tableName.getCatalogName(),

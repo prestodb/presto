@@ -30,7 +30,7 @@ import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.security.ConnectorAccessControl;
+import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.transaction.TransactionalConnector;
 import com.facebook.presto.spi.transaction.TransactionalConnectorFactory;
 import com.facebook.presto.split.PageSinkManager;
@@ -249,7 +249,7 @@ public class ConnectorManager
         requireNonNull(connector.getSessionProperties(), format("Connector %s returned null session properties", connectorId));
         requireNonNull(connector.getTableProperties(), format("Connector %s returned null table properties", connectorId));
 
-        ConnectorAccessControl accessControl = null;
+        TransactionalConnectorAccessControl accessControl = null;
         try {
             accessControl = connector.getAccessControl();
         }
@@ -287,7 +287,7 @@ public class ConnectorManager
         }
 
         if (accessControl != null) {
-            accessControlManager.addCatalogAccessControl(catalogName, accessControl);
+            accessControlManager.addCatalogAccessControl(connectorId, catalogName, accessControl);
         }
     }
 

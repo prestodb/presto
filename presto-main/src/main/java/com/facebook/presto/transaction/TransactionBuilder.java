@@ -77,6 +77,38 @@ public class TransactionBuilder
         return this;
     }
 
+    public void execute(Consumer<TransactionId> callback)
+    {
+        requireNonNull(callback, "callback is null");
+
+        execute(transactionId -> {
+            callback.accept(transactionId);
+            return null;
+        });
+    }
+
+    public <T> T execute(Function<TransactionId, T> callback)
+    {
+        requireNonNull(callback, "callback is null");
+
+        TransactionId transactionId = transactionManager.beginTransaction(isolationLevel, readOnly, singleStatement);
+
+        boolean success = false;
+        try {
+            T result = callback.apply(transactionId);
+            success = true;
+            return result;
+        }
+        finally {
+            if (success) {
+                transactionManager.asyncCommit(transactionId).join();
+            }
+            else {
+                transactionManager.asyncAbort(transactionId);
+            }
+        }
+    }
+
     public void execute(Session session, Consumer<Session> callback)
     {
         requireNonNull(session, "session is null");

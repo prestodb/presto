@@ -83,7 +83,7 @@ public class CreateViewTask
     {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        accessControl.checkCanCreateView(session.getIdentity(), name);
+        accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), name);
 
         String sql = getFormattedSql(statement);
 

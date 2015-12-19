@@ -204,7 +204,7 @@ public class LocalQueryRunner
                 new SessionPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
-        this.accessControl = new TestingAccessControlManager();
+        this.accessControl = new TestingAccessControlManager(transactionManager);
         this.pageSourceManager = new PageSourceManager();
 
         this.compiler = new ExpressionCompiler(metadata);

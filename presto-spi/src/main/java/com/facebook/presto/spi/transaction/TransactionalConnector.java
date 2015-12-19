@@ -21,7 +21,7 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.security.ConnectorAccessControl;
+import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 
 import java.util.List;
@@ -110,7 +110,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not have an access control
      */
-    default ConnectorAccessControl getAccessControl()
+    default TransactionalConnectorAccessControl getAccessControl()
     {
         throw new UnsupportedOperationException();
     }
