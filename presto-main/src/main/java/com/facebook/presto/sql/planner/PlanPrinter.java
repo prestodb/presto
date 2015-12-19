@@ -26,7 +26,6 @@ import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -84,6 +83,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -133,7 +133,7 @@ public class PlanPrinter
         for (PlanFragment fragment : plan.getAllFragments()) {
             builder.append(format("Fragment %s [%s]\n",
                     fragment.getId(),
-                    fragment.getDistribution()));
+                    fragment.getPartitioning()));
 
             builder.append(indentString(1))
                     .append(format("Output layout: [%s]\n",
@@ -141,18 +141,17 @@ public class PlanPrinter
 
             if (fragment.getPartitionFunction().isPresent()) {
                 PartitionFunctionBinding partitionFunction = fragment.getPartitionFunction().get();
-                PartitionFunctionHandle outputPartitioning = partitionFunction.getFunctionHandle();
                 boolean replicateNulls = partitionFunction.isReplicateNulls();
                 List<Symbol> symbols = partitionFunction.getPartitioningColumns();
                 builder.append(indentString(1));
                 if (replicateNulls) {
                     builder.append(format("Output partitioning: %s (replicate nulls) [%s]\n",
-                            outputPartitioning,
+                            partitionFunction.getPartitioningHandle(),
                             Joiner.on(", ").join(symbols)));
                 }
                 else {
                     builder.append(format("Output partitioning: %s [%s]\n",
-                            outputPartitioning,
+                            partitionFunction.getPartitioningHandle(),
                             Joiner.on(", ").join(symbols)));
                 }
             }
@@ -171,7 +170,7 @@ public class PlanPrinter
                 plan,
                 types,
                 plan.getOutputSymbols(),
-                PlanDistribution.SINGLE,
+                SINGLE_DISTRIBUTION,
                 plan.getId(),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));

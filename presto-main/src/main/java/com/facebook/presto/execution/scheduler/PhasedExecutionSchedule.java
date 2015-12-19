@@ -16,7 +16,6 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.Type;
@@ -113,7 +112,7 @@ public class PhasedExecutionSchedule
 
     private static boolean hasSourceDistributedStage(Set<SqlStageExecution> phase)
     {
-        return phase.stream().anyMatch(stage -> stage.getFragment().getDistribution() == PlanDistribution.SOURCE);
+        return phase.stream().anyMatch(stage -> stage.getFragment().getPartitionedSource() != null);
     }
 
     @Override

@@ -62,7 +62,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -97,7 +97,7 @@ public class MockRemoteTaskFactory
                         null),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 ImmutableList.of(symbol),
-                SOURCE,
+                SOURCE_DISTRIBUTION,
                 sourceId,
                 Optional.empty());
 

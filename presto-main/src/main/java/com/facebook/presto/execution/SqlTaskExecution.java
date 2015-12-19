@@ -28,7 +28,6 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -55,8 +54,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.COORDINATOR_ONLY;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SINGLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -145,7 +142,6 @@ public class SqlTaskExecution
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             List<DriverFactory> driverFactories;
             try {
-                PlanDistribution distribution = fragment.getDistribution();
                 LocalExecutionPlan localExecutionPlan = planner.plan(
                         taskContext.getSession(),
                         fragment.getRoot(),
@@ -153,7 +149,7 @@ public class SqlTaskExecution
                         fragment.getSymbols(),
                         fragment.getPartitionFunction(),
                         sharedBuffer,
-                        distribution == COORDINATOR_ONLY || distribution == SINGLE,
+                        fragment.getPartitioning().isSingleNodeDistribution(),
                         fragment.getPartitionedSource() == null);
                 driverFactories = localExecutionPlan.getDriverFactories();
             }

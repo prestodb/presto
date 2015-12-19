@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -36,9 +35,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Splits a logical plan into fragments that can be shipped and executed on distributed nodes
@@ -90,7 +93,7 @@ public class PlanFragmenter
                     root,
                     Maps.filterKeys(types, in(dependencies)),
                     properties.getOutputLayout(),
-                    properties.getDistribution(),
+                    properties.getPartitioningHandle(),
                     properties.getDistributeBy(),
                     properties.getPartitionFunction());
 
@@ -152,10 +155,11 @@ public class PlanFragmenter
                 }
             }
             else if (exchange.getType() == ExchangeNode.Type.REPARTITION) {
-                context.get().setFixedDistribution();
+                PartitionFunctionBinding partitionFunction = exchange.getPartitionFunction().get();
+                context.get().setDistribution(partitionFunction.getPartitioningHandle());
 
                 FragmentProperties childProperties = new FragmentProperties()
-                        .setPartitionedOutput(exchange.getPartitionFunction().get())
+                        .setPartitionedOutput(partitionFunction)
                         .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
 
                 builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
@@ -194,7 +198,7 @@ public class PlanFragmenter
         private Optional<List<Symbol>> outputLayout = Optional.empty();
         private Optional<PartitionFunctionBinding> partitionFunction = Optional.empty();
 
-        private Optional<PlanDistribution> distribution = Optional.empty();
+        private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private PlanNodeId distributeBy;
 
         public List<SubPlan> getChildren()
@@ -204,56 +208,72 @@ public class PlanFragmenter
 
         public FragmentProperties setSingleNodeDistribution()
         {
-            if (distribution.isPresent()) {
-                PlanDistribution value = distribution.get();
-                checkState(value == PlanDistribution.SINGLE || value == PlanDistribution.COORDINATOR_ONLY,
-                        "Cannot overwrite distribution with %s (currently set to %s)", PlanDistribution.SINGLE, value);
+            if (partitioningHandle.isPresent() && partitioningHandle.get().isSingleNodeDistribution()) {
+                // already single node distribution
+                return this;
             }
-            else {
-                distribution = Optional.of(PlanDistribution.SINGLE);
-            }
+
+            checkState(!partitioningHandle.isPresent(),
+                    "Cannot overwrite partitioning with %s (currently set to %s)",
+                    SINGLE_DISTRIBUTION,
+                    partitioningHandle);
+
+            partitioningHandle = Optional.of(SINGLE_DISTRIBUTION);
 
             return this;
         }
 
-        public FragmentProperties setFixedDistribution()
+        public FragmentProperties setDistribution(PartitioningHandle distribution)
         {
-            distribution.ifPresent(current -> checkState(current == PlanDistribution.FIXED,
-                    "Cannot set distribution to %s. Already set to %s",
-                    PlanDistribution.FIXED,
-                    current));
-
-            distribution = Optional.of(PlanDistribution.FIXED);
+            if (partitioningHandle.isPresent() && !partitioningHandle.get().equals(distribution) && !partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
+                checkState(partitioningHandle.get().isSingleNodeDistribution(),
+                        "Cannot set distribution to %s. Already set to %s",
+                        distribution,
+                        partitioningHandle);
+                return this;
+            }
+            partitioningHandle = Optional.of(distribution);
 
             return this;
         }
 
         public FragmentProperties setCoordinatorOnlyDistribution()
         {
-            // only SINGLE can be upgraded to COORDINATOR_ONLY
-            distribution.ifPresent(current -> checkState(distribution.get() == PlanDistribution.SINGLE,
-                    "Cannot overwrite distribution with %s (currently set to %s)",
-                    PlanDistribution.COORDINATOR_ONLY,
-                    distribution.get()));
+            if (partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnlyDistribution()) {
+                // already single node distribution
+                return this;
+            }
 
-            distribution = Optional.of(PlanDistribution.COORDINATOR_ONLY);
+            // only system SINGLE can be upgraded to COORDINATOR_ONLY
+            checkState(!partitioningHandle.isPresent() || partitioningHandle.get().equals(SINGLE_DISTRIBUTION),
+                    "Cannot overwrite partitioning with %s (currently set to %s)",
+                    COORDINATOR_DISTRIBUTION,
+                    partitioningHandle);
+
+            partitioningHandle = Optional.of(COORDINATOR_DISTRIBUTION);
 
             return this;
         }
 
         public FragmentProperties setSourceDistribution(PlanNodeId source)
         {
-            if (distribution.isPresent()) {
-                // If already SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
-                checkState(distribution.get() == PlanDistribution.SINGLE || distribution.get() == PlanDistribution.COORDINATOR_ONLY,
-                        "Cannot overwrite distribution with %s (currently set to %s)",
-                        PlanDistribution.SOURCE,
-                        distribution.get());
+            if (partitioningHandle.isPresent()) {
+                PartitioningHandle partitioningHandle = this.partitioningHandle.get();
+                if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
+                    checkState(distributeBy == null || distributeBy == source, "Cannot overwrite partitioned source");
+                }
+                else {
+                    // If already system SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
+                    checkState(
+                            partitioningHandle.equals(SINGLE_DISTRIBUTION) || partitioningHandle.equals(COORDINATOR_DISTRIBUTION),
+                            "Cannot overwrite distribution with %s (currently set to %s)",
+                            SOURCE_DISTRIBUTION,
+                            partitioningHandle);
+                    return this;
+                }
             }
-            else {
-                distribution = Optional.of(PlanDistribution.SOURCE);
-                this.distributeBy = source;
-            }
+            distributeBy = requireNonNull(source, "source is null");
+            partitioningHandle = Optional.of(SOURCE_DISTRIBUTION);
 
             return this;
         }
@@ -308,9 +328,9 @@ public class PlanFragmenter
             return partitionFunction;
         }
 
-        public PlanDistribution getDistribution()
+        public PartitioningHandle getPartitioningHandle()
         {
-            return distribution.get();
+            return partitioningHandle.get();
         }
 
         public PlanNodeId getDistributeBy()

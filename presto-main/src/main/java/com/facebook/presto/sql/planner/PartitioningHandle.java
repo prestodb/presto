@@ -13,6 +13,24 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "type")
+@JsonSubTypes(@Type(value = SystemPartitioningHandle.class, name = "system"))
 public interface PartitioningHandle
 {
+    default boolean isSingleNodeDistribution()
+    {
+        return false;
+    }
+
+    default boolean isCoordinatorOnlyDistribution()
+    {
+        return false;
+    }
 }

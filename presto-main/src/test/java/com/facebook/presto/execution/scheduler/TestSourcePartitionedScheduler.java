@@ -69,7 +69,7 @@ import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Integer.min;
@@ -434,11 +434,11 @@ public class TestSourcePartitionedScheduler
                         Optional.<Symbol>empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
                 ImmutableList.of(symbol),
-                SOURCE,
+                SOURCE_DISTRIBUTION,
                 tableScanNodeId,
                 Optional.empty());
 
-        return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(CONNECTOR_ID), splitSource)), Optional.empty(), ImmutableList.of());
+        return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(CONNECTOR_ID), splitSource)), SOURCE_DISTRIBUTION, ImmutableList.of());
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)

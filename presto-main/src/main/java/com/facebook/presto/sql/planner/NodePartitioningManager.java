@@ -15,25 +15,14 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.NodeSelector;
-import com.facebook.presto.operator.BucketFunction;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.COORDINATOR_ONLY;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.FIXED;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SINGLE;
-import static com.facebook.presto.util.Failures.checkCondition;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class NodePartitioningManager
@@ -54,36 +43,21 @@ public class NodePartitioningManager
             throw new IllegalArgumentException("Unsupported partitioning handle " + partitioningHandle.getClass().getName());
         }
 
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-        PlanDistribution planDistribution = ((SystemPartitioningHandle) partitioningHandle).getPlanDistribution();
-
-        List<Node> nodes;
-        if (planDistribution == COORDINATOR_ONLY) {
-            nodes = ImmutableList.of(nodeSelector.selectCurrentNode());
-        }
-        else if (planDistribution == SINGLE) {
-            nodes = nodeSelector.selectRandomNodes(1);
-        }
-        else if (planDistribution == FIXED) {
-            nodes = nodeSelector.selectRandomNodes(getHashPartitionCount(session));
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported plan distribution " + planDistribution);
-        }
-
-        checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-
-        ImmutableMap.Builder<Integer, Node> partitionToNode = ImmutableMap.builder();
-        for (int i = 0; i < nodes.size(); i++) {
-            Node node = nodes.get(i);
-            partitionToNode.put(i, node);
-        }
-        return new NodePartitionMap(partitionToNode.build());
+        return ((SystemPartitioningHandle) partitioningHandle).getNodePartitionMap(session, nodeScheduler);
     }
 
     public PartitionFunction getPartitionFunction(Session session, PartitionFunctionBinding functionBinding, List<Type> partitionChannelTypes)
     {
-        BucketFunction bucketFunction = functionBinding.getFunctionHandle().createBucketFunction(functionBinding, partitionChannelTypes);
-        return new PartitionFunction(bucketFunction, functionBinding.getBucketToPartition().get());
+        PartitioningHandle partitioningHandle = functionBinding.getPartitioningHandle();
+        if (!(partitioningHandle instanceof SystemPartitioningHandle)) {
+            throw new IllegalArgumentException("Unsupported distribution handle " + partitioningHandle.getClass().getName());
+        }
+
+        checkArgument(functionBinding.getBucketToPartition().isPresent(), "Bucket to partition must be set before a partition function can be created");
+
+        return ((SystemPartitioningHandle) partitioningHandle).getPartitionFunction(
+                partitionChannelTypes,
+                functionBinding.getHashColumn().isPresent(),
+                functionBinding.getBucketToPartition().get());
     }
 }
