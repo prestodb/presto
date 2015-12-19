@@ -19,6 +19,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -28,6 +29,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
@@ -48,12 +50,16 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class NodeScheduler
 {
+    public static final Duration NEGATIVE_CACHE_DURATION = new Duration(10, MINUTES);
     private static final Logger log = Logger.get(NodeScheduler.class);
 
     private final LoadingCache<HostAddress, NetworkLocation> networkLocationCache;
+    private final Cache<HostAddress, Boolean> negativeNetworkLocationCache;
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
     private final NodeManager nodeManager;
@@ -102,6 +108,10 @@ public class NodeScheduler
                         return networkTopology.locate(address);
                     }
                 });
+
+        negativeNetworkLocationCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(NEGATIVE_CACHE_DURATION.toMillis(), MILLISECONDS)
+                .build();
     }
 
     public Map<String, CounterStat> getTopologicalSplitCounters()
@@ -172,7 +182,8 @@ public class NodeScheduler
                     maxSplitsPerNodePerTaskWhenFull,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
-                    networkLocationCache);
+                    networkLocationCache,
+                    negativeNetworkLocationCache);
         }
         else {
             return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, minCandidates, maxSplitsPerNode, maxSplitsPerNodePerTaskWhenFull);
