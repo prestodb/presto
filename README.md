@@ -29,7 +29,7 @@ Presto has a comprehensive set of unit tests that can take several minutes to ru
 
 After building Presto for the first time, you can load the project into your IDE and run the server. We recommend using [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven project, you can import it into your IDE using the root `pom.xml` file. In IntelliJ, choose Open Project from the Quick Start box or choose Open from the File menu and select the root `pom.xml` file.
 
-After opening the project in IntelliJ, double check that the Java SDK is properly configured properly for the project:
+After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
 
 * Open the File menu and select Project Structure
 * In the SDKs section, ensure that a 1.8 JDK is selected (create one if none exist)
