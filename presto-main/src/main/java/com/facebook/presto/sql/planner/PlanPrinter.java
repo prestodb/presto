@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -591,6 +592,14 @@ public class PlanPrinter
         public Void visitMetadataDelete(MetadataDeleteNode node, Integer indent)
         {
             print(indent, "- MetadataDelete[%s] => [%s]", node.getTarget(), formatOutputs(node.getOutputSymbols()));
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitEnforceSingleRow(EnforceSingleRowNode node, Integer indent)
+        {
+            print(indent, "- Scalar => [%s]", formatOutputs(node.getOutputSymbols()));
 
             return processChildren(node, indent + 1);
         }

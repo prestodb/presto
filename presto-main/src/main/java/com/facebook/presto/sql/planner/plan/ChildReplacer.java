@@ -235,4 +235,10 @@ public class ChildReplacer
     {
         return new DeleteNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getTarget(), node.getRowId(), node.getOutputSymbols());
     }
+
+    @Override
+    public PlanNode visitEnforceSingleRow(EnforceSingleRowNode node, List<PlanNode> newChildren)
+    {
+        return new EnforceSingleRowNode(node.getId(), Iterables.getOnlyElement(newChildren));
+    }
 }

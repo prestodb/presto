@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -474,6 +475,16 @@ public final class PlanSanityChecker
                 checkDependencies(subplan.getOutputSymbols(), node.sourceOutputLayout(i), "UNION subplan must provide all of the necessary symbols");
                 subplan.accept(this, context); // visit child
             }
+
+            verifyUniqueId(node);
+
+            return null;
+        }
+
+        @Override
+        public Void visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
+        {
+            node.getSource().accept(this, context); // visit child
 
             verifyUniqueId(node);
 

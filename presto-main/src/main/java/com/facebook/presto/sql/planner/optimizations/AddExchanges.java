@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -223,6 +224,20 @@ public class AddExchanges
 
         @Override
         public PlanWithProperties visitOutput(OutputNode node, Context context)
+        {
+            PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
+
+            if (child.getProperties().isDistributed()) {
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), child.getNode()),
+                        child.getProperties());
+            }
+
+            return rebaseAndDeriveProperties(node, child);
+        }
+
+        @Override
+        public PlanWithProperties visitEnforceSingleRow(EnforceSingleRowNode node, Context context)
         {
             PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
 
@@ -730,11 +745,14 @@ public class AddExchanges
         {
             List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
             List<Symbol> rightSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+            JoinNode.Type type = node.getType();
 
             PlanWithProperties left;
             PlanWithProperties right;
 
-            if ((distributedJoins && !(node.getType() == INNER && leftSymbols.isEmpty())) || node.getType() == FULL || node.getType() == RIGHT) {
+            boolean isCrossJoin = type != INNER || !leftSymbols.isEmpty();
+            boolean joinWithNonScalar = !node.getRight().accept(new IsScalarPlanVisitor(), null);
+            if ((distributedJoins && isCrossJoin && joinWithNonScalar) || type == FULL || type == RIGHT) {
                 // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
 
                 left = node.getLeft().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(leftSymbols)));
@@ -774,7 +792,7 @@ public class AddExchanges
             }
 
             JoinNode result = new JoinNode(node.getId(),
-                    node.getType(),
+                    type,
                     left.getNode(),
                     right.getNode(),
                     node.getCriteria(),
@@ -1125,7 +1143,6 @@ public class AddExchanges
     {
         private final PlanNode node;
         private final ActualProperties properties;
-
         public PlanWithProperties(PlanNode node, ActualProperties properties)
         {
             this.node = node;
@@ -1140,6 +1157,28 @@ public class AddExchanges
         public ActualProperties getProperties()
         {
             return properties;
+        }
+    }
+
+    private static final class IsScalarPlanVisitor
+            extends PlanVisitor<Void, Boolean>
+    {
+        @Override
+        protected Boolean visitPlan(PlanNode node, Void context)
+        {
+            return false;
+        }
+
+        @Override
+        public Boolean visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        public Boolean visitProject(ProjectNode node, Void context)
+        {
+            return node.getSource().accept(this, null);
         }
     }
 }
