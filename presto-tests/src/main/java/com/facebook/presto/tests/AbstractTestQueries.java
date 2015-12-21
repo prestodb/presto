@@ -1857,6 +1857,7 @@ public abstract class AbstractTestQueries
                         "WHERE a.orderkey IS NULL)");
     }
 
+    @Test
     public void testOuterJoinWithCommonExpression()
             throws Exception
     {
