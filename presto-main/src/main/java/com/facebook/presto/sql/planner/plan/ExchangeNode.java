@@ -22,10 +22,10 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -45,7 +45,7 @@ public class ExchangeNode
 
     private final List<PlanNode> sources;
 
-    private final Optional<PartitionFunctionBinding> partitionFunction;
+    private final PartitionFunctionBinding partitionFunction;
 
     // for each source, the list of inputs corresponding to each output
     private final List<List<Symbol>> inputs;
@@ -54,7 +54,7 @@ public class ExchangeNode
     public ExchangeNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
-            @JsonProperty("partitionFunction") Optional<PartitionFunctionBinding> partitionFunction,
+            @JsonProperty("partitionFunction") PartitionFunctionBinding partitionFunction,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("inputs") List<List<Symbol>> inputs)
@@ -67,15 +67,9 @@ public class ExchangeNode
         requireNonNull(outputs, "outputs is null");
         requireNonNull(inputs, "inputs is null");
 
-        if (type == Type.REPARTITION) {
-            checkArgument(partitionFunction.isPresent(), "Repartitioning exchange must contain a partition function");
-        }
-        partitionFunction
-                .map(PartitionFunctionBinding::getPartitioningColumns)
-                .ifPresent(list -> checkArgument(outputs.containsAll(list), "outputs must contain all partitionKeys"));
-        partitionFunction
-                .map(PartitionFunctionBinding::getHashColumn)
-                .ifPresent(hashSymbol -> checkArgument(!hashSymbol.isPresent() || outputs.contains(hashSymbol.get()), "outputs must contain hashSymbol"));
+        checkArgument(outputs.containsAll(partitionFunction.getPartitioningColumns()), "outputs must contain all partitionKeys");
+        partitionFunction.getHashColumn()
+                .ifPresent(hashSymbol -> checkArgument(outputs.contains(hashSymbol), "outputs must contain hashSymbol"));
         checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == outputs.size()), "Input symbols do not match output symbols");
         checkArgument(inputs.size() == sources.size(), "Must have same number of input lists as sources");
         for (int i = 0; i < inputs.size(); i++) {
@@ -94,7 +88,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPARTITION,
-                Optional.of(partitionFunction),
+                partitionFunction,
                 ImmutableList.of(child),
                 child.getOutputSymbols(),
                 ImmutableList.of(child.getOutputSymbols()));
@@ -105,7 +99,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPLICATE,
-                Optional.of(new PartitionFunctionBinding(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of())),
+                new PartitionFunctionBinding(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()),
                 ImmutableList.of(child),
                 child.getOutputSymbols(),
                 ImmutableList.of(child.getOutputSymbols()));
@@ -116,10 +110,23 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.GATHER,
-                Optional.of(new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of())),
+                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()),
                 ImmutableList.of(child),
                 child.getOutputSymbols(),
                 ImmutableList.of(child.getOutputSymbols()));
+    }
+
+    public static ExchangeNode gatheringExchange(PlanNodeId id, List<Symbol> outputLayout, List<PlanNode> children)
+    {
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.GATHER,
+                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                children,
+                outputLayout,
+                children.stream()
+                        .map(PlanNode::getOutputSymbols)
+                        .collect(toImmutableList()));
     }
 
     @JsonProperty
@@ -142,19 +149,9 @@ public class ExchangeNode
     }
 
     @JsonProperty
-    public Optional<PartitionFunctionBinding> getPartitionFunction()
+    public PartitionFunctionBinding getPartitionFunction()
     {
         return partitionFunction;
-    }
-
-    public Optional<List<Symbol>> getPartitionKeys()
-    {
-        return partitionFunction.map(PartitionFunctionBinding::getPartitioningColumns);
-    }
-
-    public Optional<Symbol> getHashSymbol()
-    {
-        return partitionFunction.flatMap(PartitionFunctionBinding::getHashColumn);
     }
 
     @JsonProperty

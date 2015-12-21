@@ -224,13 +224,12 @@ public class UnaliasSymbolReferences
                     .map(context::rewrite)
                     .collect(toImmutableList());
 
-            Optional<PartitionFunctionBinding> partitionFunction = node.getPartitionFunction()
-                    .map(function -> new PartitionFunctionBinding(
-                            function.getPartitioningHandle(),
-                            canonicalize(function.getPartitioningColumns()),
-                            canonicalize(function.getHashColumn()),
-                            function.isReplicateNulls(),
-                            function.getBucketToPartition()));
+            PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
+                    node.getPartitionFunction().getPartitioningHandle(),
+                    canonicalize(node.getPartitionFunction().getPartitioningColumns()),
+                    canonicalize(node.getPartitionFunction().getHashColumn()),
+                    node.getPartitionFunction().isReplicateNulls(),
+                    node.getPartitionFunction().getBucketToPartition());
 
             List<List<Symbol>> inputs = new ArrayList<>();
             for (int i = 0; i < node.getInputs().size(); i++) {
