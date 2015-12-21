@@ -26,7 +26,6 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.tree.StackableAstVisitor;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
@@ -66,6 +65,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.StackableAstVisitor;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
@@ -135,6 +135,7 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<FunctionCall, Signature> resolvedFunctions = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Integer> resolvedNames = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
+    private final Set<SubqueryExpression> scalarSubqueries = newIdentityHashSet();
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
     private final Session session;
@@ -185,6 +186,11 @@ public class ExpressionAnalyzer
     {
         Visitor visitor = new Visitor(tupleDescriptor);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
+    }
+
+    public Set<SubqueryExpression> getScalarSubqueries()
+    {
+        return scalarSubqueries;
     }
 
     private class Visitor
@@ -825,16 +831,11 @@ public class ExpressionAnalyzer
             }
 
             Optional<Node> previousNode = context.getPreviousNode();
-            if (previousNode.isPresent() && previousNode.get() instanceof InPredicate) {
-                InPredicate inPredicate = (InPredicate) previousNode.get();
-                if (inPredicate.getValue() == node) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Scalar subqueries not supported as left side for IN expression.");
-                }
+            if (previousNode.isPresent() && previousNode.get() instanceof InPredicate && ((InPredicate) previousNode.get()).getValue() != node) {
                 subqueryInPredicates.add((InPredicate) previousNode.get());
-
             }
             else {
-                throw new SemanticException(NOT_SUPPORTED, node, "Scalar subqueries not yet supported");
+                scalarSubqueries.add(node);
             }
 
             Type type = Iterables.getOnlyElement(descriptor.getVisibleFields()).getType();
@@ -1046,6 +1047,7 @@ public class ExpressionAnalyzer
                 analyzer.getExpressionTypes(),
                 analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
+                analyzer.getScalarSubqueries(),
                 analyzer.getResolvedNames().keySet());
     }
 
@@ -1073,9 +1075,12 @@ public class ExpressionAnalyzer
 
         analysis.addResolvedNames(analyzer.getResolvedNames());
 
-        Set<InPredicate> subqueryInPredicates = analyzer.getSubqueryInPredicates();
-
-        return new ExpressionAnalysis(expressionTypes, expressionCoercions, subqueryInPredicates, analyzer.getResolvedNames().keySet());
+        return new ExpressionAnalysis(
+                expressionTypes,
+                expressionCoercions,
+                analyzer.getSubqueryInPredicates(),
+                analyzer.getScalarSubqueries(),
+                analyzer.getColumnReferences());
     }
 
     public static ExpressionAnalyzer create(

@@ -69,6 +69,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.tests.QueryAssertions.assertQuery;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.tableNameGetter;
@@ -4537,6 +4538,68 @@ public abstract class AbstractTestQueries
                 "FROM (\n" +
                 "  SELECT CASE WHEN orderkey % 4 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
                 "  FROM orders)");
+    }
+
+    @Test
+    public void testScalarSubquery()
+            throws Exception
+    {
+        // nested
+        assertQuery("SELECT (SELECT (SELECT (SELECT 1)))");
+
+        // aggregation
+        assertQuery("SELECT * FROM lineitem WHERE orderkey = \n" +
+                "(SELECT max(orderkey) FROM orders)");
+
+        // no output
+        assertQuery("SELECT * FROM lineitem WHERE orderkey = \n" +
+                "(SELECT orderkey FROM orders WHERE 0=1)");
+
+        // no output matching with null test
+        assertQuery("SELECT * FROM lineitem WHERE \n" +
+                "(SELECT orderkey FROM orders WHERE 0=1) " +
+                "is null");
+        assertQuery("SELECT * FROM lineitem WHERE \n" +
+                "(SELECT orderkey FROM orders WHERE 0=1) " +
+                "is not null");
+
+        // subquery results and in in-predicate
+        assertQuery("SELECT (SELECT 1) IN (1, 2, 3)");
+        assertQuery("SELECT (SELECT 1) IN (   2, 3)");
+
+        // multiple subqueries
+        assertQuery("SELECT (SELECT 1) = (SELECT 3)");
+        assertQuery("SELECT (SELECT 1) < (SELECT 3)");
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE " +
+                "(SELECT min(orderkey) FROM orders)" +
+                "<" +
+                "(SELECT max(orderkey) FROM orders)");
+
+        // distinct
+        assertQuery("SELECT DISTINCT orderkey FROM lineitem " +
+                "WHERE orderkey BETWEEN" +
+                "   (SELECT avg(orderkey) FROM orders) - 10 " +
+                "   AND" +
+                "   (SELECT avg(orderkey) FROM orders) + 10");
+
+        // subqueries with joins
+        for (String joinType : ImmutableList.of("INNER", "LEFT OUTER")) {
+            assertQuery("SELECT l.orderkey, COUNT(*) " +
+                    "FROM lineitem l " + joinType + " JOIN orders o ON l.orderkey = o.orderkey " +
+                    "WHERE l.orderkey BETWEEN" +
+                    "   (SELECT avg(orderkey) FROM orders) - 10 " +
+                    "   AND" +
+                    "   (SELECT avg(orderkey) FROM orders) + 10 " +
+                    "GROUP BY l.orderkey");
+        }
+
+        // subquery returns multiple rows
+        String multipleRowsErrorMsg = "Scalar sub-query has returned multiple rows";
+        assertQueryFails("SELECT * FROM lineitem WHERE orderkey = (\n" +
+                "SELECT orderkey FROM orders ORDER BY totalprice)",
+                multipleRowsErrorMsg);
+        assertQueryFails("SELECT (VALUES (1), (2)) IN (1,2)",
+                multipleRowsErrorMsg);
     }
 
     @Test

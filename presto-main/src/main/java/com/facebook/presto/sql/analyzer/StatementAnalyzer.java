@@ -1315,7 +1315,7 @@ class StatementAnalyzer
             Expression predicate = node.getHaving().get();
 
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, tupleDescriptor, context);
-            analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+            analysis.recordSubqueries(node, expressionAnalysis);
 
             Type predicateType = expressionAnalysis.getType(predicate);
             if (!predicateType.equals(BOOLEAN) && !predicateType.equals(UNKNOWN)) {
@@ -1394,7 +1394,7 @@ class StatementAnalyzer
 
                 if (orderByExpression.isExpression()) {
                     ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression.getExpression(), tupleDescriptor, context);
-                    analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+                    analysis.recordSubqueries(node, expressionAnalysis);
 
                     Type type = expressionAnalysis.getType(orderByExpression.getExpression());
                     if (!type.isOrderable()) {
@@ -1468,7 +1468,7 @@ class StatementAnalyzer
             }
             else {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, tupleDescriptor, context);
-                analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+                analysis.recordSubqueries(node, expressionAnalysis);
                 groupByExpression = new FieldOrExpression(groupingColumn);
             }
 
@@ -1561,7 +1561,7 @@ class StatementAnalyzer
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(column.getExpression(), tupleDescriptor, context);
-                analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+                analysis.recordSubqueries(node, expressionAnalysis);
                 outputExpressionBuilder.add(new FieldOrExpression(column.getExpression()));
 
                 Type type = expressionAnalysis.getType(column.getExpression());
@@ -1585,7 +1585,7 @@ class StatementAnalyzer
         Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
 
         ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, tupleDescriptor, context);
-        analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+        analysis.recordSubqueries(node, expressionAnalysis);
 
         Type predicateType = expressionAnalysis.getType(predicate);
         if (!predicateType.equals(BOOLEAN)) {
@@ -1861,7 +1861,7 @@ class StatementAnalyzer
                             experimentalSyntaxEnabled,
                             context,
                             orderByField.getExpression());
-                    analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+                    analysis.recordSubqueries(node, expressionAnalysis);
                 }
 
                 orderByFieldsBuilder.add(orderByField);
