@@ -165,9 +165,9 @@ public class PlanFragmenter
                 builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
             }
             else if (exchange.getType() == ExchangeNode.Type.REPLICATE) {
-                FragmentProperties childProperties = new FragmentProperties();
-                childProperties.setUnpartitionedOutput();
-                childProperties.setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
+                FragmentProperties childProperties = new FragmentProperties()
+                        .setPartitionedOutput(exchange.getPartitionFunction().get())
+                        .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
 
                 builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
             }
