@@ -31,6 +31,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -60,6 +61,7 @@ import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -379,11 +381,12 @@ public class SqlQueryScheduler
             this.parent = parent;
             this.childOutputBufferManagers = children.stream()
                     .map(childStage -> {
-                        if (childStage.getFragment().getPartitionFunction().isPresent()) {
-                            return new PartitionedOutputBufferManager(childStage::setOutputBuffers);
+                        Optional<PartitioningHandle> distribution = childStage.getFragment().getPartitionFunction().map(PartitionFunctionBinding::getPartitioningHandle);
+                        if (distribution.equals(Optional.of(FIXED_BROADCAST_DISTRIBUTION))) {
+                            return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
                         }
                         else {
-                            return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
+                            return new PartitionedOutputBufferManager(childStage::setOutputBuffers);
                         }
                     })
                     .collect(toImmutableSet());

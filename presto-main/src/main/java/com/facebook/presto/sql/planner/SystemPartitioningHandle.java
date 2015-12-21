@@ -54,6 +54,7 @@ public final class SystemPartitioningHandle
     public static final SystemPartitioningHandle COORDINATOR_DISTRIBUTION = new SystemPartitioningHandle(SystemPartitioning.COORDINATOR_ONLY, SystemPartitionFunction.SINGLE);
     public static final SystemPartitioningHandle FIXED_HASH_DISTRIBUTION = new SystemPartitioningHandle(SystemPartitioning.FIXED, SystemPartitionFunction.HASH);
     public static final SystemPartitioningHandle FIXED_RANDOM_DISTRIBUTION = new SystemPartitioningHandle(SystemPartitioning.FIXED, SystemPartitionFunction.ROUND_ROBIN);
+    public static final SystemPartitioningHandle FIXED_BROADCAST_DISTRIBUTION = new SystemPartitioningHandle(SystemPartitioning.FIXED, SystemPartitionFunction.BROADCAST);
     public static final SystemPartitioningHandle SOURCE_DISTRIBUTION = new SystemPartitioningHandle(SystemPartitioning.SOURCE, SystemPartitionFunction.UNKNOWN);
 
     private final SystemPartitioning partitioning;
@@ -191,6 +192,13 @@ public final class SystemPartitioningHandle
             public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int[] bucketToPartition)
             {
                 return new RoundRobinBucketFunction(bucketToPartition.length);
+            }
+        },
+        BROADCAST {
+            @Override
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int[] bucketToPartition)
+            {
+                throw new UnsupportedOperationException();
             }
         },
         UNKNOWN {
