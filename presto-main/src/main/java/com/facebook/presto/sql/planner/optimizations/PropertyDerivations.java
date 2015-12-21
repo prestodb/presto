@@ -371,14 +371,8 @@ class PropertyDerivations
                             .constants(constants)
                             .build();
                 case REPARTITION:
-                    if (!node.getPartitionKeys().isPresent()) {
-                        return ActualProperties.builder()
-                                .global(distributed())
-                                .constants(constants)
-                                .build();
-                    }
                     return ActualProperties.builder()
-                            .global(distributed(hashPartitioned(node.getPartitionKeys().get())))
+                            .global(distributed(hashPartitioned(node.getPartitionFunction().getPartitioningColumns())))
                             .constants(constants)
                             .build();
                 case REPLICATE:

@@ -110,8 +110,8 @@ public class PruneUnreferencedOutputs
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Set<Symbol>> context)
         {
             Set<Symbol> expectedOutputSymbols = Sets.newHashSet(context.get());
-            node.getHashSymbol().ifPresent(expectedOutputSymbols::add);
-            node.getPartitionKeys().ifPresent(expectedOutputSymbols::addAll);
+            node.getPartitionFunction().getHashColumn().ifPresent(expectedOutputSymbols::add);
+            expectedOutputSymbols.addAll(node.getPartitionFunction().getPartitioningColumns());
 
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {

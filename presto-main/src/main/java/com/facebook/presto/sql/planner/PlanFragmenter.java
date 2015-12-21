@@ -106,7 +106,7 @@ public class PlanFragmenter
             context.get()
                     .setSingleNodeDistribution() // TODO: add support for distributed output
                     .setOutputLayout(node.getOutputSymbols())
-                    .setUnpartitionedOutput();
+                    .setPartitionedOutput(new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()));
 
             return context.defaultRewrite(node, context.get());
         }
@@ -147,15 +147,15 @@ public class PlanFragmenter
                 context.get().setSingleNodeDistribution();
 
                 for (int i = 0; i < exchange.getSources().size(); i++) {
-                    FragmentProperties childProperties = new FragmentProperties();
-                    childProperties.setUnpartitionedOutput();
-                    childProperties.setOutputLayout(exchange.getInputs().get(i));
+                    FragmentProperties childProperties = new FragmentProperties()
+                            .setPartitionedOutput(exchange.getPartitionFunction())
+                            .setOutputLayout(exchange.getInputs().get(i));
 
                     builder.add(buildSubPlan(exchange.getSources().get(i), childProperties, context));
                 }
             }
             else if (exchange.getType() == ExchangeNode.Type.REPARTITION) {
-                PartitionFunctionBinding partitionFunction = exchange.getPartitionFunction().get();
+                PartitionFunctionBinding partitionFunction = exchange.getPartitionFunction();
                 context.get().setDistribution(partitionFunction.getPartitioningHandle());
 
                 FragmentProperties childProperties = new FragmentProperties()
@@ -166,7 +166,7 @@ public class PlanFragmenter
             }
             else if (exchange.getType() == ExchangeNode.Type.REPLICATE) {
                 FragmentProperties childProperties = new FragmentProperties()
-                        .setPartitionedOutput(exchange.getPartitionFunction().get())
+                        .setPartitionedOutput(exchange.getPartitionFunction())
                         .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
 
                 builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
@@ -278,17 +278,6 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties setUnpartitionedOutput()
-        {
-            partitionFunction.ifPresent(current -> {
-                throw new IllegalStateException(String.format("Output overwrite partitioning with unpartitioned (currently set to %s)", current));
-            });
-
-            partitionFunction = Optional.empty();
-
-            return this;
-        }
-
         public FragmentProperties setOutputLayout(List<Symbol> layout)
         {
             outputLayout.ifPresent(current -> {
@@ -302,9 +291,10 @@ public class PlanFragmenter
 
         public FragmentProperties setPartitionedOutput(PartitionFunctionBinding partitionFunction)
         {
-            if (this.partitionFunction.isPresent()) {
-                throw new IllegalStateException(String.format("Cannot overwrite output partitioning with %s (currently set to %s)", partitionFunction, this.partitionFunction));
-            }
+            checkState(!this.partitionFunction.isPresent() || this.partitionFunction.get().equals(partitionFunction),
+                    "Cannot overwrite output partitioning with %s (currently set to %s)",
+                    partitionFunction,
+                    this.partitionFunction);
 
             this.partitionFunction = Optional.of(partitionFunction);
 

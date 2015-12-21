@@ -122,20 +122,20 @@ public class ProjectionPushDown
 
                 Map<Symbol, Expression> projections = new LinkedHashMap<>(); // Use LinkedHashMap to make output symbol order deterministic
                 ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
-                if (exchange.getPartitionKeys().isPresent()) {
-                    // Need to retain the partition keys for the exchange
-                    exchange.getPartitionKeys().get().stream()
-                            .map(outputToInputMap::get)
-                            .forEach(nameReference -> {
-                                Symbol symbol = Symbol.fromQualifiedName(nameReference.getName());
-                                projections.put(symbol, nameReference);
-                                inputs.add(symbol);
-                            });
-                }
-                if (exchange.getHashSymbol().isPresent()) {
+
+                // Need to retain the partition keys for the exchange
+                exchange.getPartitionFunction().getPartitioningColumns().stream()
+                        .map(outputToInputMap::get)
+                        .forEach(nameReference -> {
+                            Symbol symbol = Symbol.fromQualifiedName(nameReference.getName());
+                            projections.put(symbol, nameReference);
+                            inputs.add(symbol);
+                        });
+
+                if (exchange.getPartitionFunction().getHashColumn().isPresent()) {
                     // Need to retain the hash symbol for the exchange
-                    projections.put(exchange.getHashSymbol().get(), exchange.getHashSymbol().get().toQualifiedNameReference());
-                    inputs.add(exchange.getHashSymbol().get());
+                    projections.put(exchange.getPartitionFunction().getHashColumn().get(), exchange.getPartitionFunction().getHashColumn().get().toQualifiedNameReference());
+                    inputs.add(exchange.getPartitionFunction().getHashColumn().get());
                 }
                 for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
                     Expression translatedExpression = translateExpression(projection.getValue(), outputToInputMap);
@@ -150,12 +150,10 @@ public class ProjectionPushDown
 
             // Construct the output symbols in the same order as the sources
             ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
-            if (exchange.getPartitionKeys().isPresent()) {
-                exchange.getPartitionKeys().get().stream()
-                        .forEach(outputBuilder::add);
-            }
-            if (exchange.getHashSymbol().isPresent()) {
-                outputBuilder.add(exchange.getHashSymbol().get());
+            exchange.getPartitionFunction().getPartitioningColumns().stream()
+                    .forEach(outputBuilder::add);
+            if (exchange.getPartitionFunction().getHashColumn().isPresent()) {
+                outputBuilder.add(exchange.getPartitionFunction().getHashColumn().get());
             }
             for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
                 outputBuilder.add(projection.getKey());

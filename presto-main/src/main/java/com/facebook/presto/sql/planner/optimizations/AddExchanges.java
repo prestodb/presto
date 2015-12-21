@@ -103,6 +103,7 @@ import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConju
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -952,6 +953,7 @@ public class AddExchanges
                     }
                     else {
                         partitionedChildren.add(child.getNode());
+                        // union may drop or duplicate symbols from the input so we must provide an exact mapping
                         partitionedOutputLayouts.add(node.sourceOutputLayout(i));
                     }
                 }
@@ -960,10 +962,11 @@ public class AddExchanges
                 if (!partitionedChildren.isEmpty()) {
                     // add an exchange above partitioned inputs and fold it into the
                     // set of unpartitioned inputs
+                    // NOTE: this must provide the explicit imput mapping as unions may drop or duplicate symbols
                     result = new ExchangeNode(
                             idAllocator.getNextId(),
                             ExchangeNode.Type.GATHER,
-                            Optional.empty(),
+                            new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()),
                             partitionedChildren,
                             node.getOutputSymbols(),
                             partitionedOutputLayouts);

@@ -109,7 +109,7 @@ public class SqlQueryScheduler
                 Optional.empty(),
                 new AtomicInteger(),
                 locationFactory,
-                plan,
+                plan.withBucketToPartition(Optional.of(new int[1])),
                 nodeScheduler,
                 remoteTaskFactory,
                 session,
@@ -193,12 +193,13 @@ public class SqlQueryScheduler
 
         stages.add(stage);
 
-        Optional<int[]> bucketToPartition = Optional.empty();
+        Optional<int[]> bucketToPartition;
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             SplitSource splitSource = plan.getDataSource().get();
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(splitSource.getDataSourceName());
             stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, splitSource, new SplitPlacementPolicy(nodeSelector, stage::getAllTasks), splitBatchSize));
+            bucketToPartition = Optional.of(new int[1]);
         }
         else {
             NodePartitionMap nodePartitionMap = nodePartitioningManager.getNodePartitioningMap(session, plan.getPartitioningHandle());
