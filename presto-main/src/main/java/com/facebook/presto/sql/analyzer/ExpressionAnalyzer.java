@@ -107,7 +107,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRI
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
@@ -816,11 +816,11 @@ public class ExpressionAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             RelationType descriptor = analyzer.process(node.getQuery(), context.getContext());
 
-            // Scalar subqueries should only produce one column
+            // Subquery should only produce one column
             if (descriptor.getVisibleFieldCount() != 1) {
-                throw new SemanticException(MULTIPLE_FIELDS_FROM_SCALAR_SUBQUERY,
+                throw new SemanticException(MULTIPLE_FIELDS_FROM_SUBQUERY,
                         node,
-                        "Subquery expression must produce only one field. Found %s",
+                        "Multiple columns returned by subquery are not yet supported. Found %s",
                         descriptor.getVisibleFieldCount());
             }
 
