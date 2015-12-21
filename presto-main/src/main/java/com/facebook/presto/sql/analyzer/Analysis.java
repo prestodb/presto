@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
@@ -68,6 +69,7 @@ public class Analysis
 
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
     private final SetMultimap<Node, InPredicate> inPredicates = HashMultimap.create();
+    private final SetMultimap<Node, SubqueryExpression> scalarSubqueries = HashMultimap.create();
     private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
@@ -227,14 +229,20 @@ public class Analysis
         return joins.get(join);
     }
 
-    public void addInPredicates(Node node, Set<InPredicate> inPredicates)
+    public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
-        this.inPredicates.putAll(node, inPredicates);
+        this.inPredicates.putAll(node, expressionAnalysis.getSubqueryInPredicates());
+        this.scalarSubqueries.putAll(node, expressionAnalysis.getScalarSubqueries());
     }
 
     public Set<InPredicate> getInPredicates(Node node)
     {
         return inPredicates.get(node);
+    }
+
+    public Set<SubqueryExpression> getScalarSubqueries(Node node)
+    {
+        return scalarSubqueries.get(node);
     }
 
     public void addJoinInPredicates(Join node, JoinInPredicates joinInPredicates)

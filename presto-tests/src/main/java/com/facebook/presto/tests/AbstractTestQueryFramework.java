@@ -159,6 +159,21 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count));
     }
 
+    protected void assertQueryFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        queryRunner.getExclusiveLock().lock();
+        try {
+            queryRunner.execute(getSession(), sql);
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(ex, expectedMessageRegExp);
+        }
+        finally {
+            queryRunner.getExclusiveLock().unlock();
+        }
+    }
+
     public void assertApproximateQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
             throws Exception
     {
@@ -209,7 +224,7 @@ public abstract class AbstractTestQueryFramework
             fail("Expected " + AccessDeniedException.class.getSimpleName());
         }
         catch (RuntimeException e) {
-            assertExceptionMessage(e, exceptionsMessageRegExp);
+            assertExceptionMessage(e, ".*Access Denied: " + exceptionsMessageRegExp);
         }
         finally {
             queryRunner.getAccessControl().reset();
@@ -217,9 +232,8 @@ public abstract class AbstractTestQueryFramework
         }
     }
 
-    private static void assertExceptionMessage(Exception exception, @Language("RegExp") String exceptionMessagePattern)
+    private static void assertExceptionMessage(Exception exception, @Language("RegExp") String regex)
     {
-        String regex = ".*Access Denied: " + exceptionMessagePattern;
         if (!exception.getMessage().matches(regex)) {
             fail(format("Expected exception message '%s' to match '%s'", exception.getMessage(), regex));
         }
