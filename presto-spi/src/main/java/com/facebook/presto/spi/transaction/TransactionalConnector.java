@@ -19,8 +19,8 @@ import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 
@@ -41,7 +41,7 @@ public interface TransactionalConnector
      */
     TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
 
-    ConnectorSplitManager getSplitManager();
+    TransactionalConnectorSplitManager getSplitManager();
 
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time

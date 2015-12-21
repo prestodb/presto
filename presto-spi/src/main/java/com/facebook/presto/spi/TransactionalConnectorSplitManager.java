@@ -14,11 +14,11 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
 import java.util.List;
 
-@Deprecated
-public interface ConnectorSplitManager
+public interface TransactionalConnectorSplitManager
 {
     /**
      * Gets the Partitions for the specified table.
@@ -28,7 +28,7 @@ public interface ConnectorSplitManager
      * this information to perform connector-specific optimizations.
      */
     @Deprecated
-    default ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    default ConnectorPartitionResult getPartitions(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -37,12 +37,12 @@ public interface ConnectorSplitManager
      * Gets the Splits for the specified Partitions in the indicated table.
      */
     @Deprecated
-    default ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions)
+    default ConnectorSplitSource getPartitionSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
 
-    default ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
+    default ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
