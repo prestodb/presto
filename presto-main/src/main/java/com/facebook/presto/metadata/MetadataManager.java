@@ -22,7 +22,6 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
@@ -32,9 +31,11 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -309,13 +310,14 @@ public class MetadataManager
         List<ConnectorTableLayoutResult> layouts;
         ConnectorEntry entry = getConnectorMetadata(connectorId);
         TransactionalConnectorMetadata metadata = entry.getMetadata(session);
+        ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
         ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
         try {
             layouts = metadata.getTableLayouts(connectorSession, connectorTable, new Constraint<>(summary, predicate::test), desiredColumns);
         }
         catch (UnsupportedOperationException e) {
-            ConnectorSplitManager connectorSplitManager = splitManager.getConnectorSplitManager(connectorId);
-            ConnectorPartitionResult result = connectorSplitManager.getPartitions(connectorSession, connectorTable, summary);
+            TransactionalConnectorSplitManager connectorSplitManager = splitManager.getConnectorSplitManager(connectorId);
+            ConnectorPartitionResult result = connectorSplitManager.getPartitions(transaction, connectorSession, connectorTable, summary);
 
             List<ConnectorPartition> partitions = result.getPartitions().stream()
                     .filter(partition -> !partition.getTupleDomain().isNone())
@@ -336,7 +338,7 @@ public class MetadataManager
         }
 
         return layouts.stream()
-                .map(layout -> new TableLayoutResult(fromConnectorLayout(connectorId, layout.getTableLayout()), layout.getUnenforcedConstraint()))
+                .map(layout -> new TableLayoutResult(fromConnectorLayout(connectorId, transaction, layout.getTableLayout()), layout.getUnenforcedConstraint()))
                 .collect(toImmutableList());
     }
 
@@ -359,7 +361,8 @@ public class MetadataManager
         String connectorId = handle.getConnectorId();
         ConnectorEntry entry = getConnectorMetadata(connectorId);
         TransactionalConnectorMetadata metadata = entry.getMetadata(session);
-        return fromConnectorLayout(connectorId, metadata.getTableLayout(session.toConnectorSession(entry.getCatalog()), handle.getConnectorHandle()));
+        ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
+        return fromConnectorLayout(connectorId, transaction, metadata.getTableLayout(session.toConnectorSession(entry.getCatalog()), handle.getConnectorHandle()));
     }
 
     @Override
@@ -813,6 +816,11 @@ public class MetadataManager
             TransactionalConnectorMetadata metadata = transactionManager.getMetadata(transactionId, connectorId);
             transactionManager.checkConnectorWrite(transactionId, connectorId);
             return metadata;
+        }
+
+        public ConnectorTransactionHandle getTransactionHandle(Session session)
+        {
+            return transactionManager.getTransactionHandle(session.getRequiredTransactionId(), connectorId);
         }
     }
 

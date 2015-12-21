@@ -26,9 +26,9 @@ import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.transaction.TransactionalConnector;
@@ -190,7 +190,7 @@ public class ConnectorManager
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
         connectors.put(connectorId, connector);
 
-        ConnectorSplitManager connectorSplitManager = connector.getSplitManager();
+        TransactionalConnectorSplitManager connectorSplitManager = connector.getSplitManager();
         checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
 
         Set<SystemTable> systemTables = connector.getSystemTables();
