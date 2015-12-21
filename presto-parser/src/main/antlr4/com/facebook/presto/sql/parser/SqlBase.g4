@@ -242,6 +242,7 @@ primaryExpression
     | number                                                                         #numericLiteral
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
+    | BINARY_LITERAL                                                                 #binaryLiteral
     | POSITION '(' valueExpression IN valueExpression ')'                            #position
     | '(' expression (',' expression)+ ')'                                           #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                       #rowConstructor
@@ -538,6 +539,20 @@ CONCAT: '||';
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''
+    ;
+
+// note that the following is really not precisely binaryLiteral, but
+// "something that looks like binaryLiteral". here we also include
+// the form X'any string', which is a valid typeConstructor syntax.
+// but we also disallow users from declaring a type 'X', so the expression
+// X'any string' is thrown out later in parsing.
+// the rationale for this is that when user writes X'some string', he's most
+// likely trying to write a binary literal, so processing the error inside
+// the binaryLiteral parsing route would give more informative error msg
+// in this syntax rule, we also allow odd-number of digits, which is not exactly
+// the sql spec, but we check for that later in the parsing flow
+BINARY_LITERAL
+    :  'X\'' (~'\'')* '\''
     ;
 
 INTEGER_VALUE

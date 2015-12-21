@@ -69,6 +69,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -84,6 +85,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTimestampsWithTimezoneBlock;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -94,6 +96,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.QueryUtil.mangleFieldReference;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
@@ -125,7 +128,9 @@ public final class FunctionAssertions
             createLongsBlock(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
             createStringsBlock("%el%"),
             createStringsBlock((String) null),
-            createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))));
+            createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
+            createSlicesBlock(Slices.wrappedBuffer((byte) 0xab))
+    );
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
@@ -138,6 +143,7 @@ public final class FunctionAssertions
             .put(5, VARCHAR)
             .put(6, VARCHAR)
             .put(7, TIMESTAMP_WITH_TIME_ZONE)
+            .put(8, VARBINARY)
             .build();
 
     private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
@@ -149,6 +155,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_pattern"), 5)
             .put(new Symbol("bound_null_string"), 6)
             .put(new Symbol("bound_timestamp_with_timezone"), 7)
+            .put(new Symbol("bound_binary_literal"), 8)
             .build();
 
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
@@ -160,6 +167,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_pattern"), VARCHAR)
             .put(new Symbol("bound_null_string"), VARCHAR)
             .put(new Symbol("bound_timestamp_with_timezone"), TIMESTAMP_WITH_TIME_ZONE)
+            .put(new Symbol("bound_binary_literal"), VARBINARY)
             .build();
 
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
@@ -671,16 +679,18 @@ public final class FunctionAssertions
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.<Type>of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE)).addRow(
-                        1234L,
-                        "hello",
-                        12.34,
-                        true,
-                        new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis(),
-                        "%el%",
-                        null,
-                        packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))
-                ).build();
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.<Type>of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY))
+                        .addRow(
+                                1234L,
+                                "hello",
+                                12.34,
+                                true,
+                                new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis(),
+                                "%el%",
+                                null,
+                                packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")),
+                                Slices.wrappedBuffer((byte) 0xab))
+                        .build();
                 return new RecordPageSource(records);
             }
             else {

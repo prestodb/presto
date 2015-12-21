@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -104,6 +105,7 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestSqlParser
@@ -142,6 +144,22 @@ public class TestSqlParser
         assertGenericLiteral("BOOLEAN");
         assertGenericLiteral("DATE");
         assertGenericLiteral("foo");
+    }
+
+    @Test
+    public void testBinaryLiteral()
+        throws Exception
+    {
+        assertExpression("x' '", new BinaryLiteral(""));
+        assertExpression("x''", new BinaryLiteral(""));
+        assertExpression("X'abcdef1234567890ABCDEF'", new BinaryLiteral("abcdef1234567890ABCDEF"));
+
+        // forms such as "X 'a b' " may look like BinaryLiteral
+        // but they do not pass the syntax rule for BinaryLiteral
+        // but instead conform to TypeConstructor, which generates a GenericLiteral expression
+        assertInvalidExpression("X 'a b'", "Did you intend to write a Binary Literal instead.*");
+        assertInvalidExpression("X'a b c'", "Binary literal must contain an even number of digits.*");
+        assertInvalidExpression("X'a z'", "Binary literal can only contain hexadecimal digits.*");
     }
 
     public static void assertGenericLiteral(String type)
@@ -1144,6 +1162,14 @@ public class TestSqlParser
                         table(QualifiedName.of("t"))));
     }
 
+    @Test
+    public void testBinaryLiteralToHex()
+            throws Exception
+    {
+        // note that toHexString() always outputs in upper case
+        assertEquals(new BinaryLiteral("ab 01").toHexString(), "AB01");
+    }
+
     private static void assertCast(String type)
     {
         assertCast(type, type);
@@ -1171,6 +1197,17 @@ public class TestSqlParser
                     indent(input),
                     indent(formatSql(expected)),
                     indent(formatSql(parsed))));
+        }
+    }
+
+    private static void assertInvalidExpression(String expression, String expectedErrorMsgRegex)
+    {
+        try {
+            Expression result = SQL_PARSER.createExpression(expression);
+            fail("Expected to throw ParsingException for input:[" + expression + "], but got: " + result);
+        }
+        catch (ParsingException e) {
+            assertTrue(e.getErrorMessage().matches(expectedErrorMsgRegex));
         }
     }
 
