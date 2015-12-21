@@ -25,8 +25,11 @@ public abstract class Expression
         super(location);
     }
 
+    /**
+     * Accessible for {@link AstVisitor}, use {@link AstVisitor#process(Node, Object)} instead.
+     */
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitExpression(this, context);
     }

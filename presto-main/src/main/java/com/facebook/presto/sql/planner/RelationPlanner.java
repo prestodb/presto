@@ -478,7 +478,7 @@ class RelationPlanner
     {
         Type[] coerceToTypes = analysis.getRelationCoercion(node);
 
-        RelationPlan plan = node.accept(this, context);
+        RelationPlan plan = this.process(node, context);
 
         if (coerceToTypes == null) {
             return plan;
