@@ -48,7 +48,7 @@ public class TaskManagerConfig
     private int writerCount = 1;
     private int taskDefaultConcurrency = 1;
     private int httpResponseThreads = 100;
-    private int httpTimeoutThreads = 1;
+    private int httpTimeoutThreads = 3;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
