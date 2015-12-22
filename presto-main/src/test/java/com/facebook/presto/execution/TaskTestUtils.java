@@ -36,6 +36,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
@@ -54,6 +55,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 
 public final class TaskTestUtils
@@ -86,7 +88,7 @@ public final class TaskTestUtils
             ImmutableList.of(SYMBOL),
             SOURCE_DISTRIBUTION,
             TABLE_SCAN_NODE_ID,
-            Optional.empty());
+            new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()).withBucketToPartition(Optional.of(new int[1])));
 
     public static LocalExecutionPlanner createTestingPlanner()
     {

@@ -48,7 +48,7 @@ public class PlanFragment
     private final List<Type> types;
     private final PlanNode partitionedSourceNode;
     private final List<RemoteSourceNode> remoteSourceNodes;
-    private final Optional<PartitionFunctionBinding> partitionFunction;
+    private final PartitionFunctionBinding partitionFunction;
 
     @JsonCreator
     public PlanFragment(
@@ -58,7 +58,7 @@ public class PlanFragment
             @JsonProperty("outputLayout") List<Symbol> outputLayout,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
-            @JsonProperty("partitionFunction") Optional<PartitionFunctionBinding> partitionFunction)
+            @JsonProperty("partitionFunction") PartitionFunctionBinding partitionFunction)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -120,7 +120,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Optional<PartitionFunctionBinding> getPartitionFunction()
+    public PartitionFunctionBinding getPartitionFunction()
     {
         return partitionFunction;
     }
@@ -171,7 +171,7 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, outputLayout, partitioning, partitionedSource, partitionFunction.map(function -> function.withBucketToPartition(bucketToPartition)));
+        return new PlanFragment(id, root, symbols, outputLayout, partitioning, partitionedSource, partitionFunction.withBucketToPartition(bucketToPartition));
     }
 
     @Override

@@ -19,6 +19,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.testing.TestingSplit;
@@ -26,21 +28,28 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class TestingPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    public TestingPageSourceProvider()
+    {
+        System.out.println();
+    }
+
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
         checkType(split, TestingSplit.class, "split");
 
-        // TODO: check for !columns.isEmpty() -- currently, it breaks TestSqlTaskManager
-        // and fixing it requires allowing TableScan nodes with no assignments
+        ImmutableList<Block> blocks = columns.stream()
+                .map(column -> new FixedWidthBlockBuilder(0, 1).appendNull().build())
+                .collect(toImmutableList());
 
-        return new FixedPageSource(ImmutableList.of(new Page(1)));
+        return new FixedPageSource(ImmutableList.of(new Page(blocks.toArray(new Block[blocks.size()]))));
     }
 }

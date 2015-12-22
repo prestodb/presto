@@ -25,6 +25,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
@@ -62,6 +63,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -99,7 +101,7 @@ public class MockRemoteTaskFactory
                 ImmutableList.of(symbol),
                 SOURCE_DISTRIBUTION,
                 sourceId,
-                Optional.empty());
+                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()));
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : splits) {
