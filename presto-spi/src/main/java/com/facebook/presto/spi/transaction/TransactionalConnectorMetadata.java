@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -272,5 +274,13 @@ public interface TransactionalConnectorMetadata
     default OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
+     */
+    default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support indexes");
     }
 }

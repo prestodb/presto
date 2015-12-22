@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorIndexProvider;
 import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
 import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
 import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.transaction.TransactionalConnector;
 import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -71,7 +73,7 @@ public class LegacyTransactionConnector
     @Override
     public TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
-        return metadatas.computeIfAbsent(transactionHandle, handle -> new LegacyTransactionalConnectorMetadata(connector.getMetadata()));
+        return metadatas.computeIfAbsent(transactionHandle, handle -> new LegacyTransactionalConnectorMetadata(connector.getMetadata(), Optional.ofNullable(connector.getIndexResolver())));
     }
 
     @Override
@@ -105,9 +107,13 @@ public class LegacyTransactionConnector
     }
 
     @Override
-    public ConnectorIndexResolver getIndexResolver()
+    public TransactionalConnectorIndexProvider getIndexProvider()
     {
-        return connector.getIndexResolver();
+        ConnectorIndexResolver indexResolver = connector.getIndexResolver();
+        if (indexResolver == null) {
+            throw new UnsupportedOperationException();
+        }
+        return new LegacyConnectorIndexProvider(indexResolver);
     }
 
     @Override

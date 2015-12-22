@@ -488,7 +488,7 @@ public class LocalQueryRunner
                 .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, indexManager, featuresConfig, true);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, true);
 
         QueryExplainer queryExplainer = new QueryExplainer(
                 planOptimizersFactory.get(),

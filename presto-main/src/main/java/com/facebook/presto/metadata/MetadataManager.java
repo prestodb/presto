@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -681,6 +682,17 @@ public class MetadataManager
         checkArgument(entry != null, "Catalog %s does not exist", viewName.getCatalogName());
         TransactionalConnectorMetadata metadata = entry.getMetadataForWrite(session);
         metadata.dropView(session.toConnectorSession(entry.getCatalog()), viewName.asSchemaTableName());
+    }
+
+    @Override
+    public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        ConnectorEntry entry = lookupConnectorFor(tableHandle);
+        TransactionalConnectorMetadata metadata = entry.getMetadata(session);
+        ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
+        ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
+        Optional<ConnectorResolvedIndex> resolvedIndex = metadata.resolveIndex(connectorSession, tableHandle.getConnectorHandle(), indexableColumns, outputColumns, tupleDomain);
+        return resolvedIndex.map(resolved -> new ResolvedIndex(tableHandle.getConnectorId(), transaction, resolved));
     }
 
     @Override

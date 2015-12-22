@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -221,6 +222,11 @@ public interface Metadata
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
+     */
+    Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
 
     FunctionRegistry getFunctionRegistry();
 
