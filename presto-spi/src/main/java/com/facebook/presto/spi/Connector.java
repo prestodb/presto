@@ -65,11 +65,11 @@ public interface Connector
     }
 
     /**
-     * @throws UnsupportedOperationException if this connector does not support indexes
+     * @return null if this connector does not support indexes
      */
     default ConnectorIndexResolver getIndexResolver()
     {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     /**

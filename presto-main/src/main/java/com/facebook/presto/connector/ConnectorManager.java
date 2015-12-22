@@ -21,9 +21,9 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorIndexProvider;
 import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
 import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
 import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
@@ -238,10 +238,10 @@ public class ConnectorManager
             }
         }
 
-        ConnectorIndexResolver indexResolver = null;
+        TransactionalConnectorIndexProvider indexProvider = null;
         try {
-            indexResolver = connector.getIndexResolver();
-            requireNonNull(indexResolver, format("Connector %s returned a null index resolver", connectorId));
+            indexProvider = connector.getIndexProvider();
+            requireNonNull(indexProvider, format("Connector %s returned a null index provider", connectorId));
         }
         catch (UnsupportedOperationException ignored) {
         }
@@ -282,8 +282,8 @@ public class ConnectorManager
             pageSinkManager.addConnectorPageSinkProvider(connectorId, connectorPageSinkProvider);
         }
 
-        if (indexResolver != null) {
-            indexManager.addIndexResolver(connectorId, indexResolver);
+        if (indexProvider != null) {
+            indexManager.addIndexProvider(connectorId, indexProvider);
         }
 
         if (accessControl != null) {

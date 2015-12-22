@@ -15,9 +15,11 @@ package com.facebook.presto.transaction;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -28,29 +30,32 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class LegacyTransactionalConnectorMetadata
         implements TransactionalConnectorMetadata
 {
     private final ConnectorMetadata metadata;
+    private final Optional<ConnectorIndexResolver> indexResolver;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public LegacyTransactionalConnectorMetadata(ConnectorMetadata metadata)
+    public LegacyTransactionalConnectorMetadata(ConnectorMetadata metadata, Optional<ConnectorIndexResolver> indexResolver)
     {
-        this.metadata = Objects.requireNonNull(metadata, "metadata is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.indexResolver = requireNonNull(indexResolver, "indexResolver is null");
     }
 
     @Override
@@ -240,6 +245,12 @@ public class LegacyTransactionalConnectorMetadata
     public OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
     {
         return metadata.metadataDelete(session, tableHandle, tableLayoutHandle);
+    }
+
+    @Override
+    public Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return indexResolver.flatMap(indexResolver -> Optional.ofNullable(indexResolver.resolveIndex(session, tableHandle, indexableColumns, outputColumns, tupleDomain)));
     }
 
     private void setRollback(Runnable action)

@@ -14,7 +14,6 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
@@ -264,7 +263,7 @@ public abstract class AbstractTestQueryFramework
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true).setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new IndexManager(), featuresConfig, forceSingleNode).get();
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, forceSingleNode).get();
         return new QueryExplainer(
                 optimizers,
                 metadata,

@@ -14,8 +14,8 @@
 package com.facebook.presto.spi.transaction;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorIndexProvider;
 import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
 import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
 import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
@@ -78,7 +78,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not support indexes
      */
-    default ConnectorIndexResolver getIndexResolver()
+    default TransactionalConnectorIndexProvider getIndexProvider()
     {
         throw new UnsupportedOperationException();
     }
