@@ -198,11 +198,9 @@ public class Query
             if (!pager.isNullPager()) {
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
-                Thread clientThread = Thread.currentThread();
                 pager.getFinishFuture().thenRun(() -> {
                     userAbortedQuery.set(true);
                     ignoreUserInterrupt.set(false);
-                    clientThread.interrupt();
                 });
             }
             handler.processRows(client);
