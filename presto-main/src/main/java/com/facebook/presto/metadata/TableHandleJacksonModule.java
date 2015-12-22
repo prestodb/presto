@@ -17,37 +17,14 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 
 import javax.inject.Inject;
 
-import static java.util.Objects.requireNonNull;
-
 public class TableHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorTableHandle>
 {
     @Inject
     public TableHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(ConnectorTableHandle.class, new TableHandleJsonTypeIdResolver(handleResolver));
-    }
-
-    private static class TableHandleJsonTypeIdResolver
-            implements JsonTypeIdResolver<ConnectorTableHandle>
-    {
-        private final HandleResolver handleResolver;
-
-        private TableHandleJsonTypeIdResolver(HandleResolver handleResolver)
-        {
-            this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        }
-
-        @Override
-        public String getId(ConnectorTableHandle tableHandle)
-        {
-            return handleResolver.getId(tableHandle);
-        }
-
-        @Override
-        public Class<? extends ConnectorTableHandle> getType(String id)
-        {
-            return handleResolver.getTableHandleClass(id);
-        }
+        super(ConnectorTableHandle.class,
+                handleResolver::getId,
+                handleResolver::getTableHandleClass);
     }
 }

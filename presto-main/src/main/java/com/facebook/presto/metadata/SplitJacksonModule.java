@@ -17,37 +17,14 @@ import com.facebook.presto.spi.ConnectorSplit;
 
 import javax.inject.Inject;
 
-import static java.util.Objects.requireNonNull;
-
 public class SplitJacksonModule
         extends AbstractTypedJacksonModule<ConnectorSplit>
 {
     @Inject
     public SplitJacksonModule(HandleResolver handleResolver)
     {
-        super(ConnectorSplit.class, new SplitJsonTypeIdResolver(handleResolver));
-    }
-
-    private static class SplitJsonTypeIdResolver
-            implements JsonTypeIdResolver<ConnectorSplit>
-    {
-        private final HandleResolver handleResolver;
-
-        private SplitJsonTypeIdResolver(HandleResolver handleResolver)
-        {
-            this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        }
-
-        @Override
-        public String getId(ConnectorSplit split)
-        {
-            return handleResolver.getId(split);
-        }
-
-        @Override
-        public Class<? extends ConnectorSplit> getType(String id)
-        {
-            return handleResolver.getSplitClass(id);
-        }
+        super(ConnectorSplit.class,
+                handleResolver::getId,
+                handleResolver::getSplitClass);
     }
 }
