@@ -10,6 +10,11 @@ General Changes
 * Fix analyzer for queries with ``GROUP BY ()`` such that errors are raised
   during analysis rather than execution.
 
+CLI Changes
+-----------
+
+* Fix sporadic *"Failed to disable interrupt character"* error after exiting pager.
+
 Hive Changes
 ------------
 
