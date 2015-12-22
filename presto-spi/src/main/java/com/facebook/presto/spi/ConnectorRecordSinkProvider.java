@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+@Deprecated
 public interface ConnectorRecordSinkProvider
 {
     RecordSink getRecordSink(ConnectorSession session, ConnectorOutputTableHandle tableHandle);
