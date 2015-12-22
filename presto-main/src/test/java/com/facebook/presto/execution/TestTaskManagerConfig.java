@@ -47,7 +47,7 @@ public class TestTaskManagerConfig
                 .setWriterCount(1)
                 .setTaskDefaultConcurrency(1)
                 .setHttpResponseThreads(100)
-                .setHttpTimeoutThreads(1));
+                .setHttpTimeoutThreads(3));
     }
 
     @Test
