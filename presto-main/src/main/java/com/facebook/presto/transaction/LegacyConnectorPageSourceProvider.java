@@ -11,36 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.transaction;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.FixedPageSource;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
 import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
-import com.facebook.presto.testing.TestingSplit;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
-public class TestingPageSourceProvider
+public class LegacyConnectorPageSourceProvider
         implements TransactionalConnectorPageSourceProvider
 {
+    private final ConnectorPageSourceProvider delegate;
+
+    public LegacyConnectorPageSourceProvider(ConnectorPageSourceProvider delegate)
+    {
+        this.delegate = requireNonNull(delegate, "delegate is null");
+    }
+
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        requireNonNull(columns, "columns is null");
-        checkType(split, TestingSplit.class, "split");
-
-        // TODO: check for !columns.isEmpty() -- currently, it breaks TestSqlTaskManager
-        // and fixing it requires allowing TableScan nodes with no assignments
-
-        return new FixedPageSource(ImmutableList.of(new Page(1)));
+        return delegate.createPageSource(session, split, columns);
     }
 }

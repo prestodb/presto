@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+
 import java.util.List;
 
-@Deprecated
-public interface ConnectorPageSourceProvider
+public interface TransactionalConnectorRecordSetProvider
 {
-    ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns);
+    RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns);
 }

@@ -27,6 +27,7 @@ import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingSplit;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -75,7 +76,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.<Type>of(VARCHAR));
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split("test", TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split("test", TestingTransactionHandle.create("test"), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.<Type>of(VARCHAR), ImmutableList.of(input));
@@ -108,7 +109,7 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.<Type>of(VARCHAR));
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split("test", TestingSplit.createLocalSplit()));
+        operator.addSplit(new Split("test", TestingTransactionHandle.create("test"), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.<Type>of(VARCHAR), ImmutableList.of(input));

@@ -64,6 +64,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -704,12 +705,12 @@ public final class FunctionAssertions
     {
         static Split createRecordSetSplit()
         {
-            return new Split("test", new TestSplit(true));
+            return new Split("test", TestingTransactionHandle.create("test"), new TestSplit(true));
         }
 
         static Split createNormalSplit()
         {
-            return new Split("test", new TestSplit(false));
+            return new Split("test", TestingTransactionHandle.create("test"), new TestSplit(false));
         }
 
         private final boolean recordSet;

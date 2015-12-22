@@ -11,14 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.split;
+package com.facebook.presto.transaction;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
 import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
@@ -26,19 +25,19 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class RecordPageSourceProvider
-        implements TransactionalConnectorPageSourceProvider
+public class LegacyConnectorRecordSetProvider
+        implements TransactionalConnectorRecordSetProvider
 {
-    private TransactionalConnectorRecordSetProvider recordSetProvider;
+    private final ConnectorRecordSetProvider delegate;
 
-    public RecordPageSourceProvider(TransactionalConnectorRecordSetProvider recordSetProvider)
+    public LegacyConnectorRecordSetProvider(ConnectorRecordSetProvider delegate)
     {
-        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        return new RecordPageSource(recordSetProvider.getRecordSet(transactionHandle, session, split, columns));
+        return delegate.getRecordSet(session, split, columns);
     }
 }
