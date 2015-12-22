@@ -16,10 +16,10 @@ package com.facebook.presto.spi.transaction;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
+import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
 import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -46,7 +46,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time
      */
-    default ConnectorPageSourceProvider getPageSourceProvider()
+    default TransactionalConnectorPageSourceProvider getPageSourceProvider()
     {
         throw new UnsupportedOperationException();
     }
@@ -54,7 +54,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables record at a time
      */
-    default ConnectorRecordSetProvider getRecordSetProvider()
+    default TransactionalConnectorRecordSetProvider getRecordSetProvider()
     {
         throw new UnsupportedOperationException();
     }

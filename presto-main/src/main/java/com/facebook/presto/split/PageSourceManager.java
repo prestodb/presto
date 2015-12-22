@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,9 +30,9 @@ import static java.util.Objects.requireNonNull;
 public class PageSourceManager
         implements PageSourceProvider
 {
-    private final ConcurrentMap<String, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, TransactionalConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSourceProvider(String connectorId, ConnectorPageSourceProvider connectorPageSourceProvider)
+    public void addConnectorPageSourceProvider(String connectorId, TransactionalConnectorPageSourceProvider connectorPageSourceProvider)
     {
         pageSourceProviders.put(connectorId, connectorPageSourceProvider);
     }
@@ -45,12 +45,12 @@ public class PageSourceManager
 
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
-        return getPageSourceProvider(split).createPageSource(connectorSession, split.getConnectorSplit(), columns);
+        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
     }
 
-    private ConnectorPageSourceProvider getPageSourceProvider(Split split)
+    private TransactionalConnectorPageSourceProvider getPageSourceProvider(Split split)
     {
-        ConnectorPageSourceProvider provider = pageSourceProviders.get(split.getConnectorId());
+        TransactionalConnectorPageSourceProvider provider = pageSourceProviders.get(split.getConnectorId());
 
         checkArgument(provider != null, "No page stream provider for '%s", split.getConnectorId());
 

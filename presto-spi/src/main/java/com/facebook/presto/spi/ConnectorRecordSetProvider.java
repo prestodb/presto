@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import java.util.List;
 
+@Deprecated
 public interface ConnectorRecordSetProvider
 {
     RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns);

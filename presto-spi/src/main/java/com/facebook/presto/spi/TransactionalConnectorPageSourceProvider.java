@@ -1,3 +1,4 @@
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +14,11 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+
 import java.util.List;
 
-@Deprecated
-public interface ConnectorPageSourceProvider
+public interface TransactionalConnectorPageSourceProvider
 {
-    ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns);
+    ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns);
 }

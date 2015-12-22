@@ -27,6 +27,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializingOperator;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -297,7 +298,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split("test", new MockSplit());
+        return new Split("test", TestingTransactionHandle.create("test"), new MockSplit());
     }
 
     private MaterializingOperator createSinkOperator(Operator source)

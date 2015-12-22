@@ -23,11 +23,11 @@ import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
+import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
 import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
@@ -196,7 +196,7 @@ public class ConnectorManager
         Set<SystemTable> systemTables = connector.getSystemTables();
         requireNonNull(systemTables, "Connector %s returned a null system tables set");
 
-        ConnectorPageSourceProvider connectorPageSourceProvider = null;
+        TransactionalConnectorPageSourceProvider connectorPageSourceProvider = null;
         try {
             connectorPageSourceProvider = connector.getPageSourceProvider();
             requireNonNull(connectorPageSourceProvider, format("Connector %s returned a null page source provider", connectorId));
@@ -205,7 +205,7 @@ public class ConnectorManager
         }
 
         if (connectorPageSourceProvider == null) {
-            ConnectorRecordSetProvider connectorRecordSetProvider = null;
+            TransactionalConnectorRecordSetProvider connectorRecordSetProvider = null;
             try {
                 connectorRecordSetProvider = connector.getRecordSetProvider();
                 requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", connectorId));

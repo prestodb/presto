@@ -11,12 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.metadata;
 
-import java.util.List;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Deprecated
-public interface ConnectorPageSourceProvider
+public class RemoteTransactionHandle
+        implements ConnectorTransactionHandle
 {
-    ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns);
+    @JsonCreator
+    public RemoteTransactionHandle()
+    {
+    }
+
+    @JsonProperty
+    public String getDummyValue()
+    {
+        // Necessary for Jackson serialization
+        return null;
+    }
 }

@@ -11,34 +11,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.testing;
 
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class Split
+public class TestingTransactionHandle
+        implements ConnectorTransactionHandle
 {
     private final String connectorId;
-    private final ConnectorTransactionHandle transactionHandle;
-    private final ConnectorSplit connectorSplit;
+    private final UUID uuid;
 
     @JsonCreator
-    public Split(
+    public TestingTransactionHandle(
             @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
-            @JsonProperty("connectorSplit") ConnectorSplit connectorSplit)
+            @JsonProperty("uuid") UUID uuid)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
-        this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
+        this.uuid = requireNonNull(uuid, "uuid is null");
+    }
+
+    public static TestingTransactionHandle create(String connectorId)
+    {
+        return new TestingTransactionHandle(connectorId, UUID.randomUUID());
     }
 
     @JsonProperty
@@ -48,30 +50,29 @@ public final class Split
     }
 
     @JsonProperty
-    public ConnectorTransactionHandle getTransactionHandle()
+    public UUID getUuid()
     {
-        return transactionHandle;
+        return uuid;
     }
 
-    @JsonProperty
-    public ConnectorSplit getConnectorSplit()
+    @Override
+    public int hashCode()
     {
-        return connectorSplit;
+        return Objects.hash(connectorId, uuid);
     }
 
-    public Object getInfo()
+    @Override
+    public boolean equals(Object obj)
     {
-        return connectorSplit.getInfo();
-    }
-
-    public List<HostAddress> getAddresses()
-    {
-        return connectorSplit.getAddresses();
-    }
-
-    public boolean isRemotelyAccessible()
-    {
-        return connectorSplit.isRemotelyAccessible();
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final TestingTransactionHandle other = (TestingTransactionHandle) obj;
+        return Objects.equals(this.connectorId, other.connectorId)
+                && Objects.equals(this.uuid, other.uuid);
     }
 
     @Override
@@ -79,8 +80,7 @@ public final class Split
     {
         return toStringHelper(this)
                 .add("connectorId", connectorId)
-                .add("transactionHandle", transactionHandle)
-                .add("connectorSplit", connectorSplit)
+                .add("uuid", uuid)
                 .toString();
     }
 }

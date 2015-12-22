@@ -50,7 +50,7 @@ public class SplitManager
         if (layout.getConnectorHandle() instanceof LegacyTableLayoutHandle) {
             LegacyTableLayoutHandle handle = (LegacyTableLayoutHandle) layout.getConnectorHandle();
             if (handle.getPartitions().isEmpty()) {
-                return new ConnectorAwareSplitSource(connectorId, new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of()));
+                return new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of()));
             }
 
             source = splitManager.getPartitionSplits(layout.getTransactionHandle(), connectorSession, handle.getTable(), handle.getPartitions());
@@ -59,7 +59,7 @@ public class SplitManager
             source = splitManager.getSplits(layout.getTransactionHandle(), connectorSession, layout.getConnectorHandle());
         }
 
-        return new ConnectorAwareSplitSource(connectorId, source);
+        return new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
     }
 
     public TransactionalConnectorSplitManager getConnectorSplitManager(String connectorId)

@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.PagesSerde;
+import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.spi.Page;
@@ -157,7 +158,7 @@ public class TestExchangeOperator
 
     private Split newRemoteSplit(String taskId)
     {
-        return new Split("remote", new RemoteSplit(URI.create("http://localhost/" + taskId)));
+        return new Split("remote", new RemoteTransactionHandle(), new RemoteSplit(URI.create("http://localhost/" + taskId)));
     }
 
     @Test

@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -131,6 +132,8 @@ public class BenchmarkNodeScheduler
         public void setup()
                 throws NoSuchMethodException, IllegalAccessException
         {
+            TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
+
             finalizerService.start();
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 
@@ -144,7 +147,7 @@ public class BenchmarkNodeScheduler
                 Node node = nodes.get(i);
                 ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
                 for (int j = 0; j < MAX_SPLITS_PER_NODE + MAX_PENDING_SPLITS_PER_TASK_PER_NODE; j++) {
-                    initialSplits.add(new Split("foo", new TestSplitRemote(i)));
+                    initialSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(i)));
                 }
                 TaskId taskId = new TaskId(new StageId("test", "1"), String.valueOf(i));
                 MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
@@ -153,7 +156,7 @@ public class BenchmarkNodeScheduler
             }
 
             for (int i = 0; i < SPLITS; i++) {
-                splits.add(new Split("foo", new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES))));
+                splits.add(new Split("foo", transactionHandle, new TestSplitRemote(ThreadLocalRandom.current().nextInt(DATA_NODES))));
             }
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
