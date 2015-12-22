@@ -22,12 +22,12 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
 import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
 import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
+import com.facebook.presto.spi.TransactionalConnectorRecordSinkProvider;
 import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
@@ -219,7 +219,7 @@ public class ConnectorManager
         ConnectorHandleResolver connectorHandleResolver = connector.getHandleResolver();
         requireNonNull(connectorHandleResolver, format("Connector %s does not have a handle resolver", connectorId));
 
-        ConnectorPageSinkProvider connectorPageSinkProvider = null;
+        TransactionalConnectorPageSinkProvider connectorPageSinkProvider = null;
         try {
             connectorPageSinkProvider = connector.getPageSinkProvider();
             requireNonNull(connectorPageSinkProvider, format("Connector %s returned a null page sink provider", connectorId));
@@ -228,7 +228,7 @@ public class ConnectorManager
         }
 
         if (connectorPageSinkProvider == null) {
-            ConnectorRecordSinkProvider connectorRecordSinkProvider = null;
+            TransactionalConnectorRecordSinkProvider connectorRecordSinkProvider = null;
             try {
                 connectorRecordSinkProvider = connector.getRecordSinkProvider();
                 requireNonNull(connectorRecordSinkProvider, format("Connector %s returned a null record sink provider", connectorId));

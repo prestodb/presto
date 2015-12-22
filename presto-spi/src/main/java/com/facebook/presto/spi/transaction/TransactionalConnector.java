@@ -15,11 +15,11 @@ package com.facebook.presto.spi.transaction;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
 import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
 import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
+import com.facebook.presto.spi.TransactionalConnectorRecordSinkProvider;
 import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -62,7 +62,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not support writing tables page at a time
      */
-    default ConnectorPageSinkProvider getPageSinkProvider()
+    default TransactionalConnectorPageSinkProvider getPageSinkProvider()
     {
         throw new UnsupportedOperationException();
     }
@@ -70,7 +70,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not support writing tables record at a time
      */
-    default ConnectorRecordSinkProvider getRecordSinkProvider()
+    default TransactionalConnectorRecordSinkProvider getRecordSinkProvider()
     {
         throw new UnsupportedOperationException();
     }

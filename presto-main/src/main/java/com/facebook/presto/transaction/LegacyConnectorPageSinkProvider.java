@@ -11,38 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.split;
+package com.facebook.presto.transaction;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.RecordPageSink;
 import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
-import com.facebook.presto.spi.TransactionalConnectorRecordSinkProvider;
 import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
 import static java.util.Objects.requireNonNull;
 
-public class RecordPageSinkProvider
+public class LegacyConnectorPageSinkProvider
         implements TransactionalConnectorPageSinkProvider
 {
-    private final TransactionalConnectorRecordSinkProvider recordSinkProvider;
+    private final ConnectorPageSinkProvider delegate;
 
-    public RecordPageSinkProvider(TransactionalConnectorRecordSinkProvider recordSinkProvider)
+    public LegacyConnectorPageSinkProvider(ConnectorPageSinkProvider delegate)
     {
-        this.recordSinkProvider = requireNonNull(recordSinkProvider, "recordSinkProvider is null");
+        this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        return new RecordPageSink(recordSinkProvider.getRecordSink(transactionHandle, session, outputTableHandle));
+        return delegate.createPageSink(session, outputTableHandle);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        return new RecordPageSink(recordSinkProvider.getRecordSink(transactionHandle, session, insertTableHandle));
+        return delegate.createPageSink(session, insertTableHandle);
     }
 }

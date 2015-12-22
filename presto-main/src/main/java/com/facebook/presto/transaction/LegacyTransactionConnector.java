@@ -17,12 +17,12 @@ import com.facebook.presto.security.LegacyConnectorAccessControl;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
 import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
 import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
+import com.facebook.presto.spi.TransactionalConnectorRecordSinkProvider;
 import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -93,15 +93,15 @@ public class LegacyTransactionConnector
     }
 
     @Override
-    public ConnectorPageSinkProvider getPageSinkProvider()
+    public TransactionalConnectorPageSinkProvider getPageSinkProvider()
     {
-        return connector.getPageSinkProvider();
+        return new LegacyConnectorPageSinkProvider(connector.getPageSinkProvider());
     }
 
     @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    public TransactionalConnectorRecordSinkProvider getRecordSinkProvider()
     {
-        return connector.getRecordSinkProvider();
+        return new LegacyConnectorRecordSinkProvider(connector.getRecordSinkProvider());
     }
 
     @Override

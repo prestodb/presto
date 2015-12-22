@@ -524,9 +524,10 @@ public class MetadataManager
         ConnectorEntry entry = connectorsByCatalog.get(catalogName);
         checkArgument(entry != null, "Catalog %s does not exist", catalogName);
         TransactionalConnectorMetadata metadata = entry.getMetadataForWrite(session);
+        ConnectorTransactionHandle transactionHandle = entry.getTransactionHandle(session);
         ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(connectorSession, tableMetadata.getMetadata());
-        return new OutputTableHandle(entry.getConnectorId(), handle);
+        return new OutputTableHandle(entry.getConnectorId(), transactionHandle, handle);
     }
 
     @Override
@@ -542,8 +543,9 @@ public class MetadataManager
     {
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
         TransactionalConnectorMetadata metadata = entry.getMetadataForWrite(session);
+        ConnectorTransactionHandle transactionHandle = entry.getTransactionHandle(session);
         ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle());
-        return new InsertTableHandle(tableHandle.getConnectorId(), handle);
+        return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
     }
 
     @Override

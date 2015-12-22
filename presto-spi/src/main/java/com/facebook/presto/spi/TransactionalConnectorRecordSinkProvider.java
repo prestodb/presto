@@ -1,3 +1,4 @@
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +14,11 @@
  */
 package com.facebook.presto.spi;
 
-@Deprecated
-public interface ConnectorPageSinkProvider
-{
-    ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle);
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
-    ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle);
+public interface TransactionalConnectorRecordSinkProvider
+{
+    RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle);
+
+    RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle);
 }
