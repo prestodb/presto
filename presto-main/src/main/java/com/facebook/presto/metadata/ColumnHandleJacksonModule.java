@@ -17,37 +17,14 @@ import com.facebook.presto.spi.ColumnHandle;
 
 import javax.inject.Inject;
 
-import static java.util.Objects.requireNonNull;
-
 public class ColumnHandleJacksonModule
         extends AbstractTypedJacksonModule<ColumnHandle>
 {
     @Inject
     public ColumnHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(ColumnHandle.class, new ColumnHandleJsonTypeIdResolver(handleResolver));
-    }
-
-    private static class ColumnHandleJsonTypeIdResolver
-            implements JsonTypeIdResolver<ColumnHandle>
-    {
-        private final HandleResolver handleResolver;
-
-        private ColumnHandleJsonTypeIdResolver(HandleResolver handleResolver)
-        {
-            this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        }
-
-        @Override
-        public String getId(ColumnHandle columnHandle)
-        {
-            return handleResolver.getId(columnHandle);
-        }
-
-        @Override
-        public Class<? extends ColumnHandle> getType(String id)
-        {
-            return handleResolver.getColumnHandleClass(id);
-        }
+        super(ColumnHandle.class,
+                handleResolver::getId,
+                handleResolver::getColumnHandleClass);
     }
 }

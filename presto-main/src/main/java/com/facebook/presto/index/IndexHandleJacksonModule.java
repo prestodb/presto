@@ -15,12 +15,9 @@ package com.facebook.presto.index;
 
 import com.facebook.presto.metadata.AbstractTypedJacksonModule;
 import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.metadata.JsonTypeIdResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 
 import javax.inject.Inject;
-
-import static java.util.Objects.requireNonNull;
 
 public class IndexHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorIndexHandle>
@@ -28,29 +25,8 @@ public class IndexHandleJacksonModule
     @Inject
     public IndexHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(ConnectorIndexHandle.class, new IndexHandleJsonTypeIdResolver(handleResolver));
-    }
-
-    private static class IndexHandleJsonTypeIdResolver
-            implements JsonTypeIdResolver<ConnectorIndexHandle>
-    {
-        private final HandleResolver handleResolver;
-
-        private IndexHandleJsonTypeIdResolver(HandleResolver handleResolver)
-        {
-            this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        }
-
-        @Override
-        public String getId(ConnectorIndexHandle indexHandle)
-        {
-            return handleResolver.getId(indexHandle);
-        }
-
-        @Override
-        public Class<? extends ConnectorIndexHandle> getType(String id)
-        {
-            return handleResolver.getIndexHandleClass(id);
-        }
+        super(ConnectorIndexHandle.class,
+                handleResolver::getId,
+                handleResolver::getIndexHandleClass);
     }
 }
