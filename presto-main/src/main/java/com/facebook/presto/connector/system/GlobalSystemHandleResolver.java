@@ -32,31 +32,6 @@ public class GlobalSystemHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTransactionHandle transactionHandle)
-    {
-        return (transactionHandle instanceof GlobalSystemTransactionHandle) &&
-                ((GlobalSystemTransactionHandle) transactionHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         throw new UnsupportedOperationException();

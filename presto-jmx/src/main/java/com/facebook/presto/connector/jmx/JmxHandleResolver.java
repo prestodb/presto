@@ -22,24 +22,6 @@ public class JmxHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof JmxTableHandle;
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle instanceof JmxColumnHandle;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof JmxSplit;
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return JmxTableHandle.class;

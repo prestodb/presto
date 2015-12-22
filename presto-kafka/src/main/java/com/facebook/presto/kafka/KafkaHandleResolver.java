@@ -39,24 +39,6 @@ public class KafkaHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle != null && tableHandle instanceof KafkaTableHandle && connectorId.equals(((KafkaTableHandle) tableHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle != null && columnHandle instanceof KafkaColumnHandle && connectorId.equals(((KafkaColumnHandle) columnHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split != null && split instanceof KafkaSplit && connectorId.equals(((KafkaSplit) split).getConnectorId());
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return KafkaTableHandle.class;

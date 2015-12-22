@@ -35,30 +35,6 @@ public class ExampleHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof ExampleTableHandle && ((ExampleTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle instanceof ExampleColumnHandle && ((ExampleColumnHandle) columnHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof ExampleSplit && ((ExampleSplit) split).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableLayoutHandle handle)
-    {
-        return handle instanceof ExampleTableLayoutHandle;
-    }
-
-    @Override
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         return ExampleTableLayoutHandle.class;

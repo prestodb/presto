@@ -26,42 +26,6 @@ public final class BlackHoleHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof BlackHoleTableHandle;
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle instanceof BlackHoleColumnHandle;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof BlackHoleSplit;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return tableHandle instanceof BlackHoleOutputTableHandle;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return tableHandle instanceof BlackHoleInsertTableHandle;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableLayoutHandle handle)
-    {
-        return handle instanceof BlackHoleTableLayoutHandle;
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return BlackHoleTableHandle.class;

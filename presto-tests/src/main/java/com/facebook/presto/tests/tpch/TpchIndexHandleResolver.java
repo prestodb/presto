@@ -30,12 +30,6 @@ public class TpchIndexHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return indexHandle instanceof TpchIndexHandle && ((TpchIndexHandle) indexHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
     {
         return TpchIndexHandle.class;

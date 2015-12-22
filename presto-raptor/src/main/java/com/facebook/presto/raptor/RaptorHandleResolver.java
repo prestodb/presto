@@ -37,48 +37,6 @@ public class RaptorHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return (tableHandle instanceof RaptorTableHandle) &&
-                ((RaptorTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return (columnHandle instanceof RaptorColumnHandle) &&
-                ((RaptorColumnHandle) columnHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return (split instanceof RaptorSplit) &&
-                ((RaptorSplit) split).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableLayoutHandle handle)
-    {
-        return (handle instanceof RaptorTableLayoutHandle) &&
-                ((RaptorTableLayoutHandle) handle).getTable().getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return (tableHandle instanceof RaptorOutputTableHandle) &&
-                ((RaptorOutputTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return (tableHandle instanceof RaptorInsertTableHandle) &&
-                ((RaptorInsertTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return RaptorTableHandle.class;
