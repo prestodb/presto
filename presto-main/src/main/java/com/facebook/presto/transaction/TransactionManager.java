@@ -167,11 +167,11 @@ public class TransactionManager
         return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getConnectorMetadata();
     }
 
-    public ConnectorTransactionHandle getTransactionHandle(TransactionId transactionId, String connectorId)
+    public TransactionHandle getConnectorTransaction(TransactionId transactionId, String connectorId)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
         TransactionalConnector connector = getConnector(connectorId);
-        return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getTransactionHandle();
+        return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getConnectorTransaction();
     }
 
     public void checkConnectorWrite(TransactionId transactionId, String connectorId)
@@ -307,7 +307,7 @@ public class TransactionManager
             checkOpenTransaction();
             ConnectorTransactionMetadata transactionMetadata = connectorIdToMetadata.get(connectorId);
             if (transactionMetadata == null) {
-                transactionMetadata = new ConnectorTransactionMetadata(connectorId, connector, beginTransaction(connector));
+                transactionMetadata = new ConnectorTransactionMetadata(connector, new TransactionHandle(connectorId, beginTransaction(connector)));
                 // Don't use computeIfAbsent b/c the beginTransaction call might be recursive
                 checkState(connectorIdToMetadata.put(connectorId, transactionMetadata) == null);
             }
@@ -413,7 +413,7 @@ public class TransactionManager
                 connection.abort();
             }
             catch (Exception e) {
-                log.error(e, "Connector %s threw exception on abort", connection.getConnectorId());
+                log.error(e, "Connector %s threw exception on abort", connection.getConnectorTransaction().getConnectorId());
             }
         }
 
@@ -429,23 +429,16 @@ public class TransactionManager
 
         private static class ConnectorTransactionMetadata
         {
-            private final String connectorId;
             private final TransactionalConnector connector;
-            private final ConnectorTransactionHandle transactionHandle;
+            private final TransactionHandle connectorTransaction;
             private final Supplier<TransactionalConnectorMetadata> connectorMetadataSupplier;
             private final AtomicBoolean finished = new AtomicBoolean();
 
-            public ConnectorTransactionMetadata(String connectorId, TransactionalConnector connector, ConnectorTransactionHandle transactionHandle)
+            public ConnectorTransactionMetadata(TransactionalConnector connector, TransactionHandle connectorTransaction)
             {
-                this.connectorId = requireNonNull(connectorId, "connectorId is null");
                 this.connector = requireNonNull(connector, "connector is null");
-                this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
-                this.connectorMetadataSupplier = Suppliers.memoize(() -> connector.getMetadata(transactionHandle));
-            }
-
-            public String getConnectorId()
-            {
-                return connectorId;
+                this.connectorTransaction = requireNonNull(connectorTransaction, "connectorTransaction is null");
+                this.connectorMetadataSupplier = Suppliers.memoize(() -> connector.getMetadata(connectorTransaction.getTransactionHandle()));
             }
 
             public boolean isSingleStatementWritesOnly()
@@ -459,23 +452,23 @@ public class TransactionManager
                 return connectorMetadataSupplier.get();
             }
 
-            public ConnectorTransactionHandle getTransactionHandle()
+            public TransactionHandle getConnectorTransaction()
             {
                 checkState(!finished.get(), "Already finished");
-                return transactionHandle;
+                return connectorTransaction;
             }
 
             public void commit()
             {
                 if (finished.compareAndSet(false, true)) {
-                    connector.commit(transactionHandle);
+                    connector.commit(connectorTransaction.getTransactionHandle());
                 }
             }
 
             public void abort()
             {
                 if (finished.compareAndSet(false, true)) {
-                    connector.abort(transactionHandle);
+                    connector.abort(connectorTransaction.getTransactionHandle());
                 }
             }
         }

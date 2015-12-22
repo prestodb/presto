@@ -11,32 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.transaction;
 
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.transaction.TransactionHandle;
+import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class OutputTableHandle
+public class TransactionHandle
 {
     private final String connectorId;
-    private final TransactionHandle transactionHandle;
-    private final ConnectorOutputTableHandle connectorHandle;
+    private final ConnectorTransactionHandle transactionHandle;
 
     @JsonCreator
-    public OutputTableHandle(
+    public TransactionHandle(
             @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("transactionHandle") TransactionHandle transactionHandle,
-            @JsonProperty("connectorHandle") ConnectorOutputTableHandle connectorHandle)
+            @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
-        this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     @JsonProperty
@@ -46,21 +43,15 @@ public final class OutputTableHandle
     }
 
     @JsonProperty
-    public TransactionHandle getTransactionHandle()
+    public ConnectorTransactionHandle getTransactionHandle()
     {
         return transactionHandle;
-    }
-
-    @JsonProperty
-    public ConnectorOutputTableHandle getConnectorHandle()
-    {
-        return connectorHandle;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, transactionHandle, connectorHandle);
+        return Objects.hash(connectorId, transactionHandle);
     }
 
     @Override
@@ -72,15 +63,17 @@ public final class OutputTableHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        OutputTableHandle other = (OutputTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.transactionHandle, other.transactionHandle) &&
-                Objects.equals(this.connectorHandle, other.connectorHandle);
+        final TransactionHandle other = (TransactionHandle) obj;
+        return Objects.equals(this.connectorId, other.connectorId)
+                && Objects.equals(this.transactionHandle, other.transactionHandle);
     }
 
     @Override
     public String toString()
     {
-        return connectorId + ":" + transactionHandle + ":" + connectorHandle;
+        return toStringHelper(this)
+                .add("connectorId", connectorId)
+                .add("transactionHandle", transactionHandle)
+                .toString();
     }
 }

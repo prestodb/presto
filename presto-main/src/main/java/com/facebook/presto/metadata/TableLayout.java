@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.transaction.TransactionHandle;
 
 import java.util.List;
 import java.util.Optional;
@@ -69,7 +69,7 @@ public class TableLayout
         return layout.getDiscretePredicates();
     }
 
-    public static TableLayout fromConnectorLayout(String connectorId, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
+    public static TableLayout fromConnectorLayout(String connectorId, TransactionHandle transactionHandle, ConnectorTableLayout layout)
     {
         return new TableLayout(new TableLayoutHandle(connectorId, transactionHandle, layout.getHandle()), layout);
     }

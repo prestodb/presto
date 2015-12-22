@@ -28,6 +28,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.transaction.TransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -122,7 +123,7 @@ public class TestNodeScheduler
     public void testTopologyAwareScheduling()
             throws UnknownHostException
     {
-        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
+        TransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
@@ -274,7 +275,7 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNode()
             throws Exception
     {
-        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
+        TransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
 
         Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
         nodeManager.addNode("foo", newNode);
@@ -313,7 +314,7 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNodePerTask()
             throws Exception
     {
-        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
+        TransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
 
         Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
         nodeManager.addNode("foo", newNode);

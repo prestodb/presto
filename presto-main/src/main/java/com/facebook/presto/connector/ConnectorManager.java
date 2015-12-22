@@ -180,7 +180,7 @@ public class ConnectorManager
                 systemId,
                 nodeManager,
                 connector.getSystemTables(),
-                transactionId -> transactionManager.getTransactionHandle(transactionId, connectorId)));
+                transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId)));
 
         // Register session and table properties once per catalog
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
