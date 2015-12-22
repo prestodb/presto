@@ -29,6 +29,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.transaction.TransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -132,7 +133,7 @@ public class BenchmarkNodeScheduler
         public void setup()
                 throws NoSuchMethodException, IllegalAccessException
         {
-            TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
+            TransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
 
             finalizerService.start();
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);

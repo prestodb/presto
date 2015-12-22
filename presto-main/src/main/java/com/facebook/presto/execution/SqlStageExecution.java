@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.transaction.TransactionHandle;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -381,7 +382,7 @@ public final class SqlStageExecution
     private static Split createRemoteSplitFor(TaskId taskId, URI taskLocation)
     {
         URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(taskId.toString()).build();
-        return new Split("remote", new RemoteTransactionHandle(), new RemoteSplit(splitLocation));
+        return new Split("remote", new TransactionHandle("remote", new RemoteTransactionHandle()), new RemoteSplit(splitLocation));
     }
 
     @Override

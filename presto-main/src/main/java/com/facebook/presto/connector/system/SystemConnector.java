@@ -22,6 +22,7 @@ import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 import com.facebook.presto.transaction.InternalTransactionalConnector;
+import com.facebook.presto.transaction.TransactionHandle;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.util.Set;
@@ -37,13 +38,13 @@ public class SystemConnector
     private final TransactionalConnectorMetadata metadata;
     private final TransactionalConnectorSplitManager splitManager;
     private final TransactionalConnectorRecordSetProvider recordSetProvider;
-    private final Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction;
+    private final Function<TransactionId, TransactionHandle> transactionHandleFunction;
 
     public SystemConnector(
             String connectorId,
             NodeManager nodeManager,
             Set<SystemTable> tables,
-            Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
+            Function<TransactionId, TransactionHandle> transactionHandleFunction)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(nodeManager, "nodeManager is null");
