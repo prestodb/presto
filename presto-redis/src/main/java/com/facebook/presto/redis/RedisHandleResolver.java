@@ -40,30 +40,6 @@ public class RedisHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle != null && tableHandle instanceof RedisTableHandle && connectorId.equals(((RedisTableHandle) tableHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle != null && columnHandle instanceof RedisColumnHandle && connectorId.equals(((RedisColumnHandle) columnHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split != null && split instanceof RedisSplit && connectorId.equals(((RedisSplit) split).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableLayoutHandle handle)
-    {
-        return handle instanceof RedisTableLayoutHandle && ((RedisTableLayoutHandle) handle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return RedisTableHandle.class;

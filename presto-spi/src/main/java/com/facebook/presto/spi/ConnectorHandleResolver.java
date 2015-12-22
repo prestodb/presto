@@ -17,37 +17,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public interface ConnectorHandleResolver
 {
-    boolean canHandle(ConnectorTableHandle tableHandle);
-
-    default boolean canHandle(ConnectorTableLayoutHandle handle)
-    {
-        return false;
-    }
-
-    boolean canHandle(ColumnHandle columnHandle);
-
-    boolean canHandle(ConnectorSplit split);
-
-    default boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return false;
-    }
-
-    default boolean canHandle(ConnectorOutputTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    default boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    default boolean canHandle(ConnectorTransactionHandle transactionHandle)
-    {
-        return false;
-    }
-
     Class<? extends ConnectorTableHandle> getTableHandleClass();
 
     default Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()

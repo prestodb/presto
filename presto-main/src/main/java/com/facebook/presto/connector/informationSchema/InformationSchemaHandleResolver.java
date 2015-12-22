@@ -32,34 +32,6 @@ public class InformationSchemaHandleResolver
     }
 
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return (tableHandle instanceof InformationSchemaTableHandle) &&
-                ((InformationSchemaTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return (columnHandle instanceof InformationSchemaColumnHandle) &&
-                ((InformationSchemaColumnHandle) columnHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return (split instanceof InformationSchemaSplit) &&
-                ((InformationSchemaSplit) split).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTransactionHandle transactionHandle)
-    {
-        return (transactionHandle instanceof InformationSchemaTransactionHandle) &&
-                ((InformationSchemaTransactionHandle) transactionHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return InformationSchemaTableHandle.class;

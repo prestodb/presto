@@ -24,30 +24,6 @@ public class RemoteSplitHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof RemoteSplit;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTransactionHandle transactionHandle)
-    {
-        return transactionHandle instanceof RemoteTransactionHandle;
-    }
-
-    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         throw new UnsupportedOperationException();
