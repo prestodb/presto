@@ -257,16 +257,14 @@ public class LocalExecutionPlanner
             PlanNode plan,
             List<Symbol> outputLayout,
             Map<Symbol, Type> types,
-            Optional<PartitionFunctionBinding> partitionFunctionBinding,
+            PartitionFunctionBinding functionBinding,
             SharedBuffer sharedBuffer,
             boolean singleNode,
             boolean allowLocalParallel)
     {
-        if (!partitionFunctionBinding.isPresent() || partitionFunctionBinding.get().getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
+        if (functionBinding.getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
             return plan(session, plan, outputLayout, types, new TaskOutputFactory(sharedBuffer), singleNode, allowLocalParallel);
         }
-
-        PartitionFunctionBinding functionBinding = partitionFunctionBinding.get();
 
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
         List<Integer> partitionChannels;

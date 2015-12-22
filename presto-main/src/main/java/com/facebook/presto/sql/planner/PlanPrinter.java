@@ -76,7 +76,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -139,21 +138,19 @@ public class PlanPrinter
                     .append(format("Output layout: [%s]\n",
                             Joiner.on(", ").join(fragment.getOutputLayout())));
 
-            if (fragment.getPartitionFunction().isPresent()) {
-                PartitionFunctionBinding partitionFunction = fragment.getPartitionFunction().get();
-                boolean replicateNulls = partitionFunction.isReplicateNulls();
-                List<Symbol> symbols = partitionFunction.getPartitioningColumns();
-                builder.append(indentString(1));
-                if (replicateNulls) {
-                    builder.append(format("Output partitioning: %s (replicate nulls) [%s]\n",
-                            partitionFunction.getPartitioningHandle(),
-                            Joiner.on(", ").join(symbols)));
-                }
-                else {
-                    builder.append(format("Output partitioning: %s [%s]\n",
-                            partitionFunction.getPartitioningHandle(),
-                            Joiner.on(", ").join(symbols)));
-                }
+            PartitionFunctionBinding partitionFunction = fragment.getPartitionFunction();
+            boolean replicateNulls = partitionFunction.isReplicateNulls();
+            List<Symbol> symbols = partitionFunction.getPartitioningColumns();
+            builder.append(indentString(1));
+            if (replicateNulls) {
+                builder.append(format("Output partitioning: %s (replicate nulls) [%s]\n",
+                        partitionFunction.getPartitioningHandle(),
+                        Joiner.on(", ").join(symbols)));
+            }
+            else {
+                builder.append(format("Output partitioning: %s [%s]\n",
+                        partitionFunction.getPartitioningHandle(),
+                        Joiner.on(", ").join(symbols)));
             }
 
             builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, session, 1))
@@ -172,7 +169,7 @@ public class PlanPrinter
                 plan.getOutputSymbols(),
                 SINGLE_DISTRIBUTION,
                 plan.getId(),
-                Optional.empty());
+                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()));
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
