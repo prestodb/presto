@@ -82,8 +82,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableStringObjectInspector;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class HiveWriteUtils
@@ -128,7 +128,7 @@ public final class HiveWriteUtils
             return javaDoubleObjectInspector;
         }
         else if (type.equals(VarcharType.VARCHAR)) {
-            return javaStringObjectInspector;
+            return writableStringObjectInspector;
         }
         else if (type.equals(VarbinaryType.VARBINARY)) {
             return javaByteArrayObjectInspector;
@@ -174,7 +174,7 @@ public final class HiveWriteUtils
             return type.getDouble(block, position);
         }
         if (VarcharType.VARCHAR.equals(type)) {
-            return type.getSlice(block, position).toStringUtf8();
+            return new Text(type.getSlice(block, position).getBytes());
         }
         if (VarbinaryType.VARBINARY.equals(type)) {
             return type.getSlice(block, position).getBytes();

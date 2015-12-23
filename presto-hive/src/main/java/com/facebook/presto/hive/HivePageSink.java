@@ -22,6 +22,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -44,6 +45,7 @@ import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
@@ -449,7 +451,22 @@ public class HivePageSink
     private static void buildRow(List<Type> columnTypes, List<Object> row, Block[] blocks, int position)
     {
         for (int field = 0; field < blocks.length; field++) {
-            row.set(field, getField(columnTypes.get(field), blocks[field], position));
+            if (VarcharType.VARCHAR.equals(columnTypes.get(field))) {
+                if (blocks[field].isNull(position)) {
+                    row.set(field, null);
+                }
+                else {
+                    Text text = (Text) row.get(field);
+                    if (text == null) {
+                        text = new Text();
+                        row.set(field, text);
+                    }
+                    text.set(VarcharType.VARCHAR.getSlice(blocks[field], position).getBytes());
+                }
+            }
+            else {
+                row.set(field, getField(columnTypes.get(field), blocks[field], position));
+            }
         }
     }
 
@@ -534,6 +551,9 @@ public class HivePageSink
 
             fieldCount = fileColumnNames.size();
 
+            if (serDe.equals(org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe.class.getName())) {
+                serDe = OptimizedLazyBinaryColumnarSerde.class.getName();
+            }
             serializer = initializeSerializer(conf, schema, serDe);
             recordWriter = HiveWriteUtils.createRecordWriter(new Path(writePath, fileName), conf, schema, outputFormat);
 
