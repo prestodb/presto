@@ -1,0 +1,223 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.execution;
+
+import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.Isolation;
+import com.facebook.presto.sql.tree.StartTransaction;
+import com.facebook.presto.sql.tree.TransactionAccessMode;
+import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.transaction.TransactionInfo;
+import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import org.testng.Assert;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
+
+import java.net.URI;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+
+import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TRANSACTION_MODE;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+
+public class TestStartTransactionTask
+{
+    private final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+            throws Exception
+    {
+        executor.shutdownNow();
+    }
+
+    @Test
+    public void testNonTransactionalClient()
+            throws Exception
+    {
+        Session session = sessionBuilder().build();
+        TransactionManager transactionManager = createTestTransactionManager();
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, executor);
+        Assert.assertFalse(stateMachine.getSession().getTransactionId().isPresent());
+
+        try {
+            try {
+                new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+                Assert.fail();
+            }
+            catch (CompletionException e) {
+                throw Throwables.propagate(e.getCause());
+            }
+        }
+        catch (PrestoException e) {
+            Assert.assertEquals(e.getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode());
+        }
+        Assert.assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+    }
+
+    @Test
+    public void testNestedTransaction()
+            throws Exception
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+
+        Session session = sessionBuilder()
+                .setTransactionId(TransactionId.create())
+                .setClientTransactionSupport()
+                .build();
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, executor);
+
+        try {
+            try {
+                new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+                Assert.fail();
+            }
+            catch (CompletionException e) {
+                throw Throwables.propagate(e.getCause());
+            }
+        }
+        catch (PrestoException e) {
+            Assert.assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        }
+        Assert.assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+    }
+
+    @Test
+    public void testStartTransaction()
+            throws Exception
+    {
+        Session session = sessionBuilder()
+                .setClientTransactionSupport()
+                .build();
+        TransactionManager transactionManager = createTestTransactionManager();
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, executor);
+        Assert.assertFalse(stateMachine.getSession().getTransactionId().isPresent());
+
+        new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
+        Assert.assertTrue(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        Assert.assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
+
+        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().get());
+        Assert.assertFalse(transactionInfo.isAutoCommitContext());
+    }
+
+    @Test
+    public void testStartTransactionExplicitModes()
+            throws Exception
+    {
+        Session session = sessionBuilder()
+                .setClientTransactionSupport()
+                .build();
+        TransactionManager transactionManager = createTestTransactionManager();
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, executor);
+        Assert.assertFalse(stateMachine.getSession().getTransactionId().isPresent());
+
+        new StartTransactionTask().execute(new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.SERIALIZABLE), new TransactionAccessMode(true))), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
+        Assert.assertTrue(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        Assert.assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
+
+        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().get());
+        Assert.assertEquals(transactionInfo.getIsolationLevel(), IsolationLevel.SERIALIZABLE);
+        Assert.assertTrue(transactionInfo.isReadOnly());
+        Assert.assertFalse(transactionInfo.isAutoCommitContext());
+    }
+
+    @Test
+    public void testStartTransactionTooManyIsolationLevels()
+            throws Exception
+    {
+        Session session = sessionBuilder()
+                .setClientTransactionSupport()
+                .build();
+        TransactionManager transactionManager = createTestTransactionManager();
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, executor);
+        Assert.assertFalse(stateMachine.getSession().getTransactionId().isPresent());
+
+        try {
+            try {
+                new StartTransactionTask().execute(new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+                Assert.fail();
+            }
+            catch (CompletionException e) {
+                throw Throwables.propagate(e.getCause());
+            }
+        }
+        catch (SemanticException e) {
+            Assert.assertEquals(e.getCode(), INVALID_TRANSACTION_MODE);
+        }
+        Assert.assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+    }
+
+    @Test
+    public void testStartTransactionTooManyAccessModes()
+            throws Exception
+    {
+        Session session = sessionBuilder()
+                .setClientTransactionSupport()
+                .build();
+        TransactionManager transactionManager = createTestTransactionManager();
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, executor);
+        Assert.assertFalse(stateMachine.getSession().getTransactionId().isPresent());
+
+        try {
+            try {
+                new StartTransactionTask().execute(new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+                Assert.fail();
+            }
+            catch (CompletionException e) {
+                throw Throwables.propagate(e.getCause());
+            }
+        }
+        catch (SemanticException e) {
+            Assert.assertEquals(e.getCode(), INVALID_TRANSACTION_MODE);
+        }
+        Assert.assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+    }
+
+    private static SessionBuilder sessionBuilder()
+    {
+        return testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME);
+    }
+}
