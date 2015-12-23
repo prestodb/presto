@@ -472,6 +472,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitDropView(DropView node, C context)
     {
         return visitStatement(node, context);

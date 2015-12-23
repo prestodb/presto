@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -694,6 +695,15 @@ public final class SqlFormatter
                     .append(node.getColumn().getName())
                     .append(" ")
                     .append(node.getColumn().getType());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRefreshMaterializedView(RefreshMaterializedView node, Integer context)
+        {
+            builder.append("REFRESH MATERIALIZED VIEW ");
+            builder.append(node.getName());
 
             return null;
         }

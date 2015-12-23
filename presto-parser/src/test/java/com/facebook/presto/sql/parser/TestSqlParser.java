@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
@@ -959,6 +960,14 @@ public class TestSqlParser
         assertStatement("DROP VIEW IF EXISTS a", new DropView(QualifiedName.of("a"), true));
         assertStatement("DROP VIEW IF EXISTS a.b", new DropView(QualifiedName.of("a", "b"), true));
         assertStatement("DROP VIEW IF EXISTS a.b.c", new DropView(QualifiedName.of("a", "b", "c"), true));
+    }
+
+    @Test
+    public void testRefreshMaterializedView()
+            throws Exception
+    {
+        assertStatement("REFRESH MATERIALIZED VIEW a", new RefreshMaterializedView(QualifiedName.of("a")));
+        assertStatement("REFRESH MATERIALIZED VIEW a.b", new RefreshMaterializedView(QualifiedName.of("a", "b")));
     }
 
     @Test
