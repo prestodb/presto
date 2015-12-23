@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlFunction;
@@ -33,7 +34,17 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
 {
-    protected final FunctionAssertions functionAssertions = new FunctionAssertions();
+    protected final FunctionAssertions functionAssertions;
+
+    protected AbstractTestFunctions()
+    {
+        functionAssertions = new FunctionAssertions();
+    }
+
+    protected AbstractTestFunctions(Session session)
+    {
+        functionAssertions = new FunctionAssertions(session);
+    }
 
     protected void assertFunction(String projection, Type expectedType, Object expected)
     {

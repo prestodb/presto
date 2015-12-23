@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.RegexpGenericPattern;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
-import io.airlift.joni.Regex;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
@@ -32,7 +32,7 @@ public class RegexpType
 
     public RegexpType()
     {
-        super(parameterizedTypeName(NAME), Regex.class);
+        super(parameterizedTypeName(NAME), RegexpGenericPattern.class);
     }
 
     @Override

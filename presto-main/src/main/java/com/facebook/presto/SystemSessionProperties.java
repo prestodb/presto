@@ -54,6 +54,9 @@ public final class SystemSessionProperties
     public static final String COLUMNAR_PROCESSING = "columnar_processing";
     public static final String COLUMNAR_PROCESSING_DICTIONARY = "columnar_processing_dictionary";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
+    public static final String REGEX_LIBRARY = "regex_library";
+    public static final String RE2J_DFA_STATES_LIMIT = "re2j_dfa_states_limit";
+    public static final String RE2J_DFA_RETRIES = "re2j_dfa_retries";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -75,6 +78,23 @@ public final class SystemSessionProperties
                         "Policy used for scheduling query tasks",
                         queryManagerConfig.getQueryExecutionPolicy(),
                         false),
+                stringSessionProperty(
+                        REGEX_LIBRARY,
+                        "Select the regex library",
+                        "JONI",
+                        false),
+                integerSessionProperty(
+                        RE2J_DFA_STATES_LIMIT,
+                        "Set a DFA states limit",
+                        Integer.MAX_VALUE,
+                        false
+                ),
+                integerSessionProperty(
+                        RE2J_DFA_RETRIES,
+                        "Set a number of DFA retries before switching to NFA",
+                        5,
+                        false
+                ),
                 booleanSessionProperty(
                         OPTIMIZE_HASH_GENERATION,
                         "Compute hash codes for distribution, joins, and aggregations early in query plan",
