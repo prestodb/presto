@@ -14,14 +14,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.base.Throwables;
-import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
@@ -33,14 +29,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class DataDefinitionExecution<T extends Statement>
-        implements QueryExecution
+        extends AbstractQueryExecution
 {
     private final DataDefinitionTask<T> task;
     private final T statement;
-    private final Session session;
     private final Metadata metadata;
     private final AccessControl accessControl;
-    private final QueryStateMachine stateMachine;
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
@@ -50,113 +44,17 @@ public class DataDefinitionExecution<T extends Statement>
             AccessControl accessControl,
             QueryStateMachine stateMachine)
     {
+        super(session, stateMachine);
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
-        this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
     }
 
     @Override
-    public VersionedMemoryPoolId getMemoryPool()
+    protected void execute()
     {
-        return stateMachine.getMemoryPool();
-    }
-
-    @Override
-    public void setMemoryPool(VersionedMemoryPoolId poolId)
-    {
-        stateMachine.setMemoryPool(poolId);
-    }
-
-    @Override
-    public long getTotalMemoryReservation()
-    {
-        return 0;
-    }
-
-    @Override
-    public Session getSession()
-    {
-        return session;
-    }
-
-    @Override
-    public void start()
-    {
-        try {
-            // transition to running
-            if (!stateMachine.transitionToRunning()) {
-                // query already running or finished
-                return;
-            }
-
-            task.execute(statement, session, metadata, accessControl, stateMachine);
-
-            stateMachine.transitionToFinished();
-        }
-        catch (Throwable e) {
-            fail(e);
-            if (!(e instanceof RuntimeException)) {
-                throw Throwables.propagate(e);
-            }
-        }
-    }
-
-    @Override
-    public Duration waitForStateChange(QueryState currentState, Duration maxWait)
-            throws InterruptedException
-    {
-        return stateMachine.waitForStateChange(currentState, maxWait);
-    }
-
-    @Override
-    public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
-    {
-        stateMachine.addStateChangeListener(stateChangeListener);
-    }
-
-    @Override
-    public void fail(Throwable cause)
-    {
-        stateMachine.transitionToFailed(cause);
-    }
-
-    @Override
-    public void cancelStage(StageId stageId)
-    {
-        // no-op
-    }
-
-    @Override
-    public void recordHeartbeat()
-    {
-        stateMachine.recordHeartbeat();
-    }
-
-    @Override
-    public void pruneInfo()
-    {
-        // no-op
-    }
-
-    @Override
-    public QueryId getQueryId()
-    {
-        return stateMachine.getQueryId();
-    }
-
-    @Override
-    public QueryInfo getQueryInfo()
-    {
-        return stateMachine.getQueryInfoWithoutDetails();
-    }
-
-    @Override
-    public QueryState getState()
-    {
-        return stateMachine.getQueryState();
+        task.execute(statement, session, metadata, accessControl, stateMachine);
     }
 
     public static class DataDefinitionExecutionFactory
