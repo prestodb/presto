@@ -19,6 +19,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
@@ -291,7 +292,8 @@ public class SqlQueryManager
             return execution.getQueryInfo();
         }
 
-        QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
+        String formattedQuery = SqlFormatter.formatSql(statement);
+        QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, formattedQuery, session, statement);
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
         queryExecution.addStateChangeListener(newValue -> {
