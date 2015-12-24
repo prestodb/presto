@@ -16,19 +16,17 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
-public class VarcharType
+public final class VarcharType
         extends AbstractVariableWidthType
 {
     public static final VarcharType VARCHAR = new VarcharType();
 
-    @JsonCreator
-    public VarcharType()
+    private VarcharType()
     {
         super(parseTypeSignature(StandardTypes.VARCHAR), Slice.class);
     }
@@ -113,5 +111,17 @@ public class VarcharType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        return other == VARCHAR;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 }

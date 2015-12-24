@@ -96,4 +96,16 @@ public final class DoubleType
     {
         blockBuilder.writeDouble(value).closeEntry();
     }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        return other == DOUBLE;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
+    }
 }
