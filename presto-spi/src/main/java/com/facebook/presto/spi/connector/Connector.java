@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.connector;
 
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -27,8 +26,6 @@ import static java.util.Collections.emptySet;
 public interface Connector
 {
     ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly);
-
-    ConnectorHandleResolver getHandleResolver();
 
     /**
      * Guaranteed to be called at most once per transaction.

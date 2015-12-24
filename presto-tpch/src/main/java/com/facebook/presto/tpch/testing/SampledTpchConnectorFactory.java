@@ -49,6 +49,12 @@ public class SampledTpchConnectorFactory
     }
 
     @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new TpchHandleResolver();
+    }
+
+    @Override
     public Connector create(final String connectorId, Map<String, String> properties)
     {
         requireNonNull(properties, "properties is null");
@@ -65,12 +71,6 @@ public class SampledTpchConnectorFactory
             public ConnectorSplitManager getSplitManager()
             {
                 return new TpchSplitManager(connectorId, nodeManager, splitsPerNode);
-            }
-
-            @Override
-            public ConnectorHandleResolver getHandleResolver()
-            {
-                return new TpchHandleResolver(connectorId);
             }
 
             @Override

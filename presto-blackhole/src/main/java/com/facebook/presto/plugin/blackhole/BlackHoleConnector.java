@@ -15,7 +15,6 @@
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
@@ -36,28 +35,19 @@ public class BlackHoleConnector
     public static final String FIELD_LENGTH_PROPERTY = "field_length";
 
     private final BlackHoleMetadata metadata;
-    private final BlackHoleHandleResolver connectorHandleResolver;
     private final BlackHoleSplitManager splitManager;
     private final BlackHolePageSourceProvider pageSourceProvider;
     private final BlackHolePageSinkProvider pageSinkProvider;
 
     public BlackHoleConnector(BlackHoleMetadata metadata,
-            BlackHoleHandleResolver connectorHandleResolver,
             BlackHoleSplitManager splitManager,
             BlackHolePageSourceProvider pageSourceProvider,
             BlackHolePageSinkProvider pageSinkProvider)
     {
         this.metadata = metadata;
-        this.connectorHandleResolver = connectorHandleResolver;
         this.splitManager = splitManager;
         this.pageSourceProvider = pageSourceProvider;
         this.pageSinkProvider = pageSinkProvider;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return connectorHandleResolver;
     }
 
     @Override

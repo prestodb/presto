@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.type.TypeRegistry;
@@ -60,7 +59,6 @@ public class TestHiveConnectorFactory
         assertInstanceOf(connector.getMetadata(), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);
         assertInstanceOf(connector.getPageSourceProvider(), ConnectorPageSourceProvider.class);
-        assertInstanceOf(connector.getHandleResolver(), ClassLoaderSafeConnectorHandleResolver.class);
     }
 
     private static void assertCreateConnectorFails(String metastoreUri, String exceptionString)

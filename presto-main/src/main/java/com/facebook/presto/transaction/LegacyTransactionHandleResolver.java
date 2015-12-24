@@ -28,12 +28,10 @@ import static java.util.Objects.requireNonNull;
 public class LegacyTransactionHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
     private final ConnectorHandleResolver handleResolver;
 
-    public LegacyTransactionHandleResolver(String connectorId, ConnectorHandleResolver handleResolver)
+    public LegacyTransactionHandleResolver(ConnectorHandleResolver handleResolver)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
     }
 

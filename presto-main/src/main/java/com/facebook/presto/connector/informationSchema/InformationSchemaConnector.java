@@ -14,7 +14,6 @@
 package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -30,7 +29,6 @@ public class InformationSchemaConnector
         implements InternalConnector
 {
     private final String connectorId;
-    private final ConnectorHandleResolver handleResolver;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
@@ -43,7 +41,6 @@ public class InformationSchemaConnector
         requireNonNull(metadata, "metadata is null");
 
         this.connectorId = connectorId;
-        this.handleResolver = new InformationSchemaHandleResolver(connectorId);
         this.metadata = new InformationSchemaMetadata(connectorId, catalogName);
         this.splitManager = new InformationSchemaSplitManager(nodeManager);
         this.pageSourceProvider = new InformationSchemaPageSourceProvider(metadata);
@@ -53,12 +50,6 @@ public class InformationSchemaConnector
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
         return new InformationSchemaTransactionHandle(connectorId, transactionId);
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return handleResolver;
     }
 
     @Override

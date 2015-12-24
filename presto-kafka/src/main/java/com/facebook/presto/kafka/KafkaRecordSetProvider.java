@@ -29,6 +29,8 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.kafka.KafkaHandleResolver.convertColumnHandle;
+import static com.facebook.presto.kafka.KafkaHandleResolver.convertSplit;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -37,25 +39,20 @@ import static java.util.Objects.requireNonNull;
 public class KafkaRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final KafkaHandleResolver handleResolver;
     private final KafkaSimpleConsumerManager consumerManager;
     private final DecoderRegistry registry;
 
     @Inject
-    public KafkaRecordSetProvider(
-            DecoderRegistry registry,
-            KafkaHandleResolver handleResolver,
-            KafkaSimpleConsumerManager consumerManager)
+    public KafkaRecordSetProvider(DecoderRegistry registry, KafkaSimpleConsumerManager consumerManager)
     {
         this.registry = requireNonNull(registry, "registry is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
     }
 
     @Override
     public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        KafkaSplit kafkaSplit = handleResolver.convertSplit(split);
+        KafkaSplit kafkaSplit = convertSplit(split);
 
         ImmutableList.Builder<DecoderColumnHandle> handleBuilder = ImmutableList.builder();
         ImmutableMap.Builder<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoderBuilder = ImmutableMap.builder();
@@ -65,7 +62,7 @@ public class KafkaRecordSetProvider
         RowDecoder messageDecoder = registry.getRowDecoder(kafkaSplit.getMessageDataFormat());
 
         for (ColumnHandle handle : columns) {
-            KafkaColumnHandle columnHandle = handleResolver.convertColumnHandle(handle);
+            KafkaColumnHandle columnHandle = convertColumnHandle(handle);
             handleBuilder.add(columnHandle);
 
             if (!columnHandle.isInternal()) {

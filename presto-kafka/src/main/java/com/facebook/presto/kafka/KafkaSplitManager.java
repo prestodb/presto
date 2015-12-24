@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
+import static com.facebook.presto.kafka.KafkaHandleResolver.convertTableHandle;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -62,7 +63,6 @@ public class KafkaSplitManager
     private static final Logger log = Logger.get(KafkaSplitManager.class);
 
     private final String connectorId;
-    private final KafkaHandleResolver handleResolver;
     private final KafkaSimpleConsumerManager consumerManager;
     private final Set<HostAddress> nodes;
 
@@ -70,11 +70,9 @@ public class KafkaSplitManager
     public KafkaSplitManager(
             KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
-            KafkaHandleResolver handleResolver,
             KafkaSimpleConsumerManager consumerManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
 
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
@@ -84,7 +82,7 @@ public class KafkaSplitManager
     @Override
     public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        KafkaTableHandle kafkaTableHandle = handleResolver.convertTableHandle(tableHandle);
+        KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
 
         List<HostAddress> nodes = new ArrayList<>(this.nodes);
         Collections.shuffle(nodes);
@@ -123,7 +121,7 @@ public class KafkaSplitManager
     @Override
     public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
     {
-        KafkaTableHandle kafkaTableHandle = handleResolver.convertTableHandle(tableHandle);
+        KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
 
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
 

@@ -14,7 +14,6 @@
 package com.facebook.presto.transaction;
 
 import com.facebook.presto.security.LegacyConnectorAccessControl;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
@@ -61,12 +60,6 @@ public class LegacyTransactionConnector
             throw new PrestoException(UNSUPPORTED_ISOLATION_LEVEL, format("Connector supported isolation level %s does not meet requested isolation level %s", connector.getIsolationLevel(), isolationLevel));
         }
         return LegacyTransactionHandle.create(connectorId);
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new LegacyTransactionHandleResolver(connectorId, connector.getHandleResolver());
     }
 
     @Override

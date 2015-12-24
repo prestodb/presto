@@ -14,7 +14,6 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -37,27 +36,18 @@ public class KafkaConnector
     private final KafkaMetadata metadata;
     private final KafkaSplitManager splitManager;
     private final KafkaRecordSetProvider recordSetProvider;
-    private final KafkaHandleResolver handleResolver;
 
     @Inject
     public KafkaConnector(
             LifeCycleManager lifeCycleManager,
-            KafkaHandleResolver handleResolver,
             KafkaMetadata metadata,
             KafkaSplitManager splitManager,
             KafkaRecordSetProvider recordSetProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return handleResolver;
     }
 
     @Override

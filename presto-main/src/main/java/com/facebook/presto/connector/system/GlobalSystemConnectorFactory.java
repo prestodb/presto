@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -40,6 +41,12 @@ public class GlobalSystemConnectorFactory
     public String getName()
     {
         return GlobalSystemConnector.NAME;
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new GlobalSystemHandleResolver();
     }
 
     @Override

@@ -19,22 +19,9 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 
-import javax.inject.Inject;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
-
 public class CassandraHandleResolver
     implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    @Inject
-    public CassandraHandleResolver(CassandraConnectorId connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
@@ -57,13 +44,5 @@ public class CassandraHandleResolver
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
         return CassandraOutputTableHandle.class;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .toString();
     }
 }

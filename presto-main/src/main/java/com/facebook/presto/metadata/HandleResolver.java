@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
+import com.facebook.presto.connector.system.SystemHandleResolver;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
@@ -25,7 +27,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -33,25 +34,27 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class HandleResolver
 {
-    private final ConcurrentMap<String, ConnectorHandleResolver> handleIdResolvers = new ConcurrentHashMap<>();
-
-    public HandleResolver()
-    {
-    }
+    private final ConcurrentMap<String, ConnectorHandleResolver> handleResolvers = new ConcurrentHashMap<>();
 
     @Inject
-    public HandleResolver(Map<String, ConnectorHandleResolver> handleIdResolvers)
+    public HandleResolver()
     {
-        this.handleIdResolvers.putAll(handleIdResolvers);
+        handleResolvers.put("remote", new RemoteHandleResolver());
+        handleResolvers.put("$system", new SystemHandleResolver());
+        handleResolvers.put("$info_schema", new InformationSchemaHandleResolver());
     }
 
-    public void addHandleResolver(String id, ConnectorHandleResolver connectorHandleResolver)
+    public void addConnectorName(String name, ConnectorHandleResolver resolver)
     {
-        ConnectorHandleResolver existingResolver = handleIdResolvers.putIfAbsent(id, connectorHandleResolver);
-        checkState(existingResolver == null, "Id %s is already assigned to resolver %s", id, existingResolver);
+        requireNonNull(name, "name is null");
+        requireNonNull(resolver, "resolver is null");
+        ConnectorHandleResolver existingResolver = handleResolvers.putIfAbsent(name, resolver);
+        checkState(existingResolver == null || existingResolver.equals(resolver),
+                "Connector '%s' is already assigned to resolver: %s", name, existingResolver);
     }
 
     public String getId(ConnectorTableHandle tableHandle)
@@ -146,14 +149,14 @@ public class HandleResolver
 
     public ConnectorHandleResolver resolverFor(String id)
     {
-        ConnectorHandleResolver resolver = handleIdResolvers.get(id);
-        checkArgument(resolver != null, "No handle resolver for %s", id);
+        ConnectorHandleResolver resolver = handleResolvers.get(id);
+        checkArgument(resolver != null, "No handle resolver for connector: %s", id);
         return resolver;
     }
 
     private <T> String getId(T handle, Function<ConnectorHandleResolver, Class<? extends T>> getter)
     {
-        for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+        for (Entry<String, ConnectorHandleResolver> entry : handleResolvers.entrySet()) {
             try {
                 if (getter.apply(entry.getValue()).isInstance(handle)) {
                     return entry.getKey();

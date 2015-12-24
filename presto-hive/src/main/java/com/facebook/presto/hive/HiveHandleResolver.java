@@ -21,21 +21,9 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
-import javax.inject.Inject;
-
-import static java.util.Objects.requireNonNull;
-
 public class HiveHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    @Inject
-    public HiveHandleResolver(HiveConnectorId connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {

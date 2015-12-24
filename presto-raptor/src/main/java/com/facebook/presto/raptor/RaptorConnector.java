@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
@@ -41,7 +40,6 @@ public class RaptorConnector
     private final RaptorSplitManager splitManager;
     private final RaptorPageSourceProvider pageSourceProvider;
     private final RaptorPageSinkProvider pageSinkProvider;
-    private final RaptorHandleResolver handleResolver;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final Set<SystemTable> systemTables;
@@ -53,7 +51,6 @@ public class RaptorConnector
             RaptorSplitManager splitManager,
             RaptorPageSourceProvider pageSourceProvider,
             RaptorPageSinkProvider pageSinkProvider,
-            RaptorHandleResolver handleResolver,
             RaptorSessionProperties sessionProperties,
             RaptorTableProperties tableProperties,
             Set<SystemTable> systemTables)
@@ -63,7 +60,6 @@ public class RaptorConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").getSessionProperties();
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").getTableProperties();
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
@@ -79,12 +75,6 @@ public class RaptorConnector
     public ConnectorPageSinkProvider getPageSinkProvider()
     {
         return pageSinkProvider;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return handleResolver;
     }
 
     @Override

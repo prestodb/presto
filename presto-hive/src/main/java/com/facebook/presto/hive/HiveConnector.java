@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
@@ -42,7 +41,6 @@ public class HiveConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
-    private final ConnectorHandleResolver handleResolver;
     private final Set<SystemTable> systemTables;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> tableProperties;
@@ -54,7 +52,6 @@ public class HiveConnector
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
-            ConnectorHandleResolver handleResolver,
             Set<SystemTable> systemTables,
             List<PropertyMetadata<?>> sessionProperties,
             List<PropertyMetadata<?>> tableProperties,
@@ -65,7 +62,6 @@ public class HiveConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
@@ -94,12 +90,6 @@ public class HiveConnector
     public ConnectorPageSinkProvider getPageSinkProvider()
     {
         return pageSinkProvider;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return handleResolver;
     }
 
     @Override

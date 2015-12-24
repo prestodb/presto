@@ -14,7 +14,6 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorRecordSinkProvider;
@@ -35,7 +34,6 @@ public class CassandraConnector
     private final CassandraMetadata metadata;
     private final CassandraSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
-    private final CassandraHandleResolver handleResolver;
     private final CassandraConnectorRecordSinkProvider recordSinkProvider;
 
     @Inject
@@ -44,14 +42,12 @@ public class CassandraConnector
             CassandraMetadata metadata,
             CassandraSplitManager splitManager,
             CassandraRecordSetProvider recordSetProvider,
-            CassandraHandleResolver handleResolver,
             CassandraConnectorRecordSinkProvider recordSinkProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.recordSinkProvider = requireNonNull(recordSinkProvider, "recordSinkProvider is null");
     }
 
@@ -71,12 +67,6 @@ public class CassandraConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return handleResolver;
     }
 
     @Override

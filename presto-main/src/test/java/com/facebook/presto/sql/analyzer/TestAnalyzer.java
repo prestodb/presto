@@ -25,7 +25,6 @@ import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -1095,12 +1094,6 @@ public class TestAnalyzer
         return new LegacyTransactionConnector(connectorId, new com.facebook.presto.spi.Connector()
         {
             private final ConnectorMetadata metadata = new TestingMetadata();
-
-            @Override
-            public ConnectorHandleResolver getHandleResolver()
-            {
-                throw new UnsupportedOperationException();
-            }
 
             @Override
             public ConnectorMetadata getMetadata()

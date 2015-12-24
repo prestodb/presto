@@ -46,16 +46,16 @@ public class JmxConnectorFactory
     }
 
     @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new JmxHandleResolver();
+    }
+
+    @Override
     public Connector create(String connectorId, Map<String, String> properties)
     {
         return new Connector()
         {
-            @Override
-            public ConnectorHandleResolver getHandleResolver()
-            {
-                return new JmxHandleResolver();
-            }
-
             @Override
             public ConnectorMetadata getMetadata()
             {

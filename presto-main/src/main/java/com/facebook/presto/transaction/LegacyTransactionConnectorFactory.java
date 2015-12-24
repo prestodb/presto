@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 
@@ -34,6 +35,12 @@ public class LegacyTransactionConnectorFactory
     public String getName()
     {
         return connectorFactory.getName();
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new LegacyTransactionHandleResolver(connectorFactory.getHandleResolver());
     }
 
     @Override

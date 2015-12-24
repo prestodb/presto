@@ -42,7 +42,6 @@ public class RedisConnectorModule
     {
         binder.bind(RedisConnector.class).in(Scopes.SINGLETON);
 
-        binder.bind(RedisHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(RedisMetadata.class).in(Scopes.SINGLETON);
         binder.bind(RedisSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(RedisRecordSetProvider.class).in(Scopes.SINGLETON);

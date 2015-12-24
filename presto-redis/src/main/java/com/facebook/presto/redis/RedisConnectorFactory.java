@@ -15,6 +15,7 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.TypeManager;
@@ -58,6 +59,12 @@ public class RedisConnectorFactory
     public String getName()
     {
         return "redis";
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new RedisHandleResolver();
     }
 
     @Override

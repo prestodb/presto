@@ -34,6 +34,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.kafka.KafkaHandleResolver.convertColumnHandle;
+import static com.facebook.presto.kafka.KafkaHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -45,7 +47,6 @@ public class KafkaMetadata
         implements ConnectorMetadata
 {
     private final String connectorId;
-    private final KafkaHandleResolver handleResolver;
     private final boolean hideInternalColumns;
     private final Map<SchemaTableName, KafkaTopicDescription> tableDescriptions;
     private final Set<KafkaInternalFieldDescription> internalFieldDescriptions;
@@ -54,12 +55,10 @@ public class KafkaMetadata
     public KafkaMetadata(
             KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
-            KafkaHandleResolver handleResolver,
             Supplier<Map<SchemaTableName, KafkaTopicDescription>> kafkaTableDescriptionSupplier,
             Set<KafkaInternalFieldDescription> internalFieldDescriptions)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
 
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.hideInternalColumns = kafkaConnectorConfig.isHideInternalColumns();
@@ -103,8 +102,7 @@ public class KafkaMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        KafkaTableHandle kafkaTableHandle = handleResolver.convertTableHandle(tableHandle);
-        return getTableMetadata(kafkaTableHandle.toSchemaTableName());
+        return getTableMetadata(convertTableHandle(tableHandle).toSchemaTableName());
     }
 
     @Override
@@ -124,7 +122,7 @@ public class KafkaMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        KafkaTableHandle kafkaTableHandle = handleResolver.convertTableHandle(tableHandle);
+        KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
 
         KafkaTopicDescription kafkaTopicDescription = tableDescriptions.get(kafkaTableHandle.toSchemaTableName());
         if (kafkaTopicDescription == null) {
@@ -183,10 +181,8 @@ public class KafkaMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        handleResolver.convertTableHandle(tableHandle);
-        KafkaColumnHandle kafkaColumnHandle = handleResolver.convertColumnHandle(columnHandle);
-
-        return kafkaColumnHandle.getColumnMetadata();
+        convertTableHandle(tableHandle);
+        return convertColumnHandle(columnHandle).getColumnMetadata();
     }
 
     @SuppressWarnings("ValueOfIncrementOrDecrementUsed")

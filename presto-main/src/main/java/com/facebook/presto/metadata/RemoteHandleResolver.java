@@ -20,7 +20,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.split.RemoteSplit;
 
-public class RemoteSplitHandleResolver
+public class RemoteHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
