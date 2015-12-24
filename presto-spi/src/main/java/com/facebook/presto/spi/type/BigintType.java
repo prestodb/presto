@@ -97,4 +97,16 @@ public final class BigintType
     {
         blockBuilder.writeLong(value).closeEntry();
     }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        return other == BIGINT;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
+    }
 }

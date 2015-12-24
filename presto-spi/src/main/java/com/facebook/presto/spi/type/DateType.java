@@ -108,4 +108,16 @@ public final class DateType
     {
         blockBuilder.writeInt((int) value).closeEntry();
     }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        return other == DATE;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
+    }
 }

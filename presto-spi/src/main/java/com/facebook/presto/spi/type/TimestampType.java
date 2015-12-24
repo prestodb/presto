@@ -101,4 +101,16 @@ public final class TimestampType
     {
         blockBuilder.writeLong(value).closeEntry();
     }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        return other == TIMESTAMP;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
+    }
 }

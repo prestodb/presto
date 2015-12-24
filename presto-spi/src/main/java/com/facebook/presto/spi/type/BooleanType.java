@@ -97,4 +97,16 @@ public final class BooleanType
     {
         blockBuilder.writeByte(value ? 1 : 0).closeEntry();
     }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        return other == BOOLEAN;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
+    }
 }
