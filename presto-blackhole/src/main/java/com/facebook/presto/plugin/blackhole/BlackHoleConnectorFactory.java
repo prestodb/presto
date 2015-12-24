@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 
 import java.util.Map;
 
@@ -29,11 +30,16 @@ public class BlackHoleConnectorFactory
     }
 
     @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new BlackHoleHandleResolver();
+    }
+
+    @Override
     public Connector create(String connectorId, Map<String, String> requiredConfig)
     {
         return new BlackHoleConnector(
                 new BlackHoleMetadata(),
-                new BlackHoleHandleResolver(),
                 new BlackHoleSplitManager(),
                 new BlackHolePageSourceProvider(),
                 new BlackHolePageSinkProvider()

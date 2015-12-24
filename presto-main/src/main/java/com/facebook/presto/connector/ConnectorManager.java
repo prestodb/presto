@@ -19,7 +19,6 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -164,17 +163,22 @@ public class ConnectorManager
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactoryClass.getClassLoader())) {
             Connector connector = connectorFactory.create(connectorId, properties);
-            addCatalogConnector(catalogName, connectorId, connector);
+            addCatalogConnector(catalogName, connectorId, connectorFactory, properties);
         }
 
         catalogs.add(catalogName);
     }
 
-    private synchronized void addCatalogConnector(String catalogName, String connectorId, Connector connector)
+    private synchronized void addCatalogConnector(String catalogName, String connectorId, ConnectorFactory factory, Map<String, String> properties)
     {
+        Connector connector = factory.create(connectorId, properties);
+
         addConnectorInternal(ConnectorType.STANDARD, catalogName, connectorId, connector);
+        handleResolver.addConnectorName(factory.getName(), factory.getHandleResolver());
+
         String informationSchemaId = makeInformationSchemaConnectorId(connectorId);
         addConnectorInternal(ConnectorType.INFORMATION_SCHEMA, catalogName, informationSchemaId, new InformationSchemaConnector(informationSchemaId, catalogName, nodeManager, metadataManager));
+
         String systemId = makeSystemTablesConnectorId(connectorId);
         addConnectorInternal(ConnectorType.SYSTEM, catalogName, systemId, new SystemConnector(
                 systemId,
@@ -218,9 +222,6 @@ public class ConnectorManager
             checkState(connectorRecordSetProvider != null, "Connector %s has neither a PageSource or RecordSet provider", connectorId);
             connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
         }
-
-        ConnectorHandleResolver connectorHandleResolver = connector.getHandleResolver();
-        requireNonNull(connectorHandleResolver, format("Connector %s does not have a handle resolver", connectorId));
 
         ConnectorPageSinkProvider connectorPageSinkProvider = null;
         try {
@@ -278,7 +279,6 @@ public class ConnectorManager
         }
 
         splitManager.addConnectorSplitManager(connectorId, connectorSplitManager);
-        handleResolver.addHandleResolver(connectorId, connectorHandleResolver);
         pageSourceManager.addConnectorPageSourceProvider(connectorId, connectorPageSourceProvider);
 
         if (connectorPageSinkProvider != null) {

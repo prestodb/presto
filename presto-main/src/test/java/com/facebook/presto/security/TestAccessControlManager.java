@@ -14,7 +14,6 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
@@ -118,12 +117,6 @@ public class TestAccessControlManager
             {
                 // Just return something
                 return new ConnectorTransactionHandle() {};
-            }
-
-            @Override
-            public ConnectorHandleResolver getHandleResolver()
-            {
-                throw new UnsupportedOperationException();
             }
 
             @Override

@@ -20,5 +20,7 @@ public interface ConnectorFactory
 {
     String getName();
 
+    ConnectorHandleResolver getHandleResolver();
+
     Connector create(String connectorId, Map<String, String> config);
 }

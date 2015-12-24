@@ -15,7 +15,6 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -57,12 +56,6 @@ public class GlobalSystemConnector
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
         return new GlobalSystemTransactionHandle(connectorId, transactionId);
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new GlobalSystemHandleResolver(connectorId);
     }
 
     @Override

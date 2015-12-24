@@ -17,7 +17,6 @@ import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
@@ -103,9 +102,6 @@ public class TestCassandraConnector
 
         recordSetProvider = connector.getRecordSetProvider();
         assertInstanceOf(recordSetProvider, CassandraRecordSetProvider.class);
-
-        ConnectorHandleResolver handleResolver = connector.getHandleResolver();
-        assertInstanceOf(handleResolver, CassandraHandleResolver.class);
 
         database = KEYSPACE_NAME.toLowerCase();
         table = new SchemaTableName(database, TABLE_NAME.toLowerCase());

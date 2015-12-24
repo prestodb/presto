@@ -20,18 +20,9 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
-import static java.util.Objects.requireNonNull;
-
 public class SystemHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    public SystemHandleResolver(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {

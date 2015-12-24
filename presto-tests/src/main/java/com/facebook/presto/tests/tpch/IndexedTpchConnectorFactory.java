@@ -54,6 +54,12 @@ public class IndexedTpchConnectorFactory
     }
 
     @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new TpchIndexHandleResolver();
+    }
+
+    @Override
     public Connector create(final String connectorId, Map<String, String> properties)
     {
         final int splitsPerNode = getSplitsPerNode(properties);
@@ -70,12 +76,6 @@ public class IndexedTpchConnectorFactory
             public ConnectorSplitManager getSplitManager()
             {
                 return new TpchSplitManager(connectorId, nodeManager, splitsPerNode);
-            }
-
-            @Override
-            public ConnectorHandleResolver getHandleResolver()
-            {
-                return new TpchIndexHandleResolver(connectorId);
             }
 
             @Override

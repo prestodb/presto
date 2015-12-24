@@ -19,6 +19,7 @@ import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -77,6 +78,12 @@ public class RaptorConnectorFactory
     public String getName()
     {
         return name;
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new RaptorHandleResolver();
     }
 
     @Override

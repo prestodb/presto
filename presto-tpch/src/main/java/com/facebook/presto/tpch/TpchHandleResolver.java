@@ -19,18 +19,9 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
-import static java.util.Objects.requireNonNull;
-
 public class TpchHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    public TpchHandleResolver(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {

@@ -26,8 +26,6 @@ import static java.util.Collections.emptySet;
 @Deprecated
 public interface Connector
 {
-    ConnectorHandleResolver getHandleResolver();
-
     ConnectorMetadata getMetadata();
 
     ConnectorSplitManager getSplitManager();
