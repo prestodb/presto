@@ -97,4 +97,19 @@ public class TestGracefulShutdown
     {
         executor.shutdownNow();
     }
+
+    @Test(expectedExceptions = UnsupportedOperationException.class)
+    public void testCoordinatorShutdown()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, ImmutableMap.of())) {
+            TestingPrestoServer coordinator = queryRunner.getServers()
+                    .stream()
+                    .filter(TestingPrestoServer::isCoordinator)
+                    .findFirst()
+                    .get();
+
+            coordinator.getGracefulShutdownHandler().requestShutdown();
+        }
+    }
 }

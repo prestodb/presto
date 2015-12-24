@@ -74,7 +74,11 @@ public class GracefulShutdownHandler
     {
         log.info("Shutdown requested");
 
-        if (isShutdownRequested() || isCoordinator) {
+        if (isCoordinator) {
+            throw new UnsupportedOperationException("Cannot shutdown coordinator");
+        }
+
+        if (isShutdownRequested()) {
             return;
         }
 
