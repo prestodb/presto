@@ -47,7 +47,7 @@ public class JdbcRecordSink
     private int field = -1;
     private int batchSize;
 
-    public JdbcRecordSink(JdbcOutputTableHandle handle, JdbcClient jdbcClient)
+    public JdbcRecordSink(JdbcWritableTableHandle handle, JdbcClient jdbcClient)
     {
         try {
             connection = jdbcClient.getConnection(handle);

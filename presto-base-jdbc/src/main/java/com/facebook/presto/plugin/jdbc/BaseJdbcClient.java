@@ -270,6 +270,52 @@ public class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
+        JdbcWritableTableHandle writableTableHandle = beginWriteTable(tableMetadata);
+        return new JdbcOutputTableHandle(writableTableHandle.getConnectorId(),
+                writableTableHandle.getCatalogName(),
+                writableTableHandle.getSchemaName(),
+                writableTableHandle.getTableName(),
+                writableTableHandle.getColumnNames(),
+                writableTableHandle.getColumnTypes(),
+                writableTableHandle.getTemporaryTableName(),
+                writableTableHandle.getConnectionUrl(),
+                writableTableHandle.getConnectionProperties());
+    }
+
+    @Override
+    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments)
+    {
+        StringBuilder sql = new StringBuilder()
+                .append("ALTER TABLE ")
+                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
+                .append(" RENAME TO ")
+                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+
+        try (Connection connection = getConnection(handle)) {
+            execute(connection, sql.toString());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public JdbcInsertTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata)
+    {
+        JdbcWritableTableHandle writableTableHandle = beginWriteTable(tableMetadata);
+        return new JdbcInsertTableHandle(writableTableHandle.getConnectorId(),
+                writableTableHandle.getCatalogName(),
+                writableTableHandle.getSchemaName(),
+                writableTableHandle.getTableName(),
+                writableTableHandle.getColumnNames(),
+                writableTableHandle.getColumnTypes(),
+                writableTableHandle.getTemporaryTableName(),
+                writableTableHandle.getConnectionUrl(),
+                writableTableHandle.getConnectionProperties());
+    }
+
+    private JdbcWritableTableHandle beginWriteTable(ConnectorTableMetadata tableMetadata)
+    {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schema = schemaTableName.getSchemaName();
         String table = schemaTableName.getTableName();
@@ -312,7 +358,7 @@ public class BaseJdbcClient
 
             execute(connection, sql.toString());
 
-            return new JdbcOutputTableHandle(
+            return new JdbcWritableTableHandle(
                     connectorId,
                     catalog,
                     schema,
@@ -329,19 +375,29 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments)
+    public void finishInsertTable(JdbcInsertTableHandle handle, Collection<Slice> fragments)
     {
-        StringBuilder sql = new StringBuilder()
-                .append("ALTER TABLE ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(" RENAME TO ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+        StringBuilder insertSql = new StringBuilder();
+        StringBuilder cleanTempTableSql = new StringBuilder();
+        insertSql.append("INSERT INTO ")
+                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()))
+                .append(" SELECT * FROM ")
+                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()));
+        cleanTempTableSql.append("DROP TABLE ")
+                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()));
 
         try (Connection connection = getConnection(handle)) {
-            execute(connection, sql.toString());
+            execute(connection, insertSql.toString());
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
+        }
+
+        try (Connection connection = getConnection(handle)) {
+            execute(connection, cleanTempTableSql.toString());
+        }
+        catch (SQLException ignore) {
+            log.warn(ignore, "Failed to cleanup temp table %s during insert into table %s.%s", handle.getTemporaryTableName(), handle.getSchemaName(), handle.getTableName());
         }
     }
 
@@ -372,7 +428,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public String buildInsertSql(JdbcOutputTableHandle handle)
+    public String buildInsertSql(JdbcWritableTableHandle handle)
     {
         String vars = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
         return new StringBuilder()
@@ -383,7 +439,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Connection getConnection(JdbcOutputTableHandle handle)
+    public Connection getConnection(JdbcWritableTableHandle handle)
             throws SQLException
     {
         return driver.connect(handle.getConnectionUrl(), toProperties(handle.getConnectionProperties()));

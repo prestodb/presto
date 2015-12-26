@@ -38,6 +38,7 @@ final class MetadataUtil
     public static final JsonCodec<JdbcColumnHandle> COLUMN_CODEC;
     public static final JsonCodec<JdbcTableHandle> TABLE_CODEC;
     public static final JsonCodec<JdbcOutputTableHandle> OUTPUT_TABLE_CODEC;
+    public static final JsonCodec<JdbcInsertTableHandle> INSERT_TABLE_CODEC;
 
     static {
         ObjectMapperProvider provider = new ObjectMapperProvider();
@@ -46,6 +47,7 @@ final class MetadataUtil
         COLUMN_CODEC = codecFactory.jsonCodec(JdbcColumnHandle.class);
         TABLE_CODEC = codecFactory.jsonCodec(JdbcTableHandle.class);
         OUTPUT_TABLE_CODEC = codecFactory.jsonCodec(JdbcOutputTableHandle.class);
+        INSERT_TABLE_CODEC = codecFactory.jsonCodec(JdbcInsertTableHandle.class);
     }
 
     public static final class TestingTypeDeserializer
