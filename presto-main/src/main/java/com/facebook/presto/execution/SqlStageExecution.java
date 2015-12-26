@@ -182,6 +182,13 @@ public final class SqlStageExecution
                 .sum();
     }
 
+    public synchronized long getCpuTime()
+    {
+        return getAllTasks().stream()
+                .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
+                .sum();
+    }
+
     public StageInfo getStageInfo()
     {
         return stateMachine.getStageInfo(

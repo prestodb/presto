@@ -25,6 +25,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestMemoryManagerConfig
@@ -36,6 +37,7 @@ public class TestMemoryManagerConfig
                 .setKillOnOutOfMemory(false)
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
                 .setMaxQueryMemory(new DataSize(20, GIGABYTE))
+                .setMaxQueryCpuTime(new Duration(Long.MAX_VALUE, NANOSECONDS))
                 .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE)));
     }
 
@@ -47,12 +49,14 @@ public class TestMemoryManagerConfig
                 .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-memory-per-node", "2GB")
+                .put("query.max-cpu-time", "100ns")
                 .build();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
                 .setKillOnOutOfMemory(true)
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
                 .setMaxQueryMemory(new DataSize(2, GIGABYTE))
+                .setMaxQueryCpuTime(new Duration(100, NANOSECONDS))
                 .setMaxQueryMemoryPerNode(new DataSize(2, GIGABYTE));
 
         assertFullMapping(properties, expected);

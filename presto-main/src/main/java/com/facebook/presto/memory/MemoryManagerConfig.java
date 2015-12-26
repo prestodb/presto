@@ -24,6 +24,7 @@ import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @DefunctConfig("experimental.cluster-memory-manager-enabled")
 public class MemoryManagerConfig
@@ -34,6 +35,7 @@ public class MemoryManagerConfig
     private DataSize maxQueryMemoryPerNode = new DataSize(1, GIGABYTE);
     private boolean killOnOutOfMemory;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
+    private Duration maxQueryCpuTime = new Duration(Long.MAX_VALUE, NANOSECONDS);
 
     public boolean isKillOnOutOfMemory()
     {
@@ -60,6 +62,19 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setKillOnOutOfMemoryDelay(Duration killOnOutOfMemoryDelay)
     {
         this.killOnOutOfMemoryDelay = killOnOutOfMemoryDelay;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMaxQueryCpuTime()
+    {
+        return maxQueryCpuTime;
+    }
+
+    @Config("query.max-cpu-time")
+    public MemoryManagerConfig setMaxQueryCpuTime(Duration maxCpuTime)
+    {
+        this.maxQueryCpuTime = maxCpuTime;
         return this;
     }
 

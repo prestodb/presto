@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryId;
@@ -47,6 +48,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalLimit;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
@@ -71,6 +73,7 @@ public class ClusterMemoryManager
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
     private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
     private final DataSize maxQueryMemory;
+    private final Duration maxQueryCpuTime;
     private final boolean enabled;
     private final boolean killOnOutOfMemory;
     private final Duration killOnOutOfMemoryDelay;
@@ -110,6 +113,7 @@ public class ClusterMemoryManager
         this.memoryInfoCodec = requireNonNull(memoryInfoCodec, "memoryInfoCodec is null");
         this.assignmentsRequestJsonCodec = requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null");
         this.maxQueryMemory = config.getMaxQueryMemory();
+        this.maxQueryCpuTime = config.getMaxQueryCpuTime();
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
         this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
@@ -180,6 +184,17 @@ public class ClusterMemoryManager
         updatePools(countByPool);
 
         updateNodes(updateAssignments(queries));
+
+        // check if CPU usage is over limit
+        for (QueryExecution query : queries) {
+            Duration cpuTime = query.getTotalCpuTime();
+            Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
+            Duration lower = maxQueryCpuTime.compareTo(sessionLimit) < 0 ? maxQueryCpuTime : sessionLimit;
+            if (cpuTime.compareTo(lower) > 0) {
+                query.fail(new ExceededCpuLimitException(lower));
+                queryKilled = true;
+            }
+        }
     }
 
     @VisibleForTesting
