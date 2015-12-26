@@ -58,7 +58,9 @@ import static com.facebook.presto.execution.StageState.FINISHED;
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -188,14 +190,18 @@ public class SqlQueryScheduler
         OptionalInt partitionCount = OptionalInt.empty();
         if (plan.getFragment().getDistribution() == PlanDistribution.SINGLE) {
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-            stageSchedulers.put(stageId, new FixedCountScheduler(stage, ImmutableMap.of(0, nodeSelector.selectRandomNodes(1).get(0))));
+            List<Node> nodes = nodeSelector.selectRandomNodes(1);
+            checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+            stageSchedulers.put(stageId, new FixedCountScheduler(stage, ImmutableMap.of(0, nodes.get(0))));
             partitionCount = OptionalInt.of(1);
         }
         else if (plan.getFragment().getDistribution() == PlanDistribution.FIXED) {
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
+            List<Node> nodes = nodeSelector.selectRandomNodes(getHashPartitionCount(session));
+            checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
             ImmutableMap.Builder<Integer, Node> partitionToNode = ImmutableMap.builder();
             int partition = 0;
-            for (Node node : nodeSelector.selectRandomNodes(getHashPartitionCount(session))) {
+            for (Node node : nodes) {
                 partitionToNode.put(partition, node);
                 partition++;
             }
