@@ -48,6 +48,10 @@ public interface JdbcClient
 
     void commitCreateTable(JdbcOutputTableHandle handle);
 
+    JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata);
+
+    void finishInsertTable(JdbcOutputTableHandle handle);
+
     void dropTable(JdbcTableHandle jdbcTableHandle);
 
     void rollbackCreateTable(JdbcOutputTableHandle handle);
