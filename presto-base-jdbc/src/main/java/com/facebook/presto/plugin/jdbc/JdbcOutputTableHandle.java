@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -31,7 +32,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcOutputTableHandle
-        implements ConnectorOutputTableHandle
+        implements ConnectorOutputTableHandle, ConnectorInsertTableHandle
 {
     private final String connectorId;
     private final String catalogName;

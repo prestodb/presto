@@ -66,6 +66,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.fromProperties;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -268,6 +269,17 @@ public class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
+        return beginWriteTable(tableMetadata);
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata)
+    {
+        return beginWriteTable(tableMetadata);
+    }
+
+    private JdbcOutputTableHandle beginWriteTable(ConnectorTableMetadata tableMetadata)
+    {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schema = schemaTableName.getSchemaName();
         String table = schemaTableName.getTableName();
@@ -340,6 +352,29 @@ public class BaseJdbcClient
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void finishInsertTable(JdbcOutputTableHandle handle)
+    {
+        String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
+        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        String insertSql = format("INSERT INTO %s SELECT * FROM %s", targetTable, temporaryTable);
+        String cleanupSql = "DROP TABLE " + temporaryTable;
+
+        try (Connection connection = getConnection(handle)) {
+            execute(connection, insertSql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+
+        try (Connection connection = getConnection(handle)) {
+            execute(connection, cleanupSql);
+        }
+        catch (SQLException e) {
+            log.warn(e, "Failed to cleanup temporary table: %s", temporaryTable);
         }
     }
 
