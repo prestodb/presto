@@ -190,7 +190,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitGenericLiteral(GenericLiteral node, Boolean unmangleNames)
         {
-            return node.getType() + " '" + node.getValue() + "'";
+            return node.getType() + " " + formatStringLiteral(node.getValue());
         }
 
         @Override

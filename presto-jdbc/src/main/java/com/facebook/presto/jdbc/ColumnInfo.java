@@ -174,7 +174,7 @@ class ColumnInfo
         if (type.getBase().equals("array")) {
             return Types.ARRAY;
         }
-        switch (type.toString()) {
+        switch (type.getBase()) {
             case "boolean":
                 return Types.BOOLEAN;
             case "bigint":
