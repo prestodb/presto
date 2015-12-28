@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.cli;
 
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
+import jline.internal.NonBlockingInputStream;
+
 import java.io.IOException;
-import java.io.InputStream;
 
 import static org.fusesource.jansi.internal.CLibrary.STDIN_FILENO;
 import static org.fusesource.jansi.internal.CLibrary.isatty;
@@ -26,17 +25,34 @@ public final class KeyReader
     private KeyReader() {}
 
     @SuppressWarnings("resource")
-    public static int readKey()
+    public static int peekKey(LineReader reader)
     {
         if (!hasTerminal()) {
             return -1;
         }
 
         try {
-            InputStream in = new FileInputStream(FileDescriptor.in);
-            if (in.available() > 0) {
-                return in.read();
-            }
+            return ((NonBlockingInputStream) reader.getInput()).peek(500);
+        }
+        catch (IOException e) {
+            // ignore errors reading keyboard input
+        }
+        return -1;
+    }
+
+    /**
+     * This method should be called after peekKey to consume the
+     * byte that was returned in that call
+     */
+    @SuppressWarnings("resource")
+    public static int readKey(LineReader reader)
+    {
+        if (!hasTerminal()) {
+            return -1;
+        }
+
+        try {
+            return reader.getInput().read();
         }
         catch (IOException e) {
             // ignore errors reading keyboard input

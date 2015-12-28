@@ -82,7 +82,7 @@ public class Query
         return client.isClearTransactionId();
     }
 
-    public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    public void renderOutput(LineReader reader, PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
@@ -94,7 +94,7 @@ public class Query
             clientThread.interrupt();
         });
         try {
-            renderQueryOutput(out, outputFormat, interactive);
+            renderQueryOutput(reader, out, outputFormat, interactive);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
@@ -102,14 +102,14 @@ public class Query
         }
     }
 
-    private void renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    private void renderQueryOutput(LineReader reader, PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         StatusPrinter statusPrinter = null;
         @SuppressWarnings("resource")
         PrintStream errorChannel = interactive ? out : System.err;
 
         if (interactive) {
-            statusPrinter = new StatusPrinter(client, out);
+            statusPrinter = new StatusPrinter(client, reader, out);
             statusPrinter.printInitialStatusUpdates();
         }
         else {

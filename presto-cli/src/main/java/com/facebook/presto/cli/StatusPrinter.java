@@ -33,6 +33,7 @@ import static com.facebook.presto.cli.FormatUtils.formatDataSize;
 import static com.facebook.presto.cli.FormatUtils.formatProgressBar;
 import static com.facebook.presto.cli.FormatUtils.formatTime;
 import static com.facebook.presto.cli.FormatUtils.pluralize;
+import static com.facebook.presto.cli.KeyReader.peekKey;
 import static com.facebook.presto.cli.KeyReader.readKey;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
@@ -53,15 +54,17 @@ public class StatusPrinter
     private final StatementClient client;
     private final PrintStream out;
     private final ConsolePrinter console;
+    private final LineReader reader;
 
     private boolean debug;
 
-    public StatusPrinter(StatementClient client, PrintStream out)
+    public StatusPrinter(StatementClient client, LineReader reader, PrintStream out)
     {
         this.client = client;
         this.out = out;
         this.console = new ConsolePrinter(out);
         this.debug = client.isDebug();
+        this.reader = reader;
     }
 
 /*
@@ -96,19 +99,29 @@ Parallelism: 2.5
                     boolean update = nanosSince(lastPrint).getValue(SECONDS) >= 0.5;
 
                     // check for keyboard input
-                    int key = readKey();
+                    int key = peekKey(reader);
+                    boolean shouldConsumeKey = false;
                     if (key == CTRL_P) {
+                        shouldConsumeKey = true;
                         partialCancel();
                     }
                     else if (key == CTRL_C) {
+                        shouldConsumeKey = true;
                         updateScreen();
                         update = false;
                         client.close();
                     }
                     else if (toUpperCase(key) == 'D') {
+                        shouldConsumeKey = true;
                         debug = !debug;
                         console.resetScreen();
                         update = true;
+                    }
+
+                    // if it's a special character read this byte from the stream
+                    // to prevent it from being returned in subsequent peekKey() calls above
+                    if (shouldConsumeKey) {
+                        readKey(reader);
                     }
 
                     // update screen

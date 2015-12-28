@@ -223,7 +223,7 @@ public class Console
                             outputFormat = OutputFormat.VERTICAL;
                         }
 
-                        process(queryRunner, split.statement(), outputFormat, true);
+                        process(reader, queryRunner, split.statement(), outputFormat, true);
                     }
                     reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
                 }
@@ -271,7 +271,7 @@ public class Console
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                process(queryRunner, split.statement(), outputFormat, false);
+                process(null, queryRunner, split.statement(), outputFormat, false);
             }
         }
         if (!isEmptyStatement(splitter.getPartialStatement())) {
@@ -279,10 +279,10 @@ public class Console
         }
     }
 
-    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
+    private static void process(LineReader reader, QueryRunner queryRunner, String sql, OutputFormat outputFormat, boolean interactive)
     {
         try (Query query = queryRunner.startQuery(sql)) {
-            query.renderOutput(System.out, outputFormat, interactive);
+            query.renderOutput(reader, System.out, outputFormat, interactive);
 
             ClientSession session = queryRunner.getSession();
 
