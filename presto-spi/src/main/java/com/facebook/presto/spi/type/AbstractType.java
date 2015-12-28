@@ -175,6 +175,6 @@ public abstract class AbstractType
     @Override
     public final int hashCode()
     {
-        return getClass().hashCode();
+        return signature.hashCode();
     }
 }
