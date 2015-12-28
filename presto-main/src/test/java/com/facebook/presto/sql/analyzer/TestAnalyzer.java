@@ -683,6 +683,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupByEmpty()
+            throws Exception
+    {
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT a FROM t1 GROUP BY ()");
+    }
+
+    @Test
     public void testSingleGroupingSet()
             throws Exception
     {

@@ -1631,10 +1631,8 @@ class StatementAnalyzer
                 .distinct()
                 .collect(toImmutableList());
 
-        // check if:
-        // - aggregation is present: SELECT SUM(x) FROM table; or
-        // - group by is present: SELECT ... FROM table GROUP BY category
-        if (!aggregates.isEmpty() || !groupingSets.isEmpty()) {
+        // is this an aggregation query?
+        if (!groupingSets.isEmpty()) {
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group
             // e.g, these are all valid expressions:
             //     SELECT f(a) GROUP BY a
