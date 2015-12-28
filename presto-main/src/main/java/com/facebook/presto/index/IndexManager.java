@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TransactionalConnectorIndexProvider;
+import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,9 +29,9 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class IndexManager
 {
-    private final ConcurrentMap<String, TransactionalConnectorIndexProvider> providers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorIndexProvider> providers = new ConcurrentHashMap<>();
 
-    public void addIndexProvider(String connectorId, TransactionalConnectorIndexProvider provider)
+    public void addIndexProvider(String connectorId, ConnectorIndexProvider provider)
     {
         checkState(providers.putIfAbsent(connectorId, provider) == null, "IndexProvider for connector '%s' is already registered", connectorId);
     }
@@ -39,13 +39,13 @@ public class IndexManager
     public ConnectorIndex getIndex(Session session, IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
         ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getConnectorId());
-        TransactionalConnectorIndexProvider provider = getProvider(indexHandle);
+        ConnectorIndexProvider provider = getProvider(indexHandle);
         return provider.getIndex(indexHandle.getTransactionHandle().getTransactionHandle(), connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
     }
 
-    private TransactionalConnectorIndexProvider getProvider(IndexHandle handle)
+    private ConnectorIndexProvider getProvider(IndexHandle handle)
     {
-        TransactionalConnectorIndexProvider result = providers.get(handle.getConnectorId());
+        ConnectorIndexProvider result = providers.get(handle.getConnectorId());
         checkArgument(result != null, "No index provider for connector '%s'", handle.getConnectorId());
         return result;
     }

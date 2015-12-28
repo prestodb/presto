@@ -11,13 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.spi.connector;
 
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
-
-import java.util.List;
-
-public interface TransactionalConnectorRecordSetProvider
+public interface ConnectorTransactionHandle
 {
-    RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns);
 }

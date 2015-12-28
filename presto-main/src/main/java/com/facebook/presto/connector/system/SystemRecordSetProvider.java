@@ -22,10 +22,10 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +46,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SystemRecordSetProvider
-        implements TransactionalConnectorRecordSetProvider
+        implements ConnectorRecordSetProvider
 {
     private final Map<SchemaTableName, SystemTable> tables;
 

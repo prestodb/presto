@@ -20,7 +20,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -42,7 +42,7 @@ import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaMetadata
-        implements TransactionalConnectorMetadata
+        implements ConnectorMetadata
 {
     public static final String INFORMATION_SCHEMA = "information_schema";
 

@@ -13,20 +13,19 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.transaction.TransactionalConnector;
-import com.facebook.presto.spi.transaction.TransactionalConnectorFactory;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
 public class LegacyTransactionConnectorFactory
-        implements TransactionalConnectorFactory
+        implements ConnectorFactory
 {
-    private final ConnectorFactory connectorFactory;
+    private final com.facebook.presto.spi.ConnectorFactory connectorFactory;
 
-    public LegacyTransactionConnectorFactory(ConnectorFactory connectorFactory)
+    public LegacyTransactionConnectorFactory(com.facebook.presto.spi.ConnectorFactory connectorFactory)
     {
         this.connectorFactory = requireNonNull(connectorFactory, "connectorFactory is null");
     }
@@ -38,7 +37,7 @@ public class LegacyTransactionConnectorFactory
     }
 
     @Override
-    public TransactionalConnector create(String connectorId, Map<String, String> config)
+    public Connector create(String connectorId, Map<String, String> config)
     {
         return new LegacyTransactionConnector(connectorId, connectorFactory.create(connectorId, config));
     }

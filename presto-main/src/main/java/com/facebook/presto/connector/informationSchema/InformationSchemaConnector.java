@@ -16,24 +16,24 @@ package com.facebook.presto.connector.informationSchema;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
-import com.facebook.presto.spi.TransactionalConnectorSplitManager;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
-import com.facebook.presto.transaction.InternalTransactionalConnector;
+import com.facebook.presto.transaction.InternalConnector;
 import com.facebook.presto.transaction.TransactionId;
 
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaConnector
-        implements InternalTransactionalConnector
+        implements InternalConnector
 {
     private final String connectorId;
     private final ConnectorHandleResolver handleResolver;
-    private final TransactionalConnectorMetadata metadata;
-    private final TransactionalConnectorSplitManager splitManager;
-    private final TransactionalConnectorPageSourceProvider pageSourceProvider;
+    private final ConnectorMetadata metadata;
+    private final ConnectorSplitManager splitManager;
+    private final ConnectorPageSourceProvider pageSourceProvider;
 
     public InformationSchemaConnector(String connectorId, String catalogName, NodeManager nodeManager, Metadata metadata)
     {
@@ -62,19 +62,19 @@ public class InformationSchemaConnector
     }
 
     @Override
-    public TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
         return metadata;
     }
 
     @Override
-    public TransactionalConnectorSplitManager getSplitManager()
+    public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
     }
 
     @Override
-    public TransactionalConnectorPageSourceProvider getPageSourceProvider()
+    public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
     }

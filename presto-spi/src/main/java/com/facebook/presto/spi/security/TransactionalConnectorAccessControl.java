@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.security;
 
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public interface TransactionalConnectorAccessControl
 {

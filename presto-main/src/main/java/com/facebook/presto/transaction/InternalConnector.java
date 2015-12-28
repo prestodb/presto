@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.spi.transaction.TransactionalConnector;
 
-public interface InternalTransactionalConnector
-        extends TransactionalConnector
+public interface InternalConnector
+        extends Connector
 {
     default ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {

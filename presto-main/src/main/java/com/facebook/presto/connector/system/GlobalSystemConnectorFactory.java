@@ -14,8 +14,8 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.transaction.TransactionalConnector;
-import com.facebook.presto.spi.transaction.TransactionalConnectorFactory;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
@@ -26,7 +26,7 @@ import java.util.Set;
 import static java.util.Objects.requireNonNull;
 
 public class GlobalSystemConnectorFactory
-        implements TransactionalConnectorFactory
+        implements ConnectorFactory
 {
     private final Set<SystemTable> tables;
 
@@ -43,7 +43,7 @@ public class GlobalSystemConnectorFactory
     }
 
     @Override
-    public TransactionalConnector create(String connectorId, Map<String, String> config)
+    public Connector create(String connectorId, Map<String, String> config)
     {
         return new GlobalSystemConnector(connectorId, tables);
     }

@@ -22,12 +22,12 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
-import com.facebook.presto.spi.TransactionalConnectorSplitManager;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
-import com.facebook.presto.transaction.InternalTransactionalConnector;
+import com.facebook.presto.transaction.InternalConnector;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,7 +40,7 @@ import java.util.Set;
 import static java.util.Objects.requireNonNull;
 
 public class GlobalSystemConnector
-        implements InternalTransactionalConnector
+        implements InternalConnector
 {
     public static final String NAME = "system";
 
@@ -66,9 +66,9 @@ public class GlobalSystemConnector
     }
 
     @Override
-    public TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
-        return new TransactionalConnectorMetadata()
+        return new ConnectorMetadata()
         {
             @Override
             public List<String> listSchemaNames(ConnectorSession session)
@@ -115,13 +115,13 @@ public class GlobalSystemConnector
     }
 
     @Override
-    public TransactionalConnectorSplitManager getSplitManager()
+    public ConnectorSplitManager getSplitManager()
     {
-        return new TransactionalConnectorSplitManager() {};
+        return new ConnectorSplitManager() {};
     }
 
     @Override
-    public TransactionalConnectorPageSourceProvider getPageSourceProvider()
+    public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return (transactionHandle, session, split, columns) -> {
             throw new UnsupportedOperationException();

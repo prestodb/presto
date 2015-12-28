@@ -19,20 +19,19 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TransactionalConnectorIndexProvider;
-import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
-import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
-import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
-import com.facebook.presto.spi.TransactionalConnectorRecordSinkProvider;
-import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorIndexProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
-import com.facebook.presto.spi.transaction.TransactionalConnector;
-import com.facebook.presto.spi.transaction.TransactionalConnectorFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
@@ -75,10 +74,10 @@ public class ConnectorManager
     private final NodeManager nodeManager;
     private final TransactionManager transactionManager;
 
-    private final ConcurrentMap<String, TransactionalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     private final Set<String> catalogs = newConcurrentHashSet();
-    private final ConcurrentMap<String, TransactionalConnector> connectors = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Connector> connectors = new ConcurrentHashMap<>();
 
     private final AtomicBoolean stopped = new AtomicBoolean();
 
@@ -111,8 +110,8 @@ public class ConnectorManager
             return;
         }
 
-        for (Map.Entry<String, TransactionalConnector> entry : connectors.entrySet()) {
-            TransactionalConnector connector = entry.getValue();
+        for (Map.Entry<String, Connector> entry : connectors.entrySet()) {
+            Connector connector = entry.getValue();
             try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
                 connector.shutdown();
             }
@@ -122,15 +121,15 @@ public class ConnectorManager
         }
     }
 
-    public void addConnectorFactory(ConnectorFactory connectorFactory)
+    public void addConnectorFactory(com.facebook.presto.spi.ConnectorFactory connectorFactory)
     {
         addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
     }
 
-    public void addConnectorFactory(TransactionalConnectorFactory connectorFactory)
+    public void addConnectorFactory(ConnectorFactory connectorFactory)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
-        TransactionalConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
+        ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
         checkArgument(existingConnectorFactory == null, "Connector %s is already registered", connectorFactory.getName());
     }
 
@@ -141,19 +140,19 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         requireNonNull(properties, "properties is null");
 
-        TransactionalConnectorFactory connectorFactory = connectorFactories.get(connectorName);
+        ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             createConnection(catalogName, connectorFactory, properties);
         }
     }
 
-    public synchronized void createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    public synchronized void createConnection(String catalogName, com.facebook.presto.spi.ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         createConnection(catalogName, new LegacyTransactionConnectorFactory(connectorFactory), properties);
     }
 
-    public synchronized void createConnection(String catalogName, TransactionalConnectorFactory connectorFactory, Map<String, String> properties)
+    public synchronized void createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -164,13 +163,13 @@ public class ConnectorManager
         String connectorId = getConnectorId(catalogName);
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
 
-        TransactionalConnector connector = connectorFactory.create(connectorId, properties);
+        Connector connector = connectorFactory.create(connectorId, properties);
 
         addCatalogConnector(catalogName, connectorId, connector);
         catalogs.add(catalogName);
     }
 
-    private synchronized void addCatalogConnector(String catalogName, String connectorId, TransactionalConnector connector)
+    private synchronized void addCatalogConnector(String catalogName, String connectorId, Connector connector)
     {
         addConnectorInternal(ConnectorType.STANDARD, catalogName, connectorId, connector);
         String informationSchemaId = makeInformationSchemaConnectorId(connectorId);
@@ -187,19 +186,19 @@ public class ConnectorManager
         metadataManager.getTablePropertyManager().addTableProperties(catalogName, connector.getTableProperties());
     }
 
-    private synchronized void addConnectorInternal(ConnectorType type, String catalogName, String connectorId, TransactionalConnector connector)
+    private synchronized void addConnectorInternal(ConnectorType type, String catalogName, String connectorId, Connector connector)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
         connectors.put(connectorId, connector);
 
-        TransactionalConnectorSplitManager connectorSplitManager = connector.getSplitManager();
+        ConnectorSplitManager connectorSplitManager = connector.getSplitManager();
         checkState(connectorSplitManager != null, "Connector %s does not have a split manager", connectorId);
 
         Set<SystemTable> systemTables = connector.getSystemTables();
         requireNonNull(systemTables, "Connector %s returned a null system tables set");
 
-        TransactionalConnectorPageSourceProvider connectorPageSourceProvider = null;
+        ConnectorPageSourceProvider connectorPageSourceProvider = null;
         try {
             connectorPageSourceProvider = connector.getPageSourceProvider();
             requireNonNull(connectorPageSourceProvider, format("Connector %s returned a null page source provider", connectorId));
@@ -208,7 +207,7 @@ public class ConnectorManager
         }
 
         if (connectorPageSourceProvider == null) {
-            TransactionalConnectorRecordSetProvider connectorRecordSetProvider = null;
+            ConnectorRecordSetProvider connectorRecordSetProvider = null;
             try {
                 connectorRecordSetProvider = connector.getRecordSetProvider();
                 requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", connectorId));
@@ -222,7 +221,7 @@ public class ConnectorManager
         ConnectorHandleResolver connectorHandleResolver = connector.getHandleResolver();
         requireNonNull(connectorHandleResolver, format("Connector %s does not have a handle resolver", connectorId));
 
-        TransactionalConnectorPageSinkProvider connectorPageSinkProvider = null;
+        ConnectorPageSinkProvider connectorPageSinkProvider = null;
         try {
             connectorPageSinkProvider = connector.getPageSinkProvider();
             requireNonNull(connectorPageSinkProvider, format("Connector %s returned a null page sink provider", connectorId));
@@ -231,7 +230,7 @@ public class ConnectorManager
         }
 
         if (connectorPageSinkProvider == null) {
-            TransactionalConnectorRecordSinkProvider connectorRecordSinkProvider = null;
+            ConnectorRecordSinkProvider connectorRecordSinkProvider = null;
             try {
                 connectorRecordSinkProvider = connector.getRecordSinkProvider();
                 requireNonNull(connectorRecordSinkProvider, format("Connector %s returned a null record sink provider", connectorId));
@@ -241,7 +240,7 @@ public class ConnectorManager
             }
         }
 
-        TransactionalConnectorIndexProvider indexProvider = null;
+        ConnectorIndexProvider indexProvider = null;
         try {
             indexProvider = connector.getIndexProvider();
             requireNonNull(indexProvider, format("Connector %s returned a null index provider", connectorId));

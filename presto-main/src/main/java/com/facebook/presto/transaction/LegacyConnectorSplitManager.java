@@ -17,24 +17,23 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.TransactionalConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public class LegacyConnectorSplitManager
-        implements TransactionalConnectorSplitManager
+        implements ConnectorSplitManager
 {
-    private final ConnectorSplitManager splitManager;
+    private final com.facebook.presto.spi.ConnectorSplitManager splitManager;
 
-    public LegacyConnectorSplitManager(ConnectorSplitManager splitManager)
+    public LegacyConnectorSplitManager(com.facebook.presto.spi.ConnectorSplitManager splitManager)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
     }

@@ -11,18 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.transaction;
+package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TransactionalConnectorIndexProvider;
-import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
-import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
-import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
-import com.facebook.presto.spi.TransactionalConnectorRecordSinkProvider;
-import com.facebook.presto.spi.TransactionalConnectorSplitManager;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Set;
@@ -30,7 +25,7 @@ import java.util.Set;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
-public interface TransactionalConnector
+public interface Connector
 {
     ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly);
 
@@ -39,14 +34,14 @@ public interface TransactionalConnector
     /**
      * Guaranteed to be called at most once per transaction.
      */
-    TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
+    ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
 
-    TransactionalConnectorSplitManager getSplitManager();
+    ConnectorSplitManager getSplitManager();
 
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time
      */
-    default TransactionalConnectorPageSourceProvider getPageSourceProvider()
+    default ConnectorPageSourceProvider getPageSourceProvider()
     {
         throw new UnsupportedOperationException();
     }
@@ -54,7 +49,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables record at a time
      */
-    default TransactionalConnectorRecordSetProvider getRecordSetProvider()
+    default ConnectorRecordSetProvider getRecordSetProvider()
     {
         throw new UnsupportedOperationException();
     }
@@ -62,7 +57,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not support writing tables page at a time
      */
-    default TransactionalConnectorPageSinkProvider getPageSinkProvider()
+    default ConnectorPageSinkProvider getPageSinkProvider()
     {
         throw new UnsupportedOperationException();
     }
@@ -70,7 +65,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not support writing tables record at a time
      */
-    default TransactionalConnectorRecordSinkProvider getRecordSinkProvider()
+    default ConnectorRecordSinkProvider getRecordSinkProvider()
     {
         throw new UnsupportedOperationException();
     }
@@ -78,7 +73,7 @@ public interface TransactionalConnector
     /**
      * @throws UnsupportedOperationException if this connector does not support indexes
      */
-    default TransactionalConnectorIndexProvider getIndexProvider()
+    default ConnectorIndexProvider getIndexProvider()
     {
         throw new UnsupportedOperationException();
     }

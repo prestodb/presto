@@ -14,10 +14,10 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 
 import static java.util.Objects.requireNonNull;
 

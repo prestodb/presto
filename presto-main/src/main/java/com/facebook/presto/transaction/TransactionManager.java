@@ -14,10 +14,10 @@
 package com.facebook.presto.transaction;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.spi.transaction.TransactionalConnector;
-import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -71,7 +71,7 @@ public class TransactionManager
     private final Duration idleTimeout;
     private final int maxFinishingConcurrency;
 
-    private final ConcurrentMap<String, TransactionalConnector> connectorsById = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Connector> connectorsById = new ConcurrentHashMap<>();
     private final ConcurrentMap<TransactionId, TransactionMetadata> transactions = new ConcurrentHashMap<>();
     private final Executor finishingExecutor;
 
@@ -127,11 +127,11 @@ public class TransactionManager
         }
     }
 
-    public void addConnector(String connectorId, TransactionalConnector transactionalConnector)
+    public void addConnector(String connectorId, Connector connector)
     {
         requireNonNull(connectorId, "connectorId is null");
-        requireNonNull(transactionalConnector, "transactionalConnector is null");
-        checkArgument(connectorsById.put(connectorId, transactionalConnector) == null, "Connector '%s' is already registered", connectorId);
+        requireNonNull(connector, "connector is null");
+        checkArgument(connectorsById.put(connectorId, connector) == null, "Connector '%s' is already registered", connectorId);
     }
 
     public TransactionInfo getTransactionInfo(TransactionId transactionId)
@@ -160,17 +160,17 @@ public class TransactionManager
         return transactionId;
     }
 
-    public TransactionalConnectorMetadata getMetadata(TransactionId transactionId, String connectorId)
+    public ConnectorMetadata getMetadata(TransactionId transactionId, String connectorId)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
-        TransactionalConnector connector = getConnector(connectorId);
+        Connector connector = getConnector(connectorId);
         return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getConnectorMetadata();
     }
 
     public TransactionHandle getConnectorTransaction(TransactionId transactionId, String connectorId)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
-        TransactionalConnector connector = getConnector(connectorId);
+        Connector connector = getConnector(connectorId);
         return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getConnectorTransaction();
     }
 
@@ -196,9 +196,9 @@ public class TransactionManager
         tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::setInActive);
     }
 
-    private TransactionalConnector getConnector(String connectorId)
+    private Connector getConnector(String connectorId)
     {
-        TransactionalConnector connector = connectorsById.get(connectorId);
+        Connector connector = connectorsById.get(connectorId);
         checkArgument(connector != null, "Unknown connector ID: %s", connectorId);
         return connector;
     }
@@ -302,7 +302,7 @@ public class TransactionManager
             }
         }
 
-        public synchronized ConnectorTransactionMetadata getConnectorTransactionMetadata(String connectorId, TransactionalConnector connector)
+        public synchronized ConnectorTransactionMetadata getConnectorTransactionMetadata(String connectorId, Connector connector)
         {
             checkOpenTransaction();
             ConnectorTransactionMetadata transactionMetadata = connectorIdToMetadata.get(connectorId);
@@ -314,10 +314,10 @@ public class TransactionManager
             return transactionMetadata;
         }
 
-        private ConnectorTransactionHandle beginTransaction(TransactionalConnector connector)
+        private ConnectorTransactionHandle beginTransaction(Connector connector)
         {
-            if (connector instanceof InternalTransactionalConnector) {
-                return ((InternalTransactionalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
+            if (connector instanceof InternalConnector) {
+                return ((InternalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
             }
             else {
                 return connector.beginTransaction(isolationLevel, readOnly);
@@ -429,12 +429,12 @@ public class TransactionManager
 
         private static class ConnectorTransactionMetadata
         {
-            private final TransactionalConnector connector;
+            private final Connector connector;
             private final TransactionHandle connectorTransaction;
-            private final Supplier<TransactionalConnectorMetadata> connectorMetadataSupplier;
+            private final Supplier<ConnectorMetadata> connectorMetadataSupplier;
             private final AtomicBoolean finished = new AtomicBoolean();
 
-            public ConnectorTransactionMetadata(TransactionalConnector connector, TransactionHandle connectorTransaction)
+            public ConnectorTransactionMetadata(Connector connector, TransactionHandle connectorTransaction)
             {
                 this.connector = requireNonNull(connector, "connector is null");
                 this.connectorTransaction = requireNonNull(connectorTransaction, "connectorTransaction is null");
@@ -446,7 +446,7 @@ public class TransactionManager
                 return connector.isSingleStatementWritesOnly();
             }
 
-            public synchronized TransactionalConnectorMetadata getConnectorMetadata()
+            public synchronized ConnectorMetadata getConnectorMetadata()
             {
                 checkState(!finished.get(), "Already finished");
                 return connectorMetadataSupplier.get();

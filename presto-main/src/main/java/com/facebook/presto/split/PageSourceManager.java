@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,9 +30,9 @@ import static java.util.Objects.requireNonNull;
 public class PageSourceManager
         implements PageSourceProvider
 {
-    private final ConcurrentMap<String, TransactionalConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSourceProvider(String connectorId, TransactionalConnectorPageSourceProvider connectorPageSourceProvider)
+    public void addConnectorPageSourceProvider(String connectorId, ConnectorPageSourceProvider connectorPageSourceProvider)
     {
         pageSourceProviders.put(connectorId, connectorPageSourceProvider);
     }
@@ -48,9 +48,9 @@ public class PageSourceManager
         return getPageSourceProvider(split).createPageSource(split.getTransactionHandle().getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
     }
 
-    private TransactionalConnectorPageSourceProvider getPageSourceProvider(Split split)
+    private ConnectorPageSourceProvider getPageSourceProvider(Split split)
     {
-        TransactionalConnectorPageSourceProvider provider = pageSourceProviders.get(split.getConnectorId());
+        ConnectorPageSourceProvider provider = pageSourceProviders.get(split.getConnectorId());
 
         checkArgument(provider != null, "No page stream provider for '%s", split.getConnectorId());
 

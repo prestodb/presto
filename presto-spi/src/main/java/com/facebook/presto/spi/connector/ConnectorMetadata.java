@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.transaction;
+package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -44,7 +44,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 
-public interface TransactionalConnectorMetadata
+public interface ConnectorMetadata
 {
     /**
      * Returns the schemas provided by this connector.
