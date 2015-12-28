@@ -41,6 +41,17 @@ import static org.testng.Assert.assertTrue;
 public class TestTypeRegistry
 {
     @Test
+    public void testIsTypeOnlyCoercion()
+    {
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(44)")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("varchar(44)"), parseTypeSignature("varchar(42)")));
+
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(varchar(42))"), parseTypeSignature("array(varchar(44))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(varchar(44))"), parseTypeSignature("array(varchar(42))")));
+    }
+
+    @Test
     public void testCanCoerce()
     {
         assertTrue(TypeRegistry.canCoerce(BIGINT, BIGINT));
