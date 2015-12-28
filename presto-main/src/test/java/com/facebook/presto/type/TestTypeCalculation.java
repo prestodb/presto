@@ -49,18 +49,18 @@ public class TestTypeCalculation
     @Test
     public void disallowExpressionFlag()
     {
-        assertEquals(calculateLiteralValue("x", ImmutableMap.of("X", OptionalLong.of(42))), OptionalLong.of(42));
+        assertEquals(calculateLiteralValue("x", ImmutableMap.of("X", OptionalLong.of(42)), false), OptionalLong.of(42));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void failDisallowBinaryExpression()
     {
-        calculateLiteralValue("x + y", ImmutableMap.of("X", OptionalLong.of(42), "Y", OptionalLong.of(55)));
+        calculateLiteralValue("x + y", ImmutableMap.of("X", OptionalLong.of(42), "Y", OptionalLong.of(55)), false);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void failDisallowUnaryExpression()
     {
-        calculateLiteralValue("-y", ImmutableMap.of("Y", OptionalLong.of(55)));
+        calculateLiteralValue("-y", ImmutableMap.of("Y", OptionalLong.of(55)), false);
     }
 }

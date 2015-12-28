@@ -41,6 +41,7 @@ import static com.facebook.presto.type.TypeCalculationParser.ASTERISK;
 import static com.facebook.presto.type.TypeCalculationParser.MINUS;
 import static com.facebook.presto.type.TypeCalculationParser.PLUS;
 import static com.facebook.presto.type.TypeCalculationParser.SLASH;
+import static java.lang.String.format;
 
 public final class TypeCalculation
 {
@@ -57,8 +58,19 @@ public final class TypeCalculation
 
     public static OptionalLong calculateLiteralValue(String calculation, Map<String, OptionalLong> inputs)
     {
+        return calculateLiteralValue(calculation, inputs, true);
+    }
+
+    public static OptionalLong calculateLiteralValue(
+            String calculation,
+            Map<String, OptionalLong> inputs,
+            boolean allowExpressionInCalculation)
+    {
         try {
             ParserRuleContext tree = parseTypeCalculation(calculation);
+            if (!allowExpressionInCalculation && !(new IsSingleNodeVisitor().visit(tree))) {
+                throw new IllegalArgumentException(format("Expressions not allowed, but got [%s]", calculation));
+            }
             return new CalculateTypeVisitor(inputs).visit(tree);
         }
         catch (StackOverflowError e) {
@@ -93,6 +105,32 @@ public final class TypeCalculation
             tree = parser.typeCalculation();
         }
         return tree;
+    }
+
+    private static class IsSingleNodeVisitor
+            extends TypeCalculationBaseVisitor<Boolean>
+    {
+        @Override
+        public Boolean visitArithmeticBinary(@NotNull ArithmeticBinaryContext ctx)
+        {
+            return false;
+        }
+
+        @Override
+        public Boolean visitArithmeticUnary(@NotNull ArithmeticUnaryContext ctx)
+        {
+            return false;
+        }
+
+        protected Boolean defaultResult()
+        {
+            return true;
+        }
+
+        protected Boolean aggregateResult(Boolean aggregate, Boolean nextResult)
+        {
+            return aggregate && nextResult;
+        }
     }
 
     private static class CalculateTypeVisitor

@@ -177,7 +177,10 @@ public final class TypeUtils
         }
     }
 
-    public static TypeSignature resolveCalculatedType(TypeSignature typeSignature, Map<String, OptionalLong> inputs)
+    public static TypeSignature resolveCalculatedType(
+            TypeSignature typeSignature,
+            Map<String, OptionalLong> inputs,
+            boolean allowExpressionsInSignature)
     {
         ImmutableList.Builder<TypeSignatureParameter> parametersBuilder = ImmutableList.builder();
 
@@ -185,12 +188,16 @@ public final class TypeUtils
         for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
             switch (parameter.getKind()) {
                 case TYPE_SIGNATURE:
-                    parametersBuilder.add(TypeSignatureParameter.of(resolveCalculatedType(parameter.getTypeSignature(), inputs)));
+                    parametersBuilder.add(TypeSignatureParameter.of(resolveCalculatedType(
+                            parameter.getTypeSignature(),
+                            inputs,
+                            allowExpressionsInSignature)));
                     break;
                 case LITERAL_CALCULATION: {
                     OptionalLong optionalLong = TypeCalculation.calculateLiteralValue(
                             parameter.getLiteralCalculation().getCalculation(),
-                            inputs);
+                            inputs,
+                            allowExpressionsInSignature);
                     if (optionalLong.isPresent()) {
                         parametersBuilder.add(TypeSignatureParameter.of(optionalLong.getAsLong()));
                     }

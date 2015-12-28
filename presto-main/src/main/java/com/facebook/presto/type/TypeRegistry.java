@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -158,7 +157,9 @@ public final class TypeRegistry
             return null;
         }
         Type instantiatedType = parametricType.createType(parameters);
-        checkState(instantiatedType.getTypeSignature().equals(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+
+        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
+        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
         return instantiatedType;
     }
 
@@ -321,6 +322,14 @@ public final class TypeRegistry
         if (UnknownType.NAME.equals(secondType.getBase())) {
             return Optional.of(firstType);
         }
+        for (String varcharSubType : new String[] {RegexpType.NAME, LikePatternType.NAME, JsonPathType.NAME}) {
+            if (firstType.getBase().equals(StandardTypes.VARCHAR) && secondType.getBase().equals(varcharSubType)) {
+                return Optional.of(secondType);
+            }
+            else if (secondType.getBase().equals(StandardTypes.VARCHAR) && firstType.getBase().equals(varcharSubType)) {
+                return Optional.of(firstType);
+            }
+        }
 
         List<TypeSignatureParameter> firstTypeTypeParameters = firstType.getParameters();
         List<TypeSignatureParameter> secondTypeTypeParameters = secondType.getParameters();
@@ -338,7 +347,7 @@ public final class TypeRegistry
             TypeSignatureParameter firstParameter = firstTypeTypeParameters.get(i);
             TypeSignatureParameter secondParameter = secondTypeTypeParameters.get(i);
 
-            if (firstParameter.getKind() == secondParameter.getKind() && firstParameter.getKind() == ParameterKind.LONG_LITERAL) {
+            if (firstParameter.isLongLiteral() && secondParameter.isLongLiteral()) {
                 typeParameters.add(TypeSignatureParameter.of(Math.max(
                         firstParameter.getLongLiteral(),
                         secondParameter.getLongLiteral())));

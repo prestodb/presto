@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.InvalidCodePointException;
@@ -68,6 +69,7 @@ public final class StringFunctions
 
     @Description("count of code points of the given string")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long length(@SqlType("varchar(x)") Slice slice)
     {
@@ -76,6 +78,7 @@ public final class StringFunctions
 
     @Description("greedily removes occurrences of a pattern in a string")
     @ScalarFunction
+    @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
     public static Slice replace(@SqlType("varchar(x)") Slice str, @SqlType("varchar(y)") Slice search)
     {
@@ -84,6 +87,7 @@ public final class StringFunctions
 
     @Description("greedily replaces occurrences of a pattern with a string")
     @ScalarFunction
+    @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
     public static Slice replace(@SqlType("varchar(x)") Slice str, @SqlType("varchar(y)") Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
     {
@@ -149,6 +153,7 @@ public final class StringFunctions
 
     @Description("reverse all code points in a given string")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice reverse(@SqlType("varchar(x)") Slice slice)
     {
@@ -173,8 +178,9 @@ public final class StringFunctions
 
     @Description("suffix starting at given index")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substr(@SqlType("varchar(X)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
         if ((start == 0) || utf8.length() == 0) {
             return Slices.EMPTY_SLICE;
@@ -210,6 +216,7 @@ public final class StringFunctions
 
     @Description("substring of given length starting at an index")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice substr(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
@@ -257,6 +264,7 @@ public final class StringFunctions
     }
 
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType("array<varchar(x)>")
     public static Block split(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
     {
@@ -264,6 +272,7 @@ public final class StringFunctions
     }
 
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType("array<varchar(x)>")
     public static Block split(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
     {
@@ -302,6 +311,7 @@ public final class StringFunctions
     @Nullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice splitPart(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
     {
@@ -350,6 +360,7 @@ public final class StringFunctions
 
     @Description("removes whitespace from the beginning of a string")
     @ScalarFunction("ltrim")
+    @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice leftTrim(@SqlType("varchar(x)") Slice slice)
     {
@@ -358,6 +369,7 @@ public final class StringFunctions
 
     @Description("removes whitespace from the end of a string")
     @ScalarFunction("rtrim")
+    @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice rightTrim(@SqlType("varchar(x)") Slice slice)
     {
@@ -366,6 +378,7 @@ public final class StringFunctions
 
     @Description("removes whitespace from the beginning and end of a string")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice trim(@SqlType("varchar(x)") Slice slice)
     {
@@ -374,6 +387,7 @@ public final class StringFunctions
 
     @Description("converts the string to lower case")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice lower(@SqlType("varchar(x)") Slice slice)
     {
@@ -382,6 +396,7 @@ public final class StringFunctions
 
     @Description("converts the string to upper case")
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice upper(@SqlType("varchar(x)") Slice slice)
     {
