@@ -25,10 +25,12 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.Callable;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 @ThreadSafe
 public class HiveMetastoreApiStats
 {
-    private final TimeStat time = new TimeStat();
+    private final TimeStat time = new TimeStat(MILLISECONDS);
     private final CounterStat totalFailures = new CounterStat();
     private final CounterStat metastoreExceptions = new CounterStat();
     private final CounterStat thriftExceptions = new CounterStat();
