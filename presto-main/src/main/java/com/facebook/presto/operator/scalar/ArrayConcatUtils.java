@@ -14,47 +14,15 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 public final class ArrayConcatUtils
 {
-    private final PageBuilder pageBuilder;
-
-    public ArrayConcatUtils(Type elementType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
-    }
-
-    public Block concat(Type elementType, Block leftBlock, Block rightBlock)
-    {
-        if (leftBlock.getPositionCount() == 0) {
-            return rightBlock;
-        }
-        if (rightBlock.getPositionCount() == 0) {
-            return leftBlock;
-        }
-
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-        for (int i = 0; i < leftBlock.getPositionCount(); i++) {
-            elementType.appendTo(leftBlock, i, blockBuilder);
-        }
-        for (int i = 0; i < rightBlock.getPositionCount(); i++) {
-            elementType.appendTo(rightBlock, i, blockBuilder);
-        }
-        int total = leftBlock.getPositionCount() + rightBlock.getPositionCount();
-        pageBuilder.declarePositions(total);
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - total, total);
-    }
+    private ArrayConcatUtils() {}
 
     // Usage of appendElement: ArrayToElementConcatFunction
     @UsedByGeneratedCode
