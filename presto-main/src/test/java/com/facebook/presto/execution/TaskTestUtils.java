@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
@@ -40,7 +41,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.transaction.TransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -56,7 +56,7 @@ public final class TaskTestUtils
     {
     }
 
-    public static final TransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create("test");
+    public static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create("test");
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, new Split("test", TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
 

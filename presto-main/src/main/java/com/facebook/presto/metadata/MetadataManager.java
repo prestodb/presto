@@ -35,6 +35,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -43,7 +44,6 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.transaction.TransactionHandle;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
@@ -311,14 +311,14 @@ public class MetadataManager
         List<ConnectorTableLayoutResult> layouts;
         ConnectorEntry entry = getConnectorMetadata(connectorId);
         ConnectorMetadata metadata = entry.getMetadata(session);
-        TransactionHandle transaction = entry.getTransactionHandle(session);
+        ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
         ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
         try {
             layouts = metadata.getTableLayouts(connectorSession, connectorTable, new Constraint<>(summary, predicate::test), desiredColumns);
         }
         catch (UnsupportedOperationException e) {
             ConnectorSplitManager connectorSplitManager = splitManager.getConnectorSplitManager(connectorId);
-            ConnectorPartitionResult result = connectorSplitManager.getPartitions(transaction.getTransactionHandle(), connectorSession, connectorTable, summary);
+            ConnectorPartitionResult result = connectorSplitManager.getPartitions(transaction, connectorSession, connectorTable, summary);
 
             List<ConnectorPartition> partitions = result.getPartitions().stream()
                     .filter(partition -> !partition.getTupleDomain().isNone())
@@ -362,7 +362,7 @@ public class MetadataManager
         String connectorId = handle.getConnectorId();
         ConnectorEntry entry = getConnectorMetadata(connectorId);
         ConnectorMetadata metadata = entry.getMetadata(session);
-        TransactionHandle transaction = entry.getTransactionHandle(session);
+        ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
         return fromConnectorLayout(connectorId, transaction, metadata.getTableLayout(session.toConnectorSession(entry.getCatalog()), handle.getConnectorHandle()));
     }
 
@@ -525,7 +525,7 @@ public class MetadataManager
         ConnectorEntry entry = connectorsByCatalog.get(catalogName);
         checkArgument(entry != null, "Catalog %s does not exist", catalogName);
         ConnectorMetadata metadata = entry.getMetadataForWrite(session);
-        TransactionHandle transactionHandle = entry.getTransactionHandle(session);
+        ConnectorTransactionHandle transactionHandle = entry.getTransactionHandle(session);
         ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(connectorSession, tableMetadata.getMetadata());
         return new OutputTableHandle(entry.getConnectorId(), transactionHandle, handle);
@@ -544,7 +544,7 @@ public class MetadataManager
     {
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
         ConnectorMetadata metadata = entry.getMetadataForWrite(session);
-        TransactionHandle transactionHandle = entry.getTransactionHandle(session);
+        ConnectorTransactionHandle transactionHandle = entry.getTransactionHandle(session);
         ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle());
         return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
     }
@@ -689,7 +689,7 @@ public class MetadataManager
     {
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
         ConnectorMetadata metadata = entry.getMetadata(session);
-        TransactionHandle transaction = entry.getTransactionHandle(session);
+        ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
         ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
         Optional<ConnectorResolvedIndex> resolvedIndex = metadata.resolveIndex(connectorSession, tableHandle.getConnectorHandle(), indexableColumns, outputColumns, tupleDomain);
         return resolvedIndex.map(resolved -> new ResolvedIndex(tableHandle.getConnectorId(), transaction, resolved));
@@ -832,7 +832,7 @@ public class MetadataManager
             return metadata;
         }
 
-        public TransactionHandle getTransactionHandle(Session session)
+        public ConnectorTransactionHandle getTransactionHandle(Session session)
         {
             return transactionManager.getConnectorTransaction(session.getRequiredTransactionId(), connectorId);
         }

@@ -95,7 +95,7 @@ public class SystemRecordSetProvider
         }
         TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());
 
-        return new MappedRecordSet(toRecordSet(systemTransaction.getTransactionHandle().getTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build());
+        return new MappedRecordSet(toRecordSet(systemTransaction.getTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build());
     }
 
     private static RecordSet toRecordSet(ConnectorTransactionHandle sourceTransaction, SystemTable table, ConnectorSession session, TupleDomain<Integer> constraint)

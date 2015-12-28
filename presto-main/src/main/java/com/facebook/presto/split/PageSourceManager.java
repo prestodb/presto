@@ -45,7 +45,7 @@ public class PageSourceManager
 
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
-        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle().getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
+        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(Split split)

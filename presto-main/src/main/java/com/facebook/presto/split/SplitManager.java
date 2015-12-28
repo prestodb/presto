@@ -53,10 +53,10 @@ public class SplitManager
                 return new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), new FixedSplitSource(connectorId, ImmutableList.<ConnectorSplit>of()));
             }
 
-            source = splitManager.getPartitionSplits(layout.getTransactionHandle().getTransactionHandle(), connectorSession, handle.getTable(), handle.getPartitions());
+            source = splitManager.getPartitionSplits(layout.getTransactionHandle(), connectorSession, handle.getTable(), handle.getPartitions());
         }
         else {
-            source = splitManager.getSplits(layout.getTransactionHandle().getTransactionHandle(), connectorSession, layout.getConnectorHandle());
+            source = splitManager.getSplits(layout.getTransactionHandle(), connectorSession, layout.getConnectorHandle());
         }
 
         return new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);

@@ -14,7 +14,6 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.transaction.TransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -39,9 +38,9 @@ public class TestingTransactionHandle
         this.uuid = requireNonNull(uuid, "uuid is null");
     }
 
-    public static TransactionHandle create(String connectorId)
+    public static TestingTransactionHandle create(String connectorId)
     {
-        return new TransactionHandle(connectorId, new TestingTransactionHandle(connectorId, UUID.randomUUID()));
+        return new TestingTransactionHandle(connectorId, UUID.randomUUID());
     }
 
     @JsonProperty
