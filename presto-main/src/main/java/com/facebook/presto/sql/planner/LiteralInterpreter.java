@@ -22,6 +22,7 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -106,7 +107,7 @@ public final class LiteralInterpreter
             if (type.equals(UNKNOWN)) {
                 return new NullLiteral();
             }
-            return new Cast(new NullLiteral(), type.getTypeSignature().toString());
+            return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, true);
         }
 
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
@@ -133,13 +134,12 @@ public final class LiteralInterpreter
             }
         }
 
-        if (type.equals(VARCHAR)) {
+        if (type instanceof VarcharType) {
             if (object instanceof Slice) {
-                return new StringLiteral(((Slice) object).toStringUtf8());
+                return new Cast(new StringLiteral(((Slice) object).toStringUtf8()), type.getTypeSignature().toString(), false, true);
             }
-
-            if (object instanceof String) {
-                return new StringLiteral((String) object);
+            else if (object instanceof String) {
+                return new Cast(new StringLiteral((String) object), type.getTypeSignature().toString(), false, true);
             }
 
             throw new IllegalArgumentException("object must be instance of Slice or String when type is VARCHAR");
@@ -156,7 +156,7 @@ public final class LiteralInterpreter
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }
 
-        if (object instanceof Slice && !type.equals(VARCHAR)) {
+        if (object instanceof Slice) {
             // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)

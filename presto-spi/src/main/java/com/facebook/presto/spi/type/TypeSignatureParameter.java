@@ -40,6 +40,11 @@ public class TypeSignatureParameter
         return new TypeSignatureParameter(ParameterKind.NAMED_TYPE_SIGNATURE, namedTypeSignature);
     }
 
+    public static TypeSignatureParameter of(TypeLiteralCalculation literalCalculation)
+    {
+        return new TypeSignatureParameter(ParameterKind.LITERAL_CALCULATION, literalCalculation);
+    }
+
     private TypeSignatureParameter(ParameterKind kind, Object value)
     {
         this.kind = requireNonNull(kind, "kind is null");
@@ -72,6 +77,11 @@ public class TypeSignatureParameter
         return kind == ParameterKind.NAMED_TYPE_SIGNATURE;
     }
 
+    public boolean isLiteralCalculation()
+    {
+        return kind == ParameterKind.LITERAL_CALCULATION;
+    }
+
     private <A> A getValue(ParameterKind expectedParameterKind, Class<A> target)
     {
         verify(kind == expectedParameterKind, format("ParameterKind is [%s] but expected [%s]", kind, expectedParameterKind));
@@ -93,6 +103,11 @@ public class TypeSignatureParameter
         return getValue(ParameterKind.NAMED_TYPE_SIGNATURE, NamedTypeSignature.class);
     }
 
+    public TypeLiteralCalculation getLiteralCalculation()
+    {
+        return getValue(ParameterKind.LITERAL_CALCULATION, TypeLiteralCalculation.class);
+    }
+
     public Optional<TypeSignature> getTypeSignatureOrNamedTypeSignature()
     {
         switch (kind) {
@@ -102,6 +117,18 @@ public class TypeSignatureParameter
                 return Optional.of(getNamedTypeSignature().getTypeSignature());
             default:
                 return Optional.empty();
+        }
+    }
+
+    public boolean isCalculated()
+    {
+        switch (kind) {
+            case TYPE_SIGNATURE:
+                return getTypeSignature().isCalculated();
+            case LITERAL_CALCULATION:
+                return true;
+            default:
+                return false;
         }
     }
 
