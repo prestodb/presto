@@ -417,7 +417,7 @@ public class AccessControlManager
 
         public ConnectorTransactionHandle getTransactionHandle(TransactionId transactionId)
         {
-            return transactionManager.getConnectorTransaction(transactionId, connectorId).getTransactionHandle();
+            return transactionManager.getConnectorTransaction(transactionId, connectorId);
         }
     }
 

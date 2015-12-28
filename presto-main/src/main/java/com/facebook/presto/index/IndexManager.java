@@ -40,7 +40,7 @@ public class IndexManager
     {
         ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getConnectorId());
         ConnectorIndexProvider provider = getProvider(indexHandle);
-        return provider.getIndex(indexHandle.getTransactionHandle().getTransactionHandle(), connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
+        return provider.getIndex(indexHandle.getTransactionHandle(), connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
     }
 
     private ConnectorIndexProvider getProvider(IndexHandle handle)

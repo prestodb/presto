@@ -22,7 +22,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.transaction.TransactionHandle;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
@@ -159,7 +158,7 @@ public class TestExchangeOperator
 
     private Split newRemoteSplit(String taskId)
     {
-        return new Split("remote", new TransactionHandle("remote", new RemoteTransactionHandle()), new RemoteSplit(URI.create("http://localhost/" + taskId)));
+        return new Split("remote", new RemoteTransactionHandle(), new RemoteSplit(URI.create("http://localhost/" + taskId)));
     }
 
     @Test

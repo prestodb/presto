@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.transaction.TransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -25,13 +25,13 @@ import static java.util.Objects.requireNonNull;
 public final class IndexHandle
 {
     private final String connectorId;
-    private final TransactionHandle transactionHandle;
+    private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorIndexHandle connectorHandle;
 
     @JsonCreator
     public IndexHandle(
             @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("transactionHandle") TransactionHandle transactionHandle,
+            @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorIndexHandle connectorHandle)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
@@ -46,7 +46,7 @@ public final class IndexHandle
     }
 
     @JsonProperty
-    public TransactionHandle getTransactionHandle()
+    public ConnectorTransactionHandle getTransactionHandle()
     {
         return transactionHandle;
     }
