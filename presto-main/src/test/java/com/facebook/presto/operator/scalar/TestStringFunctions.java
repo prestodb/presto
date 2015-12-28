@@ -346,6 +346,12 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testVarcharToVarcharX()
+    {
+        assertFunction("LOWER(CAST('HELLO' AS VARCHAR))", createVarcharType(Integer.MAX_VALUE), "hello");
+    }
+
+    @Test
     public void testLower()
     {
         assertFunction("LOWER('')", createVarcharType(0), "");
