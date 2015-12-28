@@ -30,17 +30,17 @@ public class TestTypeSignature
     public void testBindParameters()
             throws Exception
     {
-        Map<String, Type> boundParameters = ImmutableMap.of("T1", VarcharType.VARCHAR, "T2", BigintType.BIGINT);
+        Map<String, Type> boundParameters = ImmutableMap.of("T1", DoubleType.DOUBLE, "T2", BigintType.BIGINT);
 
         assertBindSignature("bigint", boundParameters, "bigint");
-        assertBindSignature("T1", boundParameters, "varchar");
+        assertBindSignature("T1", boundParameters, "double");
         assertBindSignature("T2", boundParameters, "bigint");
-        assertBindSignature("array(T1)", boundParameters, "array(varchar)");
-        assertBindSignature("array<T1>", boundParameters, "array(varchar)");
-        assertBindSignature("map(T1,T2)", boundParameters, "map(varchar,bigint)");
-        assertBindSignature("map<T1,T2>", boundParameters, "map(varchar,bigint)");
-        assertBindSignature("row<T1,T2>('a','b')", boundParameters, "row<varchar,bigint>('a','b')");
-        assertBindSignature("bla(T1,42,T2)", boundParameters, "bla(varchar,42,bigint)");
+        assertBindSignature("array(T1)", boundParameters, "array(double)");
+        assertBindSignature("array<T1>", boundParameters, "array(double)");
+        assertBindSignature("map(T1,T2)", boundParameters, "map(double,bigint)");
+        assertBindSignature("map<T1,T2>", boundParameters, "map(double,bigint)");
+        assertBindSignature("row<T1,T2>('a','b')", boundParameters, "row<double,bigint>('a','b')");
+        assertBindSignature("bla(T1,42,T2)", boundParameters, "bla(double,42,bigint)");
 
         assertBindSignatureFails("T1(bigint)", boundParameters, "Unbounded parameters can not have parameters");
     }
