@@ -640,8 +640,7 @@ public class TestExpressionCompiler
     public void testIf()
             throws Exception
     {
-        // todo enable when null output type is supported
-        //assertExecute("if(null and true, 1, 0)", 0L);
+        assertExecute("if(null and true, 1, 0)", BIGINT, 0L);
         for (Boolean condition : booleanValues) {
             for (String trueValue : stringLefts) {
                 for (String falseValue : stringRights) {
