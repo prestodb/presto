@@ -177,6 +177,7 @@ public class ExpressionInterpreter
 
                 // cast expression if coercion is registered
                 Type coerceToType = coercions.get(node);
+
                 if (coerceToType != null) {
                     rewrittenExpression = new Cast(rewrittenExpression, coerceToType.getTypeSignature().toString());
                 }
@@ -917,13 +918,17 @@ public class ExpressionInterpreter
             Object value = process(node.getExpression(), context);
 
             if (value instanceof Expression) {
-                return new Cast((Expression) value, node.getType(), node.isSafe());
+                return new Cast((Expression) value, node.getType(), node.isSafe(), node.isTypeOnly());
+            }
+
+            if (node.isTypeOnly()) {
+                return value;
             }
 
             // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
             // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
             if (optimize && !FunctionRegistry.isSupportedLiteralType(expressionTypes.get(node))) {
-                return new Cast(toExpression(value, expressionTypes.get(node.getExpression())), node.getType(), node.isSafe());
+                return new Cast(toExpression(value, expressionTypes.get(node.getExpression())), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
             if (value == null) {

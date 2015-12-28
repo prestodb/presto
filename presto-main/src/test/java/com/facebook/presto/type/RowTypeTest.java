@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -22,6 +23,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
@@ -33,7 +35,9 @@ public class RowTypeTest
         List<Type> types = asList(BOOLEAN, DOUBLE, new ArrayType(VARCHAR), new MapType(BOOLEAN, DOUBLE));
         Optional<List<String>> names = Optional.of(asList("bool_col", "double_col", "array_col", "map_col"));
         RowType row = new RowType(types, names);
-        assertEquals(row.getDisplayName(), "row(bool_col boolean, double_col double, array_col array<varchar>, map_col map<boolean, double>)");
+        assertEquals(
+                row.getDisplayName(),
+                format("row(bool_col boolean, double_col double, array_col array<varchar(%s)>, map_col map<boolean, double>)", VarcharType.MAX_LENGTH));
     }
 
     @Test
@@ -41,6 +45,8 @@ public class RowTypeTest
     {
         List<Type> types = asList(BOOLEAN, DOUBLE, new ArrayType(VARCHAR), new MapType(BOOLEAN, DOUBLE));
         RowType row = new RowType(types, Optional.empty());
-        assertEquals(row.getDisplayName(), "row(boolean, double, array<varchar>, map<boolean, double>)");
+        assertEquals(
+                row.getDisplayName(),
+                format("row(boolean, double, array<varchar(%s)>, map<boolean, double>)", VarcharType.MAX_LENGTH));
     }
 }

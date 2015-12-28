@@ -79,7 +79,7 @@ public final class ShardStats
         if (type.equals(DoubleType.DOUBLE)) {
             return indexDouble(type, reader, columnIndex, columnId);
         }
-        if (type.equals(VarcharType.VARCHAR)) {
+        if (type instanceof VarcharType) {
             return indexString(type, reader, columnIndex, columnId);
         }
         return null;

@@ -17,12 +17,13 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nullable;
@@ -32,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
@@ -40,6 +43,7 @@ import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Signature
@@ -71,14 +75,44 @@ public final class Signature
         this.variableArity = variableArity;
     }
 
-    public Signature(String name, FunctionKind kind, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes, boolean variableArity)
+    public Signature(
+            String name,
+            FunctionKind kind,
+            List<TypeParameterRequirement> typeParameterRequirements,
+            String returnType,
+            List<String> argumentTypes,
+            boolean variableArity)
     {
-        this(name, kind, typeParameterRequirements, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), variableArity);
+        this(name, kind, typeParameterRequirements, returnType, argumentTypes, variableArity, ImmutableSet.of());
+    }
+
+    public Signature(
+            String name,
+            FunctionKind kind,
+            List<TypeParameterRequirement> typeParameterRequirements,
+            String returnType,
+            List<String> argumentTypes,
+            boolean variableArity,
+            Set<String> literalParameters)
+    {
+        this(name,
+                kind,
+                typeParameterRequirements,
+                parseTypeSignature(returnType, literalParameters),
+                argumentTypes.stream().map(argument -> parseTypeSignature(argument, literalParameters)).collect(toImmutableList()),
+                variableArity
+        );
     }
 
     public Signature(String name, FunctionKind kind, String returnType, List<String> argumentTypes)
     {
-        this(name, kind, ImmutableList.<TypeParameterRequirement>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), false);
+        this(name,
+                kind,
+                ImmutableList.<TypeParameterRequirement>of(),
+                parseTypeSignature(returnType),
+                argumentTypes.stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
+                false
+        );
     }
 
     public Signature(String name, FunctionKind kind, String returnType, String... argumentTypes)
@@ -118,7 +152,7 @@ public final class Signature
 
     public static Signature internalScalarFunction(String name, String returnType, List<String> argumentTypes)
     {
-        return new Signature(name, SCALAR, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false);
+        return new Signature(name, SCALAR, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false, ImmutableSet.of());
     }
 
     public static Signature internalScalarFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)
@@ -165,6 +199,28 @@ public final class Signature
     public List<TypeParameterRequirement> getTypeParameterRequirements()
     {
         return typeParameterRequirements;
+    }
+
+    public Signature resolveCalculatedTypes(List<TypeSignature> parameterTypes)
+    {
+        if (!returnType.isCalculated() && argumentTypes.stream().noneMatch(TypeSignature::isCalculated)) {
+            return this;
+        }
+
+        Map<String, OptionalLong> inputs = new HashMap<>();
+        for (int index = 0; index < argumentTypes.size(); index++) {
+            TypeSignature argument = argumentTypes.get(index);
+            if (argument.isCalculated()) {
+                TypeSignature actualParameter = parameterTypes.get(index);
+                inputs.putAll(TypeUtils.computeParameterBindings(argument, actualParameter));
+            }
+        }
+        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs, true);
+        return new Signature(
+                name,
+                kind,
+                calculatedReturnType,
+                argumentTypes.stream().map(parameter -> TypeUtils.resolveCalculatedType(parameter, inputs, false)).collect(toImmutableList()));
     }
 
     @Override
@@ -313,31 +369,19 @@ public final class Signature
             }
         }
 
+        TypeSignature typeSignature = type.getTypeSignature();
+
+        boolean parametersMatched = true;
         // Recurse into component types
         if (!parameters.isEmpty()) {
             // TODO: add support for types with both literal and type parameters? Now for such types this check will fail
-            if (type.getTypeParameters().size() != parameters.size()) {
-                return false;
+            if (typeSignature.getParameters().size() == parameters.size()) {
+                if (!matchAndBindParameters(boundParameters, typeParameters, parameter, type, allowCoercion, typeManager)) {
+                    parametersMatched = false;
+                }
             }
-            for (int i = 0; i < parameters.size(); i++) {
-                Type componentType = type.getTypeParameters().get(i);
-                TypeSignatureParameter componentParameter = parameters.get(i);
-                TypeSignature componentSignature;
-                switch (componentParameter.getKind()) {
-                    case TYPE_SIGNATURE:
-                        componentSignature = componentParameter.getTypeSignature();
-                        break;
-                    case NAMED_TYPE_SIGNATURE:
-                        componentSignature = componentParameter.getNamedTypeSignature().getTypeSignature();
-                        break;
-                    default:
-                        // TODO: add support for types with both literal and type parameters?
-                        return false;
-                }
-
-                if (!matchAndBind(boundParameters, typeParameters, componentSignature, componentType, allowCoercion, typeManager)) {
-                    return false;
-                }
+            else {
+                parametersMatched = false;
             }
         }
 
@@ -351,18 +395,94 @@ public final class Signature
             return true;
         }
 
-        // We've already checked all the components, so just match the base type
-        if (!parameters.isEmpty()) {
-            return type.getTypeSignature().getBase().equals(parameter.getBase());
+        // If parameters don't match, and base type differs
+        if (!parametersMatched && !typeSignature.getBase().equals(parameter.getBase())) {
+            // check for possible coercion
+            if (allowCoercion && canCoerce(typeSignature, parameter)) {
+                return matchAndBind(
+                        boundParameters,
+                        typeParameters,
+                        parameter,
+                        requireNonNull(typeManager.getType(parseTypeSignature(parameter.getBase()))),
+                        true,
+                        typeManager);
+            }
+            else {
+                return false;
+            }
         }
 
-        // The parameter is not a type parameter, so it must be a concrete type
+        // We've already checked all the components, so just match the base type
+        if (parametersMatched && !parameters.isEmpty()) {
+            return typeSignature.getBase().equals(parameter.getBase());
+        }
+
+        // The parameter is not a type parameter, so try if it's a concrete type and can coerce
+        Type parameterType = typeManager.getType(parameter);
+        if (parameterType == null) {
+            return false;
+        }
+
         if (allowCoercion) {
-            return canCoerce(type, typeManager.getType(parseTypeSignature(parameter.getBase())));
+            return canCoerce(type, parameterType);
         }
-        else {
-            return type.equals(typeManager.getType(parseTypeSignature(parameter.getBase())));
+        else if (parametersMatched) {
+            return typeSignature.getBase().equals(parameterType.getTypeSignature().getBase());
         }
+
+        return false;
+    }
+
+    private static boolean matchAndBindParameters(
+            Map<String, Type> boundParameters,
+            Map<String, TypeParameterRequirement> typeParameters,
+            TypeSignature parameter,
+            Type type,
+            boolean allowCoercion,
+            TypeManager typeManager)
+    {
+        // TODO: add support for mixed literal and type parameters. At the moment index of type.getTypeParameters().get(i) will not match parameters' index
+        List<TypeSignatureParameter> parameters = parameter.getParameters();
+        for (int i = 0; i < parameters.size(); i++) {
+            TypeSignatureParameter actualTypeParameter = type.getTypeSignature().getParameters().get(i);
+            TypeSignatureParameter typeSignatureParameter = type.getTypeSignature().getParameters().get(i);
+            TypeSignatureParameter componentParameter = parameters.get(i);
+
+            if (componentParameter.isLiteralCalculation()) {
+                if (!typeSignatureParameter.isLongLiteral()) {
+                    return false;
+                }
+            }
+            else if (componentParameter.isLongLiteral()) {
+                if (!typeSignatureParameter.isLongLiteral()) {
+                    return false;
+                }
+                if (componentParameter.getLongLiteral().longValue() != typeSignatureParameter.getLongLiteral().longValue()) {
+                    return false;
+                }
+            }
+            else {
+                TypeSignature componentSignature;
+                if (componentParameter.isTypeSignature()) {
+                    if (!actualTypeParameter.isTypeSignature() && !actualTypeParameter.isNamedTypeSignature()) {
+                        return false;
+                    }
+                    componentSignature = componentParameter.getTypeSignature();
+                }
+                else if (componentParameter.isNamedTypeSignature() && actualTypeParameter.isNamedTypeSignature()) {
+                    componentSignature = componentParameter.getNamedTypeSignature().getTypeSignature();
+                }
+                else {
+                    throw new UnsupportedOperationException(format("Unsupported TypeSignatureParameter [%s]", componentParameter));
+                }
+
+                Type componentType = type.getTypeParameters().get(i);
+                if (!matchAndBind(boundParameters, typeParameters, componentSignature, componentType, allowCoercion, typeManager)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /*

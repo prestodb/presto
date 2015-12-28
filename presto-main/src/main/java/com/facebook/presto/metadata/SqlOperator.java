@@ -17,13 +17,13 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static java.util.Objects.requireNonNull;
@@ -38,9 +38,15 @@ public abstract class SqlOperator
             MethodHandle methodHandle,
             Optional<MethodHandle> instanceFactory,
             boolean nullable,
-            List<Boolean> nullableArguments)
+            List<Boolean> nullableArguments,
+            Set<String> literalParameters)
     {
-        return new SimpleSqlOperator(operatorType, argumentTypes, returnType, methodHandle, instanceFactory, nullable, nullableArguments);
+        return new SimpleSqlOperator(operatorType, argumentTypes, returnType, methodHandle, instanceFactory, nullable, nullableArguments, literalParameters);
+    }
+
+    protected SqlOperator(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, Set<String> literalParameters)
+    {
+        super(mangleOperatorName(operatorType), returnType, argumentTypes, literalParameters);
     }
 
     protected SqlOperator(OperatorType operatorType, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes)
@@ -82,14 +88,10 @@ public abstract class SqlOperator
                 MethodHandle methodHandle,
                 Optional<MethodHandle> instanceFactory,
                 boolean nullable,
-                List<Boolean> nullableArguments)
+                List<Boolean> nullableArguments,
+                Set<String> literalParameters)
         {
-            super(operatorType,
-                    ImmutableList.of(),
-                    returnType.toString(),
-                    argumentTypes.stream()
-                            .map(TypeSignature::toString)
-                            .collect(ImmutableCollectors.toImmutableList()));
+            super(operatorType, returnType, argumentTypes, literalParameters);
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
             this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
             this.nullable = nullable;

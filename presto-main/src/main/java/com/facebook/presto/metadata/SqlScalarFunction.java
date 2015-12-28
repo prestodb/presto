@@ -19,11 +19,13 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -42,23 +44,72 @@ public abstract class SqlScalarFunction
             Optional<MethodHandle> instanceFactory,
             boolean deterministic,
             boolean nullable,
-            List<Boolean> nullableArguments)
+            List<Boolean> nullableArguments,
+            Set<String> literalParameters)
     {
-        return new SimpleSqlScalarFunction(signature, description, hidden, methodHandle, instanceFactory, deterministic, nullable, nullableArguments);
+        return new SimpleSqlScalarFunction(
+                signature,
+                description,
+                hidden,
+                methodHandle,
+                instanceFactory,
+                deterministic,
+                nullable,
+                nullableArguments,
+                literalParameters);
+    }
+
+    public SqlScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes, Set<String> literalParameters)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(returnType, "returnType is null");
+        requireNonNull(argumentTypes, "argumentTypes is null");
+        this.signature = new Signature(
+                name,
+                SCALAR,
+                ImmutableList.of(),
+                returnType,
+                ImmutableList.copyOf(argumentTypes),
+                false
+        );
     }
 
     protected SqlScalarFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes)
     {
-        this(name, typeParameterRequirements, returnType, argumentTypes, false);
+        this(name, typeParameterRequirements, returnType, argumentTypes, false, ImmutableSet.of());
     }
 
-    protected SqlScalarFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes, boolean variableArity)
+    protected SqlScalarFunction(
+            String name,
+            List<TypeParameterRequirement> typeParameterRequirements,
+            String returnType,
+            List<String> argumentTypes,
+            boolean variableArity)
+    {
+        this(name, typeParameterRequirements, returnType, argumentTypes, variableArity, ImmutableSet.of());
+    }
+
+    protected SqlScalarFunction(
+            String name,
+            List<TypeParameterRequirement> typeParameterRequirements,
+            String returnType,
+            List<String> argumentTypes,
+            boolean variableArity,
+            Set<String> literalParameters)
     {
         requireNonNull(name, "name is null");
         requireNonNull(typeParameterRequirements, "typeParameters is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        this.signature = new Signature(name, SCALAR, ImmutableList.copyOf(typeParameterRequirements), returnType, ImmutableList.copyOf(argumentTypes), variableArity);
+        requireNonNull(literalParameters, "literalParameters is null");
+        this.signature = new Signature(
+                name,
+                SCALAR,
+                ImmutableList.copyOf(typeParameterRequirements),
+                returnType,
+                ImmutableList.copyOf(argumentTypes),
+                variableArity,
+                literalParameters);
     }
 
     @Override
@@ -88,14 +139,17 @@ public abstract class SqlScalarFunction
                 Optional<MethodHandle> instanceFactory,
                 boolean deterministic,
                 boolean nullable,
-                List<Boolean> nullableArguments)
+                List<Boolean> nullableArguments,
+                Set<String> literalParameters)
         {
             super(signature.getName(),
                     ImmutableList.of(),
                     signature.getReturnType().toString(),
                     signature.getArgumentTypes().stream()
                             .map(TypeSignature::toString)
-                            .collect(ImmutableCollectors.toImmutableList()));
+                            .collect(ImmutableCollectors.toImmutableList()),
+                    false,
+                    literalParameters);
             checkArgument(signature.getTypeParameterRequirements().isEmpty(), "%s is parametric", signature);
             this.description = description;
             this.hidden = hidden;

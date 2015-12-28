@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
@@ -72,9 +73,10 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExpressionInterpreter
 {
+    private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_long"), BIGINT)
-            .put(new Symbol("bound_string"), VARCHAR)
+            .put(new Symbol("bound_string"), createVarcharType(TEST_VARCHAR_TYPE_LENGTH))
             .put(new Symbol("bound_varbinary"), VarbinaryType.VARBINARY)
             .put(new Symbol("bound_double"), DOUBLE)
             .put(new Symbol("bound_boolean"), BOOLEAN)
@@ -297,11 +299,11 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("3 between null and 4", "null");
         assertOptimizedEquals("3 between 2 and null", "null");
 
-        assertOptimizedEquals("'c' between 'b' and 'd'", "true");
-        assertOptimizedEquals("'b' between 'c' and 'd'", "false");
+        assertOptimizedEquals("'cc' between 'b' and 'd'", "true");
+        assertOptimizedEquals("'b' between 'cc' and 'd'", "false");
         assertOptimizedEquals("null between 'b' and 'd'", "null");
-        assertOptimizedEquals("'c' between null and 'd'", "null");
-        assertOptimizedEquals("'c' between 'b' and null", "null");
+        assertOptimizedEquals("'cc' between null and 'd'", "null");
+        assertOptimizedEquals("'cc' between 'b' and null", "null");
 
         assertOptimizedEquals("bound_long between 1000 and 2000", "true");
         assertOptimizedEquals("bound_long between 3 and 4", "false");
@@ -309,7 +311,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("bound_string between 'a' and 'b'", "false");
 
         assertOptimizedEquals("bound_long between unbound_long and 2000 + 1", "1234 between unbound_long and 2001");
-        assertOptimizedEquals("bound_string between unbound_string and 'bar'", "'hello' between unbound_string and 'bar'");
+        assertOptimizedEquals(
+                "bound_string between unbound_string and 'bar'",
+                format("CAST('hello' AS VARCHAR(%s)) between unbound_string and 'bar'", TEST_VARCHAR_TYPE_LENGTH));
     }
 
     @Test
@@ -582,10 +586,10 @@ public class TestExpressionInterpreter
                 "else 1 " +
                 "end",
                 "" +
-                        "case " +
-                        "when unbound_long = 1234 then 33 " +
-                        "else 1 " +
-                        "end");
+                "case " +
+                "when unbound_long = 1234 then 33 " +
+                "else 1 " +
+                "end");
 
         assertOptimizedMatches("case when 0 / 0 = 0 then 1 end",
                 "case when cast(fail() as boolean) then 1 end");

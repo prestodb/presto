@@ -202,7 +202,7 @@ class ShardPredicate
         if (type.equals(DateType.DATE)) {
             return JDBCType.INTEGER;
         }
-        if (type.equals(VarcharType.VARCHAR)) {
+        if (type instanceof VarcharType) {
             return JDBCType.VARBINARY;
         }
         return null;

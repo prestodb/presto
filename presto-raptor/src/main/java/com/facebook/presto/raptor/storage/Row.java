@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -27,7 +28,6 @@ import java.util.Map;
 import static com.facebook.presto.raptor.util.Types.isArrayType;
 import static com.facebook.presto.raptor.util.Types.isMapType;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
@@ -137,7 +137,7 @@ public class Row
         }
         if (type.getJavaType() == Slice.class) {
             Slice slice = (Slice) nativeValue;
-            return type.equals(VARCHAR) ? slice.toStringUtf8() : slice.getBytes();
+            return type instanceof VarcharType ? slice.toStringUtf8() : slice.getBytes();
         }
         if (isArrayType(type)) {
             Block arrayBlock = (Block) nativeValue;

@@ -72,6 +72,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
@@ -183,7 +184,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitStringLiteral(StringLiteral node, Void context)
         {
-            return constant(node.getSlice(), VARCHAR);
+            return constant(node.getSlice(), createVarcharType(node.getValue().length()));
         }
 
         @Override
@@ -330,11 +331,50 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression value = process(node.getExpression(), context);
 
+            if (node.isTypeOnly()) {
+                return changeType(value, types.get(node));
+            }
+
             if (node.isSafe()) {
                 return call(tryCastSignature(types.get(node), value.getType()), types.get(node), value);
             }
 
             return call(castSignature(types.get(node), value.getType()), types.get(node), value);
+        }
+
+        private RowExpression changeType(RowExpression value, Type targetType)
+        {
+            ChangeTypeVisitor visitor = new ChangeTypeVisitor(targetType);
+            return value.accept(visitor, null);
+        }
+
+        private static class ChangeTypeVisitor
+                implements RowExpressionVisitor<Void, RowExpression>
+        {
+            private final Type targetType;
+
+            private ChangeTypeVisitor(Type targetType)
+            {
+                this.targetType = targetType;
+            }
+
+            @Override
+            public RowExpression visitCall(CallExpression call, Void context)
+            {
+                return new CallExpression(call.getSignature(), targetType, call.getArguments());
+            }
+
+            @Override
+            public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
+            {
+                return new InputReferenceExpression(reference.getField(), targetType);
+            }
+
+            @Override
+            public RowExpression visitConstant(ConstantExpression literal, Void context)
+            {
+                return new ConstantExpression(literal.getValue(), targetType);
+            }
         }
 
         @Override

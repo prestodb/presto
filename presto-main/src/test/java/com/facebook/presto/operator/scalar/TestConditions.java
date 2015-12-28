@@ -20,6 +20,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestConditions
         extends AbstractTestFunctions
@@ -193,7 +194,7 @@ public class TestConditions
                         "when true then null " +
                         "else 'foo' " +
                         "end",
-                VARCHAR,
+                createVarcharType(3),
                 null);
 
         assertFunction("case " +
@@ -253,7 +254,7 @@ public class TestConditions
                         "when true then null " +
                         "else 'foo' " +
                         "end",
-                VARCHAR,
+                createVarcharType(3),
                 null);
 
         assertFunction("case true " +
