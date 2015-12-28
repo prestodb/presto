@@ -15,11 +15,11 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
-import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
@@ -101,7 +101,7 @@ public class AccessControlManager
         }
     }
 
-    public void addCatalogAccessControl(String connectorId, String catalogName, TransactionalConnectorAccessControl accessControl)
+    public void addCatalogAccessControl(String connectorId, String catalogName, ConnectorAccessControl accessControl)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(catalogName, "catalogName is null");
@@ -402,15 +402,15 @@ public class AccessControlManager
     private class CatalogAccessControlEntry
     {
         private final String connectorId;
-        private final TransactionalConnectorAccessControl accessControl;
+        private final ConnectorAccessControl accessControl;
 
-        public CatalogAccessControlEntry(String connectorId, TransactionalConnectorAccessControl accessControl)
+        public CatalogAccessControlEntry(String connectorId, ConnectorAccessControl accessControl)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
         }
 
-        public TransactionalConnectorAccessControl getAccessControl()
+        public ConnectorAccessControl getAccessControl()
         {
             return accessControl;
         }

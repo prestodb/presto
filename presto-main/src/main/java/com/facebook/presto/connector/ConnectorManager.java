@@ -24,6 +24,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -31,7 +32,6 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
@@ -251,7 +251,7 @@ public class ConnectorManager
         requireNonNull(connector.getSessionProperties(), format("Connector %s returned null session properties", connectorId));
         requireNonNull(connector.getTableProperties(), format("Connector %s returned null table properties", connectorId));
 
-        TransactionalConnectorAccessControl accessControl = null;
+        ConnectorAccessControl accessControl = null;
         try {
             accessControl = connector.getAccessControl();
         }
