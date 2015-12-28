@@ -25,9 +25,9 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.SystemTable.Distribution;
-import com.facebook.presto.spi.TransactionalConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -43,7 +43,7 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
 
 public class SystemSplitManager
-        implements TransactionalConnectorSplitManager
+        implements ConnectorSplitManager
 {
     private final NodeManager nodeManager;
     private final Map<SchemaTableName, SystemTable> tables;

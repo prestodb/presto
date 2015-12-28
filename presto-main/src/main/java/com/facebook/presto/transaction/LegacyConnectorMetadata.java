@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
@@ -30,8 +29,8 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -45,14 +44,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class LegacyTransactionalConnectorMetadata
-        implements TransactionalConnectorMetadata
+public class LegacyConnectorMetadata
+        implements ConnectorMetadata
 {
-    private final ConnectorMetadata metadata;
+    private final com.facebook.presto.spi.ConnectorMetadata metadata;
     private final Optional<ConnectorIndexResolver> indexResolver;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public LegacyTransactionalConnectorMetadata(ConnectorMetadata metadata, Optional<ConnectorIndexResolver> indexResolver)
+    public LegacyConnectorMetadata(com.facebook.presto.spi.ConnectorMetadata metadata, Optional<ConnectorIndexResolver> indexResolver)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.indexResolver = requireNonNull(indexResolver, "indexResolver is null");

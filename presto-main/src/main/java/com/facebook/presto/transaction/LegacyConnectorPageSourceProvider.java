@@ -15,22 +15,21 @@ package com.facebook.presto.transaction;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public class LegacyConnectorPageSourceProvider
-        implements TransactionalConnectorPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
-    private final ConnectorPageSourceProvider delegate;
+    private final com.facebook.presto.spi.ConnectorPageSourceProvider delegate;
 
-    public LegacyConnectorPageSourceProvider(ConnectorPageSourceProvider delegate)
+    public LegacyConnectorPageSourceProvider(com.facebook.presto.spi.ConnectorPageSourceProvider delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }

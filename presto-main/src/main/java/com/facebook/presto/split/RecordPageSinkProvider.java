@@ -18,18 +18,18 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordPageSink;
-import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
-import com.facebook.presto.spi.TransactionalConnectorRecordSinkProvider;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import static java.util.Objects.requireNonNull;
 
 public class RecordPageSinkProvider
-        implements TransactionalConnectorPageSinkProvider
+        implements ConnectorPageSinkProvider
 {
-    private final TransactionalConnectorRecordSinkProvider recordSinkProvider;
+    private final ConnectorRecordSinkProvider recordSinkProvider;
 
-    public RecordPageSinkProvider(TransactionalConnectorRecordSinkProvider recordSinkProvider)
+    public RecordPageSinkProvider(ConnectorRecordSinkProvider recordSinkProvider)
     {
         this.recordSinkProvider = requireNonNull(recordSinkProvider, "recordSinkProvider is null");
     }

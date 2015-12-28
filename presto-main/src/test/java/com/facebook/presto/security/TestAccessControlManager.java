@@ -17,15 +17,15 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TransactionalConnectorSplitManager;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.spi.transaction.TransactionalConnector;
-import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -111,7 +111,7 @@ public class TestAccessControlManager
 
     private static void registerBogusConnector(TransactionManager transactionManager, String connectorId)
     {
-        transactionManager.addConnector(connectorId, new TransactionalConnector()
+        transactionManager.addConnector(connectorId, new Connector()
         {
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
@@ -127,13 +127,13 @@ public class TestAccessControlManager
             }
 
             @Override
-            public TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
             {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public TransactionalConnectorSplitManager getSplitManager()
+            public ConnectorSplitManager getSplitManager()
             {
                 throw new UnsupportedOperationException();
             }

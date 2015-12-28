@@ -14,23 +14,22 @@
 package com.facebook.presto.transaction;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public class LegacyConnectorRecordSetProvider
-        implements TransactionalConnectorRecordSetProvider
+        implements ConnectorRecordSetProvider
 {
-    private final ConnectorRecordSetProvider delegate;
+    private final com.facebook.presto.spi.ConnectorRecordSetProvider delegate;
 
-    public LegacyConnectorRecordSetProvider(ConnectorRecordSetProvider delegate)
+    public LegacyConnectorRecordSetProvider(com.facebook.presto.spi.ConnectorRecordSetProvider delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }

@@ -14,23 +14,22 @@
 package com.facebook.presto.transaction;
 
 import com.facebook.presto.security.LegacyConnectorAccessControl;
-import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TransactionalConnectorIndexProvider;
-import com.facebook.presto.spi.TransactionalConnectorPageSinkProvider;
-import com.facebook.presto.spi.TransactionalConnectorPageSourceProvider;
-import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
-import com.facebook.presto.spi.TransactionalConnectorRecordSinkProvider;
-import com.facebook.presto.spi.TransactionalConnectorSplitManager;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorIndexProvider;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.spi.transaction.TransactionalConnector;
-import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,13 +42,13 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LegacyTransactionConnector
-        implements TransactionalConnector
+        implements Connector
 {
     private final String connectorId;
-    private final Connector connector;
-    private final ConcurrentMap<ConnectorTransactionHandle, LegacyTransactionalConnectorMetadata> metadatas = new ConcurrentHashMap<>();
+    private final com.facebook.presto.spi.Connector connector;
+    private final ConcurrentMap<ConnectorTransactionHandle, LegacyConnectorMetadata> metadatas = new ConcurrentHashMap<>();
 
-    public LegacyTransactionConnector(String connectorId, Connector connector)
+    public LegacyTransactionConnector(String connectorId, com.facebook.presto.spi.Connector connector)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.connector = requireNonNull(connector, "connector is null");
@@ -71,43 +70,43 @@ public class LegacyTransactionConnector
     }
 
     @Override
-    public TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
-        return metadatas.computeIfAbsent(transactionHandle, handle -> new LegacyTransactionalConnectorMetadata(connector.getMetadata(), Optional.ofNullable(connector.getIndexResolver())));
+        return metadatas.computeIfAbsent(transactionHandle, handle -> new LegacyConnectorMetadata(connector.getMetadata(), Optional.ofNullable(connector.getIndexResolver())));
     }
 
     @Override
-    public TransactionalConnectorSplitManager getSplitManager()
+    public ConnectorSplitManager getSplitManager()
     {
         return new LegacyConnectorSplitManager(connector.getSplitManager());
     }
 
     @Override
-    public TransactionalConnectorPageSourceProvider getPageSourceProvider()
+    public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return new LegacyConnectorPageSourceProvider(connector.getPageSourceProvider());
     }
 
     @Override
-    public TransactionalConnectorRecordSetProvider getRecordSetProvider()
+    public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return new LegacyConnectorRecordSetProvider(connector.getRecordSetProvider());
     }
 
     @Override
-    public TransactionalConnectorPageSinkProvider getPageSinkProvider()
+    public ConnectorPageSinkProvider getPageSinkProvider()
     {
         return new LegacyConnectorPageSinkProvider(connector.getPageSinkProvider());
     }
 
     @Override
-    public TransactionalConnectorRecordSinkProvider getRecordSinkProvider()
+    public ConnectorRecordSinkProvider getRecordSinkProvider()
     {
         return new LegacyConnectorRecordSinkProvider(connector.getRecordSinkProvider());
     }
 
     @Override
-    public TransactionalConnectorIndexProvider getIndexProvider()
+    public ConnectorIndexProvider getIndexProvider()
     {
         ConnectorIndexResolver indexResolver = connector.getIndexResolver();
         if (indexResolver == null) {
@@ -149,7 +148,7 @@ public class LegacyTransactionConnector
     @Override
     public void abort(ConnectorTransactionHandle transactionHandle)
     {
-        LegacyTransactionalConnectorMetadata metadata = metadatas.remove(transactionHandle);
+        LegacyConnectorMetadata metadata = metadatas.remove(transactionHandle);
         if (metadata != null) {
             metadata.tryRollback();
         }

@@ -25,7 +25,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -45,7 +45,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 public class SystemTablesMetadata
-        implements TransactionalConnectorMetadata
+        implements ConnectorMetadata
 {
     private final String connectorId;
     private final Map<SchemaTableName, ConnectorTableMetadata> tables;

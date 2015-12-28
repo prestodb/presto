@@ -15,20 +15,19 @@ package com.facebook.presto.transaction;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordSink;
-import com.facebook.presto.spi.TransactionalConnectorRecordSinkProvider;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import static java.util.Objects.requireNonNull;
 
 public class LegacyConnectorRecordSinkProvider
-        implements TransactionalConnectorRecordSinkProvider
+        implements ConnectorRecordSinkProvider
 {
-    private final ConnectorRecordSinkProvider delegate;
+    private final com.facebook.presto.spi.ConnectorRecordSinkProvider delegate;
 
-    public LegacyConnectorRecordSinkProvider(ConnectorRecordSinkProvider delegate)
+    public LegacyConnectorRecordSinkProvider(com.facebook.presto.spi.ConnectorRecordSinkProvider delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }

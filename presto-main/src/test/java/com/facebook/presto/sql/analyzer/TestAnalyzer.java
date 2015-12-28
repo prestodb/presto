@@ -25,13 +25,12 @@ import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.transaction.TransactionalConnector;
+import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -1050,9 +1049,9 @@ public class TestAnalyzer
         }
     }
 
-    private static TransactionalConnector createTestingConnector(String connectorId)
+    private static Connector createTestingConnector(String connectorId)
     {
-        return new LegacyTransactionConnector(connectorId, new Connector()
+        return new LegacyTransactionConnector(connectorId, new com.facebook.presto.spi.Connector()
         {
             private final ConnectorMetadata metadata = new TestingMetadata();
 

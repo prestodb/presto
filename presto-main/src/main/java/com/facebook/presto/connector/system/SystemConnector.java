@@ -16,12 +16,12 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.TransactionalConnectorRecordSetProvider;
-import com.facebook.presto.spi.TransactionalConnectorSplitManager;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.spi.transaction.TransactionalConnectorMetadata;
-import com.facebook.presto.transaction.InternalTransactionalConnector;
+import com.facebook.presto.transaction.InternalConnector;
 import com.facebook.presto.transaction.TransactionHandle;
 import com.facebook.presto.transaction.TransactionId;
 
@@ -31,13 +31,13 @@ import java.util.function.Function;
 import static java.util.Objects.requireNonNull;
 
 public class SystemConnector
-        implements InternalTransactionalConnector
+        implements InternalConnector
 {
     private final String connectorId;
     private final SystemHandleResolver handleResolver;
-    private final TransactionalConnectorMetadata metadata;
-    private final TransactionalConnectorSplitManager splitManager;
-    private final TransactionalConnectorRecordSetProvider recordSetProvider;
+    private final ConnectorMetadata metadata;
+    private final ConnectorSplitManager splitManager;
+    private final ConnectorRecordSetProvider recordSetProvider;
     private final Function<TransactionId, TransactionHandle> transactionHandleFunction;
 
     public SystemConnector(
@@ -66,13 +66,13 @@ public class SystemConnector
     }
 
     @Override
-    public TransactionalConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
         return metadata;
     }
 
     @Override
-    public TransactionalConnectorSplitManager getSplitManager()
+    public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
     }
@@ -84,7 +84,7 @@ public class SystemConnector
     }
 
     @Override
-    public TransactionalConnectorRecordSetProvider getRecordSetProvider()
+    public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
     }

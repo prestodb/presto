@@ -18,15 +18,15 @@ import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TransactionalConnectorIndexProvider;
-import com.facebook.presto.spi.transaction.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.ConnectorIndexProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public class LegacyConnectorIndexProvider
-        implements TransactionalConnectorIndexProvider
+        implements ConnectorIndexProvider
 {
     private final ConnectorIndexResolver delegate;
 
