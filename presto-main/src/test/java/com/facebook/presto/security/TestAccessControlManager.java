@@ -18,13 +18,13 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
-import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
@@ -198,7 +198,7 @@ public class TestAccessControlManager
     }
 
     private static class DenyConnectorAccessControl
-            implements TransactionalConnectorAccessControl
+            implements ConnectorAccessControl
     {
         @Override
         public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)

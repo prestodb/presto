@@ -15,7 +15,6 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
@@ -105,7 +104,7 @@ public interface Connector
     /**
      * @throws UnsupportedOperationException if this connector does not have an access control
      */
-    default TransactionalConnectorAccessControl getAccessControl()
+    default ConnectorAccessControl getAccessControl()
     {
         throw new UnsupportedOperationException();
     }

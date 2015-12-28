@@ -14,19 +14,18 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.security.ConnectorAccessControl;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.TransactionalConnectorAccessControl;
 
 import static java.util.Objects.requireNonNull;
 
 public class LegacyConnectorAccessControl
-        implements TransactionalConnectorAccessControl
+        implements ConnectorAccessControl
 {
-    private final ConnectorAccessControl accessControl;
+    private final com.facebook.presto.spi.security.ConnectorAccessControl accessControl;
 
-    public LegacyConnectorAccessControl(ConnectorAccessControl accessControl)
+    public LegacyConnectorAccessControl(com.facebook.presto.spi.security.ConnectorAccessControl accessControl)
     {
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
