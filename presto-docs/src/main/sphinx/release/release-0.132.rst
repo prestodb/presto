@@ -2,7 +2,7 @@
 Release 0.132
 =============
 
-General Changes
----------------
+Hive Changes
+------------
 
-* Change unit of Hive namenode latency JMX stats from seconds to milliseconds
+* Change unit of Hive namenode latency JMX stats from seconds to milliseconds.
