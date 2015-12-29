@@ -133,21 +133,15 @@ public class ConnectorManager
         checkArgument(existingConnectorFactory == null, "Connector %s is already registered", connectorFactory.getName());
     }
 
-    public synchronized void createConnection(String catalogName, String connectorName, Map<String, String> properties)
+    public void createConnection(String catalogName, String connectorName, Map<String, String> properties)
     {
-        checkState(!stopped.get(), "ConnectorManager is stopped");
-        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(connectorName, "connectorName is null");
-        requireNonNull(properties, "properties is null");
-
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
-            createConnection(catalogName, connectorFactory, properties);
-        }
+        createConnection(catalogName, connectorFactory, properties);
     }
 
-    public synchronized void createConnection(String catalogName, com.facebook.presto.spi.ConnectorFactory connectorFactory, Map<String, String> properties)
+    public void createConnection(String catalogName, com.facebook.presto.spi.ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         createConnection(catalogName, new LegacyTransactionConnectorFactory(connectorFactory), properties);
     }
@@ -163,9 +157,16 @@ public class ConnectorManager
         String connectorId = getConnectorId(catalogName);
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
 
-        Connector connector = connectorFactory.create(connectorId, properties);
+        Class<?> connectorFactoryClass = connectorFactory.getClass();
+        if (connectorFactory instanceof LegacyTransactionConnectorFactory) {
+            connectorFactoryClass = ((LegacyTransactionConnectorFactory) connectorFactory).getConnectorFactory().getClass();
+        }
 
-        addCatalogConnector(catalogName, connectorId, connector);
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactoryClass.getClassLoader())) {
+            Connector connector = connectorFactory.create(connectorId, properties);
+            addCatalogConnector(catalogName, connectorId, connector);
+        }
+
         catalogs.add(catalogName);
     }
 
