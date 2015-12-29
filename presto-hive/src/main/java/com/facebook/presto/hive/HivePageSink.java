@@ -43,6 +43,7 @@ import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
+import org.apache.hadoop.hive.serde2.columnar.OptimizedLazyBinaryColumnarSerde;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -530,6 +531,9 @@ public class HivePageSink
 
             fieldCount = fileColumnNames.size();
 
+            if (serDe.equals(org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe.class.getName())) {
+                serDe = OptimizedLazyBinaryColumnarSerde.class.getName();
+            }
             serializer = initializeSerializer(conf, schema, serDe);
             recordWriter = HiveWriteUtils.createRecordWriter(new Path(writePath, fileName), conf, schema, outputFormat);
 
