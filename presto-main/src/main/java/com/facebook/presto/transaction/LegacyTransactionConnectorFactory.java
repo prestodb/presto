@@ -41,4 +41,9 @@ public class LegacyTransactionConnectorFactory
     {
         return new LegacyTransactionConnector(connectorId, connectorFactory.create(connectorId, config));
     }
+
+    public com.facebook.presto.spi.ConnectorFactory getConnectorFactory()
+    {
+        return connectorFactory;
+    }
 }
