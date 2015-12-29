@@ -237,7 +237,7 @@ public final class TypeRegistry
         // Other methods should reference these two functions instead of hand-code new rules.
 
         // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
-        return firstTypeBase.equals(StandardTypes.ARRAY);
+        return firstTypeBase.equals(StandardTypes.ARRAY) || firstTypeBase.equals(StandardTypes.MAP);
     }
 
     /*
@@ -253,6 +253,32 @@ public final class TypeRegistry
             return true;
         }
         else if (actualType.getBase().equals(StandardTypes.VARCHAR) && expectedType.getBase().equals(StandardTypes.VARCHAR)) {
+            return true;
+        }
+
+        if (actualType.getBase().equals(expectedType.getBase()) &&
+                actualType.getParameters().size() == expectedType.getParameters().size()) {
+            for (int i = 0; i < actualType.getParameters().size(); i++) {
+                if (!isCovariantParameterPosition(actualType.getBase(), i)) {
+                    return false;
+                }
+
+                TypeSignatureParameter actualParameter = actualType.getParameters().get(i);
+                TypeSignatureParameter expectedParameter = expectedType.getParameters().get(i);
+                if (actualParameter.equals(expectedParameter)) {
+                    continue;
+                }
+
+                Optional<TypeSignature> actualParameterSignature = actualParameter.getTypeSignatureOrNamedTypeSignature();
+                Optional<TypeSignature> expectedParameterSignature = expectedParameter.getTypeSignatureOrNamedTypeSignature();
+                if (!actualParameterSignature.isPresent() || !expectedParameterSignature.isPresent()) {
+                    return false;
+                }
+
+                if (!isTypeOnlyCoercion(actualParameterSignature.get(), expectedParameterSignature.get())) {
+                    return false;
+                }
+            }
             return true;
         }
 
