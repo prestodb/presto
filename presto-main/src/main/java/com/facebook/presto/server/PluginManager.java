@@ -208,12 +208,12 @@ public class PluginManager
         }
 
         for (com.facebook.presto.spi.ConnectorFactory connectorFactory : plugin.getServices(com.facebook.presto.spi.ConnectorFactory.class)) {
-            log.info("Registering connector %s", connectorFactory.getName());
+            log.info("Registering legacy connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
         }
 
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {
-            log.info("Registering transactional connector %s", connectorFactory.getName());
+            log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
         }
 
