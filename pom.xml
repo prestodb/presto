@@ -83,6 +83,7 @@
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
         <module>presto-postgresql</module>
+        <module>presto-bytecode</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
@@ -180,6 +181,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cli</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-bytecode</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
