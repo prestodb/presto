@@ -32,8 +32,8 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static org.testng.Assert.assertEquals;
 
 public final class BytecodeExpressionAssertions

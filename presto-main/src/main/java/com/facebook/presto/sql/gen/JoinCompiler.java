@@ -56,6 +56,8 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
+import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
@@ -64,8 +66,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
-import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
-import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
 

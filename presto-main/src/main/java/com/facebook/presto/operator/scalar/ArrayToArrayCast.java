@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.CompilerUtils;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
@@ -30,7 +31,6 @@ import com.facebook.presto.sql.gen.ArrayGeneratorUtils;
 import com.facebook.presto.sql.gen.ArrayMapBytecodeExpression;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
 import com.facebook.presto.sql.gen.CallSiteBinder;
-import com.facebook.presto.sql.gen.CompilerUtils;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -41,13 +41,13 @@ import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.typeParameter;
-import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 

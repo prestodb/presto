@@ -11,14 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.gen;
+package com.facebook.presto.bytecode;
 
-import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.ClassInfoLoader;
-import com.facebook.presto.bytecode.DumpBytecodeVisitor;
-import com.facebook.presto.bytecode.DynamicClassLoader;
-import com.facebook.presto.bytecode.ParameterizedType;
-import com.facebook.presto.bytecode.SmartClassWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.common.reflect.Reflection;

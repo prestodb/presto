@@ -17,9 +17,11 @@ import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
+import com.google.common.base.Throwables;
 import org.testng.annotations.Test;
 
 import java.awt.Point;
+import java.lang.reflect.Field;
 import java.util.function.Function;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
@@ -29,7 +31,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.setStatic;
-import static com.facebook.presto.util.Reflection.field;
 import static org.testng.Assert.assertEquals;
 
 public class TestSetFieldBytecodeExpression
@@ -77,5 +78,15 @@ public class TestSetFieldBytecodeExpression
         testField = "fail";
         assertByteCodeExpression(setStaticField, null, getClass().getSimpleName() + ".testField = \"testValue\";");
         assertEquals(testField, "testValue");
+    }
+
+    private static Field field(Class<?> clazz, String name)
+    {
+        try {
+            return clazz.getField(name);
+        }
+        catch (NoSuchFieldException e) {
+            throw Throwables.propagate(e);
+        }
     }
 }
