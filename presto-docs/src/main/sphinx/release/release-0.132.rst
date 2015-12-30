@@ -12,6 +12,7 @@ General Changes
 * Add ``resource_over_commit`` session property. This disables all memory
   limits for the query. Instead it may be killed at any time, if the coordinator
   needs to reclaim memory.
+* Add support for transactional connectors.
 
 CLI Changes
 -----------
