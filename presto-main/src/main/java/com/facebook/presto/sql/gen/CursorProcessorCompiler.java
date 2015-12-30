@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.ByteCodeBlock;
-import com.facebook.presto.bytecode.ByteCodeNode;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
@@ -45,7 +45,7 @@ import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
+import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler
@@ -70,7 +70,7 @@ public class CursorProcessorCompiler
         }
 
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
-        ByteCodeBlock constructorBody = constructorDefinition.getBody();
+        BytecodeBlock constructorBody = constructorDefinition.getBody();
         Variable thisVariable = constructorDefinition.getThis();
         constructorBody.comment("super();")
                 .append(thisVariable)
@@ -100,25 +100,25 @@ public class CursorProcessorCompiler
         LabelNode done = new LabelNode("done");
         ForLoop forLoop = new ForLoop()
                 .initialize(NOP)
-                .condition(new ByteCodeBlock()
+                .condition(new BytecodeBlock()
                                 .comment("completedPositions < count")
                                 .getVariable(completedPositionsVariable)
                                 .getVariable(count)
                                 .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
-                .update(new ByteCodeBlock()
+                .update(new BytecodeBlock()
                                 .comment("completedPositions++")
                                 .incrementVariable(completedPositionsVariable, (byte) 1)
                 );
 
-        ByteCodeBlock forLoopBody = new ByteCodeBlock()
+        BytecodeBlock forLoopBody = new BytecodeBlock()
                 .comment("if (pageBuilder.isFull()) break;")
-                .append(new ByteCodeBlock()
+                .append(new BytecodeBlock()
                         .getVariable(pageBuilder)
                         .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
                         .ifTrueGoto(done))
                 .comment("if (!cursor.advanceNextPosition()) break;")
-                .append(new ByteCodeBlock()
+                .append(new BytecodeBlock()
                         .getVariable(cursor)
                         .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
                         .ifFalseGoto(done));
@@ -181,7 +181,7 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
+        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
 
         LabelNode end = new LabelNode("end");
         method.getBody()
@@ -210,11 +210,11 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        ByteCodeBlock body = method.getBody()
+        BytecodeBlock body = method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
+        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
@@ -223,12 +223,12 @@ public class CursorProcessorCompiler
                 .ret();
     }
 
-    private RowExpressionVisitor<Scope, ByteCodeNode> fieldReferenceCompiler(final Variable cursorVariable, final Variable wasNullVariable)
+    private RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(final Variable cursorVariable, final Variable wasNullVariable)
     {
-        return new RowExpressionVisitor<Scope, ByteCodeNode>()
+        return new RowExpressionVisitor<Scope, BytecodeNode>()
         {
             @Override
-            public ByteCodeNode visitInputReference(InputReferenceExpression node, Scope scope)
+            public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
             {
                 int field = node.getField();
                 Type type = node.getType();
@@ -258,13 +258,13 @@ public class CursorProcessorCompiler
             }
 
             @Override
-            public ByteCodeNode visitCall(CallExpression call, Scope scope)
+            public BytecodeNode visitCall(CallExpression call, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }
 
             @Override
-            public ByteCodeNode visitConstant(ConstantExpression literal, Scope scope)
+            public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
             {
                 throw new UnsupportedOperationException("not yet implemented");
             }

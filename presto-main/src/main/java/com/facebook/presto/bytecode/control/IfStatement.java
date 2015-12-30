@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.bytecode.control;
 
-import com.facebook.presto.bytecode.ByteCodeBlock;
-import com.facebook.presto.bytecode.ByteCodeNode;
-import com.facebook.presto.bytecode.ByteCodeVisitor;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
@@ -29,9 +29,9 @@ public class IfStatement
         implements FlowControl
 {
     private final String comment;
-    private final ByteCodeBlock condition = new ByteCodeBlock();
-    private final ByteCodeBlock ifTrue = new ByteCodeBlock();
-    private final ByteCodeBlock ifFalse = new ByteCodeBlock();
+    private final BytecodeBlock condition = new BytecodeBlock();
+    private final BytecodeBlock ifTrue = new BytecodeBlock();
+    private final BytecodeBlock ifFalse = new BytecodeBlock();
 
     private final LabelNode falseLabel = new LabelNode("false");
     private final LabelNode outLabel = new LabelNode("out");
@@ -52,36 +52,36 @@ public class IfStatement
         return comment;
     }
 
-    public ByteCodeBlock condition()
+    public BytecodeBlock condition()
     {
         return condition;
     }
 
-    public IfStatement condition(ByteCodeNode node)
+    public IfStatement condition(BytecodeNode node)
     {
         checkState(condition.isEmpty(), "condition already set");
         condition.append(node);
         return this;
     }
 
-    public ByteCodeBlock ifTrue()
+    public BytecodeBlock ifTrue()
     {
         return ifTrue;
     }
 
-    public IfStatement ifTrue(ByteCodeNode node)
+    public IfStatement ifTrue(BytecodeNode node)
     {
         checkState(ifTrue.isEmpty(), "ifTrue already set");
         ifTrue.append(node);
         return this;
     }
 
-    public ByteCodeBlock ifFalse()
+    public BytecodeBlock ifFalse()
     {
         return ifFalse;
     }
 
-    public IfStatement ifFalse(ByteCodeNode node)
+    public IfStatement ifFalse(BytecodeNode node)
     {
         checkState(ifFalse.isEmpty(), "ifFalse already set");
         ifFalse.append(node);
@@ -94,16 +94,16 @@ public class IfStatement
         checkState(!condition.isEmpty(), "IfStatement does not have a condition set");
         checkState(!ifTrue.isEmpty() || !ifFalse.isEmpty(), "IfStatement does not have a true or false block set");
 
-        ByteCodeBlock block = new ByteCodeBlock();
+        BytecodeBlock block = new BytecodeBlock();
 
         // if !condition goto false;
-        block.append(new ByteCodeBlock()
+        block.append(new BytecodeBlock()
                 .setDescription("condition")
                 .append(condition));
         block.ifFalseGoto(falseLabel);
 
         if (!ifTrue.isEmpty()) {
-            block.append(new ByteCodeBlock()
+            block.append(new BytecodeBlock()
                     .setDescription("ifTrue")
                     .append(ifTrue));
         }
@@ -113,7 +113,7 @@ public class IfStatement
             block.gotoLabel(outLabel);
 
             block.visitLabel(falseLabel);
-            block.append(new ByteCodeBlock()
+            block.append(new BytecodeBlock()
                     .setDescription("ifFalse")
                     .append(ifFalse));
             block.visitLabel(outLabel);
@@ -126,13 +126,13 @@ public class IfStatement
     }
 
     @Override
-    public List<ByteCodeNode> getChildNodes()
+    public List<BytecodeNode> getChildNodes()
     {
         return ImmutableList.of(condition, ifTrue, ifFalse);
     }
 
     @Override
-    public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
     {
         return visitor.visitIf(parent, this);
     }

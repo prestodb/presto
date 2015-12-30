@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.ClassInfoLoader;
-import com.facebook.presto.bytecode.DumpByteCodeVisitor;
+import com.facebook.presto.bytecode.DumpBytecodeVisitor;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.SmartClassWriter;
@@ -91,7 +91,7 @@ public final class CompilerUtils
 
         if (DUMP_BYTE_CODE_TREE) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(new PrintStream(out));
+            DumpBytecodeVisitor dumpByteCode = new DumpBytecodeVisitor(new PrintStream(out));
             for (ClassDefinition classDefinition : classDefinitions) {
                 dumpByteCode.visitClass(classDefinition);
             }

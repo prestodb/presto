@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.bytecode.control;
 
-import com.facebook.presto.bytecode.ByteCodeBlock;
-import com.facebook.presto.bytecode.ByteCodeNode;
-import com.facebook.presto.bytecode.ByteCodeVisitor;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.instruction.LabelNode;
@@ -30,11 +30,11 @@ public class TryCatch
         implements FlowControl
 {
     private final String comment;
-    private final ByteCodeNode tryNode;
-    private final ByteCodeNode catchNode;
+    private final BytecodeNode tryNode;
+    private final BytecodeNode catchNode;
     private final String exceptionName;
 
-    public TryCatch(String comment, ByteCodeNode tryNode, ByteCodeNode catchNode, ParameterizedType exceptionType)
+    public TryCatch(String comment, BytecodeNode tryNode, BytecodeNode catchNode, ParameterizedType exceptionType)
     {
         this.comment = comment;
         this.tryNode = requireNonNull(tryNode, "tryNode is null");
@@ -48,12 +48,12 @@ public class TryCatch
         return comment;
     }
 
-    public ByteCodeNode getTryNode()
+    public BytecodeNode getTryNode()
     {
         return tryNode;
     }
 
-    public ByteCodeNode getCatchNode()
+    public BytecodeNode getCatchNode()
     {
         return catchNode;
     }
@@ -71,7 +71,7 @@ public class TryCatch
         LabelNode handler = new LabelNode("handler");
         LabelNode done = new LabelNode("done");
 
-        ByteCodeBlock block = new ByteCodeBlock();
+        BytecodeBlock block = new BytecodeBlock();
 
         // try block
         block.visitLabel(tryStart)
@@ -91,13 +91,13 @@ public class TryCatch
     }
 
     @Override
-    public List<ByteCodeNode> getChildNodes()
+    public List<BytecodeNode> getChildNodes()
     {
         return ImmutableList.of(tryNode, catchNode);
     }
 
     @Override
-    public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
     {
         return visitor.visitTryCatch(parent, this);
     }

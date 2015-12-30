@@ -50,13 +50,13 @@ public class Comment
     }
 
     @Override
-    public List<ByteCodeNode> getChildNodes()
+    public List<BytecodeNode> getChildNodes()
     {
         return ImmutableList.of();
     }
 
     @Override
-    public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
     {
         return visitor.visitComment(parent, this);
     }

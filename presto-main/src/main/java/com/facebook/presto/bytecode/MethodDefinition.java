@@ -48,7 +48,7 @@ public class MethodDefinition
     private final List<List<AnnotationDefinition>> parameterAnnotations;
     private final List<ParameterizedType> exceptions = new ArrayList<>();
 
-    private final ByteCodeBlock body;
+    private final BytecodeBlock body;
     private String comment;
 
     public MethodDefinition(
@@ -71,7 +71,7 @@ public class MethodDefinition
     )
     {
         this.declaringClass = declaringClass;
-        body = new ByteCodeBlock();
+        body = new BytecodeBlock();
 
         this.access = access;
         this.name = name;
@@ -169,7 +169,7 @@ public class MethodDefinition
         return methodDescription(returnType, parameterTypes);
     }
 
-    public ByteCodeBlock getBody()
+    public BytecodeBlock getBody()
     {
         return body;
     }

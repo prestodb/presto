@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.bytecode.control;
 
-import com.facebook.presto.bytecode.ByteCodeNode;
+import com.facebook.presto.bytecode.BytecodeNode;
 
 public interface FlowControl
-        extends ByteCodeNode
+        extends BytecodeNode
 {
     String getComment();
 }

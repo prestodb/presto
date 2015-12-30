@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.ByteCodeBlock;
-import com.facebook.presto.bytecode.ByteCodeNode;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.FieldDefinition;
@@ -25,7 +25,7 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.bytecode.expression.ByteCodeExpression;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.InMemoryJoinHash;
 import com.facebook.presto.operator.LookupSource;
@@ -58,15 +58,15 @@ import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.constantFalse;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.constantInt;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.constantLong;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.constantNull;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.constantTrue;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.notEqual;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
-import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
+import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
@@ -180,7 +180,7 @@ public class JoinCompiler
         Variable thisVariable = constructorDefinition.getThis();
         Variable blockIndex = constructorDefinition.getScope().declareVariable(int.class, "blockIndex");
 
-        ByteCodeBlock constructor = constructorDefinition
+        BytecodeBlock constructor = constructorDefinition
                 .getBody()
                 .comment("super();")
                 .append(thisVariable)
@@ -192,21 +192,21 @@ public class JoinCompiler
         constructor.comment("Set channel fields");
 
         for (int index = 0; index < channelFields.size(); index++) {
-            ByteCodeExpression channel = channels.invoke("get", Object.class, constantInt(index))
+            BytecodeExpression channel = channels.invoke("get", Object.class, constantInt(index))
                     .cast(type(List.class, Block.class));
 
             constructor.append(thisVariable.setField(channelFields.get(index), channel));
 
-            ByteCodeBlock loopBody = new ByteCodeBlock();
+            BytecodeBlock loopBody = new BytecodeBlock();
 
             constructor.comment("for(blockIndex = 0; blockIndex < channel.size(); blockIndex++) { size += channel.get(i).getRetainedSizeInBytes() }")
                     .append(new ForLoop()
                             .initialize(blockIndex.set(constantInt(0)))
-                            .condition(new ByteCodeBlock()
+                            .condition(new BytecodeBlock()
                                     .append(blockIndex)
                                     .append(channel.invoke("size", int.class))
                                     .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
-                            .update(new ByteCodeBlock().incrementVariable(blockIndex, (byte) 1))
+                            .update(new BytecodeBlock().incrementVariable(blockIndex, (byte) 1))
                             .body(loopBody));
 
             loopBody.append(thisVariable)
@@ -223,7 +223,7 @@ public class JoinCompiler
 
         constructor.comment("Set join channel fields");
         for (int index = 0; index < joinChannelFields.size(); index++) {
-            ByteCodeExpression joinChannel = channels.invoke("get", Object.class, constantInt(joinChannels.get(index)))
+            BytecodeExpression joinChannel = channels.invoke("get", Object.class, constantInt(joinChannels.get(index)))
                     .cast(type(List.class, Block.class));
 
             constructor.append(thisVariable.setField(joinChannelFields.get(index), joinChannel));
@@ -271,13 +271,13 @@ public class JoinCompiler
         MethodDefinition appendToMethod = classDefinition.declareMethod(a(PUBLIC), "appendTo", type(void.class), blockIndex, blockPosition, pageBuilder, outputChannelOffset);
 
         Variable thisVariable = appendToMethod.getThis();
-        ByteCodeBlock appendToBody = appendToMethod.getBody();
+        BytecodeBlock appendToBody = appendToMethod.getBody();
 
         for (int index = 0; index < channelFields.size(); index++) {
             Type type = types.get(index);
-            ByteCodeExpression typeExpression = constantType(callSiteBinder, type);
+            BytecodeExpression typeExpression = constantType(callSiteBinder, type);
 
-            ByteCodeExpression block = thisVariable
+            BytecodeExpression block = thisVariable
                     .getField(channelFields.get(index))
                     .invoke("get", Object.class, blockIndex)
                     .cast(Block.class);
@@ -309,8 +309,8 @@ public class JoinCompiler
                 blockPosition);
 
         Variable thisVariable = hashPositionMethod.getThis();
-        ByteCodeExpression hashChannel = thisVariable.getField(hashChannelField);
-        ByteCodeExpression bigintType = constantType(callSiteBinder, BigintType.BIGINT);
+        BytecodeExpression hashChannel = thisVariable.getField(hashChannelField);
+        BytecodeExpression bigintType = constantType(callSiteBinder, BigintType.BIGINT);
 
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition(notEqual(hashChannel, constantNull(hashChannelField.getType())));
@@ -332,9 +332,9 @@ public class JoinCompiler
         hashPositionMethod.getBody().push(0).putVariable(resultVariable);
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
+            BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
-            ByteCodeExpression block = hashPositionMethod
+            BytecodeExpression block = hashPositionMethod
                     .getThis()
                     .getField(joinChannelFields.get(index))
                     .invoke("get", Object.class, blockIndex)
@@ -366,10 +366,10 @@ public class JoinCompiler
         hashRowMethod.getBody().push(0).putVariable(resultVariable);
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
+            BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
             // todo is the case needed
-            ByteCodeExpression block = blocks.getElement(index).cast(Block.class);
+            BytecodeExpression block = blocks.getElement(index).cast(Block.class);
 
             hashRowMethod
                     .getBody()
@@ -387,7 +387,7 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private static ByteCodeNode typeHashCode(ByteCodeExpression type, ByteCodeExpression blockRef, ByteCodeExpression blockPosition)
+    private static BytecodeNode typeHashCode(BytecodeExpression type, BytecodeExpression blockRef, BytecodeExpression blockPosition)
     {
         return new IfStatement()
             .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
@@ -411,13 +411,13 @@ public class JoinCompiler
 
         Scope compilerContext = rowEqualsRowMethod.getScope();
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
+            BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
-            ByteCodeExpression leftBlock = compilerContext
+            BytecodeExpression leftBlock = compilerContext
                     .getVariable("leftBlocks")
                     .getElement(index);
 
-            ByteCodeExpression rightBlock = compilerContext
+            BytecodeExpression rightBlock = compilerContext
                     .getVariable("rightBlocks")
                     .getElement(index);
 
@@ -464,14 +464,14 @@ public class JoinCompiler
         Variable thisVariable = positionEqualsRowMethod.getThis();
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
+            BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
-            ByteCodeExpression leftBlock = thisVariable
+            BytecodeExpression leftBlock = thisVariable
                     .getField(joinChannelFields.get(index))
                     .invoke("get", Object.class, leftBlockIndex)
                     .cast(Block.class);
 
-            ByteCodeExpression rightBlock = rightBlocks.getElement(index);
+            BytecodeExpression rightBlock = rightBlocks.getElement(index);
 
             LabelNode checkNextField = new LabelNode("checkNextField");
             positionEqualsRowMethod
@@ -512,17 +512,17 @@ public class JoinCompiler
                 rightChannels);
 
         Variable thisVariable = positionEqualsRowMethod.getThis();
-        ByteCodeBlock body = positionEqualsRowMethod.getBody();
+        BytecodeBlock body = positionEqualsRowMethod.getBody();
 
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
+            BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
-            ByteCodeExpression leftBlock = thisVariable
+            BytecodeExpression leftBlock = thisVariable
                     .getField(joinChannelFields.get(index))
                     .invoke("get", Object.class, leftBlockIndex)
                     .cast(Block.class);
 
-            ByteCodeExpression rightBlock = page.invoke("getBlock", Block.class, rightChannels.getElement(index));
+            BytecodeExpression rightBlock = page.invoke("getBlock", Block.class, rightChannels.getElement(index));
 
             body.append(new IfStatement()
                     .condition(typeEquals(type, leftBlock, leftBlockPosition, rightBlock, rightPosition))
@@ -553,14 +553,14 @@ public class JoinCompiler
 
         Variable thisVariable = positionEqualsPositionMethod.getThis();
         for (int index = 0; index < joinChannelTypes.size(); index++) {
-            ByteCodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
+            BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
-            ByteCodeExpression leftBlock = thisVariable
+            BytecodeExpression leftBlock = thisVariable
                     .getField(joinChannelFields.get(index))
                     .invoke("get", Object.class, leftBlockIndex)
                     .cast(Block.class);
 
-            ByteCodeExpression rightBlock = thisVariable
+            BytecodeExpression rightBlock = thisVariable
                     .getField(joinChannelFields.get(index))
                     .invoke("get", Object.class, rightBlockIndex)
                     .cast(Block.class);
@@ -581,12 +581,12 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private static ByteCodeNode typeEquals(
-            ByteCodeExpression type,
-            ByteCodeExpression leftBlock,
-            ByteCodeExpression leftBlockPosition,
-            ByteCodeExpression rightBlock,
-            ByteCodeExpression rightBlockPosition)
+    private static BytecodeNode typeEquals(
+            BytecodeExpression type,
+            BytecodeExpression leftBlock,
+            BytecodeExpression leftBlockPosition,
+            BytecodeExpression rightBlock,
+            BytecodeExpression rightBlockPosition)
     {
         IfStatement ifStatement = new IfStatement();
         ifStatement.condition()

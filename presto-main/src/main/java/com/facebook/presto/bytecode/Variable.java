@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.bytecode;
 
-import com.facebook.presto.bytecode.expression.ByteCodeExpression;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.VariableInstruction;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.add;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static java.util.Objects.requireNonNull;
 
 public class Variable
-        extends ByteCodeExpression
+        extends BytecodeExpression
 {
     private final String name;
 
@@ -40,18 +40,18 @@ public class Variable
         return name;
     }
 
-    public ByteCodeExpression set(ByteCodeExpression value)
+    public BytecodeExpression set(BytecodeExpression value)
     {
-        return new SetVariableByteCodeExpression(this, value);
+        return new SetVariableBytecodeExpression(this, value);
     }
 
-    public ByteCodeExpression increment()
+    public BytecodeExpression increment()
     {
-        return new SetVariableByteCodeExpression(this, add(this, constantInt(1)));
+        return new SetVariableBytecodeExpression(this, add(this, constantInt(1)));
     }
 
     @Override
-    public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
     {
         return VariableInstruction.loadVariable(this);
     }
@@ -63,18 +63,18 @@ public class Variable
     }
 
     @Override
-    public List<ByteCodeNode> getChildNodes()
+    public List<BytecodeNode> getChildNodes()
     {
         return ImmutableList.of();
     }
 
-    private static final class SetVariableByteCodeExpression
-            extends ByteCodeExpression
+    private static final class SetVariableBytecodeExpression
+            extends BytecodeExpression
     {
         private final Variable variable;
-        private final ByteCodeExpression value;
+        private final BytecodeExpression value;
 
-        public SetVariableByteCodeExpression(Variable variable, ByteCodeExpression value)
+        public SetVariableBytecodeExpression(Variable variable, BytecodeExpression value)
         {
             super(type(void.class));
             this.variable = requireNonNull(variable, "variable is null");
@@ -82,17 +82,17 @@ public class Variable
         }
 
         @Override
-        public ByteCodeNode getByteCode(MethodGenerationContext generationContext)
+        public BytecodeNode getByteCode(MethodGenerationContext generationContext)
         {
-            return new ByteCodeBlock()
+            return new BytecodeBlock()
                     .append(value)
                     .putVariable(variable);
         }
 
         @Override
-        public List<ByteCodeNode> getChildNodes()
+        public List<BytecodeNode> getChildNodes()
         {
-            return ImmutableList.<ByteCodeNode>of(value);
+            return ImmutableList.<BytecodeNode>of(value);
         }
 
         @Override

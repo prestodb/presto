@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.bytecode.instruction;
 
-import com.facebook.presto.bytecode.ByteCodeNode;
-import com.facebook.presto.bytecode.ByteCodeVisitor;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.google.common.collect.ImmutableList;
@@ -151,13 +151,13 @@ public abstract class Constant
     public abstract Object getValue();
 
     @Override
-    public List<ByteCodeNode> getChildNodes()
+    public List<BytecodeNode> getChildNodes()
     {
         return ImmutableList.of();
     }
 
     @Override
-    public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
     {
         return visitor.visitConstant(parent, this);
     }
@@ -186,7 +186,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitConstant(parent, this);
         }
@@ -220,7 +220,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitBooleanConstant(parent, this);
         }
@@ -254,7 +254,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitBoxedBooleanConstant(parent, this);
         }
@@ -316,7 +316,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitIntConstant(parent, this);
         }
@@ -346,7 +346,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitBoxedIntegerConstant(parent, this);
         }
@@ -390,7 +390,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitFloatConstant(parent, this);
         }
@@ -420,7 +420,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitBoxedFloatConstant(parent, this);
         }
@@ -457,7 +457,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitLongConstant(parent, this);
         }
@@ -487,7 +487,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitBoxedLongConstant(parent, this);
         }
@@ -528,7 +528,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitDoubleConstant(parent, this);
         }
@@ -558,7 +558,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitBoxedDoubleConstant(parent, this);
         }
@@ -587,7 +587,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitStringConstant(parent, this);
         }
@@ -622,7 +622,7 @@ public abstract class Constant
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitClassConstant(parent, this);
         }
