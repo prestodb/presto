@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class ArithmeticBytecodeExpression
         extends BytecodeExpression
 {
-    public static BytecodeExpression createArithmeticByteCodeExpression(OpCode baseOpCode, BytecodeExpression left, BytecodeExpression right)
+    public static BytecodeExpression createArithmeticBytecodeExpression(OpCode baseOpCode, BytecodeExpression left, BytecodeExpression right)
     {
         requireNonNull(baseOpCode, "baseOpCode is null");
         String name = getName(baseOpCode);
@@ -182,7 +182,7 @@ public class ArithmeticBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         return new BytecodeBlock()
                 .append(left)

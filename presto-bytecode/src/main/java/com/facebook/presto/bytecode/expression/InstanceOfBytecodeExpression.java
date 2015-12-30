@@ -43,7 +43,7 @@ class InstanceOfBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         return new BytecodeBlock()
                 .append(instance)

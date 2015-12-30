@@ -15,7 +15,7 @@ package com.facebook.presto.bytecode.expression;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.bitwiseAnd;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.bitwiseOr;
@@ -39,111 +39,111 @@ public class TestArithmeticBytecodeExpression
     public void testAdd()
             throws Exception
     {
-        assertByteCodeExpression(add(constantInt(3), constantInt(7)), 3 + 7, "(3 + 7)");
-        assertByteCodeExpression(add(constantLong(3), constantLong(7)), 3L + 7L, "(3L + 7L)");
-        assertByteCodeExpression(add(constantFloat(3.1f), constantFloat(7.5f)), 3.1f + 7.5f, "(3.1f + 7.5f)");
-        assertByteCodeExpression(add(constantDouble(3.1), constantDouble(7.5)), 3.1 + 7.5, "(3.1 + 7.5)");
+        assertBytecodeExpression(add(constantInt(3), constantInt(7)), 3 + 7, "(3 + 7)");
+        assertBytecodeExpression(add(constantLong(3), constantLong(7)), 3L + 7L, "(3L + 7L)");
+        assertBytecodeExpression(add(constantFloat(3.1f), constantFloat(7.5f)), 3.1f + 7.5f, "(3.1f + 7.5f)");
+        assertBytecodeExpression(add(constantDouble(3.1), constantDouble(7.5)), 3.1 + 7.5, "(3.1 + 7.5)");
     }
 
     @Test
     public void testSubtract()
             throws Exception
     {
-        assertByteCodeExpression(subtract(constantInt(3), constantInt(7)), 3 - 7, "(3 - 7)");
-        assertByteCodeExpression(subtract(constantLong(3), constantLong(7)), 3L - 7L, "(3L - 7L)");
-        assertByteCodeExpression(subtract(constantFloat(3.1f), constantFloat(7.5f)), 3.1f - 7.5f, "(3.1f - 7.5f)");
-        assertByteCodeExpression(subtract(constantDouble(3.1), constantDouble(7.5)), 3.1 - 7.5, "(3.1 - 7.5)");
+        assertBytecodeExpression(subtract(constantInt(3), constantInt(7)), 3 - 7, "(3 - 7)");
+        assertBytecodeExpression(subtract(constantLong(3), constantLong(7)), 3L - 7L, "(3L - 7L)");
+        assertBytecodeExpression(subtract(constantFloat(3.1f), constantFloat(7.5f)), 3.1f - 7.5f, "(3.1f - 7.5f)");
+        assertBytecodeExpression(subtract(constantDouble(3.1), constantDouble(7.5)), 3.1 - 7.5, "(3.1 - 7.5)");
     }
 
     @Test
     public void testMultiply()
             throws Exception
     {
-        assertByteCodeExpression(multiply(constantInt(3), constantInt(7)), 3 * 7, "(3 * 7)");
-        assertByteCodeExpression(multiply(constantLong(3), constantLong(7)), 3L * 7L, "(3L * 7L)");
-        assertByteCodeExpression(multiply(constantFloat(3.1f), constantFloat(7.5f)), 3.1f * 7.5f, "(3.1f * 7.5f)");
-        assertByteCodeExpression(multiply(constantDouble(3.1), constantDouble(7.5)), 3.1 * 7.5, "(3.1 * 7.5)");
+        assertBytecodeExpression(multiply(constantInt(3), constantInt(7)), 3 * 7, "(3 * 7)");
+        assertBytecodeExpression(multiply(constantLong(3), constantLong(7)), 3L * 7L, "(3L * 7L)");
+        assertBytecodeExpression(multiply(constantFloat(3.1f), constantFloat(7.5f)), 3.1f * 7.5f, "(3.1f * 7.5f)");
+        assertBytecodeExpression(multiply(constantDouble(3.1), constantDouble(7.5)), 3.1 * 7.5, "(3.1 * 7.5)");
     }
 
     @Test
     public void testDivide()
             throws Exception
     {
-        assertByteCodeExpression(divide(constantInt(7), constantInt(3)), 7 / 3, "(7 / 3)");
-        assertByteCodeExpression(divide(constantLong(7), constantLong(3)), 7L / 3L, "(7L / 3L)");
-        assertByteCodeExpression(divide(constantFloat(3.1f), constantFloat(7.5f)), 3.1f / 7.5f, "(3.1f / 7.5f)");
-        assertByteCodeExpression(divide(constantDouble(3.1), constantDouble(7.5)), 3.1 / 7.5, "(3.1 / 7.5)");
+        assertBytecodeExpression(divide(constantInt(7), constantInt(3)), 7 / 3, "(7 / 3)");
+        assertBytecodeExpression(divide(constantLong(7), constantLong(3)), 7L / 3L, "(7L / 3L)");
+        assertBytecodeExpression(divide(constantFloat(3.1f), constantFloat(7.5f)), 3.1f / 7.5f, "(3.1f / 7.5f)");
+        assertBytecodeExpression(divide(constantDouble(3.1), constantDouble(7.5)), 3.1 / 7.5, "(3.1 / 7.5)");
     }
 
     @Test
     public void testRemainder()
             throws Exception
     {
-        assertByteCodeExpression(remainder(constantInt(7), constantInt(3)), 7 % 3, "(7 % 3)");
-        assertByteCodeExpression(remainder(constantLong(7), constantLong(3)), 7L % 3L, "(7L % 3L)");
-        assertByteCodeExpression(remainder(constantFloat(3.1f), constantFloat(7.5f)), 3.1f % 7.5f, "(3.1f % 7.5f)");
-        assertByteCodeExpression(remainder(constantDouble(3.1), constantDouble(7.5)), 3.1 % 7.5, "(3.1 % 7.5)");
+        assertBytecodeExpression(remainder(constantInt(7), constantInt(3)), 7 % 3, "(7 % 3)");
+        assertBytecodeExpression(remainder(constantLong(7), constantLong(3)), 7L % 3L, "(7L % 3L)");
+        assertBytecodeExpression(remainder(constantFloat(3.1f), constantFloat(7.5f)), 3.1f % 7.5f, "(3.1f % 7.5f)");
+        assertBytecodeExpression(remainder(constantDouble(3.1), constantDouble(7.5)), 3.1 % 7.5, "(3.1 % 7.5)");
     }
 
     @Test
     public void testShiftLeft()
             throws Exception
     {
-        assertByteCodeExpression(shiftLeft(constantInt(7), constantInt(3)), 7 << 3, "(7 << 3)");
-        assertByteCodeExpression(shiftLeft(constantLong(7), constantInt(3)), 7L << 3, "(7L << 3)");
+        assertBytecodeExpression(shiftLeft(constantInt(7), constantInt(3)), 7 << 3, "(7 << 3)");
+        assertBytecodeExpression(shiftLeft(constantLong(7), constantInt(3)), 7L << 3, "(7L << 3)");
     }
 
     @Test
     public void testShiftRight()
             throws Exception
     {
-        assertByteCodeExpression(shiftRight(constantInt(-7), constantInt(3)), -7 >> 3, "(-7 >> 3)");
-        assertByteCodeExpression(shiftRight(constantLong(-7), constantInt(3)), -7L >> 3, "(-7L >> 3)");
+        assertBytecodeExpression(shiftRight(constantInt(-7), constantInt(3)), -7 >> 3, "(-7 >> 3)");
+        assertBytecodeExpression(shiftRight(constantLong(-7), constantInt(3)), -7L >> 3, "(-7L >> 3)");
     }
 
     @Test
     public void testShiftRightUnsigned()
             throws Exception
     {
-        assertByteCodeExpression(shiftRightUnsigned(constantInt(-7), constantInt(3)), -7 >>> 3, "(-7 >>> 3)");
-        assertByteCodeExpression(shiftRightUnsigned(constantLong(-7), constantInt(3)), -7L >>> 3, "(-7L >>> 3)");
+        assertBytecodeExpression(shiftRightUnsigned(constantInt(-7), constantInt(3)), -7 >>> 3, "(-7 >>> 3)");
+        assertBytecodeExpression(shiftRightUnsigned(constantLong(-7), constantInt(3)), -7L >>> 3, "(-7L >>> 3)");
     }
 
     @Test
     public void testBitwiseAnd()
             throws Exception
     {
-        assertByteCodeExpression(bitwiseAnd(constantInt(101), constantInt(37)), 101 & 37, "(101 & 37)");
-        assertByteCodeExpression(bitwiseAnd(constantLong(101), constantLong(37)), 101L & 37L, "(101L & 37L)");
+        assertBytecodeExpression(bitwiseAnd(constantInt(101), constantInt(37)), 101 & 37, "(101 & 37)");
+        assertBytecodeExpression(bitwiseAnd(constantLong(101), constantLong(37)), 101L & 37L, "(101L & 37L)");
     }
 
     @Test
     public void testBitwiseOr()
             throws Exception
     {
-        assertByteCodeExpression(bitwiseOr(constantInt(101), constantInt(37)), 101 | 37, "(101 | 37)");
-        assertByteCodeExpression(bitwiseOr(constantLong(101), constantLong(37)), 101L | 37L, "(101L | 37L)");
+        assertBytecodeExpression(bitwiseOr(constantInt(101), constantInt(37)), 101 | 37, "(101 | 37)");
+        assertBytecodeExpression(bitwiseOr(constantLong(101), constantLong(37)), 101L | 37L, "(101L | 37L)");
     }
 
     @Test
     public void testBitwiseXor()
             throws Exception
     {
-        assertByteCodeExpression(bitwiseXor(constantInt(101), constantInt(37)), 101 ^ 37, "(101 ^ 37)");
-        assertByteCodeExpression(bitwiseXor(constantLong(101), constantLong(37)), 101L ^ 37L, "(101L ^ 37L)");
+        assertBytecodeExpression(bitwiseXor(constantInt(101), constantInt(37)), 101 ^ 37, "(101 ^ 37)");
+        assertBytecodeExpression(bitwiseXor(constantLong(101), constantLong(37)), 101L ^ 37L, "(101L ^ 37L)");
     }
 
     @Test
     public void testNegate()
             throws Exception
     {
-        assertByteCodeExpression(negate(constantInt(3)), -3, "-(3)");
-        assertByteCodeExpression(negate(constantLong(3)), -3L, "-(3L)");
-        assertByteCodeExpression(negate(constantFloat(3.1f)), -3.1f, "-(3.1f)");
-        assertByteCodeExpression(negate(constantDouble(3.1)), -3.1, "-(3.1)");
-        assertByteCodeExpression(negate(constantInt(-3)), -(-3), "-(-3)");
-        assertByteCodeExpression(negate(constantLong(-3)), -(-3L), "-(-3L)");
-        assertByteCodeExpression(negate(constantFloat(-3.1f)), -(-3.1f), "-(-3.1f)");
-        assertByteCodeExpression(negate(constantDouble(-3.1)), -(-3.1), "-(-3.1)");
+        assertBytecodeExpression(negate(constantInt(3)), -3, "-(3)");
+        assertBytecodeExpression(negate(constantLong(3)), -3L, "-(3L)");
+        assertBytecodeExpression(negate(constantFloat(3.1f)), -3.1f, "-(3.1f)");
+        assertBytecodeExpression(negate(constantDouble(3.1)), -3.1, "-(3.1)");
+        assertBytecodeExpression(negate(constantInt(-3)), -(-3), "-(-3)");
+        assertBytecodeExpression(negate(constantLong(-3)), -(-3L), "-(-3L)");
+        assertBytecodeExpression(negate(constantFloat(-3.1f)), -(-3.1f), "-(-3.1f)");
+        assertBytecodeExpression(negate(constantDouble(-3.1)), -(-3.1), "-(-3.1)");
     }
 }

@@ -85,9 +85,9 @@ public final class CompilerUtils
 
         if (DUMP_BYTE_CODE_TREE) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            DumpBytecodeVisitor dumpByteCode = new DumpBytecodeVisitor(new PrintStream(out));
+            DumpBytecodeVisitor dumpBytecode = new DumpBytecodeVisitor(new PrintStream(out));
             for (ClassDefinition classDefinition : classDefinitions) {
-                dumpByteCode.visitClass(classDefinition);
+                dumpBytecode.visitClass(classDefinition);
             }
             System.out.println(new String(out.toByteArray(), StandardCharsets.UTF_8));
         }

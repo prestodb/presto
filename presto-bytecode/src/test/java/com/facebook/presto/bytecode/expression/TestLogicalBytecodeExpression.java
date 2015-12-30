@@ -15,7 +15,7 @@ package com.facebook.presto.bytecode.expression;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -28,27 +28,27 @@ public class TestLogicalBytecodeExpression
     public void testAnd()
             throws Exception
     {
-        assertByteCodeExpression(and(constantTrue(), constantTrue()), true && true, "(true && true)");
-        assertByteCodeExpression(and(constantTrue(), constantFalse()), true && false, "(true && false)");
-        assertByteCodeExpression(and(constantFalse(), constantTrue()), false && true, "(false && true)");
-        assertByteCodeExpression(and(constantFalse(), constantFalse()), false && false, "(false && false)");
+        assertBytecodeExpression(and(constantTrue(), constantTrue()), true && true, "(true && true)");
+        assertBytecodeExpression(and(constantTrue(), constantFalse()), true && false, "(true && false)");
+        assertBytecodeExpression(and(constantFalse(), constantTrue()), false && true, "(false && true)");
+        assertBytecodeExpression(and(constantFalse(), constantFalse()), false && false, "(false && false)");
     }
 
     @Test
     public void testOr()
             throws Exception
     {
-        assertByteCodeExpression(or(constantTrue(), constantTrue()), true || true, "(true || true)");
-        assertByteCodeExpression(or(constantTrue(), constantFalse()), true || false, "(true || false)");
-        assertByteCodeExpression(or(constantFalse(), constantTrue()), false || true, "(false || true)");
-        assertByteCodeExpression(or(constantFalse(), constantFalse()), false || false, "(false || false)");
+        assertBytecodeExpression(or(constantTrue(), constantTrue()), true || true, "(true || true)");
+        assertBytecodeExpression(or(constantTrue(), constantFalse()), true || false, "(true || false)");
+        assertBytecodeExpression(or(constantFalse(), constantTrue()), false || true, "(false || true)");
+        assertBytecodeExpression(or(constantFalse(), constantFalse()), false || false, "(false || false)");
     }
 
     @Test
     public void testNot()
             throws Exception
     {
-        assertByteCodeExpression(not(constantTrue()), !true, "(!true)");
-        assertByteCodeExpression(not(constantFalse()), !false, "(!false)");
+        assertBytecodeExpression(not(constantTrue()), !true, "(!true)");
+        assertBytecodeExpression(not(constantFalse()), !false, "(!false)");
     }
 }

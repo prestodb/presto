@@ -15,7 +15,7 @@ package com.facebook.presto.bytecode.expression;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -27,7 +27,7 @@ public class TestInlineIfBytecodeExpression
     public void testInlineIf()
             throws Exception
     {
-        assertByteCodeExpression(inlineIf(constantTrue(), constantString("T"), constantString("F")), true ? "T" : "F", "(true ? \"T\" : \"F\")");
-        assertByteCodeExpression(inlineIf(constantFalse(), constantString("T"), constantString("F")), false ? "T" : "F", "(false ? \"T\" : \"F\")");
+        assertBytecodeExpression(inlineIf(constantTrue(), constantString("T"), constantString("F")), true ? "T" : "F", "(true ? \"T\" : \"F\")");
+        assertBytecodeExpression(inlineIf(constantFalse(), constantString("T"), constantString("F")), false ? "T" : "F", "(false ? \"T\" : \"F\")");
     }
 }

@@ -48,9 +48,9 @@ class CastBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
-        BytecodeBlock block = new BytecodeBlock().append(instance.getByteCode(generationContext));
+        BytecodeBlock block = new BytecodeBlock().append(instance.getBytecode(generationContext));
 
         if (instance.getType().isPrimitive()) {
             Class<?> sourceType = instance.getType().getPrimitiveType();

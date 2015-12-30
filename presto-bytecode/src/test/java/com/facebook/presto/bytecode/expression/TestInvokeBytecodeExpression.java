@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantDouble;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
@@ -28,13 +28,13 @@ public class TestInvokeBytecodeExpression
     public void testInvokeMethod()
             throws Exception
     {
-        assertByteCodeExpression(constantString("foo").invoke("length", int.class), "foo".length(), "\"foo\".length()");
-        assertByteCodeExpression(constantString("foo").invoke("concat", String.class, constantString("bar")), "foo".concat("bar"), "\"foo\".concat(\"bar\")");
-        assertByteCodeExpression(
+        assertBytecodeExpression(constantString("foo").invoke("length", int.class), "foo".length(), "\"foo\".length()");
+        assertBytecodeExpression(constantString("foo").invoke("concat", String.class, constantString("bar")), "foo".concat("bar"), "\"foo\".concat(\"bar\")");
+        assertBytecodeExpression(
                 constantString("foo").invoke("concat", String.class, ImmutableList.of(String.class), constantString("bar")),
                 "foo".concat("bar"),
                 "\"foo\".concat(\"bar\")");
-        assertByteCodeExpression(
+        assertBytecodeExpression(
                 constantString("foo").invoke("concat", type(String.class), ImmutableList.of(type(String.class)), constantString("bar")),
                 "foo".concat("bar"),
                 "\"foo\".concat(\"bar\")");
@@ -44,13 +44,13 @@ public class TestInvokeBytecodeExpression
     public void testInvokeStaticMethod()
             throws Exception
     {
-        assertByteCodeExpression(invokeStatic(System.class, "lineSeparator", String.class), System.lineSeparator(), "System.lineSeparator()");
-        assertByteCodeExpression(invokeStatic(Math.class, "cos", double.class, constantDouble(33.3)), Math.cos(33.3), "Math.cos(33.3)");
-        assertByteCodeExpression(
+        assertBytecodeExpression(invokeStatic(System.class, "lineSeparator", String.class), System.lineSeparator(), "System.lineSeparator()");
+        assertBytecodeExpression(invokeStatic(Math.class, "cos", double.class, constantDouble(33.3)), Math.cos(33.3), "Math.cos(33.3)");
+        assertBytecodeExpression(
                 invokeStatic(Math.class, "cos", double.class, ImmutableList.of(double.class), constantDouble(33.3)),
                 Math.cos(33.3),
                 "Math.cos(33.3)");
-        assertByteCodeExpression(
+        assertBytecodeExpression(
                 invokeStatic(type(Math.class), "cos", type(double.class), ImmutableList.of(type(double.class)), ImmutableList.of(constantDouble(33.3))),
                 Math.cos(33.3),
                 "Math.cos(33.3)");

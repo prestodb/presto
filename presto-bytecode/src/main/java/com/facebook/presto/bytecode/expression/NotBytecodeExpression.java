@@ -37,7 +37,7 @@ class NotBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         LabelNode trueLabel = new LabelNode("true");
         LabelNode endLabel = new LabelNode("end");

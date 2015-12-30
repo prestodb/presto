@@ -24,7 +24,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.ArithmeticBytecodeExpression.createArithmeticByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.ArithmeticBytecodeExpression.createArithmeticBytecodeExpression;
 import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
 import static com.facebook.presto.bytecode.instruction.Constant.loadClass;
 import static com.facebook.presto.bytecode.instruction.Constant.loadDouble;
@@ -493,57 +493,57 @@ public final class BytecodeExpressions
 
     public static BytecodeExpression add(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.IADD, left, right);
+        return createArithmeticBytecodeExpression(OpCode.IADD, left, right);
     }
 
     public static BytecodeExpression subtract(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.ISUB, left, right);
+        return createArithmeticBytecodeExpression(OpCode.ISUB, left, right);
     }
 
     public static BytecodeExpression multiply(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.IMUL, left, right);
+        return createArithmeticBytecodeExpression(OpCode.IMUL, left, right);
     }
 
     public static BytecodeExpression divide(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.IDIV, left, right);
+        return createArithmeticBytecodeExpression(OpCode.IDIV, left, right);
     }
 
     public static BytecodeExpression remainder(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.IREM, left, right);
+        return createArithmeticBytecodeExpression(OpCode.IREM, left, right);
     }
 
     public static BytecodeExpression bitwiseAnd(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.IAND, left, right);
+        return createArithmeticBytecodeExpression(OpCode.IAND, left, right);
     }
 
     public static BytecodeExpression bitwiseOr(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.IOR, left, right);
+        return createArithmeticBytecodeExpression(OpCode.IOR, left, right);
     }
 
     public static BytecodeExpression bitwiseXor(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.IXOR, left, right);
+        return createArithmeticBytecodeExpression(OpCode.IXOR, left, right);
     }
 
     public static BytecodeExpression shiftLeft(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.ISHL, left, right);
+        return createArithmeticBytecodeExpression(OpCode.ISHL, left, right);
     }
 
     public static BytecodeExpression shiftRight(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.ISHR, left, right);
+        return createArithmeticBytecodeExpression(OpCode.ISHR, left, right);
     }
 
     public static BytecodeExpression shiftRightUnsigned(BytecodeExpression left, BytecodeExpression right)
     {
-        return createArithmeticByteCodeExpression(OpCode.IUSHR, left, right);
+        return createArithmeticBytecodeExpression(OpCode.IUSHR, left, right);
     }
 
     public static BytecodeExpression negate(BytecodeExpression value)

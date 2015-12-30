@@ -111,10 +111,10 @@ public class InCodeGenerator
 
         List<RowExpression> values = arguments.subList(1, arguments.size());
 
-        ImmutableList.Builder<BytecodeNode> valuesByteCode = ImmutableList.builder();
+        ImmutableList.Builder<BytecodeNode> valuesBytecode = ImmutableList.builder();
         for (int i = 1; i < arguments.size(); i++) {
             BytecodeNode testNode = generatorContext.generate(arguments.get(i));
-            valuesByteCode.add(testNode);
+            valuesBytecode.add(testNode);
         }
 
         Type type = arguments.get(0).getType();
@@ -130,7 +130,7 @@ public class InCodeGenerator
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
         for (RowExpression testValue : values) {
-            BytecodeNode testByteCode = generatorContext.generate(testValue);
+            BytecodeNode testBytecode = generatorContext.generate(testValue);
 
             if (testValue instanceof ConstantExpression && ((ConstantExpression) testValue).getValue() != null) {
                 ConstantExpression constant = (ConstantExpression) testValue;
@@ -143,7 +143,7 @@ public class InCodeGenerator
                     case HASH_SWITCH:
                         try {
                             int hashCode = Ints.checkedCast((Long) hashCodeFunction.invoke(object));
-                            hashBucketsBuilder.put(hashCode, testByteCode);
+                            hashBucketsBuilder.put(hashCode, testBytecode);
                         }
                         catch (Throwable throwable) {
                             throw new IllegalArgumentException("Error processing IN statement: error calculating hash code for " + object, throwable);
@@ -154,7 +154,7 @@ public class InCodeGenerator
                 }
             }
             else {
-                defaultBucket.add(testByteCode);
+                defaultBucket.add(testBytecode);
             }
         }
         ImmutableListMultimap<Integer, BytecodeNode> hashBuckets = hashBucketsBuilder.build();
