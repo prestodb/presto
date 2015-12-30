@@ -55,21 +55,16 @@ public class ClassInfoLoader
         return new ClassInfoLoader(classNodes.build(), ImmutableMap.<ParameterizedType, byte[]>of(), classLoader, true);
     }
 
-    public static ClassInfoLoader createByteCodeInfoLoader(Map<ParameterizedType, byte[]> byteCodes, ClassLoader classLoader, boolean loadMethodNodes)
-    {
-        return new ClassInfoLoader(ImmutableMap.<ParameterizedType, ClassNode>of(), byteCodes, classLoader, loadMethodNodes);
-    }
-
     private final Map<ParameterizedType, ClassNode> classNodes;
-    private final Map<ParameterizedType, byte[]> byteCodes;
+    private final Map<ParameterizedType, byte[]> bytecodes;
     private final ClassLoader classLoader;
     private final Map<ParameterizedType, ClassInfo> classInfoCache = new HashMap<>();
     private final boolean loadMethodNodes;
 
-    public ClassInfoLoader(Map<ParameterizedType, ClassNode> classNodes, Map<ParameterizedType, byte[]> byteCodes, ClassLoader classLoader, boolean loadMethodNodes)
+    public ClassInfoLoader(Map<ParameterizedType, ClassNode> classNodes, Map<ParameterizedType, byte[]> bytecodes, ClassLoader classLoader, boolean loadMethodNodes)
     {
         this.classNodes = ImmutableMap.copyOf(classNodes);
-        this.byteCodes = ImmutableMap.copyOf(byteCodes);
+        this.bytecodes = ImmutableMap.copyOf(bytecodes);
         this.classLoader = classLoader;
         this.loadMethodNodes = loadMethodNodes;
     }
@@ -94,9 +89,9 @@ public class ClassInfoLoader
 
         // check for user supplied byte code
         ClassReader classReader;
-        byte[] byteCode = byteCodes.get(type);
-        if (byteCode != null) {
-            classReader = new ClassReader(byteCode);
+        byte[] bytecode = bytecodes.get(type);
+        if (bytecode != null) {
+            classReader = new ClassReader(bytecode);
         }
         else {
             // load class file from class loader

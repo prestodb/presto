@@ -90,8 +90,8 @@ public class BytecodeVisitor<T>
 
     public T visitNode(BytecodeNode parent, BytecodeNode node)
     {
-        for (BytecodeNode byteCodeNode : node.getChildNodes()) {
-            byteCodeNode.accept(node, this);
+        for (BytecodeNode child : node.getChildNodes()) {
+            child.accept(node, this);
         }
         return null;
     }
