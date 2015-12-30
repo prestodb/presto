@@ -2,6 +2,14 @@
 Release 0.132
 =============
 
+General Changes
+---------------
+
+* Improve error messages for unresolved operators.
+* Add support for creating constant arrays with more than 255 elements.
+* Fix analyzer for queries with ``GROUP BY ()`` such that errors are raised
+  during analysis rather than execution.
+
 Hive Changes
 ------------
 
