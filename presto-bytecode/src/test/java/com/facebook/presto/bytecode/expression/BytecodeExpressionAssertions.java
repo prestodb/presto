@@ -44,56 +44,56 @@ public final class BytecodeExpressionAssertions
 
     private static final boolean DUMP_BYTE_CODE_TREE = false;
 
-    static void assertByteCodeExpressionType(BytecodeExpression expression, ParameterizedType type)
+    static void assertBytecodeExpressionType(BytecodeExpression expression, ParameterizedType type)
     {
         assertEquals(expression.getType(), type);
     }
 
-    public static void assertByteCodeExpression(BytecodeExpression expression, Object expected, String expectedRendering)
+    public static void assertBytecodeExpression(BytecodeExpression expression, Object expected, String expectedRendering)
             throws Exception
     {
-        assertByteCodeExpression(expression, expected, expectedRendering, Optional.empty());
+        assertBytecodeExpression(expression, expected, expectedRendering, Optional.empty());
     }
 
-    public static void assertByteCodeExpression(BytecodeExpression expression, Object expected, String expectedRendering, Optional<ClassLoader> parentClassLoader)
+    public static void assertBytecodeExpression(BytecodeExpression expression, Object expected, String expectedRendering, Optional<ClassLoader> parentClassLoader)
             throws Exception
     {
         assertEquals(expression.toString(), expectedRendering);
 
-        assertByteCodeNode(expression.ret(), expression.getType(), expected, parentClassLoader);
+        assertBytecodeNode(expression.ret(), expression.getType(), expected, parentClassLoader);
     }
 
-    public static void assertByteCodeExpression(BytecodeExpression expression, Object expected, ClassLoader parentClassLoader)
+    public static void assertBytecodeExpression(BytecodeExpression expression, Object expected, ClassLoader parentClassLoader)
             throws Exception
     {
-        assertByteCodeExpression(expression, expected, Optional.of(parentClassLoader));
+        assertBytecodeExpression(expression, expected, Optional.of(parentClassLoader));
     }
 
-    public static void assertByteCodeExpression(BytecodeExpression expression, Object expected, Optional<ClassLoader> parentClassLoader)
+    public static void assertBytecodeExpression(BytecodeExpression expression, Object expected, Optional<ClassLoader> parentClassLoader)
             throws Exception
     {
-        assertByteCodeNode(expression.ret(), expression.getType(), expected, parentClassLoader);
+        assertBytecodeNode(expression.ret(), expression.getType(), expected, parentClassLoader);
     }
 
-    public static void assertByteCodeNode(BytecodeNode node, ParameterizedType returnType, Object expected)
+    public static void assertBytecodeNode(BytecodeNode node, ParameterizedType returnType, Object expected)
             throws Exception
     {
-        assertByteCodeNode(node, returnType, expected, Optional.empty());
+        assertBytecodeNode(node, returnType, expected, Optional.empty());
     }
 
-    public static void assertByteCodeNode(BytecodeNode node, ParameterizedType returnType, Object expected, Optional<ClassLoader> parentClassLoader)
+    public static void assertBytecodeNode(BytecodeNode node, ParameterizedType returnType, Object expected, Optional<ClassLoader> parentClassLoader)
             throws Exception
     {
         assertEquals(execute(context -> node, returnType, parentClassLoader), expected);
     }
 
-    public static void assertByteCodeNode(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType, Object expected)
+    public static void assertBytecodeNode(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType, Object expected)
             throws Exception
     {
-        assertByteCodeNode(nodeGenerator, returnType, expected, Optional.empty());
+        assertBytecodeNode(nodeGenerator, returnType, expected, Optional.empty());
     }
 
-    public static void assertByteCodeNode(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType, Object expected, Optional<ClassLoader> parentClassLoader)
+    public static void assertBytecodeNode(Function<Scope, BytecodeNode> nodeGenerator, ParameterizedType returnType, Object expected, Optional<ClassLoader> parentClassLoader)
             throws Exception
     {
         assertEquals(execute(nodeGenerator, returnType, parentClassLoader), expected);
@@ -112,8 +112,8 @@ public final class BytecodeExpressionAssertions
         method.getBody().append(node);
 
         if (DUMP_BYTE_CODE_TREE) {
-            DumpBytecodeVisitor dumpByteCode = new DumpBytecodeVisitor(System.out);
-            dumpByteCode.visitClass(classDefinition);
+            DumpBytecodeVisitor dumpBytecode = new DumpBytecodeVisitor(System.out);
+            dumpBytecode.visitClass(classDefinition);
         }
 
         DynamicClassLoader classLoader = parentClassLoader.isPresent() ? new DynamicClassLoader(parentClassLoader.get()) : new DynamicClassLoader();

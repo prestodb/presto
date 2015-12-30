@@ -41,7 +41,7 @@ class AndBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         LabelNode falseLabel = new LabelNode("false");
         LabelNode endLabel = new LabelNode("end");

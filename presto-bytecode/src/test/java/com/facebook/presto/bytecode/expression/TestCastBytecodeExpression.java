@@ -16,7 +16,7 @@ package com.facebook.presto.bytecode.expression;
 import com.google.common.primitives.Primitives;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
 import static org.testng.Assert.assertEquals;
 
@@ -36,7 +36,7 @@ public class TestCastBytecodeExpression
     public void testDownCastObject()
             throws Exception
     {
-        assertByteCodeExpression(getStatic(getClass(), "OBJECT_FIELD").cast(String.class).invoke("length", int.class),
+        assertBytecodeExpression(getStatic(getClass(), "OBJECT_FIELD").cast(String.class).invoke("length", int.class),
                 ((String) OBJECT_FIELD).length(),
                 "((String) " + getClass().getSimpleName() + ".OBJECT_FIELD).length()");
     }
@@ -125,7 +125,7 @@ public class TestCastBytecodeExpression
             throws Exception
     {
         BytecodeExpression castExpression = expression.cast(castToType);
-        assertByteCodeExpression(castExpression, expectedValue, expectedCastRendering(expression.toString(), castToType));
+        assertBytecodeExpression(castExpression, expectedValue, expectedCastRendering(expression.toString(), castToType));
         assertEquals(castExpression.getType().getJavaClassName(), castToType.getName());
     }
 

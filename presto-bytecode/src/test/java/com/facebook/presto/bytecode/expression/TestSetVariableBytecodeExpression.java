@@ -23,7 +23,7 @@ import java.awt.Point;
 import java.util.function.Function;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeNode;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeNode;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static org.testng.Assert.assertEquals;
@@ -45,6 +45,6 @@ public class TestSetVariableBytecodeExpression
                     .append(point.ret());
         };
 
-        assertByteCodeNode(nodeGenerator, type(Point.class), new Point(3, 7));
+        assertBytecodeNode(nodeGenerator, type(Point.class), new Point(3, 7));
     }
 }

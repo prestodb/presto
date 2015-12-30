@@ -33,14 +33,14 @@ import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
 /**
- * A ByteCodeExpression is chain of Java like expressions that results in at most
+ * A BytecodeExpression is chain of Java like expressions that results in at most
  * a single value being pushed on the stack.  The chain starts with a constant,
  * local variable, static field, static method or invoke dynamic followed followed
  * by zero or more invocations, field dereferences, array element fetches, or casts.
  * The expression can optionally be terminated by a set expression, and in this
  * case no value is pushed on the stack.
  *
- * A ByteCodeExpression is a ByteCodeNode so it works with tools like tree dump.
+ * A BytecodeExpression is a BytecodeNode so it works with tools like tree dump.
  *
  * This abstraction makes it easy to write generic byte code generators that can
  * work with data that may come from a parameter, field or the result of a method
@@ -61,7 +61,7 @@ public abstract class BytecodeExpression
         return type;
     }
 
-    public abstract BytecodeNode getByteCode(MethodGenerationContext generationContext);
+    public abstract BytecodeNode getBytecode(MethodGenerationContext generationContext);
 
     protected abstract String formatOneLine();
 
@@ -223,13 +223,13 @@ public abstract class BytecodeExpression
     @Override
     public final void accept(MethodVisitor visitor, MethodGenerationContext generationContext)
     {
-        getByteCode(generationContext).accept(visitor, generationContext);
+        getBytecode(generationContext).accept(visitor, generationContext);
     }
 
     @Override
     public final <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
     {
-        return visitor.visitByteCodeExpression(parent, this);
+        return visitor.visitBytecodeExpression(parent, this);
     }
 
     public BytecodeExpression instanceOf(Class<?> type)

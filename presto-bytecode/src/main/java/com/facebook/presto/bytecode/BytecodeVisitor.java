@@ -115,9 +115,9 @@ public class BytecodeVisitor<T>
     }
 
     //
-    // Byte Code Expression
+    // Bytecode Expression
     //
-    public T visitByteCodeExpression(BytecodeNode parent, BytecodeExpression expression)
+    public T visitBytecodeExpression(BytecodeNode parent, BytecodeExpression expression)
     {
         return visitNode(parent, expression);
     }

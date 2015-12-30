@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 
 import java.util.UUID;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 
@@ -28,8 +28,8 @@ public class TestNewInstanceBytecodeExpression
     public void testNewInstance()
             throws Exception
     {
-        assertByteCodeExpression(newInstance(UUID.class, constantLong(3), constantLong(7)), new UUID(3L, 7L), "new UUID(3L, 7L)");
-        assertByteCodeExpression(
+        assertBytecodeExpression(newInstance(UUID.class, constantLong(3), constantLong(7)), new UUID(3L, 7L), "new UUID(3L, 7L)");
+        assertBytecodeExpression(
                 newInstance(UUID.class, ImmutableList.of(long.class, long.class), constantLong(3), constantLong(7)),
                 new UUID(3L, 7L),
                 "new UUID(3L, 7L)");

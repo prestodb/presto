@@ -25,8 +25,8 @@ import java.lang.reflect.Field;
 import java.util.function.Function;
 
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeNode;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeNode;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
@@ -60,7 +60,7 @@ public class TestSetFieldBytecodeExpression
                     .append(point.ret());
         };
 
-        assertByteCodeNode(nodeGenerator, type(Point.class), new Point(42, 7));
+        assertBytecodeNode(nodeGenerator, type(Point.class), new Point(42, 7));
     }
 
     @Test
@@ -76,7 +76,7 @@ public class TestSetFieldBytecodeExpression
             throws Exception
     {
         testField = "fail";
-        assertByteCodeExpression(setStaticField, null, getClass().getSimpleName() + ".testField = \"testValue\";");
+        assertBytecodeExpression(setStaticField, null, getClass().getSimpleName() + ".testField = \"testValue\";");
         assertEquals(testField, "testValue");
     }
 

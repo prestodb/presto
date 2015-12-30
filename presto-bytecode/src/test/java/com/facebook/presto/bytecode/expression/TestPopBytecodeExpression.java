@@ -15,7 +15,7 @@ package com.facebook.presto.bytecode.expression;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static org.testng.Assert.assertEquals;
 
@@ -26,10 +26,10 @@ public class TestPopBytecodeExpression
             throws Exception
     {
         intCount = 0;
-        assertByteCodeExpression(invokeStatic(getClass(), "incrementAndGetIntCount", int.class).pop(), null, getClass().getSimpleName() + ".incrementAndGetIntCount();");
+        assertBytecodeExpression(invokeStatic(getClass(), "incrementAndGetIntCount", int.class).pop(), null, getClass().getSimpleName() + ".incrementAndGetIntCount();");
         assertEquals(intCount, 1);
         longCount = 0;
-        assertByteCodeExpression(invokeStatic(getClass(), "incrementAndGetLongCount", long.class).pop(), null, getClass().getSimpleName() + ".incrementAndGetLongCount();");
+        assertBytecodeExpression(invokeStatic(getClass(), "incrementAndGetLongCount", long.class).pop(), null, getClass().getSimpleName() + ".incrementAndGetLongCount();");
         assertEquals(longCount, 1);
     }
 

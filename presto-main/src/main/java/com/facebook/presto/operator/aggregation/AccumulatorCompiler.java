@@ -410,9 +410,9 @@ public class AccumulatorCompiler
                     inputChannel++;
                     break;
                 case INPUT_CHANNEL:
-                    BytecodeBlock getBlockByteCode = new BytecodeBlock()
+                    BytecodeBlock getBlockBytecode = new BytecodeBlock()
                             .getVariable(parameterVariables.get(inputChannel));
-                    pushStackType(scope, block, parameterMetadata.getSqlType(), getBlockByteCode, parameters[i], callSiteBinder);
+                    pushStackType(scope, block, parameterMetadata.getSqlType(), getBlockBytecode, parameters[i], callSiteBinder);
                     inputChannel++;
                     break;
                 default:
@@ -425,41 +425,41 @@ public class AccumulatorCompiler
     }
 
     // Assumes that there is a variable named 'position' in the block, which is the current index
-    private static void pushStackType(Scope scope, BytecodeBlock block, Type sqlType, BytecodeBlock getBlockByteCode, Class<?> parameter, CallSiteBinder callSiteBinder)
+    private static void pushStackType(Scope scope, BytecodeBlock block, Type sqlType, BytecodeBlock getBlockBytecode, Class<?> parameter, CallSiteBinder callSiteBinder)
     {
         Variable position = scope.getVariable("position");
         if (parameter == long.class) {
             block.comment("%s.getLong(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockByteCode)
+                    .append(getBlockBytecode)
                     .append(position)
                     .invokeInterface(Type.class, "getLong", long.class, Block.class, int.class);
         }
         else if (parameter == double.class) {
             block.comment("%s.getDouble(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockByteCode)
+                    .append(getBlockBytecode)
                     .append(position)
                     .invokeInterface(Type.class, "getDouble", double.class, Block.class, int.class);
         }
         else if (parameter == boolean.class) {
             block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockByteCode)
+                    .append(getBlockBytecode)
                     .append(position)
                     .invokeInterface(Type.class, "getBoolean", boolean.class, Block.class, int.class);
         }
         else if (parameter == Slice.class) {
             block.comment("%s.getSlice(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockByteCode)
+                    .append(getBlockBytecode)
                     .append(position)
                     .invokeInterface(Type.class, "getSlice", Slice.class, Block.class, int.class);
         }
         else {
             block.comment("%s.getObject(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockByteCode)
+                    .append(getBlockBytecode)
                     .append(position)
                     .invokeInterface(Type.class, "getObject", Object.class, Block.class, int.class);
         }

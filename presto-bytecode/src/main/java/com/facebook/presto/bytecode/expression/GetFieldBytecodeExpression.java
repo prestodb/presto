@@ -79,14 +79,14 @@ class GetFieldBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         if (instance == null) {
             return getStaticInstruction(declaringClass, name, getType());
         }
 
         return new BytecodeBlock()
-                .append(instance.getByteCode(generationContext))
+                .append(instance.getBytecode(generationContext))
                 .getField(declaringClass, name, getType());
     }
 

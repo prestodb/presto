@@ -51,7 +51,7 @@ public class Variable
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         return VariableInstruction.loadVariable(this);
     }
@@ -82,7 +82,7 @@ public class Variable
         }
 
         @Override
-        public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+        public BytecodeNode getBytecode(MethodGenerationContext generationContext)
         {
             return new BytecodeBlock()
                     .append(value)

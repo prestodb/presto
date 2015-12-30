@@ -73,7 +73,7 @@ class InvokeBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         BytecodeBlock block = new BytecodeBlock();
         if (instance != null) {

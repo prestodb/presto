@@ -93,17 +93,17 @@ class SetFieldBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         if (instance == null) {
             return new BytecodeBlock()
-                    .append(value.getByteCode(generationContext))
+                    .append(value.getBytecode(generationContext))
                     .putStaticField(declaringClass, name, fieldType);
         }
 
         return new BytecodeBlock()
-                .append(instance.getByteCode(generationContext))
-                .append(value.getByteCode(generationContext))
+                .append(instance.getBytecode(generationContext))
+                .append(value.getBytecode(generationContext))
                 .putField(declaringClass, name, fieldType);
     }
 

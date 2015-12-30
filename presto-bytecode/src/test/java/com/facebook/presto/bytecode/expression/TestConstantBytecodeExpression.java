@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantClass;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantDouble;
@@ -35,44 +35,44 @@ public class TestConstantBytecodeExpression
     public void test()
             throws Exception
     {
-        assertByteCodeExpression(constantNull(List.class), null, "null");
+        assertBytecodeExpression(constantNull(List.class), null, "null");
 
-        assertByteCodeExpression(constantTrue(), true, "true");
-        assertByteCodeExpression(constantFalse(), false, "false");
-        assertByteCodeExpression(constantBoolean(true), true, "true");
-        assertByteCodeExpression(constantBoolean(false), false, "false");
+        assertBytecodeExpression(constantTrue(), true, "true");
+        assertBytecodeExpression(constantFalse(), false, "false");
+        assertBytecodeExpression(constantBoolean(true), true, "true");
+        assertBytecodeExpression(constantBoolean(false), false, "false");
 
-        assertByteCodeExpression(constantInt(0), 0, "0");
-        assertByteCodeExpression(constantInt(Integer.MAX_VALUE), Integer.MAX_VALUE, String.valueOf(Integer.MAX_VALUE));
-        assertByteCodeExpression(constantInt(Integer.MIN_VALUE), Integer.MIN_VALUE, String.valueOf(Integer.MIN_VALUE));
+        assertBytecodeExpression(constantInt(0), 0, "0");
+        assertBytecodeExpression(constantInt(Integer.MAX_VALUE), Integer.MAX_VALUE, String.valueOf(Integer.MAX_VALUE));
+        assertBytecodeExpression(constantInt(Integer.MIN_VALUE), Integer.MIN_VALUE, String.valueOf(Integer.MIN_VALUE));
 
-        assertByteCodeExpression(constantLong(0L), 0L, "0L");
-        assertByteCodeExpression(constantLong(Long.MAX_VALUE), Long.MAX_VALUE, Long.MAX_VALUE + "L");
-        assertByteCodeExpression(constantLong(Long.MIN_VALUE), Long.MIN_VALUE, Long.MIN_VALUE + "L");
+        assertBytecodeExpression(constantLong(0L), 0L, "0L");
+        assertBytecodeExpression(constantLong(Long.MAX_VALUE), Long.MAX_VALUE, Long.MAX_VALUE + "L");
+        assertBytecodeExpression(constantLong(Long.MIN_VALUE), Long.MIN_VALUE, Long.MIN_VALUE + "L");
 
-        assertByteCodeExpression(constantFloat(0.0f), 0.0f, "0.0f");
-        assertByteCodeExpression(constantFloat(Float.MAX_VALUE), Float.MAX_VALUE, Float.MAX_VALUE + "f");
-        assertByteCodeExpression(constantFloat(Float.MIN_VALUE), Float.MIN_VALUE, Float.MIN_VALUE + "f");
-        assertByteCodeExpression(constantFloat(Float.NaN), Float.NaN, "NaNf");
+        assertBytecodeExpression(constantFloat(0.0f), 0.0f, "0.0f");
+        assertBytecodeExpression(constantFloat(Float.MAX_VALUE), Float.MAX_VALUE, Float.MAX_VALUE + "f");
+        assertBytecodeExpression(constantFloat(Float.MIN_VALUE), Float.MIN_VALUE, Float.MIN_VALUE + "f");
+        assertBytecodeExpression(constantFloat(Float.NaN), Float.NaN, "NaNf");
 
-        assertByteCodeExpression(constantDouble(0.0), 0.0, "0.0");
-        assertByteCodeExpression(constantDouble(Double.MAX_VALUE), Double.MAX_VALUE, String.valueOf(Double.MAX_VALUE));
-        assertByteCodeExpression(constantDouble(Double.MIN_VALUE), Double.MIN_VALUE, String.valueOf(Double.MIN_VALUE));
-        assertByteCodeExpression(constantDouble(Double.NaN), Double.NaN, "NaN");
+        assertBytecodeExpression(constantDouble(0.0), 0.0, "0.0");
+        assertBytecodeExpression(constantDouble(Double.MAX_VALUE), Double.MAX_VALUE, String.valueOf(Double.MAX_VALUE));
+        assertBytecodeExpression(constantDouble(Double.MIN_VALUE), Double.MIN_VALUE, String.valueOf(Double.MIN_VALUE));
+        assertBytecodeExpression(constantDouble(Double.NaN), Double.NaN, "NaN");
 
-        assertByteCodeExpression(constantString(""), "", "\"\"");
-        assertByteCodeExpression(constantString("foo"), "foo", "\"foo\"");
+        assertBytecodeExpression(constantString(""), "", "\"\"");
+        assertBytecodeExpression(constantString("foo"), "foo", "\"foo\"");
 
-        assertByteCodeExpression(constantClass(List.class), List.class, "List.class");
+        assertBytecodeExpression(constantClass(List.class), List.class, "List.class");
 
-        assertByteCodeExpression(constantClass(boolean.class), boolean.class, "boolean.class");
-        assertByteCodeExpression(constantClass(byte.class), byte.class, "byte.class");
-        assertByteCodeExpression(constantClass(char.class), char.class, "char.class");
-        assertByteCodeExpression(constantClass(double.class), double.class, "double.class");
-        assertByteCodeExpression(constantClass(float.class), float.class, "float.class");
-        assertByteCodeExpression(constantClass(int.class), int.class, "int.class");
-        assertByteCodeExpression(constantClass(long.class), long.class, "long.class");
-        assertByteCodeExpression(constantClass(short.class), short.class, "short.class");
-        assertByteCodeExpression(constantClass(void.class), void.class, "void.class");
+        assertBytecodeExpression(constantClass(boolean.class), boolean.class, "boolean.class");
+        assertBytecodeExpression(constantClass(byte.class), byte.class, "byte.class");
+        assertBytecodeExpression(constantClass(char.class), char.class, "char.class");
+        assertBytecodeExpression(constantClass(double.class), double.class, "double.class");
+        assertBytecodeExpression(constantClass(float.class), float.class, "float.class");
+        assertBytecodeExpression(constantClass(int.class), int.class, "int.class");
+        assertBytecodeExpression(constantClass(long.class), long.class, "long.class");
+        assertBytecodeExpression(constantClass(short.class), short.class, "short.class");
+        assertBytecodeExpression(constantClass(void.class), void.class, "void.class");
     }
 }

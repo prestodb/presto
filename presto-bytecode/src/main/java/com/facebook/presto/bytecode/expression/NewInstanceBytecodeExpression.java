@@ -41,7 +41,7 @@ class NewInstanceBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         BytecodeBlock block = new BytecodeBlock()
                 .newObject(getType())

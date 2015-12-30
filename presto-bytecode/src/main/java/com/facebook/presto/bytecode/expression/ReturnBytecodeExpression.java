@@ -39,10 +39,10 @@ class ReturnBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         return new BytecodeBlock()
-                .append(instance.getByteCode(generationContext))
+                .append(instance.getBytecode(generationContext))
                 .append(returnOpCode);
     }
 

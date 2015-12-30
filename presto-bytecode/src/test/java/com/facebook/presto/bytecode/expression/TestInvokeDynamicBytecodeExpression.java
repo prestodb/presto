@@ -24,7 +24,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertByteCodeExpression;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
 
@@ -34,7 +34,7 @@ public class TestInvokeDynamicBytecodeExpression
     public void testInvokeStaticMethod()
             throws Exception
     {
-        assertByteCodeExpression(
+        assertBytecodeExpression(
                 invokeDynamic(TEST_BOOTSTRAP_METHOD, ImmutableList.of("bar"), "foo", String.class, constantString("baz")),
                 "foo-bar-baz",
                 "[bootstrap(\"bar\")]=>foo(\"baz\")");

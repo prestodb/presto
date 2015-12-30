@@ -40,7 +40,7 @@ class ConstantBytecodeExpression
     }
 
     @Override
-    public Constant getByteCode(MethodGenerationContext generationContext)
+    public Constant getBytecode(MethodGenerationContext generationContext)
     {
         return value;
     }

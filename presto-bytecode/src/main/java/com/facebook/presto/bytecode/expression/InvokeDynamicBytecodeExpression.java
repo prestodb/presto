@@ -54,7 +54,7 @@ class InvokeDynamicBytecodeExpression
     }
 
     @Override
-    public BytecodeNode getByteCode(MethodGenerationContext generationContext)
+    public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
         BytecodeBlock block = new BytecodeBlock();
         for (BytecodeExpression parameter : parameters) {
