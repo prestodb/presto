@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.ClassInfoLoader;
-import com.facebook.presto.byteCode.DumpByteCodeVisitor;
-import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.byteCode.ParameterizedType;
-import com.facebook.presto.byteCode.SmartClassWriter;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.ClassInfoLoader;
+import com.facebook.presto.bytecode.DumpByteCodeVisitor;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.SmartClassWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.common.reflect.Reflection;
