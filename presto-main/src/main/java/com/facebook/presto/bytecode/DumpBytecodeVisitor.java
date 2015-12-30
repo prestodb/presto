@@ -202,9 +202,9 @@ public class DumpBytecodeVisitor
     }
 
     @Override
-    public Void visitByteCodeExpression(BytecodeNode parent, BytecodeExpression byteCodeExpression)
+    public Void visitByteCodeExpression(BytecodeNode parent, BytecodeExpression expression)
     {
-        printLine(byteCodeExpression.toString());
+        printLine(expression.toString());
         return null;
     }
 

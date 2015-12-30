@@ -98,7 +98,7 @@ public final class CompilerUtils
             System.out.println(new String(out.toByteArray(), StandardCharsets.UTF_8));
         }
 
-        Map<String, byte[]> byteCodes = new LinkedHashMap<>();
+        Map<String, byte[]> bytecodes = new LinkedHashMap<>();
         for (ClassDefinition classDefinition : classDefinitions) {
             ClassWriter cw = new SmartClassWriter(classInfoLoader);
             try {
@@ -111,17 +111,17 @@ public final class CompilerUtils
                 classDefinition.visit(tcv);
                 throw new IllegalArgumentException("An error occurred while processing classDefinition:" + System.lineSeparator() + stringWriter.toString(), e);
             }
-            byte[] byteCode = cw.toByteArray();
+            byte[] bytecode = cw.toByteArray();
             if (RUN_ASM_VERIFIER) {
-                ClassReader reader = new ClassReader(byteCode);
+                ClassReader reader = new ClassReader(bytecode);
                 CheckClassAdapter.verify(reader, classLoader, true, new PrintWriter(System.out));
             }
-            byteCodes.put(classDefinition.getType().getJavaClassName(), byteCode);
+            bytecodes.put(classDefinition.getType().getJavaClassName(), bytecode);
         }
 
         String dumpClassPath = DUMP_CLASS_FILES_TO.get();
         if (dumpClassPath != null) {
-            for (Map.Entry<String, byte[]> entry : byteCodes.entrySet()) {
+            for (Map.Entry<String, byte[]> entry : bytecodes.entrySet()) {
                 File file = new File(dumpClassPath, ParameterizedType.typeFromJavaClassName(entry.getKey()).getClassName() + ".class");
                 try {
                     log.debug("ClassFile: " + file.getAbsolutePath());
@@ -134,12 +134,12 @@ public final class CompilerUtils
             }
         }
         if (DUMP_BYTE_CODE_RAW) {
-            for (byte[] byteCode : byteCodes.values()) {
-                ClassReader classReader = new ClassReader(byteCode);
+            for (byte[] bytecode : bytecodes.values()) {
+                ClassReader classReader = new ClassReader(bytecode);
                 classReader.accept(new TraceClassVisitor(new PrintWriter(System.err)), ClassReader.EXPAND_FRAMES);
             }
         }
-        Map<String, Class<?>> classes = classLoader.defineClasses(byteCodes);
+        Map<String, Class<?>> classes = classLoader.defineClasses(bytecodes);
         try {
             for (Class<?> clazz : classes.values()) {
                 Reflection.initialize(clazz);

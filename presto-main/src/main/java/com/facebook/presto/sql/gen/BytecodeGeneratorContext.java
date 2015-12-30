@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 public class BytecodeGeneratorContext
 {
-    private final BytecodeExpressionVisitor byteCodeGenerator;
+    private final BytecodeExpressionVisitor bytecodeGenerator;
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
@@ -37,19 +37,19 @@ public class BytecodeGeneratorContext
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
-            BytecodeExpressionVisitor byteCodeGenerator,
+            BytecodeExpressionVisitor bytecodeGenerator,
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             FunctionRegistry registry)
     {
-        requireNonNull(byteCodeGenerator, "byteCodeGenerator is null");
+        requireNonNull(bytecodeGenerator, "bytecodeGenerator is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(callSiteBinder, "callSiteBinder is null");
         requireNonNull(registry, "registry is null");
 
-        this.byteCodeGenerator = byteCodeGenerator;
+        this.bytecodeGenerator = bytecodeGenerator;
         this.scope = scope;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
@@ -69,7 +69,7 @@ public class BytecodeGeneratorContext
 
     public BytecodeNode generate(RowExpression expression)
     {
-        return expression.accept(byteCodeGenerator, scope);
+        return expression.accept(bytecodeGenerator, scope);
     }
 
     public FunctionRegistry getRegistry()

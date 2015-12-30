@@ -47,9 +47,9 @@ public class DynamicClassLoader
         this.callSiteBindings = ImmutableMap.copyOf(callSiteBindings);
     }
 
-    public Class<?> defineClass(String className, byte[] byteCode)
+    public Class<?> defineClass(String className, byte[] bytecode)
     {
-        return defineClass(className, byteCode, 0, byteCode.length);
+        return defineClass(className, bytecode, 0, bytecode.length);
     }
 
     public Map<String, Class<?>> defineClasses(Map<String, byte[]> newClasses)
@@ -86,12 +86,12 @@ public class DynamicClassLoader
     protected Class<?> findClass(String name)
             throws ClassNotFoundException
     {
-        byte[] byteCode = pendingClasses.get(name);
-        if (byteCode == null) {
+        byte[] bytecode = pendingClasses.get(name);
+        if (bytecode == null) {
             throw new ClassNotFoundException(name);
         }
 
-        return defineClass(name, byteCode);
+        return defineClass(name, bytecode);
     }
 
     @Override
