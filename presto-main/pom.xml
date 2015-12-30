@@ -308,8 +308,8 @@
                 <artifactId>license-maven-plugin</artifactId>
                 <configuration>
                     <excludes combine.children="append">
-                        <exclude>src/main/java/com/facebook/presto/byteCode/ClassInfo.java</exclude>
-                        <exclude>src/main/java/com/facebook/presto/byteCode/ClassInfoLoader.java</exclude>
+                        <exclude>src/main/java/com/facebook/presto/bytecode/ClassInfo.java</exclude>
+                        <exclude>src/main/java/com/facebook/presto/bytecode/ClassInfoLoader.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>

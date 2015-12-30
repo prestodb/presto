@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.FieldDefinition;
-import com.facebook.presto.byteCode.MethodGenerationContext;
-import com.facebook.presto.byteCode.Scope;
-import com.facebook.presto.byteCode.expression.ByteCodeExpression;
+import com.facebook.presto.bytecode.ByteCodeNode;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodGenerationContext;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.expression.ByteCodeExpression;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateInvocation;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;

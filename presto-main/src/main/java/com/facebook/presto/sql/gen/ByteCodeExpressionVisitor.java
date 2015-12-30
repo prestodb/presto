@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeBlock;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.Scope;
+import com.facebook.presto.bytecode.ByteCodeBlock;
+import com.facebook.presto.bytecode.ByteCodeNode;
+import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
-import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
-import static com.facebook.presto.byteCode.instruction.Constant.loadDouble;
-import static com.facebook.presto.byteCode.instruction.Constant.loadFloat;
-import static com.facebook.presto.byteCode.instruction.Constant.loadInt;
-import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
-import static com.facebook.presto.byteCode.instruction.Constant.loadString;
+import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
+import static com.facebook.presto.bytecode.instruction.Constant.loadDouble;
+import static com.facebook.presto.bytecode.instruction.Constant.loadFloat;
+import static com.facebook.presto.bytecode.instruction.Constant.loadInt;
+import static com.facebook.presto.bytecode.instruction.Constant.loadLong;
+import static com.facebook.presto.bytecode.instruction.Constant.loadString;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;

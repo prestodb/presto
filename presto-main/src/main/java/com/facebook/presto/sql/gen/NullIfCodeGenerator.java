@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeBlock;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.Scope;
-import com.facebook.presto.byteCode.control.IfStatement;
-import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.bytecode.ByteCodeBlock;
+import com.facebook.presto.bytecode.ByteCodeNode;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.constantTrue;
 import static com.facebook.presto.type.TypeRegistry.getCommonSuperTypeSignature;
 
 public class NullIfCodeGenerator
