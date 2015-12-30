@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.bytecode.ByteCodeBlock;
+import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.expression.ByteCodeExpression;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
@@ -46,9 +46,9 @@ import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.add;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.constantInt;
-import static com.facebook.presto.bytecode.expression.ByteCodeExpressions.invokeStatic;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -114,7 +114,7 @@ public final class ConcatFunction
 
         MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "concat", type(Slice.class), parameters);
         Scope scope = method.getScope();
-        ByteCodeBlock body = method.getBody();
+        BytecodeBlock body = method.getBody();
 
         Variable length = scope.declareVariable(int.class, "length");
         body.append(length.set(constantInt(0)));
@@ -140,7 +140,7 @@ public final class ConcatFunction
         return defineClass(definition, Object.class, ImmutableMap.of(), new DynamicClassLoader(ConcatFunction.class.getClassLoader()));
     }
 
-    private static ByteCodeExpression generateCheckedAdd(ByteCodeExpression x, ByteCodeExpression y)
+    private static BytecodeExpression generateCheckedAdd(BytecodeExpression x, BytecodeExpression y)
     {
         return invokeStatic(ConcatFunction.class, "checkedAdd", int.class, x, y);
     }

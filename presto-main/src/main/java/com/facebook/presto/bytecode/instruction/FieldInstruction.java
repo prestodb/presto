@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.bytecode.instruction;
 
-import com.facebook.presto.bytecode.ByteCodeNode;
-import com.facebook.presto.bytecode.ByteCodeVisitor;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.OpCode;
 import com.facebook.presto.bytecode.ParameterizedType;
@@ -113,13 +113,13 @@ public abstract class FieldInstruction
     }
 
     @Override
-    public List<ByteCodeNode> getChildNodes()
+    public List<BytecodeNode> getChildNodes()
     {
         return ImmutableList.of();
     }
 
     @Override
-    public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
     {
         return visitor.visitFieldInstruction(parent, this);
     }
@@ -149,7 +149,7 @@ public abstract class FieldInstruction
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitGetField(parent, this);
         }
@@ -169,7 +169,7 @@ public abstract class FieldInstruction
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitPutField(parent, this);
         }

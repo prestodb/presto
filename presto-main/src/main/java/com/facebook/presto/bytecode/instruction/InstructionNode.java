@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.bytecode.instruction;
 
-import com.facebook.presto.bytecode.ByteCodeNode;
+import com.facebook.presto.bytecode.BytecodeNode;
 
 public interface InstructionNode
-        extends ByteCodeNode
+        extends BytecodeNode
 {
 }

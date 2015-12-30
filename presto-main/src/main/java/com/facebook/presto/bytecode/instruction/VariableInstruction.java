@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.bytecode.instruction;
 
-import com.facebook.presto.bytecode.ByteCodeNode;
-import com.facebook.presto.bytecode.ByteCodeVisitor;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.Variable;
 import com.google.common.base.Preconditions;
@@ -59,13 +59,13 @@ public abstract class VariableInstruction
     }
 
     @Override
-    public List<ByteCodeNode> getChildNodes()
+    public List<BytecodeNode> getChildNodes()
     {
         return ImmutableList.of();
     }
 
     @Override
-    public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
     {
         return visitor.visitVariableInstruction(parent, this);
     }
@@ -93,7 +93,7 @@ public abstract class VariableInstruction
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitLoadVariable(parent, this);
         }
@@ -114,7 +114,7 @@ public abstract class VariableInstruction
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitStoreVariable(parent, this);
         }
@@ -145,7 +145,7 @@ public abstract class VariableInstruction
         }
 
         @Override
-        public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+        public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
         {
             return visitor.visitIncrementVariable(parent, this);
         }

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.bytecode.control;
 
-import com.facebook.presto.bytecode.ByteCodeBlock;
-import com.facebook.presto.bytecode.ByteCodeNode;
-import com.facebook.presto.bytecode.ByteCodeVisitor;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
@@ -29,8 +29,8 @@ public class WhileLoop
         implements FlowControl
 {
     private final String comment;
-    private final ByteCodeBlock condition = new ByteCodeBlock();
-    private final ByteCodeBlock body = new ByteCodeBlock();
+    private final BytecodeBlock condition = new BytecodeBlock();
+    private final BytecodeBlock body = new BytecodeBlock();
 
     private final LabelNode continueLabel = new LabelNode("continue");
     private final LabelNode endLabel = new LabelNode("end");
@@ -61,24 +61,24 @@ public class WhileLoop
         return endLabel;
     }
 
-    public ByteCodeBlock condition()
+    public BytecodeBlock condition()
     {
         return condition;
     }
 
-    public WhileLoop condition(ByteCodeNode node)
+    public WhileLoop condition(BytecodeNode node)
     {
         checkState(condition.isEmpty(), "condition already set");
         condition.append(node);
         return this;
     }
 
-    public ByteCodeBlock body()
+    public BytecodeBlock body()
     {
         return body;
     }
 
-    public WhileLoop body(ByteCodeNode node)
+    public WhileLoop body(BytecodeNode node)
     {
         checkState(body.isEmpty(), "body already set");
         body.append(node);
@@ -90,7 +90,7 @@ public class WhileLoop
     {
         checkState(!condition.isEmpty(), "WhileLoop does not have a condition set");
 
-        ByteCodeBlock block = new ByteCodeBlock()
+        BytecodeBlock block = new BytecodeBlock()
                 .visitLabel(continueLabel)
                 .append(condition)
                 .ifZeroGoto(endLabel)
@@ -102,13 +102,13 @@ public class WhileLoop
     }
 
     @Override
-    public List<ByteCodeNode> getChildNodes()
+    public List<BytecodeNode> getChildNodes()
     {
         return ImmutableList.of(condition, body);
     }
 
     @Override
-    public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
     {
         return visitor.visitWhile(parent, this);
     }

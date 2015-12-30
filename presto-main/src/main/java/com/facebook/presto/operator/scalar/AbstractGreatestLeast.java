@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.bytecode.ByteCodeBlock;
+import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;
@@ -50,7 +50,7 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
+import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -135,7 +135,7 @@ public abstract class AbstractGreatestLeast
                 parameters);
 
         Scope scope = method.getScope();
-        ByteCodeBlock body = method.getBody();
+        BytecodeBlock body = method.getBody();
 
         CallSiteBinder binder = new CallSiteBinder();
 
@@ -152,7 +152,7 @@ public abstract class AbstractGreatestLeast
 
         for (int i = 1; i < javaTypes.size(); i++) {
             body.append(new IfStatement()
-                    .condition(new ByteCodeBlock()
+                    .condition(new BytecodeBlock()
                             .append(parameters.get(i))
                             .append(value)
                             .append(invoke(binder.bind(compareMethod), "compare")))

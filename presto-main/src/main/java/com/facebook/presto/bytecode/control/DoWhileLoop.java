@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.bytecode.control;
 
-import com.facebook.presto.bytecode.ByteCodeBlock;
-import com.facebook.presto.bytecode.ByteCodeNode;
-import com.facebook.presto.bytecode.ByteCodeVisitor;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.BytecodeVisitor;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.google.common.collect.ImmutableList;
@@ -29,8 +29,8 @@ public class DoWhileLoop
         implements FlowControl
 {
     private final String comment;
-    private final ByteCodeBlock body = new ByteCodeBlock();
-    private final ByteCodeBlock condition = new ByteCodeBlock();
+    private final BytecodeBlock body = new BytecodeBlock();
+    private final BytecodeBlock condition = new BytecodeBlock();
 
     private final LabelNode beginLabel = new LabelNode("begin");
     private final LabelNode continueLabel = new LabelNode("continue");
@@ -62,24 +62,24 @@ public class DoWhileLoop
         return endLabel;
     }
 
-    public ByteCodeBlock body()
+    public BytecodeBlock body()
     {
         return body;
     }
 
-    public DoWhileLoop body(ByteCodeNode node)
+    public DoWhileLoop body(BytecodeNode node)
     {
         checkState(body.isEmpty(), "body already set");
         body.append(node);
         return this;
     }
 
-    public ByteCodeBlock condition()
+    public BytecodeBlock condition()
     {
         return condition;
     }
 
-    public DoWhileLoop condition(ByteCodeNode node)
+    public DoWhileLoop condition(BytecodeNode node)
     {
         checkState(condition.isEmpty(), "condition already set");
         condition.append(node);
@@ -91,13 +91,13 @@ public class DoWhileLoop
     {
         checkState(!condition.isEmpty(), "DoWhileLoop does not have a condition set");
 
-        ByteCodeBlock block = new ByteCodeBlock()
+        BytecodeBlock block = new BytecodeBlock()
                 .visitLabel(beginLabel)
-                .append(new ByteCodeBlock()
+                .append(new BytecodeBlock()
                         .setDescription("body")
                         .append(body))
                 .visitLabel(continueLabel)
-                .append(new ByteCodeBlock()
+                .append(new BytecodeBlock()
                         .setDescription("condition")
                         .append(condition))
                 .ifFalseGoto(endLabel)
@@ -108,13 +108,13 @@ public class DoWhileLoop
     }
 
     @Override
-    public List<ByteCodeNode> getChildNodes()
+    public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.<ByteCodeNode>of(body, condition);
+        return ImmutableList.<BytecodeNode>of(body, condition);
     }
 
     @Override
-    public <T> T accept(ByteCodeNode parent, ByteCodeVisitor<T> visitor)
+    public <T> T accept(BytecodeNode parent, BytecodeVisitor<T> visitor)
     {
         return visitor.visitDoWhile(parent, this);
     }

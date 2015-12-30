@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.bytecode.debug;
 
-import com.facebook.presto.bytecode.ByteCodeNode;
+import com.facebook.presto.bytecode.BytecodeNode;
 
 public interface DebugNode
-        extends ByteCodeNode
+        extends BytecodeNode
 {
 }

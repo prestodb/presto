@@ -15,13 +15,13 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.bytecode.expression.ByteCodeExpression;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.gen.InvokeFunctionByteCodeExpression.invokeFunction;
+import static com.facebook.presto.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 
 public final class ArrayGeneratorUtils
 {
@@ -29,7 +29,7 @@ public final class ArrayGeneratorUtils
     {
     }
 
-    public static ArrayMapByteCodeExpression map(Scope scope, CachedInstanceBinder cachedInstanceBinder, Type fromElementType, Type toElementType, Variable array, String elementFunctionName, ScalarFunctionImplementation elementFunction)
+    public static ArrayMapBytecodeExpression map(Scope scope, CachedInstanceBinder cachedInstanceBinder, Type fromElementType, Type toElementType, Variable array, String elementFunctionName, ScalarFunctionImplementation elementFunction)
     {
         return map(
                 scope,
@@ -40,25 +40,25 @@ public final class ArrayGeneratorUtils
                 element -> invokeFunction(scope, cachedInstanceBinder, elementFunctionName, elementFunction, element));
     }
 
-    public static ArrayMapByteCodeExpression map(
+    public static ArrayMapBytecodeExpression map(
             Scope scope,
             CallSiteBinder binder,
             Type fromElementType,
             Type toElementType,
-            ByteCodeExpression array,
-            Function<ByteCodeExpression, ByteCodeExpression> mapper)
+            BytecodeExpression array,
+            Function<BytecodeExpression, BytecodeExpression> mapper)
     {
         return map(scope, binder, array, fromElementType, toElementType, mapper);
     }
 
-    public static ArrayMapByteCodeExpression map(
+    public static ArrayMapBytecodeExpression map(
             Scope scope,
             CallSiteBinder binder,
-            ByteCodeExpression array,
+            BytecodeExpression array,
             Type fromElementType,
             Type toElementType,
-            Function<ByteCodeExpression, ByteCodeExpression> mapper)
+            Function<BytecodeExpression, BytecodeExpression> mapper)
     {
-        return new ArrayMapByteCodeExpression(scope, binder, array, fromElementType, toElementType, mapper);
+        return new ArrayMapBytecodeExpression(scope, binder, array, fromElementType, toElementType, mapper);
     }
 }
