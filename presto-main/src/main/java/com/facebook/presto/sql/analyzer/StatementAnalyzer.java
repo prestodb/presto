@@ -62,6 +62,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -1184,7 +1185,10 @@ class StatementAnalyzer
             analyzer.analyze((Expression) optimizedExpression, output, context);
             analysis.addCoercions(analyzer.getExpressionCoercions());
 
-            Set<Expression> postJoinConditionConjuncts = new HashSet<>();
+            Set<Expression> postJoinConjuncts = new HashSet<>();
+            final Set<InPredicate> leftJoinInPredicates = new HashSet<>();
+            final Set<InPredicate> rightJoinInPredicates = new HashSet<>();
+
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 conjunct = ExpressionUtils.normalize(conjunct);
                 if (conjunct instanceof ComparisonExpression) {
@@ -1209,22 +1213,25 @@ class StatementAnalyzer
                     if (rightExpression != null) {
                         ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
                         ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
-                        analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
+                        leftJoinInPredicates.addAll(leftExpressionAnalysis.getSubqueryInPredicates());
+                        rightJoinInPredicates.addAll(rightExpressionAnalysis.getSubqueryInPredicates());
                         addCoercionForJoinCriteria(node, leftExpression, rightExpression);
                     }
                     else {
                         // mixed references to both left and right join relation on one side of comparison operator.
                         // expression will be put in post-join condition; analyze in context of output table.
-                        postJoinConditionConjuncts.add(conjunct);
+                        postJoinConjuncts.add(conjunct);
                     }
                 }
                 else {
                     // non-comparison expression.
                     // expression will be put in post-join condition; analyze in context of output table.
-                    postJoinConditionConjuncts.add(conjunct);
+                    postJoinConjuncts.add(conjunct);
                 }
             }
-            analyzeExpression(ExpressionUtils.combineConjuncts(postJoinConditionConjuncts), output, context);
+            ExpressionAnalysis postJoinPredicatesConjunctsAnalysis = analyzeExpression(ExpressionUtils.combineConjuncts(postJoinConjuncts), output, context);
+            analysis.recordSubqueries(node, postJoinPredicatesConjunctsAnalysis);
+            analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftJoinInPredicates, rightJoinInPredicates));
             analysis.setJoinCriteria(node, (Expression) optimizedExpression);
         }
         else {

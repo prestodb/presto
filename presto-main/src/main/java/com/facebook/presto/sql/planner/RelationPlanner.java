@@ -324,9 +324,15 @@ class RelationPlanner
         translationMap.setFieldMappings(outputSymbols);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
-        for (Expression expression : complexJoinExpressions) {
-            postInnerJoinConditions.add(translationMap.rewrite(expression));
+        PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root, sampleWeight);
+        Set<InPredicate> inPredicates = analysis.getInPredicates(node);
+        if (inPredicates != null) {
+            rootPlanBuilder = appendSemiJoins(rootPlanBuilder, inPredicates);
         }
+        for (Expression expression : complexJoinExpressions) {
+            postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
+        }
+        root = rootPlanBuilder.getRoot();
 
         Expression postInnerJoinCriteria;
         if (!postInnerJoinConditions.isEmpty()) {
