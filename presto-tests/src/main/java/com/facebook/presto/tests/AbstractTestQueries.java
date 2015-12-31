@@ -3769,6 +3769,9 @@ public abstract class AbstractTestQueries
         assertExplainDdl("ALTER TABLE orders RENAME COLUMN orderkey TO new_column_name");
         assertExplainDdl("SET SESSION foo = 'bar'");
         assertExplainDdl("RESET SESSION foo");
+        assertExplainDdl("START TRANSACTION");
+        assertExplainDdl("COMMIT");
+        assertExplainDdl("ROLLBACK");
     }
 
     private void assertExplainDdl(String query)
