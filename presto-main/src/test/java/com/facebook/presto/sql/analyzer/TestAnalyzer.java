@@ -522,6 +522,38 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testStartTransaction()
+            throws Exception
+    {
+        analyze("START TRANSACTION");
+        analyze("START TRANSACTION ISOLATION LEVEL READ UNCOMMITTED");
+        analyze("START TRANSACTION ISOLATION LEVEL READ COMMITTED");
+        analyze("START TRANSACTION ISOLATION LEVEL REPEATABLE READ");
+        analyze("START TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+        analyze("START TRANSACTION READ ONLY");
+        analyze("START TRANSACTION READ WRITE");
+        analyze("START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY");
+        analyze("START TRANSACTION READ ONLY, ISOLATION LEVEL READ COMMITTED");
+        analyze("START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE");
+    }
+
+    @Test
+    public void testCommit()
+            throws Exception
+    {
+        analyze("COMMIT");
+        analyze("COMMIT WORK");
+    }
+
+    @Test
+    public void testRollback()
+            throws Exception
+    {
+        analyze("ROLLBACK");
+        analyze("ROLLBACK WORK");
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {
