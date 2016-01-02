@@ -17,6 +17,7 @@ import com.facebook.presto.hive.ForHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCluster;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
+import com.facebook.presto.hive.RetryDriver;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -72,7 +73,6 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.isPrestoView;
-import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.metastore.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilege.parsePrivilege;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -436,7 +436,6 @@ public class CachingHiveMetastore
     {
         try {
             retry()
-                    .exceptionMapper(getExceptionMapper())
                     .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("createTable", stats.getCreateTable().wrap(() -> {
@@ -510,7 +509,6 @@ public class CachingHiveMetastore
     {
         try {
             retry()
-                    .exceptionMapper(getExceptionMapper())
                     .stopOn(InvalidOperationException.class, MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("alterTable", stats.getAlterTable().wrap(() -> {
@@ -575,11 +573,6 @@ public class CachingHiveMetastore
         return get(partitionNamesCache, HiveTableName.table(databaseName, tableName));
     }
 
-    protected Function<Exception, Exception> getExceptionMapper()
-    {
-        return Function.identity();
-    }
-
     private Optional<List<String>> loadPartitionNames(HiveTableName hiveTableName)
             throws Exception
     {
@@ -639,7 +632,6 @@ public class CachingHiveMetastore
         }
         try {
             retry()
-                    .exceptionMapper(getExceptionMapper())
                     .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class, PrestoException.class)
                     .stopOnIllegalExceptions()
                     .run("addPartitions", stats.getAddPartitions().wrap(() -> {
@@ -936,6 +928,18 @@ public class CachingHiveMetastore
             }
         }
         return privileges.build();
+    }
+
+    private RetryDriver retry()
+    {
+        return RetryDriver.retry()
+                .exceptionMapper(getExceptionMapper())
+                .stopOn(PrestoException.class);
+    }
+
+    protected Function<Exception, Exception> getExceptionMapper()
+    {
+        return identity();
     }
 
     private static class HiveTableName
