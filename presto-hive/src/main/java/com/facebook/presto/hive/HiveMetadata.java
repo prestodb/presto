@@ -112,7 +112,9 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
@@ -1359,11 +1361,23 @@ public class HiveMetadata
         }
         Map<String, String> columnComment = builder.build();
 
-        return input -> new ColumnMetadata(
-                input.getName(),
-                typeManager.getType(input.getTypeSignature()),
-                input.isPartitionKey(),
-                columnComment.get(input.getName()),
-                false);
+        return handle -> {
+            String comment = nullToEmpty(columnComment.get(handle.getName())).trim();
+            if (handle.isPartitionKey()) {
+                if (comment.isEmpty()) {
+                    comment = "Partition Key";
+                }
+                else {
+                    comment = "Partition Key: " + comment;
+                }
+            }
+
+            return new ColumnMetadata(
+                    handle.getName(),
+                    typeManager.getType(handle.getTypeSignature()),
+                    handle.isPartitionKey(),
+                    emptyToNull(comment),
+                    false);
+        };
     }
 }

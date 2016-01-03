@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -505,9 +504,9 @@ public abstract class AbstractTestDistributedQueries
         // test SHOW COLUMNS
         actual = computeActual("SHOW COLUMNS FROM meta_test_view");
 
-        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
-                .row("x", "bigint", true, false, "")
-                .row("y", "varchar", true, false, "")
+        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
+                .row("x", "bigint", "")
+                .row("y", "varchar", "")
                 .build();
 
         assertEquals(actual, expected);

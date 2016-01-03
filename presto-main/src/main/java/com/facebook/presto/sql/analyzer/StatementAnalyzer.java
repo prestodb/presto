@@ -136,7 +136,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.QueryUtil.aliasedNullToEmpty;
-import static com.facebook.presto.sql.QueryUtil.aliasedYesNoToBoolean;
 import static com.facebook.presto.sql.QueryUtil.ascending;
 import static com.facebook.presto.sql.QueryUtil.caseWhen;
 import static com.facebook.presto.sql.QueryUtil.equal;
@@ -323,8 +322,6 @@ class StatementAnalyzer
                 selectList(
                         aliasedName("column_name", "Column"),
                         aliasedName("data_type", "Type"),
-                        aliasedYesNoToBoolean("is_nullable", "Null"),
-                        aliasedYesNoToBoolean("is_partition_key", "Partition Key"),
                         aliasedNullToEmpty("comment", "Comment")),
                 from(tableName.getCatalogName(), TABLE_COLUMNS),
                 logicalAnd(
