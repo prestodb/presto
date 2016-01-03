@@ -1,5 +1,5 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR|BOOLEAN|BOOLEAN|LONGNVARCHAR
- node_id      | varchar | true | false         |         |
- http_uri     | varchar | true | false         |         |
- node_version | varchar | true | false         |         |
- active       | boolean | true | false         |         |
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR
+ node_id      | varchar |         |
+ http_uri     | varchar |         |
+ node_version | varchar |         |
+ active       | boolean |         |

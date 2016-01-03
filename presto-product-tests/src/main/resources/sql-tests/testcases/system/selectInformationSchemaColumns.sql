@@ -8,6 +8,5 @@ select
   column_default,
   is_nullable,
   data_type,
-  is_partition_key,
   comment
 from SYSTEM.information_schema.columns

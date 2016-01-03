@@ -49,7 +49,6 @@ import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -3850,16 +3849,16 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
-                .row("orderkey", "bigint", true, false, "")
-                .row("custkey", "bigint", true, false, "")
-                .row("orderstatus", "varchar", true, false, "")
-                .row("totalprice", "double", true, false, "")
-                .row("orderdate", "date", true, false, "")
-                .row("orderpriority", "varchar", true, false, "")
-                .row("clerk", "varchar", true, false, "")
-                .row("shippriority", "bigint", true, false, "")
-                .row("comment", "varchar", true, false, "")
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "")
+                .row("custkey", "bigint", "")
+                .row("orderstatus", "varchar", "")
+                .row("totalprice", "double", "")
+                .row("orderdate", "date", "")
+                .row("orderpriority", "varchar", "")
+                .row("clerk", "varchar", "")
+                .row("shippriority", "bigint", "")
+                .row("comment", "varchar", "")
                 .build();
 
         assertEquals(actual, expected);
