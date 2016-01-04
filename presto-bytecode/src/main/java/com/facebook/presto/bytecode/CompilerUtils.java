@@ -105,12 +105,17 @@ public final class CompilerUtils
                 classDefinition.visit(tcv);
                 throw new IllegalArgumentException("An error occurred while processing classDefinition:" + System.lineSeparator() + stringWriter.toString(), e);
             }
-            byte[] bytecode = cw.toByteArray();
-            if (RUN_ASM_VERIFIER) {
-                ClassReader reader = new ClassReader(bytecode);
-                CheckClassAdapter.verify(reader, classLoader, true, new PrintWriter(System.out));
+            try {
+                byte[] bytecode = cw.toByteArray();
+                if (RUN_ASM_VERIFIER) {
+                    ClassReader reader = new ClassReader(bytecode);
+                    CheckClassAdapter.verify(reader, classLoader, true, new PrintWriter(System.out));
+                }
+                bytecodes.put(classDefinition.getType().getJavaClassName(), bytecode);
             }
-            bytecodes.put(classDefinition.getType().getJavaClassName(), bytecode);
+            catch (RuntimeException e) {
+                throw new CompilationException("Error compiling class " + classDefinition.getName(), e);
+            }
         }
 
         String dumpClassPath = DUMP_CLASS_FILES_TO.get();
