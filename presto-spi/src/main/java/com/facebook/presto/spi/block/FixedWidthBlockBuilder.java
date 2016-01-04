@@ -88,7 +88,7 @@ public class FixedWidthBlockBuilder
     @Override
     public int getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + getRawSlice().getRetainedSize() + valueIsNull.getUnderlyingSlice().getRetainedSize();
+        long size = INSTANCE_SIZE + sliceOutput.getRetainedSize() + valueIsNull.getRetainedSize();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
