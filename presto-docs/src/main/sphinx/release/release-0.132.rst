@@ -13,6 +13,11 @@ General Changes
   limits for the query. Instead it may be killed at any time, if the coordinator
   needs to reclaim memory.
 * Add support for transactional connectors.
+* Add support for non-correlated scalar sub-queries.
+* Add support for SQL binary literals.
+* Add variant of :func:`random` that produces an integer number between 0 and a
+  specified upper bound.
+* Perform bounds checks when evaluating :func:`abs`.
 
 CLI Changes
 -----------
@@ -27,3 +32,4 @@ Hive Changes
 * Fix a correctness issue that can occur when any join depends on the output
   of another outer join that has an inner side (or either side for the full outer
   case) for which the connector declares that it has no data during planning.
+* Improve CPU efficiency when writing data.
