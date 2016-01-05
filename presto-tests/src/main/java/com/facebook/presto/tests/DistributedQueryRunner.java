@@ -138,7 +138,6 @@ public class DistributedQueryRunner
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("distributed-joins-enabled", "true");
-            propertiesBuilder.put("node-scheduler.multiple-tasks-per-node-enabled", "true");
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
