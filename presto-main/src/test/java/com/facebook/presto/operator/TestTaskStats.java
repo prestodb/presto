@@ -44,23 +44,24 @@ public class TestTaskStats
             6,
             10,
 
-            new DataSize(11, BYTE),
+            11.0,
             new DataSize(12, BYTE),
-            new Duration(13, NANOSECONDS),
+            new DataSize(13, BYTE),
             new Duration(14, NANOSECONDS),
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
+            new Duration(17, NANOSECONDS),
             false,
             ImmutableSet.of(),
 
-            new DataSize(17, BYTE),
-            18,
+            new DataSize(18, BYTE),
+            19,
 
-            new DataSize(19, BYTE),
-            20,
+            new DataSize(20, BYTE),
+            21,
 
-            new DataSize(21, BYTE),
-            22,
+            new DataSize(22, BYTE),
+            23,
 
             ImmutableList.of(TestPipelineStats.EXPECTED));
 
@@ -91,22 +92,23 @@ public class TestTaskStats
         assertEquals(actual.getRunningPartitionedDrivers(), 6);
         assertEquals(actual.getCompletedDrivers(), 10);
 
-        assertEquals(actual.getMemoryReservation(), new DataSize(11, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(12, BYTE));
+        assertEquals(actual.getCumulativeMemory(), 11.0);
+        assertEquals(actual.getMemoryReservation(), new DataSize(12, BYTE));
+        assertEquals(actual.getSystemMemoryReservation(), new DataSize(13, BYTE));
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(13, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(14, NANOSECONDS));
-        assertEquals(actual.getTotalUserTime(), new Duration(15, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(16, NANOSECONDS));
+        assertEquals(actual.getTotalScheduledTime(), new Duration(14, NANOSECONDS));
+        assertEquals(actual.getTotalCpuTime(), new Duration(15, NANOSECONDS));
+        assertEquals(actual.getTotalUserTime(), new Duration(16, NANOSECONDS));
+        assertEquals(actual.getTotalBlockedTime(), new Duration(17, NANOSECONDS));
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(17, BYTE));
-        assertEquals(actual.getRawInputPositions(), 18);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(18, BYTE));
+        assertEquals(actual.getRawInputPositions(), 19);
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(19, BYTE));
-        assertEquals(actual.getProcessedInputPositions(), 20);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(20, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 21);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(21, BYTE));
-        assertEquals(actual.getOutputPositions(), 22);
+        assertEquals(actual.getOutputDataSize(), new DataSize(22, BYTE));
+        assertEquals(actual.getOutputPositions(), 23);
 
         assertEquals(actual.getPipelines().size(), 1);
         assertExpectedPipelineStats(actual.getPipelines().get(0));

@@ -48,6 +48,7 @@ public class StageStats
     private final int runningDrivers;
     private final int completedDrivers;
 
+    private final double cumulativeMemory;
     private final DataSize totalMemoryReservation;
 
     private final Duration totalScheduledTime;
@@ -80,6 +81,7 @@ public class StageStats
         this.queuedDrivers = 0;
         this.runningDrivers = 0;
         this.completedDrivers = 0;
+        this.cumulativeMemory = 0.0;
         this.totalMemoryReservation = null;
         this.totalScheduledTime = null;
         this.totalCpuTime = null;
@@ -112,6 +114,7 @@ public class StageStats
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
+            @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
@@ -151,6 +154,7 @@ public class StageStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
+        this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
@@ -237,6 +241,12 @@ public class StageStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    @JsonProperty
+    public double getCumulativeMemory()
+    {
+        return cumulativeMemory;
     }
 
     @JsonProperty

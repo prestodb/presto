@@ -231,6 +231,7 @@ public class QueryStateMachine
         int runningDrivers = 0;
         int completedDrivers = 0;
 
+        long cumulativeMemory = 0;
         long totalMemoryReservation = 0;
         long peakMemoryReservation = 0;
 
@@ -263,6 +264,7 @@ public class QueryStateMachine
                 runningDrivers += stageStats.getRunningDrivers();
                 completedDrivers += stageStats.getCompletedDrivers();
 
+                cumulativeMemory += stageStats.getCumulativeMemory();
                 totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
                 peakMemoryReservation = getPeakMemoryInBytes();
 
@@ -312,6 +314,7 @@ public class QueryStateMachine
                 runningDrivers,
                 completedDrivers,
 
+                cumulativeMemory,
                 new DataSize(totalMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
                 new DataSize(peakMemoryReservation, BYTE).convertToMostSuccinctDataSize(),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
