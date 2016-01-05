@@ -18,8 +18,8 @@ import com.facebook.presto.hive.util.ResumableTask;
 import com.facebook.presto.hive.util.ResumableTasks;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
@@ -41,11 +41,8 @@ import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -55,10 +52,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
-import static com.facebook.presto.hadoop.HadoopFileStatus.isFile;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
@@ -296,66 +293,53 @@ public class BackgroundHiveSplitLoader
         }
 
         FileSystem fs = hdfsEnvironment.getFileSystem(path);
+        HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate);
         if (bucket.isPresent()) {
-            Optional<FileStatus> bucketFile = getBucketFile(bucket.get(), fs, path);
-            if (bucketFile.isPresent()) {
-                FileStatus file = bucketFile.get();
-                BlockLocation[] blockLocations = fs.getFileBlockLocations(file, 0, file.getLen());
-                boolean splittable = isSplittable(inputFormat, fs, file.getPath());
+            List<LocatedFileStatus> locatedFileStatuses = listAndSortBucketFiles(iterator, bucket.get().getBucketCount());
+            FileStatus file = locatedFileStatuses.get(bucket.get().getBucketNumber());
+            BlockLocation[] blockLocations = fs.getFileBlockLocations(file, 0, file.getLen());
+            boolean splittable = isSplittable(inputFormat, fs, file.getPath());
 
-                hiveSplitSource.addToQueue(createHiveSplits(
-                        partitionName,
-                        file.getPath().toString(),
-                        blockLocations,
-                        0,
-                        file.getLen(),
-                        schema,
-                        partitionKeys,
-                        splittable,
-                        session,
-                        effectivePredicate));
-                return;
-            }
+            hiveSplitSource.addToQueue(createHiveSplits(
+                    partitionName,
+                    file.getPath().toString(),
+                    blockLocations,
+                    0,
+                    file.getLen(),
+                    schema,
+                    partitionKeys,
+                    splittable,
+                    session,
+                    effectivePredicate));
+            return;
         }
 
-        HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate);
         fileIterators.addLast(iterator);
     }
 
-    private static Optional<FileStatus> getBucketFile(HiveBucket bucket, FileSystem fs, Path path)
+    private static List<LocatedFileStatus> listAndSortBucketFiles(HiveFileIterator hiveFileIterator, int bucketCount)
     {
-        FileStatus[] statuses = listStatus(fs, path);
+        ArrayList<LocatedFileStatus> list = new ArrayList<>(bucketCount);
 
-        if (statuses.length != bucket.getBucketCount()) {
-            return Optional.empty();
-        }
-
-        Map<String, FileStatus> map = new HashMap<>();
-        List<String> paths = new ArrayList<>();
-        for (FileStatus status : statuses) {
-            if (!isFile(status)) {
-                return Optional.empty();
+        while (hiveFileIterator.hasNext()) {
+            LocatedFileStatus next = hiveFileIterator.next();
+            if (isDirectory(next)) {
+                // Fail here to be on the safe side. This seems to be the same as what Hive does
+                throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, "Found sub-directory in bucket directory");
             }
-            String pathString = status.getPath().toString();
-            map.put(pathString, status);
-            paths.add(pathString);
+            if (list.size() >= bucketCount) {
+                throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, "There are more files in the directory than the specified bucket count: " + bucketCount);
+            }
+            list.add(next);
         }
 
-        // Hive sorts the paths as strings lexicographically
-        Collections.sort(paths);
-
-        String pathString = paths.get(bucket.getBucketNumber());
-        return Optional.of(map.get(pathString));
-    }
-
-    private static FileStatus[] listStatus(FileSystem fs, Path path)
-    {
-        try {
-            return fs.listStatus(path);
+        if (list.size() != bucketCount) {
+            throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, "There are less files in the directory than the specified bucket count: " + bucketCount);
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+
+        // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
+        list.sort(null);
+        return list;
     }
 
     private List<HiveSplit> createHiveSplits(
