@@ -134,11 +134,11 @@ public class PlanPrinter
                     fragment.getId(),
                     fragment.getPartitioning()));
 
+            PartitionFunctionBinding partitionFunction = fragment.getPartitionFunction();
             builder.append(indentString(1))
                     .append(format("Output layout: [%s]\n",
-                            Joiner.on(", ").join(fragment.getOutputLayout())));
+                            Joiner.on(", ").join(partitionFunction.getOutputLayout())));
 
-            PartitionFunctionBinding partitionFunction = fragment.getPartitionFunction();
             boolean replicateNulls = partitionFunction.isReplicateNulls();
             List<Symbol> symbols = partitionFunction.getPartitioningColumns();
             builder.append(indentString(1));
@@ -166,10 +166,9 @@ public class PlanPrinter
                 new PlanFragmentId("graphviz_plan"),
                 plan,
                 types,
-                plan.getOutputSymbols(),
                 SINGLE_DISTRIBUTION,
                 plan.getId(),
-                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()));
+                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, plan.getOutputSymbols(), ImmutableList.of()));
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 

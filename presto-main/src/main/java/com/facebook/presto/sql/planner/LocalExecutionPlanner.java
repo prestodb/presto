@@ -255,13 +255,13 @@ public class LocalExecutionPlanner
     public LocalExecutionPlan plan(
             Session session,
             PlanNode plan,
-            List<Symbol> outputLayout,
             Map<Symbol, Type> types,
             PartitionFunctionBinding functionBinding,
             SharedBuffer sharedBuffer,
             boolean singleNode,
             boolean allowLocalParallel)
     {
+        List<Symbol> outputLayout = functionBinding.getOutputLayout();
         if (functionBinding.getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
             return plan(session, plan, outputLayout, types, new TaskOutputFactory(sharedBuffer), singleNode, allowLocalParallel);
         }

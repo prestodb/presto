@@ -224,13 +224,6 @@ public class UnaliasSymbolReferences
                     .map(context::rewrite)
                     .collect(toImmutableList());
 
-            PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
-                    node.getPartitionFunction().getPartitioningHandle(),
-                    canonicalize(node.getPartitionFunction().getPartitioningColumns()),
-                    canonicalize(node.getPartitionFunction().getHashColumn()),
-                    node.getPartitionFunction().isReplicateNulls(),
-                    node.getPartitionFunction().getBucketToPartition());
-
             List<List<Symbol>> inputs = new ArrayList<>();
             for (int i = 0; i < node.getInputs().size(); i++) {
                 inputs.add(new ArrayList<>());
@@ -247,7 +240,16 @@ public class UnaliasSymbolReferences
                     }
                 }
             }
-            return new ExchangeNode(node.getId(), node.getType(), partitionFunction, sources, outputs.build(), inputs);
+
+            PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
+                    node.getPartitionFunction().getPartitioningHandle(),
+                    outputs.build(),
+                    canonicalize(node.getPartitionFunction().getPartitioningColumns()),
+                    canonicalize(node.getPartitionFunction().getHashColumn()),
+                    node.getPartitionFunction().isReplicateNulls(),
+                    node.getPartitionFunction().getBucketToPartition());
+
+            return new ExchangeNode(node.getId(), node.getType(), partitionFunction, sources, inputs);
         }
 
         @Override

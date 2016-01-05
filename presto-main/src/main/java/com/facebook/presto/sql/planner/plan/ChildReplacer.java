@@ -84,7 +84,6 @@ public class ChildReplacer
                 node.getType(),
                 node.getPartitionFunction(),
                 newChildren,
-                node.getOutputSymbols(),
                 node.getInputs());
     }
 

@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -159,12 +160,20 @@ public class ProjectionPushDown
                 outputBuilder.add(projection.getKey());
             }
 
+            // outputBuilder contains all partition and hash symbols so simply swap the output layout
+            PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
+                    exchange.getPartitionFunction().getPartitioningHandle(),
+                    outputBuilder.build(),
+                    exchange.getPartitionFunction().getPartitioningColumns(),
+                    exchange.getPartitionFunction().getHashColumn(),
+                    exchange.getPartitionFunction().isReplicateNulls(),
+                    exchange.getPartitionFunction().getBucketToPartition());
+
             return new ExchangeNode(
                     exchange.getId(),
                     exchange.getType(),
-                    exchange.getPartitionFunction(),
+                    partitionFunction,
                     newSourceBuilder.build(),
-                    outputBuilder.build(),
                     inputsBuilder.build());
         }
     }
