@@ -110,8 +110,8 @@
         <dt>Memory Pool</dt>
         <dd id="memoryPool"></dd>
 
-        <dt>Memory</dt>
-        <dd id="memory"></dd>
+        <dt>Total Memory</dt>
+        <dd id="totalMemory"></dd>
 
         <dt>CPU Time</dt>
         <dd id="cpuTime"></dd>
@@ -121,6 +121,9 @@
 
         <dt>Data Size</dt>
         <dd id="dataSize"></dd>
+
+        <dt>Cumulative Memory</dt>
+        <dd id="cumulativeMemory"></dd>
 
         <dt>Raw</dt>
         <dd><a id="rawJson"></a></dd>
@@ -207,10 +210,11 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
         d3.select('#endTime').text(formatter(new Date(query.queryStats.endTime)));
     }
     d3.select('#memoryPool').text(query.memoryPool);
-    d3.select('#memory').text(query.queryStats.totalMemoryReservation);
+    d3.select('#totalMemory').text(query.queryStats.totalMemoryReservation);
     d3.select('#cpuTime').text(query.queryStats.totalCpuTime);
     d3.select('#rows').text(formatCount(query.queryStats.rawInputPositions));
     d3.select('#dataSize').text(query.queryStats.rawInputDataSize);
+    d3.select('#cumulativeMemory').text(formatCumulativeMemory(query.queryStats.cumulativeMemory));
 
     var button = d3.select('#killQuery')
         .append('button')
@@ -284,6 +288,10 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     $.bootstrapSortable(applyLast=true);
     $('#tasks').stickyTableHeaders();
 });
+
+function formatCumulativeMemory(cumulativeMemory) {
+    return (cumulativeMemory / Math.pow(1000.0, 4)).toLocaleString()) + 'GB seconds'
+}
 
 function formatStackTrace(info) {
     return doFormatStackTrace(info, [], "", "");

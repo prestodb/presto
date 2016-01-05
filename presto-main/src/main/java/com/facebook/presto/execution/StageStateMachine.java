@@ -181,6 +181,7 @@ public class StageStateMachine
         int runningDrivers = 0;
         int completedDrivers = 0;
 
+        long cumulativeMemory = 0;
         long totalMemoryReservation = 0;
 
         long totalScheduledTime = 0;
@@ -215,6 +216,7 @@ public class StageStateMachine
             runningDrivers += taskStats.getRunningDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
 
+            cumulativeMemory += taskStats.getCumulativeMemory();
             totalMemoryReservation += taskStats.getMemoryReservation().toBytes();
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
@@ -251,6 +253,7 @@ public class StageStateMachine
                 runningDrivers,
                 completedDrivers,
 
+                cumulativeMemory,
                 succinctDataSize(totalMemoryReservation, BYTE),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
