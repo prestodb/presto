@@ -165,14 +165,6 @@ public class PageProcessorCompiler
         Map<Integer, Variable> channelBlocks = builder.build();
         Map<RowExpression, List<Variable>> expressionInputBlocks = getExpressionInputBlocks(projections, filter, channelBlocks);
 
-        // extract block builders
-        ImmutableList.Builder<Variable> variableBuilder = ImmutableList.<Variable>builder();
-        for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-            Variable blockBuilder = scope.declareVariable("blockBuilder_" + projectionIndex, body, pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(projectionIndex)));
-            variableBuilder.add(blockBuilder);
-        }
-        List<Variable> blockBuilders = variableBuilder.build();
-
         // projection body
         Variable position = scope.declareVariable(int.class, "position");
 
@@ -181,7 +173,7 @@ public class PageProcessorCompiler
 
         for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
             RowExpression projection = projections.get(projectionIndex);
-            project.append(invokeProject(thisVariable, session, expressionInputBlocks.get(projection), position, blockBuilders.get(projectionIndex), projectionMethods.get(projectionIndex)));
+            project.append(invokeProject(thisVariable, session, expressionInputBlocks.get(projection), position, pageBuilder, constantInt(projectionIndex), projectionMethods.get(projectionIndex)));
         }
         LabelNode done = new LabelNode("done");
 
@@ -300,7 +292,8 @@ public class PageProcessorCompiler
                                 session,
                                 inputs,
                                 selectedPositions.getElement(position),
-                                blockBuilder,
+                                pageBuilder,
+                                projectionIndex,
                                 projectionMethod)))
                 .append(outputBlock.set(blockBuilder.invoke("build", Block.class)));
 
@@ -390,7 +383,7 @@ public class PageProcessorCompiler
                         .initialize(position.set(constantInt(0)))
                         .condition(lessThan(position, dictionaryCount))
                         .update(position.increment())
-                        .body(invokeProject(thisVariable, session, ImmutableList.of(dictionary), position, blockBuilder, project)))
+                        .body(invokeProject(thisVariable, session, ImmutableList.of(dictionary), position, pageBuilder, projectionIndex, project)))
                 .append(outputDictionary.set(blockBuilder.invoke("build", Block.class)))
                 .append(inputDictionaries.setElement(projectionIndex, dictionary))
                 .append(outputDictionaries.setElement(projectionIndex, outputDictionary));
@@ -479,28 +472,28 @@ public class PageProcessorCompiler
             return;
         }
 
-        ImmutableMap.Builder<Integer, Variable> builder = ImmutableMap.builder();
-        for (int channel : allInputChannels) {
-            Variable blockVariable = scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
-            builder.put(channel, blockVariable);
-        }
-        Map<Integer, Variable> channelBlocks = builder.build();
+        Variable index = scope.declareVariable(int.class, "index");
+        Variable channelCount = scope.declareVariable("channelCount", body, page.invoke("getChannelCount", int.class));
+        Variable blocks = scope.declareVariable("blocks", body, newArray(type(Block[].class), channelCount));
+        Variable inputBlock = scope.declareVariable(Block.class, "inputBlock");
 
-        Variable blocks = scope.declareVariable("blocks", body, page.invoke("getBlocks", Block[].class));
         Variable positionCount = scope.declareVariable("positionCount", body, page.invoke("getPositionCount", int.class));
         Variable createNewPage = scope.declareVariable("createNewPage", body, constantFalse());
 
-        for (Map.Entry<Integer, Variable> entry : channelBlocks.entrySet()) {
-            int channel = entry.getKey();
-            Variable inputBlock = entry.getValue();
-            IfStatement ifStmt = new IfStatement();
-            ifStmt.condition(inputBlock.instanceOf(LazyBlock.class))
-                    .ifTrue()
-                    .append(blocks.setElement(channel, inputBlock.cast(LazyBlock.class).invoke("getBlock", Block.class)))
-                    .append(createNewPage.set(constantTrue()));
-            body.append(ifStmt);
-        }
+        ForLoop forLoop = new ForLoop()
+                .initialize(index.set(constantInt(0)))
+                .condition(lessThan(index, channelCount))
+                .update(index.increment())
+                .body(new BytecodeBlock()
+                        .append(inputBlock.set(page.invoke("getBlock", Block.class, index)))
+                        .append(new IfStatement()
+                                .condition(inputBlock.instanceOf(LazyBlock.class))
+                                .ifTrue(new BytecodeBlock()
+                                        .append(blocks.setElement(index, inputBlock.cast(LazyBlock.class).invoke("getBlock", Block.class)))
+                                        .append(createNewPage.set(constantTrue())))
+                                .ifFalse(blocks.setElement(index, inputBlock))));
 
+        body.append(forLoop);
         body.append(new IfStatement()
                 .condition(createNewPage)
                 .ifTrue(page.set(newInstance(Page.class, positionCount, blocks))));
@@ -748,8 +741,16 @@ public class PageProcessorCompiler
         return objRef.invoke("filter", boolean.class, params);
     }
 
-    private static BytecodeNode invokeProject(Variable objRef, Variable session, List<? extends Variable> blockVariables, BytecodeExpression position, Variable blockBuilder, MethodDefinition projectionMethod)
+    private static BytecodeNode invokeProject(
+            Variable objRef,
+            Variable session,
+            List<? extends Variable> blockVariables,
+            BytecodeExpression position,
+            Variable pageBuilder,
+            BytecodeExpression projectionIndex,
+            MethodDefinition projectionMethod)
     {
+        BytecodeExpression blockBuilder = pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, projectionIndex);
         List<BytecodeExpression> params = ImmutableList.<BytecodeExpression>builder()
                 .add(session)
                 .addAll(blockVariables)
