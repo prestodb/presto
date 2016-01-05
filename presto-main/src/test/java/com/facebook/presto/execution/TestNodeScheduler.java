@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
+import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -47,6 +48,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -142,7 +144,15 @@ public class TestNodeScheduler
                 .setMaxPendingSplitsPerNodePerTask(15);
 
         TestNetworkTopology topology = new TestNetworkTopology();
-        NodeScheduler nodeScheduler = new NodeScheduler(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NetworkLocationCache locationCache = new NetworkLocationCache(topology)
+        {
+            @Override
+            public Optional<NetworkLocation> get(HostAddress host)
+            {
+                return Optional.of(topology.locate(host));
+            }
+        };
+        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector("foo");
 
         // Fill up the nodes with non-local data
