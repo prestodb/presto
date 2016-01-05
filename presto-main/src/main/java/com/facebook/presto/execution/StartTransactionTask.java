@@ -110,7 +110,7 @@ public class StartTransactionTask
                 return IsolationLevel.REPEATABLE_READ;
             case READ_COMMITTED:
                 return IsolationLevel.READ_COMMITTED;
-            case READ_UNCOMMITED:
+            case READ_UNCOMMITTED:
                 return IsolationLevel.READ_UNCOMMITTED;
             default:
                 throw new AssertionError("Unhandled isolation level: " + level);

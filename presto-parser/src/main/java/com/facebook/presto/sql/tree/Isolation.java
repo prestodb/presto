@@ -30,7 +30,7 @@ public final class Isolation
         SERIALIZABLE("SERIALIZABLE"),
         REPEATABLE_READ("REPEATABLE READ"),
         READ_COMMITTED("READ COMMITTED"),
-        READ_UNCOMMITED("READ UNCOMMITED");
+        READ_UNCOMMITTED("READ UNCOMMITTED");
 
         private final String text;
 
