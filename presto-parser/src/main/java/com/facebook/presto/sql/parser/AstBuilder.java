@@ -277,7 +277,7 @@ class AstBuilder
     @Override
     public Node visitReadUncommitted(SqlBaseParser.ReadUncommittedContext context)
     {
-        return new Isolation(getLocation(context), Isolation.Level.READ_UNCOMMITED);
+        return new Isolation(getLocation(context), Isolation.Level.READ_UNCOMMITTED);
     }
 
     @Override
