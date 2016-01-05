@@ -18,6 +18,9 @@ General Changes
 * Add variant of :func:`random` that produces an integer number between 0 and a
   specified upper bound.
 * Perform bounds checks when evaluating :func:`abs`.
+* Improve accuracy of memory accounting for :func:`map_agg` and :func:`array_agg`.
+  These functions will now appear to use more memory than before.
+* Various performance optimizations for functions operating on :ref:`array_type`.
 
 CLI Changes
 -----------
