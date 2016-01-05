@@ -468,7 +468,7 @@ public class TransactionManager
             public void abort()
             {
                 if (finished.compareAndSet(false, true)) {
-                    connector.abort(connectorTransaction.getTransactionHandle());
+                    connector.rollback(connectorTransaction.getTransactionHandle());
                 }
             }
         }

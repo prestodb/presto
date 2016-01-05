@@ -146,7 +146,7 @@ public class LegacyTransactionConnector
     }
 
     @Override
-    public void abort(ConnectorTransactionHandle transactionHandle)
+    public void rollback(ConnectorTransactionHandle transactionHandle)
     {
         LegacyConnectorMetadata metadata = metadatas.remove(transactionHandle);
         if (metadata != null) {
