@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.spi.transaction;
 
-import java.sql.Connection;
-
 public enum IsolationLevel
 {
     SERIALIZABLE,
@@ -42,24 +40,5 @@ public enum IsolationLevel
         }
 
         throw new AssertionError("Unhandled isolation level: " + this);
-    }
-
-    public static IsolationLevel fromJdbcValue(int value)
-    {
-        switch (value) {
-            case Connection.TRANSACTION_READ_UNCOMMITTED:
-                return READ_UNCOMMITTED;
-
-            case Connection.TRANSACTION_READ_COMMITTED:
-                return READ_COMMITTED;
-
-            case Connection.TRANSACTION_REPEATABLE_READ:
-                return REPEATABLE_READ;
-
-            case Connection.TRANSACTION_SERIALIZABLE:
-                return SERIALIZABLE;
-        }
-
-        throw new IllegalArgumentException("Unsupported isolation level value: " + value);
     }
 }
