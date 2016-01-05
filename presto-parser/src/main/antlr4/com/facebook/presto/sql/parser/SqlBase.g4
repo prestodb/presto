@@ -241,7 +241,7 @@ valueExpression
 primaryExpression
     : NULL                                                                           #nullLiteral
     | interval                                                                       #intervalLiteral
-    | type STRING                                                                    #typeConstructor
+    | identifier STRING                                                                    #typeConstructor
     | number                                                                         #numericLiteral
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral

@@ -1148,7 +1148,7 @@ class AstBuilder
     @Override
     public Node visitTypeConstructor(SqlBaseParser.TypeConstructorContext context)
     {
-        String type = getType(context.type());
+        String type = context.identifier().getText();
         String value = unquote(context.STRING().getText());
 
         if (type.equalsIgnoreCase("time")) {

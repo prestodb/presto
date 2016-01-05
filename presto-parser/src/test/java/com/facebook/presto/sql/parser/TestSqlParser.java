@@ -149,17 +149,6 @@ public class TestSqlParser
         assertGenericLiteral("BOOLEAN");
         assertGenericLiteral("DATE");
         assertGenericLiteral("foo");
-
-        assertExpression("VARCHAR(42)" + " 'abc'", new GenericLiteral("VARCHAR(42)", "abc"));
-        assertExpression("FOO(42, 55)" + " 'abc'", new GenericLiteral("FOO(42,55)", "abc"));
-
-        assertExpression("ARRAY(BIGINT)" + " 'abc'", new GenericLiteral("ARRAY(BIGINT)", "abc"));
-        assertExpression(
-                "MAP(BIGINT, VARCHAR)" + " 'abc'",
-                new GenericLiteral("MAP(BIGINT,VARCHAR)", "abc"));
-        assertExpression(
-                "FOO(VARCHAR(42), ARRAY(BIGINT))" + " 'abc'",
-                new GenericLiteral("FOO(VARCHAR(42),ARRAY(BIGINT))", "abc"));
     }
 
     @Test
