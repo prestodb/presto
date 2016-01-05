@@ -413,8 +413,11 @@ public final class PlanSanityChecker
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
                 checkDependencies(subplan.getOutputSymbols(), node.getInputs().get(i), "EXCHANGE subplan must provide all of the necessary symbols");
+                checkDependencies(subplan.getOutputSymbols(), node.getInputs().get(i), "EXCHANGE subplan must provide all of the necessary symbols");
                 subplan.accept(this, context); // visit child
             }
+
+            checkDependencies(node.getOutputSymbols(), node.getPartitionFunction().getOutputLayout(), "EXCHANGE must provide all of the necessary symbols for partition function");
 
             verifyUniqueId(node);
 

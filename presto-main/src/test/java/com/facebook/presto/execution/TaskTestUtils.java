@@ -85,10 +85,10 @@ public final class TaskTestUtils
                     TupleDomain.all(),
                     null),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
-            ImmutableList.of(SYMBOL),
             SOURCE_DISTRIBUTION,
             TABLE_SCAN_NODE_ID,
-            new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()).withBucketToPartition(Optional.of(new int[1])));
+            new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(SYMBOL), ImmutableList.of())
+                    .withBucketToPartition(Optional.of(new int[1])));
 
     public static LocalExecutionPlanner createTestingPlanner()
     {

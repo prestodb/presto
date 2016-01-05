@@ -435,10 +435,9 @@ public class TestSourcePartitionedScheduler
                         Optional.<Symbol>empty(),
                         Optional.<Symbol>empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
-                ImmutableList.of(symbol),
                 SOURCE_DISTRIBUTION,
                 tableScanNodeId,
-                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()));
+                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(symbol), ImmutableList.of()));
 
         return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(CONNECTOR_ID), splitSource)), SOURCE_DISTRIBUTION, ImmutableList.of());
     }

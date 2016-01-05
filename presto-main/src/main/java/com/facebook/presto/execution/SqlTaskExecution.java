@@ -145,7 +145,6 @@ public class SqlTaskExecution
                 LocalExecutionPlan localExecutionPlan = planner.plan(
                         taskContext.getSession(),
                         fragment.getRoot(),
-                        fragment.getOutputLayout(),
                         fragment.getSymbols(),
                         fragment.getPartitionFunction(),
                         sharedBuffer,

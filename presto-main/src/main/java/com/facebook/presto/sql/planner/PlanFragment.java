@@ -42,7 +42,6 @@ public class PlanFragment
     private final PlanFragmentId id;
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;
-    private final List<Symbol> outputLayout;
     private final PartitioningHandle partitioning;
     private final PlanNodeId partitionedSource;
     private final List<Type> types;
@@ -55,7 +54,6 @@ public class PlanFragment
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
-            @JsonProperty("outputLayout") List<Symbol> outputLayout,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("partitionFunction") PartitionFunctionBinding partitionFunction)
@@ -63,14 +61,13 @@ public class PlanFragment
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
         this.symbols = requireNonNull(symbols, "symbols is null");
-        this.outputLayout = requireNonNull(outputLayout, "outputLayout is null");
-        this.partitioning = requireNonNull(partitioning, "distribution is null");
+        this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionedSource = partitionedSource;
 
-        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputLayout),
-                "Root node outputs (%s) don't include all fragment outputs (%s)", root.getOutputSymbols(), outputLayout);
+        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitionFunction.getOutputLayout()),
+                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), partitionFunction.getOutputLayout());
 
-        types = outputLayout.stream()
+        types = partitionFunction.getOutputLayout().stream()
                 .map(symbols::get)
                 .collect(toImmutableList());
 
@@ -99,12 +96,6 @@ public class PlanFragment
     public Map<Symbol, Type> getSymbols()
     {
         return symbols;
-    }
-
-    @JsonProperty
-    public List<Symbol> getOutputLayout()
-    {
-        return outputLayout;
     }
 
     @JsonProperty
@@ -171,7 +162,7 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, outputLayout, partitioning, partitionedSource, partitionFunction.withBucketToPartition(bucketToPartition));
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSource, partitionFunction.withBucketToPartition(bucketToPartition));
     }
 
     @Override
@@ -179,7 +170,7 @@ public class PlanFragment
     {
         return toStringHelper(this)
                 .add("id", id)
-                .add("distribution", partitioning)
+                .add("partitioning", partitioning)
                 .add("partitionedSource", partitionedSource)
                 .add("partitionFunction", partitionFunction)
                 .toString();

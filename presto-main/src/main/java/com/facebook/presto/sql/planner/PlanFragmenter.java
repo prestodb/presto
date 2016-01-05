@@ -52,7 +52,8 @@ public class PlanFragmenter
     {
         Fragmenter fragmenter = new Fragmenter(plan.getSymbolAllocator().getTypes());
 
-        FragmentProperties properties = new FragmentProperties(new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of()));
+        FragmentProperties properties = new FragmentProperties(new PartitionFunctionBinding(SINGLE_DISTRIBUTION, plan.getRoot().getOutputSymbols(), ImmutableList.of()))
+                .setSingleNodeDistribution();
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan result = fragmenter.buildRootFragment(root, properties);
@@ -92,7 +93,6 @@ public class PlanFragmenter
                     fragmentId,
                     root,
                     Maps.filterKeys(types, in(dependencies)),
-                    properties.getOutputLayout(),
                     properties.getPartitioningHandle(),
                     properties.getDistributeBy(),
                     properties.getPartitionFunction());
@@ -103,9 +103,7 @@ public class PlanFragmenter
         @Override
         public PlanNode visitOutput(OutputNode node, RewriteContext<FragmentProperties> context)
         {
-            context.get()
-                    .setSingleNodeDistribution() // TODO: add support for distributed output
-                    .setOutputLayout(node.getOutputSymbols());
+            context.get().setSingleNodeDistribution(); // TODO: add support for distributed output
 
             return context.defaultRewrite(node, context.get());
         }
@@ -141,30 +139,25 @@ public class PlanFragmenter
         @Override
         public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
         {
+            PartitionFunctionBinding partitionFunction = exchange.getPartitionFunction();
+
             ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
             if (exchange.getType() == ExchangeNode.Type.GATHER) {
                 context.get().setSingleNodeDistribution();
 
                 for (int i = 0; i < exchange.getSources().size(); i++) {
-                    FragmentProperties childProperties = new FragmentProperties(exchange.getPartitionFunction())
-                            .setOutputLayout(exchange.getInputs().get(i));
-
+                    FragmentProperties childProperties = new FragmentProperties(partitionFunction.translateOutputLayout(exchange.getInputs().get(i)));
                     builder.add(buildSubPlan(exchange.getSources().get(i), childProperties, context));
                 }
             }
             else if (exchange.getType() == ExchangeNode.Type.REPARTITION) {
-                PartitionFunctionBinding partitionFunction = exchange.getPartitionFunction();
                 context.get().setDistribution(partitionFunction.getPartitioningHandle());
 
-                FragmentProperties childProperties = new FragmentProperties(partitionFunction)
-                        .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
-
+                FragmentProperties childProperties = new FragmentProperties(partitionFunction.translateOutputLayout(Iterables.getOnlyElement(exchange.getInputs())));
                 builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
             }
             else if (exchange.getType() == ExchangeNode.Type.REPLICATE) {
-                FragmentProperties childProperties = new FragmentProperties(exchange.getPartitionFunction())
-                        .setOutputLayout(Iterables.getOnlyElement(exchange.getInputs()));
-
+                FragmentProperties childProperties = new FragmentProperties(partitionFunction.translateOutputLayout(Iterables.getOnlyElement(exchange.getInputs())));
                 builder.add(buildSubPlan(Iterables.getOnlyElement(exchange.getSources()), childProperties, context));
             }
 
@@ -192,7 +185,6 @@ public class PlanFragmenter
         private final List<SubPlan> children = new ArrayList<>();
 
         private final PartitionFunctionBinding partitionFunction;
-        private Optional<List<Symbol>> outputLayout = Optional.empty();
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private PlanNodeId distributeBy;
@@ -279,27 +271,11 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties setOutputLayout(List<Symbol> layout)
-        {
-            outputLayout.ifPresent(current -> {
-                throw new IllegalStateException(String.format("Cannot overwrite output layout with %s (currently set to %s)", layout, current));
-            });
-
-            outputLayout = Optional.of(layout);
-
-            return this;
-        }
-
         public FragmentProperties addChildren(List<SubPlan> children)
         {
             this.children.addAll(children);
 
             return this;
-        }
-
-        public List<Symbol> getOutputLayout()
-        {
-            return outputLayout.get();
         }
 
         public PartitionFunctionBinding getPartitionFunction()
