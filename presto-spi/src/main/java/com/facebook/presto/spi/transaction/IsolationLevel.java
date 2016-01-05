@@ -41,4 +41,10 @@ public enum IsolationLevel
 
         throw new AssertionError("Unhandled isolation level: " + this);
     }
+
+    @Override
+    public String toString()
+    {
+        return name().replace('_', ' ');
+    }
 }

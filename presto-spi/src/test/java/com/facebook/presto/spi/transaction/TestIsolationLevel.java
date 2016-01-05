@@ -19,6 +19,7 @@ import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -47,5 +48,15 @@ public class TestIsolationLevel
         assertTrue(SERIALIZABLE.meetsRequirementOf(READ_COMMITTED));
         assertTrue(SERIALIZABLE.meetsRequirementOf(REPEATABLE_READ));
         assertTrue(SERIALIZABLE.meetsRequirementOf(SERIALIZABLE));
+    }
+
+    @Test
+    public void testToString()
+            throws Exception
+    {
+        assertEquals(READ_UNCOMMITTED.toString(), "READ UNCOMMITTED");
+        assertEquals(READ_COMMITTED.toString(), "READ COMMITTED");
+        assertEquals(REPEATABLE_READ.toString(), "REPEATABLE READ");
+        assertEquals(SERIALIZABLE.toString(), "SERIALIZABLE");
     }
 }
