@@ -22,27 +22,21 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.cache.Cache;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.scheduler.NodeScheduler.NEGATIVE_CACHE_DURATION;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
@@ -64,8 +58,7 @@ public class TopologyAwareNodeSelector
     private final int maxSplitsPerNodePerTaskWhenFull;
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
-    private final LoadingCache<HostAddress, NetworkLocation> networkLocationCache;
-    private final Cache<HostAddress, Boolean> negativeNetworkLocationCache;
+    private final NetworkLocationCache networkLocationCache;
 
     public TopologyAwareNodeSelector(
             NodeManager nodeManager,
@@ -78,8 +71,7 @@ public class TopologyAwareNodeSelector
             int maxSplitsPerNodePerTaskWhenFull,
             List<CounterStat> topologicalSplitCounters,
             List<String> networkLocationSegmentNames,
-            LoadingCache<HostAddress, NetworkLocation> networkLocationCache,
-            Cache<HostAddress, Boolean> negativeNetworkLocationCache)
+            NetworkLocationCache networkLocationCache)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -92,7 +84,6 @@ public class TopologyAwareNodeSelector
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkLocationSegmentNames = requireNonNull(networkLocationSegmentNames, "networkLocationSegmentNames is null");
         this.networkLocationCache = requireNonNull(networkLocationCache, "networkLocationCache is null");
-        this.negativeNetworkLocationCache = requireNonNull(negativeNetworkLocationCache, "negativeNetworkLocationCache is null");
     }
 
     @Override
@@ -124,7 +115,6 @@ public class TopologyAwareNodeSelector
     public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         NodeMap nodeMap = this.nodeMap.get().get();
-        Collection<Node> allNodes = nodeMap.getNodesByHostAndPort().values();
         Multimap<Node, Split> assignment = HashMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
@@ -150,17 +140,7 @@ public class TopologyAwareNodeSelector
             int chosenDepth = 0;
             List<NetworkLocation> locations = new ArrayList<>();
             for (HostAddress host : split.getAddresses()) {
-                try {
-                    if (negativeNetworkLocationCache.getIfPresent(host) != null) {
-                        continue;
-                    }
-                    locations.add(networkLocationCache.get(host));
-                }
-                catch (ExecutionException | UncheckedExecutionException e) {
-                    // Skip addresses we can't locate
-                    negativeNetworkLocationCache.put(host, true);
-                    log.warn(e, "Unable to determine location of %s. Will attempt again in %s", host, NEGATIVE_CACHE_DURATION);
-                }
+                networkLocationCache.get(host).ifPresent(locations::add);
             }
             if (locations.isEmpty()) {
                 // Add the root location
