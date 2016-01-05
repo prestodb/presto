@@ -64,7 +64,7 @@ public class QueryContext
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
-    public synchronized void setResourceOverCommit()
+    public synchronized void setResourceOvercommit()
     {
         // Don't enforce any limit. The coordinator will kill the query if the cluster runs out of memory.
         maxMemory = Long.MAX_VALUE;

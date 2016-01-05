@@ -47,9 +47,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalLimit;
-import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVER_COMMIT;
+import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
-import static com.facebook.presto.SystemSessionProperties.resourceOverCommit;
+import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
@@ -138,12 +138,12 @@ public class ClusterMemoryManager
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
             totalBytes += bytes;
             if (bytes > queryMemoryLimit) {
-                if (resourceOverCommit(query.getSession())) {
-                    // If a query has requested resource over commit, only kill it if the cluster has run out of memory
+                if (resourceOvercommit(query.getSession())) {
+                    // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
                     if (outOfMemory) {
                         DataSize memory = succinctDataSize(bytes, BYTE);
                         query.fail(new PrestoException(CLUSTER_OUT_OF_MEMORY,
-                                format("The cluster is out of memory, you set %s=true, and your query is using %s of memory, so it was killed.", RESOURCE_OVER_COMMIT, memory)));
+                                format("The cluster is out of memory, you set %s=true, and your query is using %s of memory, so it was killed.", RESOURCE_OVERCOMMIT, memory)));
                         queryKilled = true;
                     }
                 }
@@ -222,9 +222,9 @@ public class ClusterMemoryManager
                 QueryExecution biggestQuery = null;
                 long maxMemory = -1;
                 for (QueryExecution queryExecution : queries) {
-                    if (resourceOverCommit(queryExecution.getSession())) {
-                        // Don't promote queries that requested resource over commit to the reserved pool, since their memory
-                        // usage is unbounded.
+                    if (resourceOvercommit(queryExecution.getSession())) {
+                        // Don't promote queries that requested resource overcommit to the reserved pool,
+                        // since their memory usage is unbounded.
                         continue;
                     }
                     long bytesUsed = queryExecution.getTotalMemoryReservation();

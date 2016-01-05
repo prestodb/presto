@@ -53,7 +53,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.SystemSessionProperties.resourceOverCommit;
+import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -259,9 +259,9 @@ public class SqlTaskManager
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
 
-        if (resourceOverCommit(session)) {
+        if (resourceOvercommit(session)) {
             // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.
-            queryContexts.getUnchecked(taskId.getQueryId()).setResourceOverCommit();
+            queryContexts.getUnchecked(taskId.getQueryId()).setResourceOvercommit();
         }
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);

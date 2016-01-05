@@ -34,7 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVER_COMMIT;
+import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
@@ -86,7 +86,7 @@ public class TestMemoryManager
             catch (RuntimeException e) {
                 // expected
             }
-            Session session = TINY_SESSION.withSystemProperty(RESOURCE_OVER_COMMIT, "true");
+            Session session = TINY_SESSION.withSystemProperty(RESOURCE_OVERCOMMIT, "true");
             queryRunner.execute(session, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
         }
     }
