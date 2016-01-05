@@ -31,6 +31,7 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.net.InetAddress;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
@@ -49,7 +51,10 @@ import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.cache.CacheLoader.asyncReloading;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -58,6 +63,7 @@ public class NodeScheduler
     public static final Duration NEGATIVE_CACHE_DURATION = new Duration(10, MINUTES);
     private static final Logger log = Logger.get(NodeScheduler.class);
 
+    private final ExecutorService networkLocationExecutor = newCachedThreadPool(daemonThreadsNamed("network-location-%s"));
     private final LoadingCache<HostAddress, NetworkLocation> networkLocationCache;
     private final Cache<HostAddress, Boolean> negativeNetworkLocationCache;
     private final List<CounterStat> topologicalSplitCounters;
@@ -99,7 +105,7 @@ public class NodeScheduler
         networkLocationCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(1, TimeUnit.DAYS)
                 .refreshAfterWrite(12, TimeUnit.HOURS)
-                .build(new CacheLoader<HostAddress, NetworkLocation>()
+                .build(asyncReloading(new CacheLoader<HostAddress, NetworkLocation>()
                 {
                     @Override
                     public NetworkLocation load(HostAddress address)
@@ -107,11 +113,17 @@ public class NodeScheduler
                     {
                         return networkTopology.locate(address);
                     }
-                });
+                }, networkLocationExecutor));
 
         negativeNetworkLocationCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(NEGATIVE_CACHE_DURATION.toMillis(), MILLISECONDS)
                 .build();
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        networkLocationExecutor.shutdownNow();
     }
 
     public Map<String, CounterStat> getTopologicalSplitCounters()
