@@ -180,6 +180,21 @@ public class TestStatementBuilder
 
         printStatement("insert into t select * from t");
         printStatement("insert into t (c1, c2) select * from t");
+
+        printStatement("start transaction");
+        printStatement("start transaction isolation level read uncommitted");
+        printStatement("start transaction isolation level read committed");
+        printStatement("start transaction isolation level repeatable read");
+        printStatement("start transaction isolation level serializable");
+        printStatement("start transaction read only");
+        printStatement("start transaction read write");
+        printStatement("start transaction isolation level read committed, read only");
+        printStatement("start transaction read only, isolation level read committed");
+        printStatement("start transaction read write, isolation level serializable");
+        printStatement("commit");
+        printStatement("commit work");
+        printStatement("rollback");
+        printStatement("rollback work");
     }
 
     @Test
