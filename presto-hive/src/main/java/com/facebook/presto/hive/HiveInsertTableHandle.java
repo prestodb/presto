@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Optional;
 
 public class HiveInsertTableHandle
         extends HiveWritableTableHandle
@@ -31,6 +32,7 @@ public class HiveInsertTableHandle
             @JsonProperty("inputColumns") List<HiveColumnHandle> inputColumns,
             @JsonProperty("filePrefix") String filePrefix,
             @JsonProperty("locationHandle") LocationHandle locationHandle,
+            @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat)
     {
@@ -41,6 +43,7 @@ public class HiveInsertTableHandle
                 inputColumns,
                 filePrefix,
                 locationHandle,
+                bucketProperty,
                 tableStorageFormat,
                 partitionStorageFormat);
     }

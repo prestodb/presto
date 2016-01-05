@@ -50,6 +50,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.createPartitionName;
 import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_PARTITION;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -154,6 +155,7 @@ public class HiveSplitManager
         }
         SchemaTableName tableName = partition.getTableName();
         Optional<HiveBucketing.HiveBucket> bucket = partition.getBucket();
+        Optional<HiveBucketHandle> bucketHandle = layout.getBucketHandle();
 
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
@@ -162,12 +164,13 @@ public class HiveSplitManager
         if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(table.get(), tableName, partitions);
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(table.get(), tableName, partitions, bucketHandle.map(HiveBucketHandle::toBucketProperty));
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 connectorId,
                 table.get(),
                 hivePartitions,
+                bucketHandle,
                 bucket,
                 maxSplitSize,
                 session,
@@ -186,7 +189,7 @@ public class HiveSplitManager
         return splitSource;
     }
 
-    private Iterable<HivePartitionMetadata> getPartitionMetadata(Table table, SchemaTableName tableName, List<HivePartition> hivePartitions)
+    private Iterable<HivePartitionMetadata> getPartitionMetadata(Table table, SchemaTableName tableName, List<HivePartition> hivePartitions, Optional<HiveBucketProperty> bucketProperty)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
@@ -257,6 +260,18 @@ public class HiveSplitManager
                                 partitionType));
                     }
                 }
+
+                Optional<HiveBucketProperty> partitionBucketProperty = HiveBucketProperty.fromStorageDescriptor(
+                        partition.getSd(),
+                        hivePartition.getTableName() + hivePartition.getPartitionId());
+                checkCondition(
+                        partitionBucketProperty.equals(bucketProperty),
+                        HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH,
+                        "Hive table (%s) bucketing property (%s) does not match partition (%s) bucketing property (%s)",
+                        hivePartition.getTableName(),
+                        bucketProperty,
+                        hivePartition.getPartitionId(),
+                        partitionBucketProperty);
 
                 results.add(new HivePartitionMetadata(hivePartition, partition));
             }

@@ -89,6 +89,7 @@ public class HivePageSinkProvider
                 handle.getLocationHandle(),
                 locationService,
                 handle.getFilePrefix(),
+                handle.getBucketProperty(),
                 metastore,
                 pageIndexerFactory,
                 typeManager,

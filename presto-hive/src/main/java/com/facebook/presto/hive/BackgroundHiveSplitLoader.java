@@ -19,6 +19,7 @@ import com.facebook.presto.hive.util.ResumableTasks;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -44,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -69,6 +71,7 @@ public class BackgroundHiveSplitLoader
 
     private final String connectorId;
     private final Table table;
+    private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucket> bucket;
     private final HdfsEnvironment hdfsEnvironment;
     private final NamenodeStats namenodeStats;
@@ -103,6 +106,7 @@ public class BackgroundHiveSplitLoader
             String connectorId,
             Table table,
             Iterable<HivePartitionMetadata> partitions,
+            Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucket> bucket,
             DataSize maxSplitSize,
             ConnectorSession session,
@@ -117,6 +121,7 @@ public class BackgroundHiveSplitLoader
     {
         this.connectorId = connectorId;
         this.table = table;
+        this.bucketHandle = bucketHandle;
         this.bucket = bucket;
         this.maxSplitSize = maxSplitSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
@@ -238,6 +243,7 @@ public class BackgroundHiveSplitLoader
                         files.getPartitionKeys(),
                         splittable,
                         session,
+                        OptionalInt.empty(),
                         files.getEffectivePredicate()));
                 if (!future.isDone()) {
                     fileIterators.addFirst(files);
@@ -263,6 +269,9 @@ public class BackgroundHiveSplitLoader
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
+            if (bucketHandle.isPresent()) {
+                throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
+            }
             JobConf jobConf = new JobConf(configuration);
             FileInputFormat.setInputPaths(jobConf, path);
             InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
@@ -284,6 +293,7 @@ public class BackgroundHiveSplitLoader
                         partitionKeys,
                         false,
                         session,
+                        OptionalInt.empty(),
                         effectivePredicate));
                 if (stopped) {
                     return;
@@ -292,6 +302,7 @@ public class BackgroundHiveSplitLoader
             return;
         }
 
+        // If only one bucket could match: load that one file
         FileSystem fs = hdfsEnvironment.getFileSystem(path);
         HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate);
         if (bucket.isPresent()) {
@@ -310,7 +321,35 @@ public class BackgroundHiveSplitLoader
                     partitionKeys,
                     splittable,
                     session,
+                    OptionalInt.of(bucket.get().getBucketNumber()),
                     effectivePredicate));
+            return;
+        }
+
+        // If table is bucketed: list the directory, sort, tag with bucket id
+        if (bucketHandle.isPresent()) {
+            // HiveFileIterator skips hidden files automatically.
+            int bucketCount = bucketHandle.get().getBucketCount();
+            List<LocatedFileStatus> list = listAndSortBucketFiles(iterator, bucketCount);
+
+            for (int bucketIndex = 0; bucketIndex < bucketCount; bucketIndex++) {
+                LocatedFileStatus file = list.get(bucketIndex);
+                boolean splittable = isSplittable(iterator.getInputFormat(), hdfsEnvironment.getFileSystem(file.getPath()), file.getPath());
+
+                hiveSplitSource.addToQueue(createHiveSplits(
+                        iterator.getPartitionName(),
+                        file.getPath().toString(),
+                        file.getBlockLocations(),
+                        0,
+                        file.getLen(),
+                        iterator.getSchema(),
+                        iterator.getPartitionKeys(),
+                        splittable,
+                        session,
+                        OptionalInt.of(bucketIndex),
+                        iterator.getEffectivePredicate()));
+            }
+
             return;
         }
 
@@ -352,6 +391,7 @@ public class BackgroundHiveSplitLoader
             List<HivePartitionKey> partitionKeys,
             boolean splittable,
             ConnectorSession session,
+            OptionalInt bucketNumber,
             TupleDomain<HiveColumnHandle> effectivePredicate)
             throws IOException
     {
@@ -400,6 +440,7 @@ public class BackgroundHiveSplitLoader
                             schema,
                             partitionKeys,
                             addresses,
+                            bucketNumber,
                             forceLocalScheduling,
                             effectivePredicate));
 
@@ -425,6 +466,7 @@ public class BackgroundHiveSplitLoader
                     schema,
                     partitionKeys,
                     addresses,
+                    bucketNumber,
                     forceLocalScheduling,
                     effectivePredicate));
         }

@@ -520,6 +520,18 @@ public final class HiveUtil
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         // add the data fields first
+        columns.addAll(getNonPartitionKeyColumnHandles(connectorId, table));
+
+        // add the partition keys last (like Hive does)
+        columns.addAll(getPartitionKeyColumnHandles(connectorId, table));
+
+        return columns.build();
+    }
+
+    public static List<HiveColumnHandle> getNonPartitionKeyColumnHandles(String connectorId, Table table)
+    {
+        ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
+
         int hiveColumnIndex = 0;
         for (FieldSchema field : table.getSd().getCols()) {
             // ignore unsupported types rather than failing
@@ -530,9 +542,6 @@ public final class HiveUtil
             }
             hiveColumnIndex++;
         }
-
-        // add the partition keys last (like Hive does)
-        columns.addAll(getPartitionKeyColumnHandles(connectorId, table));
 
         return columns.build();
     }
