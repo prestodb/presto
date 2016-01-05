@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorNodePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -80,6 +81,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
@@ -90,8 +92,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.CLUSTERED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.toHiveType;
@@ -122,6 +127,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 
@@ -259,6 +265,11 @@ public class HiveMetadata
         if (!partitionedBy.isEmpty()) {
             properties.put(PARTITIONED_BY_PROPERTY, partitionedBy);
         }
+        Optional<HiveBucketProperty> bucketProperty = HiveBucketProperty.fromStorageDescriptor(table.get().getSd(), table.get().getTableName());
+        if (bucketProperty.isPresent()) {
+            properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
+            properties.put(CLUSTERED_BY_PROPERTY, bucketProperty.get().getClusteredBy());
+        }
         if (table.get().isSetParameters()) {
             properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
         }
@@ -372,6 +383,7 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+        Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
@@ -380,7 +392,7 @@ public class HiveMetadata
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(hdfsEnvironment, targetPath);
 
-        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, additionalTableParameters, targetPath);
+        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath);
     }
 
     private Table createTable(
@@ -390,6 +402,7 @@ public class HiveMetadata
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
             List<String> partitionedBy,
+            Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
             Path targetPath)
     {
@@ -433,7 +446,7 @@ public class HiveMetadata
                 .putAll(additionalTableParameters)
                 .build());
         table.setPartitionKeys(partitionColumns);
-        table.setSd(makeStorageDescriptor(tableName, hiveStorageFormat, targetPath, columns.build()));
+        table.setSd(makeStorageDescriptor(tableName, hiveStorageFormat, targetPath, columns.build(), bucketProperty));
 
         PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, tableOwner, PrincipalType.USER, true);
         table.setPrivileges(new PrincipalPrivilegeSet(
@@ -550,6 +563,7 @@ public class HiveMetadata
 
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+        Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
         // get the root directory for the database
@@ -569,6 +583,7 @@ public class HiveMetadata
                 tableStorageFormat,
                 respectTableFormat ? tableStorageFormat : defaultStorageFormat,
                 partitionedBy,
+                bucketProperty,
                 tableMetadata.getOwner(),
                 additionalTableParameters);
 
@@ -613,6 +628,7 @@ public class HiveMetadata
                     handle.getInputColumns(),
                     handle.getTableStorageFormat(),
                     handle.getPartitionedBy(),
+                    handle.getBucketProperty(),
                     handle.getAdditionalTableParameters(),
                     targetPath);
 
@@ -674,6 +690,7 @@ public class HiveMetadata
                 handles,
                 session.getQueryId(),
                 locationService.forExistingTable(session.getQueryId(), table.get()),
+                HiveBucketProperty.fromStorageDescriptor(table.get().getSd(), table.get().getTableName()),
                 tableStorageFormat,
                 respectTableFormat ? tableStorageFormat : defaultStorageFormat);
 
@@ -837,7 +854,12 @@ public class HiveMetadata
             partition.getSd().setLocation(partitionUpdate.getTargetPath());
         }
         else {
-            partition.setSd(makeStorageDescriptor(table.getTableName(), defaultStorageFormat, new Path(partitionUpdate.getTargetPath()), table.getSd().getCols()));
+            partition.setSd(makeStorageDescriptor(
+                    table.getTableName(),
+                    defaultStorageFormat,
+                    new Path(partitionUpdate.getTargetPath()),
+                    table.getSd().getCols(),
+                    HiveBucketProperty.fromStorageDescriptor(table.getSd(), table.getTableName())));
         }
 
         return partition;
@@ -1228,11 +1250,14 @@ public class HiveMetadata
                 .collect(toList());
 
         return ImmutableList.of(new ConnectorTableLayoutResult(
-                getTableLayout(session, new HiveTableLayoutHandle(
-                        handle.getClientId(),
-                        ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
-                        partitions,
-                        hivePartitionResult.getEnforcedConstraint())),
+                getTableLayout(
+                        session,
+                        new HiveTableLayoutHandle(
+                                handle.getClientId(),
+                                ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
+                                partitions,
+                                hivePartitionResult.getEnforcedConstraint(),
+                                hivePartitionResult.getBucketHandle())),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -1259,10 +1284,39 @@ public class HiveMetadata
                 hiveLayoutHandle,
                 Optional.empty(),
                 predicate,
-                Optional.empty(),
+                hiveLayoutHandle.getBucketHandle().map(hiveBucketHandle -> new ConnectorNodePartitioning(
+                        new HivePartitioningHandle(
+                                connectorId,
+                                hiveBucketHandle.getBucketCount(),
+                                hiveBucketHandle.getColumns().stream()
+                                        .map(HiveColumnHandle::getHiveType)
+                                        .collect(Collectors.toList())),
+                        hiveBucketHandle.getColumns().stream()
+                                .map(hiveColumnHandle -> (ColumnHandle) hiveColumnHandle)
+                                .collect(toList()))),
                 Optional.empty(),
                 discretePredicates,
                 ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+        if (!bucketProperty.isPresent()) {
+            return Optional.empty();
+        }
+        List<String> clusteredBy = bucketProperty.get().getClusteredBy();
+        Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
+                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
+        return Optional.of(new ConnectorNewTableLayout(
+                new HivePartitioningHandle(
+                        connectorId,
+                        bucketProperty.get().getBucketCount(),
+                        clusteredBy.stream()
+                                .map(hiveTypeMap::get)
+                                .collect(toList())),
+                clusteredBy));
     }
 
     @Override
@@ -1417,7 +1471,12 @@ public class HiveMetadata
         }
     }
 
-    private static StorageDescriptor makeStorageDescriptor(String tableName, HiveStorageFormat format, Path targetPath, List<FieldSchema> columns)
+    private static StorageDescriptor makeStorageDescriptor(
+            String tableName,
+            HiveStorageFormat format,
+            Path targetPath,
+            List<FieldSchema> columns,
+            Optional<HiveBucketProperty> bucketProperty)
     {
         SerDeInfo serdeInfo = new SerDeInfo();
         serdeInfo.setName(tableName);
@@ -1431,6 +1490,12 @@ public class HiveMetadata
         sd.setInputFormat(format.getInputFormat());
         sd.setOutputFormat(format.getOutputFormat());
         sd.setParameters(ImmutableMap.of());
+
+        bucketProperty.ifPresent(property -> {
+                sd.setBucketCols(property.getClusteredBy());
+                sd.setNumBuckets(property.getBucketCount());
+        });
+
         return sd;
     }
 }

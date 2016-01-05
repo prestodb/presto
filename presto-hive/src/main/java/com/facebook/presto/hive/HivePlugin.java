@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -38,6 +39,7 @@ public class HivePlugin
     private HiveMetastore metastore;
     private TypeManager typeManager;
     private PageIndexerFactory pageIndexerFactory;
+    private NodeManager nodeManager;
 
     public HivePlugin(String name)
     {
@@ -63,6 +65,12 @@ public class HivePlugin
         this.pageIndexerFactory = pageIndexerFactory;
     }
 
+    @Inject
+    public void setNodeManager(NodeManager nodeManager)
+    {
+        this.nodeManager = nodeManager;
+    }
+
     @Override
     public void setOptionalConfig(Map<String, String> optionalConfig)
     {
@@ -73,7 +81,7 @@ public class HivePlugin
     public <T> List<T> getServices(Class<T> type)
     {
         if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new HiveConnectorFactory(name, optionalConfig, getClassLoader(), metastore, typeManager, pageIndexerFactory)));
+            return ImmutableList.of(type.cast(new HiveConnectorFactory(name, optionalConfig, getClassLoader(), metastore, typeManager, pageIndexerFactory, nodeManager)));
         }
         return ImmutableList.of();
     }

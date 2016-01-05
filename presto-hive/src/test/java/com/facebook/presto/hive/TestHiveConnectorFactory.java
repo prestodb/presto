@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -55,7 +56,8 @@ public class TestHiveConnectorFactory
                 HiveConnector.class.getClassLoader(),
                 null,
                 new TypeRegistry(),
-                new GroupByHashPageIndexerFactory());
+                new GroupByHashPageIndexerFactory(),
+                new InMemoryNodeManager());
 
         Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true);

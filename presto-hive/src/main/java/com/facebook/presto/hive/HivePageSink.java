@@ -25,12 +25,17 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
@@ -46,21 +51,26 @@ import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.columnar.OptimizedLazyBinaryColumnarSerde;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hive.common.util.ReflectionUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -95,6 +105,9 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 public class HivePageSink
         implements ConnectorPageSink
 {
+    private static final int MAX_BUCKET_COUNT = 100000;
+    private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
+
     private final String schemaName;
     private final String tableName;
 
@@ -104,6 +117,10 @@ public class HivePageSink
     private final int[] partitionColumnsInputIndex; // ordinal of columns (not counting sample weight column)
     private final List<String> partitionColumnNames;
     private final List<Type> partitionColumnTypes;
+
+    private final OptionalInt bucketCount;
+    private final int[] bucketColumns;
+    private final List<TypeInfo> bucketColumnTypes;
 
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
@@ -126,7 +143,9 @@ public class HivePageSink
     private final boolean immutablePartitions;
     private final boolean compress;
 
-    private HiveRecordWriter[] writers = new HiveRecordWriter[0];
+    private HiveRecordWriter[] writers;
+    private final List<Int2ObjectMap<HiveRecordWriter>> bucketWriters;
+    private int bucketWriterCount = 0;
 
     public HivePageSink(
             String schemaName,
@@ -138,6 +157,7 @@ public class HivePageSink
             LocationHandle locationHandle,
             LocationService locationService,
             String filePrefix,
+            Optional<HiveBucketProperty> bucketProperty,
             HiveMetastore metastore,
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
@@ -188,8 +208,11 @@ public class HivePageSink
         this.dataColumns = dataColumns.build();
 
         // determine the input index of the partition columns and data columns
+        // and determine the input index and type of bucketing columns
         ImmutableList.Builder<Integer> partitionColumns = ImmutableList.builder();
         ImmutableList.Builder<Integer> dataColumnsInputIndex = ImmutableList.builder();
+        Object2IntMap<String> dataColumnNameToIdMap = new Object2IntOpenHashMap<>();
+        Map<String, HiveType> dataColumnNameToTypeMap = new HashMap<>();
         // sample weight column is passed separately, so index must be calculated without this column
         List<HiveColumnHandle> inputColumnsWithoutSample = inputColumns.stream()
                 .filter(column -> !column.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME))
@@ -201,10 +224,34 @@ public class HivePageSink
             }
             else {
                 dataColumnsInputIndex.add(inputIndex);
+                dataColumnNameToIdMap.put(column.getName(), inputIndex);
+                dataColumnNameToTypeMap.put(column.getName(), column.getHiveType());
             }
         }
         this.partitionColumnsInputIndex = Ints.toArray(partitionColumns.build());
         this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
+
+        requireNonNull(bucketProperty, "bucketProperty is null");
+        if (bucketProperty.isPresent()) {
+            int bucketCount = bucketProperty.get().getBucketCount();
+            checkArgument(bucketCount < MAX_BUCKET_COUNT, "bucketCount must be smaller than 100000");
+            this.bucketCount = OptionalInt.of(bucketCount);
+            this.bucketColumns = bucketProperty.get().getClusteredBy().stream()
+                    .mapToInt(dataColumnNameToIdMap::get)
+                    .toArray();
+            this.bucketColumnTypes = bucketProperty.get().getClusteredBy().stream()
+                    .map(dataColumnNameToTypeMap::get)
+                    .map(HiveType::getTypeInfo)
+                    .collect(Collectors.toList());
+            bucketWriters = new ArrayList<>();
+        }
+        else {
+            this.bucketCount = OptionalInt.empty();
+            this.bucketColumns = null;
+            this.bucketColumnTypes = null;
+            bucketWriters = null;
+            writers = new HiveRecordWriter[0];
+        }
 
         this.pageIndexer = pageIndexerFactory.createPageIndexer(this.partitionColumnTypes);
 
@@ -232,11 +279,22 @@ public class HivePageSink
     public Collection<Slice> finish()
     {
         ImmutableList.Builder<Slice> partitionUpdates = ImmutableList.builder();
-        for (HiveRecordWriter writer : writers) {
-            if (writer != null) {
-                writer.commit();
-                PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
-                partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
+        if (!bucketCount.isPresent()) {
+            for (HiveRecordWriter writer : writers) {
+                if (writer != null) {
+                    writer.commit();
+                    PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
+                    partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
+                }
+            }
+        }
+        else {
+            for (Int2ObjectMap<HiveRecordWriter> writers : bucketWriters) {
+                for (HiveRecordWriter writer : writers.values()) {
+                    writer.commit();
+                    PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
+                    partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
+                }
             }
         }
         return partitionUpdates.build();
@@ -245,9 +303,18 @@ public class HivePageSink
     @Override
     public void abort()
     {
-        for (HiveRecordWriter writer : writers) {
-            if (writer != null) {
-                writer.rollback();
+        if (!bucketCount.isPresent()) {
+            for (HiveRecordWriter writer : writers) {
+                if (writer != null) {
+                    writer.rollback();
+                }
+            }
+        }
+        else {
+            for (Int2ObjectMap<HiveRecordWriter> writers : bucketWriters) {
+                for (HiveRecordWriter writer : writers.values()) {
+                    writer.rollback();
+                }
             }
         }
     }
@@ -266,28 +333,62 @@ public class HivePageSink
         if (pageIndexer.getMaxIndex() >= maxOpenPartitions) {
             throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open partitions");
         }
-        if (pageIndexer.getMaxIndex() >= writers.length) {
-            writers = Arrays.copyOf(writers, pageIndexer.getMaxIndex() + 1);
-        }
 
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            int writerIndex = indexes[position];
-            HiveRecordWriter writer = writers[writerIndex];
-            if (writer == null) {
-                for (int field = 0; field < partitionBlocks.length; field++) {
-                    Object value = getField(partitionColumnTypes.get(field), partitionBlocks[field], position);
-                    partitionRow.set(field, value);
-                }
-                writer = createWriter(partitionRow);
-                writers[writerIndex] = writer;
+        if (!bucketCount.isPresent()) {
+            if (pageIndexer.getMaxIndex() >= writers.length) {
+                writers = Arrays.copyOf(writers, pageIndexer.getMaxIndex() + 1);
             }
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                int writerIndex = indexes[position];
+                HiveRecordWriter writer = writers[writerIndex];
+                if (writer == null) {
+                    for (int field = 0; field < partitionBlocks.length; field++) {
+                        Object value = getField(partitionColumnTypes.get(field), partitionBlocks[field], position);
+                        partitionRow.set(field, value);
+                    }
+                    writer = createWriter(partitionRow, filePrefix + "_" + randomUUID());
+                    writers[writerIndex] = writer;
+                }
 
-            writer.addRow(dataBlocks, position);
+                writer.addRow(dataBlocks, position);
+            }
+        }
+        else {
+            int bucketCount = this.bucketCount.getAsInt();
+            Block[] bucketBlocks = new Block[bucketColumns.length];
+            for (int i = 0; i < bucketColumns.length; i++) {
+                bucketBlocks[i] = page.getBlock(bucketColumns[i]);
+            }
+            Page bucketColumnsPage = new Page(page.getPositionCount(), bucketBlocks);
+
+            for (int i = bucketWriters.size(); i <= pageIndexer.getMaxIndex(); i++) {
+                bucketWriters.add(new Int2ObjectOpenHashMap<>());
+            }
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                int writerIndex = indexes[position];
+                Int2ObjectMap<HiveRecordWriter> writers = bucketWriters.get(writerIndex);
+                int bucket = HiveBucketing.getHiveBucket(bucketColumnTypes, bucketColumnsPage, position, bucketCount);
+                HiveRecordWriter writer = writers.get(bucket);
+                if (writer == null) {
+                    if (bucketWriterCount >= maxOpenPartitions) {
+                        throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open writers for partitions and buckets");
+                    }
+                    bucketWriterCount++;
+                    for (int field = 0; field < partitionBlocks.length; field++) {
+                        Object value = getField(partitionColumnTypes.get(field), partitionBlocks[field], position);
+                        partitionRow.set(field, value);
+                    }
+                    writer = createWriter(partitionRow, filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0'));
+                    writers.put(bucket, writer);
+                }
+
+                writer.addRow(dataBlocks, position);
+            }
         }
         return NOT_BLOCKED;
     }
 
-    private HiveRecordWriter createWriter(List<Object> partitionRow)
+    private HiveRecordWriter createWriter(List<Object> partitionRow, String fileName)
     {
         checkArgument(partitionRow.size() == partitionColumnNames.size(), "size of partitionRow is different from partitionColumnNames");
 
@@ -350,6 +451,9 @@ public class HivePageSink
                     isNew = true;
                 }
                 else {
+                    if (bucketCount.isPresent()) {
+                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Can not insert into bucketed unpartitioned Hive table");
+                    }
                     if (immutablePartitions) {
                         throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
                     }
@@ -379,6 +483,9 @@ public class HivePageSink
         }
         else {
             // Write to: an existing partition in an existing partitioned table,
+            if (bucketCount.isPresent()) {
+                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Can not insert into existing partitions of bucketed Hive table");
+            }
             if (immutablePartitions) {
                 throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Hive partitions are immutable");
             }
@@ -405,35 +512,35 @@ public class HivePageSink
                 outputFormat,
                 serDe,
                 schema,
-                generateRandomFileName(outputFormat),
+                fileName + getFileExtension(outputFormat),
                 write.toString(),
                 target.toString(),
                 typeManager,
                 conf);
     }
 
-    private String generateRandomFileName(String outputFormat)
+    private String getFileExtension(String outputFormat)
     {
         // text format files must have the correct extension when compressed
-        String extension = "";
-        if (HiveConf.getBoolVar(conf, COMPRESSRESULT) && HiveIgnoreKeyTextOutputFormat.class.getName().equals(outputFormat)) {
-            extension = new DefaultCodec().getDefaultExtension();
-
-            String compressionCodecClass = conf.get("mapred.output.compression.codec");
-            if (compressionCodecClass != null) {
-                try {
-                    Class<? extends CompressionCodec> codecClass = conf.getClassByName(compressionCodecClass).asSubclass(CompressionCodec.class);
-                    extension = ReflectionUtil.newInstance(codecClass, conf).getDefaultExtension();
-                }
-                catch (ClassNotFoundException e) {
-                    throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec not found: " + compressionCodecClass, e);
-                }
-                catch (RuntimeException e) {
-                    throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Failed to load compression codec: " + compressionCodecClass, e);
-                }
-            }
+        if (!HiveConf.getBoolVar(conf, COMPRESSRESULT) || !HiveIgnoreKeyTextOutputFormat.class.getName().equals(outputFormat)) {
+            return "";
         }
-        return filePrefix + "_" + randomUUID() + extension;
+
+        String compressionCodecClass = conf.get("mapred.output.compression.codec");
+        if (compressionCodecClass == null) {
+            return new DefaultCodec().getDefaultExtension();
+        }
+
+        try {
+            Class<? extends CompressionCodec> codecClass = conf.getClassByName(compressionCodecClass).asSubclass(CompressionCodec.class);
+            return ReflectionUtil.newInstance(codecClass, conf).getDefaultExtension();
+        }
+        catch (ClassNotFoundException e) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec not found: " + compressionCodecClass, e);
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Failed to load compression codec: " + compressionCodecClass, e);
+        }
     }
 
     private Block[] getDataBlocks(Page page, Block sampleWeightBlock)

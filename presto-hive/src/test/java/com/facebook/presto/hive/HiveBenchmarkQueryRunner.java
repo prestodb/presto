@@ -77,7 +77,8 @@ public final class HiveBenchmarkQueryRunner
                 HiveBenchmarkQueryRunner.class.getClassLoader(),
                 metastore,
                 new TypeRegistry(),
-                new GroupByHashPageIndexerFactory());
+                new GroupByHashPageIndexerFactory(),
+                nodeManager);
 
         Map<String, String> hiveCatalogConfig = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://none.invalid:0")

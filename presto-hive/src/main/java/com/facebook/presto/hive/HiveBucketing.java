@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.google.common.collect.ImmutableList;
@@ -179,6 +178,23 @@ final class HiveBucketing
             result = result * 31 + bytes.getByte(i);
         }
         return result;
+    }
+
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table)
+    {
+        Optional<HiveBucketProperty> hiveBucketProperty = HiveBucketProperty.fromStorageDescriptor(table.getSd(), table.getTableName());
+        if (!hiveBucketProperty.isPresent()) {
+            return Optional.empty();
+        }
+
+        Map<String, HiveColumnHandle> map = getNonPartitionKeyColumnHandles(connectorId, table).stream()
+                .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
+
+        List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getClusteredBy().stream()
+                .map(map::get)
+                .collect(Collectors.toList());
+
+        return Optional.of(new HiveBucketHandle(bucketColumns, hiveBucketProperty.get().getBucketCount()));
     }
 
     public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)

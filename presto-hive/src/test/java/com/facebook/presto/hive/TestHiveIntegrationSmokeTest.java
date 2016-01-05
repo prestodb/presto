@@ -43,6 +43,8 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
+import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.CLUSTERED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
@@ -50,8 +52,10 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -214,7 +218,7 @@ public class TestHiveIntegrationSmokeTest
                 ", 3.14 _double" +
                 ", true _boolean";
 
-        String createTableAs = String.format("CREATE TABLE test_format_table WITH (format = '%s') AS %s", storageFormat, select);
+        String createTableAs = format("CREATE TABLE test_format_table WITH (format = '%s') AS %s", storageFormat, select);
 
         assertUpdate(createTableAs, 1);
 
@@ -309,6 +313,147 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE TABLE test_create_table_nonexistent_partition_columns\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
                 "WITH (partitioned_by = ARRAY['dragonfruit'])");
+    }
+
+    @Test
+    public void testCreatePartitionedBucketedTableAs()
+            throws Exception
+    {
+        testCreatePartitionedBucketedTableAs(HiveStorageFormat.RCBINARY);
+    }
+
+    private void testCreatePartitionedBucketedTableAs(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_create_partitioned_bucketed_table_as " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                "clustered_by = ARRAY[ 'custkey' ], " +
+                "bucket_count = 11 " +
+                ") " +
+                "AS " +
+                "SELECT custkey, comment, orderstatus " +
+                "FROM tpch.tiny.orders";
+
+        assertUpdate(
+                getSession().withSystemProperty("task_writer_count", "3"),
+                createTable,
+                "SELECT count(*) from orders");
+
+        TableMetadata tableMetadata = getTableMetadata("test_create_partitioned_bucketed_table_as");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+        List<String> partitionedBy = ImmutableList.of("orderstatus");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
+            assertEquals(columnMetadata.getComment(), annotateColumnComment(null, partitionKey));
+        }
+
+        assertEquals(tableMetadata.getMetadata().getProperties().get(CLUSTERED_BY_PROPERTY), ImmutableList.of("custkey"));
+        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+
+        List<?> partitions = getPartitions("test_create_partitioned_bucketed_table_as");
+        assertEquals(partitions.size(), 3);
+
+        assertQuery("SELECT * from test_create_partitioned_bucketed_table_as", "SELECT custkey, comment, orderstatus FROM orders");
+
+        try {
+            assertUpdate("INSERT INTO test_create_partitioned_bucketed_table_as VALUES (1, 'comment', 'O')", 1);
+            fail("expected failure");
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Can not insert into existing partitions of bucketed Hive table");
+        }
+
+        for (int i = 1; i <= 30; i++) {
+            assertQuery(
+                    format("SELECT * from test_create_partitioned_bucketed_table_as where custkey = %d", i),
+                    format("SELECT custkey, comment, orderstatus FROM orders where custkey = %d", i));
+        }
+
+        assertUpdate("DROP TABLE test_create_partitioned_bucketed_table_as");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create_partitioned_bucketed_table_as"));
+    }
+
+    @Test
+    public void testInsertPartitionedBucketedTable()
+            throws Exception
+    {
+        testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY);
+    }
+
+    private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_insert_partitioned_bucketed_table (" +
+                "  custkey bigint," +
+                "  comment varchar," +
+                "  orderstatus varchar)" +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                "clustered_by = ARRAY[ 'custkey' ], " +
+                "bucket_count = 13)");
+
+        ImmutableList<String> orderStatusList = ImmutableList.of("F", "O", "P");
+        for (int i = 0; i < orderStatusList.size(); i++) {
+            String orderStatus = orderStatusList.get(i);
+            assertUpdate(
+                    getSession().withSystemProperty("task_writer_count", "3"),
+                    format(
+                            "INSERT INTO test_insert_partitioned_bucketed_table " +
+                                    "SELECT custkey, comment, orderstatus " +
+                                    "FROM tpch.tiny.orders " +
+                                    "WHERE orderstatus = '%s'",
+                            orderStatus),
+                    format("SELECT count(*) from orders where orderstatus = '%s'", orderStatus));
+
+            TableMetadata tableMetadata = getTableMetadata("test_insert_partitioned_bucketed_table");
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+            List<String> partitionedBy = ImmutableList.of("orderstatus");
+            assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
+            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+                boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
+                assertEquals(columnMetadata.getComment(), annotateColumnComment(null, partitionKey));
+            }
+
+            assertEquals(tableMetadata.getMetadata().getProperties().get(CLUSTERED_BY_PROPERTY), ImmutableList.of("custkey"));
+            assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 13);
+
+            List<?> partitions = getPartitions("test_insert_partitioned_bucketed_table");
+            assertEquals(partitions.size(), i + 1);
+
+            String insertedOrderStatuses = orderStatusList.stream()
+                    .limit(i + 1)
+                    .map(s -> format("'%s'", s))
+                    .collect(joining(","));
+
+            assertQuery(
+                    "SELECT * from test_insert_partitioned_bucketed_table",
+                    format("SELECT custkey, comment, orderstatus FROM orders WHERE orderstatus in (%s)", insertedOrderStatuses));
+
+            for (int j = 1; j <= 30; j++) {
+                assertQuery(
+                        format("SELECT * from test_insert_partitioned_bucketed_table where custkey = %d", j),
+                        format("SELECT custkey, comment, orderstatus FROM orders where custkey = %d and orderstatus in (%s)", j, insertedOrderStatuses));
+            }
+        }
+
+        try {
+            assertUpdate("INSERT INTO test_insert_partitioned_bucketed_table VALUES (1, 'comment', 'O')", 1);
+            fail("expected failure");
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Can not insert into existing partitions of bucketed Hive table");
+        }
+
+        assertUpdate("DROP TABLE test_insert_partitioned_bucketed_table");
+        assertFalse(queryRunner.tableExists(getSession(), "test_insert_partitioned_bucketed_table"));
     }
 
     @Test
