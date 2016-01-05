@@ -117,9 +117,9 @@ public interface Connector
     }
 
     /**
-     * Abort the transaction. Will be called at most once and will not be called if commit is called.
+     * Rollback the transaction. Will be called at most once and will not be called if commit is called.
      */
-    default void abort(ConnectorTransactionHandle transactionHandle)
+    default void rollback(ConnectorTransactionHandle transactionHandle)
     {
     }
 
