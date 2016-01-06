@@ -53,6 +53,7 @@ public final class SystemSessionProperties
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String COLUMNAR_PROCESSING = "columnar_processing";
     public static final String COLUMNAR_PROCESSING_DICTIONARY = "columnar_processing_dictionary";
+    public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -174,6 +175,11 @@ public final class SystemSessionProperties
                         COLUMNAR_PROCESSING_DICTIONARY,
                         "Use columnar processing with optimizations for dictionaries",
                         featuresConfig.isColumnarProcessingDictionary(),
+                        false),
+                booleanSessionProperty(
+                        DICTIONARY_AGGREGATION,
+                        "Enable optimization for aggregations on dictionaries",
+                        featuresConfig.isDictionaryAggregation(),
                         false));
     }
 
@@ -260,6 +266,11 @@ public final class SystemSessionProperties
     public static boolean isColumnarProcessingDictionaryEnabled(Session session)
     {
         return session.getProperty(COLUMNAR_PROCESSING_DICTIONARY, Boolean.class);
+    }
+
+    public static boolean isDictionaryAggregationEnabled(Session session)
+    {
+        return session.getProperty(DICTIONARY_AGGREGATION, Boolean.class);
     }
 
     public static DataSize getQueryMaxMemory(Session session)
