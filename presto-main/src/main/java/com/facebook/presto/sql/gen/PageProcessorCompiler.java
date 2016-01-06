@@ -54,6 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.UUID;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -116,7 +117,7 @@ public class PageProcessorCompiler
         generateProcessMethod(classDefinition, filter, projections, projectMethodDefinitions);
         generateGetNonLazyPageMethod(classDefinition, filter, projections);
         generateProcessColumnarMethod(classDefinition, projections, projectColumnarMethodDefinitions);
-        generateProcessColumnarDictionaryMethod(classDefinition, projections, projectColumnarMethodDefinitions, projectDictionaryMethodDefinitions);
+        generateProcessColumnarDictionaryMethod(classDefinition, projections, projectDictionaryMethodDefinitions);
 
         generateFilterPageMethod(classDefinition, filter);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
@@ -330,8 +331,18 @@ public class PageProcessorCompiler
         Parameter selectedPositions = arg("selectedPositions", int[].class);
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
         Parameter projectionIndex = arg("projectionIndex", int.class);
+        Parameter dictionarySourceIds = arg("dictionarySourceIds", Map.class);
 
         List<Parameter> params = ImmutableList.<Parameter>builder()
+                .add(session)
+                .add(page)
+                .add(selectedPositions)
+                .add(pageBuilder)
+                .add(projectionIndex)
+                .add(dictionarySourceIds)
+                .build();
+
+        List<Parameter> columnarParams = ImmutableList.<Parameter>builder()
                 .add(session)
                 .add(page)
                 .add(selectedPositions)
@@ -347,14 +358,16 @@ public class PageProcessorCompiler
         List<Integer> inputChannels = getInputChannels(projection);
 
         if (inputChannels.size() != 1) {
-            body.append(thisVariable.invoke(projectColumnar, params).ret());
+            body.append(thisVariable.invoke(projectColumnar, columnarParams)
+                    .ret());
             return method;
         }
 
         Variable inputBlock = scope.declareVariable("inputBlock", body, page.invoke("getBlock", Block.class, constantInt(Iterables.getOnlyElement(inputChannels))));
         IfStatement ifStatement = new IfStatement()
                 .condition(inputBlock.instanceOf(DictionaryBlock.class))
-                .ifFalse(thisVariable.invoke(projectColumnar, params).ret());
+                .ifFalse(thisVariable.invoke(projectColumnar, columnarParams)
+                        .ret());
         body.append(ifStatement);
 
         Variable blockBuilder = scope.declareVariable("blockBuilder", body, pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, projectionIndex));
@@ -363,6 +376,8 @@ public class PageProcessorCompiler
         Variable dictionary = scope.declareVariable(Block.class, "dictionary");
         Variable ids = scope.declareVariable(Slice.class, "ids");
         Variable dictionaryCount = scope.declareVariable(int.class, "dictionaryCount");
+        Variable inputSourceId = scope.declareVariable(UUID.class, "inputSourceId");
+        Variable outputSourceId = scope.declareVariable(UUID.class, "outputSourceId");
 
         Variable outputDictionary = scope.declareVariable(Block.class, "outputDictionary");
         Variable outputIds = scope.declareVariable(int[].class, "outputIds");
@@ -372,10 +387,12 @@ public class PageProcessorCompiler
 
         Variable position = scope.declareVariable("position", body, constantInt(0));
 
-        body.comment("Extract dictionary and ids")
-                .append(dictionary.set(inputBlock.cast(DictionaryBlock.class).invoke("getDictionary", Block.class)))
-                .append(ids.set(inputBlock.cast(DictionaryBlock.class).invoke("getIds", Slice.class)))
-                .append(dictionaryCount.set(dictionary.invoke("getPositionCount", int.class)));
+        BytecodeExpression castDictionaryBlock = inputBlock.cast(DictionaryBlock.class);
+        body.comment("Extract dictionary, ids, positionCount and dictionarySourceId")
+                .append(dictionary.set(castDictionaryBlock.invoke("getDictionary", Block.class)))
+                .append(ids.set(castDictionaryBlock.invoke("getIds", Slice.class)))
+                .append(dictionaryCount.set(dictionary.invoke("getPositionCount", int.class)))
+                .append(inputSourceId.set(castDictionaryBlock.invoke("getDictionarySourceId", UUID.class)));
 
         BytecodeBlock projectDictionary = new BytecodeBlock()
                 .comment("Project dictionary")
@@ -403,14 +420,24 @@ public class PageProcessorCompiler
                         .update(position.increment())
                         .body(outputIds.setElement(position, ids.invoke("getInt", int.class, multiply(selectedPositions.getElement(position), constantInt(SIZE_OF_INT))))));
 
-        body.append(newInstance(DictionaryBlock.class, cardinality, outputDictionary, invokeStatic(Slices.class, "wrappedIntArray", Slice.class, outputIds)).cast(Block.class).ret());
+        body.append(outputSourceId.set(dictionarySourceIds.invoke("get", Object.class, inputSourceId.cast(Object.class)).cast(UUID.class)));
+        body.append(new IfStatement()
+                .condition(equal(outputSourceId, constantNull(UUID.class)))
+                .ifTrue(new BytecodeBlock()
+                        .append(outputSourceId.set(invokeStatic(UUID.class, "randomUUID", UUID.class)))
+                        .append(dictionarySourceIds.invoke("put", Object.class, inputSourceId.cast(Object.class), outputSourceId.cast(Object.class)))
+                        .pop()));
+
+        BytecodeExpression idsSlice = invokeStatic(Slices.class, "wrappedIntArray", Slice.class, outputIds);
+        body.append(newInstance(DictionaryBlock.class, cardinality, outputDictionary, idsSlice, constantFalse(), outputSourceId)
+                .cast(Block.class)
+                .ret());
         return method;
     }
 
     private static void generateProcessColumnarDictionaryMethod(
             ClassDefinition classDefinition,
             List<RowExpression> projections,
-            List<MethodDefinition> projectColumnarMethods,
             List<MethodDefinition> projectDictionaryMethods)
     {
         Parameter session = arg("session", ConnectorSession.class);
@@ -424,13 +451,15 @@ public class PageProcessorCompiler
 
         Variable selectedPositions = scope.declareVariable("selectedPositions", body, thisVariable.invoke("filterPage", int[].class, session, page));
         Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
+        Variable dictionarySourceIds = scope.declareVariable(type(Map.class, UUID.class, UUID.class), "dictionarySourceIds");
+        body.append(dictionarySourceIds.set(newInstance(type(HashMap.class, UUID.class, UUID.class))));
 
         body.comment("if no rows selected return null")
                 .append(new IfStatement()
                         .condition(equal(cardinality, constantInt(0)))
                         .ifTrue(constantNull(Page.class).ret()));
 
-        if (projectColumnarMethods.isEmpty()) {
+        if (projections.isEmpty()) {
             // if no projections, return new page with selected rows
             body.append(newInstance(Page.class, cardinality, newArray(type(Block[].class), 0)).ret());
             return;
@@ -450,6 +479,7 @@ public class PageProcessorCompiler
                     .add(selectedPositions)
                     .add(pageBuilder)
                     .add(constantInt(projectionIndex))
+                    .add(dictionarySourceIds)
                     .build();
 
             body.append(outputBlocks.setElement(projectionIndex, thisVariable.invoke(projectDictionaryMethods.get(projectionIndex), params)));
@@ -605,7 +635,11 @@ public class PageProcessorCompiler
         BytecodeBlock body = method.getBody();
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler(callSiteBinder, position, wasNullVariable), metadata.getFunctionRegistry());
+        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+                callSiteBinder,
+                cachedInstanceBinder,
+                fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
+                metadata.getFunctionRegistry());
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())

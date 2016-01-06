@@ -19,6 +19,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -38,13 +39,19 @@ public class DictionaryBlock
     private final int retainedSizeInBytes;
     private final int sizeInBytes;
     private final int uniqueIds;
+    private final UUID dictionarySourceId;
 
     public DictionaryBlock(int positionCount, Block dictionary, Slice ids)
     {
-        this(positionCount, dictionary, ids, false);
+        this(positionCount, dictionary, ids, false, UUID.randomUUID());
     }
 
     public DictionaryBlock(int positionCount, Block dictionary, Slice ids, boolean dictionaryIsCompacted)
+    {
+        this(positionCount, dictionary, ids, dictionaryIsCompacted, UUID.randomUUID());
+    }
+
+    public DictionaryBlock(int positionCount, Block dictionary, Slice ids, boolean dictionaryIsCompacted, UUID dictionarySourceId)
     {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
@@ -60,6 +67,7 @@ public class DictionaryBlock
         this.positionCount = positionCount;
         this.dictionary = dictionary;
         this.ids = ids;
+        this.dictionarySourceId = requireNonNull(dictionarySourceId, "dictionarySourceId is null");
 
         this.retainedSizeInBytes = INSTANCE_SIZE + dictionary.getRetainedSizeInBytes() + ids.getRetainedSize();
 
@@ -269,6 +277,11 @@ public class DictionaryBlock
     public Slice getIds()
     {
         return ids;
+    }
+
+    public UUID getDictionarySourceId()
+    {
+        return dictionarySourceId;
     }
 
     public boolean isCompact()

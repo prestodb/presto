@@ -25,6 +25,7 @@ import java.util.List;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryBlock
@@ -127,11 +128,15 @@ public class TestDictionaryBlock
 
         assertEquals(dictionaryBlock.isCompact(), false);
         DictionaryBlock compactBlock = dictionaryBlock.compact();
+        assertNotEquals(dictionaryBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
 
         assertEquals(compactBlock.getDictionary().getPositionCount(), (expectedValues.length / 2) + 1);
         assertBlock(compactBlock.getDictionary(), new Slice[] { expectedValues[0], expectedValues[1], expectedValues[3] });
         assertEquals(compactBlock.getIds(), wrappedIntArray(0, 1, 1, 2, 2, 0, 1, 1, 2, 2));
         assertEquals(compactBlock.isCompact(), true);
+
+        DictionaryBlock reCompactedBlock = compactBlock.compact();
+        assertEquals(reCompactedBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
     }
 
     @Test

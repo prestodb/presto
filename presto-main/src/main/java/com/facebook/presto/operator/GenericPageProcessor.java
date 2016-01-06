@@ -27,8 +27,11 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -99,6 +102,7 @@ public class GenericPageProcessor
     {
         Page inputPage = getNonLazyPage(page);
         int[] selectedPositions = filterPage(inputPage);
+        Map<UUID, UUID> dictionarySourceIds = new HashMap<>();
 
         if (selectedPositions.length == 0) {
             return null;
@@ -116,7 +120,7 @@ public class GenericPageProcessor
             ProjectionFunction projection = projections.get(projectionIndex);
 
             if (canDictionaryProcess(projection, inputPage)) {
-                outputBlocks[projectionIndex] = projectColumnarDictionary(inputPage, selectedPositions, projection);
+                outputBlocks[projectionIndex] = projectColumnarDictionary(inputPage, selectedPositions, projection, dictionarySourceIds);
             }
             else {
                 outputBlocks[projectionIndex] = projectColumnar(selectedPositions, pageBuilder.getBlockBuilder(projectionIndex), inputBlocks, projection).build();
@@ -129,11 +133,21 @@ public class GenericPageProcessor
         return new Page(selectedPositions.length, outputBlocks);
     }
 
-    private Block projectColumnarDictionary(Page inputPage, int[] selectedPositions, ProjectionFunction projection)
+    private Block projectColumnarDictionary(Page inputPage, int[] selectedPositions, ProjectionFunction projection, Map<UUID, UUID> dictionarySourceIds)
     {
         Block outputDictionary = projectDictionary(projection, inputPage);
         int[] outputIds = filterIds(projection, inputPage, selectedPositions);
-        return new DictionaryBlock(selectedPositions.length, outputDictionary, wrappedIntArray(outputIds));
+
+        int inputChannel = getOnlyElement(projection.getInputChannels());
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) inputPage.getBlock(inputChannel);
+
+        UUID sourceId = dictionarySourceIds.get(dictionaryBlock.getDictionarySourceId());
+        if (sourceId == null) {
+            sourceId = UUID.randomUUID();
+            dictionarySourceIds.put(dictionaryBlock.getDictionarySourceId(), sourceId);
+        }
+
+        return new DictionaryBlock(selectedPositions.length, outputDictionary, wrappedIntArray(outputIds), false, sourceId);
     }
 
     private static BlockBuilder projectColumnar(int[] selectedPositions, BlockBuilder blockBuilder, Block[] inputBlocks, ProjectionFunction projection)
