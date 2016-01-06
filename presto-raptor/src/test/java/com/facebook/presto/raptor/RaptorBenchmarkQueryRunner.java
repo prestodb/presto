@@ -17,9 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -66,7 +66,7 @@ public final class RaptorBenchmarkQueryRunner
 
         // add raptor
         ConnectorFactory raptorConnectorFactory = createRaptorConnectorFactory(TPCH_CACHE_DIR, nodeManager);
-        localQueryRunner.createCatalog("raptor", raptorConnectorFactory, ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("raptor", raptorConnectorFactory, ImmutableMap.of());
 
         if (!localQueryRunner.tableExists(session, "orders")) {
             localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch.sf1.orders");

@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ColumnInfo;
-import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
@@ -25,7 +24,6 @@ import com.facebook.presto.raptor.metadata.ViewResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -39,6 +37,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -51,7 +50,6 @@ import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,6 +59,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
@@ -71,7 +70,6 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatchId;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.Types.checkType;
@@ -84,6 +82,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -100,24 +99,21 @@ public class RaptorMetadata
     private final JsonCodec<ShardDelta> shardDeltaCodec;
     private final String connectorId;
 
-    @Inject
+    private final AtomicReference<Long> currentTransactionId = new AtomicReference<>();
+
     public RaptorMetadata(
-            RaptorConnectorId connectorId,
-            @ForMetadata IDBI dbi,
+            String connectorId,
+            IDBI dbi,
             ShardManager shardManager,
             JsonCodec<ShardInfo> shardInfoCodec,
             JsonCodec<ShardDelta> shardDeltaCodec)
     {
-        requireNonNull(connectorId, "connectorId is null");
-
-        this.connectorId = connectorId.toString();
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
-
-        createTablesWithRetry(dbi);
     }
 
     @Override
@@ -260,7 +256,7 @@ public class RaptorMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        commitCreateTable(session, beginCreateTable(session, tableMetadata), ImmutableList.of());
+        finishCreateTable(session, beginCreateTable(session, tableMetadata), ImmutableList.of());
     }
 
     @Override
@@ -339,6 +335,8 @@ public class RaptorMetadata
 
         long transactionId = shardManager.beginTransaction();
 
+        setTransactionId(transactionId);
+
         return new RaptorOutputTableHandle(
                 connectorId,
                 transactionId,
@@ -378,7 +376,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
+    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
     {
         RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
         long transactionId = table.getTransactionId();
@@ -409,13 +407,8 @@ public class RaptorMetadata
         // TODO: refactor this to avoid creating an empty table on failure
         shardManager.createTable(newTableId, columns);
         shardManager.commitShards(transactionId, newTableId, columns, parseFragments(fragments), Optional.empty());
-    }
 
-    @Override
-    public void rollbackCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
-    {
-        RaptorOutputTableHandle handle = checkType(tableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
-        shardManager.rollbackTransaction(handle.getTransactionId());
+        clearRollback();
     }
 
     @Override
@@ -431,6 +424,8 @@ public class RaptorMetadata
         }
 
         long transactionId = shardManager.beginTransaction();
+
+        setTransactionId(transactionId);
 
         Optional<String> externalBatchId = getExternalBatchId(session);
         List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(tableId);
@@ -452,7 +447,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public void finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
         long transactionId = handle.getTransactionId();
@@ -461,13 +456,8 @@ public class RaptorMetadata
         List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
 
         shardManager.commitShards(transactionId, tableId, columns, parseFragments(fragments), externalBatchId);
-    }
 
-    @Override
-    public void rollbackInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle)
-    {
-        RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
-        shardManager.rollbackTransaction(handle.getTransactionId());
+        clearRollback();
     }
 
     @Override
@@ -483,6 +473,8 @@ public class RaptorMetadata
 
         long transactionId = shardManager.beginTransaction();
 
+        setTransactionId(transactionId);
+
         return new RaptorTableHandle(
                 connectorId,
                 handle.getSchemaName(),
@@ -493,7 +485,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public void commitDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         long transactionId = table.getTransactionId().getAsLong();
@@ -514,13 +506,8 @@ public class RaptorMetadata
                 });
 
         shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids.build(), newShards.build());
-    }
 
-    @Override
-    public void rollbackDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-        shardManager.rollbackTransaction(handle.getTransactionId().getAsLong());
+        clearRollback();
     }
 
     @Override
@@ -606,5 +593,23 @@ public class RaptorMetadata
     private static ColumnMetadata hiddenColumn(String name, Type type)
     {
         return new ColumnMetadata(name, type, false, null, true);
+    }
+
+    private void setTransactionId(long transactionId)
+    {
+        checkState(currentTransactionId.compareAndSet(null, transactionId), "current transaction ID already set");
+    }
+
+    private void clearRollback()
+    {
+        currentTransactionId.set(null);
+    }
+
+    public void rollback()
+    {
+        Long transactionId = currentTransactionId.getAndSet(null);
+        if (transactionId != null) {
+            shardManager.rollbackTransaction(transactionId);
+        }
     }
 }

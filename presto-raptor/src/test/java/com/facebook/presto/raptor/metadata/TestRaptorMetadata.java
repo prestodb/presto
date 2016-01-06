@@ -26,7 +26,6 @@ import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -57,6 +56,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -83,7 +83,7 @@ public class TestRaptorMetadata
     private DBI dbi;
     private Handle dummyHandle;
     private ShardManager shardManager;
-    private ConnectorMetadata metadata;
+    private RaptorMetadata metadata;
 
     @BeforeMethod
     public void setupDatabase()
@@ -93,13 +93,14 @@ public class TestRaptorMetadata
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
+        createTablesWithRetry(dbi);
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         nodeManager.addCurrentNodeDatasource(connectorId.toString());
         NodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, connectorId);
         shardManager = new DatabaseShardManager(dbi, nodeSupplier);
-        metadata = new RaptorMetadata(connectorId, dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
     }
 
     @AfterMethod
@@ -400,7 +401,7 @@ public class TestRaptorMetadata
         assertNull(transactionSuccessful(transactionId));
 
         // commit table creation
-        metadata.commitCreateTable(SESSION, outputHandle, ImmutableList.of());
+        metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of());
         assertTrue(transactionExists(transactionId));
         assertTrue(transactionSuccessful(transactionId));
     }
@@ -424,7 +425,7 @@ public class TestRaptorMetadata
         assertNull(transactionSuccessful(transactionId));
 
         // commit insert
-        metadata.commitInsert(SESSION, insertHandle, ImmutableList.<Slice>of());
+        metadata.finishInsert(SESSION, insertHandle, ImmutableList.<Slice>of());
         assertTrue(transactionExists(transactionId));
         assertTrue(transactionSuccessful(transactionId));
     }
@@ -454,7 +455,7 @@ public class TestRaptorMetadata
         assertNull(transactionSuccessful(transactionId));
 
         // rollback delete
-        metadata.rollbackDelete(SESSION, tableHandle);
+        metadata.rollback();
         assertTrue(transactionExists(transactionId));
         assertFalse(transactionSuccessful(transactionId));
 
@@ -467,7 +468,7 @@ public class TestRaptorMetadata
         assertNull(transactionSuccessful(transactionId));
 
         // commit delete
-        metadata.commitDelete(SESSION, tableHandle, ImmutableList.of());
+        metadata.finishDelete(SESSION, tableHandle, ImmutableList.of());
         assertTrue(transactionExists(transactionId));
         assertTrue(transactionSuccessful(transactionId));
     }
@@ -491,7 +492,7 @@ public class TestRaptorMetadata
 
         // commit table creation
         try {
-            metadata.commitCreateTable(SESSION, outputHandle, ImmutableList.of());
+            metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of());
             fail("expected exception");
         }
         catch (PrestoException e) {
