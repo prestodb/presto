@@ -70,7 +70,6 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessThan;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.multiply;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
@@ -79,7 +78,6 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
@@ -418,7 +416,7 @@ public class PageProcessorCompiler
                         .initialize(position.set(constantInt(0)))
                         .condition(lessThan(position, cardinality))
                         .update(position.increment())
-                        .body(outputIds.setElement(position, ids.invoke("getInt", int.class, multiply(selectedPositions.getElement(position), constantInt(SIZE_OF_INT))))));
+                        .body(outputIds.setElement(position, castDictionaryBlock.invoke("getId", int.class, selectedPositions.getElement(position)))));
 
         body.append(outputSourceId.set(dictionarySourceIds.invoke("get", Object.class, inputSourceId.cast(Object.class)).cast(UUID.class)));
         body.append(new IfStatement()

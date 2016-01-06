@@ -279,6 +279,11 @@ public class DictionaryBlock
         return ids;
     }
 
+    public int getId(int position)
+    {
+        return ids.getInt(position * SIZE_OF_INT);
+    }
+
     public UUID getDictionarySourceId()
     {
         return dictionarySourceId;
