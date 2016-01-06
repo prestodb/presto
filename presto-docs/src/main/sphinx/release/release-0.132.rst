@@ -21,6 +21,7 @@ General Changes
 * Improve accuracy of memory accounting for :func:`map_agg` and :func:`array_agg`.
   These functions will now appear to use more memory than before.
 * Various performance optimizations for functions operating on :ref:`array_type`.
+* Add server version to web UI.
 
 CLI Changes
 -----------

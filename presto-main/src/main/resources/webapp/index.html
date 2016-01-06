@@ -48,6 +48,7 @@
         .header {
             background-color: black;
             padding-bottom: 10px;
+            color: #cccccc;
         }
         .logo {
             height: 50px;
@@ -61,6 +62,9 @@
         .bg-info-light {
             background-color: #EBF3F7;
         }
+        .text-right {
+            text-align: right;
+        }
     </style>
 </head>
 
@@ -68,17 +72,22 @@
 
 <div class="container-fluid">
     <div class="row header">
-        <div class="col-md-12">
+        <div class="col-md-9">
             <a href=".">
                 <img class="logo" alt="Presto logo" src="./presto.png" />
             </a>
         </div>
+        <div class="col-md-3 text-right" id="version"></div>
     </div>
 
     <div id="queries"></div>
 </div>
 
 <script type="text/jsx">
+d3.json("/v1/info", function (info) {
+    document.getElementById('version').textContent = "Version: " + info.nodeVersion.version;
+});
+
 var Query = React.createClass({
     shortErrorType: function(errorType, errorCode)
     {
