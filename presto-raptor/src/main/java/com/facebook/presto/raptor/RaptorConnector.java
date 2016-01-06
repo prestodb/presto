@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
@@ -27,7 +30,13 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
+import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorConnector
@@ -36,7 +45,7 @@ public class RaptorConnector
     private static final Logger log = Logger.get(RaptorConnector.class);
 
     private final LifeCycleManager lifeCycleManager;
-    private final RaptorMetadata metadata;
+    private final RaptorMetadataFactory metadataFactory;
     private final RaptorSplitManager splitManager;
     private final RaptorPageSourceProvider pageSourceProvider;
     private final RaptorPageSinkProvider pageSinkProvider;
@@ -44,10 +53,12 @@ public class RaptorConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final Set<SystemTable> systemTables;
 
+    private final ConcurrentMap<ConnectorTransactionHandle, RaptorMetadata> transactions = new ConcurrentHashMap<>();
+
     @Inject
     public RaptorConnector(
             LifeCycleManager lifeCycleManager,
-            RaptorMetadata metadata,
+            RaptorMetadataFactory metadataFactory,
             RaptorSplitManager splitManager,
             RaptorPageSourceProvider pageSourceProvider,
             RaptorPageSinkProvider pageSinkProvider,
@@ -56,13 +67,42 @@ public class RaptorConnector
             Set<SystemTable> systemTables)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").getSessionProperties();
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").getTableProperties();
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
+    }
+
+    @Override
+    public boolean isSingleStatementWritesOnly()
+    {
+        return true;
+    }
+
+    @Override
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel level, boolean readOnly)
+    {
+        if (!READ_COMMITTED.meetsRequirementOf(level)) {
+            throw new PrestoException(UNSUPPORTED_ISOLATION_LEVEL, format("Raptor only supports isolation level %s, not %s", READ_COMMITTED, level));
+        }
+        return new RaptorTransactionHandle();
+    }
+
+    @Override
+    public void commit(ConnectorTransactionHandle transaction)
+    {
+        checkArgument(transactions.remove(transaction) != null, "no such transaction: %s", transaction);
+    }
+
+    @Override
+    public void rollback(ConnectorTransactionHandle transaction)
+    {
+        RaptorMetadata metadata = transactions.remove(transaction);
+        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        metadata.rollback();
     }
 
     @Override
@@ -78,9 +118,9 @@ public class RaptorConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata()
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
-        return metadata;
+        return transactions.computeIfAbsent(transaction, handle -> metadataFactory.create());
     }
 
     @Override
