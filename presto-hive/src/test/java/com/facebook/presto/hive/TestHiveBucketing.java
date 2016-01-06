@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -221,7 +222,7 @@ public class TestHiveBucketing
             blockListBuilder.add(block);
         }
         ImmutableList<Block> blockList = blockListBuilder.build();
-        return HiveBucketing.getHiveBucket(hiveTypeInfos, blockList, 2, bucketCount);
+        return HiveBucketing.getHiveBucket(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2, bucketCount);
     }
 
     public static int getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
