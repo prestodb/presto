@@ -38,7 +38,7 @@ public class ClientTypeSignature
 {
     private static final Pattern PATTERN = Pattern.compile(".*[<>,].*");
     private final String rawType;
-    private final List<ClientTypeSignatureParameter> typeArguments;
+    private final List<ClientTypeSignatureParameter> arguments;
 
     public ClientTypeSignature(TypeSignature typeSignature)
     {
@@ -50,14 +50,14 @@ public class ClientTypeSignature
     @JsonCreator
     public ClientTypeSignature(
             @JsonProperty("rawType") String rawType,
-            @JsonProperty("typeArguments") List<ClientTypeSignatureParameter> typeArguments)
+            @JsonProperty("arguments") List<ClientTypeSignatureParameter> arguments)
     {
         checkArgument(rawType != null, "rawType is null");
         this.rawType = rawType;
         checkArgument(!rawType.isEmpty(), "rawType is empty");
         checkArgument(!PATTERN.matcher(rawType).matches(), "Bad characters in rawType type: %s", rawType);
-        checkArgument(typeArguments != null, "typeArguments is null");
-        this.typeArguments = unmodifiableList(new ArrayList<>(typeArguments));
+        checkArgument(arguments != null, "arguments is null");
+        this.arguments = unmodifiableList(new ArrayList<>(arguments));
     }
 
     @JsonProperty
@@ -67,9 +67,52 @@ public class ClientTypeSignature
     }
 
     @JsonProperty
-    public List<ClientTypeSignatureParameter> getTypeArguments()
+    public List<ClientTypeSignatureParameter> getArguments()
     {
-        return typeArguments;
+        return arguments;
+    }
+
+    /**
+     * This field is deprecated and clients should switch to {@link #getArguments()}
+     */
+    @Deprecated
+    @JsonProperty
+    public List<ClientTypeSignature> getTypeArguments()
+    {
+        List<ClientTypeSignature> result = new ArrayList<>();
+        for (ClientTypeSignatureParameter argument : arguments) {
+            switch (argument.getKind()) {
+                case TYPE_SIGNATURE:
+                    result.add(argument.getTypeSignature());
+                    break;
+                case NAMED_TYPE_SIGNATURE:
+                    result.add(new ClientTypeSignature(argument.getNamedTypeSignature().getTypeSignature()));
+                    break;
+                default:
+                    return new ArrayList<>();
+            }
+        }
+        return result;
+    }
+
+    /**
+     * This field is deprecated and clients should switch to {@link #getArguments()}
+     */
+    @Deprecated
+    @JsonProperty
+    public List<Object> getLiteralArguments()
+    {
+        List<Object> result = new ArrayList<>();
+        for (ClientTypeSignatureParameter argument : arguments) {
+            switch (argument.getKind()) {
+                case NAMED_TYPE_SIGNATURE:
+                    result.add(argument.getNamedTypeSignature().getName());
+                    break;
+                default:
+                    return new ArrayList<>();
+            }
+        }
+        return result;
     }
 
     @Override
@@ -80,10 +123,10 @@ public class ClientTypeSignature
         }
         else {
             StringBuilder typeName = new StringBuilder(rawType);
-            if (!typeArguments.isEmpty()) {
+            if (!arguments.isEmpty()) {
                 typeName.append("(");
                 boolean first = true;
-                for (ClientTypeSignatureParameter argument : typeArguments) {
+                for (ClientTypeSignatureParameter argument : arguments) {
                     if (!first) {
                         typeName.append(",");
                     }
@@ -99,13 +142,13 @@ public class ClientTypeSignature
     @Deprecated
     private String rowToString()
     {
-        String types = typeArguments.stream()
+        String types = arguments.stream()
                 .map(ClientTypeSignatureParameter::getNamedTypeSignature)
                 .map(NamedTypeSignature::getTypeSignature)
                 .map(TypeSignature::toString)
                 .collect(Collectors.joining(","));
 
-        String fieldNames = typeArguments.stream()
+        String fieldNames = arguments.stream()
                 .map(ClientTypeSignatureParameter::getNamedTypeSignature)
                 .map(NamedTypeSignature::getName)
                 .map(name -> format("'%s'", name))
@@ -127,12 +170,12 @@ public class ClientTypeSignature
         ClientTypeSignature other = (ClientTypeSignature) o;
 
         return Objects.equals(this.rawType.toLowerCase(Locale.ENGLISH), other.rawType.toLowerCase(Locale.ENGLISH)) &&
-                Objects.equals(this.typeArguments, other.typeArguments);
+                Objects.equals(this.arguments, other.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rawType.toLowerCase(Locale.ENGLISH), typeArguments);
+        return Objects.hash(rawType.toLowerCase(Locale.ENGLISH), arguments);
     }
 }

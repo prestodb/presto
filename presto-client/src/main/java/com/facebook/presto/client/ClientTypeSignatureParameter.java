@@ -18,14 +18,22 @@ import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.io.IOException;
 import java.util.Objects;
 
 import static java.lang.String.format;
 
 @Immutable
+@JsonDeserialize(using = ClientTypeSignatureParameter.ClientTypeSignatureParameterDeserializer.class)
 public class ClientTypeSignatureParameter
 {
     private final ParameterKind kind;
@@ -43,6 +51,7 @@ public class ClientTypeSignatureParameter
                 break;
             case NAMED_TYPE_SIGNATURE:
                 value = typeParameterSignature.getNamedTypeSignature();
+                break;
             default:
                 throw new UnsupportedOperationException(format("Unknown kind [%s]", kind));
         }
@@ -118,5 +127,34 @@ public class ClientTypeSignatureParameter
     public int hashCode()
     {
         return Objects.hash(kind, value);
+    }
+
+    public static class ClientTypeSignatureParameterDeserializer extends JsonDeserializer<ClientTypeSignatureParameter>
+    {
+        private static final ObjectMapper MAPPER = new ObjectMapper();
+
+        @Override
+        public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctxt)
+                throws IOException
+        {
+            JsonNode node = jp.getCodec().readTree(jp);
+            ParameterKind kind = MAPPER.readValue(MAPPER.treeAsTokens(node.get("kind")), ParameterKind.class);
+            JsonParser jsonValue = MAPPER.treeAsTokens(node.get("value"));
+            Object value;
+            switch (kind) {
+                case TYPE_SIGNATURE:
+                    value = MAPPER.readValue(jsonValue, ClientTypeSignature.class);
+                    break;
+                case NAMED_TYPE_SIGNATURE:
+                    value = MAPPER.readValue(jsonValue, NamedTypeSignature.class);
+                    break;
+                case LONG_LITERAL:
+                    value = MAPPER.readValue(jsonValue, Long.class);
+                    break;
+                default:
+                    throw new UnsupportedOperationException(format("Unsupported kind [%s]", kind));
+            }
+            return new ClientTypeSignatureParameter(kind, value);
+        }
     }
 }
