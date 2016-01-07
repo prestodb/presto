@@ -20,6 +20,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import java.io.PrintStream;
 import java.util.List;
@@ -188,7 +189,6 @@ public class Verifier
             }
         }
 
-        // TODO implement cpu time tracking
         return new VerifierQueryEvent(
                 queryPair.getSuite(),
                 config.getRunId(),
@@ -198,19 +198,19 @@ public class Verifier
                 queryPair.getTest().getCatalog(),
                 queryPair.getTest().getSchema(),
                 queryPair.getTest().getQuery(),
-                null,
-                optionalDurationToSeconds(test),
+                optionalDurationToSeconds(test.getCpuTime()),
+                optionalDurationToSeconds(test.getWallTime()),
                 queryPair.getControl().getCatalog(),
                 queryPair.getControl().getSchema(),
                 queryPair.getControl().getQuery(),
-                null,
-                optionalDurationToSeconds(control),
+                optionalDurationToSeconds(control.getCpuTime()),
+                optionalDurationToSeconds(control.getWallTime()),
                 errorMessage);
     }
 
-    private static Double optionalDurationToSeconds(QueryResult test)
+    private static Double optionalDurationToSeconds(Duration duration)
     {
-        return test.getDuration() != null ? test.getDuration().convertTo(SECONDS).getValue() : null;
+        return duration != null ? duration.convertTo(SECONDS).getValue() : null;
     }
 
     private static <T> T takeUnchecked(CompletionService<T> completionService)
