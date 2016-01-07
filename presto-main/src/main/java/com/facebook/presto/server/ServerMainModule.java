@@ -272,7 +272,7 @@ public class ServerMainModule
         // Determine the NodeVersion
         String prestoVersion = serverConfig.getPrestoVersion();
         if (prestoVersion == null) {
-            prestoVersion = detectPrestoVersion();
+            prestoVersion = getClass().getPackage().getImplementationVersion();
         }
         checkState(prestoVersion != null, "presto.version must be provided when it cannot be automatically determined");
 
@@ -390,11 +390,6 @@ public class ServerMainModule
             @ForTransactionManager ExecutorService finishingExecutor)
     {
         return TransactionManager.create(config, idleCheckExecutor, finishingExecutor);
-    }
-
-    private static String detectPrestoVersion()
-    {
-        return PrestoServer.class.getPackage().getImplementationVersion();
     }
 
     private static void bindFailureDetector(Binder binder, boolean coordinator)
