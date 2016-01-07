@@ -35,7 +35,7 @@ import com.google.inject.multibindings.Multibinder;
 
 import javax.inject.Inject;
 
-public class SystemTablesModule
+public class SystemConnectorModule
         implements Module
 {
     @Override
@@ -63,13 +63,13 @@ public class SystemTablesModule
         globalTableBinder.addBinding().to(UdtJdbcTable.class).in(Scopes.SINGLETON);
 
         binder.bind(GlobalSystemConnectorFactory.class).in(Scopes.SINGLETON);
-        binder.bind(SystemTablesRegistrar.class).asEagerSingleton();
+        binder.bind(SystemConnectorRegistrar.class).asEagerSingleton();
     }
 
-    private static class SystemTablesRegistrar
+    private static class SystemConnectorRegistrar
     {
         @Inject
-        public SystemTablesRegistrar(ConnectorManager manager, GlobalSystemConnectorFactory globalSystemConnectorFactory)
+        public SystemConnectorRegistrar(ConnectorManager manager, GlobalSystemConnectorFactory globalSystemConnectorFactory)
         {
             manager.addConnectorFactory(globalSystemConnectorFactory);
             manager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());

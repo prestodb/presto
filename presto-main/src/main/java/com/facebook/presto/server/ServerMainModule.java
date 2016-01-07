@@ -21,7 +21,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.system.SystemTablesModule;
+import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -251,8 +251,8 @@ public class ServerMainModule
         // connector
         binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
 
-        // system tables
-        binder.install(new SystemTablesModule());
+        // system connector
+        binder.install(new SystemConnectorModule());
 
         // splits
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
