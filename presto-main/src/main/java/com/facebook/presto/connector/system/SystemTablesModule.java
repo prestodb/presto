@@ -71,7 +71,8 @@ public class SystemTablesModule
         @Inject
         public SystemTablesRegistrar(ConnectorManager manager, GlobalSystemConnectorFactory globalSystemConnectorFactory)
         {
-            manager.createConnection(GlobalSystemConnector.NAME, globalSystemConnectorFactory, ImmutableMap.of());
+            manager.addConnectorFactory(globalSystemConnectorFactory);
+            manager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
         }
     }
 }
