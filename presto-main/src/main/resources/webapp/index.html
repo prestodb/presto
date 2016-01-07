@@ -302,5 +302,11 @@ React.render(
 );
 </script>
 
+<script type="text/javascript">
+d3.json("/v1/info", function(info) {
+    document.getElementById('version').textContent = "Version: " + info.nodeVersion.version;
+});
+</script>
+
 </body>
 </html>
