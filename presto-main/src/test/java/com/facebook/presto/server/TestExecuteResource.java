@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
@@ -59,14 +60,17 @@ public class TestExecuteResource
             throws Exception
     {
         String expected = "{\"columns\":[" +
-                "{\"name\":\"foo\",\"type\":\"bigint\",\"typeSignature\":{\"rawType\":\"bigint\",\"typeArguments\":[]}}," +
-                "{\"name\":\"bar\",\"type\":\"varchar\",\"typeSignature\":{\"rawType\":\"varchar\",\"typeArguments\":[]}}]," +
-                "\"data\":[[123,\"abc\"]]}\n";
+                "{\"name\":\"foo\",\"type\":\"bigint\",\"typeSignature\":{\"rawType\":\"bigint\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}}," +
+                "{\"name\":\"bar\",\"type\":\"varchar\",\"typeSignature\":{\"rawType\":\"varchar\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}}," +
+                "{\"name\":\"baz\",\"type\":\"array(bigint)\",\"typeSignature\":{\"rawType\":\"array\",\"arguments\":[{\"kind\":\"TYPE_SIGNATURE\",\"value\":{\"rawType\":\"bigint\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}}],\"typeArguments\":[{\"rawType\":\"bigint\",\"arguments\":[],\"typeArguments\":[],\"literalArguments\":[]}],\"literalArguments\":[]}}]," +
+                "\"data\":[[123,\"abc\",[42,44]]]}\n";
 
-        StringResponse response = executeQuery("SELECT 123 foo, 'abc' bar");
+        StringResponse response = executeQuery("SELECT 123 foo, 'abc' bar, CAST(JSON_PARSE('[42,44]') AS ARRAY<BIGINT>) baz");
         assertEquals(response.getStatusCode(), HttpStatus.OK.code());
         assertEquals(response.getHeader(HttpHeaders.CONTENT_TYPE), "application/json");
-        assertEquals(response.getBody(), expected);
+
+        ObjectMapper mapper = new ObjectMapper();
+        assertEquals(mapper.readTree(response.getBody()), mapper.readTree(expected));
     }
 
     private StringResponse executeQuery(String query)
