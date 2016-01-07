@@ -95,6 +95,26 @@ public class ClientTypeSignature
         return result;
     }
 
+    /**
+     * This field is deprecated and clients should switch to {@link #getArguments()}
+     */
+    @Deprecated
+    @JsonProperty
+    public List<Object> getLiteralArguments()
+    {
+        List<Object> result = new ArrayList<>();
+        for (ClientTypeSignatureParameter argument : arguments) {
+            switch (argument.getKind()) {
+                case NAMED_TYPE_SIGNATURE:
+                    result.add(argument.getNamedTypeSignature().getName());
+                    break;
+                default:
+                    return new ArrayList<>();
+            }
+        }
+        return result;
+    }
+
     @Override
     public String toString()
     {
