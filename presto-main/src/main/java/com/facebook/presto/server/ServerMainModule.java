@@ -394,9 +394,7 @@ public class ServerMainModule
 
     private static String detectPrestoVersion()
     {
-        String title = PrestoServer.class.getPackage().getImplementationTitle();
-        String version = PrestoServer.class.getPackage().getImplementationVersion();
-        return ((title == null) || (version == null)) ? null : (title + ":" + version);
+        return PrestoServer.class.getPackage().getImplementationVersion();
     }
 
     private static void bindFailureDetector(Binder binder, boolean coordinator)
