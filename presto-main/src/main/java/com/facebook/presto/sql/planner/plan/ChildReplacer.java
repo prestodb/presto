@@ -58,6 +58,12 @@ public class ChildReplacer
     }
 
     @Override
+    public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, List<PlanNode> newChildren)
+    {
+        return new ExplainAnalyzeNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getOutputSymbol());
+    }
+
+    @Override
     public PlanNode visitLimit(LimitNode node, List<PlanNode> newChildren)
     {
         return new LimitNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getCount());

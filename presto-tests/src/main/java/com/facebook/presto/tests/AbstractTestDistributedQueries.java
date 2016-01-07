@@ -211,6 +211,63 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT count(*) + 1 FROM orders");
+
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE analyze_test AS SELECT orderstatus FROM orders");
+        assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders");
+        assertUpdate("DROP TABLE analyze_test");
+    }
+
+    @Test
+    public void testExplainAnalyze()
+    {
+        assertExplainAnalyze("EXPLAIN ANALYZE SELECT * FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk FROM orders GROUP BY clerk");
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT x + y FROM (" +
+                        "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
+                        "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate");
+        assertExplainAnalyze("" +
+                "EXPLAIN ANALYZE SELECT *, o2.custkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 5 = 0)\n" +
+                "FROM (SELECT * FROM orders WHERE custkey % 256 = 0) o1\n" +
+                "JOIN (SELECT * FROM orders WHERE custkey % 256 = 0) o2\n" +
+                "  ON (o1.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0)) = (o2.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0))\n" +
+                "WHERE o1.orderkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 4 = 0)\n" +
+                "ORDER BY o1.orderkey\n" +
+                "  IN (\n" +
+                "    SELECT orderkey\n" +
+                "    FROM lineitem\n" +
+                "    WHERE orderkey % 7 = 0)");
+        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk FROM orders GROUP BY clerk UNION ALL SELECT sum(orderkey), clerk FROM orders GROUP BY clerk");
+
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW COLUMNS FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN SELECT count(*) FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN ANALYZE SELECT count(*) FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW FUNCTIONS");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW TABLES");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW SCHEMAS");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW CATALOGS");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW SESSION");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE only supported for statements that are queries")
+    public void testExplainAnalyzeDDL()
+    {
+        computeActual("EXPLAIN ANALYZE DROP TABLE orders");
+    }
+
+    private void assertExplainAnalyze(@Language("SQL") String query)
+    {
+        String value = getOnlyElement(computeActual(query).getOnlyColumnAsSet());
+        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
+        assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
     }
 
     private void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
@@ -454,6 +511,17 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DELETE FROM test_delete WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
         assertUpdate("DELETE FROM test_delete WHERE (SELECT true)", "SELECT count(*) - 1 FROM orders");
         assertUpdate("DROP TABLE test_delete");
+
+        // test EXPLAIN ANALYZE with CTAS
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE analyze_test AS SELECT orderstatus FROM orders");
+        assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders");
+        // check that INSERT works also
+        assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO analyze_test SELECT clerk FROM orders");
+        assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
+        // check DELETE works with EXPLAIN ANALYZE
+        assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM analyze_test WHERE TRUE");
+        assertQuery("SELECT COUNT(*) from analyze_test", "SELECT 0");
+        assertUpdate("DROP TABLE analyze_test");
     }
 
     @Test

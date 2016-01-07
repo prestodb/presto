@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -750,6 +751,24 @@ public class AddExchanges
                     ActualProperties.builder()
                             .global(singleStreamPartition())
                             .build());
+        }
+
+        @Override
+        public PlanWithProperties visitExplainAnalyze(ExplainAnalyzeNode node, Context context)
+        {
+            PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
+
+            // if the child is already a gathering exchange, don't add another
+            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType() == ExchangeNode.Type.GATHER) {
+                return rebaseAndDeriveProperties(node, child);
+            }
+
+            // Always add an exchange because ExplainAnalyze should be in its own stage
+            child = withDerivedProperties(
+                    gatheringExchange(idAllocator.getNextId(), child.getNode()),
+                    child.getProperties());
+
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override

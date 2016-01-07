@@ -4032,6 +4032,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplainOfExplainAnalyze()
+    {
+        String query = "EXPLAIN ANALYZE SELECT * FROM orders";
+        MaterializedResult result = computeActual("EXPLAIN " + query);
+        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
+    }
+
+    @Test
     public void testExplainDdl()
     {
         assertExplainDdl("CREATE TABLE foo (pk bigint)", "CREATE TABLE foo");

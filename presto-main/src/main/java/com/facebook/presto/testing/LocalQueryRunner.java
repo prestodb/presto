@@ -554,6 +554,7 @@ public class LocalQueryRunner
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
                 sqlParser,
+                Optional.empty(),
                 pageSourceManager,
                 indexManager,
                 nodePartitioningManager,

@@ -84,6 +84,7 @@ function flattenNode(stages, nodeInfo, result)
     var remoteSources = []; // TODO: put remoteSources in node-specific section
     switch (nodeInfo['@type']) {
         case 'output':
+        case 'explainAnalyze':
         case 'project':
         case 'filter':
         case 'aggregation':

@@ -65,6 +65,7 @@ public final class SqlStageExecution
     private final StageStateMachine stateMachine;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
+    private final boolean summarizeTaskInfo;
 
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
 
@@ -85,6 +86,7 @@ public final class SqlStageExecution
             PlanFragment fragment,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
+            boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
             ExecutorService executor)
     {
@@ -95,14 +97,16 @@ public final class SqlStageExecution
                         requireNonNull(fragment, "fragment is null"),
                         requireNonNull(executor, "executor is null")),
                 remoteTaskFactory,
-                nodeTaskMap);
+                nodeTaskMap,
+                summarizeTaskInfo);
     }
 
-    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap)
+    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        this.summarizeTaskInfo = summarizeTaskInfo;
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : stateMachine.getFragment().getRemoteSourceNodes()) {
@@ -332,7 +336,8 @@ public final class SqlStageExecution
                 stateMachine.getFragment(),
                 initialSplits.build(),
                 outputBuffers.get(),
-                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
+                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
+                summarizeTaskInfo);
 
         completeSources.forEach(task::noMoreSplits);
 

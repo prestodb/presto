@@ -28,6 +28,7 @@ import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -90,35 +91,7 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis)
     {
-        PlanNode root;
-        Statement statement = analysis.getStatement();
-        if (statement instanceof CreateTableAsSelect) {
-            checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
-            if (analysis.isCreateTableAsSelectNoOp()) {
-                List<Expression> emptyRow = ImmutableList.of();
-                PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow));
-                root = new OutputNode(idAllocator.getNextId(), source, ImmutableList.of(), ImmutableList.of());
-            }
-            else {
-                root = createOutputPlan(createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery()), analysis);
-            }
-        }
-        else if (statement instanceof Insert) {
-            checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
-            root = createOutputPlan(createInsertPlan(analysis, (Insert) statement), analysis);
-        }
-        else if (statement instanceof Delete) {
-            root = createOutputPlan(createDeletePlan(analysis, (Delete) statement), analysis);
-        }
-        else if (statement instanceof Query) {
-            root = createOutputPlan(createRelationPlan(analysis, (Query) statement), analysis);
-        }
-        else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
-            throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE not yet implemented");
-        }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
-        }
+        PlanNode root = planStatement(analysis, analysis.getStatement());
 
         // make sure we produce a valid plan. This is mainly to catch programming errors
         PlanSanityChecker.validate(root);
@@ -132,6 +105,46 @@ public class LogicalPlanner
         PlanSanityChecker.validate(root);
 
         return new Plan(root, symbolAllocator);
+    }
+
+    private PlanNode planStatement(Analysis analysis, Statement statement)
+    {
+        if (statement instanceof CreateTableAsSelect) {
+            checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
+            if (analysis.isCreateTableAsSelectNoOp()) {
+                List<Expression> emptyRow = ImmutableList.of();
+                PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow));
+                return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of(), ImmutableList.of());
+            }
+            else {
+                return createOutputPlan(createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery()), analysis);
+            }
+        }
+        else if (statement instanceof Insert) {
+            checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
+            return createOutputPlan(createInsertPlan(analysis, (Insert) statement), analysis);
+        }
+        else if (statement instanceof Delete) {
+            return createOutputPlan(createDeletePlan(analysis, (Delete) statement), analysis);
+        }
+        else if (statement instanceof Query) {
+            return createOutputPlan(createRelationPlan(analysis, (Query) statement), analysis);
+        }
+        else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
+            return createOutputPlan(createExplainAnalyzePlan(analysis, (Explain) statement), analysis);
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
+        }
+    }
+
+    private RelationPlan createExplainAnalyzePlan(Analysis analysis, Explain statement)
+    {
+        RelationType descriptor = analysis.getOutputDescriptor(statement);
+        PlanNode root = planStatement(analysis, statement.getStatement());
+        Symbol outputSymbol = symbolAllocator.newSymbol(descriptor.getFieldByIndex(0));
+        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol);
+        return new RelationPlan(root, descriptor, ImmutableList.of(outputSymbol), Optional.empty());
     }
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
