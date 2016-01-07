@@ -20,6 +20,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
@@ -40,9 +41,10 @@ public class PredicateFilterBenchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
-        OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "totalprice");
+        OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,
+                new PlanNodeId("test"),
                 new GenericPageProcessor(new DoubleFilter(50000.00), ImmutableList.of(singleColumn(DOUBLE, 0))),
                 ImmutableList.<Type>of(DOUBLE));
 

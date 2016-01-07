@@ -16,6 +16,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
@@ -36,8 +37,8 @@ public class DoubleSumAggregationBenchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
-        OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "totalprice");
-        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, Step.SINGLE, ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)));
+        OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
+        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)));
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -40,14 +41,16 @@ public class NestedLoopJoinOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
         private final List<Type> probeTypes;
         private final List<Type> types;
         private boolean closed;
 
-        public NestedLoopJoinOperatorFactory(int operatorId, NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier, List<Type> probeTypes)
+        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier, List<Type> probeTypes)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.nestedLoopJoinPagesSupplier = nestedLoopJoinPagesSupplier;
             this.nestedLoopJoinPagesSupplier.retain();
             this.probeTypes = probeTypes;
@@ -67,7 +70,7 @@ public class NestedLoopJoinOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NestedLoopJoinOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
             return new NestedLoopJoinOperator(operatorContext, nestedLoopJoinPagesSupplier, probeTypes);
         }
 
@@ -84,7 +87,7 @@ public class NestedLoopJoinOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new NestedLoopJoinOperatorFactory(operatorId, nestedLoopJoinPagesSupplier, probeTypes);
+            return new NestedLoopJoinOperatorFactory(operatorId, planNodeId, nestedLoopJoinPagesSupplier, probeTypes);
         }
     }
 

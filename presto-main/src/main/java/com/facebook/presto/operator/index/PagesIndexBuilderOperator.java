@@ -19,6 +19,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -36,12 +37,14 @@ public class PagesIndexBuilderOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final IndexSnapshotBuilder indexSnapshotBuilder;
         private boolean closed;
 
-        public PagesIndexBuilderOperatorFactory(int operatorId, IndexSnapshotBuilder indexSnapshotBuilder)
+        public PagesIndexBuilderOperatorFactory(int operatorId, PlanNodeId planNodeId, IndexSnapshotBuilder indexSnapshotBuilder)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.indexSnapshotBuilder = requireNonNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
         }
 
@@ -56,7 +59,7 @@ public class PagesIndexBuilderOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, PagesIndexBuilderOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PagesIndexBuilderOperator.class.getSimpleName());
             return new PagesIndexBuilderOperator(operatorContext, indexSnapshotBuilder);
         }
 
@@ -69,7 +72,7 @@ public class PagesIndexBuilderOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new PagesIndexBuilderOperatorFactory(operatorId, indexSnapshotBuilder);
+            return new PagesIndexBuilderOperatorFactory(operatorId, planNodeId, indexSnapshotBuilder);
         }
     }
 

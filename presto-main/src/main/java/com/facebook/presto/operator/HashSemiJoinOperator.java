@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -38,15 +39,17 @@ public class HashSemiJoinOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final SetSupplier setSupplier;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
         private final List<Type> types;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
+        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.setSupplier = setSupplier;
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
@@ -68,7 +71,7 @@ public class HashSemiJoinOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashBuilderOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
             return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel);
         }
 
@@ -81,7 +84,7 @@ public class HashSemiJoinOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new HashSemiJoinOperatorFactory(operatorId, setSupplier, probeTypes, probeJoinChannel);
+            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel);
         }
     }
 

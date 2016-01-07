@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -43,6 +44,7 @@ public class LookupOuterOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final OuterLookupSourceSupplier lookupSourceSupplier;
         private final List<Type> probeTypes;
         private final List<Type> types;
@@ -50,10 +52,12 @@ public class LookupOuterOperator
 
         public LookupOuterOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 OuterLookupSourceSupplier lookupSourceSupplier,
                 List<Type> probeTypes)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.lookupSourceSupplier = requireNonNull(lookupSourceSupplier, "lookupSourceSupplier is null");
             this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
 
@@ -78,7 +82,7 @@ public class LookupOuterOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LookupOuterOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupOuterOperator.class.getSimpleName());
             return new LookupOuterOperator(operatorContext, lookupSourceSupplier, probeTypes);
         }
 
@@ -91,7 +95,7 @@ public class LookupOuterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new LookupOuterOperatorFactory(operatorId, lookupSourceSupplier, probeTypes);
+            return new LookupOuterOperatorFactory(operatorId, planNodeId, lookupSourceSupplier, probeTypes);
         }
     }
 

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -101,6 +102,7 @@ public class TestRowNumberOperator
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(),
@@ -156,6 +158,7 @@ public class TestRowNumberOperator
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(0),
@@ -223,6 +226,7 @@ public class TestRowNumberOperator
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(0),
@@ -293,6 +297,7 @@ public class TestRowNumberOperator
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(),

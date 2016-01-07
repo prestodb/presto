@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 
@@ -28,13 +29,15 @@ public class NestedLoopBuildOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier;
 
         private boolean closed;
 
-        public NestedLoopBuildOperatorFactory(int operatorId, List<Type> types)
+        public NestedLoopBuildOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             nestedLoopJoinPagesSupplier = new NestedLoopJoinPagesSupplier(requireNonNull(types, "types is null"));
             nestedLoopJoinPagesSupplier.retain();
         }
@@ -54,7 +57,7 @@ public class NestedLoopBuildOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, NestedLoopBuildOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopBuildOperator.class.getSimpleName());
             return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinPagesSupplier);
         }
 
@@ -71,7 +74,7 @@ public class NestedLoopBuildOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new NestedLoopBuildOperatorFactory(operatorId, getTypes());
+            return new NestedLoopBuildOperatorFactory(operatorId, planNodeId, getTypes());
         }
     }
 

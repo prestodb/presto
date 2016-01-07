@@ -24,6 +24,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
@@ -82,6 +83,7 @@ public class HandTpchQuery1
 
         OperatorFactory tableScanOperator = createTableScanOperator(
                 0,
+                new PlanNodeId("test"),
                 "lineitem",
                 "returnflag",
                 "linestatus",
@@ -94,6 +96,7 @@ public class HandTpchQuery1
         TpchQuery1OperatorFactory tpchQuery1Operator = new TpchQuery1OperatorFactory(1);
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
                 2,
+                new PlanNodeId("test"),
                 ImmutableList.of(tpchQuery1Operator.getTypes().get(0), tpchQuery1Operator.getTypes().get(1)),
                 Ints.asList(0, 1),
                 Step.SINGLE,
@@ -145,7 +148,7 @@ public class HandTpchQuery1
             @Override
             public Operator createOperator(DriverContext driverContext)
             {
-                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TpchQuery1Operator.class.getSimpleName());
+                OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, new PlanNodeId("test"), TpchQuery1Operator.class.getSimpleName());
                 return new TpchQuery1Operator(operatorContext);
             }
 

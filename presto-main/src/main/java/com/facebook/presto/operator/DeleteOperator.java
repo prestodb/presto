@@ -19,6 +19,7 @@ import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
@@ -45,12 +46,14 @@ public class DeleteOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final int rowIdChannel;
         private boolean closed;
 
-        public DeleteOperatorFactory(int operatorId, int rowIdChannel)
+        public DeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, int rowIdChannel)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.rowIdChannel = rowIdChannel;
         }
 
@@ -64,7 +67,7 @@ public class DeleteOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext context = driverContext.addOperatorContext(operatorId, DeleteOperator.class.getSimpleName());
+            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, DeleteOperator.class.getSimpleName());
             return new DeleteOperator(context, rowIdChannel);
         }
 
@@ -77,7 +80,7 @@ public class DeleteOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new DeleteOperatorFactory(operatorId, rowIdChannel);
+            return new DeleteOperatorFactory(operatorId, planNodeId, rowIdChannel);
         }
     }
 

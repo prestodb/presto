@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -80,6 +81,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
@@ -114,6 +116,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR, BIGINT),
                 3,
                 ImmutableList.of(0, 1),
@@ -150,6 +153,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
@@ -174,6 +178,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 0,
                 ImmutableList.of(0),
@@ -210,6 +215,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 100,
                 ImmutableList.of(0),

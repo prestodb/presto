@@ -19,6 +19,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,14 @@ public class MaterializingOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private boolean closed;
 
-        public MaterializingOperatorFactory(int operatorId, List<Type> sourceTypes)
+        public MaterializingOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> sourceTypes)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = sourceTypes;
         }
 
@@ -52,7 +55,7 @@ public class MaterializingOperator
         public MaterializingOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MaterializingOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MaterializingOperator.class.getSimpleName());
             return new MaterializingOperator(operatorContext, sourceTypes);
         }
 
@@ -65,7 +68,7 @@ public class MaterializingOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new MaterializingOperatorFactory(operatorId, sourceTypes);
+            return new MaterializingOperatorFactory(operatorId, planNodeId, sourceTypes);
         }
     }
 

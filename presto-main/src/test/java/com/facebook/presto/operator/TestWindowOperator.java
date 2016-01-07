@@ -26,6 +26,7 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -652,6 +653,7 @@ public class TestWindowOperator
     {
         return new WindowOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 sourceTypes,
                 outputChannels,
                 functions,

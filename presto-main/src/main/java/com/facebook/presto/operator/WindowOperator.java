@@ -21,6 +21,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -46,6 +47,7 @@ public class WindowOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
         private final List<WindowFunctionDefinition> windowFunctionDefinitions;
@@ -61,6 +63,7 @@ public class WindowOperator
 
         public WindowOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
                 List<WindowFunctionDefinition> windowFunctionDefinitions,
@@ -73,6 +76,7 @@ public class WindowOperator
                 int expectedPositions)
         {
             requireNonNull(sourceTypes, "sourceTypes is null");
+            requireNonNull(planNodeId, "planNodeId is null");
             requireNonNull(outputChannels, "outputChannels is null");
             requireNonNull(windowFunctionDefinitions, "windowFunctionDefinitions is null");
             requireNonNull(partitionChannels, "partitionChannels is null");
@@ -86,6 +90,7 @@ public class WindowOperator
             requireNonNull(frameInfo, "frameInfo is null");
 
             this.operatorId = operatorId;
+            this.planNodeId = planNodeId;
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = ImmutableList.copyOf(outputChannels);
             this.windowFunctionDefinitions = ImmutableList.copyOf(windowFunctionDefinitions);
@@ -115,7 +120,7 @@ public class WindowOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, WindowOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, WindowOperator.class.getSimpleName());
             return new WindowOperator(
                     operatorContext,
                     sourceTypes,
@@ -141,6 +146,7 @@ public class WindowOperator
         {
             return new WindowOperatorFactory(
                 operatorId,
+                planNodeId,
                 sourceTypes,
                 outputChannels,
                 windowFunctionDefinitions,

@@ -15,6 +15,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
@@ -34,9 +35,10 @@ public class Top100Benchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
-        OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "totalprice");
+        OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         TopNOperatorFactory topNOperator = new TopNOperatorFactory(
                 1,
+                new PlanNodeId("test"),
                 tableScanOperator.getTypes(),
                 100,
                 ImmutableList.of(0),

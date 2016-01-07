@@ -38,6 +38,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -81,6 +82,7 @@ public class JoinProbeCompiler
             });
 
     public OperatorFactory compileJoinOperatorFactory(int operatorId,
+            PlanNodeId planNodeId,
             LookupSourceSupplier lookupSourceSupplier,
             List<? extends Type> probeTypes,
             List<Integer> probeJoinChannel,
@@ -89,7 +91,7 @@ public class JoinProbeCompiler
     {
         try {
             HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, probeHashChannel, joinType));
-            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, joinType);
+            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, planNodeId, lookupSourceSupplier, probeTypes, probeJoinChannel, joinType);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
@@ -486,7 +488,7 @@ public class JoinProbeCompiler
             this.joinProbeFactory = joinProbeFactory;
 
             try {
-                constructor = operatorFactoryClass.getConstructor(int.class, LookupSourceSupplier.class, List.class, JoinType.class, JoinProbeFactory.class);
+                constructor = operatorFactoryClass.getConstructor(int.class, PlanNodeId.class, LookupSourceSupplier.class, List.class, JoinType.class, JoinProbeFactory.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -495,13 +497,14 @@ public class JoinProbeCompiler
 
         public OperatorFactory createHashJoinOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 LookupSourceSupplier lookupSourceSupplier,
                 List<? extends Type> probeTypes,
                 List<Integer> probeJoinChannel,
                 JoinType joinType)
         {
             try {
-                return constructor.newInstance(operatorId, lookupSourceSupplier, probeTypes, joinType, joinProbeFactory);
+                return constructor.newInstance(operatorId, planNodeId, lookupSourceSupplier, probeTypes, joinType, joinProbeFactory);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);

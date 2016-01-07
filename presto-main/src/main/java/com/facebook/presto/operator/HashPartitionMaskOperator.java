@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.XxHash64;
@@ -38,6 +39,7 @@ public class HashPartitionMaskOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final int partitionCount;
         private final Optional<Integer> hashChannel;
         private final List<Integer> maskChannels;
@@ -48,6 +50,7 @@ public class HashPartitionMaskOperator
 
         public HashPartitionMaskOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 int partitionCount,
                 List<? extends Type> sourceTypes,
                 Collection<Integer> maskChannels,
@@ -55,6 +58,7 @@ public class HashPartitionMaskOperator
                 Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             checkArgument(partitionCount > 1, "partition count must be greater than 1");
             this.partitionCount = partitionCount;
             this.maskChannels = ImmutableList.copyOf(requireNonNull(maskChannels, "maskChannels is null"));
@@ -87,7 +91,7 @@ public class HashPartitionMaskOperator
         {
             checkState(!closed, "Factory is already closed");
             checkState(partition < partitionCount, "All operators already created");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MarkDistinctOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MarkDistinctOperator.class.getSimpleName());
             return new HashPartitionMaskOperator(operatorContext, partition++, partitionCount, types, maskChannels, partitionChannels, hashChannel);
         }
 
@@ -100,7 +104,7 @@ public class HashPartitionMaskOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new HashPartitionMaskOperatorFactory(operatorId, partitionCount, types.subList(0, types.size() - 1), maskChannels, partitionChannels, hashChannel);
+            return new HashPartitionMaskOperatorFactory(operatorId, planNodeId, partitionCount, types.subList(0, types.size() - 1), maskChannels, partitionChannels, hashChannel);
         }
     }
 

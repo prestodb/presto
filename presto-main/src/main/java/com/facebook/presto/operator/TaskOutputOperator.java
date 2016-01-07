@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.SharedBuffer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -38,9 +39,9 @@ public class TaskOutputOperator
         }
 
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes)
+        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> sourceTypes)
         {
-            return new TaskOutputOperatorFactory(operatorId, sharedBuffer);
+            return new TaskOutputOperatorFactory(operatorId, planNodeId, sharedBuffer);
         }
     }
 
@@ -48,11 +49,13 @@ public class TaskOutputOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final SharedBuffer sharedBuffer;
 
-        public TaskOutputOperatorFactory(int operatorId, SharedBuffer sharedBuffer)
+        public TaskOutputOperatorFactory(int operatorId, PlanNodeId planNodeId, SharedBuffer sharedBuffer)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
         }
 
@@ -65,7 +68,7 @@ public class TaskOutputOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TaskOutputOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TaskOutputOperator.class.getSimpleName());
             return new TaskOutputOperator(operatorContext, sharedBuffer);
         }
 
@@ -77,7 +80,7 @@ public class TaskOutputOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TaskOutputOperatorFactory(operatorId, sharedBuffer);
+            return new TaskOutputOperatorFactory(operatorId, planNodeId, sharedBuffer);
         }
     }
 

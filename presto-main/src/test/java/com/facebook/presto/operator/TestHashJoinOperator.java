@@ -19,6 +19,7 @@ import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFacto
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
@@ -93,6 +94,7 @@ public class TestHashJoinOperator
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
+                new PlanNodeId("test"),
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
@@ -143,6 +145,7 @@ public class TestHashJoinOperator
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
+                new PlanNodeId("test"),
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
@@ -185,6 +188,7 @@ public class TestHashJoinOperator
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
+                new PlanNodeId("test"),
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
@@ -228,6 +232,7 @@ public class TestHashJoinOperator
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 0,
+                new PlanNodeId("test"),
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
@@ -264,6 +269,7 @@ public class TestHashJoinOperator
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
+                new PlanNodeId("test"),
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
@@ -319,6 +325,7 @@ public class TestHashJoinOperator
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
+                new PlanNodeId("test"),
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
@@ -363,6 +370,7 @@ public class TestHashJoinOperator
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
+                new PlanNodeId("test"),
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
@@ -406,6 +414,7 @@ public class TestHashJoinOperator
                 .build();
         OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
                 0,
+                new PlanNodeId("test"),
                 lookupSourceSupplier,
                 probePages.getTypes(),
                 Ints.asList(0),
@@ -459,8 +468,8 @@ public class TestHashJoinOperator
 
             // collect input data
             DriverContext collectDriverContext = taskContext.addPipelineContext(true, true).addDriverContext();
-            ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, buildPages.getTypes(), buildPages.build());
-            OperatorFactory collectOperatorFactory = parallelHashBuilder.getCollectOperatorFactory(1);
+            ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.getTypes(), buildPages.build());
+            OperatorFactory collectOperatorFactory = parallelHashBuilder.getCollectOperatorFactory(1, new PlanNodeId("test"));
             Driver driver = new Driver(collectDriverContext,
                     valuesOperatorFactory.createOperator(collectDriverContext),
                     collectOperatorFactory.createOperator(collectDriverContext));
@@ -471,7 +480,7 @@ public class TestHashJoinOperator
 
             // build hash tables
             PipelineContext buildPipeline = taskContext.addPipelineContext(true, true);
-            OperatorFactory buildOperatorFactory = parallelHashBuilder.getBuildOperatorFactory();
+            OperatorFactory buildOperatorFactory = parallelHashBuilder.getBuildOperatorFactory(new PlanNodeId("test"));
             for (int i = 0; i < PARTITION_COUNT; i++) {
                 DriverContext buildDriverContext = buildPipeline.addDriverContext();
                 Driver buildDriver = new Driver(buildDriverContext,
@@ -487,8 +496,8 @@ public class TestHashJoinOperator
         else {
             DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
-            ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, buildPages.getTypes(), buildPages.build());
-            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, buildPages.getTypes(), hashChannels, buildPages.getHashChannel(), 100);
+            ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.getTypes(), buildPages.build());
+            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(1, new PlanNodeId("test"), buildPages.getTypes(), hashChannels, buildPages.getHashChannel(), 100);
 
             Driver driver = new Driver(driverContext,
                     valuesOperatorFactory.createOperator(driverContext),

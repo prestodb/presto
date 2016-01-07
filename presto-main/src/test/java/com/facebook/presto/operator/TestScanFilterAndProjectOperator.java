@@ -62,6 +62,7 @@ public class TestScanFilterAndProjectOperator
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 new PlanNodeId("0"),
                 new PageSourceProvider() {
                     @Override
@@ -95,6 +96,7 @@ public class TestScanFilterAndProjectOperator
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 new PlanNodeId("0"),
                 new PageSourceProvider() {
                     @Override

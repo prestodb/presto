@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -32,6 +33,7 @@ public class OrderByOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final List<Integer> outputChannels;
         private final int expectedPositions;
@@ -42,6 +44,7 @@ public class OrderByOperator
 
         public OrderByOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
                 int expectedPositions,
@@ -49,6 +52,7 @@ public class OrderByOperator
                 List<SortOrder> sortOrder)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(sourceTypes, "sourceTypes is null"));
             this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
             this.expectedPositions = expectedPositions;
@@ -69,7 +73,7 @@ public class OrderByOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, OrderByOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, OrderByOperator.class.getSimpleName());
             return new OrderByOperator(
                     operatorContext,
                     sourceTypes,
@@ -88,7 +92,7 @@ public class OrderByOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new OrderByOperatorFactory(operatorId, sourceTypes, outputChannels, expectedPositions, sortChannels, sortOrder);
+            return new OrderByOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, expectedPositions, sortChannels, sortOrder);
         }
     }
 

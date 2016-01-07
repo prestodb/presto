@@ -21,6 +21,7 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
 import com.google.common.collect.ImmutableList;
@@ -50,8 +51,8 @@ public class HashJoinBenchmark
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
         if (lookupSourceSupplier == null) {
-            OperatorFactory ordersTableScan = createTableScanOperator(0, "orders", "orderkey", "totalprice");
-            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, ordersTableScan.getTypes(), Ints.asList(0), Optional.empty(), 1_500_000);
+            OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
+            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, new PlanNodeId("test"), ordersTableScan.getTypes(), Ints.asList(0), Optional.empty(), 1_500_000);
 
             DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
             Driver driver = new DriverFactory(false, false, ordersTableScan, hashBuilder).createDriver(driverContext);
@@ -61,11 +62,11 @@ public class HashJoinBenchmark
             lookupSourceSupplier = hashBuilder.getLookupSourceSupplier();
         }
 
-        OperatorFactory lineItemTableScan = createTableScanOperator(0, "lineitem", "orderkey", "quantity");
+        OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
 
-        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, lookupSourceSupplier, lineItemTableScan.getTypes(), Ints.asList(0), Optional.empty());
+        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, new PlanNodeId("test"), lookupSourceSupplier, lineItemTableScan.getTypes(), Ints.asList(0), Optional.empty());
 
-        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, joinOperator.getTypes());
+        NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"), joinOperator.getTypes());
 
         DriverFactory driverFactory = new DriverFactory(true, true, lineItemTableScan, joinOperator, output);
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();

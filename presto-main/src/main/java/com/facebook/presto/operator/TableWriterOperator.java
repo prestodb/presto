@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -46,6 +47,7 @@ public class TableWriterOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final PageSinkManager pageSinkManager;
         private final WriterTarget target;
         private final List<Integer> inputChannels;
@@ -54,6 +56,7 @@ public class TableWriterOperator
         private boolean closed;
 
         public TableWriterOperatorFactory(int operatorId,
+                PlanNodeId planNodeId,
                 PageSinkManager pageSinkManager,
                 WriterTarget writerTarget,
                 List<Integer> inputChannels,
@@ -61,6 +64,7 @@ public class TableWriterOperator
                 Session session)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
@@ -79,7 +83,7 @@ public class TableWriterOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext context = driverContext.addOperatorContext(operatorId, TableWriterOperator.class.getSimpleName());
+            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
             return new TableWriterOperator(context, createPageSink(), inputChannels, sampleWeightChannel);
         }
 
@@ -103,7 +107,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, pageSinkManager, target, inputChannels, sampleWeightChannel, session);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, inputChannels, sampleWeightChannel, session);
         }
     }
 

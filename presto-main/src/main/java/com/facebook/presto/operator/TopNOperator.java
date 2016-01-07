@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
@@ -40,6 +41,7 @@ public class TopNOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final int n;
         private final List<Type> sortTypes;
@@ -50,6 +52,7 @@ public class TopNOperator
 
         public TopNOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<? extends Type> types,
                 int n,
                 List<Integer> sortChannels,
@@ -57,6 +60,7 @@ public class TopNOperator
                 boolean partial)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.n = n;
             ImmutableList.Builder<Type> sortTypes = ImmutableList.builder();
@@ -79,7 +83,7 @@ public class TopNOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TopNOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TopNOperator.class.getSimpleName());
             return new TopNOperator(
                     operatorContext,
                     sourceTypes,
@@ -99,7 +103,7 @@ public class TopNOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TopNOperatorFactory(operatorId, sourceTypes, n, sortChannels, sortOrders, partial);
+            return new TopNOperatorFactory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders, partial);
         }
     }
 

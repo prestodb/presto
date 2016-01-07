@@ -416,6 +416,7 @@ public class TestOrcPageSourceMemoryTracking
             ImmutableList<ProjectionFunction> projections = projectionsBuilder.build();
             SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
+                    new PlanNodeId("test"),
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
                     new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, projections),

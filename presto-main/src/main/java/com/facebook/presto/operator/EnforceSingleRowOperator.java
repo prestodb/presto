@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.FixedWidthBlock;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 
@@ -34,12 +35,14 @@ public class EnforceSingleRowOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final Type type;
         private boolean closed;
 
-        public EnforceSingleRowOperatorFactory(int operatorId, Type type)
+        public EnforceSingleRowOperatorFactory(int operatorId, PlanNodeId planNodeId, Type type)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.type = requireNonNull(type, "type is null");
         }
 
@@ -53,7 +56,7 @@ public class EnforceSingleRowOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, EnforceSingleRowOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, EnforceSingleRowOperator.class.getSimpleName());
             return new EnforceSingleRowOperator(operatorContext, type);
         }
 
@@ -66,7 +69,7 @@ public class EnforceSingleRowOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new EnforceSingleRowOperatorFactory(operatorId, type);
+            return new EnforceSingleRowOperatorFactory(operatorId, planNodeId, type);
         }
     }
 

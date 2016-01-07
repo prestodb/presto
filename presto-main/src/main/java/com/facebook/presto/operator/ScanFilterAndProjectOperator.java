@@ -298,6 +298,7 @@ public class ScanFilterAndProjectOperator
             implements SourceOperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final CursorProcessor cursorProcessor;
         private final PageProcessor pageProcessor;
         private final PlanNodeId sourceId;
@@ -308,6 +309,7 @@ public class ScanFilterAndProjectOperator
 
         public ScanFilterAndProjectOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
                 CursorProcessor cursorProcessor,
@@ -316,6 +318,7 @@ public class ScanFilterAndProjectOperator
                 List<Type> types)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -340,7 +343,7 @@ public class ScanFilterAndProjectOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ScanFilterAndProjectOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ScanFilterAndProjectOperator.class.getSimpleName());
             return new ScanFilterAndProjectOperator(
                     operatorContext,
                     sourceId,

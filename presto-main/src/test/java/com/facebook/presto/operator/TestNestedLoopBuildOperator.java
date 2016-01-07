@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -55,7 +56,7 @@ public class TestNestedLoopBuildOperator
             throws Exception
     {
         TaskContext taskContext = createTaskContext();
-        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, ImmutableList.of(BIGINT));
+        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), ImmutableList.of(BIGINT));
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
         NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();
@@ -85,7 +86,7 @@ public class TestNestedLoopBuildOperator
             throws Exception
     {
         TaskContext taskContext = createTaskContext();
-        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, ImmutableList.of());
+        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), ImmutableList.of());
         DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
         NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();

@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,13 +32,15 @@ public class LimitOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> types;
         private final long limit;
         private boolean closed;
 
-        public LimitOperatorFactory(int operatorId, List<? extends Type> types, long limit)
+        public LimitOperatorFactory(int operatorId, PlanNodeId planNodeId, List<? extends Type> types, long limit)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.types = ImmutableList.copyOf(types);
             this.limit = limit;
         }
@@ -52,7 +55,7 @@ public class LimitOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, LimitOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LimitOperator.class.getSimpleName());
             return new LimitOperator(operatorContext, types, limit);
         }
 
@@ -65,7 +68,7 @@ public class LimitOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new LimitOperatorFactory(operatorId, types, limit);
+            return new LimitOperatorFactory(operatorId, planNodeId, types, limit);
         }
     }
 

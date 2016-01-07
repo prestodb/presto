@@ -17,6 +17,7 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -50,6 +51,7 @@ public class OperatorContext
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final int operatorId;
+    private final PlanNodeId planNodeId;
     private final String operatorType;
     private final DriverContext driverContext;
     private final Executor executor;
@@ -88,10 +90,11 @@ public class OperatorContext
     private final AtomicReference<Supplier<Object>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
-    public OperatorContext(int operatorId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
+    public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.maxMemoryReservation = maxMemoryReservation;
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
@@ -381,6 +384,7 @@ public class OperatorContext
 
         return new OperatorStats(
                 operatorId,
+                planNodeId,
                 operatorType,
 
                 addInputCalls.get(),
