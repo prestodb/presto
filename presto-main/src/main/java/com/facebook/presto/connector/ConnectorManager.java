@@ -130,6 +130,7 @@ public class ConnectorManager
         checkState(!stopped.get(), "ConnectorManager is stopped");
         ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
         checkArgument(existingConnectorFactory == null, "Connector %s is already registered", connectorFactory.getName());
+        handleResolver.addConnectorName(connectorFactory.getName(), connectorFactory.getHandleResolver());
     }
 
     public void createConnection(String catalogName, String connectorName, Map<String, String> properties)
@@ -140,12 +141,7 @@ public class ConnectorManager
         createConnection(catalogName, connectorFactory, properties);
     }
 
-    public void createConnection(String catalogName, com.facebook.presto.spi.ConnectorFactory connectorFactory, Map<String, String> properties)
-    {
-        createConnection(catalogName, new LegacyTransactionConnectorFactory(connectorFactory), properties);
-    }
-
-    public synchronized void createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    private synchronized void createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -166,7 +162,6 @@ public class ConnectorManager
         Connector connector = createConnector(connectorId, factory, properties);
 
         addConnectorInternal(ConnectorType.STANDARD, catalogName, connectorId, connector);
-        handleResolver.addConnectorName(factory.getName(), factory.getHandleResolver());
 
         String informationSchemaId = makeInformationSchemaConnectorId(connectorId);
         addConnectorInternal(ConnectorType.INFORMATION_SCHEMA, catalogName, informationSchemaId, new InformationSchemaConnector(informationSchemaId, catalogName, nodeManager, metadataManager));

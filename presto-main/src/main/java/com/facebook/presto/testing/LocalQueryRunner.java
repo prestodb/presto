@@ -233,7 +233,8 @@ public class LocalQueryRunner
                 new TablePropertiesSystemTable(metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)));
 
-        connectorManager.createConnection(GlobalSystemConnector.NAME, globalSystemConnectorFactory, ImmutableMap.of());
+        connectorManager.addConnectorFactory(globalSystemConnectorFactory);
+        connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
 
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(
@@ -330,7 +331,8 @@ public class LocalQueryRunner
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         nodeManager.addCurrentNodeDatasource(catalogName);
-        connectorManager.createConnection(catalogName, connectorFactory, properties);
+        connectorManager.addConnectorFactory(connectorFactory);
+        connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }
 
     @Override
