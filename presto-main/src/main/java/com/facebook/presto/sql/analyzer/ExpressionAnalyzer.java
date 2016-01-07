@@ -760,7 +760,15 @@ public class ExpressionAnalyzer
         @Override
         public Type visitCast(Cast node, StackableAstVisitorContext<AnalysisContext> context)
         {
-            Type type = typeManager.getType(parseTypeSignature(node.getType()));
+            TypeSignature signature = null;
+            try {
+                signature = parseTypeSignature(node.getType());
+            }
+            catch (IllegalArgumentException e) {
+                throw new SemanticException(TYPE_MISMATCH, node, e.getMessage());
+            }
+
+            Type type = typeManager.getType(signature);
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }

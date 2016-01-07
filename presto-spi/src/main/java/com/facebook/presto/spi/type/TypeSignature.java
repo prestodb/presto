@@ -113,6 +113,10 @@ public class TypeSignature
     public static TypeSignature parseTypeSignature(String signature)
     {
         if (!signature.contains("<") && !signature.contains("(")) {
+            checkArgument(!signature.toLowerCase().equals(StandardTypes.MAP) &&
+                        !signature.toLowerCase().equals(StandardTypes.ARRAY) &&
+                        !signature.toLowerCase().equals(StandardTypes.ROW),
+                        "Number of type parameters mismatch, got 0 parameter in the input signature: " + signature);
             return new TypeSignature(signature, new ArrayList<TypeSignature>(), new ArrayList<>());
         }
 
@@ -142,6 +146,7 @@ public class TypeSignature
                     parameters.add(parseTypeSignature(signature.substring(parameterStart, i)));
                     parameterStart = i + 1;
                     if (i == signature.length() - 1) {
+                        checkValidType(baseName, parameters, literalParameters);
                         return new TypeSignature(baseName, parameters, literalParameters);
                     }
                 }
@@ -183,6 +188,24 @@ public class TypeSignature
         }
 
         throw new IllegalArgumentException(format("Bad type signature: '%s'", signature));
+    }
+
+    private static void checkValidType(String baseName, List<TypeSignature> parameters, List<Object> literalParameters)
+    {
+        if (baseName.toLowerCase().equals(StandardTypes.MAP)) {
+            checkArgument(parameters.size() == 2,
+                        "Number of type parameters mismatch, Map type expects 2 parameters, got: %d", parameters.size());
+            checkArgument(literalParameters.isEmpty(), "Map type expects no literals, got: %d literals", literalParameters.size());
+        }
+        else if (baseName.toLowerCase().equals(StandardTypes.ARRAY)) {
+            checkArgument(parameters.size() == 1,
+                        "Number of type parameters mismatch, Array type expects 1 parameter, got: %d", parameters.size());
+            checkArgument(literalParameters.isEmpty(), "Array type expects no literals, got: %d literals", literalParameters.size());
+        }
+        else if (baseName.toLowerCase().equals(StandardTypes.ROW)) {
+            checkArgument(parameters.size() == literalParameters.size(),
+                        "Number of type parameters mismatch, Row type expects types and literals be matched in size, got parameters size: %d literals size: %d", parameters.size(), literalParameters.size());
+        }
     }
 
     private static Object parseLiteral(String literal)
