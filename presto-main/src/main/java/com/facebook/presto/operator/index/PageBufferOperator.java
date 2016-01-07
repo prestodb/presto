@@ -19,6 +19,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -34,11 +35,13 @@ public class PageBufferOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final PageBuffer pageBuffer;
 
-        public PageBufferOperatorFactory(int operatorId, PageBuffer pageBuffer)
+        public PageBufferOperatorFactory(int operatorId, PlanNodeId planNodeId, PageBuffer pageBuffer)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.pageBuffer = requireNonNull(pageBuffer, "pageBuffer is null");
         }
 
@@ -51,7 +54,7 @@ public class PageBufferOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, PageBufferOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PageBufferOperator.class.getSimpleName());
             return new PageBufferOperator(operatorContext, pageBuffer);
         }
 
@@ -63,7 +66,7 @@ public class PageBufferOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new PageBufferOperatorFactory(operatorId, pageBuffer);
+            return new PageBufferOperatorFactory(operatorId, planNodeId, pageBuffer);
         }
     }
 

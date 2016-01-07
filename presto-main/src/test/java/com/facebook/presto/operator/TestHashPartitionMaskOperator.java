@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.operator.HashPartitionMaskOperator.HashPartitionMaskOperatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.type.BigintOperators;
 import com.google.common.collect.ImmutableList;
@@ -79,6 +80,7 @@ public class TestHashPartitionMaskOperator
 
         OperatorFactory operatorFactory = new HashPartitionMaskOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 PARTITION_COUNT,
                 rowPagesBuilder.getTypes(),
                 ImmutableList.of(),
@@ -122,6 +124,7 @@ public class TestHashPartitionMaskOperator
 
         OperatorFactory operatorFactory = new HashPartitionMaskOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 PARTITION_COUNT,
                 rowPagesBuilder.getTypes(),
                 ImmutableList.of(1, 2),

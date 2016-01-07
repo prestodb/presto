@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -61,7 +62,7 @@ public class TestLimitOperator
                 .addSequencePage(2, 6)
                 .build();
 
-        OperatorFactory operatorFactory = new LimitOperatorFactory(0, ImmutableList.of(BIGINT), 5);
+        OperatorFactory operatorFactory = new LimitOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(BIGINT), 5);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         List<Page> expected = rowPagesBuilder(BIGINT)
@@ -82,7 +83,7 @@ public class TestLimitOperator
                 .addSequencePage(2, 6)
                 .build();
 
-        OperatorFactory operatorFactory = new LimitOperatorFactory(0, ImmutableList.of(BIGINT), 6);
+        OperatorFactory operatorFactory = new LimitOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(BIGINT), 6);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         List<Page> expected = rowPagesBuilder(BIGINT)

@@ -17,6 +17,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -37,12 +38,14 @@ public class TableFinishOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final TableFinisher tableFinisher;
         private boolean closed;
 
-        public TableFinishOperatorFactory(int operatorId, TableFinisher tableFinisher)
+        public TableFinishOperatorFactory(int operatorId, PlanNodeId planNodeId, TableFinisher tableFinisher)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
         }
 
@@ -56,7 +59,7 @@ public class TableFinishOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext context = driverContext.addOperatorContext(operatorId, TableFinishOperator.class.getSimpleName());
+            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableFinishOperator.class.getSimpleName());
             return new TableFinishOperator(context, tableFinisher);
         }
 
@@ -69,7 +72,7 @@ public class TableFinishOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableFinishOperatorFactory(operatorId, tableFinisher);
+            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher);
         }
     }
 

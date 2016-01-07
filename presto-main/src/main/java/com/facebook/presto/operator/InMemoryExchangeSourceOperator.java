@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -30,28 +31,30 @@ public class InMemoryExchangeSourceOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final InMemoryExchange inMemoryExchange;
         private final boolean broadcast;
         private int bufferIndex;
         private boolean closed;
 
-        public static InMemoryExchangeSourceOperatorFactory createRandomDistribution(int operatorId, InMemoryExchange inMemoryExchange)
+        public static InMemoryExchangeSourceOperatorFactory createRandomDistribution(int operatorId, PlanNodeId planNodeId, InMemoryExchange inMemoryExchange)
         {
             requireNonNull(inMemoryExchange, "inMemoryExchange is null");
             checkArgument(inMemoryExchange.getBufferCount() == 1, "exchange must have only one buffer");
-            return new InMemoryExchangeSourceOperatorFactory(operatorId, inMemoryExchange, false);
+            return new InMemoryExchangeSourceOperatorFactory(operatorId, planNodeId, inMemoryExchange, false);
         }
 
-        public static InMemoryExchangeSourceOperatorFactory createBroadcastDistribution(int operatorId, InMemoryExchange inMemoryExchange)
+        public static InMemoryExchangeSourceOperatorFactory createBroadcastDistribution(int operatorId, PlanNodeId planNodeId, InMemoryExchange inMemoryExchange)
         {
             requireNonNull(inMemoryExchange, "inMemoryExchange is null");
             checkArgument(inMemoryExchange.getBufferCount() > 1, "exchange must have more than one buffer");
-            return new InMemoryExchangeSourceOperatorFactory(operatorId, inMemoryExchange, true);
+            return new InMemoryExchangeSourceOperatorFactory(operatorId, planNodeId, inMemoryExchange, true);
         }
 
-        private InMemoryExchangeSourceOperatorFactory(int operatorId, InMemoryExchange inMemoryExchange, boolean broadcast)
+        private InMemoryExchangeSourceOperatorFactory(int operatorId, PlanNodeId planNodeId, InMemoryExchange inMemoryExchange, boolean broadcast)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.inMemoryExchange = requireNonNull(inMemoryExchange, "inMemoryExchange is null");
             checkArgument(bufferIndex < inMemoryExchange.getBufferCount());
             this.broadcast = broadcast;
@@ -68,7 +71,7 @@ public class InMemoryExchangeSourceOperator
         {
             checkState(!closed, "Factory is already closed");
             checkState(bufferIndex < inMemoryExchange.getBufferCount(), "All operators already created");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, InMemoryExchangeSourceOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, InMemoryExchangeSourceOperator.class.getSimpleName());
             Operator operator = new InMemoryExchangeSourceOperator(operatorContext, inMemoryExchange, bufferIndex);
             if (broadcast) {
                 bufferIndex++;

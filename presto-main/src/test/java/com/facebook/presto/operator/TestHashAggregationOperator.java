@@ -26,6 +26,7 @@ import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -116,6 +117,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 Step.SINGLE,
@@ -168,6 +170,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 Step.SINGLE,
@@ -206,6 +209,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 Step.SINGLE,
@@ -241,6 +245,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR),
                 hashChannels,
                 Step.SINGLE,
@@ -271,6 +276,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 Step.SINGLE,
@@ -301,6 +307,7 @@ public class TestHashAggregationOperator
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 hashChannels,
                 Step.PARTIAL,

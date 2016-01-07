@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -33,6 +34,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class OperatorStats
 {
     private final int operatorId;
+    private final PlanNodeId planNodeId;
     private final String operatorType;
 
     private final long addInputCalls;
@@ -65,6 +67,7 @@ public class OperatorStats
     @JsonCreator
     public OperatorStats(
             @JsonProperty("operatorId") int operatorId,
+            @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("operatorType") String operatorType,
 
             @JsonProperty("addInputCalls") long addInputCalls,
@@ -96,6 +99,7 @@ public class OperatorStats
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
 
         this.addInputCalls = addInputCalls;
@@ -132,6 +136,12 @@ public class OperatorStats
     public int getOperatorId()
     {
         return operatorId;
+    }
+
+    @JsonProperty
+    public PlanNodeId getPlanNodeId()
+    {
+        return planNodeId;
     }
 
     @JsonProperty
@@ -341,6 +351,7 @@ public class OperatorStats
 
         return new OperatorStats(
                 operatorId,
+                planNodeId,
                 operatorType,
 
                 addInputCalls,

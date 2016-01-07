@@ -17,6 +17,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,12 +29,14 @@ import static java.util.Objects.requireNonNull;
 public class DynamicTupleFilterFactory
 {
     private final int filterOperatorId;
+    private final PlanNodeId planNodeId;
     private final int[] tupleFilterChannels;
     private final int[] outputFilterChannels;
     private final List<Type> outputTypes;
 
-    public DynamicTupleFilterFactory(int filterOperatorId, int[] tupleFilterChannels, int[] outputFilterChannels, List<Type> outputTypes)
+    public DynamicTupleFilterFactory(int filterOperatorId, PlanNodeId planNodeId, int[] tupleFilterChannels, int[] outputFilterChannels, List<Type> outputTypes)
     {
+        requireNonNull(planNodeId, "planNodeId is null");
         requireNonNull(tupleFilterChannels, "tupleFilterChannels is null");
         checkArgument(tupleFilterChannels.length > 0, "Must have at least one tupleFilterChannel");
         requireNonNull(outputFilterChannels, "outputFilterChannels is null");
@@ -42,6 +45,7 @@ public class DynamicTupleFilterFactory
         checkArgument(outputTypes.size() >= outputFilterChannels.length, "Must have at least as many output channels as those used for filtering");
 
         this.filterOperatorId = filterOperatorId;
+        this.planNodeId = planNodeId;
         this.tupleFilterChannels = tupleFilterChannels.clone();
         this.outputFilterChannels = outputFilterChannels.clone();
         this.outputTypes = ImmutableList.copyOf(outputTypes);
@@ -51,7 +55,7 @@ public class DynamicTupleFilterFactory
     {
         Page normalizedTuplePage = normalizeTuplePage(tuplePage);
         TupleFilterProcessor processor = new TupleFilterProcessor(normalizedTuplePage, outputTypes, outputFilterChannels);
-        return new FilterAndProjectOperatorFactory(filterOperatorId, processor, outputTypes);
+        return new FilterAndProjectOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes);
     }
 
     private Page normalizeTuplePage(Page tuplePage)

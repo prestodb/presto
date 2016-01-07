@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -128,13 +129,15 @@ public class FilterAndProjectOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final PageProcessor processor;
         private final List<Type> types;
         private boolean closed;
 
-        public FilterAndProjectOperatorFactory(int operatorId, PageProcessor processor, List<Type> types)
+        public FilterAndProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, PageProcessor processor, List<Type> types)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.processor = processor;
             this.types = types;
         }
@@ -149,7 +152,7 @@ public class FilterAndProjectOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, FilterAndProjectOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, FilterAndProjectOperator.class.getSimpleName());
             return new FilterAndProjectOperator(operatorContext, types, processor);
         }
 
@@ -162,7 +165,7 @@ public class FilterAndProjectOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new FilterAndProjectOperatorFactory(operatorId, processor, types);
+            return new FilterAndProjectOperatorFactory(operatorId, planNodeId, processor, types);
         }
     }
 }

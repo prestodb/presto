@@ -543,7 +543,7 @@ public final class FunctionAssertions
                 session
         );
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new GenericPageProcessor(filterFunction, ImmutableList.of(projectionFunction)), toTypes(
+        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new GenericPageProcessor(filterFunction, ImmutableList.of(projectionFunction)), toTypes(
                 ImmutableList.of(projectionFunction)));
         return operatorFactory.createOperator(createDriverContext(session));
     }
@@ -557,7 +557,7 @@ public final class FunctionAssertions
         try {
             PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), ImmutableList.of());
 
-            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.<Type>of());
+            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.<Type>of());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -579,7 +579,7 @@ public final class FunctionAssertions
             List<RowExpression> projections = ImmutableList.of(toRowExpression(projection, expressionTypes));
             PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), projections);
 
-            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.of(expressionTypes.get(projection)));
+            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(expressionTypes.get(projection)));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -609,6 +609,7 @@ public final class FunctionAssertions
 
             return new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                     0,
+                    new PlanNodeId("test"),
                     SOURCE_ID,
                     PAGE_SOURCE_PROVIDER,
                     cursorProcessor,

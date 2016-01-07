@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -54,9 +55,9 @@ public class PartitionedOutputOperator
         }
 
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes)
+        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> sourceTypes)
         {
-            return new PartitionedOutputOperatorFactory(operatorId, sourceTypes, partitionFunction, partitionChannels, nullChannel, sharedBuffer);
+            return new PartitionedOutputOperatorFactory(operatorId, planNodeId, sourceTypes, partitionFunction, partitionChannels, nullChannel, sharedBuffer);
         }
     }
 
@@ -64,6 +65,7 @@ public class PartitionedOutputOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final PartitionFunction partitionFunction;
         private final List<Integer> partitionChannels;
@@ -72,6 +74,7 @@ public class PartitionedOutputOperator
 
         public PartitionedOutputOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<Type> sourceTypes,
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
@@ -79,6 +82,7 @@ public class PartitionedOutputOperator
                 SharedBuffer sharedBuffer)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
@@ -95,7 +99,7 @@ public class PartitionedOutputOperator
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, PartitionedOutputOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PartitionedOutputOperator.class.getSimpleName());
             return new PartitionedOutputOperator(operatorContext, sourceTypes, partitionFunction, partitionChannels, nullChannel, sharedBuffer);
         }
 
@@ -107,7 +111,7 @@ public class PartitionedOutputOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new PartitionedOutputOperatorFactory(operatorId, sourceTypes, partitionFunction, partitionChannels, nullChannel, sharedBuffer);
+            return new PartitionedOutputOperatorFactory(operatorId, planNodeId, sourceTypes, partitionFunction, partitionChannels, nullChannel, sharedBuffer);
         }
     }
 
