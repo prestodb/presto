@@ -744,6 +744,16 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
             }
             process(node.getStatement(), context);
+            Statement statement = analysis.getStatement();
+            // Some statements, like SHOW COLUMNS, are rewritten into a SELECT
+            if (statement != node.getStatement()) {
+                if (node.getLocation().isPresent()) {
+                    node = new Explain(node.getLocation().get(), node.isAnalyze(), statement, node.getOptions());
+                }
+                else {
+                    node = new Explain(statement, node.isAnalyze(), node.getOptions());
+                }
+            }
             analysis.setStatement(node);
             analysis.setUpdateType(null);
             RelationType type = new RelationType(Field.newUnqualified("Query Plan", VARCHAR));

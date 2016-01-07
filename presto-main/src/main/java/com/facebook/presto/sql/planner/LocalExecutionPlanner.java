@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.SharedBuffer;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
@@ -27,6 +28,7 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
+import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
@@ -98,6 +100,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -217,6 +220,7 @@ public class LocalExecutionPlanner
     private final Metadata metadata;
     private final SqlParser sqlParser;
 
+    private final Optional<QueryPerformanceFetcher> queryPerformanceFetcher;
     private final PageSourceProvider pageSourceProvider;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -232,6 +236,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(
             Metadata metadata,
             SqlParser sqlParser,
+            Optional<QueryPerformanceFetcher> queryPerformanceFetcher,
             PageSourceProvider pageSourceProvider,
             IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
@@ -243,6 +248,7 @@ public class LocalExecutionPlanner
             TaskManagerConfig taskManagerConfig)
     {
         requireNonNull(compilerConfig, "compilerConfig is null");
+        this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -578,6 +584,16 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = new ExchangeOperatorFactory(context.getNextOperatorId(), node.getId(), exchangeClientSupplier, types);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node));
+        }
+
+        @Override
+        public PhysicalOperation visitExplainAnalyze(ExplainAnalyzeNode node, LocalExecutionPlanContext context)
+        {
+            checkState(queryPerformanceFetcher.isPresent(), "ExplainAnalyze can only run on coordinator");
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            OperatorFactory operatorFactory = new ExplainAnalyzeOperatorFactory(context.getNextOperatorId(), node.getId(), queryPerformanceFetcher.get(), metadata);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override

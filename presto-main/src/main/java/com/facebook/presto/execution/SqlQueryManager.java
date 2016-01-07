@@ -17,10 +17,12 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
+import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
@@ -279,6 +281,12 @@ public class SqlQueryManager
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + statement.getClass().getSimpleName());
+            }
+            if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
+                Statement innerStatement = ((Explain) statement).getStatement();
+                if (!(executionFactories.get(innerStatement.getClass()) instanceof SqlQueryExecutionFactory)) {
+                    throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE only supported for statements that are queries");
+                }
             }
             queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         }

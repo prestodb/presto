@@ -110,6 +110,7 @@ public final class TaskTestUtils
         return new LocalExecutionPlanner(
                 metadata,
                 new SqlParser(),
+                Optional.empty(),
                 pageSourceManager,
                 new IndexManager(),
                 nodePartitioningManager,

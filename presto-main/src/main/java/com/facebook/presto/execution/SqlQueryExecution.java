@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
@@ -216,10 +217,10 @@ public final class SqlQueryExecution
                 }
 
                 // analyze query
-                SubPlan subplan = analyzeQuery();
+                PlanRoot plan = analyzeQuery();
 
                 // plan distribution of query
-                planDistribution(subplan);
+                planDistribution(plan);
 
                 // transition to starting
                 if (!stateMachine.transitionToStarting()) {
@@ -249,7 +250,7 @@ public final class SqlQueryExecution
         }
     }
 
-    private SubPlan analyzeQuery()
+    private PlanRoot analyzeQuery()
     {
         try {
             return doAnalyzeQuery();
@@ -259,7 +260,7 @@ public final class SqlQueryExecution
         }
     }
 
-    private SubPlan doAnalyzeQuery()
+    private PlanRoot doAnalyzeQuery()
     {
         // time analysis phase
         long analysisStart = System.nanoTime();
@@ -285,17 +286,18 @@ public final class SqlQueryExecution
         // record analysis time
         stateMachine.recordAnalysisTime(analysisStart);
 
-        return subplan;
+        boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
+        return new PlanRoot(subplan, !explainAnalyze);
     }
 
-    private void planDistribution(SubPlan subplan)
+    private void planDistribution(PlanRoot plan)
     {
         // time distribution planning
         long distributedPlanningStart = System.nanoTime();
 
         // plan the execution on the active nodes
         DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager);
-        StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan, stateMachine.getSession());
+        StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
         stateMachine.recordDistributedPlanningTime(distributedPlanningStart);
 
         if (stateMachine.isDone()) {
@@ -314,6 +316,7 @@ public final class SqlQueryExecution
                 nodeScheduler,
                 remoteTaskFactory,
                 stateMachine.getSession(),
+                plan.isSummarizeTaskInfos(),
                 scheduleSplitBatchSize,
                 queryExecutor,
                 ROOT_OUTPUT_BUFFERS,
@@ -446,6 +449,28 @@ public final class SqlQueryExecution
             stageInfo = scheduler.getStageInfo();
         }
         return stateMachine.getQueryInfo(stageInfo);
+    }
+
+    private static class PlanRoot
+    {
+        private final SubPlan root;
+        private final boolean summarizeTaskInfos;
+
+        public PlanRoot(SubPlan root, boolean summarizeTaskInfos)
+        {
+            this.root = requireNonNull(root, "root is null");
+            this.summarizeTaskInfos = summarizeTaskInfos;
+        }
+
+        public SubPlan getRoot()
+        {
+            return root;
+        }
+
+        public boolean isSummarizeTaskInfos()
+        {
+            return summarizeTaskInfos;
+        }
     }
 
     public static class SqlQueryExecutionFactory

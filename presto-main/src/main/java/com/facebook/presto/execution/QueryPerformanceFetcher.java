@@ -11,16 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests;
+package com.facebook.presto.execution;
 
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
-
-public class TestTpchDistributedQueries
-        extends AbstractTestQueries
+public interface QueryPerformanceFetcher
 {
-    public TestTpchDistributedQueries()
-            throws Exception
-    {
-        super(createQueryRunner());
-    }
+    QueryInfo getQueryInfo(QueryId queryId);
 }
