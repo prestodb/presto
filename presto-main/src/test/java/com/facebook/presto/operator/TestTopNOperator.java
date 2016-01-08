@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.testing.MaterializedResult;
@@ -100,17 +101,14 @@ public class TestTopNOperator
     public void testMultiFieldKey()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
-                .row("a", 1)
-                .row("b", 2)
-                .pageBreak()
-                .row("f", 3)
-                .row("a", 4)
-                .pageBreak()
-                .row("d", 5)
-                .row("d", 7)
-                .row("e", 6)
-                .build();
+        RowPagesBuilder builder = rowPagesBuilder(VARCHAR, BIGINT);
+
+        for (int i = 0; i < 1_000_000; i++) {
+            builder = builder.row(String.format("%010d", i), i)
+                             .row(String.format("%010d", i), i + 1);
+        }
+
+        List<Page> input = builder.build();
 
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
@@ -123,9 +121,9 @@ public class TestTopNOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
-                .row("f", 3)
-                .row("e", 6)
-                .row("d", 7)
+                .row("0000999999", 1_000_000)
+                .row("0000999999", 999_999)
+                .row("0000999998", 999_999)
                 .build();
 
         assertOperatorEquals(operator, input, expected);

@@ -109,6 +109,11 @@ public class PageBuilder
         return blockBuilders[channel];
     }
 
+    public BlockBuilder[] getBlockBuilders()
+    {
+        return blockBuilders;
+    }
+
     /**
      * Hack to declare positions when producing a page with no channels
      */
