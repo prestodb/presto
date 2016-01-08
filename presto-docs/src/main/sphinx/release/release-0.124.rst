@@ -29,6 +29,8 @@ General Changes
   ``optimizer.use-intermediate-aggregations`` config property or
   ``task_intermediate_aggregation`` session property.
 
+* Add math :func:`cut` which supports precision cut to the specific decimal.
+
 Hive Changes
 ------------
 

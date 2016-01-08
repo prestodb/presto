@@ -110,6 +110,14 @@ Mathematical Functions
 
     Returns ``x`` rounded to ``d`` decimal places.
 
+.. function:: cut(x) -> [same as input]
+
+    Returns ``x`` cut to the nearest integer.
+
+.. function:: cut(x, d) -> [same as input]
+
+    Returns ``x`` cut to ``d`` decimal places.
+
 .. function:: sqrt(x) -> double
 
     Returns the square root of ``x``.
