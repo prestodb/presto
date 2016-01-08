@@ -204,7 +204,6 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -381,10 +380,10 @@ public class FunctionRegistry
         }
         ImmutableList.Builder<TypeSignature> boundArguments = ImmutableList.builder();
         for (int i = 0; i < argumentTypes.size() - 1; i++) {
-            boundArguments.add(bindParameters(argumentTypes.get(i), boundParameters));
+            boundArguments.add(argumentTypes.get(i).bindParameters(boundParameters));
         }
         if (!argumentTypes.isEmpty()) {
-            TypeSignature lastArgument = bindParameters(argumentTypes.get(argumentTypes.size() - 1), boundParameters);
+            TypeSignature lastArgument = argumentTypes.get(argumentTypes.size() - 1).bindParameters(boundParameters);
             if (signature.isVariableArity()) {
                 for (int i = 0; i < types.size() - (argumentTypes.size() - 1); i++) {
                     boundArguments.add(lastArgument);
@@ -394,18 +393,7 @@ public class FunctionRegistry
                 boundArguments.add(lastArgument);
             }
         }
-        return new Signature(signature.getName(), signature.getKind(), bindParameters(signature.getReturnType(), boundParameters), boundArguments.build());
-    }
-
-    private static TypeSignature bindParameters(TypeSignature typeSignature, Map<String, Type> boundParameters)
-    {
-        List<TypeSignature> parameters = typeSignature.getParameters().stream().map(signature -> bindParameters(signature, boundParameters)).collect(toImmutableList());
-        String base = typeSignature.getBase();
-        if (boundParameters.containsKey(base)) {
-            verify(typeSignature.getLiteralParameters().isEmpty() && typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
-            return boundParameters.get(base).getTypeSignature();
-        }
-        return new TypeSignature(base, parameters, typeSignature.getLiteralParameters());
+        return new Signature(signature.getName(), signature.getKind(), signature.getReturnType().bindParameters(boundParameters), boundArguments.build());
     }
 
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
@@ -465,7 +453,7 @@ public class FunctionRegistry
             expectedParameters.add(format("%s(%s) %s",
                                     name,
                                     Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                                    Joiner.on(", ").join(function.getSignature().getTypeParameters())));
+                                    Joiner.on(", ").join(function.getSignature().getTypeParameterRequirements())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
         String message = format("Function %s not registered", name);
@@ -521,7 +509,7 @@ public class FunctionRegistry
     public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
     {
         checkArgument(signature.getKind() == WINDOW || signature.getKind() == AGGREGATE, "%s is not a window function", signature);
-        checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
+        checkArgument(signature.getTypeParameterRequirements().isEmpty(), "%s has unbound type parameters", signature);
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         for (SqlFunction operator : candidates) {
@@ -543,7 +531,7 @@ public class FunctionRegistry
     public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
     {
         checkArgument(signature.getKind() == AGGREGATE || signature.getKind() == APPROXIMATE_AGGREGATE, "%s is not an aggregate function", signature);
-        checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
+        checkArgument(signature.getTypeParameterRequirements().isEmpty(), "%s has unbound type parameters", signature);
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         for (SqlFunction operator : candidates) {
@@ -565,7 +553,7 @@ public class FunctionRegistry
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
     {
         checkArgument(signature.getKind() == SCALAR, "%s is not a scalar function", signature);
-        checkArgument(signature.getTypeParameters().isEmpty(), "%s has unbound type parameters", signature);
+        checkArgument(signature.getTypeParameterRequirements().isEmpty(), "%s has unbound type parameters", signature);
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());

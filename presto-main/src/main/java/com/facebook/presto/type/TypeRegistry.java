@@ -13,16 +13,20 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -58,6 +62,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public final class TypeRegistry
@@ -120,27 +125,40 @@ public final class TypeRegistry
     }
 
     @Override
-    public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<Object> literalParameters)
+    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
-        return getType(new TypeSignature(baseTypeName, typeParameters, literalParameters));
+        return getType(new TypeSignature(baseTypeName, typeParameters));
+    }
+
+    @Override
+    @Deprecated
+    public Type getParameterizedType(String baseTypeName, List<TypeSignature> typeParameters, List<String> literalParameters)
+    {
+        if (baseTypeName.equals(StandardTypes.ROW)) {
+            return getType(new TypeSignature(baseTypeName, typeParameters, literalParameters));
+        }
+        return getParameterizedType(
+                baseTypeName,
+                typeParameters.stream().map(TypeSignatureParameter::of).collect(toList()));
     }
 
     private Type instantiateParametricType(TypeSignature signature)
     {
-        ImmutableList.Builder<Type> parameterTypes = ImmutableList.builder();
-        for (TypeSignature parameter : signature.getParameters()) {
-            Type parameterType = getType(parameter);
-            if (parameterType == null) {
+        List<TypeParameter> parameters = new ArrayList<>();
+
+        for (TypeSignatureParameter parameter : signature.getParameters()) {
+            TypeParameter typeParameter = TypeParameter.of(parameter, this);
+            if (typeParameter == null) {
                 return null;
             }
-            parameterTypes.add(parameterType);
+            parameters.add(typeParameter);
         }
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
             return null;
         }
-        Type instantiatedType = parametricType.createType(parameterTypes.build(), signature.getLiteralParameters());
+        Type instantiatedType = parametricType.createType(parameters);
         checkState(instantiatedType.getTypeSignature().equals(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
         return instantiatedType;
     }
@@ -286,12 +304,9 @@ public final class TypeRegistry
             return Optional.of(firstType);
         }
 
-        List<TypeSignature> firstTypeTypeParameters = firstType.getParameters();
-        List<TypeSignature> secondTypeTypeParameters = secondType.getParameters();
+        List<TypeSignatureParameter> firstTypeTypeParameters = firstType.getParameters();
+        List<TypeSignatureParameter> secondTypeTypeParameters = secondType.getParameters();
         if (firstTypeTypeParameters.size() != secondTypeTypeParameters.size()) {
-            return Optional.empty();
-        }
-        if (!firstType.getLiteralParameters().equals(secondType.getLiteralParameters())) {
             return Optional.empty();
         }
 
@@ -300,23 +315,38 @@ public final class TypeRegistry
             return Optional.empty();
         }
 
-        ImmutableList.Builder<TypeSignature> typeParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeSignatureParameter> typeParameters = ImmutableList.builder();
         for (int i = 0; i < firstTypeTypeParameters.size(); i++) {
-            if (isCovariantParameterPosition(commonSuperTypeBase.get(), i)) {
-                Optional<TypeSignature> commonSuperType = getCommonSuperTypeSignature(firstTypeTypeParameters.get(i), secondTypeTypeParameters.get(i));
+            TypeSignatureParameter firstParameter = firstTypeTypeParameters.get(i);
+            TypeSignatureParameter secondParameter = secondTypeTypeParameters.get(i);
+
+            if (firstParameter.getKind() == secondParameter.getKind() && firstParameter.getKind() == ParameterKind.LONG_LITERAL) {
+                typeParameters.add(TypeSignatureParameter.of(Math.max(
+                        firstParameter.getLongLiteral(),
+                        secondParameter.getLongLiteral())));
+            }
+            else if (isCovariantParameterPosition(commonSuperTypeBase.get(), i)) {
+                Optional<TypeSignature> firstParameterSignature = firstParameter.getTypeSignatureOrNamedTypeSignature();
+                Optional<TypeSignature> secondParameterSignature = secondParameter.getTypeSignatureOrNamedTypeSignature();
+                if (!firstParameterSignature.isPresent() || !secondParameterSignature.isPresent()) {
+                    return Optional.empty();
+                }
+
+                Optional<TypeSignature> commonSuperType = getCommonSuperTypeSignature(
+                        firstParameterSignature.get(), secondParameterSignature.get());
                 if (!commonSuperType.isPresent()) {
                     return Optional.empty();
                 }
-                typeParameters.add(commonSuperType.get());
+                typeParameters.add(TypeSignatureParameter.of(commonSuperType.get()));
             }
             else {
-                if (!firstTypeTypeParameters.get(i).equals(secondTypeTypeParameters.get(i))) {
+                if (!firstParameter.equals(secondParameter)) {
                     return Optional.empty();
                 }
-                typeParameters.add(firstTypeTypeParameters.get(i));
+                typeParameters.add(firstParameter);
             }
         }
 
-        return Optional.of(new TypeSignature(commonSuperTypeBase.get(), typeParameters.build(), firstType.getLiteralParameters()));
+        return Optional.of(new TypeSignature(commonSuperTypeBase.get(), typeParameters.build()));
     }
 }

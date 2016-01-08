@@ -59,8 +59,8 @@ public class TestExecuteResource
             throws Exception
     {
         String expected = "{\"columns\":[" +
-                "{\"name\":\"foo\",\"type\":\"bigint\",\"typeSignature\":{\"rawType\":\"bigint\",\"typeArguments\":[],\"literalArguments\":[]}}," +
-                "{\"name\":\"bar\",\"type\":\"varchar\",\"typeSignature\":{\"rawType\":\"varchar\",\"typeArguments\":[],\"literalArguments\":[]}}]," +
+                "{\"name\":\"foo\",\"type\":\"bigint\",\"typeSignature\":{\"rawType\":\"bigint\",\"typeArguments\":[]}}," +
+                "{\"name\":\"bar\",\"type\":\"varchar\",\"typeSignature\":{\"rawType\":\"varchar\",\"typeArguments\":[]}}]," +
                 "\"data\":[[123,\"abc\"]]}\n";
 
         StringResponse response = executeQuery("SELECT 123 foo, 'abc' bar");

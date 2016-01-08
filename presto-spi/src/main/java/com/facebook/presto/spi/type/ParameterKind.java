@@ -11,16 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeParameter;
+package com.facebook.presto.spi.type;
 
-import java.util.List;
-
-public interface ParametricType
+public enum ParameterKind
 {
-    String getName();
-
-    Type createType(List<TypeParameter> parameters);
+    TYPE_SIGNATURE,
+    NAMED_TYPE_SIGNATURE,
+    LONG_LITERAL
 }

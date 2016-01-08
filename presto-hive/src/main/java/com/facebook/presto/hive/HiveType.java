@@ -14,10 +14,12 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
@@ -234,10 +236,16 @@ public final class HiveType
             return getMapTypeInfo(keyType, valueType);
         }
         if (isRowType(type)) {
+            ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
+            for (TypeSignatureParameter parameter : type.getTypeSignature().getParameters()) {
+                if (!parameter.isNamedTypeSignature()) {
+                    throw new IllegalArgumentException(format("Expected all parameters to be named type, but got %s", parameter));
+                }
+                NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
+                fieldNames.add(namedTypeSignature.getName());
+            }
             return getStructTypeInfo(
-                    type.getTypeSignature().getLiteralParameters().stream()
-                            .map(String.class::cast)
-                            .collect(toList()),
+                    fieldNames.build(),
                     type.getTypeParameters().stream()
                             .map(HiveType::toTypeInfo)
                             .collect(toList()));
@@ -260,19 +268,22 @@ public final class HiveType
                 MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "fieldInspector");
                 TypeSignature keyType = getTypeSignature(mapTypeInfo.getMapKeyTypeInfo());
                 TypeSignature valueType = getTypeSignature(mapTypeInfo.getMapValueTypeInfo());
-                return new TypeSignature(StandardTypes.MAP, ImmutableList.of(keyType, valueType), ImmutableList.of());
+                return new TypeSignature(
+                        StandardTypes.MAP,
+                        ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
             case LIST:
                 ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "fieldInspector");
                 TypeSignature elementType = getTypeSignature(listTypeInfo.getListElementTypeInfo());
-                return new TypeSignature(StandardTypes.ARRAY, ImmutableList.of(elementType), ImmutableList.of());
+                return new TypeSignature(
+                        StandardTypes.ARRAY,
+                        ImmutableList.of(TypeSignatureParameter.of(elementType)));
             case STRUCT:
                 StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "fieldInspector");
-                List<Object> fieldNames = ImmutableList.copyOf(structTypeInfo.getAllStructFieldNames());
                 List<TypeSignature> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos()
                         .stream()
                         .map(HiveType::getTypeSignature)
                         .collect(toList());
-                return new TypeSignature(StandardTypes.ROW, fieldTypes, fieldNames);
+                return new TypeSignature(StandardTypes.ROW, fieldTypes, structTypeInfo.getAllStructFieldNames());
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }

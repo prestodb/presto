@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
@@ -45,7 +46,7 @@ public final class Signature
 {
     private final String name;
     private final FunctionKind kind;
-    private final List<TypeParameter> typeParameters;
+    private final List<TypeParameterRequirement> typeParameterRequirements;
     private final TypeSignature returnType;
     private final List<TypeSignature> argumentTypes;
     private final boolean variableArity;
@@ -54,30 +55,30 @@ public final class Signature
     public Signature(
             @JsonProperty("name") String name,
             @JsonProperty("kind") FunctionKind kind,
-            @JsonProperty("typeParameters") List<TypeParameter> typeParameters,
+            @JsonProperty("typeParameterRequirements") List<TypeParameterRequirement> typeParameterRequirements,
             @JsonProperty("returnType") TypeSignature returnType,
             @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
             @JsonProperty("variableArity") boolean variableArity)
     {
         requireNonNull(name, "name is null");
-        requireNonNull(typeParameters, "typeParameters is null");
+        requireNonNull(typeParameterRequirements, "typeParameters is null");
 
         this.name = name;
         this.kind = requireNonNull(kind, "type is null");
-        this.typeParameters = ImmutableList.copyOf(typeParameters);
+        this.typeParameterRequirements = ImmutableList.copyOf(typeParameterRequirements);
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
     }
 
-    public Signature(String name, FunctionKind kind, List<TypeParameter> typeParameters, String returnType, List<String> argumentTypes, boolean variableArity)
+    public Signature(String name, FunctionKind kind, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes, boolean variableArity)
     {
-        this(name, kind, typeParameters, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), variableArity);
+        this(name, kind, typeParameterRequirements, parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), variableArity);
     }
 
     public Signature(String name, FunctionKind kind, String returnType, List<String> argumentTypes)
     {
-        this(name, kind, ImmutableList.<TypeParameter>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), false);
+        this(name, kind, ImmutableList.<TypeParameterRequirement>of(), parseTypeSignature(returnType), Lists.transform(argumentTypes, TypeSignature::parseTypeSignature), false);
     }
 
     public Signature(String name, FunctionKind kind, String returnType, String... argumentTypes)
@@ -87,7 +88,7 @@ public final class Signature
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        this(name, kind, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false);
+        this(name, kind, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false);
     }
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
@@ -117,7 +118,7 @@ public final class Signature
 
     public static Signature internalScalarFunction(String name, String returnType, List<String> argumentTypes)
     {
-        return new Signature(name, SCALAR, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false);
+        return new Signature(name, SCALAR, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false);
     }
 
     public static Signature internalScalarFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)
@@ -127,7 +128,7 @@ public final class Signature
 
     public static Signature internalScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return new Signature(name, SCALAR, ImmutableList.<TypeParameter>of(), returnType, argumentTypes, false);
+        return new Signature(name, SCALAR, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false);
     }
 
     @JsonProperty
@@ -161,20 +162,20 @@ public final class Signature
     }
 
     @JsonProperty
-    public List<TypeParameter> getTypeParameters()
+    public List<TypeParameterRequirement> getTypeParameterRequirements()
     {
-        return typeParameters;
+        return typeParameterRequirements;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, kind, typeParameters, returnType, argumentTypes, variableArity);
+        return Objects.hash(name, kind, typeParameterRequirements, returnType, argumentTypes, variableArity);
     }
 
     Signature withAlias(String name)
     {
-        return new Signature(name, kind, typeParameters, getReturnType(), getArgumentTypes(), variableArity);
+        return new Signature(name, kind, typeParameterRequirements, getReturnType(), getArgumentTypes(), variableArity);
     }
 
     @Override
@@ -189,7 +190,7 @@ public final class Signature
         Signature other = (Signature) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.kind, other.kind) &&
-                Objects.equals(this.typeParameters, other.typeParameters) &&
+                Objects.equals(this.typeParameterRequirements, other.typeParameterRequirements) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
                 Objects.equals(this.variableArity, other.variableArity);
@@ -198,19 +199,19 @@ public final class Signature
     @Override
     public String toString()
     {
-        return name + (typeParameters.isEmpty() ? "" : "<" + Joiner.on(",").join(typeParameters) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        return name + (typeParameterRequirements.isEmpty() ? "" : "<" + Joiner.on(",").join(typeParameterRequirements) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 
     @Nullable
     public Map<String, Type> bindTypeParameters(Type returnType, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
-        ImmutableMap.Builder<String, TypeParameter> builder = ImmutableMap.builder();
-        for (TypeParameter parameter : typeParameters) {
+        ImmutableMap.Builder<String, TypeParameterRequirement> builder = ImmutableMap.builder();
+        for (TypeParameterRequirement parameter : typeParameterRequirements) {
             builder.put(parameter.getName(), parameter);
         }
 
-        ImmutableMap<String, TypeParameter> parameters = builder.build();
+        ImmutableMap<String, TypeParameterRequirement> parameters = builder.build();
         if (!matchAndBind(boundParameters, parameters, this.returnType, returnType, allowCoercion, typeManager)) {
             return null;
         }
@@ -232,12 +233,12 @@ public final class Signature
     public Map<String, Type> bindTypeParameters(List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
-        ImmutableMap.Builder<String, TypeParameter> builder = ImmutableMap.builder();
-        for (TypeParameter parameter : typeParameters) {
+        ImmutableMap.Builder<String, TypeParameterRequirement> builder = ImmutableMap.builder();
+        for (TypeParameterRequirement parameter : typeParameterRequirements) {
             builder.put(parameter.getName(), parameter);
         }
 
-        ImmutableMap<String, TypeParameter> parameters = builder.build();
+        ImmutableMap<String, TypeParameterRequirement> parameters = builder.build();
         if (!matchArguments(boundParameters, parameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
             return null;
         }
@@ -249,7 +250,7 @@ public final class Signature
 
     private static boolean matchArguments(
             Map<String, Type> boundParameters,
-            Map<String, TypeParameter> parameters,
+            Map<String, TypeParameterRequirement> parameters,
             List<TypeSignature> argumentTypes,
             List<? extends Type> types,
             boolean allowCoercion,
@@ -290,11 +291,12 @@ public final class Signature
         return true;
     }
 
-    private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameter> typeParameters, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
+    private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameterRequirement> typeParameters, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
     {
+        List<TypeSignatureParameter> parameters = parameter.getParameters();
         // If this parameter is already bound, then match (with coercion)
         if (boundParameters.containsKey(parameter.getBase())) {
-            checkArgument(parameter.getParameters().isEmpty(), "Unexpected parameteric type");
+            checkArgument(parameters.isEmpty(), "Unexpected parameteric type");
             if (allowCoercion) {
                 if (canCoerce(type, boundParameters.get(parameter.getBase()))) {
                     return true;
@@ -312,13 +314,27 @@ public final class Signature
         }
 
         // Recurse into component types
-        if (!parameter.getParameters().isEmpty()) {
-            if (type.getTypeParameters().size() != parameter.getParameters().size()) {
+        if (!parameters.isEmpty()) {
+            // TODO: add support for types with both literal and type parameters? Now for such types this check will fail
+            if (type.getTypeParameters().size() != parameters.size()) {
                 return false;
             }
-            for (int i = 0; i < parameter.getParameters().size(); i++) {
+            for (int i = 0; i < parameters.size(); i++) {
                 Type componentType = type.getTypeParameters().get(i);
-                TypeSignature componentSignature = parameter.getParameters().get(i);
+                TypeSignatureParameter componentParameter = parameters.get(i);
+                TypeSignature componentSignature;
+                switch (componentParameter.getKind()) {
+                    case TYPE_SIGNATURE:
+                        componentSignature = componentParameter.getTypeSignature();
+                        break;
+                    case NAMED_TYPE_SIGNATURE:
+                        componentSignature = componentParameter.getNamedTypeSignature().getTypeSignature();
+                        break;
+                    default:
+                        // TODO: add support for types with both literal and type parameters?
+                        return false;
+                }
+
                 if (!matchAndBind(boundParameters, typeParameters, componentSignature, componentType, allowCoercion, typeManager)) {
                     return false;
                 }
@@ -327,8 +343,8 @@ public final class Signature
 
         // Bind parameter, if this is a free type parameter
         if (typeParameters.containsKey(parameter.getBase())) {
-            TypeParameter typeParameter = typeParameters.get(parameter.getBase());
-            if (!typeParameter.canBind(type)) {
+            TypeParameterRequirement typeParameterRequirement = typeParameters.get(parameter.getBase());
+            if (!typeParameterRequirement.canBind(type)) {
                 return false;
             }
             boundParameters.put(parameter.getBase(), type);
@@ -336,7 +352,7 @@ public final class Signature
         }
 
         // We've already checked all the components, so just match the base type
-        if (!parameter.getParameters().isEmpty()) {
+        if (!parameters.isEmpty()) {
             return type.getTypeSignature().getBase().equals(parameter.getBase());
         }
 
@@ -352,28 +368,28 @@ public final class Signature
     /*
      * similar to T extends MyClass<?...>, if Java supported varargs wildcards
      */
-    public static TypeParameter withVariadicBound(String name, String variadicBound)
+    public static TypeParameterRequirement withVariadicBound(String name, String variadicBound)
     {
-        return new TypeParameter(name, false, false, variadicBound);
+        return new TypeParameterRequirement(name, false, false, variadicBound);
     }
 
-    public static TypeParameter comparableWithVariadicBound(String name, String variadicBound)
+    public static TypeParameterRequirement comparableWithVariadicBound(String name, String variadicBound)
     {
-        return new TypeParameter(name, true, false, variadicBound);
+        return new TypeParameterRequirement(name, true, false, variadicBound);
     }
 
-    public static TypeParameter typeParameter(String name)
+    public static TypeParameterRequirement typeParameter(String name)
     {
-        return new TypeParameter(name, false, false, null);
+        return new TypeParameterRequirement(name, false, false, null);
     }
 
-    public static TypeParameter comparableTypeParameter(String name)
+    public static TypeParameterRequirement comparableTypeParameter(String name)
     {
-        return new TypeParameter(name, true, false, null);
+        return new TypeParameterRequirement(name, true, false, null);
     }
 
-    public static TypeParameter orderableTypeParameter(String name)
+    public static TypeParameterRequirement orderableTypeParameter(String name)
     {
-        return new TypeParameter(name, false, true, null);
+        return new TypeParameterRequirement(name, false, true, null);
     }
 }
