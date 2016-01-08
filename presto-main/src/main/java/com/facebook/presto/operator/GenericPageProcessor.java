@@ -50,6 +50,9 @@ public class GenericPageProcessor
     private final Block[] inputDictionaries;
     private final Block[] outputDictionaries;
 
+    private Block inputFilterDictionary;
+    private boolean[] filterResult;
+
     public GenericPageProcessor(FilterFunction filterFunction, Iterable<? extends ProjectionFunction> projections)
     {
         this.filterFunction = filterFunction;
@@ -256,9 +259,17 @@ public class GenericPageProcessor
                 Block[] blocks = new Block[page.getPositionCount()];
                 blocks[channel] = dictionary;
 
-                boolean[] selectedDictionaryPositions = new boolean[dictionary.getPositionCount()];
-                for (int i = 0; i < dictionary.getPositionCount(); i++) {
-                    selectedDictionaryPositions[i] = filterFunction.filter(i, blocks);
+                boolean[] selectedDictionaryPositions;
+                if (inputFilterDictionary == dictionary) {
+                    selectedDictionaryPositions = filterResult;
+                }
+                else {
+                    selectedDictionaryPositions = new boolean[dictionary.getPositionCount()];
+                    for (int i = 0; i < dictionary.getPositionCount(); i++) {
+                        selectedDictionaryPositions[i] = filterFunction.filter(i, blocks);
+                    }
+                    inputFilterDictionary = dictionary;
+                    filterResult = selectedDictionaryPositions;
                 }
 
                 for (int i = 0; i < page.getPositionCount(); i++) {
