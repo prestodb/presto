@@ -16,10 +16,13 @@ package com.facebook.presto.raptor.systemtables;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
+import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.raptor.metadata.Table;
+import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.RecordCursor;
@@ -29,15 +32,14 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTime;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -51,10 +53,10 @@ import java.util.UUID;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
-import static com.facebook.presto.spi.predicate.Range.greaterThan;
 import static com.facebook.presto.spi.predicate.Range.lessThanOrEqual;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -72,12 +74,13 @@ public class TestShardMetadataRecordCursor
 
     private Handle dummyHandle;
     private ConnectorMetadata metadata;
-    private IDBI dbi;
+    private DBI dbi;
 
     @BeforeMethod
     public void setup()
     {
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi.registerMapper(new TableColumn.Mapper(new TypeRegistry()));
         this.dummyHandle = dbi.open();
         this.metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, createShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
         // Create table
@@ -95,19 +98,28 @@ public class TestShardMetadataRecordCursor
     }
 
     @Test
-    public void testSimple()
+    public void testTemporalColumnDate()
             throws Exception
     {
         ShardManager shardManager = createShardManager(dbi);
 
-        // Add shards to the table
-        long tableId = 1;
+        SchemaTableName tableName = new SchemaTableName("testsimple", "orders");
+        metadata.createTable(SESSION, tableMetadataBuilder(tableName)
+                .property("temporal_column", "orderdate")
+                .column("orderkey", BIGINT)
+                .column("orderdate", DATE)
+                .build());
+
+        MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
+        Table tableInformation = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
+        long tableId = tableInformation.getTableId();
+
         UUID uuid1 = UUID.randomUUID();
         UUID uuid2 = UUID.randomUUID();
         UUID uuid3 = UUID.randomUUID();
-        ShardInfo shardInfo1 = new ShardInfo(uuid1, ImmutableSet.of("node1"), ImmutableList.of(), 1, 10, 100);
-        ShardInfo shardInfo2 = new ShardInfo(uuid2, ImmutableSet.of("node2"), ImmutableList.of(), 2, 20, 200);
-        ShardInfo shardInfo3 = new ShardInfo(uuid3, ImmutableSet.of("node3"), ImmutableList.of(), 3, 30, 300);
+        ShardInfo shardInfo1 = new ShardInfo(uuid1, ImmutableSet.of("node1"), ImmutableList.of(new ColumnStats(2, 1, 2)), 1, 10, 100);
+        ShardInfo shardInfo2 = new ShardInfo(uuid2, ImmutableSet.of("node2"), ImmutableList.of(new ColumnStats(2, 1, 1)), 2, 20, 200);
+        ShardInfo shardInfo3 = new ShardInfo(uuid3, ImmutableSet.of("node3"), ImmutableList.of(new ColumnStats(2, 3, 3)), 3, 30, 300);
         List<ShardInfo> shards = ImmutableList.of(shardInfo1, shardInfo2, shardInfo3);
 
         long transactionId = shardManager.beginTransaction();
@@ -121,31 +133,144 @@ public class TestShardMetadataRecordCursor
                 shards,
                 Optional.empty());
 
-        Slice schema = utf8Slice(DEFAULT_TEST_ORDERS.getSchemaName());
-        Slice table = utf8Slice(DEFAULT_TEST_ORDERS.getTableName());
+        Slice schema = utf8Slice(tableName.getSchemaName());
+        Slice table = utf8Slice(tableName.getTableName());
 
-        DateTime date1 = DateTime.parse("2015-01-01T00:00");
-        DateTime date2 = DateTime.parse("2015-01-02T00:00");
-        TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
-                ImmutableMap.<Integer, Domain>builder()
-                        .put(0, Domain.singleValue(VARCHAR, schema))
-                        .put(1, Domain.create(ValueSet.ofRanges(lessThanOrEqual(VARCHAR, table)), true))
-                        .put(6, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true))
-                        .put(7, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true))
-                        .build());
-
+        TupleDomain<Integer> predicate = TupleDomain.all();
         List<MaterializedRow> actual;
-        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, tupleDomain)) {
+        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, predicate)) {
             actual = getMaterializedResults(cursor, SHARD_METADATA.getColumns());
         }
         assertEquals(actual.size(), 3);
 
         List<MaterializedRow> expected = ImmutableList.of(
-                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid1.toString()), 100, 10, 1),
-                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid2.toString()), 200, 20, 2),
-                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid3.toString()), 300, 30, 3));
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid1.toString()), 100, 10, 1, null, null, 1, 2),
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid2.toString()), 200, 20, 2, null, null, 1, 1),
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid3.toString()), 300, 30, 3, null, null, 3, 3));
 
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testTemporalColumnTimestamp()
+            throws Exception
+    {
+        ShardManager shardManager = createShardManager(dbi);
+
+        SchemaTableName tableName = new SchemaTableName("testsimple", "orders");
+        metadata.createTable(SESSION, tableMetadataBuilder(tableName)
+                .property("temporal_column", "orderdate")
+                .column("orderkey", BIGINT)
+                .column("orderdate", TIMESTAMP)
+                .build());
+
+        MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
+        Table tableInformation = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
+        long tableId = tableInformation.getTableId();
+
+        UUID uuid1 = UUID.randomUUID();
+        UUID uuid2 = UUID.randomUUID();
+        UUID uuid3 = UUID.randomUUID();
+        ShardInfo shardInfo1 = new ShardInfo(uuid1, ImmutableSet.of("node1"), ImmutableList.of(new ColumnStats(2, 1, 2)), 1, 10, 100);
+        ShardInfo shardInfo2 = new ShardInfo(uuid2, ImmutableSet.of("node2"), ImmutableList.of(new ColumnStats(2, 1, 1)), 2, 20, 200);
+        ShardInfo shardInfo3 = new ShardInfo(uuid3, ImmutableSet.of("node3"), ImmutableList.of(new ColumnStats(2, 3, 3)), 3, 30, 300);
+        List<ShardInfo> shards = ImmutableList.of(shardInfo1, shardInfo2, shardInfo3);
+
+        long transactionId = shardManager.beginTransaction();
+
+        shardManager.commitShards(
+                transactionId,
+                tableId,
+                ImmutableList.of(
+                        new ColumnInfo(1, BIGINT),
+                        new ColumnInfo(2, DATE)),
+                shards,
+                Optional.empty());
+
+        Slice schema = utf8Slice(tableName.getSchemaName());
+        Slice table = utf8Slice(tableName.getTableName());
+
+        TupleDomain<Integer> predicate = TupleDomain.all();
+        List<MaterializedRow> actual;
+        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, predicate)) {
+            actual = getMaterializedResults(cursor, SHARD_METADATA.getColumns());
+        }
+        assertEquals(actual.size(), 3);
+
+        List<MaterializedRow> expected = ImmutableList.of(
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid1.toString()), 100, 10, 1, 1, 2, null, null),
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid2.toString()), 200, 20, 2, 1, 1, null, null),
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid3.toString()), 300, 30, 3, 3, 3, null, null));
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testPredicate()
+            throws Exception
+    {
+        ShardManager shardManager = createShardManager(dbi);
+
+        SchemaTableName tableName = new SchemaTableName("testsimple", "orders");
+        metadata.createTable(SESSION, tableMetadataBuilder(tableName)
+                .property("temporal_column", "orderdate")
+                .column("orderkey", BIGINT)
+                .column("orderdate", TIMESTAMP)
+                .build());
+
+        MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
+        Table tableInformation = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
+        long tableId = tableInformation.getTableId();
+
+        UUID uuid1 = UUID.randomUUID();
+        UUID uuid2 = UUID.randomUUID();
+        UUID uuid3 = UUID.randomUUID();
+        ShardInfo shardInfo1 = new ShardInfo(uuid1, ImmutableSet.of("node1"), ImmutableList.of(new ColumnStats(2, 1, 2)), 1, 10, 100);
+        ShardInfo shardInfo2 = new ShardInfo(uuid2, ImmutableSet.of("node2"), ImmutableList.of(new ColumnStats(2, 1, 1)), 2, 20, 200);
+        ShardInfo shardInfo3 = new ShardInfo(uuid3, ImmutableSet.of("node3"), ImmutableList.of(new ColumnStats(2, 3, 3)), 3, 30, 300);
+        List<ShardInfo> shards = ImmutableList.of(shardInfo1, shardInfo2, shardInfo3);
+
+        long transactionId = shardManager.beginTransaction();
+
+        shardManager.commitShards(
+                transactionId,
+                tableId,
+                ImmutableList.of(
+                        new ColumnInfo(1, BIGINT),
+                        new ColumnInfo(2, DATE)),
+                shards,
+                Optional.empty());
+
+        Slice schema = utf8Slice(tableName.getSchemaName());
+        Slice table = utf8Slice(tableName.getTableName());
+
+        TupleDomain<Integer> predicate = TupleDomain.withColumnDomains(
+                ImmutableMap.<Integer, Domain>builder()
+                        .put(getIndexOf("row_count"), Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 2L)), true))
+                        .put(getIndexOf("compressed_size"), Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, 20L)), true))
+                        .build());
+        List<MaterializedRow> actual;
+        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, predicate)) {
+            actual = getMaterializedResults(cursor, SHARD_METADATA.getColumns());
+        }
+        assertEquals(actual.size(), 2);
+
+        List<MaterializedRow> expected = ImmutableList.of(
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid1.toString()), 100, 10, 1, 1, 2, null, null),
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid2.toString()), 200, 20, 2, 1, 1, null, null));
+
+        assertEquals(actual, expected);
+    }
+
+    private static int getIndexOf(String columnName)
+    {
+        List<ColumnMetadata> columns = SHARD_METADATA.getColumns();
+        for (int i = 0; i < columns.size(); i++) {
+            if (columnName.equals(columns.get(i).getName())) {
+                return i;
+            }
+        }
+        throw new IllegalArgumentException("invalid column name");
     }
 
     @Test
@@ -217,9 +342,9 @@ public class TestShardMetadataRecordCursor
                 Type type = columns.get(i).getType();
                 Class<?> javaType = type.getJavaType();
                 if (cursor.isNull(i)) {
-                    continue;
+                    values.add(i, null);
                 }
-                if (javaType == boolean.class) {
+                else if (javaType == boolean.class) {
                     values.add(i, cursor.getBoolean(i));
                 }
                 else if (javaType == long.class) {
