@@ -45,12 +45,12 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +78,7 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
@@ -101,7 +102,8 @@ public class PageProcessorCompiler
         for (int i = 0; i < projections.size(); i++) {
             MethodDefinition project = generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, "project_" + i, projections.get(i));
             MethodDefinition projectColumnar = generateProjectColumnarMethod(classDefinition, callSiteBinder, "projectColumnar_" + i, projections.get(i), project);
-            MethodDefinition projectDictionary = generateProjectDictionaryMethod(classDefinition, "projectDictionary_" + i, projections.get(i), project, projectColumnar);
+            MethodDefinition projectRLE = generateProjectRLEMethod(classDefinition, "projectRLE_" + i, projections.get(i), project, projectColumnar);
+            MethodDefinition projectDictionary = generateProjectDictionaryMethod(classDefinition, "projectDictionary_" + i, projections.get(i), project, projectColumnar, projectRLE);
 
             projectMethods.add(project);
             projectColumnarMethods.add(projectColumnar);
@@ -317,12 +319,70 @@ public class PageProcessorCompiler
         return method;
     }
 
+    private static MethodDefinition generateProjectRLEMethod(
+            ClassDefinition classDefinition,
+            String methodName,
+            RowExpression projection,
+            MethodDefinition projectionMethod,
+            MethodDefinition projectColumnar)
+    {
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter page = arg("page", Page.class);
+        Parameter selectedPositions = arg("selectedPositions", int[].class);
+        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
+        Parameter projectionIndex = arg("projectionIndex", int.class);
+
+        List<Parameter> params = ImmutableList.<Parameter>builder()
+                .add(session)
+                .add(page)
+                .add(selectedPositions)
+                .add(pageBuilder)
+                .add(projectionIndex)
+                .build();
+        MethodDefinition method = classDefinition.declareMethod(a(PRIVATE), methodName, type(Block.class), params);
+
+        BytecodeBlock body = method.getBody();
+        Scope scope = method.getScope();
+        Variable thisVariable = method.getThis();
+        List<Integer> inputChannels = getInputChannels(projection);
+
+        if (inputChannels.size() != 1) {
+            body.append(thisVariable.invoke(projectColumnar, params)
+                    .ret());
+            return method;
+        }
+
+        Variable inputBlock = scope.declareVariable("inputBlock", body, page.invoke("getBlock", Block.class, constantInt(getOnlyElement(inputChannels))));
+        body.append(new IfStatement()
+                .condition(inputBlock.instanceOf(RunLengthEncodedBlock.class))
+                .ifFalse(thisVariable.invoke(projectColumnar, params)
+                        .ret()));
+
+        Variable valueBlock = scope.declareVariable("valueBlock", body, inputBlock.cast(RunLengthEncodedBlock.class).invoke("getValue", Block.class));
+        Variable blockBuilder = scope.declareVariable("blockBuilder", body, pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, projectionIndex));
+
+        body.append(invokeProject(
+                thisVariable,
+                session,
+                Collections.singletonList(valueBlock),
+                constantInt(0),
+                pageBuilder,
+                projectionIndex,
+                projectionMethod));
+        Variable outputValueBlock = scope.declareVariable("outputValueBlock", body, blockBuilder.invoke("build", Block.class));
+        body.append(newInstance(RunLengthEncodedBlock.class, outputValueBlock, selectedPositions.length())
+                .ret());
+
+        return method;
+    }
+
     private static MethodDefinition generateProjectDictionaryMethod(
             ClassDefinition classDefinition,
             String methodName,
             RowExpression projection,
             MethodDefinition project,
-            MethodDefinition projectColumnar)
+            MethodDefinition projectColumnar,
+            MethodDefinition projectRLE)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
@@ -361,12 +421,17 @@ public class PageProcessorCompiler
             return method;
         }
 
-        Variable inputBlock = scope.declareVariable("inputBlock", body, page.invoke("getBlock", Block.class, constantInt(Iterables.getOnlyElement(inputChannels))));
-        IfStatement ifStatement = new IfStatement()
+        Variable inputBlock = scope.declareVariable("inputBlock", body, page.invoke("getBlock", Block.class, constantInt(getOnlyElement(inputChannels))));
+
+        body.append(new IfStatement()
+                .condition(inputBlock.instanceOf(RunLengthEncodedBlock.class))
+                .ifTrue(thisVariable.invoke(projectRLE, columnarParams)
+                        .ret()));
+
+        body.append(new IfStatement()
                 .condition(inputBlock.instanceOf(DictionaryBlock.class))
                 .ifFalse(thisVariable.invoke(projectColumnar, columnarParams)
-                        .ret());
-        body.append(ifStatement);
+                        .ret()));
 
         Variable blockBuilder = scope.declareVariable("blockBuilder", body, pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, projectionIndex));
         Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
@@ -650,15 +715,15 @@ public class PageProcessorCompiler
     private static boolean isIdentityExpression(RowExpression expression)
     {
         List<RowExpression> rowExpressions = Expressions.subExpressions(ImmutableList.of(expression));
-        return rowExpressions.size() == 1 && Iterables.getOnlyElement(rowExpressions) instanceof InputReferenceExpression;
+        return rowExpressions.size() == 1 && getOnlyElement(rowExpressions) instanceof InputReferenceExpression;
     }
 
     private static boolean isConstantExpression(RowExpression expression)
     {
         List<RowExpression> rowExpressions = Expressions.subExpressions(ImmutableList.of(expression));
         return rowExpressions.size() == 1 &&
-                Iterables.getOnlyElement(rowExpressions) instanceof ConstantExpression &&
-                ((ConstantExpression) Iterables.getOnlyElement(rowExpressions)).getValue() != null;
+                getOnlyElement(rowExpressions) instanceof ConstantExpression &&
+                ((ConstantExpression) getOnlyElement(rowExpressions)).getValue() != null;
     }
 
     private static List<Integer> getInputChannels(Iterable<RowExpression> expressions)
