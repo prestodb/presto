@@ -107,6 +107,15 @@ public class TestPageProcessorCompiler
 
         DictionaryBlock dictionaryBlock = (DictionaryBlock) outputPage.getBlock(0);
         assertEquals(dictionaryBlock.getDictionary().getPositionCount(), 10);
+
+        // test filter caching
+        Page outputPage2 = processor.processColumnarDictionary(null, page, ImmutableList.of(VARCHAR));
+        assertEquals(outputPage2.getPositionCount(), 100);
+        assertTrue(outputPage2.getBlock(0) instanceof DictionaryBlock);
+
+        DictionaryBlock dictionaryBlock2 = (DictionaryBlock) outputPage2.getBlock(0);
+        // both output pages must have the same dictionary
+        assertEquals(dictionaryBlock2.getDictionary(), dictionaryBlock.getDictionary());
     }
 
     @Test

@@ -132,6 +132,9 @@ public class PageProcessorCompiler
         FieldDefinition inputDictionaries = classDefinition.declareField(a(PRIVATE, FINAL), "inputDictionaries", Block[].class);
         FieldDefinition outputDictionaries = classDefinition.declareField(a(PRIVATE, FINAL), "outputDictionaries", Block[].class);
 
+        FieldDefinition inputFilterDictionary = classDefinition.declareField(a(PRIVATE), "inputFilterDictionary", Block.class);
+        FieldDefinition filterResult = classDefinition.declareField(a(PRIVATE), "filterResult", boolean[].class);
+
         BytecodeBlock body = constructorDefinition.getBody();
         Variable thisVariable = constructorDefinition.getThis();
 
@@ -141,6 +144,10 @@ public class PageProcessorCompiler
 
         body.append(thisVariable.setField(inputDictionaries, newArray(type(Block[].class), projectionCount)));
         body.append(thisVariable.setField(outputDictionaries, newArray(type(Block[].class), projectionCount)));
+
+        body.append(thisVariable.setField(inputFilterDictionary, constantNull(Block.class)));
+        body.append(thisVariable.setField(filterResult, constantNull(boolean[].class)));
+
         cachedInstanceBinder.generateInitializations(thisVariable, body);
         body.ret();
     }
@@ -681,6 +688,9 @@ public class PageProcessorCompiler
         Variable selectedPositions = scope.getVariable("selectedPositions");
         Variable thisVariable = scope.getThis();
 
+        BytecodeExpression inputFilterDictionary = thisVariable.getField("inputFilterDictionary", Block.class);
+        BytecodeExpression filterResult = thisVariable.getField("filterResult", boolean[].class);
+
         BytecodeBlock ifFilterOnDictionaryBlock = new BytecodeBlock();
 
         Variable dictionaryBlock = scope.declareVariable("dictionaryBlock", ifFilterOnDictionaryBlock, blockVariable.cast(DictionaryBlock.class));
@@ -688,12 +698,18 @@ public class PageProcessorCompiler
         Variable dictionaryPositionCount = scope.declareVariable("dictionaryPositionCount", ifFilterOnDictionaryBlock, dictionary.invoke("getPositionCount", int.class));
         Variable selectedDictionaryPositions = scope.declareVariable("selectedDictionaryPositions", ifFilterOnDictionaryBlock, newArray(type(boolean[].class), dictionaryPositionCount));
 
-        // filter dictionary
-        ifFilterOnDictionaryBlock.append(new ForLoop()
-                .initialize(position.set(constantInt(0)))
-                .condition(lessThan(position, dictionaryPositionCount))
-                .update(position.increment())
-                .body(selectedDictionaryPositions.setElement(position, invokeFilter(thisVariable, session, singletonList(dictionary), position))));
+        // if cached value is available use it else filter dictionary and cache it
+        ifFilterOnDictionaryBlock.append(new IfStatement()
+            .condition(equal(dictionary, inputFilterDictionary))
+            .ifTrue(selectedDictionaryPositions.set(filterResult))
+            .ifFalse(new BytecodeBlock()
+                .append(new ForLoop()
+                            .initialize(position.set(constantInt(0)))
+                            .condition(lessThan(position, dictionaryPositionCount))
+                            .update(position.increment())
+                            .body(selectedDictionaryPositions.setElement(position, invokeFilter(thisVariable, session, singletonList(dictionary), position))))
+                .append(thisVariable.setField("inputFilterDictionary", dictionary))
+                .append(thisVariable.setField("filterResult", selectedDictionaryPositions))));
 
         // create selected positions
         ifFilterOnDictionaryBlock.append(new ForLoop()
