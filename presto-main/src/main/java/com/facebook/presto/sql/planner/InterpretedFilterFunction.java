@@ -23,9 +23,11 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static java.lang.Boolean.TRUE;
@@ -34,6 +36,7 @@ public class InterpretedFilterFunction
         implements FilterFunction
 {
     private final ExpressionInterpreter evaluator;
+    private final Set<Integer> inputChannels;
 
     public InterpretedFilterFunction(
             Expression predicate,
@@ -54,6 +57,9 @@ public class InterpretedFilterFunction
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten);
 
         evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
+        InputReferenceExtractor inputReferenceExtractor = new InputReferenceExtractor();
+        inputReferenceExtractor.process(rewritten, null);
+        this.inputChannels = ImmutableSet.copyOf(inputReferenceExtractor.getInputChannels());
     }
 
     @Override
@@ -66,5 +72,11 @@ public class InterpretedFilterFunction
     public boolean filter(RecordCursor cursor)
     {
         return evaluator.evaluate(cursor) == TRUE;
+    }
+
+    @Override
+    public Set<Integer> getInputChannels()
+    {
+        return inputChannels;
     }
 }

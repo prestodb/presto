@@ -16,6 +16,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 
+import java.util.Set;
+
+import static java.util.Collections.emptySet;
+
 public final class FilterFunctions
 {
     public static final FilterFunction TRUE_FUNCTION = new TrueFilterFunction();
@@ -35,6 +39,12 @@ public final class FilterFunctions
         public boolean filter(RecordCursor cursor)
         {
             return true;
+        }
+
+        @Override
+        public Set<Integer> getInputChannels()
+        {
+            return emptySet();
         }
 
         @Override

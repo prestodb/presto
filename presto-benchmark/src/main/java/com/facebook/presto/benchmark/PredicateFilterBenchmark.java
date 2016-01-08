@@ -25,10 +25,12 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static java.util.Collections.singleton;
 
 public class PredicateFilterBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -71,6 +73,12 @@ public class PredicateFilterBenchmark
         public boolean filter(RecordCursor cursor)
         {
             return cursor.getDouble(0) >= minValue;
+        }
+
+        @Override
+        public Set<Integer> getInputChannels()
+        {
+            return singleton(0);
         }
     }
 

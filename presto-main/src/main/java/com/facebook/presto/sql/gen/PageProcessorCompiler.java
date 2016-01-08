@@ -48,13 +48,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -80,6 +81,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
 public class PageProcessorCompiler
@@ -364,7 +366,7 @@ public class PageProcessorCompiler
         body.append(invokeProject(
                 thisVariable,
                 session,
-                Collections.singletonList(valueBlock),
+                singletonList(valueBlock),
                 constantInt(0),
                 pageBuilder,
                 projectionIndex,
@@ -608,6 +610,8 @@ public class PageProcessorCompiler
 
         Variable positionCount = scope.declareVariable("positionCount", body, page.invoke("getPositionCount", int.class));
         Variable selectedPositions = scope.declareVariable("selectedPositions", body, newArray(type(int[].class), positionCount));
+        Variable selectedCount = scope.declareVariable("selectedCount", body, constantInt(0));
+        Variable position = scope.declareVariable(int.class, "position");
 
         List<Integer> filterChannels = getInputChannels(filter);
 
@@ -618,23 +622,94 @@ public class PageProcessorCompiler
             blockVariablesBuilder.add(blockVariable);
         }
         List<Variable> blockVariables = blockVariablesBuilder.build();
+        if (filterChannels.size() == 1) {
+            BytecodeBlock ifFilterOnDictionaryBlock = getBytecodeFilterOnDictionary(session, scope, blockVariables.get(0));
+            BytecodeBlock ifFilterOnRLEBlock = getBytecodeFilterOnRLE(session, scope, blockVariables.get(0));
 
-        Variable selectedCount = scope.declareVariable("selectedCount", body, constantInt(0));
-        Variable position = scope.declareVariable(int.class, "position");
+            body.append(new IfStatement()
+                    .condition(blockVariables.get(0).instanceOf(DictionaryBlock.class))
+                    .ifTrue(ifFilterOnDictionaryBlock));
 
-        IfStatement ifStatement = new IfStatement();
-        ifStatement.condition(invokeFilter(thisVariable, session, blockVariables, position))
-                .ifTrue()
-                .append(selectedPositions.setElement(selectedCount, position))
-                .append(selectedCount.increment());
+            body.append(new IfStatement()
+                    .condition(blockVariables.get(0).instanceOf(RunLengthEncodedBlock.class))
+                    .ifTrue(ifFilterOnRLEBlock));
+        }
 
         body.append(new ForLoop()
                 .initialize(position.set(constantInt(0)))
                 .condition(lessThan(position, positionCount))
                 .update(position.increment())
-                .body(ifStatement));
+                .body(new IfStatement()
+                        .condition(invokeFilter(thisVariable, session, blockVariables, position))
+                        .ifTrue(new BytecodeBlock()
+                                .append(selectedPositions.setElement(selectedCount, position))
+                                .append(selectedCount.increment()))));
 
-        body.append(invokeStatic(Arrays.class, "copyOf", int[].class, selectedPositions, selectedCount).ret());
+        body.append(invokeStatic(Arrays.class, "copyOf", int[].class, selectedPositions, selectedCount)
+                .ret());
+    }
+
+    private static BytecodeBlock getBytecodeFilterOnRLE(Parameter session, Scope scope, Variable blockVariable)
+    {
+        Variable positionCount = scope.getVariable("positionCount");
+        Variable thisVariable = scope.getThis();
+
+        BytecodeBlock ifFilterOnRLEBlock = new BytecodeBlock();
+        Variable rleBlock = scope.declareVariable("rleBlock", ifFilterOnRLEBlock, blockVariable.cast(RunLengthEncodedBlock.class));
+        Variable rleValue = scope.declareVariable("rleValue", ifFilterOnRLEBlock, rleBlock.invoke("getValue", Block.class));
+
+        ifFilterOnRLEBlock.append(new IfStatement()
+                .condition(invokeFilter(thisVariable, session, singletonList(rleValue), constantInt(0)))
+                .ifTrue(invokeStatic(IntStream.class, "range", IntStream.class, constantInt(0), positionCount)
+                        .invoke("toArray", int[].class)
+                        .ret())
+                .ifFalse(newArray(type(int[].class), constantInt(0))
+                        .ret()));
+
+        return ifFilterOnRLEBlock;
+    }
+
+    @NotNull
+    private static BytecodeBlock getBytecodeFilterOnDictionary(
+            Parameter session,
+            Scope scope,
+            Variable blockVariable)
+    {
+        Variable position = scope.getVariable("position");
+        Variable positionCount = scope.getVariable("positionCount");
+        Variable selectedCount = scope.getVariable("selectedCount");
+        Variable selectedPositions = scope.getVariable("selectedPositions");
+        Variable thisVariable = scope.getThis();
+
+        BytecodeBlock ifFilterOnDictionaryBlock = new BytecodeBlock();
+
+        Variable dictionaryBlock = scope.declareVariable("dictionaryBlock", ifFilterOnDictionaryBlock, blockVariable.cast(DictionaryBlock.class));
+        Variable dictionary = scope.declareVariable("dictionary", ifFilterOnDictionaryBlock, dictionaryBlock.invoke("getDictionary", Block.class));
+        Variable dictionaryPositionCount = scope.declareVariable("dictionaryPositionCount", ifFilterOnDictionaryBlock, dictionary.invoke("getPositionCount", int.class));
+        Variable selectedDictionaryPositions = scope.declareVariable("selectedDictionaryPositions", ifFilterOnDictionaryBlock, newArray(type(boolean[].class), dictionaryPositionCount));
+
+        // filter dictionary
+        ifFilterOnDictionaryBlock.append(new ForLoop()
+                .initialize(position.set(constantInt(0)))
+                .condition(lessThan(position, dictionaryPositionCount))
+                .update(position.increment())
+                .body(selectedDictionaryPositions.setElement(position, invokeFilter(thisVariable, session, singletonList(dictionary), position))));
+
+        // create selected positions
+        ifFilterOnDictionaryBlock.append(new ForLoop()
+                .initialize(position.set(constantInt(0)))
+                .condition(lessThan(position, positionCount))
+                .update(position.increment())
+                .body(new IfStatement()
+                        .condition(selectedDictionaryPositions.getElement(dictionaryBlock.invoke("getId", int.class, position)))
+                        .ifTrue(new BytecodeBlock()
+                                .append(selectedPositions.setElement(selectedCount, position))
+                                .append(selectedCount.increment()))));
+
+        // return selectedPositions
+        ifFilterOnDictionaryBlock.append(invokeStatic(Arrays.class, "copyOf", int[].class, selectedPositions, selectedCount)
+                .ret());
+        return ifFilterOnDictionaryBlock;
     }
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter)

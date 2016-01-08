@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.singleton;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @Test(singleThreaded = true)
@@ -84,6 +85,12 @@ public class TestFilterAndProjectOperator
             {
                 long value = cursor.getLong(0);
                 return 10 <= value && value < 20;
+            }
+
+            @Override
+            public Set<Integer> getInputChannels()
+            {
+                return singleton(1);
             }
         };
         OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
