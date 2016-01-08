@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Verify.verify;
@@ -245,6 +246,40 @@ public class GenericPageProcessor
     {
         int[] selected = new int[page.getPositionCount()];
         int index = 0;
+
+        if (filterFunction.getInputChannels().size() == 1) {
+            int channel = getOnlyElement(filterFunction.getInputChannels());
+            if (page.getBlock(channel) instanceof DictionaryBlock) {
+                DictionaryBlock dictionaryBlock = (DictionaryBlock) page.getBlock(channel);
+                Block dictionary = dictionaryBlock.getDictionary();
+
+                Block[] blocks = new Block[page.getPositionCount()];
+                blocks[channel] = dictionary;
+
+                boolean[] selectedDictionaryPositions = new boolean[dictionary.getPositionCount()];
+                for (int i = 0; i < dictionary.getPositionCount(); i++) {
+                    selectedDictionaryPositions[i] = filterFunction.filter(i, blocks);
+                }
+
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    if (selectedDictionaryPositions[dictionaryBlock.getId(i)]) {
+                        selected[index] = i;
+                        index++;
+                    }
+                }
+                return copyOf(selected, index);
+            }
+            if (page.getBlock(channel) instanceof RunLengthEncodedBlock) {
+                RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) page.getBlock(channel);
+                Block[] blocks = new Block[page.getPositionCount()];
+                blocks[channel] = rleBlock.getValue();
+                if (filterFunction.filter(0, blocks)) {
+                    return IntStream.range(0, page.getPositionCount()).toArray();
+                }
+                return new int[0];
+            }
+        }
+
         for (int position = 0; position < page.getPositionCount(); position++) {
             if (filterFunction.filter(position, page.getBlocks())) {
                 selected[index] = position;

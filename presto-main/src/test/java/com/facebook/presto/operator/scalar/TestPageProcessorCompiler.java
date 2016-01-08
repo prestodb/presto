@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.PageProcessor;
@@ -33,7 +32,11 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -54,7 +57,7 @@ public class TestPageProcessorCompiler
         ExpressionCompiler compiler = new ExpressionCompiler(metadata);
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
-        Signature signature = new Signature("concat", FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
+        Signature signature = new Signature("concat", SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
         projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(new InputReferenceExpression(0, arrayType), new InputReferenceExpression(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
@@ -83,6 +86,47 @@ public class TestPageProcessorCompiler
 
         RunLengthEncodedBlock rleBlock1 = (RunLengthEncodedBlock) outputPage.getBlock(1);
         assertEquals(VARCHAR.getSlice(rleBlock1.getValue(), 0), varcharValue);
+    }
+
+    @Test
+    public void testSanityFilterOnDictionary()
+            throws Exception
+    {
+        CallExpression lengthVarchar = new CallExpression(new Signature("length", SCALAR, "bigint", "varchar"), BIGINT, ImmutableList.of(new InputReferenceExpression(0, VARCHAR)));
+        Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
+        CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, new ConstantExpression(10L, BIGINT)));
+
+        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
+                .compilePageProcessor(filter, ImmutableList.of(new InputReferenceExpression(0, VARCHAR))).get();
+
+        Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
+        Page outputPage = processor.processColumnarDictionary(null, page, ImmutableList.of(VARCHAR));
+
+        assertEquals(outputPage.getPositionCount(), 100);
+        assertTrue(outputPage.getBlock(0) instanceof DictionaryBlock);
+
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) outputPage.getBlock(0);
+        assertEquals(dictionaryBlock.getDictionary().getPositionCount(), 10);
+    }
+
+    @Test
+    public void testSanityFilterOnRLE()
+            throws Exception
+    {
+        Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
+        CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(new InputReferenceExpression(0, BIGINT), new ConstantExpression(10L, BIGINT)));
+
+        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
+                .compilePageProcessor(filter, ImmutableList.of(new InputReferenceExpression(0, BIGINT))).get();
+
+        Page page = new Page(createRLEBlock(5L, 100));
+        Page outputPage = processor.processColumnarDictionary(null, page, ImmutableList.of(BIGINT));
+
+        assertEquals(outputPage.getPositionCount(), 100);
+        assertTrue(outputPage.getBlock(0) instanceof RunLengthEncodedBlock);
+
+        RunLengthEncodedBlock rle = (RunLengthEncodedBlock) outputPage.getBlock(0);
+        assertEquals(BIGINT.getLong(rle.getValue(), 0), 5L);
     }
 
     @Test
