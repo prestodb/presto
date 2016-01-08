@@ -195,7 +195,7 @@ public final class DateTimeFunctions
         DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withOffsetParsed();
-        return packDateTimeWithZone(formatter.parseDateTime(iso8601DateTime.toStringUtf8()));
+        return packDateTimeWithZone(parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8()));
     }
 
     @ScalarFunction("from_iso8601_date")
@@ -204,7 +204,7 @@ public final class DateTimeFunctions
     {
         DateTimeFormatter formatter = ISODateTimeFormat.dateElementParser()
                 .withChronology(UTC_CHRONOLOGY);
-        DateTime dateTime = formatter.parseDateTime(iso8601DateTime.toStringUtf8());
+        DateTime dateTime = parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8());
         return MILLISECONDS.toDays(dateTime.getMillis());
     }
 
