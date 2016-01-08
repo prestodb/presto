@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -136,10 +137,20 @@ public class GenericPageProcessor
 
     private Block projectColumnarDictionary(Page inputPage, int[] selectedPositions, ProjectionFunction projection, Map<DictionaryId, DictionaryId> dictionarySourceIds)
     {
+        int inputChannel = getOnlyElement(projection.getInputChannels());
+        Block[] blocks = new Block[inputPage.getChannelCount()];
+
+        if (inputPage.getBlock(inputChannel) instanceof RunLengthEncodedBlock) {
+            RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) inputPage.getBlock(inputChannel);
+            BlockBuilder builder = projection.getType().createBlockBuilder(new BlockBuilderStatus(), 1);
+            blocks[inputChannel] = rleBlock.getValue();
+            projection.project(0, blocks, builder);
+            return new RunLengthEncodedBlock(builder.build(), selectedPositions.length);
+        }
+
         Block outputDictionary = projectDictionary(projection, inputPage);
         int[] outputIds = filterIds(projection, inputPage, selectedPositions);
 
-        int inputChannel = getOnlyElement(projection.getInputChannels());
         DictionaryBlock dictionaryBlock = (DictionaryBlock) inputPage.getBlock(inputChannel);
 
         DictionaryId sourceId = dictionarySourceIds.get(dictionaryBlock.getDictionarySourceId());
@@ -196,10 +207,16 @@ public class GenericPageProcessor
 
     private static boolean canDictionaryProcess(ProjectionFunction projection, Page inputPage)
     {
+        if (!projection.isDeterministic()) {
+            return false;
+        }
+
         Set<Integer> inputChannels = projection.getInputChannels();
-        return projection.isDeterministic()
-                && inputChannels.size() == 1
-                && (inputPage.getBlock(getOnlyElement(inputChannels)) instanceof DictionaryBlock);
+        if (inputChannels.size() != 1) {
+            return false;
+        }
+        Block block = inputPage.getBlock(getOnlyElement(inputChannels));
+        return block instanceof DictionaryBlock || block instanceof RunLengthEncodedBlock;
     }
 
     private Page getNonLazyPage(Page page)
