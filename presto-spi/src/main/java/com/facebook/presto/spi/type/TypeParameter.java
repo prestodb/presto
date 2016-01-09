@@ -44,6 +44,11 @@ public class TypeParameter
         return new TypeParameter(ParameterKind.NAMED_TYPE_SIGNATURE, namedType);
     }
 
+    public static TypeParameter of(TypeLiteralCalculation literalCalculation)
+    {
+        return new TypeParameter(ParameterKind.LITERAL_CALCULATION, literalCalculation);
+    }
+
     public static TypeParameter of(TypeSignatureParameter parameter, TypeManager typeManager)
     {
         switch (parameter.getKind()) {
@@ -65,6 +70,8 @@ public class TypeParameter
                         parameter.getNamedTypeSignature().getName(),
                         type));
             }
+            case LITERAL_CALCULATION:
+                return of(parameter.getLiteralCalculation());
             default:
                 throw new UnsupportedOperationException(format("Unsupported parameter [%s]", parameter));
         }
@@ -83,6 +90,11 @@ public class TypeParameter
         return target.cast(value);
     }
 
+    public boolean isLongLiteral()
+    {
+        return kind == ParameterKind.LONG_LITERAL;
+    }
+
     public Type getType()
     {
         return getValue(ParameterKind.TYPE_SIGNATURE, Type.class);
@@ -96,6 +108,11 @@ public class TypeParameter
     public NamedType getNamedType()
     {
         return getValue(ParameterKind.NAMED_TYPE_SIGNATURE, NamedType.class);
+    }
+
+    public TypeLiteralCalculation getLiteralCalculation()
+    {
+        return getValue(ParameterKind.LITERAL_CALCULATION, TypeLiteralCalculation.class);
     }
 
     @Override
