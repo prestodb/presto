@@ -17,6 +17,8 @@ import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -36,14 +38,14 @@ public class TestHiveColumnHandle
     @Test
     public void testRegularColumn()
     {
-        HiveColumnHandle expectedPartitionColumn = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, PARTITION_KEY);
+        HiveColumnHandle expectedPartitionColumn = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, PARTITION_KEY, Optional.empty());
         testRoundTrip(expectedPartitionColumn);
     }
 
     @Test
     public void testPartitionKeyColumn()
     {
-        HiveColumnHandle expectedRegularColumn = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, REGULAR);
+        HiveColumnHandle expectedRegularColumn = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, REGULAR, Optional.empty());
         testRoundTrip(expectedRegularColumn);
     }
 

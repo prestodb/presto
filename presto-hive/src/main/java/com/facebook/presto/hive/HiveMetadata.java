@@ -451,7 +451,7 @@ public class HiveMetadata
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
         List<Column> partitionColumns = partitionedBy.stream()
                 .map(columnHandlesByName::get)
-                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty()))
+                .map(column -> new Column(column.getName(), column.getHiveType(), column.getComment()))
                 .collect(toList());
 
         Set<String> partitionColumnNames = ImmutableSet.copyOf(partitionedBy);
@@ -467,7 +467,7 @@ public class HiveMetadata
             }
             else if (!partitionColumnNames.contains(name)) {
                 verify(!columnHandle.isPartitionKey(), "Column handles are not consistent with partitioned by property");
-                columns.add(new Column(name, type, Optional.empty()));
+                columns.add(new Column(name, type, columnHandle.getComment()));
             }
             else {
                 verify(columnHandle.isPartitionKey(), "Column handles are not consistent with partitioned by property");
@@ -1230,7 +1230,8 @@ public class HiveMetadata
                     toHiveType(typeTranslator, column.getType()),
                     column.getType().getTypeSignature(),
                     ordinal,
-                    columnType));
+                    columnType,
+                    Optional.ofNullable(column.getComment())));
             ordinal++;
         }
         if (tableMetadata.isSampled()) {
@@ -1240,7 +1241,8 @@ public class HiveMetadata
                     toHiveType(typeTranslator, BIGINT),
                     BIGINT.getTypeSignature(),
                     ordinal,
-                    REGULAR));
+                    REGULAR,
+                    Optional.empty()));
         }
 
         return columnHandles.build();

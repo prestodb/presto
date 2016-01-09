@@ -22,6 +22,7 @@ import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -45,6 +46,7 @@ public class TestJsonHiveHandles
             .put("typeSignature", "double")
             .put("hiveColumnIndex", -1)
             .put("columnType", PARTITION_KEY.toString())
+            .put("comment", "comment")
             .build();
 
     private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
@@ -78,7 +80,7 @@ public class TestJsonHiveHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("hive", "column", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), -1, PARTITION_KEY);
+        HiveColumnHandle columnHandle = new HiveColumnHandle("hive", "column", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), -1, PARTITION_KEY, Optional.of("comment"));
 
         assertTrue(objectMapper.canSerialize(HiveColumnHandle.class));
         String json = objectMapper.writeValueAsString(columnHandle);
