@@ -26,8 +26,10 @@ import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -35,6 +37,8 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -44,17 +48,20 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class TestStartTransactionTask
 {
     private final MetadataManager metadata = MetadataManager.createTestMetadataManager();
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("scheduled-executor-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
         executor.shutdownNow();
+        scheduledExecutor.shutdownNow();
     }
 
     @Test
@@ -212,6 +219,35 @@ public class TestStartTransactionTask
 
         Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
         Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+    }
+
+    @Test
+    public void testStartTransactionIdleExpiration()
+            throws Exception
+    {
+        Session session = sessionBuilder()
+                .setClientTransactionSupport()
+                .build();
+        TransactionManager transactionManager = TransactionManager.create(
+                new TransactionManagerConfig()
+                        .setIdleTimeout(new Duration(1, TimeUnit.MICROSECONDS)) // Fast idle timeout
+                        .setIdleCheckInterval(new Duration(10, TimeUnit.MILLISECONDS)),
+                scheduledExecutor,
+                executor);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, executor);
+        Assert.assertFalse(stateMachine.getSession().getTransactionId().isPresent());
+
+        new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
+        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
+        Assert.assertTrue(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+
+        long start = System.nanoTime();
+        while (!transactionManager.getAllTransactionInfos().isEmpty()) {
+            if (Duration.nanosSince(start).toMillis() > 10_000) {
+                Assert.fail("Transaction did not expire in the allotted time");
+            }
+            TimeUnit.MILLISECONDS.sleep(10);
+        }
     }
 
     private static SessionBuilder sessionBuilder()
