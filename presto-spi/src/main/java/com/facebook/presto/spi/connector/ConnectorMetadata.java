@@ -281,6 +281,6 @@ public interface ConnectorMetadata
      */
     default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support indexes");
+        return Optional.empty();
     }
 }
