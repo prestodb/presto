@@ -61,6 +61,11 @@ public class StartTransactionTask
                 false);
 
         stateMachine.setStartedTransactionId(transactionId);
+
+        // Since the current session does not contain this new transaction ID, we need to manually mark it as inactive
+        // when this statement completes.
+        transactionManager.trySetInactive(transactionId);
+
         return completedFuture(null);
     }
 
