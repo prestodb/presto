@@ -1108,12 +1108,12 @@ public class TestSqlParser
     {
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT)",
                 new CreateTable(QualifiedName.of("foo"),
-                        ImmutableList.of(new ColumnDefinition("a", "VARCHAR"), new ColumnDefinition("b", "BIGINT")),
+                        ImmutableList.of(new ColumnDefinition("a", "VARCHAR", Optional.empty()), new ColumnDefinition("b", "BIGINT", Optional.empty())),
                         false,
                         ImmutableMap.of()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
                 new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition("c", "TIMESTAMP")),
+                        ImmutableList.of(new ColumnDefinition("c", "TIMESTAMP", Optional.empty())),
                         true,
                         ImmutableMap.of()));
 
@@ -1128,7 +1128,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
                         true,
@@ -1136,10 +1136,10 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty()),
-                                new ColumnDefinition("d", "DATE")),
+                                new ColumnDefinition("d", "DATE", Optional.empty())),
                         true,
                         ImmutableMap.of()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table INCLUDING PROPERTIES)",
@@ -1152,7 +1152,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1267,7 +1267,7 @@ public class TestSqlParser
     public void testAddColumn()
             throws Exception
     {
-        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition("c", "bigint")));
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition("c", "bigint", Optional.empty())));
     }
 
     @Test
