@@ -24,22 +24,24 @@ public final class ColumnDefinition
 {
     private final String name;
     private final String type;
+    private final Optional<String> comment;
 
-    public ColumnDefinition(String name, String type)
+    public ColumnDefinition(String name, String type, Optional<String> comment)
     {
-        this(Optional.empty(), name, type);
+        this(Optional.empty(), name, type, comment);
     }
 
-    public ColumnDefinition(NodeLocation location, String name, String type)
+    public ColumnDefinition(NodeLocation location, String name, String type, Optional<String> comment)
     {
-        this(Optional.of(location), name, type);
+        this(Optional.of(location), name, type, comment);
     }
 
-    private ColumnDefinition(Optional<NodeLocation> location, String name, String type)
+    private ColumnDefinition(Optional<NodeLocation> location, String name, String type, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public String getName()
@@ -50,6 +52,11 @@ public final class ColumnDefinition
     public String getType()
     {
         return type;
+    }
+
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 
     @Override
@@ -69,13 +76,14 @@ public final class ColumnDefinition
         }
         ColumnDefinition o = (ColumnDefinition) obj;
         return Objects.equals(this.name, o.name) &&
-                Objects.equals(this.type, o.type);
+                Objects.equals(this.type, o.type) &&
+                Objects.equals(this.comment, o.comment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type);
+        return Objects.hash(name, type, comment);
     }
 
     @Override
@@ -84,6 +92,7 @@ public final class ColumnDefinition
         return toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
+                .add("comment", comment)
                 .toString();
     }
 }

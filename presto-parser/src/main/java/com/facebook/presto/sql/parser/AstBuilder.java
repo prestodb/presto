@@ -1275,7 +1275,11 @@ class AstBuilder
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context)
     {
-        return new ColumnDefinition(getLocation(context), context.identifier().getText(), getType(context.type()));
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(unquote(context.STRING().getText()));
+        }
+        return new ColumnDefinition(getLocation(context), context.identifier().getText(), getType(context.type()), comment);
     }
 
     @Override
