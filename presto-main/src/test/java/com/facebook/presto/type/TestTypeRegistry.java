@@ -83,6 +83,11 @@ public class TestTypeRegistry
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(42)")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(44)")));
         assertFalse(TypeRegistry.canCoerce(parseTypeSignature("varchar(44)"), parseTypeSignature("varchar(42)")));
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testCanCoerceWithImplicitParameters()
+    {
         assertFalse(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar")));
     }
 
