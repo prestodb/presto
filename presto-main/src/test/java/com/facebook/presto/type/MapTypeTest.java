@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class MapTypeTest
@@ -24,7 +26,10 @@ public class MapTypeTest
     @Test
     public void testMapDisplayName()
     {
-        MapType mapType = new MapType(BIGINT, VARCHAR);
-        assertEquals(mapType.getDisplayName(), "map<bigint, varchar>");
+        MapType mapType = new MapType(BIGINT, VarcharType.createVarcharType(42));
+        assertEquals(mapType.getDisplayName(), "map<bigint, varchar(42)>");
+
+        mapType = new MapType(BIGINT, VARCHAR);
+        assertEquals(mapType.getDisplayName(), format("map<bigint, varchar(%d)>", VarcharType.MAX_LENGTH));
     }
 }

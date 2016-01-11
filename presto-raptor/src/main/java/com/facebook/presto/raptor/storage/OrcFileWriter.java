@@ -260,7 +260,7 @@ public class OrcFileWriter
             return StorageType.DOUBLE;
         }
         if (javaType == Slice.class) {
-            if (type.equals(VarcharType.VARCHAR)) {
+            if (type instanceof VarcharType) {
                 return StorageType.STRING;
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
