@@ -63,6 +63,10 @@ Only specify additional configuration files if absolutely necessary.
 We also recommend reducing the configuration files to have the minimum
 set of required properties, as additional properties may cause problems.
 
+The configuration files must exist on all Presto nodes. If you are
+referencing existing Hadoop config files, make sure to copy them to
+any Presto nodes that are not running Hadoop.
+
 Configuration Properties
 ------------------------
 
