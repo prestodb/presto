@@ -357,16 +357,18 @@ public final class TypeRegistry
             }
         }
 
-        List<TypeSignatureParameter> firstTypeTypeParameters = firstType.getParameters();
-        List<TypeSignatureParameter> secondTypeTypeParameters = secondType.getParameters();
-        if (firstTypeTypeParameters.size() != secondTypeTypeParameters.size()) {
-            return Optional.empty();
-        }
-
         Optional<String> commonSuperTypeBase = getCommonSuperTypeBase(firstType.getBase(), secondType.getBase());
         if (!commonSuperTypeBase.isPresent()) {
             return Optional.empty();
         }
+
+        List<TypeSignatureParameter> firstTypeTypeParameters = firstType.getParameters();
+        List<TypeSignatureParameter> secondTypeTypeParameters = secondType.getParameters();
+        checkArgument(
+                firstTypeTypeParameters.size() == secondTypeTypeParameters.size(),
+                "Can not compare types [%s, %s] with different number of parameters. All default parameters should be expanded",
+                firstType,
+                secondType);
 
         ImmutableList.Builder<TypeSignatureParameter> typeParameters = ImmutableList.builder();
         for (int i = 0; i < firstTypeTypeParameters.size(); i++) {
