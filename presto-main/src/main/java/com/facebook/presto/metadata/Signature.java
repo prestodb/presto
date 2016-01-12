@@ -54,7 +54,6 @@ public final class Signature
     private final TypeSignature returnType;
     private final List<TypeSignature> argumentTypes;
     private final boolean variableArity;
-    private final Set<String> literalParameters;
 
     @JsonCreator
     public Signature(
@@ -63,8 +62,7 @@ public final class Signature
             @JsonProperty("typeParameterRequirements") List<TypeParameterRequirement> typeParameterRequirements,
             @JsonProperty("returnType") TypeSignature returnType,
             @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
-            @JsonProperty("variableArity") boolean variableArity,
-            @JsonProperty("literalParameters") Set<String> literalParameters)
+            @JsonProperty("variableArity") boolean variableArity)
     {
         requireNonNull(name, "name is null");
         requireNonNull(typeParameterRequirements, "typeParameters is null");
@@ -75,7 +73,6 @@ public final class Signature
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
-        this.literalParameters = ImmutableSet.copyOf(requireNonNull(literalParameters, "literalParameters is null"));
     }
 
     public Signature(
@@ -103,8 +100,8 @@ public final class Signature
                 typeParameterRequirements,
                 parseTypeSignature(returnType, literalParameters),
                 argumentTypes.stream().map(argument -> parseTypeSignature(argument, literalParameters)).collect(toImmutableList()),
-                variableArity,
-                literalParameters);
+                variableArity
+        );
     }
 
     public Signature(String name, FunctionKind kind, String returnType, List<String> argumentTypes)
@@ -114,8 +111,8 @@ public final class Signature
                 ImmutableList.<TypeParameterRequirement>of(),
                 parseTypeSignature(returnType),
                 argumentTypes.stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
-                false,
-                ImmutableSet.of());
+                false
+        );
     }
 
     public Signature(String name, FunctionKind kind, String returnType, String... argumentTypes)
@@ -125,7 +122,7 @@ public final class Signature
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        this(name, kind, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false, ImmutableSet.of());
+        this(name, kind, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false);
     }
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
@@ -165,7 +162,7 @@ public final class Signature
 
     public static Signature internalScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return new Signature(name, SCALAR, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false, ImmutableSet.of());
+        return new Signature(name, SCALAR, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false);
     }
 
     @JsonProperty
@@ -204,12 +201,6 @@ public final class Signature
         return typeParameterRequirements;
     }
 
-    @JsonProperty
-    public Set<String> getLiteralParameters()
-    {
-        return literalParameters;
-    }
-
     public Signature resolveCalculatedTypes(List<TypeSignature> parameterTypes)
     {
         if (!returnType.isCalculated() && argumentTypes.stream().noneMatch(TypeSignature::isCalculated)) {
@@ -240,7 +231,7 @@ public final class Signature
 
     Signature withAlias(String name)
     {
-        return new Signature(name, kind, typeParameterRequirements, getReturnType(), getArgumentTypes(), variableArity, literalParameters);
+        return new Signature(name, kind, typeParameterRequirements, getReturnType(), getArgumentTypes(), variableArity);
     }
 
     @Override

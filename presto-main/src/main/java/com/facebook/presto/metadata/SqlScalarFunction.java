@@ -70,8 +70,8 @@ public abstract class SqlScalarFunction
                 ImmutableList.of(),
                 returnType,
                 ImmutableList.copyOf(argumentTypes),
-                false,
-                literalParameters);
+                false
+        );
     }
 
     protected SqlScalarFunction(String name, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes)

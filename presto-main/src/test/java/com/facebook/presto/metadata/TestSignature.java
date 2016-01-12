@@ -25,7 +25,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -34,7 +33,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
@@ -66,8 +64,8 @@ public class TestSignature
                 ImmutableList.of(),
                 BooleanType.BOOLEAN.getTypeSignature(),
                 ImmutableList.of(varcharX, varcharY),
-                false,
-                ImmutableSet.of("x", "y"));
+                false
+        );
 
         TypeSignature varchar42 = createVarcharType(42).getTypeSignature();
         TypeSignature varchar44 = createVarcharType(44).getTypeSignature();
@@ -91,7 +89,6 @@ public class TestSignature
                 ImmutableList.of(),
                 BooleanType.BOOLEAN.getTypeSignature(),
                 ImmutableList.of(varcharX),
-                ImmutableSet.of("x"),
                 Optional.empty(),
                 ImmutableList.of(UNKNOWN),
                 false,
@@ -101,7 +98,6 @@ public class TestSignature
                 ImmutableList.of(),
                 BooleanType.BOOLEAN.getTypeSignature(),
                 ImmutableList.of(varcharX),
-                ImmutableSet.of("x"),
                 Optional.empty(),
                 ImmutableList.of(UNKNOWN),
                 true,
@@ -119,7 +115,6 @@ public class TestSignature
                 ImmutableList.of(),
                 templateType,
                 ImmutableList.of(new TypeSignature(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(templateType)))),
-                ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableList.of(UNKNOWN),
                 false,
@@ -131,7 +126,6 @@ public class TestSignature
                 ImmutableList.of(),
                 templateType,
                 ImmutableList.of(new TypeSignature(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(templateType)))),
-                ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableList.of(UNKNOWN),
                 true,
@@ -151,7 +145,6 @@ public class TestSignature
                 ImmutableList.of(new TypeParameterRequirement("T1", true, false, "varchar"), new TypeParameterRequirement("T2", true, false, "varchar")),
                 templateType2,
                 ImmutableList.of(templateType1),
-                ImmutableSet.of(),
                 Optional.of(varchar1),
                 ImmutableList.of(varchar42),
                 false,
@@ -170,7 +163,6 @@ public class TestSignature
                 ImmutableList.of(),
                 varchar42.getTypeSignature(),
                 ImmutableList.of(varchar42.getTypeSignature()),
-                ImmutableSet.of(),
                 Optional.of(varchar44),
                 ImmutableList.of(varchar44),
                 true,
@@ -181,7 +173,6 @@ public class TestSignature
                 ImmutableList.of(),
                 varchar42.getTypeSignature(),
                 ImmutableList.of(varchar42.getTypeSignature()),
-                ImmutableSet.of(),
                 Optional.of(varchar1),
                 ImmutableList.of(varchar1),
                 false,
@@ -192,7 +183,6 @@ public class TestSignature
                 ImmutableList.of(),
                 varchar42.getTypeSignature(),
                 ImmutableList.of(varchar42.getTypeSignature()),
-                ImmutableSet.of(),
                 Optional.of(varchar1),
                 ImmutableList.of(varchar1),
                 true,
@@ -203,7 +193,6 @@ public class TestSignature
             List<TypeParameterRequirement> typeParameterRequirements,
             TypeSignature returnType,
             List<TypeSignature> argumentTypes,
-            Set<String> literalParameters,
             Optional<Type> actualReturnType,
             List<? extends Type> actualArguments,
             boolean allowCoercion,
@@ -215,8 +204,8 @@ public class TestSignature
                 typeParameterRequirements,
                 returnType,
                 argumentTypes,
-                false,
-                literalParameters);
+                false
+        );
 
         Map<String, Type> actualBoundParameters;
         if (actualReturnType.isPresent()) {
