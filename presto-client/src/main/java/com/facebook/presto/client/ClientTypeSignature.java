@@ -87,7 +87,7 @@ public class ClientTypeSignature
             else {
                 checkArgument(literalArguments.isEmpty(), "Unexpected literal arguments from legacy server");
                 for (ClientTypeSignature typeArgument : typeArguments) {
-                    convertedArguments.add(new ClientTypeSignatureParameter(ParameterKind.TYPE_SIGNATURE, typeArgument));
+                    convertedArguments.add(new ClientTypeSignatureParameter(ParameterKind.TYPE, typeArgument));
                 }
             }
             this.arguments = convertedArguments.build();
@@ -105,11 +105,11 @@ public class ClientTypeSignature
     private static TypeSignatureParameter legacyClientTypeSignatureParameterToTypeSignatureParameter(ClientTypeSignatureParameter parameter)
     {
         switch (parameter.getKind()) {
-            case LONG_LITERAL:
+            case LONG:
                 throw new UnsupportedOperationException("Unexpected long type literal returned by legacy server");
-            case TYPE_SIGNATURE:
+            case TYPE:
                 return TypeSignatureParameter.of(toTypeSignature(parameter.getTypeSignature()));
-            case NAMED_TYPE_SIGNATURE:
+            case NAMED_TYPE:
                 return TypeSignatureParameter.of(parameter.getNamedTypeSignature());
             default:
                 throw new UnsupportedOperationException("Unknown parameter kind " + parameter.getKind());
@@ -138,10 +138,10 @@ public class ClientTypeSignature
         List<ClientTypeSignature> result = new ArrayList<>();
         for (ClientTypeSignatureParameter argument : arguments) {
             switch (argument.getKind()) {
-                case TYPE_SIGNATURE:
+                case TYPE:
                     result.add(argument.getTypeSignature());
                     break;
-                case NAMED_TYPE_SIGNATURE:
+                case NAMED_TYPE:
                     result.add(new ClientTypeSignature(argument.getNamedTypeSignature().getTypeSignature()));
                     break;
                 default:
@@ -161,7 +161,7 @@ public class ClientTypeSignature
         List<Object> result = new ArrayList<>();
         for (ClientTypeSignatureParameter argument : arguments) {
             switch (argument.getKind()) {
-                case NAMED_TYPE_SIGNATURE:
+                case NAMED_TYPE:
                     result.add(argument.getNamedTypeSignature().getName());
                     break;
                 default:
