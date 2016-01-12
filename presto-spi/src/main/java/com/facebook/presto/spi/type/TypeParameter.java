@@ -31,17 +31,17 @@ public class TypeParameter
 
     public static TypeParameter of(Type type)
     {
-        return new TypeParameter(ParameterKind.TYPE_SIGNATURE, type);
+        return new TypeParameter(ParameterKind.TYPE, type);
     }
 
     public static TypeParameter of(long longLiteral)
     {
-        return new TypeParameter(ParameterKind.LONG_LITERAL, longLiteral);
+        return new TypeParameter(ParameterKind.LONG, longLiteral);
     }
 
     public static TypeParameter of(NamedType namedType)
     {
-        return new TypeParameter(ParameterKind.NAMED_TYPE_SIGNATURE, namedType);
+        return new TypeParameter(ParameterKind.NAMED_TYPE, namedType);
     }
 
     public static TypeParameter of(TypeLiteralCalculation literalCalculation)
@@ -52,16 +52,16 @@ public class TypeParameter
     public static TypeParameter of(TypeSignatureParameter parameter, TypeManager typeManager)
     {
         switch (parameter.getKind()) {
-            case TYPE_SIGNATURE: {
+            case TYPE: {
                 Type type = typeManager.getType(parameter.getTypeSignature());
                 if (type == null) {
                     return null;
                 }
                 return of(type);
             }
-            case LONG_LITERAL:
+            case LONG:
                 return of(parameter.getLongLiteral());
-            case NAMED_TYPE_SIGNATURE: {
+            case NAMED_TYPE: {
                 Type type = typeManager.getType(parameter.getNamedTypeSignature().getTypeSignature());
                 if (type == null) {
                     return null;
@@ -92,22 +92,22 @@ public class TypeParameter
 
     public boolean isLongLiteral()
     {
-        return kind == ParameterKind.LONG_LITERAL;
+        return kind == ParameterKind.LONG;
     }
 
     public Type getType()
     {
-        return getValue(ParameterKind.TYPE_SIGNATURE, Type.class);
+        return getValue(ParameterKind.TYPE, Type.class);
     }
 
     public Long getLongLiteral()
     {
-        return getValue(ParameterKind.LONG_LITERAL, Long.class);
+        return getValue(ParameterKind.LONG, Long.class);
     }
 
     public NamedType getNamedType()
     {
-        return getValue(ParameterKind.NAMED_TYPE_SIGNATURE, NamedType.class);
+        return getValue(ParameterKind.NAMED_TYPE, NamedType.class);
     }
 
     public TypeLiteralCalculation getLiteralCalculation()

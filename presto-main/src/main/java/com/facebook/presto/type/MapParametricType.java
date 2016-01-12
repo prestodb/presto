@@ -44,7 +44,7 @@ public final class MapParametricType
         TypeParameter firstParameter = parameters.get(0);
         TypeParameter secondParameter = parameters.get(1);
         checkArgument(
-                firstParameter.getKind() == ParameterKind.TYPE_SIGNATURE && secondParameter.getKind() == ParameterKind.TYPE_SIGNATURE,
+                firstParameter.getKind() == ParameterKind.TYPE && secondParameter.getKind() == ParameterKind.TYPE,
                 "Expected key and type to be types, got %s",
                 parameters);
         return new MapType(firstParameter.getType(), secondParameter.getType());

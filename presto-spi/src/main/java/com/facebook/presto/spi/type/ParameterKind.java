@@ -16,8 +16,8 @@ package com.facebook.presto.spi.type;
 
 public enum ParameterKind
 {
-    TYPE_SIGNATURE,
-    NAMED_TYPE_SIGNATURE,
-    LONG_LITERAL,
+    TYPE,
+    NAMED_TYPE,
+    LONG,
     LITERAL_CALCULATION
 }
