@@ -255,6 +255,13 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testTryInvalidJsonParse()
+    {
+        assertFunction("TRY (JSON 'INVALID')", JSON, null);
+        assertFunction("TRY (JSON_PARSE('INVALID'))", JSON, null);
+    }
+
+    @Test
     public void testJsonFormat()
     {
         assertFunction("JSON_FORMAT(JSON '[\"a\", \"b\"]')", VARCHAR, "[\"a\",\"b\"]");

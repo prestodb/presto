@@ -818,6 +818,25 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testTry()
+            throws Exception
+    {
+        assertOptimizedEquals("TRY(2/1)", "2");
+        assertOptimizedEquals("TRY(2/0)", "null");
+        assertOptimizedEquals("COALESCE(TRY(2/0), 0)", "0");
+
+        assertOptimizedEquals("TRY(CAST (CAST (bound_long AS VARCHAR) AS BIGINT))", "bound_long");
+        assertOptimizedEquals("TRY(CAST (CONCAT('a', CAST (bound_long AS VARCHAR)) AS BIGINT))", "null");
+        assertOptimizedEquals("COALESCE(TRY(CAST (CONCAT('a', CAST (bound_long AS VARCHAR)) AS BIGINT)), 0)", "0");
+
+        assertOptimizedEquals("TRY(ABS(-2))", "2");
+        assertOptimizedEquals("42 + TRY(ABS(-9223372036854775807 - 1))", "null");
+
+        assertOptimizedEquals("JSON_FORMAT(TRY(JSON '[]')) || unbound_string", "'[]' || unbound_string");
+        assertOptimizedEquals("JSON_FORMAT(TRY(JSON 'INVALID')) || unbound_string", "null");
+    }
+
+    @Test
     public void testLike()
             throws Exception
     {

@@ -257,6 +257,13 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitTryExpression(TryExpression node, C context)
+    {
+        process(node.getInnerExpression(), context);
+        return null;
+    }
+
+    @Override
     protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
     {
         return process(node.getValue(), context);

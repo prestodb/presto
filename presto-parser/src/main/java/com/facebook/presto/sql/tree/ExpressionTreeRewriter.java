@@ -431,6 +431,25 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        public Expression visitTryExpression(TryExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteTryExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression expression = rewrite(node.getInnerExpression(), context.get());
+
+            if (node.getInnerExpression() != expression) {
+                return new TryExpression(expression);
+            }
+
+            return node;
+        }
+
+        @Override
         public Expression visitFunctionCall(FunctionCall node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

@@ -72,6 +72,7 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.type.RowType;
@@ -771,6 +772,14 @@ public class ExpressionAnalyzer
         protected Type visitBetweenPredicate(BetweenPredicate node, StackableAstVisitorContext<AnalysisContext> context)
         {
             return getOperator(context, node, OperatorType.BETWEEN, node.getValue(), node.getMin(), node.getMax());
+        }
+
+        @Override
+        public Type visitTryExpression(TryExpression node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            Type type = process(node.getInnerExpression(), context);
+            expressionTypes.put(node, type);
+            return type;
         }
 
         @Override
