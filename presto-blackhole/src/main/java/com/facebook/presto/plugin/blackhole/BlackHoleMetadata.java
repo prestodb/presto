@@ -17,7 +17,6 @@ package com.facebook.presto.plugin.blackhole;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -29,6 +28,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -141,7 +141,7 @@ public class BlackHoleMetadata
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata);
-        commitCreateTable(session, outputTableHandle, ImmutableList.of());
+        finishCreateTable(session, outputTableHandle, ImmutableList.of());
     }
 
     @Override
@@ -177,7 +177,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         BlackHoleOutputTableHandle blackHoleOutputTableHandle = checkType(tableHandle, BlackHoleOutputTableHandle.class, "tableHandle");
         BlackHoleTableHandle table = blackHoleOutputTableHandle.getTable();
@@ -191,9 +191,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
-    {
-    }
+    public void finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments) {}
 
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(
