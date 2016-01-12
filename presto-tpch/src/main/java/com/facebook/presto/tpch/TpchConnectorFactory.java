@@ -56,11 +56,12 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, Map<String, String> properties)
+    public Connector create(String connectorId, Map<String, String> properties)
     {
-        final int splitsPerNode = getSplitsPerNode(properties);
+        int splitsPerNode = getSplitsPerNode(properties);
 
-        return new Connector() {
+        return new Connector()
+        {
             @Override
             public ConnectorMetadata getMetadata()
             {

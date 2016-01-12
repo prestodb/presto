@@ -72,9 +72,7 @@ public class SampledTpchRecordSetProvider
             }
             return new SampledTpchRecordSet(recordSet, sampleWeightField, sampleWeight);
         }
-        else {
-            return super.getRecordSet(session, split, columns);
-        }
+        return super.getRecordSet(session, split, columns);
     }
 
     private static class EmptyRecordSet
@@ -232,9 +230,7 @@ public class SampledTpchRecordSetProvider
             if (field == sampleWeightField) {
                 return false;
             }
-            else {
-                return delegate.isNull(field);
-            }
+            return delegate.isNull(field);
         }
 
         @Override
@@ -249,9 +245,7 @@ public class SampledTpchRecordSetProvider
             if (field == sampleWeightField) {
                 return sampleWeight;
             }
-            else {
-                return delegate.getLong(field);
-            }
+            return delegate.getLong(field);
         }
 
         @Override
@@ -296,9 +290,7 @@ public class SampledTpchRecordSetProvider
             if (field == sampleWeightField) {
                 return BIGINT;
             }
-            else {
-                return delegate.getType(field);
-            }
+            return delegate.getType(field);
         }
 
         @Override

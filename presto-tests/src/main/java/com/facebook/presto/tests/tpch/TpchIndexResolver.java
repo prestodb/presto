@@ -31,7 +31,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
@@ -46,9 +45,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.any;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class TpchIndexResolver
         implements ConnectorIndexResolver
@@ -81,10 +79,10 @@ public class TpchIndexResolver
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         // determine all columns available for index lookup
-        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-        builder.addAll(transform(indexableColumns, columnNameGetter()));
-        builder.addAll(transform(fixedValues.keySet(), columnNameGetter()));
-        Set<String> lookupColumnNames = builder.build();
+        Set<String> lookupColumnNames = ImmutableSet.<String>builder()
+                .addAll(handleToNames(ImmutableList.copyOf(indexableColumns)))
+                .addAll(handleToNames(ImmutableList.copyOf(fixedValues.keySet())))
+                .build();
 
         // do we have an index?
         if (!indexedData.getIndexedTable(tpchTableHandle.getTableName(), tpchTableHandle.getScaleFactor(), lookupColumnNames).isPresent()) {
@@ -104,7 +102,8 @@ public class TpchIndexResolver
         TpchIndexHandle tpchIndexHandle = checkType(indexHandle, TpchIndexHandle.class, "indexHandle");
 
         Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tpchIndexHandle.getFixedValues()).get();
-        checkArgument(!any(lookupSchema, in(fixedValues.keySet())), "Lookup columnHandles are not expected to overlap with the fixed value predicates");
+        checkArgument(lookupSchema.stream().noneMatch(handle -> fixedValues.keySet().contains(handle)),
+                "Lookup columnHandles are not expected to overlap with the fixed value predicates");
 
         // Establish an order for the fixedValues
         List<ColumnHandle> fixedValueColumns = ImmutableList.copyOf(fixedValues.keySet());
@@ -128,11 +127,11 @@ public class TpchIndexResolver
         TpchIndexedData.IndexedTable table = indexedTable.get();
 
         // Compute how to map from the final lookup schema to the table index key order
-        final List<Integer> keyRemap = computeRemap(handleToNames(finalLookupSchema), table.getKeyColumns());
+        List<Integer> keyRemap = computeRemap(handleToNames(finalLookupSchema), table.getKeyColumns());
         Function<RecordSet, RecordSet> keyFormatter = key -> new MappedRecordSet(new AppendingRecordSet(key, rawFixedValues, rawFixedTypes), keyRemap);
 
         // Compute how to map from the output of the indexed data to the expected output schema
-        final List<Integer> outputRemap = computeRemap(table.getOutputColumns(), handleToNames(outputSchema));
+        List<Integer> outputRemap = computeRemap(table.getOutputColumns(), handleToNames(outputSchema));
         Function<RecordSet, RecordSet> outputFormatter = output -> new MappedRecordSet(output, outputRemap);
 
         return new TpchConnectorIndex(keyFormatter, outputFormatter, table);
@@ -151,11 +150,9 @@ public class TpchIndexResolver
 
     private static List<String> handleToNames(List<ColumnHandle> columnHandles)
     {
-        return Lists.transform(columnHandles, columnNameGetter());
-    }
-
-    private static Function<ColumnHandle, String> columnNameGetter()
-    {
-        return columnHandle -> checkType(columnHandle, TpchColumnHandle.class, "columnHandle").getColumnName();
+        return columnHandles.stream()
+                .map(handle -> checkType(handle, TpchColumnHandle.class, "column"))
+                .map(TpchColumnHandle::getColumnName)
+                .collect(toList());
     }
 }
