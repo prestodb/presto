@@ -17,7 +17,6 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
@@ -33,8 +32,6 @@ import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -317,7 +314,7 @@ public class TestHttpPageBufferClient
         TestingTicker ticker = new TestingTicker();
         AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
 
-        Function<Request, Response> processor = (input) -> {
+        TestingHttpClient.Processor processor = (input) -> {
             Duration delta = tickerIncrement.get();
             ticker.increment(delta.toMillis(), TimeUnit.MILLISECONDS);
             throw new RuntimeException("Foo");
@@ -506,7 +503,7 @@ public class TestHttpPageBufferClient
     }
 
     private static class StaticRequestProcessor
-            implements Function<Request, Response>
+            implements TestingHttpClient.Processor
     {
         private final AtomicReference<Response> response = new AtomicReference<>();
         private final CyclicBarrier beforeRequest;
@@ -525,33 +522,16 @@ public class TestHttpPageBufferClient
 
         @SuppressWarnings({"ThrowFromFinallyBlock", "Finally"})
         @Override
-        public Response apply(@Nullable Request request)
+        public Response handle(Request request)
+                throws Exception
         {
-            try {
-                beforeRequest.await(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
-            }
+            beforeRequest.await(10, TimeUnit.SECONDS);
 
             try {
                 return response.get();
             }
             finally {
-                try {
-                    afterRequest.await(10, TimeUnit.SECONDS);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
-                }
-                catch (BrokenBarrierException | TimeoutException e) {
-                    throw Throwables.propagate(e);
-                }
+                afterRequest.await(10, TimeUnit.SECONDS);
             }
         }
     }

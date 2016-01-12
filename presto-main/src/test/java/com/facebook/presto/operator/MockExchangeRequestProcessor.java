@@ -19,7 +19,6 @@ import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Function;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -27,6 +26,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
+import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
@@ -51,7 +51,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class MockExchangeRequestProcessor
-        implements Function<Request, Response>
+        implements TestingHttpClient.Processor
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
     private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(new CacheLoader<URI, MockBuffer>()
@@ -81,7 +81,8 @@ public class MockExchangeRequestProcessor
     }
 
     @Override
-    public Response apply(Request request)
+    public Response handle(Request request)
+            throws Exception
     {
         if (request.getMethod().equalsIgnoreCase("DELETE")) {
             return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]);
