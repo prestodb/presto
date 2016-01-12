@@ -9,6 +9,7 @@ General Changes
 * Add :doc:`/connector/system` procedure for killing running queries.
 * Properly expire idle transactions that consist of just the start transaction statement
   and nothing else.
+* Fix possible deadlock in worker communication when task restart is detected.
 * Performance improvements for aggregations on dictionary encoded data.
   This optimization is turned off by default. It can be configured via the
   ``optimizer.dictionary-aggregation`` config property or the
