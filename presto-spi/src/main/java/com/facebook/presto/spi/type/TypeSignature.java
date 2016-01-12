@@ -84,7 +84,7 @@ public class TypeSignature
     {
         List<TypeSignature> result = new ArrayList<>();
         for (TypeSignatureParameter parameter : parameters) {
-            if (parameter.getKind() != ParameterKind.TYPE_SIGNATURE) {
+            if (parameter.getKind() != ParameterKind.TYPE) {
                 throw new IllegalStateException(
                         format("Expected all parameters to be TypeSignatures but [%s] was found", parameter.toString()));
             }
@@ -295,7 +295,7 @@ public class TypeSignature
     @Deprecated
     private String rowToString()
     {
-        verify(parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE_SIGNATURE),
+        verify(parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
                 format("Incorrect parameters for row type %s", parameters));
 
         String types = parameters.stream()

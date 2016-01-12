@@ -38,7 +38,7 @@ public class ClassifierParametricType
     {
         checkArgument(parameters.size() == 1, "Expected only one type, got %s", parameters);
         checkArgument(
-                parameters.get(0).getKind() == ParameterKind.TYPE_SIGNATURE,
+                parameters.get(0).getKind() == ParameterKind.TYPE,
                 "Expected type as a parameter, got %s",
                 parameters);
         return new ClassifierType(parameters.get(0).getType());
