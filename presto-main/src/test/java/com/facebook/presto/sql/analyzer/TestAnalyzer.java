@@ -664,6 +664,9 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT CAST(date '2014-01-01' AS bigint)");
         assertFails(TYPE_MISMATCH, "SELECT TRY_CAST(date '2014-01-01' AS bigint)");
         assertFails(TYPE_MISMATCH, "SELECT CAST(null AS UNKNOWN)");
+        assertFails(TYPE_MISMATCH, "SELECT CAST(1 AS MAP)");
+        assertFails(TYPE_MISMATCH, "SELECT CAST(1 AS ARRAY)");
+        assertFails(TYPE_MISMATCH, "SELECT CAST(1 AS ROW)");
 
         // arithmetic unary
         assertFails(TYPE_MISMATCH, "SELECT -'a' FROM t1");
