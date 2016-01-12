@@ -187,6 +187,13 @@ public class SqlTaskExecution
             if (!taskStateMachine.getState().isDone()) {
                 taskHandle = taskExecutor.addTask(taskId);
                 taskStateMachine.addStateChangeListener(new RemoveTaskHandleWhenDone(taskExecutor, taskHandle));
+                taskStateMachine.addStateChangeListener(state -> {
+                    if (state.isDone()) {
+                        for (DriverFactory factory : driverFactories) {
+                            factory.close();
+                        }
+                    }
+                });
             }
             else {
                 taskHandle = null;
