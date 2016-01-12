@@ -41,6 +41,7 @@ import static com.facebook.presto.sql.relational.Signatures.IN;
 import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
 import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
+import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
@@ -109,6 +110,7 @@ public class ExpressionOptimizer
                     case NULL_IF:
                     case SWITCH:
                     case "WHEN":
+                    case TRY:
                     case TRY_CAST:
                     case IS_NULL:
                     case "IS_DISTINCT_FROM":

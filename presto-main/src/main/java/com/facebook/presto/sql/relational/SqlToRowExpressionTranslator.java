@@ -55,6 +55,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
@@ -466,6 +467,12 @@ public final class SqlToRowExpressionTranslator
             }
 
             return call(Signatures.ifSignature(types.get(node)), types.get(node), arguments.build());
+        }
+
+        @Override
+        protected RowExpression visitTryExpression(TryExpression node, Void context)
+        {
+            return call(Signatures.trySignature(types.get(node)), types.get(node), process(node.getInnerExpression(), context));
         }
 
         @Override

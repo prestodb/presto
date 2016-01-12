@@ -34,6 +34,11 @@ public class TryCatch
     private final BytecodeNode catchNode;
     private final String exceptionName;
 
+    public TryCatch(BytecodeNode tryNode, BytecodeNode catchNode, ParameterizedType exceptionType)
+    {
+        this(null, tryNode, catchNode, exceptionType);
+    }
+
     public TryCatch(String comment, BytecodeNode tryNode, BytecodeNode catchNode, ParameterizedType exceptionType)
     {
         this.comment = comment;

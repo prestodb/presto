@@ -35,10 +35,13 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
@@ -46,6 +49,7 @@ import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
+import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler
@@ -151,7 +155,7 @@ public class CursorProcessorCompiler
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
-            // project(block..., blockBuilder)
+            // project(block..., blockBuilder)gen
             ifStatement.ifTrue()
                     .invokeVirtual(classDefinition.getType(),
                     "project_" + projectionIndex,
@@ -170,8 +174,59 @@ public class CursorProcessorCompiler
                 .retInt();
     }
 
+    private Map<CallExpression, MethodDefinition> generateTryMethods(
+            ClassDefinition containerClassDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            RowExpression projection,
+            String methodPrefix)
+    {
+        TryExpressionExtractor tryExtractor = new TryExpressionExtractor();
+        projection.accept(tryExtractor, null);
+        List<CallExpression> tryExpressions = tryExtractor.getTryExpressionsPreOrder();
+
+        ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+
+        int methodId = 0;
+        for (CallExpression tryExpression : tryExpressions) {
+            Parameter session = arg("session", ConnectorSession.class);
+            Parameter cursor = arg("cursor", RecordCursor.class);
+            Parameter wasNull = arg("wasNull", boolean.class);
+
+            List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
+                    .add(session)
+                    .add(cursor)
+                    .add(wasNull)
+                    .build();
+
+            BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    fieldReferenceCompiler(cursor, wasNull),
+                    metadata.getFunctionRegistry(),
+                    inputParameters,
+                    tryMethodMap.build());
+
+            MethodDefinition tryMethod = defineTryMethod(
+                    innerExpressionVisitor,
+                    containerClassDefinition,
+                    methodPrefix + "_try_" + methodId,
+                    inputParameters,
+                    Primitives.wrap(tryExpression.getType().getJavaType()),
+                    tryExpression,
+                    callSiteBinder);
+
+            tryMethodMap.put(tryExpression, tryMethod);
+            methodId++;
+        }
+
+        return tryMethodMap.build();
+    }
+
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter)
     {
+        Map<CallExpression, MethodDefinition> tryMethodMap = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
+
         Parameter session = arg("session", ConnectorSession.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "filter", type(boolean.class), session, cursor);
@@ -181,7 +236,13 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
+        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+                callSiteBinder,
+                cachedInstanceBinder,
+                fieldReferenceCompiler(cursor, wasNullVariable),
+                metadata.getFunctionRegistry(),
+                ImmutableList.of(session, cursor, wasNullVariable),
+                tryMethodMap);
 
         LabelNode end = new LabelNode("end");
         method.getBody()
@@ -200,6 +261,8 @@ public class CursorProcessorCompiler
 
     private void generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, String methodName, RowExpression projection)
     {
+        Map<CallExpression, MethodDefinition> tryMethodMap = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, projection, methodName);
+
         Parameter session = arg("session", ConnectorSession.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
         Parameter output = arg("output", BlockBuilder.class);
@@ -214,7 +277,13 @@ public class CursorProcessorCompiler
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
-        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
+        BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
+                callSiteBinder,
+                cachedInstanceBinder,
+                fieldReferenceCompiler(cursor, wasNullVariable),
+                metadata.getFunctionRegistry(),
+                ImmutableList.of(session, cursor, wasNullVariable),
+                tryMethodMap);
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())

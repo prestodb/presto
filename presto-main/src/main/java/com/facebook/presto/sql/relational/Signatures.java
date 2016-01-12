@@ -45,6 +45,7 @@ public final class Signatures
     public static final String IS_NULL = "IS_NULL";
     public static final String COALESCE = "COALESCE";
     public static final String IN = "IN";
+    public static final String TRY = "TRY";
 
     private Signatures()
     {
@@ -141,6 +142,11 @@ public final class Signatures
     public static Signature whenSignature(Type returnType)
     {
         return new Signature("WHEN", SCALAR, returnType.getTypeSignature());
+    }
+
+    public static Signature trySignature(Type returnType)
+    {
+        return new Signature(TRY, SCALAR, returnType.getTypeSignature());
     }
 
     // **************** functions that require varargs and/or complex types (e.g., lists) ****************
