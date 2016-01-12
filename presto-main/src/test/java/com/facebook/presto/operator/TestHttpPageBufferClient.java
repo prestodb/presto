@@ -456,32 +456,14 @@ public class TestHttpPageBufferClient
         public void requestComplete(HttpPageBufferClient client)
         {
             completedRequests.getAndIncrement();
-            try {
-                done.await(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
-            }
+            awaitDone();
         }
 
         @Override
         public void clientFinished(HttpPageBufferClient client)
         {
             finishedBuffers.getAndIncrement();
-            try {
-                done.await(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-            catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
-            }
+            awaitDone();
         }
 
         @Override
@@ -499,6 +481,20 @@ public class TestHttpPageBufferClient
             finishedBuffers.set(0);
             failedBuffers.set(0);
             failure.set(null);
+        }
+
+        private void awaitDone()
+        {
+            try {
+                done.await(10, TimeUnit.SECONDS);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            catch (BrokenBarrierException | TimeoutException e) {
+                throw Throwables.propagate(e);
+            }
         }
     }
 
