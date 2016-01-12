@@ -187,7 +187,7 @@ public final class TypeUtils
         boolean failedToCalculateLiteral = false;
         for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
             switch (parameter.getKind()) {
-                case TYPE_SIGNATURE:
+                case TYPE:
                     parametersBuilder.add(TypeSignatureParameter.of(resolveCalculatedType(
                             parameter.getTypeSignature(),
                             inputs,

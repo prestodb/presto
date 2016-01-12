@@ -27,17 +27,17 @@ public class TypeSignatureParameter
 
     public static TypeSignatureParameter of(TypeSignature typeSignature)
     {
-        return new TypeSignatureParameter(ParameterKind.TYPE_SIGNATURE, typeSignature);
+        return new TypeSignatureParameter(ParameterKind.TYPE, typeSignature);
     }
 
     public static TypeSignatureParameter of(long longLiteral)
     {
-        return new TypeSignatureParameter(ParameterKind.LONG_LITERAL, longLiteral);
+        return new TypeSignatureParameter(ParameterKind.LONG, longLiteral);
     }
 
     public static TypeSignatureParameter of(NamedTypeSignature namedTypeSignature)
     {
-        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE_SIGNATURE, namedTypeSignature);
+        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
     }
 
     public static TypeSignatureParameter of(TypeLiteralCalculation literalCalculation)
@@ -64,17 +64,17 @@ public class TypeSignatureParameter
 
     public boolean isTypeSignature()
     {
-        return kind == ParameterKind.TYPE_SIGNATURE;
+        return kind == ParameterKind.TYPE;
     }
 
     public boolean isLongLiteral()
     {
-        return kind == ParameterKind.LONG_LITERAL;
+        return kind == ParameterKind.LONG;
     }
 
     public boolean isNamedTypeSignature()
     {
-        return kind == ParameterKind.NAMED_TYPE_SIGNATURE;
+        return kind == ParameterKind.NAMED_TYPE;
     }
 
     public boolean isLiteralCalculation()
@@ -90,17 +90,17 @@ public class TypeSignatureParameter
 
     public TypeSignature getTypeSignature()
     {
-        return getValue(ParameterKind.TYPE_SIGNATURE, TypeSignature.class);
+        return getValue(ParameterKind.TYPE, TypeSignature.class);
     }
 
     public Long getLongLiteral()
     {
-        return getValue(ParameterKind.LONG_LITERAL, Long.class);
+        return getValue(ParameterKind.LONG, Long.class);
     }
 
     public NamedTypeSignature getNamedTypeSignature()
     {
-        return getValue(ParameterKind.NAMED_TYPE_SIGNATURE, NamedTypeSignature.class);
+        return getValue(ParameterKind.NAMED_TYPE, NamedTypeSignature.class);
     }
 
     public TypeLiteralCalculation getLiteralCalculation()
@@ -111,9 +111,9 @@ public class TypeSignatureParameter
     public Optional<TypeSignature> getTypeSignatureOrNamedTypeSignature()
     {
         switch (kind) {
-            case TYPE_SIGNATURE:
+            case TYPE:
                 return Optional.of(getTypeSignature());
-            case NAMED_TYPE_SIGNATURE:
+            case NAMED_TYPE:
                 return Optional.of(getNamedTypeSignature().getTypeSignature());
             default:
                 return Optional.empty();
@@ -123,7 +123,7 @@ public class TypeSignatureParameter
     public boolean isCalculated()
     {
         switch (kind) {
-            case TYPE_SIGNATURE:
+            case TYPE:
                 return getTypeSignature().isCalculated();
             case LITERAL_CALCULATION:
                 return true;
@@ -157,9 +157,9 @@ public class TypeSignatureParameter
     public TypeSignatureParameter bindParameters(Map<String, Type> boundParameters)
     {
         switch (kind) {
-            case TYPE_SIGNATURE:
+            case TYPE:
                 return TypeSignatureParameter.of(getTypeSignature().bindParameters(boundParameters));
-            case NAMED_TYPE_SIGNATURE:
+            case NAMED_TYPE:
                 return TypeSignatureParameter.of(new NamedTypeSignature(
                         getNamedTypeSignature().getName(),
                         getNamedTypeSignature().getTypeSignature().bindParameters(boundParameters)));

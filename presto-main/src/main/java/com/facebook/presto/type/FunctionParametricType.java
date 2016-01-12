@@ -43,7 +43,7 @@ public final class FunctionParametricType
     {
         checkArgument(parameters.size() >= 1, "Function type must have at least one parameter, got %s", parameters);
         checkArgument(
-                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE_SIGNATURE),
+                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE),
                 "Expected only types as a parameters, got %s",
                 parameters);
         List<Type> types = parameters.stream().map(parameter -> parameter.getType()).collect(toList());
