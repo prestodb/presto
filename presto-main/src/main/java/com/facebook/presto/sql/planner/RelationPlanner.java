@@ -289,10 +289,11 @@ class RelationPlanner
                 if (joinConditionComparisonTypes.get(i) == ComparisonExpression.Type.EQUAL) {
                     equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
                 }
-
-                Expression leftExpression = leftPlanBuilder.rewrite(leftComparisonExpressions.get(i));
-                Expression rightExpression = rightPlanBuilder.rewrite(rightComparisonExpressions.get(i));
-                postInnerJoinConditions.add(new ComparisonExpression(joinConditionComparisonTypes.get(i), leftExpression, rightExpression));
+                else {
+                    Expression leftExpression = leftPlanBuilder.rewrite(leftComparisonExpressions.get(i));
+                    Expression rightExpression = rightPlanBuilder.rewrite(rightComparisonExpressions.get(i));
+                    postInnerJoinConditions.add(new ComparisonExpression(joinConditionComparisonTypes.get(i), leftExpression, rightExpression));
+                }
             }
         }
 
