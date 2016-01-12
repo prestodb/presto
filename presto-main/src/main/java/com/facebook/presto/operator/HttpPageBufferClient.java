@@ -295,25 +295,29 @@ public final class HttpPageBufferClient
                 resetErrors();
 
                 List<Page> pages;
-                synchronized (HttpPageBufferClient.this) {
-                    if (taskInstanceId == null) {
-                        taskInstanceId = result.getTaskInstanceId();
-                    }
+                try {
+                    synchronized (HttpPageBufferClient.this) {
+                        if (taskInstanceId == null) {
+                            taskInstanceId = result.getTaskInstanceId();
+                        }
 
-                    if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                        // TODO: update error message
-                        Throwable t = new PrestoException(REMOTE_TASK_MISMATCH, REMOTE_TASK_MISMATCH_ERROR);
-                        handleFailure(t);
-                        return;
-                    }
+                        if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
+                            // TODO: update error message
+                            throw new PrestoException(REMOTE_TASK_MISMATCH, REMOTE_TASK_MISMATCH_ERROR);
+                        }
 
-                    if (result.getToken() == token) {
-                        pages = result.getPages();
-                        token = result.getNextToken();
+                        if (result.getToken() == token) {
+                            pages = result.getPages();
+                            token = result.getNextToken();
+                        }
+                        else {
+                            pages = ImmutableList.of();
+                        }
                     }
-                    else {
-                        pages = ImmutableList.of();
-                    }
+                }
+                catch (PrestoException e) {
+                    handleFailure(e);
+                    return;
                 }
 
                 // add pages
@@ -398,6 +402,9 @@ public final class HttpPageBufferClient
 
     private void handleFailure(Throwable t)
     {
+        // Can not delegate to other callback while holding a lock on this
+        checkNotHoldsLock();
+
         requestsFailed.incrementAndGet();
         requestsCompleted.incrementAndGet();
 
