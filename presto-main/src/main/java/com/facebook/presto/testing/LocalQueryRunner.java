@@ -97,6 +97,7 @@ import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.PlanPrinter;
+import com.facebook.presto.sql.planner.PlanVerifiersFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -512,6 +513,7 @@ public class LocalQueryRunner
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, true);
+        PlanVerifiersFactory planVerifiersFactory = new PlanVerifiersFactory();
 
         QueryExplainer queryExplainer = new QueryExplainer(
                 planOptimizersFactory.get(),
@@ -528,6 +530,8 @@ public class LocalQueryRunner
         if (printPlan) {
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session));
         }
+
+        planVerifiersFactory.verify(plan);
 
         SubPlan subplan = new PlanFragmenter().createSubPlans(plan);
         if (!subplan.getChildren().isEmpty()) {
