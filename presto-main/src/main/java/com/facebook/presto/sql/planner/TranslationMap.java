@@ -173,13 +173,7 @@ class TranslationMap
             {
                 Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
 
-                // cast expression if coercion is registered
-                Type coercion = analysis.getCoercion(node);
-                if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
-                }
-
-                return rewrittenExpression;
+                return castExpressionIfCoercionIsRegistered(node, rewrittenExpression);
             }
 
             @Override
@@ -197,12 +191,7 @@ class TranslationMap
                 checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, fieldIndex.get());
                 Expression rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
 
-                // cast expression if coercion is registered
-                Type coercion = analysis.getCoercion(node);
-                if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
-                }
-                return rewrittenExpression;
+                return castExpressionIfCoercionIsRegistered(node, rewrittenExpression);
             }
 
             @Override
@@ -217,7 +206,11 @@ class TranslationMap
                 FunctionCall functionCall = new FunctionCall(mangledName, ImmutableList.of(node.getBase()));
                 Expression rewrittenExpression = rewriteFunctionCall(functionCall, context, treeRewriter);
 
-                // cast expression if coercion is registered
+                return castExpressionIfCoercionIsRegistered(node, rewrittenExpression);
+            }
+
+            private Expression castExpressionIfCoercionIsRegistered(Expression node, Expression rewrittenExpression)
+            {
                 Type coercion = analysis.getCoercion(node);
                 if (coercion != null) {
                     rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
