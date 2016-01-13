@@ -54,7 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class HashGenerationOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     public static final int INITIAL_HASH_VALUE = 0;
     private static final String HASH_CODE = FunctionRegistry.mangleOperatorName("HASH_CODE");

@@ -22,9 +22,9 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Map;
 
-public abstract class PlanOptimizer
+public interface PlanOptimizer
 {
-    public abstract PlanNode optimize(PlanNode plan,
+    PlanNode optimize(PlanNode plan,
             Session session,
             Map<Symbol, Type> types,
             SymbolAllocator symbolAllocator,

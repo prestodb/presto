@@ -41,7 +41,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static java.util.Objects.requireNonNull;
 
 public class AddIntermediateAggregation
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
 
