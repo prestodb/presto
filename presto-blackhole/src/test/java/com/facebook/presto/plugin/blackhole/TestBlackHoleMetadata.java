@@ -27,7 +27,7 @@ import java.util.Map;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertTrue;
 
-public class BlackHoleMetadataTest
+public class TestBlackHoleMetadata
 {
     private final BlackHoleMetadata metadata = new BlackHoleMetadata();
     private final Map<String, Object> tableProperties = ImmutableMap.of(
