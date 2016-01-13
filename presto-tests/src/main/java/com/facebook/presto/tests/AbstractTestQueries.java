@@ -4576,6 +4576,7 @@ public abstract class AbstractTestQueries
                 "(SELECT min(orderkey) FROM orders)" +
                 "<" +
                 "(SELECT max(orderkey) FROM orders)");
+        assertQuery("SELECT (SELECT 1), (SELECT 2), (SELECT 3)");
 
         // distinct
         assertQuery("SELECT DISTINCT orderkey FROM lineitem " +

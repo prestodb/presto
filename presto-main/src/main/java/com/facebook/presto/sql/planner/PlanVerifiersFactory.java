@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -36,7 +39,8 @@ public class PlanVerifiersFactory
 
     public PlanVerifiersFactory()
     {
-        this.verifiers = ImmutableList.of(new NoSubqueryExpressionLeft());
+        this.verifiers = ImmutableList.of(new NoSubqueryExpressionLeft(),
+                new NoApplyNodeLeft());
     }
 
     @Override
@@ -104,6 +108,28 @@ public class PlanVerifiersFactory
                 context.addAll(row);
             }
             return super.visitValues(node, context);
+        }
+    }
+
+    private class NoApplyNodeLeft
+            implements PlanVerifier
+    {
+        @Override
+        public void verify(PlanNode plan)
+        {
+            plan.accept(new SimplePlanVisitor()
+            {
+                @Override
+                public Object visitApply(ApplyNode node, Object context)
+                {
+                    if (node.getCorrelation().isEmpty()) {
+                        throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Not supported subquery");
+                    }
+                    else {
+                        throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Correlated subquery is not yet supported");
+                    }
+                }
+            }, null);
         }
     }
 }
