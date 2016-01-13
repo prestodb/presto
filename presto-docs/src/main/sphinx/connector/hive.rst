@@ -63,6 +63,10 @@ Only specify additional configuration files if absolutely necessary.
 We also recommend reducing the configuration files to have the minimum
 set of required properties, as additional properties may cause problems.
 
+The files referenced in hive.config.resources must exist on all Presto
+nodes for each Presto Server instance to use -- even if the nodes are not
+themselves Hadoop nodes.
+
 Configuration Properties
 ------------------------
 
