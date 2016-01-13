@@ -24,10 +24,8 @@ import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -37,7 +35,6 @@ import java.util.OptionalLong;
 
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
@@ -242,14 +239,6 @@ public abstract class AbstractTestQueryFramework
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return h2QueryRunner.execute(getSession(), sql, resultTypes);
-    }
-
-    public Function<MaterializedRow, String> onlyColumnGetter()
-    {
-        return input -> {
-            assertEquals(input.getFieldCount(), 1);
-            return (String) input.getField(0);
-        };
     }
 
     public String getExplainPlan(String query, ExplainType.Type planType)

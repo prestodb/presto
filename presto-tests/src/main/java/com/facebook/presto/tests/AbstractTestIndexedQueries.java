@@ -21,9 +21,6 @@ import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.Set;
-
-import static com.google.common.collect.Iterables.transform;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -50,12 +47,10 @@ public abstract class AbstractTestIndexedQueries
         assertQuery("SELECT name FROM sys.example", "SELECT 'test' AS name");
 
         MaterializedResult result = computeActual("SHOW SCHEMAS");
-        Set<String> actual = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(actual.containsAll(ImmutableSet.of("sf100", "tiny", "sys")));
+        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of("sf100", "tiny", "sys")));
 
         result = computeActual("SHOW TABLES FROM sys");
-        actual = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertEquals(actual, ImmutableSet.of("example"));
+        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of("example"));
     }
 
     @Test
