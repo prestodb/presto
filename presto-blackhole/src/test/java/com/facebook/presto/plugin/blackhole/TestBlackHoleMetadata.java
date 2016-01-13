@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestBlackHoleMetadata
@@ -62,6 +63,6 @@ public class TestBlackHoleMetadata
 
     private void assertThatNoTableIsCreated()
     {
-        assertTrue(metadata.listTables(SESSION, null).size() == 0, "No table was expected");
+        assertEquals(metadata.listTables(SESSION, null), ImmutableList.of(), "No table was expected");
     }
 }
