@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.parameterizedTypeName;
 import static java.util.Objects.requireNonNull;
@@ -40,7 +41,7 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(parameterizedTypeName("array", elementType.getTypeSignature()), Block.class);
+        super(parameterizedTypeName(ARRAY, elementType.getTypeSignature()), Block.class);
         this.elementType = requireNonNull(elementType, "elementType is null");
     }
 
@@ -204,6 +205,6 @@ public class ArrayType
     @Override
     public String getDisplayName()
     {
-        return "array<" + elementType.getDisplayName() + ">";
+        return ARRAY + "<" + elementType.getDisplayName() + ">";
     }
 }
