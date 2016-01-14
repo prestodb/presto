@@ -2,6 +2,11 @@
 Release 0.132
 =============
 
+.. warning::
+
+   :func:`concat` on :ref:`array_type`, or enabling ``columnar_processing_dictionary``
+   may cause queries to fail in this release. This is fixed in :doc:`/release/release-0.133`.
+
 General Changes
 ---------------
 
