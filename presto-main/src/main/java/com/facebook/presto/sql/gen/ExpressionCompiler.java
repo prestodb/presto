@@ -46,25 +46,25 @@ public class ExpressionCompiler
 {
     private final Metadata metadata;
 
-    private final LoadingCache<CacheKey, PageProcessor> pageProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, PageProcessor>()
+    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<CacheKey, Class<? extends PageProcessor>>()
             {
                 @Override
-                public PageProcessor load(CacheKey key)
+                public Class<? extends PageProcessor> load(CacheKey key)
                         throws Exception
                 {
-                    return compileAndInstantiate(key.getFilter(), key.getProjections(), new PageProcessorCompiler(metadata), PageProcessor.class);
+                    return compile(key.getFilter(), key.getProjections(), new PageProcessorCompiler(metadata), PageProcessor.class);
                 }
             });
 
-    private final LoadingCache<CacheKey, CursorProcessor> cursorProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, CursorProcessor>()
+    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<CacheKey, Class<? extends CursorProcessor>>()
             {
                 @Override
-                public CursorProcessor load(CacheKey key)
+                public Class<? extends CursorProcessor> load(CacheKey key)
                         throws Exception
                 {
-                    return compileAndInstantiate(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class);
+                    return compile(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class);
                 }
             });
 
@@ -82,23 +82,31 @@ public class ExpressionCompiler
 
     public CursorProcessor compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
     {
-        return cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
+        try {
+            return cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey))
+                    .newInstance();
+        }
+        catch (ReflectiveOperationException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public PageProcessor compilePageProcessor(RowExpression filter, List<RowExpression> projections)
     {
-        return pageProcessors.getUnchecked(new CacheKey(filter, projections, null));
-    }
-
-    private <T> T compileAndInstantiate(RowExpression filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
-    {
-        // create filter and project page iterator class
         try {
-            Class<? extends T> clazz = compileProcessor(filter, projections, bodyCompiler, superType);
-            return clazz.newInstance();
+            return pageProcessors.getUnchecked(new CacheKey(filter, projections, null))
+                    .newInstance();
         }
         catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    private <T> Class<? extends T> compile(RowExpression filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
+    {
+        // create filter and project page iterator class
+        try {
+            return compileProcessor(filter, projections, bodyCompiler, superType);
         }
         catch (CompilationException e) {
             throw new PrestoException(COMPILER_ERROR, e.getCause());
