@@ -87,15 +87,34 @@ public class HadoopKerberosAuthentication
 
     public <T> T doAs(PrivilegedAction<T> action)
     {
-        return getUserGroupInformation().doAs(action);
+        return getUserGroupInformation()
+                .doAs(action);
     }
 
     public void doAs(Runnable action)
     {
-        getUserGroupInformation().doAs((PrivilegedAction<Object>) () -> {
-            action.run();
-            return null;
-        });
+        getUserGroupInformation()
+                .doAs((PrivilegedAction<Object>) () -> {
+                    action.run();
+                    return null;
+                });
+    }
+
+    public <T> T doAs(String user, PrivilegedAction<T> action)
+    {
+        return UserGroupInformation
+                .createProxyUser(user, getUserGroupInformation())
+                .doAs(action);
+    }
+
+    public void doAs(String user, Runnable action)
+    {
+        UserGroupInformation
+                .createProxyUser(user, getUserGroupInformation())
+                .doAs((PrivilegedAction<Object>) () -> {
+                    action.run();
+                    return null;
+                });
     }
 
     private void checkKeytabIsReadable()
