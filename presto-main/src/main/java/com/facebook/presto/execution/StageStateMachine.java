@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -68,6 +69,9 @@ public class StageStateMachine
     private final Distribution getSplitDistribution = new Distribution();
     private final Distribution scheduleTaskDistribution = new Distribution();
     private final Distribution addSplitDistribution = new Distribution();
+
+    private final AtomicLong peakMemory = new AtomicLong();
+    private final AtomicLong currentMemory = new AtomicLong();
 
     public StageStateMachine(StageId stageId, URI location, Session session, PlanFragment fragment, ExecutorService executor)
     {
@@ -161,6 +165,19 @@ public class StageStateMachine
         return failed;
     }
 
+    public long getPeakMemoryInBytes()
+    {
+        return peakMemory.get();
+    }
+
+    public void updateMemoryUsage(long deltaMemoryInBytes)
+    {
+        long currentMemoryValue = currentMemory.addAndGet(deltaMemoryInBytes);
+        if (currentMemoryValue > peakMemory.get()) {
+            peakMemory.updateAndGet(x -> currentMemoryValue > x ? currentMemoryValue : x);
+        }
+    }
+
     public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, Supplier<Iterable<StageInfo>> subStageInfosSupplier)
     {
         // stage state must be captured first in order to provide a
@@ -183,6 +200,7 @@ public class StageStateMachine
 
         long cumulativeMemory = 0;
         long totalMemoryReservation = 0;
+        long peakMemoryReservation = getPeakMemoryInBytes();
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
@@ -255,6 +273,7 @@ public class StageStateMachine
 
                 cumulativeMemory,
                 succinctDataSize(totalMemoryReservation, BYTE),
+                succinctDataSize(peakMemoryReservation, BYTE),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
                 succinctDuration(totalUserTime, NANOSECONDS),
