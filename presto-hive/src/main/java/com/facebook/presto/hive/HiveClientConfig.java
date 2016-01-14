@@ -116,6 +116,14 @@ public class HiveClientConfig
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
 
+    private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.SIMPLE;
+    private String hiveMetastorePrincipal;
+    private String hiveMetastorePrestoPrincipal;
+    private String hiveMetastorePrestoKeytab;
+
+    private String hdfsPrestoPrincipal;
+    private String hdfsPrestoKeytab;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -873,6 +881,84 @@ public class HiveClientConfig
     public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public HiveMetastoreAuthenticationType getHiveMetastoreAuthenticationType()
+    {
+        return hiveMetastoreAuthenticationType;
+    }
+
+    public enum HiveMetastoreAuthenticationType
+    {
+        SIMPLE,
+        SASL
+    }
+
+    @Config("hive.metastore.authentication.type")
+    public HiveClientConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
+    {
+        this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
+        return this;
+    }
+
+    public String getHiveMetastorePrincipal()
+    {
+        return hiveMetastorePrincipal;
+    }
+
+    @Config("hive.metastore.principal")
+    public HiveClientConfig setHiveMetastorePrincipal(String hiveMetastorePrincipal)
+    {
+        this.hiveMetastorePrincipal = hiveMetastorePrincipal;
+        return this;
+    }
+
+    public String getHiveMetastorePrestoPrincipal()
+    {
+        return hiveMetastorePrestoPrincipal;
+    }
+
+    @Config("hive.metastore.presto.principal")
+    public HiveClientConfig setHiveMetastorePrestoPrincipal(String hiveMetastorePrestoPrincipal)
+    {
+        this.hiveMetastorePrestoPrincipal = hiveMetastorePrestoPrincipal;
+        return this;
+    }
+
+    public String getHiveMetastorePrestoKeytab()
+    {
+        return hiveMetastorePrestoKeytab;
+    }
+
+    @Config("hive.metastore.presto.keytab")
+    public HiveClientConfig setHiveMetastorePrestoKeytab(String hiveMetastorePrestoKeytab)
+    {
+        this.hiveMetastorePrestoKeytab = hiveMetastorePrestoKeytab;
+        return this;
+    }
+
+    public String getHdfsPrestoPrincipal()
+    {
+        return hdfsPrestoPrincipal;
+    }
+
+    @Config("hive.hdfs.presto.principal")
+    public HiveClientConfig setHdfsPrestoPrincipal(String hdfsPrestoPrincipal)
+    {
+        this.hdfsPrestoPrincipal = hdfsPrestoPrincipal;
+        return this;
+    }
+
+    public String getHdfsPrestoKeytab()
+    {
+        return hdfsPrestoKeytab;
+    }
+
+    @Config("hive.hdfs.presto.keytab")
+    public HiveClientConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
+    {
+        this.hdfsPrestoKeytab = hdfsPrestoKeytab;
         return this;
     }
 }
