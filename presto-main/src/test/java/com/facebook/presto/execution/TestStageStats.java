@@ -46,22 +46,23 @@ public class TestStageStats
 
             12.0,
             new DataSize(13, BYTE),
+            new DataSize(14, BYTE),
 
-            new Duration(14, NANOSECONDS),
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
             new Duration(17, NANOSECONDS),
+            new Duration(18, NANOSECONDS),
             false,
             ImmutableSet.of(),
 
-            new DataSize(18, BYTE),
-            19,
+            new DataSize(19, BYTE),
+            20,
 
-            new DataSize(20, BYTE),
-            21,
+            new DataSize(21, BYTE),
+            22,
 
-            new DataSize(22, BYTE),
-            23);
+            new DataSize(23, BYTE),
+            24);
 
     @Test
     public void testJson()
@@ -93,20 +94,21 @@ public class TestStageStats
 
         assertEquals(actual.getCumulativeMemory(), 12.0);
         assertEquals(actual.getTotalMemoryReservation(), new DataSize(13, BYTE));
+        assertEquals(actual.getPeakMemoryReservation(), new DataSize(14, BYTE));
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(14, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(15, NANOSECONDS));
-        assertEquals(actual.getTotalUserTime(), new Duration(16, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(17, NANOSECONDS));
+        assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
+        assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
+        assertEquals(actual.getTotalUserTime(), new Duration(17, NANOSECONDS));
+        assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(18, BYTE));
-        assertEquals(actual.getRawInputPositions(), 19);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(19, BYTE));
+        assertEquals(actual.getRawInputPositions(), 20);
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(20, BYTE));
-        assertEquals(actual.getProcessedInputPositions(), 21);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(21, BYTE));
+        assertEquals(actual.getProcessedInputPositions(), 22);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(22, BYTE));
-        assertEquals(actual.getOutputPositions(), 23);
+        assertEquals(actual.getOutputDataSize(), new DataSize(23, BYTE));
+        assertEquals(actual.getOutputPositions(), 24);
     }
 
     private static DistributionSnapshot getTestDistribution(int count)
