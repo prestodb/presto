@@ -20,28 +20,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaTransactionHandle
         implements ConnectorTransactionHandle
 {
-    private final String connectorId;
     private final TransactionId transactionId;
 
     @JsonCreator
-    public InformationSchemaTransactionHandle(
-            @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("transactionId") TransactionId transactionId)
+    public InformationSchemaTransactionHandle(@JsonProperty("transactionId") TransactionId transactionId)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -53,7 +42,7 @@ public class InformationSchemaTransactionHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, transactionId);
+        return transactionId.hashCode();
     }
 
     @Override
@@ -65,17 +54,13 @@ public class InformationSchemaTransactionHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final InformationSchemaTransactionHandle other = (InformationSchemaTransactionHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.transactionId, other.transactionId);
+        InformationSchemaTransactionHandle other = (InformationSchemaTransactionHandle) obj;
+        return Objects.equals(transactionId, other.transactionId);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .add("transactionId", transactionId)
-                .toString();
+        return transactionId.toString();
     }
 }
