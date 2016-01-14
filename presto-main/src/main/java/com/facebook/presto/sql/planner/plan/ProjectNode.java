@@ -25,6 +25,8 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 @Immutable
 public class ProjectNode
         extends PlanNode
@@ -40,6 +42,9 @@ public class ProjectNode
             @JsonProperty("assignments") Map<Symbol, Expression> assignments)
     {
         super(id);
+
+        requireNonNull(source, "source is null");
+        requireNonNull(assignments, "assignments is null");
 
         this.source = source;
         this.assignments = ImmutableMap.copyOf(assignments);
