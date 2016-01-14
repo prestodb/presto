@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public class InformationSchemaHandleResolver
@@ -38,6 +39,12 @@ public class InformationSchemaHandleResolver
     public Class<? extends ConnectorSplit> getSplitClass()
     {
         return InformationSchemaSplit.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return InformationSchemaTableLayoutHandle.class;
     }
 
     @Override
