@@ -33,10 +33,8 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestInformationSchemaTableHandle
 {
-    private static final String CONNECTOR_ID = "information_connector_id";
     private static final Map<String, Object> SCHEMA_AS_MAP = ImmutableMap.<String, Object>of(
             "@type", "$info_schema",
-            "connectorId", CONNECTOR_ID,
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",
             "tableName", "information_schema_table"
@@ -57,7 +55,6 @@ public class TestInformationSchemaTableHandle
             throws Exception
     {
         InformationSchemaTableHandle informationSchemaTableHandle = new InformationSchemaTableHandle(
-                CONNECTOR_ID,
                 "information_schema_catalog",
                 "information_schema_schema",
                 "information_schema_table");
@@ -77,7 +74,6 @@ public class TestInformationSchemaTableHandle
         assertEquals(tableHandle.getClass(), InformationSchemaTableHandle.class);
         InformationSchemaTableHandle informationSchemaHandle = (InformationSchemaTableHandle) tableHandle;
 
-        assertEquals(informationSchemaHandle.getConnectorId(), CONNECTOR_ID);
         assertEquals(informationSchemaHandle.getCatalogName(), "information_schema_catalog");
         assertEquals(informationSchemaHandle.getSchemaName(), "information_schema_schema");
         assertEquals(informationSchemaHandle.getTableName(), "information_schema_table");

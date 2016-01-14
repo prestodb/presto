@@ -34,7 +34,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.connector.informationSchema.InformationSchemaColumnHandle.toInformationSchemaColumnHandles;
 import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.schemaMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
@@ -46,6 +45,8 @@ import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public class InformationSchemaMetadata
         implements ConnectorMetadata
@@ -97,12 +98,10 @@ public class InformationSchemaMetadata
                     .build())
             .build();
 
-    private final String connectorId;
     private final String catalogName;
 
-    public InformationSchemaMetadata(String connectorId, String catalogName)
+    public InformationSchemaMetadata(String catalogName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
@@ -127,7 +126,7 @@ public class InformationSchemaMetadata
             return null;
         }
 
-        return new InformationSchemaTableHandle(connectorId, catalogName, tableName.getSchemaName(), tableName.getTableName());
+        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
@@ -167,7 +166,9 @@ public class InformationSchemaMetadata
 
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
-        return toInformationSchemaColumnHandles(connectorId, tableMetadata);
+        return tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toMap(identity(), InformationSchemaColumnHandle::new));
     }
 
     @Override

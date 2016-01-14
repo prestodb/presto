@@ -28,20 +28,17 @@ import static java.util.Objects.requireNonNull;
 public class InformationSchemaConnector
         implements InternalConnector
 {
-    private final String connectorId;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
 
-    public InformationSchemaConnector(String connectorId, String catalogName, NodeManager nodeManager, Metadata metadata)
+    public InformationSchemaConnector(String catalogName, NodeManager nodeManager, Metadata metadata)
     {
-        requireNonNull(connectorId, "connectorId is null");
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(metadata, "metadata is null");
 
-        this.connectorId = connectorId;
-        this.metadata = new InformationSchemaMetadata(connectorId, catalogName);
+        this.metadata = new InformationSchemaMetadata(catalogName);
         this.splitManager = new InformationSchemaSplitManager(nodeManager);
         this.pageSourceProvider = new InformationSchemaPageSourceProvider(metadata);
     }
@@ -49,7 +46,7 @@ public class InformationSchemaConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
-        return new InformationSchemaTransactionHandle(connectorId, transactionId);
+        return new InformationSchemaTransactionHandle(transactionId);
     }
 
     @Override
