@@ -91,7 +91,14 @@ public class TestHiveClientConfig
                 .setAssumeCanonicalPartitionKeys(false)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE)));
+                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
+                .setHiveMetastoreSaslEnabled(false)
+                .setHiveMetastorePrincipal(null)
+                .setHiveMetastorePrestoPrincipal(null)
+                .setHiveMetastorePrestoKeytab(null)
+                .setHdfsSaslEnabled(false)
+                .setHdfsPrestoPrincipal(null)
+                .setHdfsPrestoKeytab(null));
     }
 
     @Test
@@ -154,6 +161,13 @@ public class TestHiveClientConfig
                 .put("hive.orc.max-merge-distance", "22kB")
                 .put("hive.orc.max-buffer-size", "44kB")
                 .put("hive.orc.stream-buffer-size", "55kB")
+                .put("hive.metastore.sasl.enabled", "true")
+                .put("hive.metastore.principal", "hive/_HOST@EXAMPLE.COM")
+                .put("hive.metastore.presto.principal", "metastore@EXAMPLE.COM")
+                .put("hive.metastore.presto.keytab", "/tmp/metastore.keytab")
+                .put("hive.hdfs.sasl.enabled", "true")
+                .put("hive.hdfs.presto.principal", "hdfs@EXAMPLE.COM")
+                .put("hive.hdfs.presto.keytab", "/tmp/hdfs.keytab")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -212,7 +226,14 @@ public class TestHiveClientConfig
                 .setAssumeCanonicalPartitionKeys(true)
                 .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
                 .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
-                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE));
+                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
+                .setHiveMetastoreSaslEnabled(true)
+                .setHiveMetastorePrincipal("hive/_HOST@EXAMPLE.COM")
+                .setHiveMetastorePrestoPrincipal("metastore@EXAMPLE.COM")
+                .setHiveMetastorePrestoKeytab("/tmp/metastore.keytab")
+                .setHdfsSaslEnabled(true)
+                .setHdfsPrestoPrincipal("hdfs@EXAMPLE.COM")
+                .setHdfsPrestoKeytab("/tmp/hdfs.keytab");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
