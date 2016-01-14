@@ -45,12 +45,16 @@ public class HdfsAuthenticatingConnectorModule
         bind(ConnectorMetadata.class).to(HdfsAuthenticatingMetadata.class);
         expose(ConnectorMetadata.class);
 
-        bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
-        bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
-        bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
-
+        bind(HiveSplitManager.class).in(Scopes.SINGLETON);
+        bind(ConnectorSplitManager.class).to(HdfsAuthenticatingSplitManager.class).in(Scopes.SINGLETON);
         expose(ConnectorSplitManager.class);
+
+        bind(HivePageSourceProvider.class).in(Scopes.SINGLETON);
+        bind(ConnectorPageSourceProvider.class).to(HdfsAuthenticatingPageSourceProvider.class).in(Scopes.SINGLETON);
         expose(ConnectorPageSourceProvider.class);
+
+        bind(HivePageSinkProvider.class).in(Scopes.SINGLETON);
+        bind(ConnectorPageSinkProvider.class).to(HdfsAuthenticatingPageSinkProvider.class).in(Scopes.SINGLETON);
         expose(ConnectorPageSinkProvider.class);
     }
 
