@@ -14,6 +14,7 @@
 package com.facebook.presto.client;
 
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
@@ -51,6 +52,14 @@ public class TestClientTypeSignature
                 ImmutableList.of(
                         new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature("foo", bigint))),
                         new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature("bar", bigint))))));
+    }
+
+    @Test
+    public void testBackwardsCompatible()
+    {
+        ClientTypeSignature signature = new ClientTypeSignature(StandardTypes.ARRAY, ImmutableList.of(new ClientTypeSignatureParameter(TypeSignatureParameter.of(BIGINT.getTypeSignature()))));
+        ClientTypeSignature legacy = CLIENT_TYPE_SIGNATURE_CODEC.fromJson("{\"rawType\":\"array\",\"literalArguments\":[],\"typeArguments\":[{\"rawType\":\"bigint\",\"literalArguments\":[],\"typeArguments\":[]}]}");
+        assertEquals(legacy, signature);
     }
 
     private static void assertJsonRoundTrip(ClientTypeSignature signature)
