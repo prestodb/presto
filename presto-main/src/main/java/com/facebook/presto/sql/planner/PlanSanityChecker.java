@@ -212,7 +212,7 @@ public final class PlanSanityChecker
             verifyUniqueId(node);
 
             Set<Symbol> inputs = ImmutableSet.copyOf(source.getOutputSymbols());
-            for (Expression expression : node.getExpressions()) {
+            for (Expression expression : node.getAssignments().values()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(expression);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }

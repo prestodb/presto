@@ -46,11 +46,6 @@ public class ProjectNode
         this.outputs = ImmutableList.copyOf(assignments.keySet());
     }
 
-    public List<Expression> getExpressions()
-    {
-        return ImmutableList.copyOf(assignments.values());
-    }
-
     @Override
     public List<Symbol> getOutputSymbols()
     {

@@ -425,7 +425,7 @@ public class PruneUnreferencedOutputs
             ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builder();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol output = node.getOutputSymbols().get(i);
-                Expression expression = node.getExpressions().get(i);
+                Expression expression = node.getAssignments().get(output);
 
                 if (context.get().contains(output)) {
                     expectedInputs.addAll(DependencyExtractor.extractUnique(expression));

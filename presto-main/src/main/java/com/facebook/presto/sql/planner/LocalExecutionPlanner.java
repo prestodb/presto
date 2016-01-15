@@ -162,6 +162,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskAggregationConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskHashBuildConcurrency;
@@ -924,9 +925,8 @@ public class LocalExecutionPlanner
             Expression filterExpression = node.getPredicate();
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
-            List<Expression> projectionExpressions = outputSymbols.stream()
-                    .map(Symbol::toQualifiedNameReference)
-                    .collect(toImmutableList());
+            Map<Symbol, Expression> projectionExpressions = outputSymbols.stream()
+                    .collect(Collectors.toMap(x -> x, Symbol::toQualifiedNameReference));
 
             return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, projectionExpressions, outputSymbols);
         }
@@ -946,11 +946,9 @@ public class LocalExecutionPlanner
                 filterExpression = BooleanLiteral.TRUE_LITERAL;
             }
 
-            List<Expression> projectionExpressions = node.getExpressions();
-
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, projectionExpressions, outputSymbols);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), outputSymbols);
         }
 
         // TODO: This should be refactored, so that there's an optimizer that merges scan-filter-project into a single PlanNode
@@ -959,7 +957,7 @@ public class LocalExecutionPlanner
                 PlanNodeId planNodeId,
                 PlanNode sourceNode,
                 Expression filterExpression,
-                List<Expression> projectionExpressions,
+                Map<Symbol, Expression> projectionExpressions,
                 List<Symbol> outputSymbols)
         {
             // if source is a table scan we fold it directly into the filter and project
@@ -1008,8 +1006,8 @@ public class LocalExecutionPlanner
             Expression rewrittenFilter = ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, filterExpression);
 
             List<Expression> rewrittenProjections = new ArrayList<>();
-            for (Expression projection : projectionExpressions) {
-                rewrittenProjections.add(ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, projection));
+            for (Symbol symbol : outputSymbols) {
+                rewrittenProjections.add(ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, projectionExpressions.get(symbol)));
             }
 
             IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
@@ -1071,7 +1069,8 @@ public class LocalExecutionPlanner
             }
 
             List<ProjectionFunction> projectionFunctions = new ArrayList<>();
-            for (Expression expression : projectionExpressions) {
+            for (Symbol symbol : outputSymbols) {
+                Expression expression = projectionExpressions.get(symbol);
                 ProjectionFunction function;
                 if (expression instanceof QualifiedNameReference) {
                     // fast path when we know it's a direct symbol reference
