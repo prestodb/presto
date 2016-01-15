@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -45,6 +46,12 @@ public class KafkaHandleResolver
         return KafkaSplit.class;
     }
 
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return KafkaTableLayoutHandle.class;
+    }
+
     static KafkaTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
@@ -64,5 +71,12 @@ public class KafkaHandleResolver
         requireNonNull(split, "split is null");
         checkArgument(split instanceof KafkaSplit, "split is not an instance of KafkaSplit");
         return (KafkaSplit) split;
+    }
+
+    static KafkaTableLayoutHandle convertLayout(ConnectorTableLayoutHandle layout)
+    {
+        requireNonNull(layout, "layout is null");
+        checkArgument(layout instanceof KafkaTableLayoutHandle, "layout is not an instance of KafkaTableLayoutHandle");
+        return (KafkaTableLayoutHandle) layout;
     }
 }
