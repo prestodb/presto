@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -50,6 +51,12 @@ public class KafkaHandleResolver
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         return KafkaTableLayoutHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
+    {
+        return KafkaTransactionHandle.class;
     }
 
     static KafkaTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
