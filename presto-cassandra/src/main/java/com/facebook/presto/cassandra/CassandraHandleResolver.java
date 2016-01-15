@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 public class CassandraHandleResolver
     implements ConnectorHandleResolver
@@ -38,6 +39,12 @@ public class CassandraHandleResolver
     public Class<? extends ConnectorSplit> getSplitClass()
     {
         return CassandraSplit.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return CassandraTableLayoutHandle.class;
     }
 
     @Override

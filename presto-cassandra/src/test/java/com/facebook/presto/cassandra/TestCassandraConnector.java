@@ -18,18 +18,19 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +42,7 @@ import org.testng.annotations.Test;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.HOSTNAME;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.KEYSPACE_NAME;
@@ -56,6 +58,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.util.Locale.ENGLISH;
@@ -161,8 +164,9 @@ public class TestCassandraConnector
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorPartitionResult partitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.<ColumnHandle>all());
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getPartitionSplits(SESSION, tableHandle, partitionResult.getPartitions()));
+        List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+        ConnectorTableLayoutHandle layout = getOnlyElement(layouts).getTableLayout().getHandle();
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(SESSION, layout));
 
         long rowNumber = 0;
         for (ConnectorSplit split : splits) {
