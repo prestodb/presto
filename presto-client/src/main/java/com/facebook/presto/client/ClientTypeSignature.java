@@ -14,10 +14,13 @@
 package com.facebook.presto.client;
 
 import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import javax.annotation.concurrent.Immutable;
@@ -32,6 +35,8 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @Immutable
 public class ClientTypeSignature
@@ -47,17 +52,68 @@ public class ClientTypeSignature
                 Lists.transform(typeSignature.getParameters(), ClientTypeSignatureParameter::new));
     }
 
+    public ClientTypeSignature(String rawType, List<ClientTypeSignatureParameter> arguments)
+    {
+        this(rawType, ImmutableList.of(), ImmutableList.of(), arguments);
+    }
+
     @JsonCreator
     public ClientTypeSignature(
             @JsonProperty("rawType") String rawType,
+            @JsonProperty("typeArguments") List<ClientTypeSignature> typeArguments,
+            @JsonProperty("literalArguments") List<Object> literalArguments,
             @JsonProperty("arguments") List<ClientTypeSignatureParameter> arguments)
     {
-        checkArgument(rawType != null, "rawType is null");
+        requireNonNull(rawType, "rawType is null");
         this.rawType = rawType;
         checkArgument(!rawType.isEmpty(), "rawType is empty");
         checkArgument(!PATTERN.matcher(rawType).matches(), "Bad characters in rawType type: %s", rawType);
-        checkArgument(arguments != null, "arguments is null");
-        this.arguments = unmodifiableList(new ArrayList<>(arguments));
+        if (arguments != null) {
+            this.arguments = unmodifiableList(new ArrayList<>(arguments));
+        }
+        else {
+            requireNonNull(typeArguments, "typeArguments is null");
+            requireNonNull(literalArguments, "literalArguments is null");
+            ImmutableList.Builder<ClientTypeSignatureParameter> convertedArguments = ImmutableList.builder();
+            // Talking to a legacy server (< 0.133)
+            if (rawType.equals(StandardTypes.ROW)) {
+                checkArgument(typeArguments.size() == literalArguments.size());
+                for (int i = 0; i < typeArguments.size(); i++) {
+                    Object value = literalArguments.get(i);
+                    checkArgument(value instanceof String, "Expected literalArgument %d in %s to be a string", i, literalArguments);
+                    convertedArguments.add(new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature((String) value, toTypeSignature(typeArguments.get(i))))));
+                }
+            }
+            else {
+                checkArgument(literalArguments.isEmpty(), "Unexpected literal arguments from legacy server");
+                for (ClientTypeSignature typeArgument : typeArguments) {
+                    convertedArguments.add(new ClientTypeSignatureParameter(ParameterKind.TYPE_SIGNATURE, typeArgument));
+                }
+            }
+            this.arguments = convertedArguments.build();
+        }
+    }
+
+    private static TypeSignature toTypeSignature(ClientTypeSignature signature)
+    {
+        List<TypeSignatureParameter> parameters = signature.getArguments().stream()
+                .map(ClientTypeSignature::legacyClientTypeSignatureParameterToTypeSignatureParameter)
+                .collect(toList());
+        return new TypeSignature(signature.getRawType(), parameters);
+    }
+
+    private static TypeSignatureParameter legacyClientTypeSignatureParameterToTypeSignatureParameter(ClientTypeSignatureParameter parameter)
+    {
+        switch (parameter.getKind()) {
+            case LONG_LITERAL:
+                throw new UnsupportedOperationException("Unexpected long type literal returned by legacy server");
+            case TYPE_SIGNATURE:
+                return TypeSignatureParameter.of(toTypeSignature(parameter.getTypeSignature()));
+            case NAMED_TYPE_SIGNATURE:
+                return TypeSignatureParameter.of(parameter.getNamedTypeSignature());
+            default:
+                throw new UnsupportedOperationException("Unknown parameter kind " + parameter.getKind());
+        }
     }
 
     @JsonProperty
