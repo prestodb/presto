@@ -3,8 +3,13 @@
     <meta charset="utf-8">
 
     <script src="vendor/d3/d3-3.3.4.js"></script>
+    <script src="vendor/jquery/jquery-1.11.1.min.js"></script>
+    <script src="vendor/stickytableheaders/jquery.stickytableheaders.min.js"></script>
+    <script src="vendor/bootstrap/js/bootstrap.js"></script>
+    <script src="vendor/bootstrap-sortable/bootstrap-sortable.js"></script>
 
     <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <link href="vendor/bootstrap-sortable/bootstrap-sortable.css" rel="stylesheet" type="text/css">
 
     <link rel="stylesheet" href="vendor/highlightjs/7.3/styles/idea.min.css">
     <script src="vendor/highlightjs/7.3/highlight.min.js"></script>
@@ -30,6 +35,16 @@
             fill: none;
             stroke: #ccc;
             stroke-width: 1.5px;
+        }
+
+        #tasks th {
+            background-color: #fff;
+            padding-left: 15px;
+            padding-right: 10px;
+        }
+
+        #tasks td {
+            padding-left: 15px;
         }
 
         #tasks td:nth-child(4),
@@ -142,10 +157,10 @@
 
     <h2>Tasks</h2>
 
-    <table id="tasks" class="table table-striped">
+    <table id="tasks" class="table table-striped sortable">
         <thead>
         <tr>
-            <th>Id</th>
+            <th data-defaultsort="asc">Id</th>
             <th>Host</th>
             <th>State</th>
             <th>Rows</th>
@@ -265,7 +280,9 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
 
     renderStagesTree(query.outputStage);
 
-    renderTable('tasks', getTasks(query.outputStage).sort(taskIdComparator));
+    renderTable('tasks', getTasks(query.outputStage));
+    $.bootstrapSortable(applyLast=true);
+    $('#tasks').stickyTableHeaders();
 });
 
 function formatStackTrace(info) {
@@ -334,20 +351,10 @@ function removeQueryId(id)
     return id
 }
 
-function taskIdComparator(a, b) {
-    a = a[0].split('.').map(parseFloat);
-    b = b[0].split('.').map(parseFloat);
-    return numericArrayComparator(a, b);
-}
-
-function numericArrayComparator(a, b) {
-    for (var i = 0; (i < a.length) && (i < b.length); i++) {
-        if (a[i] < b[i]) return -1;
-        if (a[i] > b[i]) return 1;
-    }
-    if (a.length < b.length) return -1;
-    if (a.length > b.length) return 1;
-    return 0;
+function taskIdToSortableString(id) {
+    var taskIdArr = removeQueryId(id).split(".");
+    var maxLength = Number.MAX_VALUE.toString().length + 1;
+    return taskIdArr.map(numStr => new Array(maxLength - numStr.length).join("0") + numStr).join(".");
 }
 
 function getTasks(stage) {
@@ -370,18 +377,18 @@ function taskData(d) {
     });
 
     return [
-        "<a href=" + d.self + "?pretty>" + htmlEscape(d.taskId) + "</a>",
-        htmlEscape(urlHostname(d.self)),
-        htmlEscape(formatState(d.state, d.stats.fullyBlocked)),
-        htmlEscape(formatCount(rows)),
-        htmlEscape(formatCount(computeRate(rows, elapsed))),
-        htmlEscape(formatDataSize(bytes)),
-        htmlEscape(formatDataSize(computeRate(bytes, elapsed))),
-        htmlEscape(d.stats.queuedDrivers),
-        htmlEscape(d.stats.runningDrivers),
-        htmlEscape(d.stats.completedDrivers),
-        htmlEscape(finishedBuffers + ' / ' + allBuffers),
-        htmlEscape(bufferedPages)
+        {"display": "<a href=" + d.self + "?pretty>" + htmlEscape(d.taskId) + "</a>", "sortableString": taskIdToSortableString(d.taskId)},
+        {"display": htmlEscape(urlHostname(d.self))},
+        {"display": htmlEscape(formatState(d.state, d.stats.fullyBlocked))},
+        {"display": htmlEscape(formatCount(rows)), "sortableString": rows},
+        {"display": htmlEscape(formatCount(computeRate(rows, elapsed))), "sortableString": computeRate(rows, elapsed)},
+        {"display": htmlEscape(formatDataSize(bytes)), "sortableString": bytes},
+        {"display": htmlEscape(formatDataSize(computeRate(bytes, elapsed))), "sortableString": computeRate(bytes, elapsed)},
+        {"display": htmlEscape(d.stats.queuedDrivers)},
+        {"display": htmlEscape(d.stats.runningDrivers)},
+        {"display": htmlEscape(d.stats.completedDrivers)},
+        {"display": htmlEscape(finishedBuffers + ' / ' + allBuffers)},
+        {"display": htmlEscape(bufferedPages)}
     ];
 }
 
@@ -540,7 +547,12 @@ function renderTable(id, data) {
             .enter()
             .append("td")
             .html(function (d) {
-                return d;
+                return d["display"]
+            })
+            .attr("data-value", function(d) {
+                if ("sortableString" in d) {
+                    return d["sortableString"];
+                }
             });
 }
 
