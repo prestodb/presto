@@ -44,7 +44,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 public class SimplifyExpressions
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
     private final SqlParser sqlParser;

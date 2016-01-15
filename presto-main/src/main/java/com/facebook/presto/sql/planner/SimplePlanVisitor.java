@@ -11,22 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.optimizations;
+package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
 
-import java.util.Map;
-
-public interface PlanOptimizer
+public class SimplePlanVisitor<C>
+        extends PlanVisitor<C, Void>
 {
-    PlanNode optimize(PlanNode plan,
-            Session session,
-            Map<Symbol, Type> types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator);
+    @Override
+    protected Void visitPlan(PlanNode node, C context)
+    {
+        for (PlanNode source : node.getSources()) {
+            source.accept(this, context);
+        }
+        return null;
+    }
 }

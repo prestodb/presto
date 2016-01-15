@@ -39,6 +39,8 @@ import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
+import com.facebook.presto.sql.planner.optimizations.UncorrelatedInPredicateApplyRemover;
+import com.facebook.presto.sql.planner.optimizations.UncorrelatedScalarApplyRemover;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
@@ -62,7 +64,9 @@ public class PlanOptimizersFactory
     {
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
-        builder.add(new ImplementSampleAsFilter(),
+        builder.add(new UncorrelatedScalarApplyRemover(),
+                new UncorrelatedInPredicateApplyRemover(),
+                new ImplementSampleAsFilter(),
                 new CanonicalizeExpressions(),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),

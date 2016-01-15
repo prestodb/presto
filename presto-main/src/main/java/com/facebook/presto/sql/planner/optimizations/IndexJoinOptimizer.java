@@ -61,7 +61,7 @@ import static com.google.common.base.Predicates.in;
 import static java.util.Objects.requireNonNull;
 
 public class IndexJoinOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
 

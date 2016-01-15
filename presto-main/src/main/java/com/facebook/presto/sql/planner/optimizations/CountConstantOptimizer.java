@@ -40,7 +40,7 @@ import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static java.util.Objects.requireNonNull;
 
 public class CountConstantOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)

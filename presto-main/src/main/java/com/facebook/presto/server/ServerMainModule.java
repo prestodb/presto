@@ -80,6 +80,8 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
+import com.facebook.presto.sql.planner.PlanVerifier;
+import com.facebook.presto.sql.planner.PlanVerifiersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -310,6 +312,9 @@ public class ServerMainModule
 
         // optimizers
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
+
+        // verifiers
+        binder.bind(new TypeLiteral<List<PlanVerifier>>() {}).toProvider(PlanVerifiersFactory.class).in(Scopes.SINGLETON);
 
         // block encodings
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);

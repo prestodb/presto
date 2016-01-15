@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -91,7 +92,7 @@ import static java.util.Objects.requireNonNull;
  * {@code Output[$2, $1] -> Project[$2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...}
  */
 public class UnaliasSymbolReferences
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -384,6 +385,15 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
 
             return new EnforceSingleRowNode(node.getId(), source);
+        }
+
+        @Override
+        public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getInput());
+            PlanNode subquery = context.rewrite(node.getSubquery());
+
+            return new ApplyNode(node.getId(), source, subquery, node.getCorrelation());
         }
 
         @Override

@@ -56,7 +56,7 @@ import static java.util.stream.Collectors.toSet;
  * from the plan that links plan nodes to the corresponding token.
  */
 public class BeginTableWrite
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
 
