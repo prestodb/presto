@@ -52,7 +52,10 @@ public class TestCassandraClientConfig
                 .setClientReadTimeout(new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS))
                 .setClientConnectTimeout(new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS))
                 .setClientSoLinger(null)
-                .setRetryPolicy(RetryPolicyType.DEFAULT));
+                .setRetryPolicy(RetryPolicyType.DEFAULT)
+                .setNoHostAvailableRetryCount(2)
+                .setUseLocalNodeFirstBalancingPolicy(true)
+                .setForceLocalScheduling(false));
     }
 
     @Test
@@ -81,9 +84,12 @@ public class TestCassandraClientConfig
                 .put("cassandra.client.connect-timeout", "22ms")
                 .put("cassandra.client.so-linger", "33")
                 .put("cassandra.retry-policy", "BACKOFF")
+                .put("cassandra.no-host-available-retry-count", "10")
+                .put("cassandra.load-balancing.use-local-node-first", "false")
+                .put("cassandra.force-local-scheduling", "true")
                 .build();
 
-        CassandraClientConfig expected = new CassandraClientConfig()
+            CassandraClientConfig expected = new CassandraClientConfig()
                 .setLimitForPartitionKeySelect(100)
                 .setFetchSizeForPartitionKeySelect(500)
                 .setMaxSchemaRefreshThreads(2)
@@ -105,7 +111,10 @@ public class TestCassandraClientConfig
                 .setClientReadTimeout(new Duration(11, MILLISECONDS))
                 .setClientConnectTimeout(new Duration(22, MILLISECONDS))
                 .setClientSoLinger(33)
-                .setRetryPolicy(RetryPolicyType.BACKOFF);
+                .setRetryPolicy(RetryPolicyType.BACKOFF)
+                .setNoHostAvailableRetryCount(10)
+                .setUseLocalNodeFirstBalancingPolicy(false)
+                .setForceLocalScheduling(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

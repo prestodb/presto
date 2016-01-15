@@ -34,6 +34,7 @@ public class CassandraSplit
     private final String schema;
     private final String table;
     private final String splitCondition;
+    private final boolean forceLocalScheduling;
 
     @JsonCreator
     public CassandraSplit(
@@ -42,7 +43,8 @@ public class CassandraSplit
             @JsonProperty("table") String table,
             @JsonProperty("partitionId") String partitionId,
             @JsonProperty("splitCondition") String splitCondition,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+            @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(schema, "schema is null");
@@ -56,6 +58,7 @@ public class CassandraSplit
         this.partitionId = partitionId;
         this.addresses = ImmutableList.copyOf(addresses);
         this.splitCondition = splitCondition;
+        this.forceLocalScheduling = forceLocalScheduling;
     }
 
     @JsonProperty
@@ -95,10 +98,16 @@ public class CassandraSplit
         return addresses;
     }
 
+    @JsonProperty
+    public boolean isForceLocalScheduling()
+    {
+        return forceLocalScheduling;
+    }
+
     @Override
     public boolean isRemotelyAccessible()
     {
-        return true;
+        return !forceLocalScheduling;
     }
 
     @Override
@@ -109,6 +118,7 @@ public class CassandraSplit
                 .put("schema", schema)
                 .put("table", table)
                 .put("partitionId", partitionId)
+                .put("forceLocalScheduling", forceLocalScheduling)
                 .build();
     }
 

@@ -17,6 +17,7 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
+import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.google.common.primitives.Ints;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -101,6 +102,10 @@ public class CassandraClientModule
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
 
+        if (config.getUseLocalNodeFirstBalancingPolicy()) {
+            LoadBalancingPolicy loadPolicy = new LimitedLocalNodeFirstLocalBalancingPolicy(config.getContactPoints().stream().toArray(String[]::new));
+            clusterBuilder.withLoadBalancingPolicy(loadPolicy);
+        }
         SocketOptions socketOptions = new SocketOptions();
         socketOptions.setReadTimeoutMillis(Ints.checkedCast(config.getClientReadTimeout().toMillis()));
         socketOptions.setConnectTimeoutMillis(Ints.checkedCast(config.getClientConnectTimeout().toMillis()));
@@ -123,6 +128,7 @@ public class CassandraClientModule
                 clusterBuilder,
                 config.getFetchSizeForPartitionKeySelect(),
                 config.getLimitForPartitionKeySelect(),
-                extraColumnMetadataCodec);
+                extraColumnMetadataCodec,
+                config.getNoHostAvailableRetryCount());
     }
 }

@@ -72,6 +72,7 @@ public class CassandraSplitManager
     private final int partitionSizeForBatchSelect;
     private final CassandraTokenSplitManager tokenSplitMgr;
     private final ListeningExecutorService executor;
+    private final boolean forceLocalScheduling;
 
     @Inject
     public CassandraSplitManager(CassandraConnectorId connectorId,
@@ -87,6 +88,7 @@ public class CassandraSplitManager
         this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
         this.tokenSplitMgr = tokenSplitMgr;
         this.executor = listeningDecorator(executor);
+        this.forceLocalScheduling = cassandraClientConfig.isForceLocalScheduling();
     }
 
     @Override
@@ -269,7 +271,7 @@ public class CassandraSplitManager
         for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {
             String condition = buildTokenCondition(tokenExpression, tokenSplit.getStartToken(), tokenSplit.getEndToken());
             List<HostAddress> addresses = new HostAddressFactory().AddressNamesToHostAddressList(tokenSplit.getHosts());
-            CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses);
+            CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses, forceLocalScheduling);
             builder.add(split);
         }
 
@@ -326,7 +328,7 @@ public class CassandraSplitManager
                 hostMap.put(hostAddresses, addresses);
             }
             else {
-                CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, addresses);
+                CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, addresses, forceLocalScheduling);
                 builder.add(split);
             }
         }
@@ -342,7 +344,7 @@ public class CassandraSplitManager
                     size++;
                     if (size > partitionSizeForBatchSelect) {
                         String partitionId = String.format("%s in (%s)", partitionKeyColumnName, sb.toString());
-                        CassandraSplit split = new CassandraSplit(connectorId, schema, table, partitionId, null, hostMap.get(entry.getKey()));
+                        CassandraSplit split = new CassandraSplit(connectorId, schema, table, partitionId, null, hostMap.get(entry.getKey()), forceLocalScheduling);
                         builder.add(split);
                         size = 0;
                         sb.setLength(0);
@@ -351,7 +353,7 @@ public class CassandraSplitManager
                 }
                 if (size > 0) {
                     String partitionId = String.format("%s in (%s)", partitionKeyColumnName, sb.toString());
-                    CassandraSplit split = new CassandraSplit(connectorId, schema, table, partitionId, null, hostMap.get(entry.getKey()));
+                    CassandraSplit split = new CassandraSplit(connectorId, schema, table, partitionId, null, hostMap.get(entry.getKey()), forceLocalScheduling);
                     builder.add(split);
                 }
             }
