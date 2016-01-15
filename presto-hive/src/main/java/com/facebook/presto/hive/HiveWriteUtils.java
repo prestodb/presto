@@ -27,7 +27,7 @@ import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.base.StandardSystemProperty;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.fs.Path;
@@ -55,6 +55,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -376,8 +377,13 @@ public final class HiveWriteUtils
     public static Path createTemporaryPath(HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
         // use a per-user temporary directory to avoid permission problems
-        // TODO: this should use Hadoop UserGroupInformation
-        String temporaryPrefix = "/tmp/presto-" + StandardSystemProperty.USER_NAME.value();
+        String temporaryPrefix;
+        try {
+            temporaryPrefix = "/tmp/presto-" + UserGroupInformation.getCurrentUser().getUserName();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
