@@ -122,6 +122,9 @@ public class TestTypeSignature
         assertSignatureFail("blah()");
         assertSignatureFail("array()");
         assertSignatureFail("map()");
+
+        // ensure this is not treated as a row type
+        assertSignature("rowxxx<a>", "rowxxx", ImmutableList.of("a"));
     }
 
     @Test

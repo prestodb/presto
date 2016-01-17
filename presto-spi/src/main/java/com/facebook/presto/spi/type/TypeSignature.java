@@ -94,7 +94,7 @@ public class TypeSignature
         if (!signature.contains("<") && !signature.contains("(")) {
             return new TypeSignature(signature, new ArrayList<>());
         }
-        if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW)) {
+        if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "<")) {
             return parseRowTypeSignature(signature);
         }
 
