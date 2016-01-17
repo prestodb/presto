@@ -33,8 +33,8 @@ Kill a running query::
 System Connector Tables
 -----------------------
 
-``metadata.catalog``
-^^^^^^^^^^^^^^^^^^^^
+``metadata.catalogs``
+^^^^^^^^^^^^^^^^^^^^^
 
 The catalogs table contains the list of available catalogs.
 
