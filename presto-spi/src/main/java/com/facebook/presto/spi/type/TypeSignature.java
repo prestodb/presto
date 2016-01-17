@@ -94,7 +94,7 @@ public class TypeSignature
         if (!signature.contains("<") && !signature.contains("(")) {
             return new TypeSignature(signature, new ArrayList<>());
         }
-        if (signature.startsWith(StandardTypes.ROW)) {
+        if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW)) {
             return parseRowTypeSignature(signature);
         }
 
@@ -252,7 +252,7 @@ public class TypeSignature
     @JsonValue
     public String toString()
     {
-        if (base.equals(StandardTypes.ROW)) {
+        if (base.equalsIgnoreCase(StandardTypes.ROW)) {
             return rowToString();
         }
         else {

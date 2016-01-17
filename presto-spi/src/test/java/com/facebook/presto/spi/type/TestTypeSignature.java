@@ -70,6 +70,11 @@ public class TestTypeSignature
                 "row",
                 ImmutableList.of("a bigint", "b varchar"));
         assertRowSignature(
+                "ROW<bigint,varchar>('a','b')",
+                "ROW",
+                ImmutableList.of("a bigint", "b varchar"),
+                "row<bigint,varchar>('a','b')");
+        assertRowSignature(
                 "row<bigint,array(bigint),row<bigint>('a')>('a','b','c')",
                 "row",
                 ImmutableList.of("a bigint", "b array(bigint)", "c row<bigint>('a')"));
@@ -131,7 +136,16 @@ public class TestTypeSignature
             String base,
             List<String> parameters)
     {
-        assertSignature(typeName, base, parameters, typeName);
+        assertRowSignature(typeName, base, parameters, typeName);
+    }
+
+    private static void assertRowSignature(
+            String typeName,
+            String base,
+            List<String> parameters,
+            String expected)
+    {
+        assertSignature(typeName, base, parameters, expected);
     }
 
     private static void assertSignature(String typeName, String base, List<String> parameters)
