@@ -24,11 +24,15 @@ import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.TimestampType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -36,7 +40,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.connector.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
+import static com.facebook.presto.connector.jmx.JmxMetadata.JMX_SCHEMA_NAME;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -44,17 +51,37 @@ import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestJmxSplitManager
 {
+    private static final Duration JMX_STATS_DUMP = new Duration(100, TimeUnit.MILLISECONDS);
+    private static final long SLEEP_TIME = JMX_STATS_DUMP.toMillis() / 5;
+    private static final long TIMEOUT_TIME = JMX_STATS_DUMP.toMillis() * 40;
+    private static final String TEST_BEANS = "java.lang:type=Runtime";
+    private static final String CONNECTOR_ID = "test-id";
     private final Node localNode = new TestingNode("host1");
     private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2"), new TestingNode("host3"));
 
+    private final JmxConnector jmxConnector =
+            (JmxConnector) new JmxConnectorFactory(getPlatformMBeanServer(), new TestingNodeManager())
+                    .create(CONNECTOR_ID, ImmutableMap.of(
+                            "jmx.dump-tables", TEST_BEANS,
+                            "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
+                            "jmx.max-entries", "1000"));
+
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", createUnboundedVarcharType());
-    private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle));
-    private final JmxSplitManager splitManager = new JmxSplitManager("test", new TestingNodeManager());
-    private final JmxMetadata metadata = new JmxMetadata("test", getPlatformMBeanServer());
-    private final JmxRecordSetProvider recordSetProvider = new JmxRecordSetProvider(getPlatformMBeanServer(), localNode.getNodeIdentifier());
+    private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle), true);
+
+    private final JmxSplitManager splitManager = jmxConnector.getSplitManager();
+    private final JmxMetadata metadata = jmxConnector.getMetadata(new ConnectorTransactionHandle() {});
+    private final JmxRecordSetProvider recordSetProvider = jmxConnector.getRecordSetProvider();
+
+    @AfterClass
+    public void tearDown()
+    {
+        jmxConnector.shutdown();
+    }
 
     @Test
     public void testPredicatePushdown()
@@ -97,17 +124,8 @@ public class TestJmxSplitManager
     public void testRecordSetProvider()
             throws Exception
     {
-        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, "jmx")) {
-            JmxTableHandle tableHandle = metadata.getTableHandle(SESSION, schemaTableName);
-            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
-
-            ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, TupleDomain.all());
-            ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout);
-            List<ConnectorSplit> allSplits = getAllSplits(splitSource);
-            assertEquals(allSplits.size(), nodes.size());
-            ConnectorSplit split = allSplits.get(0);
-
-            RecordSet recordSet = recordSetProvider.getRecordSet(JmxTransactionHandle.INSTANCE, SESSION, split, columnHandles);
+        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, JMX_SCHEMA_NAME)) {
+            RecordSet recordSet = getRecordSet(schemaTableName);
             try (RecordCursor cursor = recordSet.cursor()) {
                 while (cursor.advanceNextPosition()) {
                     for (int i = 0; i < recordSet.getColumnTypes().size(); i++) {
@@ -116,6 +134,61 @@ public class TestJmxSplitManager
                 }
             }
         }
+    }
+
+    @Test
+    public void testHistoryRecordSetProvider()
+            throws Exception
+    {
+        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, HISTORY_SCHEMA_NAME)) {
+            // wait for at least two samples
+            List<Long> timeStamps = ImmutableList.of();
+            for (int waited = 0; waited < TIMEOUT_TIME; waited += SLEEP_TIME) {
+                RecordSet recordSet = getRecordSet(schemaTableName);
+                timeStamps = readTimeStampsFrom(recordSet);
+                if (timeStamps.size() >= 2) {
+                    break;
+                }
+                Thread.sleep(SLEEP_TIME);
+            }
+            assertTrue(timeStamps.size() >= 2);
+
+            // we don't have equality check here because JmxHistoryDumper scheduling can lag
+            assertTrue(timeStamps.get(1) - timeStamps.get(0) >= JMX_STATS_DUMP.toMillis());
+        }
+    }
+
+    private List<Long> readTimeStampsFrom(RecordSet recordSet)
+    {
+        ImmutableList.Builder<Long> result = ImmutableList.builder();
+        try (RecordCursor cursor = recordSet.cursor()) {
+            while (cursor.advanceNextPosition()) {
+                for (int i = 0; i < recordSet.getColumnTypes().size(); i++) {
+                    cursor.isNull(i);
+                }
+                if (cursor.isNull(0)) {
+                    return result.build();
+                }
+                assertTrue(recordSet.getColumnTypes().get(0) instanceof TimestampType);
+                result.add(cursor.getLong(0));
+            }
+        }
+        return result.build();
+    }
+
+    private RecordSet getRecordSet(SchemaTableName schemaTableName)
+            throws Exception
+    {
+        JmxTableHandle tableHandle = metadata.getTableHandle(SESSION, schemaTableName);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+
+        ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, TupleDomain.all());
+        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout);
+        List<ConnectorSplit> allSplits = getAllSplits(splitSource);
+        assertEquals(allSplits.size(), nodes.size());
+        ConnectorSplit split = allSplits.get(0);
+
+        return recordSetProvider.getRecordSet(JmxTransactionHandle.INSTANCE, SESSION, split, columnHandles);
     }
 
     private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)

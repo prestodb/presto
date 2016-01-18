@@ -28,7 +28,7 @@ public class JmxConnectorTests
     @Test(groups = JMX_CONNECTOR)
     public void selectFromJavaRuntimeJmxMBean()
     {
-        assertThat(query("SELECT node, vmname, vmversion FROM jmx.jmx.\"java.lang:type=runtime\""))
+        assertThat(query("SELECT node, vmname, vmversion FROM jmx.current.\"java.lang:type=runtime\""))
                 .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR)
                 .hasAnyRows();
     }
@@ -37,7 +37,7 @@ public class JmxConnectorTests
     public void selectFromJavaOperatingSystemJmxMBean()
     {
         assertThat(query("SELECT openfiledescriptorcount, maxfiledescriptorcount " +
-                "FROM jmx.jmx.\"java.lang:type=operatingsystem\""))
+                "FROM jmx.current.\"java.lang:type=operatingsystem\""))
                 .hasColumns(BIGINT, BIGINT)
                 .hasAnyRows();
     }
