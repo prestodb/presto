@@ -25,11 +25,11 @@ import com.google.inject.Inject;
 public class HdfsAuthenticatingPageSinkProvider
         implements ConnectorPageSinkProvider
 {
-    private final HadoopKerberosAuthentication authentication;
+    private final HadoopKerberosImpersonatingAuthentication authentication;
     private final HivePageSinkProvider targetConnectorPageSinkProvider;
 
     @Inject
-    public HdfsAuthenticatingPageSinkProvider(HadoopKerberosAuthentication authentication, HivePageSinkProvider targetConnectorPageSinkProvider)
+    public HdfsAuthenticatingPageSinkProvider(HadoopKerberosImpersonatingAuthentication authentication, HivePageSinkProvider targetConnectorPageSinkProvider)
     {
         this.authentication = authentication;
         this.targetConnectorPageSinkProvider = targetConnectorPageSinkProvider;

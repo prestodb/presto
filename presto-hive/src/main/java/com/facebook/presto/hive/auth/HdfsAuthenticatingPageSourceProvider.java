@@ -28,11 +28,11 @@ import java.util.List;
 public class HdfsAuthenticatingPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final HadoopKerberosAuthentication authentication;
+    private final HadoopKerberosImpersonatingAuthentication authentication;
     private final HivePageSourceProvider targetConnectorPageSourceProvider;
 
     @Inject
-    public HdfsAuthenticatingPageSourceProvider(HadoopKerberosAuthentication authentication, HivePageSourceProvider targetConnectorPageSourceProvider)
+    public HdfsAuthenticatingPageSourceProvider(HadoopKerberosImpersonatingAuthentication authentication, HivePageSourceProvider targetConnectorPageSourceProvider)
     {
         this.authentication = authentication;
         this.targetConnectorPageSourceProvider = targetConnectorPageSourceProvider;

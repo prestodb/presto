@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.auth.HdfsAuthenticatingConnectorModule;
+import com.facebook.presto.hive.HiveClientConfig.AuthenticationType;
+import com.facebook.presto.hive.auth.KerberosConnectorModule;
+import com.facebook.presto.hive.auth.KerberosImpersonificationConnectorModule;
 import com.facebook.presto.hive.auth.SimpleConnectorModule;
+import com.facebook.presto.hive.auth.SimpleImpersonificationConnectorModule;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreAuthenticationKerberos;
 import com.facebook.presto.hive.metastore.HiveMetastoreAuthenticationSimple;
@@ -125,12 +128,20 @@ public class HiveConnectorFactory
                             new HiveMetastoreAuthenticationKerberos.Module()),
                     installModuleIf(
                             HiveClientConfig.class,
-                            HiveClientConfig::isHdfsSaslEnabled,
-                            new HdfsAuthenticatingConnectorModule()),
+                            c -> c.getHdfsAuthenticationType() == AuthenticationType.SIMPLE,
+                            new SimpleConnectorModule()),
                     installModuleIf(
                             HiveClientConfig.class,
-                            hiveClientConfig -> !hiveClientConfig.isHdfsSaslEnabled(),
-                            new SimpleConnectorModule()),
+                            c -> c.getHdfsAuthenticationType() == AuthenticationType.SIMPLE_IMPERSONATION,
+                            new SimpleImpersonificationConnectorModule()),
+                    installModuleIf(
+                            HiveClientConfig.class,
+                            c -> c.getHdfsAuthenticationType() == AuthenticationType.KERBEROS,
+                            new KerberosConnectorModule()),
+                    installModuleIf(
+                            HiveClientConfig.class,
+                            c -> c.getHdfsAuthenticationType() == AuthenticationType.KERBEROS_IMPERSONATION,
+                            new KerberosImpersonificationConnectorModule()),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));

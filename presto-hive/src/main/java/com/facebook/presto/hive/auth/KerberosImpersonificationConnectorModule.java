@@ -35,7 +35,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
-public class HdfsAuthenticatingConnectorModule
+public class KerberosImpersonificationConnectorModule
         extends PrivateModule
 {
     @Override
@@ -61,14 +61,14 @@ public class HdfsAuthenticatingConnectorModule
     @Inject
     @Provides
     @Singleton
-    HadoopKerberosAuthentication getKerberosAuthentication(HiveClientConfig hiveClientConfig)
+    HadoopAuthentication getHadoopAuthentication(HiveClientConfig hiveClientConfig)
     {
         String hdfsPrestoPrincipal = hiveClientConfig.getHdfsPrestoPrincipal();
         String hdfsPrestoKeytab = hiveClientConfig.getHdfsPrestoKeytab();
         List<String> configurationFiles = firstNonNull(hiveClientConfig.getResourceConfigFiles(), ImmutableList.of());
         Configuration configuration = new Configuration();
         configurationFiles.forEach(filePath -> configuration.addResource(new Path(filePath)));
-        HadoopKerberosAuthentication authentication = new HadoopKerberosAuthentication(
+        HadoopAuthentication authentication = new HadoopKerberosImpersonatingAuthentication(
                 hdfsPrestoPrincipal, hdfsPrestoKeytab, configuration);
         authentication.authenticate();
         return authentication;

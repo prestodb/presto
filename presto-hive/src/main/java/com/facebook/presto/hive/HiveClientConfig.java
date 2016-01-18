@@ -123,6 +123,7 @@ public class HiveClientConfig
     private boolean hdfsSaslEnabled;
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
+    private AuthenticationType hdfsAuthenticationType = AuthenticationType.SIMPLE;
 
     public int getMaxInitialSplits()
     {
@@ -919,15 +920,23 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isHdfsSaslEnabled()
+    enum AuthenticationType
     {
-        return hdfsSaslEnabled;
+        SIMPLE,
+        SIMPLE_IMPERSONATION,
+        KERBEROS,
+        KERBEROS_IMPERSONATION
     }
 
-    @Config("hive.hdfs.sasl.enabled")
-    public HiveClientConfig setHdfsSaslEnabled(boolean hdfsSaslEnabled)
+    public AuthenticationType getHdfsAuthenticationType()
     {
-        this.hdfsSaslEnabled = hdfsSaslEnabled;
+        return hdfsAuthenticationType;
+    }
+
+    @Config("hive.hdfs.authentication.type")
+    public HiveClientConfig setHdfsAuthenticationType(AuthenticationType hdfsAuthenticationType)
+    {
+        this.hdfsAuthenticationType = hdfsAuthenticationType;
         return this;
     }
 
