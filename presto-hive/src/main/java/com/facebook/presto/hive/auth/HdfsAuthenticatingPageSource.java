@@ -24,11 +24,11 @@ import java.io.IOException;
 public class HdfsAuthenticatingPageSource
         implements ConnectorPageSource
 {
-    private final HadoopKerberosAuthentication authentication;
+    private final HadoopKerberosImpersonatingAuthentication authentication;
     private final ConnectorSession connectorSession;
     private final ConnectorPageSource targetPageSource;
 
-    public HdfsAuthenticatingPageSource(ConnectorSession connectorSession, HadoopKerberosAuthentication authentication, ConnectorPageSource targetPageSource)
+    public HdfsAuthenticatingPageSource(ConnectorSession connectorSession, HadoopKerberosImpersonatingAuthentication authentication, ConnectorPageSource targetPageSource)
     {
         this.connectorSession = connectorSession;
         this.authentication = authentication;

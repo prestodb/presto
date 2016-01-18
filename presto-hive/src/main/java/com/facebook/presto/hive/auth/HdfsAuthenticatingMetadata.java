@@ -46,11 +46,11 @@ public class HdfsAuthenticatingMetadata
 
         implements ConnectorMetadata
 {
-    private final HadoopKerberosAuthentication authentication;
+    private final HadoopKerberosImpersonatingAuthentication authentication;
     private final HiveMetadata targetMetadata;
 
     @Inject
-    public HdfsAuthenticatingMetadata(HadoopKerberosAuthentication authentication, HiveMetadata targetMetadata)
+    public HdfsAuthenticatingMetadata(HadoopKerberosImpersonatingAuthentication authentication, HiveMetadata targetMetadata)
     {
         this.authentication = requireNonNull(authentication, "authentication is null");
         this.targetMetadata = requireNonNull(targetMetadata, "targetMetadata is null");

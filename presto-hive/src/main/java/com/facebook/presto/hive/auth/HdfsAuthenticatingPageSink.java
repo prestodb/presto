@@ -25,11 +25,11 @@ import java.util.Collection;
 public class HdfsAuthenticatingPageSink
         implements ConnectorPageSink
 {
-    private final HadoopKerberosAuthentication authentication;
+    private final HadoopKerberosImpersonatingAuthentication authentication;
     private final ConnectorSession connectorSession;
     private final ConnectorPageSink targetPageSink;
 
-    public HdfsAuthenticatingPageSink(ConnectorSession connectorSession, HadoopKerberosAuthentication authentication, ConnectorPageSink targetPageSink)
+    public HdfsAuthenticatingPageSink(ConnectorSession connectorSession, HadoopKerberosImpersonatingAuthentication authentication, ConnectorPageSink targetPageSink)
     {
         this.connectorSession = connectorSession;
         this.authentication = authentication;
