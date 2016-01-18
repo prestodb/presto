@@ -33,16 +33,25 @@ public class JmxTableHandle
     private final String connectorId;
     private final String objectName;
     private final List<JmxColumnHandle> columns;
+    private final boolean liveData;
+
+    @Deprecated
+    public JmxTableHandle(String connectorId, String objectName, List<JmxColumnHandle> columns)
+    {
+        this(connectorId, objectName, columns, true);
+    }
 
     @JsonCreator
     public JmxTableHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("objectName") String objectName,
-            @JsonProperty("columns") List<JmxColumnHandle> columns)
+            @JsonProperty("columns") List<JmxColumnHandle> columns,
+            @JsonProperty("liveData") boolean liveData)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.objectName = requireNonNull(objectName, "objectName is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.liveData = liveData;
     }
 
     @JsonProperty
@@ -63,10 +72,16 @@ public class JmxTableHandle
         return columns;
     }
 
+    @JsonProperty
+    public boolean isLiveData()
+    {
+        return liveData;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, objectName, columns);
+        return Objects.hash(connectorId, objectName, columns, liveData);
     }
 
     @Override
@@ -81,7 +96,8 @@ public class JmxTableHandle
         JmxTableHandle other = (JmxTableHandle) obj;
         return Objects.equals(this.connectorId, other.connectorId) &&
                 Objects.equals(this.objectName, other.objectName) &&
-                Objects.equals(this.columns, other.columns);
+                Objects.equals(this.columns, other.columns) &&
+                Objects.equals(this.liveData, other.liveData);
     }
 
     @Override
@@ -91,13 +107,14 @@ public class JmxTableHandle
                 .add("connectorId", connectorId)
                 .add("objectName", objectName)
                 .add("columns", columns)
+                .add("liveData", liveData)
                 .toString();
     }
 
     public ConnectorTableMetadata getTableMetadata()
     {
         return new ConnectorTableMetadata(
-                new SchemaTableName(JmxMetadata.SCHEMA_NAME, objectName),
+                new SchemaTableName(JmxMetadata.JMX_SCHEMA_NAME, objectName),
                 ImmutableList.copyOf(transform(columns, JmxColumnHandle::getColumnMetadata)));
     }
 }

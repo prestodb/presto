@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 
+import static com.facebook.presto.connector.jmx.JmxMetadata.NODE_COLUMN_NAME;
 import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
@@ -57,7 +58,9 @@ public class JmxSplitManager
         TupleDomain<ColumnHandle> predicate = jmxLayout.getConstraint();
 
         //TODO is there a better way to get the node column?
-        JmxColumnHandle nodeColumnHandle = tableHandle.getColumns().get(0);
+        JmxColumnHandle nodeColumnHandle = tableHandle.getColumns().stream()
+                .filter(jmxColumnHandle -> jmxColumnHandle.getColumnName().equals(NODE_COLUMN_NAME))
+                .findFirst().get();
 
         List<ConnectorSplit> splits = nodeManager.getNodes(ACTIVE)
                 .stream()

@@ -17,18 +17,15 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.common.base.Throwables;
+import com.google.inject.Injector;
+import io.airlift.bootstrap.Bootstrap;
 
 import javax.management.MBeanServer;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class JmxConnectorFactory
@@ -56,34 +53,32 @@ public class JmxConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties)
+    public Connector create(String connectorId, Map<String, String> config)
     {
-        return new Connector()
-        {
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
-            {
-                checkConnectorSupports(READ_COMMITTED, isolationLevel);
-                return JmxTransactionHandle.INSTANCE;
-            }
+        try {
+            Bootstrap app = new Bootstrap(
+                    binder -> {
+                        configBinder(binder).bindConfig(JmxConnectorConfig.class);
+                    }
+            );
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
-            {
-                return new JmxMetadata(connectorId, mbeanServer);
-            }
+            Injector injector = app.strictConfig()
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .initialize();
 
-            @Override
-            public ConnectorSplitManager getSplitManager()
-            {
-                return new JmxSplitManager(connectorId, nodeManager);
-            }
+            JmxConnectorConfig jmxConfig = injector.getInstance(JmxConnectorConfig.class);
 
-            @Override
-            public ConnectorRecordSetProvider getRecordSetProvider()
-            {
-                return new JmxRecordSetProvider(mbeanServer, nodeManager.getCurrentNode().getNodeIdentifier());
-            }
-        };
+            return new JmxConnector(
+                    connectorId,
+                    mbeanServer,
+                    nodeManager,
+                    jmxConfig.getDumpTables(),
+                    jmxConfig.getDumpPeriod(),
+                    jmxConfig.getEvictionLimit());
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 }
