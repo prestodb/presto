@@ -16,16 +16,23 @@ package com.facebook.presto.hive;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.internal.StaticCredentialsProvider;
+import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.EncryptionMaterials;
+import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
+import javax.crypto.spec.SecretKeySpec;
+
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.util.Map;
 
+import static com.facebook.presto.hive.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
@@ -202,6 +209,19 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testEncryptionMaterialsProvider()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_ENCRYPTION_MATERIALS_PROVIDER, TestEncryptionMaterialsProvider.class.getName());
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(fs.getS3Client(), AmazonS3EncryptionClient.class);
+        }
+    }
+
     private static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
     {
         return getFieldValue(fs.getS3Client(), "awsCredentialsProvider", AWSCredentialsProvider.class);
@@ -218,6 +238,34 @@ public class TestPrestoS3FileSystem
         }
         catch (ReflectiveOperationException e) {
             throw Throwables.propagate(e);
+        }
+    }
+
+    private static class TestEncryptionMaterialsProvider
+            implements EncryptionMaterialsProvider
+    {
+        private final EncryptionMaterials encryptionMaterials;
+
+        public TestEncryptionMaterialsProvider()
+        {
+            encryptionMaterials = new EncryptionMaterials(new SecretKeySpec(new byte[] {1, 2, 3}, "AES"));
+        }
+
+        @Override
+        public void refresh()
+        {
+        }
+
+        @Override
+        public EncryptionMaterials getEncryptionMaterials(Map<String, String> materialsDescription)
+        {
+            return encryptionMaterials;
+        }
+
+        @Override
+        public EncryptionMaterials getEncryptionMaterials()
+        {
+            return encryptionMaterials;
         }
     }
 }
