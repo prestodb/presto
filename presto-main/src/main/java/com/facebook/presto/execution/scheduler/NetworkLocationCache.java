@@ -75,6 +75,8 @@ public class NetworkLocationCache
     {
         NetworkLocation location = cache.getIfPresent(host);
         if ((location == null) && (negativeCache.getIfPresent(host) == null)) {
+            // Store a value in the cache, so that refresh() is done asynchronously
+            cache.put(host, new NetworkLocation());
             cache.refresh(host);
         }
         return Optional.ofNullable(location);
