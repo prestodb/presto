@@ -20,12 +20,17 @@ import io.airlift.slice.Slices;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
 
 public class BinaryLiteral
         extends Literal
 {
+    // the grammar could possibly include whitespace in the value it passes to us
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("[ \\r\\n\\t]");
+    private static final Pattern NOT_HEX_DIGIT_PATTERN = Pattern.compile(".*[^A-F0-9].*");
+
     private final Slice value;
 
     public BinaryLiteral(String value)
@@ -37,9 +42,8 @@ public class BinaryLiteral
     {
         super(location);
         requireNonNull(value, "value is null");
-        // the grammar could possibly include White Space in the value it passes to us
-        String hexString = value.replaceAll("[ \\r\\n\\t]", "").toUpperCase();
-        if (hexString.matches(".*[^A-F0-9].*")) {
+        String hexString = WHITESPACE_PATTERN.matcher(value).replaceAll("").toUpperCase();
+        if (NOT_HEX_DIGIT_PATTERN.matcher(hexString).matches()) {
             throw new ParsingException("Binary literal can only contain hexadecimal digits", location.get());
         }
         if (hexString.length() % 2 != 0) {
