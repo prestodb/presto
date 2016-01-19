@@ -359,10 +359,9 @@ function removeQueryId(id)
     return id
 }
 
-function taskIdToSortableString(id) {
+function taskIdToTinySortCompatibleString(id) {
     var taskIdArr = removeQueryId(id).split(".");
-    var maxLength = Number.MAX_VALUE.toString().length + 1;
-    return taskIdArr.map(numStr => new Array(maxLength - numStr.length).join("0") + numStr).join(".");
+    return taskIdArr.map(numStr => new Array(5 - numStr.length).join("0") + numStr).join("|");
 }
 
 function getTasks(stage) {
@@ -385,7 +384,7 @@ function taskData(d) {
     });
 
     return [
-        {"display": "<a href=" + d.self + "?pretty>" + htmlEscape(d.taskId) + "</a>", "sortableString": taskIdToSortableString(d.taskId)},
+        {"display": "<a href=" + d.self + "?pretty>" + htmlEscape(d.taskId) + "</a>", "sortableString": taskIdToTinySortCompatibleString(d.taskId)},
         {"display": htmlEscape(urlHostname(d.self))},
         {"display": htmlEscape(formatState(d.state, d.stats.fullyBlocked))},
         {"display": htmlEscape(formatCount(rows)), "sortableString": rows},
