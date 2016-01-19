@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.hive.auth;
 
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -25,11 +24,11 @@ import java.util.Collection;
 public class HdfsAuthenticatingPageSink
         implements ConnectorPageSink
 {
-    private final HadoopKerberosImpersonatingAuthentication authentication;
+    private final HadoopAuthentication authentication;
     private final ConnectorSession connectorSession;
     private final ConnectorPageSink targetPageSink;
 
-    public HdfsAuthenticatingPageSink(ConnectorSession connectorSession, HadoopKerberosImpersonatingAuthentication authentication, ConnectorPageSink targetPageSink)
+    public HdfsAuthenticatingPageSink(ConnectorSession connectorSession, HadoopAuthentication authentication, ConnectorPageSink targetPageSink)
     {
         this.connectorSession = connectorSession;
         this.authentication = authentication;
