@@ -122,6 +122,9 @@ Parallelism: 2.5
                 }
                 catch (RuntimeException e) {
                     log.debug(e, "error printing status");
+                    if (debug) {
+                        e.printStackTrace(out);
+                    }
                 }
             }
         }
