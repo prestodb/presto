@@ -40,6 +40,7 @@ import java.security.Principal;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -48,6 +49,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
@@ -138,6 +140,11 @@ final class ResourceUtil
             }
         }
 
+        Map<String, String> preparedStatements = new HashMap<>();
+        for (String preparedStatementsHeader : splitSessionHeader(servletRequest.getHeaders(PRESTO_PREPARED_STATEMENT))) {
+            parsePreparedStatementsHeader(preparedStatementsHeader, preparedStatements);
+        }
+        sessionBuilder.setPreparedStatements(preparedStatements);
         return sessionBuilder.build();
     }
 
@@ -201,6 +208,17 @@ final class ResourceUtil
         if (!expression) {
             throw badRequest(format(format, args));
         }
+    }
+
+    private static void parsePreparedStatementsHeader(String header, Map<String, String> preparedStatements)
+    {
+        List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+        assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_SESSION);
+        String statementName = nameValue.get(0);
+
+        String query = nameValue.get(1);
+
+        preparedStatements.put(statementName, query);
     }
 
     private static TimeZoneKey getTimeZoneKey(String timeZoneId)
