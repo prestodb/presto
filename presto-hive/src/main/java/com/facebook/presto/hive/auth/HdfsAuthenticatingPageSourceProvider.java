@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.hive.auth;
 
+import com.facebook.presto.hive.ForHdfs;
 import com.facebook.presto.hive.HivePageSourceProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -30,11 +30,11 @@ import java.util.List;
 public class HdfsAuthenticatingPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final HadoopKerberosImpersonatingAuthentication authentication;
+    private final HadoopAuthentication authentication;
     private final HivePageSourceProvider targetConnectorPageSourceProvider;
 
     @Inject
-    public HdfsAuthenticatingPageSourceProvider(HadoopKerberosImpersonatingAuthentication authentication, HivePageSourceProvider targetConnectorPageSourceProvider)
+    public HdfsAuthenticatingPageSourceProvider(@ForHdfs HadoopAuthentication authentication, HivePageSourceProvider targetConnectorPageSourceProvider)
     {
         this.authentication = authentication;
         this.targetConnectorPageSourceProvider = targetConnectorPageSourceProvider;

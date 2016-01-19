@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.hive.auth;
 
+import com.facebook.presto.hive.ForHdfs;
 import com.facebook.presto.hive.HiveMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -49,11 +49,11 @@ import static java.util.Objects.requireNonNull;
 public class HdfsAuthenticatingMetadata
         implements ConnectorMetadata
 {
-    private final HadoopKerberosImpersonatingAuthentication authentication;
+    private final HadoopAuthentication authentication;
     private final HiveMetadata targetMetadata;
 
     @Inject
-    public HdfsAuthenticatingMetadata(HadoopKerberosImpersonatingAuthentication authentication, HiveMetadata targetMetadata)
+    public HdfsAuthenticatingMetadata(@ForHdfs HadoopAuthentication authentication, HiveMetadata targetMetadata)
     {
         this.authentication = requireNonNull(authentication, "authentication is null");
         this.targetMetadata = requireNonNull(targetMetadata, "targetMetadata is null");
