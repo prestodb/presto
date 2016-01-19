@@ -717,7 +717,11 @@ public class ParquetHiveRecordCursor
             checkArgument(ROW.equals(prestoType.getTypeSignature().getBase()));
             List<Type> prestoTypeParameters = prestoType.getTypeParameters();
             List<parquet.schema.Type> fieldTypes = entryType.getFields();
-            checkArgument(prestoTypeParameters.size() == fieldTypes.size());
+            checkArgument(prestoTypeParameters.size() == fieldTypes.size(),
+                            "Schema mismatch, metastore schema for row column %s has %s fields but parquet schema has %s fields",
+                            columnName,
+                            prestoTypeParameters.size(),
+                            fieldTypes.size());
 
             this.rowType = prestoType;
             this.fieldIndex = fieldIndex;
