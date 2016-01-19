@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveClientConfig.AuthenticationType.SIMPLE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
@@ -123,7 +124,7 @@ public class HiveClientConfig
     private boolean hdfsSaslEnabled;
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
-    private AuthenticationType hdfsAuthenticationType = AuthenticationType.SIMPLE;
+    private AuthenticationType hdfsAuthenticationType = SIMPLE;
 
     public int getMaxInitialSplits()
     {
@@ -920,7 +921,7 @@ public class HiveClientConfig
         return this;
     }
 
-    enum AuthenticationType
+    public enum AuthenticationType
     {
         SIMPLE,
         SIMPLE_IMPERSONATION,
