@@ -390,7 +390,7 @@ public class Validator
                         return new QueryResult(State.SUCCESS, null, nanosSince(start), getCpuTime(limitedStatement.getResultSet()), results);
                     }
                     else {
-                        return new QueryResult(State.SUCCESS, null, nanosSince(start), getCpuTime(limitedStatement.getResultSet()), null);
+                        return new QueryResult(State.SUCCESS, null, nanosSince(start), null, null);
                     }
                 }
                 catch (AssertionError e) {
