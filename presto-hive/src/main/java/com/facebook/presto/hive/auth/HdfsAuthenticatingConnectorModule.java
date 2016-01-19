@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.hive.auth;
 
+import com.facebook.presto.hive.ForHdfs;
+import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.HiveMetadata;
 import com.facebook.presto.hive.HivePageSinkProvider;
 import com.facebook.presto.hive.HivePageSourceProvider;
@@ -23,8 +27,8 @@ import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
-import com.google.inject.PrivateModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -35,42 +39,67 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
-public class KerberosImpersonificationConnectorModule
-        extends PrivateModule
+public class HdfsAuthenticatingConnectorModule extends AbstractModule
 {
     @Override
     protected void configure()
     {
         bind(HiveMetadata.class).in(Scopes.SINGLETON);
         bind(ConnectorMetadata.class).to(HdfsAuthenticatingMetadata.class);
-        expose(ConnectorMetadata.class);
 
         bind(HiveSplitManager.class).in(Scopes.SINGLETON);
         bind(ConnectorSplitManager.class).to(HdfsAuthenticatingSplitManager.class).in(Scopes.SINGLETON);
-        expose(ConnectorSplitManager.class);
 
         bind(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         bind(ConnectorPageSourceProvider.class).to(HdfsAuthenticatingPageSourceProvider.class).in(Scopes.SINGLETON);
-        expose(ConnectorPageSourceProvider.class);
 
         bind(HivePageSinkProvider.class).in(Scopes.SINGLETON);
         bind(ConnectorPageSinkProvider.class).to(HdfsAuthenticatingPageSinkProvider.class).in(Scopes.SINGLETON);
-        expose(ConnectorPageSinkProvider.class);
     }
 
     @Inject
     @Provides
     @Singleton
-    HadoopAuthentication getHadoopAuthentication(HiveClientConfig hiveClientConfig)
+    @ForHdfs
+    HadoopAuthentication createHadoopAuthentication(HiveClientConfig hiveClientConfig,
+            HdfsConfiguration hdfsConfiguration)
     {
         String hdfsPrestoPrincipal = hiveClientConfig.getHdfsPrestoPrincipal();
         String hdfsPrestoKeytab = hiveClientConfig.getHdfsPrestoKeytab();
+        Configuration configuration = createConfiguration(hiveClientConfig);
+        HdfsAuthenticationType authenticationType = hiveClientConfig.getHdfsAuthenticationType();
+
+        HadoopAuthentication authentication = createAuthentication(
+                hdfsPrestoPrincipal,
+                hdfsPrestoKeytab,
+                configuration,
+                authenticationType
+        );
+
+        authentication.authenticate();
+        return authentication;
+    }
+
+    private Configuration createConfiguration(HiveClientConfig hiveClientConfig)
+    {
         List<String> configurationFiles = firstNonNull(hiveClientConfig.getResourceConfigFiles(), ImmutableList.of());
         Configuration configuration = new Configuration();
         configurationFiles.forEach(filePath -> configuration.addResource(new Path(filePath)));
-        HadoopAuthentication authentication = new HadoopKerberosImpersonatingAuthentication(
-                hdfsPrestoPrincipal, hdfsPrestoKeytab, configuration);
-        authentication.authenticate();
-        return authentication;
+        return configuration;
+    }
+
+    private HadoopAuthentication createAuthentication(String principal,
+            String keytab, Configuration configuration, HdfsAuthenticationType authenticationType)
+    {
+        switch (authenticationType) {
+            case KERBEROS:
+                return new HadoopKerberosAuthentication(principal, keytab, configuration);
+            case KERBEROS_IMPERSONATION:
+                return new HadoopKerberosImpersonatingAuthentication(principal, keytab, configuration);
+            case SIMPLE_IMPERSONATION:
+                return new HadoopSimpleImpersonatingAuthentication();
+            default:
+                throw new IllegalArgumentException("Authentication type is not supported: " + authenticationType);
+        }
     }
 }

@@ -118,4 +118,5 @@ public class HiveMetastoreAuthenticationKerberos
             throw Throwables.propagate(e);
         }
     }
+
 }
