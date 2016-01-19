@@ -55,7 +55,7 @@ public class TestTransactionManager
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
 
-            Connector c1 = new LegacyTransactionConnectorFactory(new TpchConnectorFactory(new InMemoryNodeManager())).create("c1", ImmutableMap.of());
+            Connector c1 = new TpchConnectorFactory(new InMemoryNodeManager()).create("c1", ImmutableMap.of());
             transactionManager.addConnector("c1", c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
@@ -85,7 +85,7 @@ public class TestTransactionManager
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
 
-            Connector c1 = new LegacyTransactionConnectorFactory(new TpchConnectorFactory(new InMemoryNodeManager())).create("c1", ImmutableMap.of());
+            Connector c1 = new TpchConnectorFactory(new InMemoryNodeManager()).create("c1", ImmutableMap.of());
             transactionManager.addConnector("c1", c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
@@ -115,7 +115,7 @@ public class TestTransactionManager
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
 
-            Connector c1 = new LegacyTransactionConnectorFactory(new TpchConnectorFactory(new InMemoryNodeManager())).create("c1", ImmutableMap.of());
+            Connector c1 = new TpchConnectorFactory(new InMemoryNodeManager()).create("c1", ImmutableMap.of());
             transactionManager.addConnector("c1", c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
