@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.hive.auth;
 
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveClientConfig.AuthenticationType;
 import com.facebook.presto.hive.HiveMetadata;
 import com.facebook.presto.hive.HivePageSinkProvider;
 import com.facebook.presto.hive.HivePageSourceProvider;
@@ -35,7 +37,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
-public class KerberosImpersonificationConnectorModule
+public class HdfsAuthenticatingConnectorModule
         extends PrivateModule
 {
     @Override
@@ -65,12 +67,40 @@ public class KerberosImpersonificationConnectorModule
     {
         String hdfsPrestoPrincipal = hiveClientConfig.getHdfsPrestoPrincipal();
         String hdfsPrestoKeytab = hiveClientConfig.getHdfsPrestoKeytab();
+        Configuration configuration = createConfiguration(hiveClientConfig);
+        AuthenticationType authenticationType = hiveClientConfig.getHdfsAuthenticationType();
+
+        HadoopAuthentication authentication = createAuthentication(
+                hdfsPrestoPrincipal,
+                hdfsPrestoKeytab,
+                configuration,
+                authenticationType
+        );
+
+        authentication.authenticate();
+        return authentication;
+    }
+
+    private Configuration createConfiguration(HiveClientConfig hiveClientConfig)
+    {
         List<String> configurationFiles = firstNonNull(hiveClientConfig.getResourceConfigFiles(), ImmutableList.of());
         Configuration configuration = new Configuration();
         configurationFiles.forEach(filePath -> configuration.addResource(new Path(filePath)));
-        HadoopAuthentication authentication = new HadoopKerberosImpersonatingAuthentication(
-                hdfsPrestoPrincipal, hdfsPrestoKeytab, configuration);
-        authentication.authenticate();
-        return authentication;
+        return configuration;
+    }
+
+    private HadoopAuthentication createAuthentication(String principal,
+            String keytab, Configuration configuration, AuthenticationType authenticationType)
+    {
+        switch (authenticationType) {
+            case KERBEROS:
+                return new HadoopKerberosAuthentication(principal, keytab, configuration);
+            case KERBEROS_IMPERSONATION:
+                return new HadoopKerberosImpersonatingAuthentication(principal, keytab, configuration);
+            case SIMPLE_IMPERSONATION:
+                return new HadoopSimpleImpersonatingAuthentication();
+            default:
+                throw new IllegalArgumentException("Authentication type is not supported: " + authenticationType);
+        }
     }
 }

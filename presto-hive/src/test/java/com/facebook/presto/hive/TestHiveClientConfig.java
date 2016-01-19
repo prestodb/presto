@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveClientConfig.AuthenticationType.KERBEROS;
+import static com.facebook.presto.hive.HiveClientConfig.AuthenticationType.SIMPLE;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveClientConfig
@@ -96,7 +98,7 @@ public class TestHiveClientConfig
                 .setHiveMetastorePrincipal(null)
                 .setHiveMetastorePrestoPrincipal(null)
                 .setHiveMetastorePrestoKeytab(null)
-                .setHdfsSaslEnabled(false)
+                .setHdfsAuthenticationType(SIMPLE)
                 .setHdfsPrestoPrincipal(null)
                 .setHdfsPrestoKeytab(null));
     }
@@ -165,7 +167,7 @@ public class TestHiveClientConfig
                 .put("hive.metastore.principal", "hive/_HOST@EXAMPLE.COM")
                 .put("hive.metastore.presto.principal", "metastore@EXAMPLE.COM")
                 .put("hive.metastore.presto.keytab", "/tmp/metastore.keytab")
-                .put("hive.hdfs.sasl.enabled", "true")
+                .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.presto.principal", "hdfs@EXAMPLE.COM")
                 .put("hive.hdfs.presto.keytab", "/tmp/hdfs.keytab")
                 .build();
@@ -231,7 +233,7 @@ public class TestHiveClientConfig
                 .setHiveMetastorePrincipal("hive/_HOST@EXAMPLE.COM")
                 .setHiveMetastorePrestoPrincipal("metastore@EXAMPLE.COM")
                 .setHiveMetastorePrestoKeytab("/tmp/metastore.keytab")
-                .setHdfsSaslEnabled(true)
+                .setHdfsAuthenticationType(KERBEROS)
                 .setHdfsPrestoPrincipal("hdfs@EXAMPLE.COM")
                 .setHdfsPrestoKeytab("/tmp/hdfs.keytab");
 

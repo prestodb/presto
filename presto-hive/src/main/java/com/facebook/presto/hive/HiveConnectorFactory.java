@@ -13,11 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HiveClientConfig.AuthenticationType;
-import com.facebook.presto.hive.auth.KerberosConnectorModule;
-import com.facebook.presto.hive.auth.KerberosImpersonificationConnectorModule;
+import com.facebook.presto.hive.auth.HdfsAuthenticatingConnectorModule;
 import com.facebook.presto.hive.auth.SimpleConnectorModule;
-import com.facebook.presto.hive.auth.SimpleImpersonificationConnectorModule;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreAuthenticationKerberos;
 import com.facebook.presto.hive.metastore.HiveMetastoreAuthenticationSimple;
@@ -51,6 +48,7 @@ import java.lang.management.ManagementFactory;
 import java.util.Map;
 
 import static com.facebook.presto.hive.ConditionalModule.installModuleIf;
+import static com.facebook.presto.hive.HiveClientConfig.AuthenticationType.SIMPLE;
 import static com.facebook.presto.hive.SecurityConfig.ALLOW_ALL_ACCESS_CONTROL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -128,20 +126,12 @@ public class HiveConnectorFactory
                             new HiveMetastoreAuthenticationKerberos.Module()),
                     installModuleIf(
                             HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() == AuthenticationType.SIMPLE,
+                            c -> c.getHdfsAuthenticationType() == SIMPLE,
                             new SimpleConnectorModule()),
                     installModuleIf(
                             HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() == AuthenticationType.SIMPLE_IMPERSONATION,
-                            new SimpleImpersonificationConnectorModule()),
-                    installModuleIf(
-                            HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() == AuthenticationType.KERBEROS,
-                            new KerberosConnectorModule()),
-                    installModuleIf(
-                            HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() == AuthenticationType.KERBEROS_IMPERSONATION,
-                            new KerberosImpersonificationConnectorModule()),
+                            c -> c.getHdfsAuthenticationType() != SIMPLE,
+                            new HdfsAuthenticatingConnectorModule()),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
