@@ -19,7 +19,6 @@ import com.google.common.primitives.Ints;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import parquet.column.ColumnDescriptor;
-import parquet.column.page.PageReadStore;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.schema.MessageType;
 
@@ -40,7 +39,6 @@ public class ParquetReader
     private final List<BlockMetaData> blocks;
     private final Configuration configuration;
 
-    private PageReadStore readerStore;
     private long fileRowCount;
     private long currentPosition;
     private long currentGroupRowCount;
@@ -70,9 +68,7 @@ public class ParquetReader
     public void close()
             throws IOException
     {
-        if (fileReader != null) {
-            fileReader.close();
-        }
+        fileReader.close();
     }
 
     public float getProgress()
