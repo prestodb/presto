@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
@@ -26,9 +25,8 @@ import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
-import static java.lang.String.format;
+import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraConnector
@@ -60,9 +58,7 @@ public class CassandraConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
-        if (!READ_UNCOMMITTED.meetsRequirementOf(isolationLevel)) {
-            throw new PrestoException(UNSUPPORTED_ISOLATION_LEVEL, format("Connector supported isolation level %s does not meet requested isolation level %s", READ_UNCOMMITTED, isolationLevel));
-        }
+        checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         return CassandraTransactionHandle.INSTANCE;
     }
 
