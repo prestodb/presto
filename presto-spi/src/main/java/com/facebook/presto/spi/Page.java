@@ -156,7 +156,7 @@ public class Page
 
     /**
      * Assures that all data for the block is in memory.
-     *
+     * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */

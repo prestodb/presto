@@ -30,7 +30,7 @@ public interface TypeManager
 
     /**
      * Gets the type with the specified base type, and the given parameters, or null if not found.
-     *
+     * <p>
      * This method is deprecated and {@link #getParameterizedType(String, java.util.List)} should be used.
      */
     @Deprecated

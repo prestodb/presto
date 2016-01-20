@@ -19,12 +19,14 @@ public interface SystemAccessControl
 {
     /**
      * Check if the principal is allowed to be the specified user.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetUser(Principal principal, String userName);
 
     /**
      * Check if identity is allowed to set the specified system property.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetSystemSessionProperty(Identity identity, String propertyName);

@@ -20,84 +20,98 @@ public interface ConnectorAccessControl
 {
     /**
      * Check if identity is allowed to create the specified table in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanCreateTable(Identity identity, SchemaTableName tableName);
 
     /**
      * Check if identity is allowed to drop the specified table in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanDropTable(Identity identity, SchemaTableName tableName);
 
     /**
      * Check if identity is allowed to rename the specified table in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRenameTable(Identity identity, SchemaTableName tableName, SchemaTableName newTableName);
 
     /**
      * Check if identity is allowed to add columns to the specified table in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanAddColumn(Identity identity, SchemaTableName tableName);
 
     /**
      * Check if identity is allowed to rename a column in the specified table in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRenameColumn(Identity identity, SchemaTableName tableName);
 
     /**
      * Check if identity is allowed to select from the specified table in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSelectFromTable(Identity identity, SchemaTableName tableName);
 
     /**
      * Check if identity is allowed to insert into the specified table in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanInsertIntoTable(Identity identity, SchemaTableName tableName);
 
     /**
      * Check if identity is allowed to delete from the specified table in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanDeleteFromTable(Identity identity, SchemaTableName tableName);
 
     /**
      * Check if identity is allowed to create the specified view in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanCreateView(Identity identity, SchemaTableName viewName);
 
     /**
      * Check if identity is allowed to drop the specified view in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanDropView(Identity identity, SchemaTableName viewName);
 
     /**
      * Check if identity is allowed to select from the specified view in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSelectFromView(Identity identity, SchemaTableName viewName);
 
     /**
      * Check if identity is allowed to create a view that selects from the specified table in this catalog.
+     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanCreateViewWithSelectFromTable(Identity identity, SchemaTableName tableName);
 
     /**
      * Check if identity is allowed to create a view that selects from the specified view in this catalog.
+     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanCreateViewWithSelectFromView(Identity identity, SchemaTableName viewName);
 
     /**
      * Check if identity is allowed to set the specified property in this catalog.
+     *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetCatalogSessionProperty(Identity identity, String propertyName);

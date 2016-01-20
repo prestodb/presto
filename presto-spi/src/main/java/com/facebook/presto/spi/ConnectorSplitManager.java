@@ -22,7 +22,7 @@ public interface ConnectorSplitManager
 {
     /**
      * Gets the Partitions for the specified table.
-     *
+     * <p>
      * The TupleDomain indicates the execution filters that will be directly applied to the
      * data stream produced by this connector. Connectors are encouraged to take advantage of
      * this information to perform connector-specific optimizations.

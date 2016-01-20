@@ -75,7 +75,7 @@ public class TestLazySliceArrayBlockEncoding
             throws Exception
     {
         Slice[] expectedValues = createExpectedValues(7);
-        int[] ids = new int[] { 0, 2, 1, 0, 0, 0, 1, 1, 1, 0, 1, 2 };
+        int[] ids = new int[] {0, 2, 1, 0, 0, 0, 1, 1, 1, 0, 1, 2};
         boolean[] isNull = new boolean[ids.length];
         isNull[3] = true;
 

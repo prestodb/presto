@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public interface ConnectorSplitSource
-    extends Closeable
+        extends Closeable
 {
     String getDataSourceName();
 

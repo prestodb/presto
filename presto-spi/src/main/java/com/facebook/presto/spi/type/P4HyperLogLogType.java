@@ -23,7 +23,7 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public class P4HyperLogLogType
-    extends AbstractVariableWidthType
+        extends AbstractVariableWidthType
 {
     public static final P4HyperLogLogType P4_HYPER_LOG_LOG = new P4HyperLogLogType();
 

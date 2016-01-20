@@ -243,7 +243,7 @@ public class RunLengthEncodedBlock
 
     private void checkReadablePosition(int position)
     {
-        if (position < 0  || position >= positionCount) {
+        if (position < 0 || position >= positionCount) {
             throw new IllegalArgumentException("position is not valid");
         }
     }

@@ -51,7 +51,8 @@ public final class TimeZoneKey
         try (InputStream in = TimeZoneIndex.class.getResourceAsStream("zone-index.properties")) {
             // load zone file
             // todo parse file by hand since Properties ignores duplicate entries
-            Properties data = new Properties() {
+            Properties data = new Properties()
+            {
                 @Override
                 public synchronized Object put(Object key, Object value)
                 {

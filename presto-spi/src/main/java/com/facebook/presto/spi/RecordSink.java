@@ -22,7 +22,6 @@ import java.util.List;
 public interface RecordSink
 {
     /**
-     *
      * @param sampleWeight connectors that don't support sampling can safely ignore this parameter, as it will always be 1
      */
     void beginRecord(long sampleWeight);
