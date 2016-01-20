@@ -20,9 +20,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositions;
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.copyOf;
 import static io.airlift.slice.Slices.wrappedIntArray;
@@ -42,24 +42,24 @@ public class DictionaryBlock
     private final int retainedSizeInBytes;
     private final int sizeInBytes;
     private final int uniqueIds;
-    private final UUID dictionarySourceId;
+    private final DictionaryId dictionarySourceId;
 
     public DictionaryBlock(int positionCount, Block dictionary, Slice ids)
     {
-        this(positionCount, dictionary, ids, false, UUID.randomUUID());
+        this(positionCount, dictionary, ids, false, randomDictionaryId());
+    }
+
+    public DictionaryBlock(int positionCount, Block dictionary, Slice ids, DictionaryId dictionaryId)
+    {
+        this(positionCount, dictionary, ids, false, dictionaryId);
     }
 
     public DictionaryBlock(int positionCount, Block dictionary, Slice ids, boolean dictionaryIsCompacted)
     {
-        this(positionCount, dictionary, ids, dictionaryIsCompacted, UUID.randomUUID());
+        this(positionCount, dictionary, ids, dictionaryIsCompacted, randomDictionaryId());
     }
 
-    public DictionaryBlock(int positionCount, Block dictionary, Slice ids, UUID dictionarySourceId)
-    {
-        this(positionCount, dictionary, ids, false, dictionarySourceId);
-    }
-
-    public DictionaryBlock(int positionCount, Block dictionary, Slice ids, boolean dictionaryIsCompacted, UUID dictionarySourceId)
+    public DictionaryBlock(int positionCount, Block dictionary, Slice ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
     {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
@@ -291,7 +291,7 @@ public class DictionaryBlock
         return ids.getInt(position * SIZE_OF_INT);
     }
 
-    public UUID getDictionarySourceId()
+    public DictionaryId getDictionarySourceId()
     {
         return dictionarySourceId;
     }
@@ -349,13 +349,13 @@ public class DictionaryBlock
 
         Slice newIdsSlice = wrappedIntArray(getNewIds(positionCount, ids, remapIndex));
         List<Block> outputDictionaryBlocks = new ArrayList<>(blocks.size());
-        UUID uuid = UUID.randomUUID();
+        DictionaryId dictionaryId = randomDictionaryId();
 
         for (Block block : blocks) {
             dictionaryBlock = ((DictionaryBlock) block);
             try {
                 Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy);
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIdsSlice, true, uuid));
+                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIdsSlice, true, dictionaryId));
             }
             catch (UnsupportedOperationException e) {
                 // ignore if copy positions is not supported for the dictionary
@@ -373,7 +373,7 @@ public class DictionaryBlock
             }
         }
 
-        Set<UUID> sourceIds = blocks.stream()
+        Set<DictionaryId> sourceIds = blocks.stream()
                 .map(block -> ((DictionaryBlock) block).getDictionarySourceId())
                 .distinct()
                 .collect(toSet());

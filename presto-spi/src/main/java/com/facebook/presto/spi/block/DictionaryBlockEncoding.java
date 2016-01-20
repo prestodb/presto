@@ -18,8 +18,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import java.util.UUID;
-
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryBlockEncoding
@@ -65,6 +63,7 @@ public class DictionaryBlockEncoding
         // instance id
         sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getMostSignificantBits());
         sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getLeastSignificantBits());
+        sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getSequenceId());
     }
 
     @Override
@@ -83,9 +82,10 @@ public class DictionaryBlockEncoding
         // instance id
         long mostSignificantBits = sliceInput.readLong();
         long leastSignificantBits = sliceInput.readLong();
+        long sequenceId = sliceInput.readLong();
 
         // we always compact the dictionary before we send it
-        return new DictionaryBlock(positionCount, dictionaryBlock, ids, true, new UUID(mostSignificantBits, leastSignificantBits));
+        return new DictionaryBlock(positionCount, dictionaryBlock, ids, true, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
     }
 
     @Override

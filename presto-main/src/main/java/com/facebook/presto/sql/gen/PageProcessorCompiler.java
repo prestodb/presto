@@ -33,6 +33,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
@@ -54,7 +55,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
-import java.util.UUID;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -374,8 +374,8 @@ public class PageProcessorCompiler
         Variable dictionary = scope.declareVariable(Block.class, "dictionary");
         Variable ids = scope.declareVariable(Slice.class, "ids");
         Variable dictionaryCount = scope.declareVariable(int.class, "dictionaryCount");
-        Variable inputSourceId = scope.declareVariable(UUID.class, "inputSourceId");
-        Variable outputSourceId = scope.declareVariable(UUID.class, "outputSourceId");
+        Variable inputSourceId = scope.declareVariable(DictionaryId.class, "inputSourceId");
+        Variable outputSourceId = scope.declareVariable(DictionaryId.class, "outputSourceId");
 
         Variable outputDictionary = scope.declareVariable(Block.class, "outputDictionary");
         Variable outputIds = scope.declareVariable(int[].class, "outputIds");
@@ -390,7 +390,7 @@ public class PageProcessorCompiler
                 .append(dictionary.set(castDictionaryBlock.invoke("getDictionary", Block.class)))
                 .append(ids.set(castDictionaryBlock.invoke("getIds", Slice.class)))
                 .append(dictionaryCount.set(dictionary.invoke("getPositionCount", int.class)))
-                .append(inputSourceId.set(castDictionaryBlock.invoke("getDictionarySourceId", UUID.class)));
+                .append(inputSourceId.set(castDictionaryBlock.invoke("getDictionarySourceId", DictionaryId.class)));
 
         BytecodeBlock projectDictionary = new BytecodeBlock()
                 .comment("Project dictionary")
@@ -418,11 +418,11 @@ public class PageProcessorCompiler
                         .update(position.increment())
                         .body(outputIds.setElement(position, castDictionaryBlock.invoke("getId", int.class, selectedPositions.getElement(position)))));
 
-        body.append(outputSourceId.set(dictionarySourceIds.invoke("get", Object.class, inputSourceId.cast(Object.class)).cast(UUID.class)));
+        body.append(outputSourceId.set(dictionarySourceIds.invoke("get", Object.class, inputSourceId.cast(Object.class)).cast(DictionaryId.class)));
         body.append(new IfStatement()
-                .condition(equal(outputSourceId, constantNull(UUID.class)))
+                .condition(equal(outputSourceId, constantNull(DictionaryId.class)))
                 .ifTrue(new BytecodeBlock()
-                        .append(outputSourceId.set(invokeStatic(UUID.class, "randomUUID", UUID.class)))
+                        .append(outputSourceId.set(invokeStatic(DictionaryId.class, "randomDictionaryId", DictionaryId.class)))
                         .append(dictionarySourceIds.invoke("put", Object.class, inputSourceId.cast(Object.class), outputSourceId.cast(Object.class)))
                         .pop()));
 
@@ -449,8 +449,8 @@ public class PageProcessorCompiler
 
         Variable selectedPositions = scope.declareVariable("selectedPositions", body, thisVariable.invoke("filterPage", int[].class, session, page));
         Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
-        Variable dictionarySourceIds = scope.declareVariable(type(Map.class, UUID.class, UUID.class), "dictionarySourceIds");
-        body.append(dictionarySourceIds.set(newInstance(type(HashMap.class, UUID.class, UUID.class))));
+        Variable dictionarySourceIds = scope.declareVariable(type(Map.class, DictionaryId.class, DictionaryId.class), "dictionarySourceIds");
+        body.append(dictionarySourceIds.set(newInstance(type(HashMap.class, DictionaryId.class, DictionaryId.class))));
 
         body.comment("if no rows selected return null")
                 .append(new IfStatement()

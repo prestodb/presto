@@ -17,13 +17,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import java.util.UUID;
-
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static org.testng.Assert.assertEquals;
@@ -72,12 +72,12 @@ public class TestPage
         Block lengthsDictionary = blockBuilder.build();
 
         // Create 2 dictionary blocks with the same source id
-        UUID commonSourceId = UUID.randomUUID();
+        DictionaryId commonSourceId = randomDictionaryId();
         DictionaryBlock commonSourceIdBlock1 = createDictionaryBlock(expectedValues, 100, commonSourceId);
         DictionaryBlock commonSourceIdBlock2 = new DictionaryBlock(commonSourceIdBlock1.getPositionCount(), lengthsDictionary, commonSourceIdBlock1.getIds(), commonSourceId);
 
         // Create block with a different source id
-        DictionaryBlock randomSourceIdBlock = createDictionaryBlock(expectedValues, 100, UUID.randomUUID());
+        DictionaryBlock randomSourceIdBlock = createDictionaryBlock(expectedValues, 100, randomDictionaryId());
 
         Page page = new Page(commonSourceIdBlock1, randomSourceIdBlock, commonSourceIdBlock2);
         page.compact();
@@ -105,7 +105,7 @@ public class TestPage
         return dynamicSliceOutput.slice();
     }
 
-    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount, UUID uuid)
+    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount, DictionaryId dictionaryId)
     {
         int dictionarySize = expectedValues.length;
         int[] ids = new int[positionCount];
@@ -113,6 +113,6 @@ public class TestPage
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), wrappedIntArray(ids), uuid);
+        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), wrappedIntArray(ids), dictionaryId);
     }
 }
