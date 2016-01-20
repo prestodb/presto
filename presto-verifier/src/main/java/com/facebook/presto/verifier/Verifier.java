@@ -102,6 +102,7 @@ public class Verifier
                             config.isExplainOnly(),
                             config.getDoublePrecision(),
                             isCheckCorrectness(query),
+                            true,
                             config.isVerboseResultsComparison(),
                             query);
                     completionService.submit(validateTask(validator), validator);

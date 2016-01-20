@@ -72,6 +72,7 @@ public class Validator
     private final Duration testTimeout;
     private final int maxRowCount;
     private final boolean checkCorrectness;
+    private final boolean checkDeterministic;
     private final boolean verboseResultsComparison;
     private final QueryPair queryPair;
     private final boolean explainOnly;
@@ -99,6 +100,7 @@ public class Validator
             boolean explainOnly,
             int precision,
             boolean checkCorrectness,
+            boolean checkDeterministic,
             boolean verboseResultsComparison,
             QueryPair queryPair)
     {
@@ -114,6 +116,7 @@ public class Validator
         this.explainOnly = explainOnly;
         this.precision = precision;
         this.checkCorrectness = checkCorrectness;
+        this.checkDeterministic = checkDeterministic;
         this.verboseResultsComparison = verboseResultsComparison;
 
         this.queryPair = requireNonNull(queryPair, "queryPair is null");
@@ -213,7 +216,11 @@ public class Validator
             return true;
         }
 
-        return resultsMatch(controlResult, testResult, precision) || checkForDeterministicAndRerunTestQueriesIfNeeded();
+        boolean matches = resultsMatch(controlResult, testResult, precision);
+        if (!matches && checkDeterministic) {
+            return checkForDeterministicAndRerunTestQueriesIfNeeded();
+        }
+        return matches;
     }
 
     private QueryResult tearDown(Query query, List<QueryResult> postQueryResults, Function<String, QueryResult> executor)
