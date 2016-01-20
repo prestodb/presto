@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -142,7 +143,7 @@ public class NodeScheduler
                     }
                     else {
                         // just add it to the root location, if we couldn't locate the worker
-                        workersByNetworkPath.put(new NetworkLocation(), node);
+                        workersByNetworkPath.put(ROOT_LOCATION, node);
                     }
                 }
                 try {

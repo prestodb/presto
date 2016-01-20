@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
@@ -144,7 +145,7 @@ public class TopologyAwareNodeSelector
             }
             if (locations.isEmpty()) {
                 // Add the root location
-                locations.add(new NetworkLocation());
+                locations.add(ROOT_LOCATION);
                 depth = 0;
             }
             // Try each address at progressively shallower network locations
