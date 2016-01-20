@@ -13,18 +13,11 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
-
-import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,18 +29,6 @@ public class LegacyConnectorSplitManager
     public LegacyConnectorSplitManager(com.facebook.presto.spi.ConnectorSplitManager splitManager)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
-    }
-
-    @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return splitManager.getPartitions(session, table, tupleDomain);
-    }
-
-    @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions)
-    {
-        return splitManager.getPartitionSplits(session, table, partitions);
     }
 
     @Override

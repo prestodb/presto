@@ -64,11 +64,6 @@ public class HandleResolver
 
     public String getId(ConnectorTableLayoutHandle handle)
     {
-        if (handle instanceof LegacyTableLayoutHandle) {
-            ConnectorTableHandle table = ((LegacyTableLayoutHandle) handle).getTable();
-            return getId(table, ConnectorHandleResolver::getTableHandleClass);
-        }
-
         return getId(handle, ConnectorHandleResolver::getTableLayoutHandleClass);
     }
 
@@ -109,12 +104,7 @@ public class HandleResolver
 
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass(String id)
     {
-        try {
-            return resolverFor(id).getTableLayoutHandleClass();
-        }
-        catch (UnsupportedOperationException e) {
-            return LegacyTableLayoutHandle.class;
-        }
+        return resolverFor(id).getTableLayoutHandleClass();
     }
 
     public Class<? extends ColumnHandle> getColumnHandleClass(String id)

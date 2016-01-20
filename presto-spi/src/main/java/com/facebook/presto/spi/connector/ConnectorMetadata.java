@@ -61,19 +61,13 @@ public interface ConnectorMetadata
      * <p>
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
      */
-    default List<ConnectorTableLayoutResult> getTableLayouts(
+    List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
+            Optional<Set<ColumnHandle>> desiredColumns);
 
-    default ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
+    ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
