@@ -21,7 +21,6 @@ import com.google.common.cache.LoadingCache;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
@@ -72,7 +71,7 @@ public class NetworkLocationCache
         executor.shutdownNow();
     }
 
-    public Optional<NetworkLocation> get(HostAddress host)
+    public NetworkLocation get(HostAddress host)
     {
         NetworkLocation location = cache.getIfPresent(host);
         if ((location == null) && (negativeCache.getIfPresent(host) == null)) {
@@ -80,7 +79,8 @@ public class NetworkLocationCache
             cache.put(host, ROOT_LOCATION);
             cache.refresh(host);
         }
-        return Optional.ofNullable(location);
+        // Return the root location for anything we couldn't locate
+        return location == null ? ROOT_LOCATION : location;
     }
 
     private NetworkLocation locate(HostAddress host)
