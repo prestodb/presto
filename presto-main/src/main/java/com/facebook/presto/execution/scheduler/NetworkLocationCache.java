@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
@@ -76,7 +77,7 @@ public class NetworkLocationCache
         NetworkLocation location = cache.getIfPresent(host);
         if ((location == null) && (negativeCache.getIfPresent(host) == null)) {
             // Store a value in the cache, so that refresh() is done asynchronously
-            cache.put(host, new NetworkLocation());
+            cache.put(host, ROOT_LOCATION);
             cache.refresh(host);
         }
         return Optional.ofNullable(location);

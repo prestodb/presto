@@ -29,6 +29,8 @@ import static java.util.Objects.requireNonNull;
  */
 public final class NetworkLocation
 {
+    public static final NetworkLocation ROOT_LOCATION = new NetworkLocation();
+
     private final List<String> segments;
 
     public NetworkLocation(String... segments)
