@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -31,8 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.wrappedIntArray;
@@ -102,7 +103,7 @@ public class GenericPageProcessor
     {
         Page inputPage = getNonLazyPage(page);
         int[] selectedPositions = filterPage(inputPage);
-        Map<UUID, UUID> dictionarySourceIds = new HashMap<>();
+        Map<DictionaryId, DictionaryId> dictionarySourceIds = new HashMap<>();
 
         if (selectedPositions.length == 0) {
             return null;
@@ -133,7 +134,7 @@ public class GenericPageProcessor
         return new Page(selectedPositions.length, outputBlocks);
     }
 
-    private Block projectColumnarDictionary(Page inputPage, int[] selectedPositions, ProjectionFunction projection, Map<UUID, UUID> dictionarySourceIds)
+    private Block projectColumnarDictionary(Page inputPage, int[] selectedPositions, ProjectionFunction projection, Map<DictionaryId, DictionaryId> dictionarySourceIds)
     {
         Block outputDictionary = projectDictionary(projection, inputPage);
         int[] outputIds = filterIds(projection, inputPage, selectedPositions);
@@ -141,9 +142,9 @@ public class GenericPageProcessor
         int inputChannel = getOnlyElement(projection.getInputChannels());
         DictionaryBlock dictionaryBlock = (DictionaryBlock) inputPage.getBlock(inputChannel);
 
-        UUID sourceId = dictionarySourceIds.get(dictionaryBlock.getDictionarySourceId());
+        DictionaryId sourceId = dictionarySourceIds.get(dictionaryBlock.getDictionarySourceId());
         if (sourceId == null) {
-            sourceId = UUID.randomUUID();
+            sourceId = randomDictionaryId();
             dictionarySourceIds.put(dictionaryBlock.getDictionarySourceId(), sourceId);
         }
 

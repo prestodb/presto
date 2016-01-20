@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 
 import java.util.Locale;
 import java.util.Optional;
-import java.util.UUID;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
@@ -96,7 +95,7 @@ public class TestDictionaryBlockEncoding
         Slice idsSlice = Slices.wrappedIntArray(ids);
 
         BlockEncoding blockEncoding = new DictionaryBlockEncoding(new VariableWidthBlockEncoding());
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(positionCount, dictionary, idsSlice, false, UUID.randomUUID());
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(positionCount, dictionary, idsSlice);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         blockEncoding.writeBlock(sliceOutput, dictionaryBlock);

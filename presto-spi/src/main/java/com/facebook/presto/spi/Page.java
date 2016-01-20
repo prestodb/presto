@@ -15,13 +15,13 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
@@ -123,7 +123,7 @@ public class Page
             }
         }
 
-        Map<UUID, DictionaryBlockIndexes> dictionaryBlocks = getRelatedDictionaryBlocks();
+        Map<DictionaryId, DictionaryBlockIndexes> dictionaryBlocks = getRelatedDictionaryBlocks();
         for (DictionaryBlockIndexes blockIndexes : dictionaryBlocks.values()) {
             List<Block> compactBlocks = DictionaryBlock.compactBlocks(blockIndexes.getBlocks());
             List<Integer> indexes = blockIndexes.getIndexes();
@@ -139,14 +139,14 @@ public class Page
         retainedSizeInBytes.set(retainedSize);
     }
 
-    private Map<UUID, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
+    private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
     {
-        Map<UUID, DictionaryBlockIndexes> relatedDictionaryBlocks = new HashMap<>();
+        Map<DictionaryId, DictionaryBlockIndexes> relatedDictionaryBlocks = new HashMap<>();
 
         for (int i = 0; i < blocks.length; i++) {
             Block block = blocks[i];
             if (block instanceof DictionaryBlock) {
-                UUID sourceId = ((DictionaryBlock) block).getDictionarySourceId();
+                DictionaryId sourceId = ((DictionaryBlock) block).getDictionarySourceId();
                 relatedDictionaryBlocks.computeIfAbsent(sourceId, id -> new DictionaryBlockIndexes())
                         .addBlock(block, i);
             }
