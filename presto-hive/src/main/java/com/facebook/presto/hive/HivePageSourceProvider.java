@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.util.UgiUtils;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
@@ -26,10 +27,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.security.PrivilegedExceptionAction;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -67,6 +71,24 @@ public class HivePageSourceProvider
 
     @Override
     public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    {
+        if (HiveSessionProperties.getReadAsQueryUser(session)) {
+            UserGroupInformation ugi = UgiUtils.getUgi(session.getUser());
+            try {
+                return ugi.doAs((PrivilegedExceptionAction<ConnectorPageSource>) () ->
+                                doCreatePageSource(session, split, columns)
+                );
+            }
+            catch (IOException | InterruptedException e) {
+                throw new RuntimeException("Could not runAs " + session.getUser(), e);
+            }
+        }
+        else {
+            return doCreatePageSource(session, split, columns);
+        }
+    }
+
+    private ConnectorPageSource doCreatePageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         HiveSplit hiveSplit = checkType(split, HiveSplit.class, "split");
 

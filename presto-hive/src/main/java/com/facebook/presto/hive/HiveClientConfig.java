@@ -67,6 +67,8 @@ public class HiveClientConfig
 
     private boolean allowCorruptWritesForTesting;
 
+    private boolean readAsQueryUser = false;
+
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(1, TimeUnit.SECONDS);
     private int maxMetastoreRefreshThreads = 100;
@@ -288,6 +290,19 @@ public class HiveClientConfig
     public HiveClientConfig setAllowCorruptWritesForTesting(boolean allowCorruptWritesForTesting)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
+        return this;
+    }
+
+    public boolean getReadAsQueryUser()
+    {
+        return readAsQueryUser;
+    }
+
+    @Config("hive.read-as-query-user")
+    @ConfigDescription("When querying hive read data as the user submitting the query instead of as the presto daemon user")
+    public HiveClientConfig setReadAsQueryUser(boolean readAsQueryUser)
+    {
+        this.readAsQueryUser = readAsQueryUser;
         return this;
     }
 

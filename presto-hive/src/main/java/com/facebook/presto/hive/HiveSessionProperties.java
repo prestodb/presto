@@ -34,6 +34,7 @@ public final class HiveSessionProperties
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
+    private static final String READ_AS_QUERY_USER = "read_as_query_user";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -50,6 +51,11 @@ public final class HiveSessionProperties
                         OPTIMIZED_READER_ENABLED,
                         "Enable optimized readers",
                         config.isOptimizedReaderEnabled(),
+                        true),
+                booleanSessionProperty(
+                        READ_AS_QUERY_USER,
+                        "Query reads happen as the user submitting the query",
+                        config.getReadAsQueryUser(),
                         true),
                 dataSizeSessionProperty(
                         ORC_MAX_MERGE_DISTANCE,
@@ -116,6 +122,11 @@ public final class HiveSessionProperties
     public static boolean isParquetPredicatePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_PREDICATE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean getReadAsQueryUser(ConnectorSession session)
+    {
+        return session.getProperty(READ_AS_QUERY_USER, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
