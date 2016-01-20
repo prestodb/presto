@@ -667,6 +667,9 @@ public class HiveMetadata
             rollbackPartitionUpdates(partitionUpdates, "table creation");
             throw throwable;
         }
+        finally {
+            partitionCommitter.close();
+        }
     }
 
     @Override
@@ -845,6 +848,9 @@ public class HiveMetadata
             partitionCommitter.abort();
             rollbackPartitionUpdates(partitionUpdates, "insert");
             throw t;
+        }
+        finally {
+            partitionCommitter.close();
         }
     }
 

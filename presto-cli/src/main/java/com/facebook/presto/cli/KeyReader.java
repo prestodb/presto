@@ -32,8 +32,7 @@ public final class KeyReader
             return -1;
         }
 
-        try {
-            InputStream in = new FileInputStream(FileDescriptor.in);
+        try (InputStream in = new FileInputStream(FileDescriptor.in)) {
             if (in.available() > 0) {
                 return in.read();
             }
