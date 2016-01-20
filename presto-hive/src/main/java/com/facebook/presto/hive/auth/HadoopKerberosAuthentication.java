@@ -11,13 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-/*
- * Copyright 2016, Teradata Corp. All rights reserved.
- */
 package com.facebook.presto.hive.auth;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
 
 public class HadoopKerberosAuthentication
         extends HadoopKerberosBaseAuthentication
@@ -26,5 +23,11 @@ public class HadoopKerberosAuthentication
     public HadoopKerberosAuthentication(String principal, String keytab, Configuration configuration)
     {
         super(principal, keytab, configuration);
+    }
+
+    @Override
+    public UserGroupInformation getUserGroupInformation(String user)
+    {
+        return getUserGroupInformation();
     }
 }

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.hive.auth;
 
 import org.apache.hadoop.security.SubjectPrivilegedAction;
@@ -25,17 +24,17 @@ public interface HadoopAuthentication
 
     UserGroupInformation getUserGroupInformation();
 
+    UserGroupInformation getUserGroupInformation(String user);
+
     default <T> T doAs(String user, SubjectPrivilegedAction<T> action)
     {
-        return UserGroupInformation
-                .createProxyUser(user, getUserGroupInformation())
+        return getUserGroupInformation(user)
                 .doAs(action);
     }
 
     default void doAsVoid(String user, Runnable action)
     {
-        UserGroupInformation
-                .createProxyUser(user, getUserGroupInformation())
+        getUserGroupInformation(user)
                 .doAs((PrivilegedAction<Object>) () -> {
                     action.run();
                     return null;
