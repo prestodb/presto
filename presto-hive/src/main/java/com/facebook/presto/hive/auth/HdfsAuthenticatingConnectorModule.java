@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hive.auth;
 
+import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveClientConfig.AuthenticationType;
 import com.facebook.presto.hive.HiveMetadata;
@@ -24,18 +25,12 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.PrivateModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-
-import java.util.List;
-
-import static com.google.common.base.MoreObjects.firstNonNull;
 
 public class HdfsAuthenticatingConnectorModule
         extends PrivateModule
@@ -63,11 +58,12 @@ public class HdfsAuthenticatingConnectorModule
     @Inject
     @Provides
     @Singleton
-    HadoopAuthentication getHadoopAuthentication(HiveClientConfig hiveClientConfig)
+    HadoopAuthentication createHadoopAuthentication(HiveClientConfig hiveClientConfig,
+            HdfsConfiguration hdfsConfiguration)
     {
         String hdfsPrestoPrincipal = hiveClientConfig.getHdfsPrestoPrincipal();
         String hdfsPrestoKeytab = hiveClientConfig.getHdfsPrestoKeytab();
-        Configuration configuration = createConfiguration(hiveClientConfig);
+        Configuration configuration = hdfsConfiguration.getDefaultConfiguration();
         AuthenticationType authenticationType = hiveClientConfig.getHdfsAuthenticationType();
 
         HadoopAuthentication authentication = createAuthentication(
@@ -79,14 +75,6 @@ public class HdfsAuthenticatingConnectorModule
 
         authentication.authenticate();
         return authentication;
-    }
-
-    private Configuration createConfiguration(HiveClientConfig hiveClientConfig)
-    {
-        List<String> configurationFiles = firstNonNull(hiveClientConfig.getResourceConfigFiles(), ImmutableList.of());
-        Configuration configuration = new Configuration();
-        configurationFiles.forEach(filePath -> configuration.addResource(new Path(filePath)));
-        return configuration;
     }
 
     private HadoopAuthentication createAuthentication(String principal,
