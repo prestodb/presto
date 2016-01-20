@@ -48,7 +48,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -147,9 +146,9 @@ public class TestNodeScheduler
         NetworkLocationCache locationCache = new NetworkLocationCache(topology)
         {
             @Override
-            public Optional<NetworkLocation> get(HostAddress host)
+            public NetworkLocation get(HostAddress host)
             {
-                return Optional.of(topology.locate(host));
+                return topology.locate(host);
             }
         };
         NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
