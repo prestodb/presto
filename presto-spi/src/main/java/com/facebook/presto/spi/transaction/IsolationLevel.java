@@ -28,7 +28,7 @@ public enum IsolationLevel
 
             case READ_COMMITTED:
                 return requirement == READ_UNCOMMITTED ||
-                    requirement == READ_COMMITTED;
+                        requirement == READ_COMMITTED;
 
             case REPEATABLE_READ:
                 return requirement == READ_UNCOMMITTED ||

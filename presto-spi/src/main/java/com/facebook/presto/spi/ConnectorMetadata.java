@@ -42,7 +42,7 @@ public interface ConnectorMetadata
 
     /**
      * Return a list of table layouts that satisfy the given constraint.
-     *
+     * <p>
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
      */
     default List<ConnectorTableLayoutResult> getTableLayouts(
@@ -267,6 +267,7 @@ public interface ConnectorMetadata
 
     /**
      * Delete the provided table layout
+     *
      * @return number of rows deleted, or null for unknown
      */
     default OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
