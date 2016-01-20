@@ -18,8 +18,7 @@
 package com.facebook.presto.hive.auth;
 
 import org.apache.hadoop.conf.Configuration;
-
-import java.security.PrivilegedAction;
+import org.apache.hadoop.security.UserGroupInformation;
 
 public class HadoopKerberosAuthentication
         extends HadoopKerberosBaseAuthentication
@@ -30,13 +29,9 @@ public class HadoopKerberosAuthentication
         super(principal, keytab, configuration);
     }
 
-    public <T> T doAs(String user, PrivilegedAction<T> action)
+    @Override
+    public UserGroupInformation getUserGroupInformation(String user)
     {
-        return doAs(action);
-    }
-
-    public void doAs(String user, Runnable action)
-    {
-        doAs(action);
+        return getUserGroupInformation();
     }
 }

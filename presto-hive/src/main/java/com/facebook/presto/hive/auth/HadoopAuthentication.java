@@ -24,6 +24,8 @@ public interface HadoopAuthentication
 
     UserGroupInformation getUserGroupInformation();
 
+    UserGroupInformation getUserGroupInformation(String user);
+
     default <T> T doAs(PrivilegedAction<T> action)
     {
         return getUserGroupInformation()
@@ -41,15 +43,13 @@ public interface HadoopAuthentication
 
     default <T> T doAs(String user, PrivilegedAction<T> action)
     {
-        return UserGroupInformation
-                .createProxyUser(user, getUserGroupInformation())
+        return getUserGroupInformation(user)
                 .doAs(action);
     }
 
     default void doAs(String user, Runnable action)
     {
-        UserGroupInformation
-                .createProxyUser(user, getUserGroupInformation())
+        getUserGroupInformation(user)
                 .doAs((PrivilegedAction<Object>) () -> {
                     action.run();
                     return null;
