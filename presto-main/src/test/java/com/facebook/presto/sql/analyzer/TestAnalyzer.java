@@ -31,7 +31,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.LegacyTransactionConnector;
@@ -923,7 +922,6 @@ public class TestAnalyzer
         MetadataManager metadata = new MetadataManager(
                 new FeaturesConfig().setExperimentalSyntaxEnabled(true),
                 typeManager,
-                new SplitManager(),
                 new BlockEncodingManager(typeManager),
                 new SessionPropertyManager(),
                 new TablePropertyManager(),
