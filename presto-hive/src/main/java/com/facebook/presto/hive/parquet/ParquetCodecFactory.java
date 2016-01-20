@@ -98,7 +98,7 @@ public class ParquetCodecFactory
         decompressors.clear();
     }
 
-    public class BytesDecompressor
+    public static class BytesDecompressor
     {
         private final CompressionCodec codec;
         private final Decompressor decompressor;

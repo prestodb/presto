@@ -36,7 +36,6 @@ public class ParquetFileReader
 {
     private final List<BlockMetaData> blocks;
     private final FSDataInputStream inputStream;
-    private final Path file;
     private final Map<ColumnDescriptor, ColumnChunkMetaData> columnMetadata = new HashMap<>();
     private final ParquetCodecFactory codecFactory;
 
@@ -50,7 +49,6 @@ public class ParquetFileReader
             List<ColumnDescriptor> columns)
             throws IOException
     {
-        this.file = file;
         this.inputStream = file.getFileSystem(configuration).open(file);
         this.blocks = blocks;
         if (!blocks.isEmpty()) {

@@ -413,7 +413,7 @@ public class ParquetHiveRecordCursor
         }
     }
 
-    public class PrestoParquetRecordReader
+    public static class PrestoParquetRecordReader
             extends ParquetRecordReader<FakeParquetRecord>
     {
         public PrestoParquetRecordReader(PrestoReadSupport readSupport)
