@@ -37,6 +37,7 @@ import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.concurrent.Executor;
@@ -57,6 +58,7 @@ public class HttpRemoteTaskFactory
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration minErrorDuration;
     private final Duration taskInfoRefreshMaxWait;
+    private final ExecutorService coreExecutor;
     private final Executor executor;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ScheduledExecutorService errorScheduledExecutor;
@@ -75,7 +77,7 @@ public class HttpRemoteTaskFactory
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
         this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
-        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
+        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
 
@@ -87,6 +89,12 @@ public class HttpRemoteTaskFactory
     public ThreadPoolExecutorMBean getExecutor()
     {
         return executorMBean;
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        coreExecutor.shutdownNow();
     }
 
     @Override
