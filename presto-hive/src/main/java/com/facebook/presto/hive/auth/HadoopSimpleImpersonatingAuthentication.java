@@ -15,13 +15,28 @@
 package com.facebook.presto.hive.auth;
 
 import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 
 public class HadoopSimpleImpersonatingAuthentication
         implements HadoopAuthentication
 {
+    private LoadingCache<String, UserGroupInformation> userGroupInformationCache = CacheBuilder.newBuilder().build(
+            new CacheLoader<String, UserGroupInformation>()
+            {
+                @Override
+                public UserGroupInformation load(@NotNull String user)
+                        throws Exception
+                {
+                    return UserGroupInformation.createProxyUser(user, getUserGroupInformation());
+                }
+            });
+
     @Override
     public void authenticate()
     {
@@ -42,6 +57,6 @@ public class HadoopSimpleImpersonatingAuthentication
     @Override
     public UserGroupInformation getUserGroupInformation(String user)
     {
-        return UserGroupInformation.createProxyUser(user, getUserGroupInformation());
+        return userGroupInformationCache.getUnchecked(user);
     }
 }

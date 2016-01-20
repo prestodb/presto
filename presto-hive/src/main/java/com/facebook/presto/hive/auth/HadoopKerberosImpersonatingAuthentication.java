@@ -19,10 +19,25 @@ package com.facebook.presto.hive.auth;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.jetbrains.annotations.NotNull;
+import org.weakref.jmx.internal.guava.cache.CacheBuilder;
+import org.weakref.jmx.internal.guava.cache.CacheLoader;
+import org.weakref.jmx.internal.guava.cache.LoadingCache;
 
 public class HadoopKerberosImpersonatingAuthentication
         extends HadoopKerberosBaseAuthentication
 {
+    private LoadingCache<String, UserGroupInformation> userGroupInformationCache = CacheBuilder.newBuilder().build(
+            new CacheLoader<String, UserGroupInformation>()
+            {
+                @Override
+                public UserGroupInformation load(@NotNull String user)
+                        throws Exception
+                {
+                    return UserGroupInformation.createProxyUser(user, getUserGroupInformation());
+                }
+            });
+
     public HadoopKerberosImpersonatingAuthentication(String principal, String keytab, Configuration configuration)
     {
         super(principal, keytab, configuration);
@@ -31,6 +46,7 @@ public class HadoopKerberosImpersonatingAuthentication
     @Override
     public UserGroupInformation getUserGroupInformation(String user)
     {
-        return UserGroupInformation.createProxyUser(user, getUserGroupInformation());
+        getUserGroupInformation(); // refresh master kerberos UGI
+        return userGroupInformationCache.getUnchecked(user);
     }
 }
