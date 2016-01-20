@@ -47,11 +47,10 @@ public class SplitManager
         return new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
     }
 
-    public ConnectorSplitManager getConnectorSplitManager(String connectorId)
+    private ConnectorSplitManager getConnectorSplitManager(String connectorId)
     {
         ConnectorSplitManager result = splitManagers.get(connectorId);
         checkArgument(result != null, "No split manager for connector '%s'", connectorId);
-
         return result;
     }
 }

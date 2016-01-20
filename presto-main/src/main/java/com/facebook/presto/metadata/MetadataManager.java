@@ -37,7 +37,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionId;
@@ -111,7 +110,6 @@ public class MetadataManager
     private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
-    private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
@@ -119,20 +117,18 @@ public class MetadataManager
 
     public MetadataManager(FeaturesConfig featuresConfig,
             TypeManager typeManager,
-            SplitManager splitManager,
             BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
             TransactionManager transactionManager)
     {
-        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager, blockEncodingSerde, sessionPropertyManager, tablePropertyManager, transactionManager);
+        this(featuresConfig, typeManager, createTestingViewCodec(), blockEncodingSerde, sessionPropertyManager, tablePropertyManager, transactionManager);
     }
 
     @Inject
     public MetadataManager(FeaturesConfig featuresConfig,
             TypeManager typeManager,
             JsonCodec<ViewDefinition> viewCodec,
-            SplitManager splitManager,
             BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
@@ -142,7 +138,6 @@ public class MetadataManager
         procedures = new ProcedureRegistry();
         this.typeManager = requireNonNull(typeManager, "types is null");
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
-        this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
@@ -156,10 +151,9 @@ public class MetadataManager
         FeaturesConfig featuresConfig = new FeaturesConfig();
         TypeManager typeManager = new TypeRegistry();
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
-        SplitManager splitManager = new SplitManager();
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
         TransactionManager transactionManager = createTestTransactionManager();
-        return new MetadataManager(featuresConfig, typeManager, splitManager, blockEncodingSerde, sessionPropertyManager, new TablePropertyManager(), transactionManager);
+        return new MetadataManager(featuresConfig, typeManager, blockEncodingSerde, sessionPropertyManager, new TablePropertyManager(), transactionManager);
     }
 
     public synchronized void registerConnectorCatalog(String connectorId, String catalogName)
