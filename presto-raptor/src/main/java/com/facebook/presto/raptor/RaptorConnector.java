@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -33,10 +32,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorConnector
@@ -83,11 +81,9 @@ public class RaptorConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel level, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
-        if (!READ_COMMITTED.meetsRequirementOf(level)) {
-            throw new PrestoException(UNSUPPORTED_ISOLATION_LEVEL, format("Raptor only supports isolation level %s, not %s", READ_COMMITTED, level));
-        }
+        checkConnectorSupports(READ_COMMITTED, isolationLevel);
         return new RaptorTransactionHandle();
     }
 

@@ -15,7 +15,6 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -28,9 +27,8 @@ import javax.management.MBeanServer;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static java.lang.String.format;
+import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 public class JmxConnectorFactory
@@ -65,9 +63,7 @@ public class JmxConnectorFactory
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
             {
-                if (!READ_COMMITTED.meetsRequirementOf(isolationLevel)) {
-                    throw new PrestoException(UNSUPPORTED_ISOLATION_LEVEL, format("Connector supported isolation level %s does not meet requested isolation level %s", READ_COMMITTED, isolationLevel));
-                }
+                checkConnectorSupports(READ_COMMITTED, isolationLevel);
                 return JmxTransactionHandle.INSTANCE;
             }
 

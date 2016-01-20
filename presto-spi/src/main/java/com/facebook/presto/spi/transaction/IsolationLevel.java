@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.spi.transaction;
 
+import com.facebook.presto.spi.PrestoException;
+
+import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
+import static java.lang.String.format;
+
 public enum IsolationLevel
 {
     SERIALIZABLE,
@@ -46,5 +51,12 @@ public enum IsolationLevel
     public String toString()
     {
         return name().replace('_', ' ');
+    }
+
+    public static void checkConnectorSupports(IsolationLevel supportedLevel, IsolationLevel requestedLevel)
+    {
+        if (!supportedLevel.meetsRequirementOf(requestedLevel)) {
+            throw new PrestoException(UNSUPPORTED_ISOLATION_LEVEL, format("Connector supported isolation level %s does not meet requested isolation level %s", supportedLevel, requestedLevel));
+        }
     }
 }
