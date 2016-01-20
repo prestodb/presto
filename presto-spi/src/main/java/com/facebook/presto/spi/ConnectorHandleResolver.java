@@ -19,10 +19,7 @@ public interface ConnectorHandleResolver
 {
     Class<? extends ConnectorTableHandle> getTableHandleClass();
 
-    default Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
+    Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass();
 
     Class<? extends ColumnHandle> getColumnHandleClass();
 

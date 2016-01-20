@@ -19,12 +19,9 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
@@ -34,7 +31,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -92,7 +88,6 @@ import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
-import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
@@ -310,35 +305,11 @@ public class MetadataManager
         ConnectorTableHandle connectorTable = table.getConnectorHandle();
         Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate();
 
-        List<ConnectorTableLayoutResult> layouts;
         ConnectorEntry entry = getConnectorMetadata(connectorId);
         ConnectorMetadata metadata = entry.getMetadata(session);
         ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
         ConnectorSession connectorSession = session.toConnectorSession(entry.getCatalog());
-        try {
-            layouts = metadata.getTableLayouts(connectorSession, connectorTable, new Constraint<>(summary, predicate::test), desiredColumns);
-        }
-        catch (UnsupportedOperationException e) {
-            ConnectorSplitManager connectorSplitManager = splitManager.getConnectorSplitManager(connectorId);
-            ConnectorPartitionResult result = connectorSplitManager.getPartitions(transaction, connectorSession, connectorTable, summary);
-
-            List<ConnectorPartition> partitions = result.getPartitions().stream()
-                    .filter(partition -> !partition.getTupleDomain().isNone())
-                    .filter(partition -> predicate.test(extractFixedValues(partition.getTupleDomain()).get()))
-                    .collect(toImmutableList());
-
-            List<TupleDomain<ColumnHandle>> partitionDomains = partitions.stream()
-                    .map(ConnectorPartition::getTupleDomain)
-                    .collect(toImmutableList());
-
-            TupleDomain<ColumnHandle> effectivePredicate = TupleDomain.none();
-            if (!partitionDomains.isEmpty()) {
-                effectivePredicate = TupleDomain.columnWiseUnion(partitionDomains);
-            }
-
-            ConnectorTableLayout layout = new ConnectorTableLayout(new LegacyTableLayoutHandle(connectorTable, partitions), Optional.empty(), effectivePredicate, Optional.empty(), Optional.of(partitionDomains), ImmutableList.of());
-            layouts = ImmutableList.of(new ConnectorTableLayoutResult(layout, result.getUndeterminedTupleDomain()));
-        }
+        List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, new Constraint<>(summary, predicate::test), desiredColumns);
 
         return layouts.stream()
                 .map(layout -> new TableLayoutResult(fromConnectorLayout(connectorId, transaction, layout.getTableLayout()), layout.getUnenforcedConstraint()))
@@ -348,19 +319,6 @@ public class MetadataManager
     @Override
     public TableLayout getLayout(Session session, TableLayoutHandle handle)
     {
-        if (handle.getConnectorHandle() instanceof LegacyTableLayoutHandle) {
-            LegacyTableLayoutHandle legacyHandle = (LegacyTableLayoutHandle) handle.getConnectorHandle();
-            List<TupleDomain<ColumnHandle>> partitionDomains = legacyHandle.getPartitions().stream()
-                    .map(ConnectorPartition::getTupleDomain)
-                    .collect(toImmutableList());
-
-            TupleDomain<ColumnHandle> predicate = TupleDomain.none();
-            if (!partitionDomains.isEmpty()) {
-                predicate = TupleDomain.columnWiseUnion(partitionDomains);
-            }
-            return new TableLayout(handle, new ConnectorTableLayout(legacyHandle, Optional.empty(), predicate, Optional.empty(), Optional.of(partitionDomains), ImmutableList.of()));
-        }
-
         String connectorId = handle.getConnectorId();
         ConnectorEntry entry = getConnectorMetadata(connectorId);
         ConnectorMetadata metadata = entry.getMetadata(session);
