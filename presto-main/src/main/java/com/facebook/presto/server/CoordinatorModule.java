@@ -94,6 +94,8 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
+import static com.facebook.presto.util.ExecutorBinder.ShutdownPolicy.IMMEDIATE;
+import static com.facebook.presto.util.ExecutorBinder.executorBinder;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -161,8 +163,9 @@ public class CoordinatorModule
                 });
 
         // query execution
-        binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
-                .toInstance(newCachedThreadPool(threadsNamed("query-execution-%s")));
+        executorBinder(binder).bind(ExecutorService.class, ForQueryExecution.class, IMMEDIATE)
+                .to(newCachedThreadPool(threadsNamed("query-execution-%s")));
+
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 

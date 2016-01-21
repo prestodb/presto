@@ -107,6 +107,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.util.ExecutorBinder.ShutdownPolicy.IMMEDIATE;
+import static com.facebook.presto.util.ExecutorBinder.executorBinder;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -192,6 +194,11 @@ public class ServerMainModule
         configBinder(binder).bindConfig(ExchangeClientConfig.class);
         binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExchangeExecutionMBean.class).withGeneratedName();
+
+        executorBinder(binder).bind(ScheduledExecutorService.class, ForExchange.class, IMMEDIATE)
+                .to(newScheduledThreadPool(
+                        buildConfigObject(ExchangeClientConfig.class).getClientThreads(),
+                        daemonThreadsNamed("exchange-client-%s")));
 
         // execution
         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
@@ -318,6 +325,22 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
+        // transaction manager
+        executorBinder(binder).bind(ScheduledExecutorService.class, ForTransactionManager.class, IMMEDIATE)
+                .to(newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check")));
+
+        executorBinder(binder).bind(ExecutorService.class, ForTransactionManager.class, IMMEDIATE)
+                .to(newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s")));
+
+        // async http
+        executorBinder(binder).bind(ExecutorService.class, ForAsyncHttp.class, IMMEDIATE)
+                .to(newCachedThreadPool(daemonThreadsNamed("async-http-response-%s")));
+
+        executorBinder(binder).bind(ScheduledExecutorService.class, ForAsyncHttp.class, IMMEDIATE)
+                .to(newScheduledThreadPool(
+                        buildConfigObject(TaskManagerConfig.class).getHttpTimeoutThreads(),
+                        daemonThreadsNamed("async-http-timeout-%s")));
+
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
 
@@ -336,50 +359,10 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    @ForExchange
-    public ScheduledExecutorService createExchangeExecutor(ExchangeClientConfig config)
-    {
-        return newScheduledThreadPool(config.getClientThreads(), daemonThreadsNamed("exchange-client-%s"));
-    }
-
-    @Provides
-    @Singleton
-    @ForAsyncHttp
-    public static ExecutorService createAsyncHttpResponseCoreExecutor()
-    {
-        return newCachedThreadPool(daemonThreadsNamed("async-http-response-%s"));
-    }
-
-    @Provides
-    @Singleton
     @ForAsyncHttp
     public static BoundedExecutor createAsyncHttpResponseExecutor(@ForAsyncHttp ExecutorService coreExecutor, TaskManagerConfig config)
     {
         return new BoundedExecutor(coreExecutor, config.getHttpResponseThreads());
-    }
-
-    @Provides
-    @Singleton
-    @ForAsyncHttp
-    public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
-    {
-        return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("async-http-timeout-%s"));
-    }
-
-    @Provides
-    @Singleton
-    @ForTransactionManager
-    public static ScheduledExecutorService createTransactionIdleCheckExecutor()
-    {
-        return newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
-    }
-
-    @Provides
-    @Singleton
-    @ForTransactionManager
-    public static ExecutorService createTransactionFinishingExecutor()
-    {
-        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s"));
     }
 
     @Provides
