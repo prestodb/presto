@@ -121,9 +121,7 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -195,10 +193,11 @@ public class ServerMainModule
         binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExchangeExecutionMBean.class).withGeneratedName();
 
-        executorBinder(binder).bind(ScheduledExecutorService.class, ForExchange.class, IMMEDIATE)
-                .to(newScheduledThreadPool(
-                        buildConfigObject(ExchangeClientConfig.class).getClientThreads(),
-                        daemonThreadsNamed("exchange-client-%s")));
+        executorBinder(binder).bindDaemonFixedScheduled(
+                ForExchange.class,
+                "exchange-client",
+                IMMEDIATE,
+                buildConfigObject(ExchangeClientConfig.class).getClientThreads());
 
         // execution
         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
@@ -326,20 +325,16 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
         // transaction manager
-        executorBinder(binder).bind(ScheduledExecutorService.class, ForTransactionManager.class, IMMEDIATE)
-                .to(newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check")));
-
-        executorBinder(binder).bind(ExecutorService.class, ForTransactionManager.class, IMMEDIATE)
-                .to(newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s")));
+        executorBinder(binder).bindDaemonSingleScheduled(ForTransactionManager.class, "transaction-idle-check", IMMEDIATE);
+        executorBinder(binder).bindDaemonCachedExecutor(ForTransactionManager.class, "transaction-finishing", IMMEDIATE);
 
         // async http
-        executorBinder(binder).bind(ExecutorService.class, ForAsyncHttp.class, IMMEDIATE)
-                .to(newCachedThreadPool(daemonThreadsNamed("async-http-response-%s")));
-
-        executorBinder(binder).bind(ScheduledExecutorService.class, ForAsyncHttp.class, IMMEDIATE)
-                .to(newScheduledThreadPool(
-                        buildConfigObject(TaskManagerConfig.class).getHttpTimeoutThreads(),
-                        daemonThreadsNamed("async-http-timeout-%s")));
+        executorBinder(binder).bindDaemonCachedExecutor(ForAsyncHttp.class, "async-http-response", IMMEDIATE);
+        executorBinder(binder).bindDaemonFixedScheduled(
+                ForAsyncHttp.class,
+                "async-http-timeout",
+                IMMEDIATE,
+                buildConfigObject(TaskManagerConfig.class).getHttpTimeoutThreads());
 
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
