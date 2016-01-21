@@ -869,7 +869,7 @@ public class ExpressionAnalyzer
                 operatorSignature = functionRegistry.resolveOperator(operatorType, argumentTypes.build());
             }
             catch (OperatorNotFoundException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, e.getMessage());
+                throw new SemanticException(TYPE_MISMATCH, node, "%s", e.getMessage());
             }
 
             for (int i = 0; i < arguments.length; i++) {
