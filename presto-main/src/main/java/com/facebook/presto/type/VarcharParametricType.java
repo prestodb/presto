@@ -13,40 +13,44 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeParameter;
+import com.facebook.presto.spi.type.VarcharType;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-public final class MapParametricType
+public class VarcharParametricType
         implements ParametricType
 {
-    public static final MapParametricType MAP = new MapParametricType();
-
-    private MapParametricType()
-    {
-    }
+    public static final VarcharParametricType VARCHAR = new VarcharParametricType();
 
     @Override
     public String getName()
     {
-        return StandardTypes.MAP;
+        return StandardTypes.VARCHAR;
     }
 
     @Override
     public Type createType(List<TypeParameter> parameters)
     {
-        checkArgument(parameters.size() == 2, "Expected two parameters, got %s", parameters);
-        TypeParameter firstParameter = parameters.get(0);
-        TypeParameter secondParameter = parameters.get(1);
-        checkArgument(
-                firstParameter.getKind() == ParameterKind.TYPE && secondParameter.getKind() == ParameterKind.TYPE,
-                "Expected key and type to be types, got %s",
-                parameters);
-        return new MapType(firstParameter.getType(), secondParameter.getType());
+        if (parameters.isEmpty()) {
+            return VarcharType.createVarcharType(VarcharType.MAX_LENGTH);
+        }
+        if (parameters.size() != 1) {
+            throw new IllegalArgumentException("Expected at most one parameter for VARCHAR");
+        }
+
+        TypeParameter parameter = parameters.get(0);
+
+        if (!parameter.isLongLiteral()) {
+            throw new IllegalArgumentException("VARCHAR length must be a number");
+        }
+
+        long length = parameter.getLongLiteral();
+        if (length < 0 || length > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Invalid VARCHAR length " + length);
+        }
+        return VarcharType.createVarcharType((int) length);
     }
 }

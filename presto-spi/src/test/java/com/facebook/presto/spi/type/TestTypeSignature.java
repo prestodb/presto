@@ -15,6 +15,7 @@ package com.facebook.presto.spi.type;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -59,6 +60,15 @@ public class TestTypeSignature
     private void assertBindSignature(String typeName, Map<String, Type> boundParameters, String expectedTypeName)
     {
         assertEquals(parseTypeSignature(typeName).bindParameters(boundParameters).toString(), expectedTypeName);
+    }
+
+    @Test
+    public void parseSignatureWithLiterals() throws Exception
+    {
+        TypeSignature result = parseTypeSignature("decimal(X,42)", ImmutableSet.of("X"));
+        assertEquals(result.getParameters().size(), 2);
+        assertEquals(result.getParameters().get(0).isLiteralCalculation(), true);
+        assertEquals(result.getParameters().get(1).isLongLiteral(), true);
     }
 
     @Test

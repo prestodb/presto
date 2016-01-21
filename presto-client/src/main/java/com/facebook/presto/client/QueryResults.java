@@ -247,7 +247,7 @@ public class QueryResults
             for (int i = 0; i < listValue.size(); i++) {
                 TypeSignatureParameter parameter = signature.getParameters().get(i);
                 checkArgument(
-                        parameter.getKind() == ParameterKind.NAMED_TYPE_SIGNATURE,
+                        parameter.getKind() == ParameterKind.NAMED_TYPE,
                         "Unexpected parameter [%s] for row type",
                         parameter);
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
@@ -256,7 +256,7 @@ public class QueryResults
             }
             return fixedValue;
         }
-        switch (type) {
+        switch (signature.getBase()) {
             case BIGINT:
                 if (value instanceof String) {
                     return Long.parseLong((String) value);

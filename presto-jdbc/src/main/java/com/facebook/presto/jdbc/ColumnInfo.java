@@ -162,7 +162,7 @@ class ColumnInfo
     private static int getType(TypeSignatureParameter typeParameter)
     {
         switch (typeParameter.getKind()) {
-            case TYPE_SIGNATURE:
+            case TYPE:
                 return getType(typeParameter.getTypeSignature());
             default:
                 return Types.JAVA_OBJECT;
@@ -174,7 +174,7 @@ class ColumnInfo
         if (type.getBase().equals("array")) {
             return Types.ARRAY;
         }
-        switch (type.toString()) {
+        switch (type.getBase()) {
             case "boolean":
                 return Types.BOOLEAN;
             case "bigint":

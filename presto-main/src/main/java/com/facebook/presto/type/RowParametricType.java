@@ -50,7 +50,7 @@ public final class RowParametricType
     {
         checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
         checkArgument(
-                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE_SIGNATURE),
+                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
                 "Expected only named types as a parameters, got %s",
                 parameters);
         List<NamedType> namedTypes = parameters.stream().map(TypeParameter::getNamedType).collect(toList());

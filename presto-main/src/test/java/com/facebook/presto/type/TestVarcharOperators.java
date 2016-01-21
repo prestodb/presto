@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestVarcharOperators
         extends AbstractTestFunctions
@@ -26,15 +27,37 @@ public class TestVarcharOperators
     public void testLiteral()
             throws Exception
     {
-        assertFunction("'foo'", VARCHAR, "foo");
-        assertFunction("'bar'", VARCHAR, "bar");
-        assertFunction("''", VARCHAR, "");
+        assertFunction("'foo'", createVarcharType(3), "foo");
+        assertFunction("'bar'", createVarcharType(3), "bar");
+        assertFunction("''", createVarcharType(0), "");
+    }
+
+    @Test
+    public void testTypeConstructor()
+            throws Exception
+    {
+        assertFunction("VARCHAR 'foo'", VARCHAR, "foo");
+        assertFunction("VARCHAR 'bar'", VARCHAR, "bar");
+        assertFunction("VARCHAR ''", VARCHAR, "");
+    }
+
+    @Test
+    public void testCast()
+            throws Exception
+    {
+        assertFunction("cast('bar' as varchar(20))", createVarcharType(20), "bar");
+        assertFunction("cast(cast('bar' as varchar(20)) as varchar(30))", createVarcharType(30), "bar");
+        assertFunction("cast(cast('bar' as varchar(20)) as varchar)", VARCHAR, "bar");
+
+        assertFunction("cast('banana' as varchar(3))", createVarcharType(3), "ban");
+        assertFunction("cast(cast('banana' as varchar(20)) as varchar(3))", createVarcharType(3), "ban");
     }
 
     @Test
     public void testAdd()
             throws Exception
     {
+        // TODO change expected return type to createVarcharType(6) when function resolving is fixed
         assertFunction("'foo' || 'foo'", VARCHAR, "foo" + "foo");
         assertFunction("'foo' || 'bar'", VARCHAR, "foo" + "bar");
         assertFunction("'bar' || 'foo'", VARCHAR, "bar" + "foo");

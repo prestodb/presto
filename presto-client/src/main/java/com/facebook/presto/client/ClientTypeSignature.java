@@ -138,10 +138,10 @@ public class ClientTypeSignature
         List<ClientTypeSignature> result = new ArrayList<>();
         for (ClientTypeSignatureParameter argument : arguments) {
             switch (argument.getKind()) {
-                case TYPE_SIGNATURE:
+                case TYPE:
                     result.add(argument.getTypeSignature());
                     break;
-                case NAMED_TYPE_SIGNATURE:
+                case NAMED_TYPE:
                     result.add(new ClientTypeSignature(argument.getNamedTypeSignature().getTypeSignature()));
                     break;
                 default:
@@ -161,7 +161,7 @@ public class ClientTypeSignature
         List<Object> result = new ArrayList<>();
         for (ClientTypeSignatureParameter argument : arguments) {
             switch (argument.getKind()) {
-                case NAMED_TYPE_SIGNATURE:
+                case NAMED_TYPE:
                     result.add(argument.getNamedTypeSignature().getName());
                     break;
                 default:

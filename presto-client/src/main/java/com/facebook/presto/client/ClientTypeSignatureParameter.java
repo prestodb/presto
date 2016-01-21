@@ -43,13 +43,13 @@ public class ClientTypeSignatureParameter
     {
         this.kind = typeParameterSignature.getKind();
         switch (kind) {
-            case TYPE_SIGNATURE:
+            case TYPE:
                 value = new ClientTypeSignature(typeParameterSignature.getTypeSignature());
                 break;
-            case LONG_LITERAL:
+            case LONG:
                 value = typeParameterSignature.getLongLiteral();
                 break;
-            case NAMED_TYPE_SIGNATURE:
+            case NAMED_TYPE:
                 value = typeParameterSignature.getNamedTypeSignature();
                 break;
             default:
@@ -88,17 +88,17 @@ public class ClientTypeSignatureParameter
 
     public ClientTypeSignature getTypeSignature()
     {
-        return getValue(ParameterKind.TYPE_SIGNATURE, ClientTypeSignature.class);
+        return getValue(ParameterKind.TYPE, ClientTypeSignature.class);
     }
 
     public Long getLongLiteral()
     {
-        return getValue(ParameterKind.LONG_LITERAL, Long.class);
+        return getValue(ParameterKind.LONG, Long.class);
     }
 
     public NamedTypeSignature getNamedTypeSignature()
     {
-        return getValue(ParameterKind.NAMED_TYPE_SIGNATURE, NamedTypeSignature.class);
+        return getValue(ParameterKind.NAMED_TYPE, NamedTypeSignature.class);
     }
 
     @Override
@@ -142,13 +142,13 @@ public class ClientTypeSignatureParameter
             JsonParser jsonValue = MAPPER.treeAsTokens(node.get("value"));
             Object value;
             switch (kind) {
-                case TYPE_SIGNATURE:
+                case TYPE:
                     value = MAPPER.readValue(jsonValue, ClientTypeSignature.class);
                     break;
-                case NAMED_TYPE_SIGNATURE:
+                case NAMED_TYPE:
                     value = MAPPER.readValue(jsonValue, NamedTypeSignature.class);
                     break;
-                case LONG_LITERAL:
+                case LONG:
                     value = MAPPER.readValue(jsonValue, Long.class);
                     break;
                 default:
