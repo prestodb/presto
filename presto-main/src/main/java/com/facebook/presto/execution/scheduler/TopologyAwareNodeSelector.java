@@ -150,6 +150,11 @@ public class TopologyAwareNodeSelector
             // Try each address at progressively shallower network locations
             for (int i = depth; i >= 0 && chosenNode == null; i--) {
                 for (NetworkLocation location : locations) {
+                    // Skip locations which are only shallower than this level
+                    // For example, locations which couldn't be located will be at the "root" location
+                    if (location.getSegments().size() < i) {
+                        continue;
+                    }
                     location = location.subLocation(0, i);
                     if (filledLocations.contains(location)) {
                         continue;
