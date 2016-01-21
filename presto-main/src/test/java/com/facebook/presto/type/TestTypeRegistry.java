@@ -60,6 +60,8 @@ public class TestTypeRegistry
         assertFalse(TypeRegistry.canCoerce(TIMESTAMP, TIME_WITH_TIME_ZONE));
         assertFalse(TypeRegistry.canCoerce(TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP));
         assertFalse(TypeRegistry.canCoerce(VARBINARY, VARCHAR));
+        assertTrue(TypeRegistry.canCoerce(BIGINT, VARCHAR));
+        assertFalse(TypeRegistry.canCoerce(VARCHAR, BIGINT));
 
         assertTrue(TypeRegistry.canCoerce(UNKNOWN.getTypeSignature(), parseTypeSignature("array<bigint>")));
         assertFalse(TypeRegistry.canCoerce(parseTypeSignature("array<bigint>"), UNKNOWN.getTypeSignature()));
