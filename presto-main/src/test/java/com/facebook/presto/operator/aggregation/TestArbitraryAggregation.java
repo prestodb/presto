@@ -147,7 +147,7 @@ public class TestArbitraryAggregation
     public void testNullArray()
             throws Exception
     {
-        InternalAggregationFunction arrayAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, "array<bigint>", "array<bigint>"));
+        InternalAggregationFunction arrayAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, "array(bigint)", "array(bigint)"));
         assertAggregation(
                 arrayAgg,
                 1.0,
@@ -159,7 +159,7 @@ public class TestArbitraryAggregation
     public void testValidArray()
             throws Exception
     {
-        InternalAggregationFunction arrayAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, "array<bigint>", "array<bigint>"));
+        InternalAggregationFunction arrayAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, "array(bigint)", "array(bigint)"));
         assertAggregation(
                 arrayAgg,
                 1.0,

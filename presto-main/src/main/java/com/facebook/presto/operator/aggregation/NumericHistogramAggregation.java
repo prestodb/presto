@@ -83,7 +83,7 @@ public final class NumericHistogramAggregation
         }
     }
 
-    @OutputFunction("map<double,double>")
+    @OutputFunction("map(double,double)")
     public static void output(State state, BlockBuilder out)
     {
         if (state.get() == null) {

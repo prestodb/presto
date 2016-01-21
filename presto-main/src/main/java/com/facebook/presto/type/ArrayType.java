@@ -205,6 +205,6 @@ public class ArrayType
     @Override
     public String getDisplayName()
     {
-        return ARRAY + "<" + elementType.getDisplayName() + ">";
+        return ARRAY + "(" + elementType.getDisplayName() + ")";
     }
 }

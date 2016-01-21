@@ -29,7 +29,7 @@ public class TestColorArrayType
 {
     public TestColorArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array<color>")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array<color>"))));
+        super(new TypeRegistry().getType(parseTypeSignature("array(color)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(color)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

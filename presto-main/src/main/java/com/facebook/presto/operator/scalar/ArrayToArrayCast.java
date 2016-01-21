@@ -58,7 +58,7 @@ public class ArrayToArrayCast
 
     private ArrayToArrayCast()
     {
-        super(CAST, ImmutableList.of(typeParameter("F"), typeParameter("T")), "array<T>", ImmutableList.of("array<F>"));
+        super(CAST, ImmutableList.of(typeParameter("F"), typeParameter("T")), "array(T)", ImmutableList.of("array(F)"));
     }
 
     @Override

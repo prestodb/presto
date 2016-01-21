@@ -339,7 +339,7 @@ public class TestArrayOperators
             throws Exception
     {
         assertFunction("ARRAY_POSITION(ARRAY [10, 20, 30, 40], 30)", BIGINT, 3);
-        assertFunction("ARRAY_POSITION(CAST (JSON '[]' as array<bigint>), 30)", BIGINT, 0);
+        assertFunction("ARRAY_POSITION(CAST (JSON '[]' as array(bigint)), 30)", BIGINT, 0);
         assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint)], 30)", BIGINT, 0);
         assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint), NULL, NULL], 30)", BIGINT, 0);
         assertFunction("ARRAY_POSITION(ARRAY [NULL, NULL, 30, NULL], 30)", BIGINT, 3);
