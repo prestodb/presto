@@ -37,7 +37,7 @@ public class MapKeys
 
     public MapKeys()
     {
-        super("map_keys", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<K>", ImmutableList.of("map<K,V>"));
+        super("map_keys", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array(K)", ImmutableList.of("map(K,V)"));
     }
 
     @Override
@@ -55,7 +55,7 @@ public class MapKeys
     @Override
     public String getDescription()
     {
-        return "Returns the keys of the given map<K,V> as an array";
+        return "Returns the keys of the given map(K,V) as an array";
     }
 
     @Override

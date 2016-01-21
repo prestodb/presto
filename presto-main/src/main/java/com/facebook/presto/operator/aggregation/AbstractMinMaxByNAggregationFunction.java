@@ -60,7 +60,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
 
     protected AbstractMinMaxByNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator)
     {
-        super(name, ImmutableList.of(typeParameter("V"), orderableTypeParameter("K")), "array<V>", ImmutableList.of("V", "K", StandardTypes.BIGINT));
+        super(name, ImmutableList.of(typeParameter("V"), orderableTypeParameter("K")), "array(V)", ImmutableList.of("V", "K", StandardTypes.BIGINT));
         this.name = requireNonNull(name, "name is null");
         this.typeToComparator = requireNonNull(typeToComparator, "typeToComparator is null");
     }

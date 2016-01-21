@@ -38,7 +38,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public final class MLFunctions
 {
     private static final Cache<HashCode, Model> MODEL_CACHE = CacheBuilder.newBuilder().maximumSize(5).build();
-    private static final String MAP_BIGINT_DOUBLE = "map<bigint,double>";
+    private static final String MAP_BIGINT_DOUBLE = "map(bigint,double)";
 
     private MLFunctions()
     {

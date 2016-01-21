@@ -31,7 +31,7 @@ public class TestBigintVarcharMapType
 {
     public TestBigintVarcharMapType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("map<bigint,varchar>")), Map.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("map<bigint,varchar>"))));
+        super(new TypeRegistry().getType(parseTypeSignature("map(bigint,varchar)")), Map.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("map(bigint,varchar)"))));
     }
 
     public static Block createTestBlock(Type mapType)

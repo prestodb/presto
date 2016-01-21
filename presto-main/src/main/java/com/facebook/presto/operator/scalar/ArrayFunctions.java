@@ -28,7 +28,7 @@ public final class ArrayFunctions
     }
 
     @ScalarFunction(hidden = true)
-    @SqlType("array<unknown>")
+    @SqlType("array(unknown)")
     public static Block arrayConstructor()
     {
         BlockBuilder blockBuilder = new ArrayType(UNKNOWN).createBlockBuilder(new BlockBuilderStatus(), 0);

@@ -34,7 +34,7 @@ public final class LearnVarcharClassifierAggregation
     public static void input(
             LearnState state,
             @SqlType(VARCHAR) Slice label,
-            @SqlType("map<bigint,double>") Block features)
+            @SqlType("map(bigint,double)") Block features)
     {
         LearnLibSvmVarcharClassifierAggregation.input(state, label, features, Slices.utf8Slice(""));
     }

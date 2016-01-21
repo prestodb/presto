@@ -50,7 +50,7 @@ public class JsonToMapCast
 
     private JsonToMapCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map<K,V>", ImmutableList.of(StandardTypes.JSON));
+        super(OperatorType.CAST, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map(K,V)", ImmutableList.of(StandardTypes.JSON));
     }
 
     @Override

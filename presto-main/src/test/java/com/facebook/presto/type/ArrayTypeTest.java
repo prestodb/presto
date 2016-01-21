@@ -24,6 +24,6 @@ public class ArrayTypeTest
     public void testDisplayName()
     {
         ArrayType type = new ArrayType(BOOLEAN);
-        assertEquals(type.getDisplayName(), "array<boolean>");
+        assertEquals(type.getDisplayName(), "array(boolean)");
     }
 }

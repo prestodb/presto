@@ -73,7 +73,7 @@ public class TestArrayMaxNAggregation
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of("array<bigint>", StandardTypes.BIGINT);
+        return ImmutableList.of("array(bigint)", StandardTypes.BIGINT);
     }
 
     @Override

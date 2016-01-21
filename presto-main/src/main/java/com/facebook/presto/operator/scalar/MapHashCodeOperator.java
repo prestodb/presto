@@ -39,7 +39,7 @@ public class MapHashCodeOperator
 
     private MapHashCodeOperator()
     {
-        super(HASH_CODE, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), StandardTypes.BIGINT, ImmutableList.of("map<K,V>"));
+        super(HASH_CODE, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), StandardTypes.BIGINT, ImmutableList.of("map(K,V)"));
     }
 
     @Override

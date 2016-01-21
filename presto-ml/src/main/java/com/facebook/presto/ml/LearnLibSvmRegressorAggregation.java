@@ -36,7 +36,7 @@ public final class LearnLibSvmRegressorAggregation
     public static void input(
             LearnState state,
             @SqlType(BIGINT) long label,
-            @SqlType("map<bigint,double>") Block features,
+            @SqlType("map(bigint,double)") Block features,
             @SqlType(VARCHAR) Slice parameters)
     {
         input(state, (double) label, features, parameters);
@@ -46,7 +46,7 @@ public final class LearnLibSvmRegressorAggregation
     public static void input(
             LearnState state,
             @SqlType(DOUBLE) double label,
-            @SqlType("map<bigint,double>") Block features,
+            @SqlType("map(bigint,double)") Block features,
             @SqlType(VARCHAR) Slice parameters)
     {
         state.getLabels().add(label);

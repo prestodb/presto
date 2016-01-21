@@ -265,7 +265,7 @@ public final class StringFunctions
 
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
+    @SqlType("array(varchar(x))")
     public static Block split(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
     {
         return split(string, delimiter, string.length() + 1);
@@ -273,7 +273,7 @@ public final class StringFunctions
 
     @ScalarFunction
     @LiteralParameters("x")
-    @SqlType("array<varchar(x)>")
+    @SqlType("array(varchar(x))")
     public static Block split(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long limit)
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");

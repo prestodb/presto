@@ -34,7 +34,7 @@ public final class ArrayCardinalityFunction
 
     public ArrayCardinalityFunction()
     {
-        super("cardinality", ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array<E>"));
+        super("cardinality", ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array(E)"));
     }
 
     @Override

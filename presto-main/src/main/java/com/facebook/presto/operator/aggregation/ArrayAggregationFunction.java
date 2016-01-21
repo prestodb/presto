@@ -53,7 +53,7 @@ public class ArrayAggregationFunction
 
     public ArrayAggregationFunction()
     {
-        super(NAME, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("T"));
+        super(NAME, ImmutableList.of(typeParameter("T")), "array(T)", ImmutableList.of("T"));
     }
 
     @Override

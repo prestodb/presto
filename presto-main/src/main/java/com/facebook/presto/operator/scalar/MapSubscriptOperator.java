@@ -50,7 +50,7 @@ public class MapSubscriptOperator
 
     protected MapSubscriptOperator()
     {
-        super(SUBSCRIPT, ImmutableList.of(typeParameter("K"), typeParameter("V")), "V", ImmutableList.of("map<K,V>", "K"));
+        super(SUBSCRIPT, ImmutableList.of(typeParameter("K"), typeParameter("V")), "V", ImmutableList.of("map(K,V)", "K"));
     }
 
     @Override

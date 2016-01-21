@@ -95,7 +95,7 @@ public class KeyValuePairs
     }
 
     /**
-     * Serialize as a map: map<key, value>
+     * Serialize as a map: map(key, value)
      */
     public Block toMapNativeEncoding()
     {
@@ -107,7 +107,7 @@ public class KeyValuePairs
     }
 
     /**
-     * Serialize as a multimap: map<key, array<value>>, each key can be associated with multiple values
+     * Serialize as a multimap: map(key, array(value)), each key can be associated with multiple values
      */
     public Block toMultimapNativeEncoding()
     {

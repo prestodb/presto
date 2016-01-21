@@ -45,7 +45,7 @@ public class MapEqualOperator
 
     private MapEqualOperator()
     {
-        super(EQUAL, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), StandardTypes.BOOLEAN, ImmutableList.of("map<K,V>", "map<K,V>"));
+        super(EQUAL, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), StandardTypes.BOOLEAN, ImmutableList.of("map(K,V)", "map(K,V)"));
     }
 
     @Override

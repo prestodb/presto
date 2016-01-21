@@ -37,7 +37,7 @@ public class MapValues
 
     public MapValues()
     {
-        super("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<V>", ImmutableList.of("map<K,V>"));
+        super("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array(V)", ImmutableList.of("map(K,V)"));
     }
 
     @Override
@@ -55,7 +55,7 @@ public class MapValues
     @Override
     public String getDescription()
     {
-        return "Returns the values of the given map<K,V> as an array";
+        return "Returns the values of the given map(K,V) as an array";
     }
 
     @Override

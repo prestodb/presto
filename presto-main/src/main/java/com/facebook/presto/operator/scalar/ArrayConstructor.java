@@ -67,7 +67,7 @@ public final class ArrayConstructor
 
     public ArrayConstructor()
     {
-        super("array_constructor", ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "E"), true);
+        super("array_constructor", ImmutableList.of(typeParameter("E")), "array(E)", ImmutableList.of("E", "E"), true);
     }
 
     @Override

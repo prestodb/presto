@@ -43,7 +43,7 @@ public final class ArraySortFunction
 
     public ArraySortFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>"));
+        super(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), "array(E)", ImmutableList.of("array(E)"));
     }
 
     @Override

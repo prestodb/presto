@@ -71,7 +71,7 @@ public final class TypeJsonUtils
             throws IOException
     {
         // checking whether type is JsonType needs to go before null check because
-        // cast('[null]', array<json>) should be casted to a single item array containing a json document "null" instead of sql null.
+        // cast('[null]', array(json)) should be casted to a single item array containing a json document "null" instead of sql null.
         if (type instanceof JsonType) {
             return OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());
         }

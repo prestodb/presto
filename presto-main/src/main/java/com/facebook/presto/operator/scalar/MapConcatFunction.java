@@ -38,7 +38,7 @@ public class MapConcatFunction
 
     public MapConcatFunction()
     {
-        super("map_concat", ImmutableList.of(typeParameter("K"), typeParameter("V")), "map<K,V>", ImmutableList.of("map<K,V>", "map<K,V>"));
+        super("map_concat", ImmutableList.of(typeParameter("K"), typeParameter("V")), "map(K,V)", ImmutableList.of("map(K,V)", "map(K,V)"));
     }
 
     @Override

@@ -53,7 +53,7 @@ public abstract class AbstractArrayMinMaxFunction
 
     protected AbstractArrayMinMaxFunction(OperatorType operatorType, String functionName, String description)
     {
-        super(functionName, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("array<E>"));
+        super(functionName, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("array(E)"));
         this.operatorType = operatorType;
         this.description = description;
     }

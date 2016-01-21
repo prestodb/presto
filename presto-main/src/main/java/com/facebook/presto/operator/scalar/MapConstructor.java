@@ -45,7 +45,7 @@ public final class MapConstructor
 
     public MapConstructor()
     {
-        super("map", ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map<K,V>", ImmutableList.of("array<K>", "array<V>"));
+        super("map", ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map(K,V)", ImmutableList.of("array(K)", "array(V)"));
     }
 
     @Override

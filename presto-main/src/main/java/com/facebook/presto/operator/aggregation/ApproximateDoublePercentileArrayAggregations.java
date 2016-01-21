@@ -39,13 +39,13 @@ public final class ApproximateDoublePercentileArrayAggregations
     private ApproximateDoublePercentileArrayAggregations() {}
 
     @InputFunction
-    public static void input(DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType("array<double>") Block percentilesArrayBlock)
+    public static void input(DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.input(state, doubleToSortableLong(value), percentilesArrayBlock);
     }
 
     @InputFunction
-    public static void weightedInput(DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array<double>") Block percentilesArrayBlock)
+    public static void weightedInput(DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentilesArrayBlock);
     }
@@ -56,7 +56,7 @@ public final class ApproximateDoublePercentileArrayAggregations
         ApproximateLongPercentileArrayAggregations.combine(state, otherState);
     }
 
-    @OutputFunction("array<double>")
+    @OutputFunction("array(double)")
     public static void output(DigestAndPercentileArrayState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();

@@ -215,6 +215,6 @@ public class MapType
     @Override
     public String getDisplayName()
     {
-        return "map<" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ">";
+        return "map(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
     }
 }

@@ -44,7 +44,7 @@ public class ArrayEqualOperator
 
     private ArrayEqualOperator()
     {
-        super(EQUAL, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array<T>", "array<T>"));
+        super(EQUAL, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
     }
 
     @Override

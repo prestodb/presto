@@ -49,7 +49,7 @@ public class ArrayElementAtFunction
 
     public ArrayElementAtFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array<E>", "bigint"));
+        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array(E)", "bigint"));
     }
 
     @Override
