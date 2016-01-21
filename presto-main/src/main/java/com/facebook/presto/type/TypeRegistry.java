@@ -216,7 +216,7 @@ public final class TypeRegistry
         }
         switch (fromTypeBase) {
             case StandardTypes.BIGINT:
-                return StandardTypes.DOUBLE.equals(toTypeBase);
+                return StandardTypes.DOUBLE.equals(toTypeBase) || StandardTypes.VARCHAR.equals(toTypeBase);
             case StandardTypes.DATE:
                 return StandardTypes.TIMESTAMP.equals(toTypeBase) || StandardTypes.TIMESTAMP_WITH_TIME_ZONE.equals(toTypeBase);
             case StandardTypes.TIME:
