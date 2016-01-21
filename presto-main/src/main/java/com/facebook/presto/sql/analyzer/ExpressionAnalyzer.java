@@ -304,7 +304,7 @@ public class ExpressionAnalyzer
 
             Type baseType = process(node.getBase(), context);
             if (!(baseType instanceof RowType)) {
-                throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
+                throw new SemanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
             }
 
             RowType rowType = (RowType) baseType;
@@ -330,7 +330,7 @@ public class ExpressionAnalyzer
             while (qualifiedName.getPrefix().isPresent()) {
                 qualifiedName = qualifiedName.getPrefix().get();
                 List<Field> matches = tupleDescriptor.resolveFields(qualifiedName);
-                if (matches.size() > 0) {
+                if (!matches.isEmpty()) {
                     // The AMBIGUOUS_ATTRIBUTE exception will be thrown later with the right node if matches.size() > 1
                     return;
                 }
@@ -548,6 +548,7 @@ public class ExpressionAnalyzer
             return VARCHAR;
         }
 
+        @Override
         protected Type visitBinaryLiteral(BinaryLiteral node, StackableAstVisitorContext<AnalysisContext> context)
         {
             expressionTypes.put(node, VARBINARY);
@@ -714,7 +715,7 @@ public class ExpressionAnalyzer
                 if (node.isDistinct() && !type.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", type);
                 }
-                coerceType(context, expression, type, String.format("Function %s argument %d", function, i));
+                coerceType(context, expression, type, format("Function %s argument %d", function, i));
             }
             resolvedFunctions.put(node, function);
 
@@ -875,7 +876,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
                 Type type = typeManager.getType(operatorSignature.getArgumentTypes().get(i));
-                coerceType(context, expression, type, String.format("Operator %s argument %d", operatorSignature, i));
+                coerceType(context, expression, type, format("Operator %s argument %d", operatorSignature, i));
             }
 
             Type type = typeManager.getType(operatorSignature.getReturnType());
