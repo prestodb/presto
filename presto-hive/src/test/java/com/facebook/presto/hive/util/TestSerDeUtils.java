@@ -93,8 +93,15 @@ public class TestSerDeUtils
         InnerStruct innerStruct;
     }
 
-    private static ObjectInspector getInspector(Type type)
+    private static synchronized ObjectInspector getInspector(Type type)
     {
+        // ObjectInspectorFactory.getReflectionObjectInspector is not thread-safe although it
+        // gives people a first impression that it is. This may have been fixed in HIVE-11586.
+
+        // Presto only uses getReflectionObjectInspector here, in a test method. Therefore, we
+        // choose to work around this issue by synchronizing this method. Before synchronizing
+        // this method, test in this class fails approximately 1 out of 10 runs on Travis.
+
         return getReflectionObjectInspector(type, ObjectInspectorOptions.JAVA);
     }
 
@@ -275,7 +282,7 @@ public class TestSerDeUtils
         value.set(second, 0, second.length);
 
         Type type = new TypeToken<Map<BytesWritable, Integer>>() {}.getType();
-        ObjectInspector inspector = getReflectionObjectInspector(type, ObjectInspectorOptions.JAVA);
+        ObjectInspector inspector = getInspector(type);
 
         Block actual = getBlockObject(new MapType(VARCHAR, BIGINT), ImmutableMap.of(value, 0), inspector);
         Block expected = mapBlockOf(VARCHAR, BIGINT, "bye", 0);
