@@ -9,6 +9,7 @@ General Changes
 * Remove nullability and partition key flags from :doc:`/sql/show-columns`.
 * Remove non-standard ``is_partition_key`` column from ``information_schema.columns``.
 * Fix performance regression in creation of ``DictionaryBlock``.
+* Fix rare memory accounting leak in queries with ``JOIN``.
 
 Hive Changes
 ------------
