@@ -195,7 +195,7 @@ public final class RegexpFunctions
 
     @Description("string(s) extracted using the given pattern")
     @ScalarFunction
-    @SqlType("array<varchar>")
+    @SqlType("array(varchar)")
     public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
     {
         return regexpExtractAll(source, pattern, 0);
@@ -203,7 +203,7 @@ public final class RegexpFunctions
 
     @Description("group(s) extracted using the given pattern")
     @ScalarFunction
-    @SqlType("array<varchar>")
+    @SqlType("array(varchar)")
     public static Block regexpExtractAll(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern, @SqlType(StandardTypes.BIGINT) long groupIndex)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
@@ -274,7 +274,7 @@ public final class RegexpFunctions
 
     @ScalarFunction
     @Description("returns array of strings split by pattern")
-    @SqlType("array<varchar>")
+    @SqlType("array(varchar)")
     public static Block regexpSplit(@SqlType(StandardTypes.VARCHAR) Slice source, @SqlType(RegexpType.NAME) Regex pattern)
     {
         Matcher matcher = pattern.matcher(source.getBytes());

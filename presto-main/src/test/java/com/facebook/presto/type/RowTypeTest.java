@@ -37,7 +37,7 @@ public class RowTypeTest
         RowType row = new RowType(types, names);
         assertEquals(
                 row.getDisplayName(),
-                format("row(bool_col boolean, double_col double, array_col array<varchar(%s)>, map_col map<boolean, double>)", VarcharType.MAX_LENGTH));
+                format("row(bool_col boolean, double_col double, array_col array(varchar(%s)), map_col map(boolean, double))", VarcharType.MAX_LENGTH));
     }
 
     @Test
@@ -47,6 +47,6 @@ public class RowTypeTest
         RowType row = new RowType(types, Optional.empty());
         assertEquals(
                 row.getDisplayName(),
-                format("row(boolean, double, array<varchar(%s)>, map<boolean, double>)", VarcharType.MAX_LENGTH));
+                format("row(boolean, double, array(varchar(%s)), map(boolean, double))", VarcharType.MAX_LENGTH));
     }
 }

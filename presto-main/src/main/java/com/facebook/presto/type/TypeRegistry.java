@@ -341,7 +341,7 @@ public final class TypeRegistry
     public static Optional<TypeSignature> getCommonSuperTypeSignature(TypeSignature firstType, TypeSignature secondType)
     {
         // Special handling for UnknownType is necessary because we forbid cast between types with different number of type parameters.
-        // Without this, cast from null to map<bigint, bigint> will not be allowed.
+        // Without this, cast from null to map(bigint, bigint) will not be allowed.
         if (UnknownType.NAME.equals(firstType.getBase())) {
             return Optional.of(secondType);
         }

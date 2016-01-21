@@ -38,7 +38,7 @@ public final class ArraySliceFunction
 
     public ArraySliceFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "bigint", "bigint"));
+        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array(E)", ImmutableList.of("array(E)", "bigint", "bigint"));
     }
 
     @Override

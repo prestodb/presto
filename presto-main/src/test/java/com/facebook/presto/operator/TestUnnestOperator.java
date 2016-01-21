@@ -72,8 +72,8 @@ public class TestUnnestOperator
             throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
-        Type arrayType = metadata.getType(parseTypeSignature("array<bigint>"));
-        Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
+        Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
+        Type mapType = metadata.getType(parseTypeSignature("map(bigint,bigint)"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1, arrayBlockOf(BIGINT, 2, 3), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
@@ -103,8 +103,8 @@ public class TestUnnestOperator
             throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
-        Type arrayType = metadata.getType(parseTypeSignature("array<array<bigint>>"));
-        Type mapType = metadata.getType(parseTypeSignature("map<array<bigint>,array<bigint>>"));
+        Type arrayType = metadata.getType(parseTypeSignature("array(array(bigint))"));
+        Type mapType = metadata.getType(parseTypeSignature("map(array(bigint),array(bigint))"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(
@@ -140,8 +140,8 @@ public class TestUnnestOperator
             throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
-        Type arrayType = metadata.getType(parseTypeSignature("array<bigint>"));
-        Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
+        Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
+        Type mapType = metadata.getType(parseTypeSignature("map(bigint,bigint)"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1, arrayBlockOf(BIGINT, 2, 3), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
@@ -171,8 +171,8 @@ public class TestUnnestOperator
             throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
-        Type arrayType = metadata.getType(parseTypeSignature("array<double>"));
-        Type mapType = metadata.getType(parseTypeSignature("map<bigint,double>"));
+        Type arrayType = metadata.getType(parseTypeSignature("array(double)"));
+        Type mapType = metadata.getType(parseTypeSignature("map(bigint,double)"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1, arrayBlockOf(DOUBLE, NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN),

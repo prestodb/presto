@@ -4964,7 +4964,7 @@ public abstract class AbstractTestQueries
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:8: Unknown type: ARRAY(FOO)\\E")
     public void testInvalidType()
     {
-        computeActual("SELECT CAST(null AS array<foo>)");
+        computeActual("SELECT CAST(null AS array(foo))");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar(2147483647), bigint\\E")

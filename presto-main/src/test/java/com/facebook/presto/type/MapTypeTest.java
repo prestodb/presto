@@ -27,9 +27,9 @@ public class MapTypeTest
     public void testMapDisplayName()
     {
         MapType mapType = new MapType(BIGINT, VarcharType.createVarcharType(42));
-        assertEquals(mapType.getDisplayName(), "map<bigint, varchar(42)>");
+        assertEquals(mapType.getDisplayName(), "map(bigint, varchar(42))");
 
         mapType = new MapType(BIGINT, VARCHAR);
-        assertEquals(mapType.getDisplayName(), format("map<bigint, varchar(%d)>", VarcharType.MAX_LENGTH));
+        assertEquals(mapType.getDisplayName(), format("map(bigint, varchar(%d))", VarcharType.MAX_LENGTH));
     }
 }

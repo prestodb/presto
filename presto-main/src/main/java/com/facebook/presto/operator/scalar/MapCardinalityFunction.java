@@ -35,7 +35,7 @@ public final class MapCardinalityFunction
 
     public MapCardinalityFunction()
     {
-        super("cardinality", ImmutableList.of(typeParameter("K"), typeParameter("V")), "bigint", ImmutableList.of("map<K,V>"));
+        super("cardinality", ImmutableList.of(typeParameter("K"), typeParameter("V")), "bigint", ImmutableList.of("map(K,V)"));
     }
 
     @Override
