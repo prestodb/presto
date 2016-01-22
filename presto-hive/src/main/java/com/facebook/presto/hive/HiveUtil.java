@@ -92,6 +92,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -568,5 +570,19 @@ public final class HiveUtil
         if (!condition) {
             throw new PrestoException(errorCode, format(formatString, args));
         }
+    }
+
+    public static String annotateColumnComment(String comment, boolean partitionKey)
+    {
+        comment = nullToEmpty(comment).trim();
+        if (partitionKey) {
+            if (comment.isEmpty()) {
+                comment = "Partition Key";
+            }
+            else {
+                comment = "Partition Key: " + comment;
+            }
+        }
+        return emptyToNull(comment);
     }
 }

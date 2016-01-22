@@ -127,6 +127,7 @@ import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -1637,7 +1638,16 @@ public abstract class AbstractTestHiveClient
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(session, getTableHandle(tableName));
         assertEquals(tableMetadata.getOwner(), session.getUser());
-        assertEquals(tableMetadata.getColumns(), createTableColumns);
+
+        List<ColumnMetadata> expectedColumns = createTableColumns.stream()
+                .map(column -> new ColumnMetadata(
+                        column.getName(),
+                        column.getType(),
+                        column.isPartitionKey(),
+                        annotateColumnComment(column.getComment(), column.isPartitionKey()),
+                        false))
+                .collect(toList());
+        assertEquals(tableMetadata.getColumns(), expectedColumns);
 
         // verify table format
         Table table = getMetastoreClient(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();

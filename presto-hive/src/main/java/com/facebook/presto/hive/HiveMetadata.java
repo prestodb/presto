@@ -96,6 +96,7 @@ import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveTableProperties.getRetentionDays;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
@@ -112,9 +113,7 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
@@ -1361,23 +1360,11 @@ public class HiveMetadata
         }
         Map<String, String> columnComment = builder.build();
 
-        return handle -> {
-            String comment = nullToEmpty(columnComment.get(handle.getName())).trim();
-            if (handle.isPartitionKey()) {
-                if (comment.isEmpty()) {
-                    comment = "Partition Key";
-                }
-                else {
-                    comment = "Partition Key: " + comment;
-                }
-            }
-
-            return new ColumnMetadata(
-                    handle.getName(),
-                    typeManager.getType(handle.getTypeSignature()),
-                    handle.isPartitionKey(),
-                    emptyToNull(comment),
-                    false);
-        };
+        return handle -> new ColumnMetadata(
+                handle.getName(),
+                typeManager.getType(handle.getTypeSignature()),
+                handle.isPartitionKey(),
+                annotateColumnComment(columnComment.get(handle.getName()), handle.isPartitionKey()),
+                false);
     }
 }
