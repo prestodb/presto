@@ -107,6 +107,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.util.ExecutorBinder.ShutdownPolicy.IMMEDIATE;
+import static com.facebook.presto.util.ExecutorBinder.executorBinder;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -119,9 +121,7 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -192,6 +192,12 @@ public class ServerMainModule
         configBinder(binder).bindConfig(ExchangeClientConfig.class);
         binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExchangeExecutionMBean.class).withGeneratedName();
+
+        executorBinder(binder).bindDaemonFixedScheduled(
+                ForExchange.class,
+                "exchange-client",
+                IMMEDIATE,
+                buildConfigObject(ExchangeClientConfig.class).getClientThreads());
 
         // execution
         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
@@ -318,6 +324,18 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
+        // transaction manager
+        executorBinder(binder).bindDaemonSingleScheduled(ForTransactionManager.class, "transaction-idle-check", IMMEDIATE);
+        executorBinder(binder).bindDaemonCachedExecutor(ForTransactionManager.class, "transaction-finishing", IMMEDIATE);
+
+        // async http
+        executorBinder(binder).bindDaemonCachedExecutor(ForAsyncHttp.class, "async-http-response", IMMEDIATE);
+        executorBinder(binder).bindDaemonFixedScheduled(
+                ForAsyncHttp.class,
+                "async-http-timeout",
+                IMMEDIATE,
+                buildConfigObject(TaskManagerConfig.class).getHttpTimeoutThreads());
+
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
 
@@ -336,50 +354,10 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    @ForExchange
-    public ScheduledExecutorService createExchangeExecutor(ExchangeClientConfig config)
-    {
-        return newScheduledThreadPool(config.getClientThreads(), daemonThreadsNamed("exchange-client-%s"));
-    }
-
-    @Provides
-    @Singleton
-    @ForAsyncHttp
-    public static ExecutorService createAsyncHttpResponseCoreExecutor()
-    {
-        return newCachedThreadPool(daemonThreadsNamed("async-http-response-%s"));
-    }
-
-    @Provides
-    @Singleton
     @ForAsyncHttp
     public static BoundedExecutor createAsyncHttpResponseExecutor(@ForAsyncHttp ExecutorService coreExecutor, TaskManagerConfig config)
     {
         return new BoundedExecutor(coreExecutor, config.getHttpResponseThreads());
-    }
-
-    @Provides
-    @Singleton
-    @ForAsyncHttp
-    public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
-    {
-        return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("async-http-timeout-%s"));
-    }
-
-    @Provides
-    @Singleton
-    @ForTransactionManager
-    public static ScheduledExecutorService createTransactionIdleCheckExecutor()
-    {
-        return newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
-    }
-
-    @Provides
-    @Singleton
-    @ForTransactionManager
-    public static ExecutorService createTransactionFinishingExecutor()
-    {
-        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s"));
     }
 
     @Provides
