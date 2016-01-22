@@ -35,6 +35,7 @@ import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -129,6 +130,7 @@ public class ClientOptions
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
                 toProperties(sessionProperties),
+                emptyMap(),
                 null,
                 debug,
                 clientRequestTimeout);

@@ -24,7 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.units.Duration;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -348,6 +350,10 @@ public final class Session
                 properties.put(catalog + "." + entry.getKey(), entry.getValue());
             }
         }
+        ImmutableMap.Builder<String, String> encodedStatements = ImmutableMap.builder();
+        for (Entry<String, String> entry : preparedStatements.entrySet()) {
+           encodedStatements.put(utf8Encode(entry.getKey()), utf8Encode(entry.getValue()));
+        }
 
         return new ClientSession(
                 requireNonNull(server, "server is null"),
@@ -358,9 +364,20 @@ public final class Session
                 timeZoneKey.getId(),
                 locale,
                 properties.build(),
+                encodedStatements.build(),
                 transactionId.map(TransactionId::toString).orElse(null),
                 debug,
                 clientRequestTimeout);
+    }
+
+    private static String utf8Encode(String string)
+    {
+        try {
+            return URLEncoder.encode(string, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
+        }
     }
 
     public SessionRepresentation toSessionRepresentation()
