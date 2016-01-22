@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
  * Remove Distincts in the original AggregationNode
  */
 public class SingleDistinctOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)

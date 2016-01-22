@@ -38,7 +38,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
  * entire thing with a values node.
  */
 public class EmptyDeleteOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)

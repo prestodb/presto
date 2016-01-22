@@ -91,7 +91,7 @@ import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
 public class PredicatePushDown
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private static final Logger log = Logger.get(PredicatePushDown.class);
 

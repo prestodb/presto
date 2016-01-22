@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class WindowFilterPushDown
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, StandardTypes.BIGINT, ImmutableList.<String>of());
 

@@ -46,7 +46,7 @@ import static java.util.Objects.requireNonNull;
  * Pick an arbitrary layout if none has been chosen
  */
 public class PickLayout
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
 
