@@ -361,7 +361,7 @@ function removeQueryId(id)
 
 function taskIdToTinySortCompatibleString(id) {
     var taskIdArr = removeQueryId(id).split(".");
-    return taskIdArr.map(numStr => new Array(5 - numStr.length).join("0") + numStr).join("|");
+    return taskIdArr.map( function(numStr) { return new Array(5 - numStr.length).join("0") + numStr }).join("|");
 }
 
 function getTasks(stage) {
