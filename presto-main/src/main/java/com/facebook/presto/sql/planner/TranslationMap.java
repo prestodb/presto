@@ -155,18 +155,7 @@ class TranslationMap
             {
                 Expression rewrittenExpression = treeRewriter.defaultRewrite(node, context);
 
-                // cast expression if coercion is registered
-                Type coercion = analysis.getCoercion(node);
-                if (coercion != null) {
-                    Type type = analysis.getType(node);
-                    rewrittenExpression = new Cast(
-                            rewrittenExpression,
-                            coercion.getTypeSignature().toString(),
-                            false,
-                            isTypeOnlyCoercion(type, coercion));
-                }
-
-                return rewrittenExpression;
+                return coerceIfNecessary(node, rewrittenExpression);
             }
 
             @Override
@@ -192,12 +181,7 @@ class TranslationMap
                 checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, fieldIndex.get());
                 Expression rewrittenExpression = new QualifiedNameReference(symbol.toQualifiedName());
 
-                // cast expression if coercion is registered
-                Type coercion = analysis.getCoercion(node);
-                if (coercion != null) {
-                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString());
-                }
-                return rewrittenExpression;
+                return coerceIfNecessary(node, rewrittenExpression);
             }
 
             @Override
@@ -217,17 +201,21 @@ class TranslationMap
 
                 Expression rewrittenExpression = rewriteFunctionCall(functionCall, context, treeRewriter);
 
-                // cast expression if coercion is registered
-                Type type = analysis.getType(node);
-                Type coercion = analysis.getCoercion(node);
+                return coerceIfNecessary(node, rewrittenExpression);
+            }
+
+            private Expression coerceIfNecessary(Expression original, Expression rewritten)
+            {
+                Type coercion = analysis.getCoercion(original);
                 if (coercion != null) {
-                    rewrittenExpression = new Cast(
-                            rewrittenExpression,
+                    Type type = analysis.getType(original);
+                    rewritten = new Cast(
+                            rewritten,
                             coercion.getTypeSignature().toString(),
                             false,
                             isTypeOnlyCoercion(type, coercion));
                 }
-                return rewrittenExpression;
+                return rewritten;
             }
         }, expression);
     }
