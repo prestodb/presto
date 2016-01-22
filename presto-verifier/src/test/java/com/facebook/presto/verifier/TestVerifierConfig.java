@@ -63,7 +63,8 @@ public class TestVerifierConfig
                 .setAdditionalJdbcDriverPath(null)
                 .setTestJdbcDriverName(null)
                 .setControlJdbcDriverName(null)
-                .setDoublePrecision(3));
+                .setDoublePrecision(3)
+                .setRegressionMinCpuTime(new Duration(5, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -106,6 +107,7 @@ public class TestVerifierConfig
                 .put("test.jdbc-driver-class", "com.facebook.exampleclass")
                 .put("control.jdbc-driver-class", "com.facebook.exampleclass")
                 .put("expected-double-precision", "5")
+                .put("regression.min-cpu-time", "30s")
                 .build();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
@@ -144,7 +146,8 @@ public class TestVerifierConfig
                 .setAdditionalJdbcDriverPath("/test/path")
                 .setTestJdbcDriverName("com.facebook.exampleclass")
                 .setControlJdbcDriverName("com.facebook.exampleclass")
-                .setDoublePrecision(5);
+                .setDoublePrecision(5)
+                .setRegressionMinCpuTime(new Duration(30, TimeUnit.SECONDS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

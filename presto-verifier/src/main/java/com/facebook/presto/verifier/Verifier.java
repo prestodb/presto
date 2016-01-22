@@ -22,6 +22,8 @@ import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
@@ -156,6 +158,18 @@ public class Verifier
         }
 
         log.info("Results: %s / %s (%s skipped)", valid, failed, skipped);
+        log.info("");
+
+        for (EventClient eventClient : eventClients) {
+            if (eventClient instanceof Closeable) {
+                try {
+                    ((Closeable) eventClient).close();
+                }
+                catch (IOException ignored) { }
+                log.info("");
+            }
+        }
+
         return failed;
     }
 

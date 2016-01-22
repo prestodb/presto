@@ -71,6 +71,8 @@ public class VerifierConfig
     private String controlJdbcDriverName;
     private int doublePrecision = 3;
 
+    private Duration regressionMinCpuTime = new Duration(5, TimeUnit.MINUTES);
+
     @NotNull
     public String getSkipCorrectnessRegex()
     {
@@ -585,6 +587,20 @@ public class VerifierConfig
     public VerifierConfig setDoublePrecision(int doublePrecision)
     {
         this.doublePrecision = doublePrecision;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRegressionMinCpuTime()
+    {
+        return regressionMinCpuTime;
+    }
+
+    @ConfigDescription("Minimum cpu time a query must use in the control to be considered for regression")
+    @Config("regression.min-cpu-time")
+    public VerifierConfig setRegressionMinCpuTime(Duration regressionMinCpuTime)
+    {
+        this.regressionMinCpuTime = regressionMinCpuTime;
         return this;
     }
 }
