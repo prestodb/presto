@@ -21,3 +21,4 @@ Hive Changes
   to check that partition keys are the last columns in the table and in the same 
   order as the table properties.
 * Remove ``retention_days`` table property. This property is not used by Hive.
+* Fix Parquet decoding of ``MAP`` containing a null value.

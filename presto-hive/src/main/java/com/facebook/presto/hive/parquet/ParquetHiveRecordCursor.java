@@ -1141,6 +1141,11 @@ public class ParquetHiveRecordCursor
         {
             keyConverter.afterValue();
             valueConverter.afterValue();
+            // handle the case where we have a key, but the value is null
+            // null keys are not supported anyway, so we can ignore that case here
+            if (builder.getPositionCount() < 2) {
+                builder.appendNull();
+            }
         }
 
         @Override
