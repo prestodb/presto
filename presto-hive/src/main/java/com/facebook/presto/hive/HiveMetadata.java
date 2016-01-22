@@ -64,7 +64,6 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
-import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -661,7 +660,7 @@ public class HiveMetadata
                         .map(partitionUpdate -> createPartition(table, partitionUpdate))
                         .forEach(partitionCommitter::addPartition);
             }
-            partitionCommitter.close();
+            partitionCommitter.flush();
         }
         catch (Throwable throwable) {
             partitionCommitter.abort();
@@ -707,7 +706,6 @@ public class HiveMetadata
     }
 
     private static class PartitionCommitter
-            implements Closeable
     {
         private final String schemaName;
         private final String tableName;
@@ -738,8 +736,7 @@ public class HiveMetadata
             }
         }
 
-        @Override
-        public void close()
+        public void flush()
         {
             if (!batch.isEmpty()) {
                 addBatch();
@@ -837,7 +834,7 @@ public class HiveMetadata
                     }
                 }
             }
-            partitionCommitter.close();
+            partitionCommitter.flush();
             for (CompletableFuture<?> fileRenameFuture : fileRenameFutures) {
                 MoreFutures.getFutureValue(fileRenameFuture, PrestoException.class);
             }
