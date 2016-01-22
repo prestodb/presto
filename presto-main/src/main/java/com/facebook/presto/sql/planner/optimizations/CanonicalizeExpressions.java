@@ -47,7 +47,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class CanonicalizeExpressions
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     public static Expression canonicalizeExpression(Expression expression)
     {

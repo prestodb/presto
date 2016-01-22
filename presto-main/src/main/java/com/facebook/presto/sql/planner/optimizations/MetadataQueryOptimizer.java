@@ -60,7 +60,7 @@ import static java.util.Objects.requireNonNull;
  * into simple metadata queries
  */
 public class MetadataQueryOptimizer
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private static final Set<String> ALLOWED_FUNCTIONS = ImmutableSet.of("max", "min", "approx_distinct");
 

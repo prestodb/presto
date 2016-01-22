@@ -93,7 +93,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class AddLocalExchanges
-        extends PlanOptimizer
+        implements PlanOptimizer
 {
     private final Metadata metadata;
     private final SqlParser parser;
