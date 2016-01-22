@@ -15,3 +15,14 @@ Hive Changes
 ------------
 
 * The comment for partition keys is now prefixed with *"Partition Key"*.
+
+SPI Changes
+-----------
+
+* Remove legacy partition API methods and classes.
+
+.. note::
+    This is a backwards incompatible change with the previous connector SPI.
+    If you have written a connector and have not yet updated to the
+    ``TableLayout`` API, you will need to update your code before deploying
+    this release.
