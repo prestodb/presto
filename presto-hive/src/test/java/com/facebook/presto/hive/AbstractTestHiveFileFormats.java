@@ -56,7 +56,6 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.util.Progressable;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
@@ -270,15 +269,11 @@ public abstract class AbstractTestHiveFileFormats
                             null, "some string", rowBlockOf(ImmutableList.of(BIGINT, VARCHAR), null, "nested_string2")
                     )
             ))
+            .add(new TestColumn("t_map_null_value",
+                    getStandardMapObjectInspector(javaStringObjectInspector, javaStringObjectInspector),
+                    asMap("k1", null, "k2", "v2"),
+                    mapBlockOf(VARCHAR, VARCHAR, new String[] {"k1", "k2"}, new String[] {null, "v2"})))
             .build();
-
-    private static Map<Integer, Integer> mapWithNullKey()
-    {
-        Map<Integer, Integer> map = new HashMap<>();
-        map.put(null, 0);
-        map.put(2, 3);
-        return map;
-    }
 
     private static <K, V> Map<K, V> asMap(K k1, V v1, K k2, V v2)
     {
@@ -335,13 +330,7 @@ public abstract class AbstractTestHiveFileFormats
                 Text.class,
                 compressionCodec != null,
                 tableProperties,
-                new Progressable()
-                {
-                    @Override
-                    public void progress()
-                    {
-                    }
-                }
+                () -> { }
         );
 
         try {
