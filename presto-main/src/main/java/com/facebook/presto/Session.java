@@ -24,7 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.units.Duration;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -33,7 +35,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.TimeZone;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ENCODING;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -348,7 +352,7 @@ public final class Session
                 properties.put(catalog + "." + entry.getKey(), entry.getValue());
             }
         }
-
+        Map<String, String> encodedStatements = preparedStatements.entrySet().stream().collect(Collectors.toMap(e -> utf8Encode(e.getKey()), e -> utf8Encode(e.getValue())));
         return new ClientSession(
                 requireNonNull(server, "server is null"),
                 identity.getUser(),
@@ -358,9 +362,20 @@ public final class Session
                 timeZoneKey.getId(),
                 locale,
                 properties.build(),
+                encodedStatements,
                 transactionId.map(TransactionId::toString).orElse(null),
                 debug,
                 clientRequestTimeout);
+    }
+
+    private static String utf8Encode(String string)
+    {
+        try {
+            return URLEncoder.encode(string, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new PrestoException(UNSUPPORTED_ENCODING, e.getMessage());
+        }
     }
 
     public SessionRepresentation toSessionRepresentation()
