@@ -29,7 +29,10 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -40,8 +43,10 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -80,6 +85,8 @@ public class StatementClient
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
+    private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
+    private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
     private final AtomicReference<String> startedtransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -134,6 +141,11 @@ public class StatementClient
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
             builder.addHeader(PrestoHeaders.PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
+        }
+
+        Map<String, String> statements = session.getPreparedStatements();
+        for (Entry<String, String> entry : statements.entrySet()) {
+            builder.addHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
         builder.setHeader(PrestoHeaders.PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
@@ -196,6 +208,16 @@ public class StatementClient
     public Set<String> getResetSessionProperties()
     {
         return ImmutableSet.copyOf(resetSessionProperties);
+    }
+
+    public Map<String, String> getAddedPreparedStatements()
+    {
+        return ImmutableMap.copyOf(addedPreparedStatements);
+    }
+
+    public Set<String> getDeallocatedPreparedStatements()
+    {
+        return ImmutableSet.copyOf(deallocatedPreparedStatements);
     }
 
     public String getStartedtransactionId()
@@ -291,6 +313,17 @@ public class StatementClient
             resetSessionProperties.add(clearSession);
         }
 
+        for (String entry : response.getHeaders(PRESTO_ADDED_PREPARE)) {
+            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
+            if (keyValue.size() != 2) {
+                continue;
+            }
+            addedPreparedStatements.put(urlDecode(keyValue.get(0)), urlDecode(keyValue.get(1)));
+        }
+        for (String entry : response.getHeaders(PRESTO_DEALLOCATED_PREPARE)) {
+            deallocatedPreparedStatements.add(urlDecode(entry));
+        }
+
         String startedTransactionId = response.getHeader(PRESTO_STARTED_TRANSACTION_ID);
         if (startedTransactionId != null) {
             this.startedtransactionId.set(startedTransactionId);
@@ -350,6 +383,26 @@ public class StatementClient
                 Request request = prepareRequest(prepareDelete(), uri).build();
                 httpClient.executeAsync(request, createStatusResponseHandler());
             }
+        }
+    }
+
+    private static String urlEncode(String value)
+    {
+        try {
+            return URLEncoder.encode(value, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static String urlDecode(String value)
+    {
+        try {
+            return URLDecoder.decode(value, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new AssertionError(e);
         }
     }
 }
