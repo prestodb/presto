@@ -43,6 +43,8 @@ import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -450,6 +452,25 @@ public class TestHiveIntegrationSmokeTest
                     TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
                     return ((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle()).getPartitions().get();
                 });
+    }
+
+    @Test
+    public void testShowColumnsPartitionKey()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_show_columns_partition_key\n" +
+                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
+                "WITH (partitioned_by = ARRAY['apple'])");
+
+        // partition keys go last and have a special comment
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
+                .row("grape", "bigint", "")
+                .row("orange", "bigint", "")
+                .row("pear", "varchar", "")
+                .row("apple", "varchar", "Partition Key")
+                .build();
+        assertEquals(actual, expected);
     }
 
     // TODO: These should be moved to another class, when more connectors support arrays
