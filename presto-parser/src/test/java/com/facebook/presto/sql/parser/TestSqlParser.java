@@ -80,14 +80,17 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.ReleaseSavepoint;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.RollbackToSavepoint;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.Savepoint;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowPartitions;
@@ -1497,6 +1500,16 @@ public class TestSqlParser
     {
         assertStatement("ROLLBACK", new Rollback());
         assertStatement("ROLLBACK WORK", new Rollback());
+
+        assertStatement("ROLLBACK TO SAVEPOINT foo", new RollbackToSavepoint("foo"));
+        assertStatement("ROLLBACK WORK TO SAVEPOINT foo", new RollbackToSavepoint("foo"));
+    }
+
+    @Test
+    public void testSavepoint()
+    {
+        assertStatement("SAVEPOINT foo", new Savepoint("foo"));
+        assertStatement("RELEASE SAVEPOINT foo", new ReleaseSavepoint("foo"));
     }
 
     @Test

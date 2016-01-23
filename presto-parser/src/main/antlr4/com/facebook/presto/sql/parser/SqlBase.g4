@@ -75,7 +75,9 @@ statement
     | RESET SESSION qualifiedName                                      #resetSession
     | START TRANSACTION (transactionMode (',' transactionMode)*)?      #startTransaction
     | COMMIT WORK?                                                     #commit
-    | ROLLBACK WORK?                                                   #rollback
+    | ROLLBACK WORK? (TO SAVEPOINT identifier)?                        #rollback
+    | SAVEPOINT identifier                                             #savepoint
+    | RELEASE SAVEPOINT identifier                                     #releaseSavepoint
     | SHOW PARTITIONS (FROM | IN) qualifiedName
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
@@ -449,6 +451,7 @@ nonReserved
     | NO | DATA
     | START | TRANSACTION | COMMIT | ROLLBACK | WORK | ISOLATION | LEVEL
     | SERIALIZABLE | REPEATABLE | COMMITTED | UNCOMMITTED | READ | WRITE | ONLY
+    | SAVEPOINT | RELEASE
     | CALL
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
@@ -616,6 +619,8 @@ UNCOMMITTED: 'UNCOMMITTED';
 READ: 'READ';
 WRITE: 'WRITE';
 ONLY: 'ONLY';
+SAVEPOINT: 'SAVEPOINT';
+RELEASE: 'RELEASE';
 CALL: 'CALL';
 PREPARE: 'PREPARE';
 DEALLOCATE: 'DEALLOCATE';

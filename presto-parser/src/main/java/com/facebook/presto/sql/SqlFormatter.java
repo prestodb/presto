@@ -55,14 +55,17 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.ReleaseSavepoint;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.RollbackToSavepoint;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.Savepoint;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetSession;
@@ -995,6 +998,27 @@ public final class SqlFormatter
         protected Void visitRollback(Rollback node, Integer context)
         {
             builder.append("ROLLBACK");
+            return null;
+        }
+
+        @Override
+        protected Void visitRollbackToSavepoint(RollbackToSavepoint node, Integer indent)
+        {
+            builder.append("ROLLBACK TO SAVEPOINT ").append(node.getName());
+            return null;
+        }
+
+        @Override
+        protected Void visitSavepoint(Savepoint node, Integer indent)
+        {
+            builder.append("SAVEPOINT ").append(node.getName());
+            return null;
+        }
+
+        @Override
+        protected Void visitReleaseSavepoint(ReleaseSavepoint node, Integer indent)
+        {
+            builder.append("RELEASE SAVEPOINT ").append(node.getName());
             return null;
         }
 

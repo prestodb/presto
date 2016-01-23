@@ -100,15 +100,18 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.ReleaseSavepoint;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.RollbackToSavepoint;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.Savepoint;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -322,7 +325,22 @@ class AstBuilder
     @Override
     public Node visitRollback(SqlBaseParser.RollbackContext context)
     {
+        if (context.identifier() != null) {
+            return new RollbackToSavepoint(getLocation(context), context.identifier().getText());
+        }
         return new Rollback(getLocation(context));
+    }
+
+    @Override
+    public Node visitSavepoint(SqlBaseParser.SavepointContext context)
+    {
+        return new Savepoint(getLocation(context), context.identifier().getText());
+    }
+
+    @Override
+    public Node visitReleaseSavepoint(SqlBaseParser.ReleaseSavepointContext context)
+    {
+        return new ReleaseSavepoint(getLocation(context), context.identifier().getText());
     }
 
     @Override
