@@ -231,7 +231,15 @@ public class StatementResource
 
         // add deallocated prepare statements
         query.getDeallocatedPreparedStatements().stream()
-                .forEach(name -> response.header(PRESTO_DEALLOCATED_PREPARE, name));
+                .forEach(name -> {
+                    try {
+                        String encodedName = encode(name, "UTF-8");
+                        response.header(PRESTO_DEALLOCATED_PREPARE, encodedName);
+                    }
+                    catch (UnsupportedEncodingException e) {
+                        throw new PrestoException(UNSUPPORTED_ENCODING, "Cannot encode statement: UTF-8 encoding unsupported");
+                    }
+                });
 
         // add new transaction ID
         query.getStartedTransactionId()

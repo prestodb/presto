@@ -71,6 +71,7 @@ statement
         (ORDER BY sortItem (',' sortItem)*)?
         (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showPartitions
     | PREPARE identifier FROM statement                                #prepare
+    | DEALLOCATE PREPARE identifier                                    #deallocate
     ;
 
 query
@@ -579,6 +580,7 @@ WRITE: 'WRITE';
 ONLY: 'ONLY';
 CALL: 'CALL';
 PREPARE: 'PREPARE';
+DEALLOCATE: 'DEALLOCATE';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';
