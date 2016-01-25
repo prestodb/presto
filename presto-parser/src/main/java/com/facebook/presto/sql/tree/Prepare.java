@@ -17,68 +17,73 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
-public class Prepare extends Statement
+public class Prepare
+        extends Statement
 {
-  private final String identifier;
-  private final Query query;
+    private final String name;
+    private final Query query;
 
-  public Prepare(NodeLocation location, String identifier, Query query)
-  {
-    super(Optional.of(location));
-    this.identifier = identifier;
-    this.query = query;
-  }
-
-  public Prepare(String identifier, Query query)
-  {
-    super(Optional.empty());
-    this.identifier = identifier;
-    this.query = query;
-  }
-
-  public String getIdentifier()
-  {
-    return identifier;
-  }
-
-  @Override
-  public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-  {
-    return visitor.visitPrepare(this, context);
-  }
-
-  @Override
-  public int hashCode()
-  {
-    return Objects.hash(identifier, query);
-  }
-
-  @Override
-  public boolean equals(Object obj)
-  {
-    if (this == obj) {
-      return true;
+    public Prepare(NodeLocation location, String name, Query query)
+    {
+        this(Optional.of(location), name, query);
     }
-    if ((obj == null) || (getClass() != obj.getClass())) {
-      return false;
+
+    public Prepare(String name, Query query)
+    {
+        this(Optional.empty(), name, query);
     }
-    Prepare o = (Prepare) obj;
-    return Objects.equals(identifier, o.identifier) &&
-            Objects.equals(query, o.query);
-  }
 
-  @Override
-  public String toString()
-  {
-    return toStringHelper(this)
-            .add("identifier", identifier)
-            .add("query", query)
-            .toString();
-  }
+    private Prepare(Optional<NodeLocation> location, String name, Query query)
+    {
+        super(location);
+        this.name = requireNonNull(name, "name is null");
+        this.query = requireNonNull(query, "query is null");
+    }
 
-  public Query getQuery()
-  {
-    return query;
-  }
+    public String getName()
+    {
+        return name;
+    }
+
+    public Query getQuery()
+    {
+        return query;
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitPrepare(this, context);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, query);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        Prepare o = (Prepare) obj;
+        return Objects.equals(name, o.name) &&
+                Objects.equals(query, o.query);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("name", name)
+                .add("query", query)
+                .toString();
+    }
 }

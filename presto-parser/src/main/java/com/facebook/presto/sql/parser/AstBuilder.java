@@ -318,9 +318,9 @@ class AstBuilder
     @Override
     public Node visitPrepare(SqlBaseParser.PrepareContext context)
     {
-        String identifier = context.identifier().getText();
+        String name = context.identifier().getText();
         Query query = (Query) visitQuery(context.query());
-        return new Prepare(getLocation(context), identifier, query);
+        return new Prepare(getLocation(context), name, query);
     }
 
     // ********************** query expressions ********************
