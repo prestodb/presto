@@ -139,6 +139,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
@@ -902,11 +903,12 @@ class StatementAnalyzer
     private String getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
             throws IllegalArgumentException
     {
+        Statement statement = unwrapExecuteStatement(node.getStatement(), sqlParser, session);
         switch (planFormat) {
             case GRAPHVIZ:
-                return queryExplainer.get().getGraphvizPlan(session, node.getStatement(), planType);
+                return queryExplainer.get().getGraphvizPlan(session, statement, planType);
             case TEXT:
-                return queryExplainer.get().getPlan(session, node.getStatement(), planType);
+                return queryExplainer.get().getPlan(session, statement, planType);
         }
         throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
     }
