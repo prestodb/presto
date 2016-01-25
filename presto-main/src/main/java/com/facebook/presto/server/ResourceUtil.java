@@ -36,6 +36,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Collections;
@@ -213,10 +215,17 @@ final class ResourceUtil
     private static void parsePreparedStatementsHeader(String header, Map<String, String> preparedStatements)
     {
         List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
-        assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_SESSION);
-        String statementName = nameValue.get(0);
+        assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_PREPARED_STATEMENT);
 
-        String query = nameValue.get(1);
+        String statementName;
+        String query;
+        try {
+            statementName = URLDecoder.decode(nameValue.get(0), "UTF-8");
+            query = URLDecoder.decode(nameValue.get(1), "UTF-8");
+        }
+        catch (UnsupportedEncodingException e) {
+            throw badRequest(e.getMessage());
+        }
 
         preparedStatements.put(statementName, query);
     }

@@ -16,35 +16,46 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.SqlFormatter;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.inject.Inject;
 
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.execution.CreateViewTask.getFormattedSql;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class PrepareTask
         implements DataDefinitionTask<Prepare>
 {
-  @Override
-  public String explain(Prepare statement)
-  {
-    return "PREPARE " + statement.getIdentifier();
-  }
+    private final SqlParser sqlParser;
 
-  @Override
-  public String getName()
-  {
-    return "PREPARE";
-  }
+    @Inject
+    public PrepareTask(SqlParser sqlParser)
+    {
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+    }
 
-  @Override
-  public CompletableFuture<?> execute(Prepare statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
-  {
-    String statementName = statement.getIdentifier();
-    String queryString = SqlFormatter.formatSql(statement.getQuery());
-    stateMachine.addPreparedStatement(statementName, queryString);
-    return completedFuture(null);
-  }
+    @Override
+    public String getName()
+    {
+        return "PREPARE";
+    }
+
+    @Override
+    public String explain(Prepare statement)
+    {
+        return "PREPARE " + statement.getName();
+    }
+
+    @Override
+    public CompletableFuture<?> execute(Prepare statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    {
+        String statementName = statement.getName();
+        String queryString = getFormattedSql(statement.getQuery(), sqlParser);
+        stateMachine.addPreparedStatement(statementName, queryString);
+        return completedFuture(null);
+    }
 }

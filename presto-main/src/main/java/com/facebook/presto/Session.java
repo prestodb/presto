@@ -295,6 +295,9 @@ public final class Session
 
     public Session withPreparedStatement(String statementName, String query)
     {
+        requireNonNull(statementName, "statementName is null");
+        requireNonNull(query, "query is null");
+
         Map<String, String> preparedStatements = new HashMap<>(getPreparedStatements());
         preparedStatements.put(statementName, query);
         return new Session(
@@ -423,7 +426,7 @@ public final class Session
         private Map<String, String> systemProperties = ImmutableMap.of();
         private final Map<String, Map<String, String>> catalogProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
-        private Map<String, String> preparedStatements = new HashMap<>();
+        private Map<String, String> preparedStatements = ImmutableMap.of();
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -527,7 +530,7 @@ public final class Session
 
         public void setPreparedStatements(Map<String, String> preparedStatements)
         {
-            this.preparedStatements = preparedStatements;
+            this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         }
 
         public Session build()

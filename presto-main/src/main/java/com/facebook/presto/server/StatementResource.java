@@ -40,6 +40,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -76,6 +77,7 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -99,6 +101,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTIO
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ENCODING;
 import static com.facebook.presto.spi.StandardErrorCode.toErrorType;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -107,6 +110,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
+import static java.net.URLEncoder.encode;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -214,7 +218,16 @@ public class StatementResource
 
         // add added prepare statements
         query.getAddedPreparedStatements().entrySet().stream()
-                .forEach(entry -> response.header(PRESTO_ADDED_PREPARE, entry.getKey() + '=' + entry.getValue()));
+                .forEach(entry -> {
+                    try {
+                        String encodedKey = encode(entry.getKey(), "UTF-8");
+                        String encodedValue = encode(entry.getValue(), "UTF-8");
+                        response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
+                    }
+                    catch (UnsupportedEncodingException e) {
+                        throw new PrestoException(UNSUPPORTED_ENCODING, "Cannot encode statement: UTF-8 encoding unsupported");
+                    }
+                });
 
         // add deallocated prepare statements
         query.getDeallocatedPreparedStatements().stream()
@@ -430,7 +443,7 @@ public class StatementResource
             setSessionProperties = queryInfo.getSetSessionProperties();
             resetSessionProperties = queryInfo.getResetSessionProperties();
 
-            //update preparedStatements
+            // update preparedStatements
             addedPreparedStatements = queryInfo.getAddedPreparedStatements();
             deallocatedPreparedStatements = queryInfo.getDeallocatedPreparedStatements();
 

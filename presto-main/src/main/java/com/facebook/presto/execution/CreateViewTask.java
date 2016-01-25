@@ -87,7 +87,7 @@ public class CreateViewTask
 
         accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), name);
 
-        String sql = getFormattedSql(statement);
+        String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
         Analysis analysis = analyzeStatement(statement, session, metadata);
 
@@ -109,9 +109,8 @@ public class CreateViewTask
         return analyzer.analyze(statement);
     }
 
-    private String getFormattedSql(CreateView statement)
+    public static String getFormattedSql(Query query, SqlParser sqlParser)
     {
-        Query query = statement.getQuery();
         String sql = formatSql(query);
 
         // verify round-trip

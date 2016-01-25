@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -78,7 +79,7 @@ public class TestPrepareTask
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, executor);
         Prepare prepare = new Prepare(statementName, query);
-        new PrepareTask().execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine);
+        new PrepareTask(new SqlParser()).execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine);
         return stateMachine;
     }
 }

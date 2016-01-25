@@ -407,7 +407,10 @@ public class QueryStateMachine
 
     public void addPreparedStatement(String key, String value)
     {
-        String previousValue = addedPreparedStatements.putIfAbsent(requireNonNull(key, "key is null"), requireNonNull(value, "value is null"));
+        requireNonNull(key, "key is null");
+        requireNonNull(value, "value is null");
+
+        String previousValue = addedPreparedStatements.putIfAbsent(key, value);
         if (previousValue != null || session.getPreparedStatements().containsKey(key)) {
             throw new PrestoException(ALREADY_EXISTS, "Prepared statement already exists: " + key);
         }
