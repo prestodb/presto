@@ -300,7 +300,7 @@ public class ScanFilterAndProjectOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final CursorProcessor cursorProcessor;
-        private final PageProcessor pageProcessor;
+        private final Supplier<PageProcessor> pageProcessor;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
         private final List<ColumnHandle> columns;
@@ -313,7 +313,7 @@ public class ScanFilterAndProjectOperator
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
                 CursorProcessor cursorProcessor,
-                PageProcessor pageProcessor,
+                Supplier<PageProcessor> pageProcessor,
                 Iterable<ColumnHandle> columns,
                 List<Type> types)
         {
@@ -349,7 +349,7 @@ public class ScanFilterAndProjectOperator
                     sourceId,
                     pageSourceProvider,
                     cursorProcessor,
-                    pageProcessor,
+                    pageProcessor.get(),
                     columns,
                     types);
         }

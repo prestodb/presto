@@ -45,7 +45,7 @@ public class PredicateFilterBenchmark
         FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                new GenericPageProcessor(new DoubleFilter(50000.00), ImmutableList.of(singleColumn(DOUBLE, 0))),
+                () -> new GenericPageProcessor(new DoubleFilter(50000.00), ImmutableList.of(singleColumn(DOUBLE, 0))),
                 ImmutableList.<Type>of(DOUBLE));
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);
