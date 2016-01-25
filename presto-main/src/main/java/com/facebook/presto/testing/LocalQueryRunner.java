@@ -39,6 +39,7 @@ import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.StartTransactionTask;
+import com.facebook.presto.execution.StatementCreator;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -173,6 +174,7 @@ public class LocalQueryRunner
     private final FinalizerService finalizerService;
 
     private final SqlParser sqlParser;
+    private final StatementCreator statementCreator;
     private final InMemoryNodeManager nodeManager;
     private final TypeRegistry typeRegistry;
     private final MetadataManager metadata;
@@ -214,6 +216,7 @@ public class LocalQueryRunner
         finalizerService.start();
 
         this.sqlParser = new SqlParser();
+        this.statementCreator = new StatementCreator(sqlParser);
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
         this.indexManager = new IndexManager();
@@ -584,7 +587,7 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql)
     {
-        Statement statement = sqlParser.createStatement(sql);
+        Statement statement = statementCreator.createStatement(sql, session);
 
         assertFormattedSql(sqlParser, statement);
 

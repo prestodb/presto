@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.StatementCreator;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -59,6 +60,7 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Except;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
@@ -904,11 +906,21 @@ class StatementAnalyzer
     {
         switch (planFormat) {
             case GRAPHVIZ:
-                return queryExplainer.get().getGraphvizPlan(session, node.getStatement(), planType);
+                return queryExplainer.get().getGraphvizPlan(session, unwrapStatementToExplain(node), planType);
             case TEXT:
-                return queryExplainer.get().getPlan(session, node.getStatement(), planType);
+                return queryExplainer.get().getPlan(session, unwrapStatementToExplain(node), planType);
         }
         throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
+    }
+
+    private Statement unwrapStatementToExplain(Explain node)
+    {
+        Statement statement = node.getStatement();
+        if (!(statement instanceof Execute)) {
+            return statement;
+        }
+
+        return new StatementCreator(sqlParser).createStatement(formatSql(statement), session);
     }
 
     @Override
