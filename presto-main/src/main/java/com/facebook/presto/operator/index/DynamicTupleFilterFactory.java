@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -21,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,7 +56,7 @@ public class DynamicTupleFilterFactory
     public OperatorFactory filterWithTuple(Page tuplePage)
     {
         Page normalizedTuplePage = normalizeTuplePage(tuplePage);
-        TupleFilterProcessor processor = new TupleFilterProcessor(normalizedTuplePage, outputTypes, outputFilterChannels);
+        Supplier<PageProcessor> processor = () -> new TupleFilterProcessor(normalizedTuplePage, outputTypes, outputFilterChannels);
         return new FilterAndProjectOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes);
     }
 

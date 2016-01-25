@@ -44,8 +44,8 @@ public class TestPageProcessorCompiler
         projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(new InputReferenceExpression(0, arrayType), new InputReferenceExpression(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
-        PageProcessor pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections);
-        PageProcessor pageProcessor2 = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections);
+        PageProcessor pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections).get();
+        PageProcessor pageProcessor2 = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections).get();
         assertTrue(pageProcessor != pageProcessor2);
     }
 }

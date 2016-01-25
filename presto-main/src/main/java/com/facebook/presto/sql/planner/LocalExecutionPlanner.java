@@ -162,6 +162,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskAggregationConcurrency;
@@ -1025,7 +1026,7 @@ public class LocalExecutionPlanner
             try {
                 if (columns != null) {
                     CursorProcessor cursorProcessor = compiler.compileCursorProcessor(translatedFilter, translatedProjections, sourceNode.getId());
-                    PageProcessor pageProcessor = compiler.compilePageProcessor(translatedFilter, translatedProjections);
+                    Supplier<PageProcessor> pageProcessor = compiler.compilePageProcessor(translatedFilter, translatedProjections);
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1040,7 +1041,7 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
                 else {
-                    PageProcessor processor = compiler.compilePageProcessor(translatedFilter, translatedProjections);
+                    Supplier<PageProcessor> processor = compiler.compilePageProcessor(translatedFilter, translatedProjections);
 
                     OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1097,7 +1098,7 @@ public class LocalExecutionPlanner
                         sourceNode.getId(),
                         pageSourceProvider,
                         new GenericCursorProcessor(filterFunction, projectionFunctions),
-                        new GenericPageProcessor(filterFunction, projectionFunctions),
+                        () -> new GenericPageProcessor(filterFunction, projectionFunctions),
                         columns,
                         toTypes(projectionFunctions));
 
@@ -1107,7 +1108,7 @@ public class LocalExecutionPlanner
                 OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                         context.getNextOperatorId(),
                         planNodeId,
-                        new GenericPageProcessor(filterFunction, projectionFunctions),
+                        () -> new GenericPageProcessor(filterFunction, projectionFunctions),
                         toTypes(projectionFunctions));
                 return new PhysicalOperation(operatorFactory, outputMappings, source);
             }
