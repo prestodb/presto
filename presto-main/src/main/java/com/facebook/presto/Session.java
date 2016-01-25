@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -34,6 +35,8 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.TimeZone;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -195,6 +198,14 @@ public final class Session
     public Map<String, String> getPreparedStatements()
     {
         return preparedStatements;
+    }
+
+    public String getPreparedStatementFromExecute(Execute execute)
+    {
+        String name = execute.getName();
+        String sql = preparedStatements.get(name);
+        checkCondition(sql != null, NOT_FOUND, "Prepared statement not found: " + name);
+        return sql;
     }
 
     public Session withTransactionId(TransactionId transactionId)

@@ -22,6 +22,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
@@ -278,7 +279,7 @@ public class SqlQueryManager
         QueryExecution queryExecution;
         Statement statement;
         try {
-            statement = sqlParser.createStatement(query);
+            statement = unwrapExecuteStatement(sqlParser.createStatement(query), sqlParser, session);
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + statement.getClass().getSimpleName());
@@ -341,6 +342,16 @@ public class SqlQueryManager
         }
 
         return queryInfo;
+    }
+
+    public static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session)
+    {
+        if ((!(statement instanceof Execute))) {
+            return statement;
+        }
+
+        String sql = session.getPreparedStatementFromExecute((Execute) statement);
+        return sqlParser.createStatement(sql);
     }
 
     @Override
