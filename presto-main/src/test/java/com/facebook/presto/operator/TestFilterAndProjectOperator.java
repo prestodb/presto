@@ -89,7 +89,7 @@ public class TestFilterAndProjectOperator
         OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
+                () -> new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
                 ImmutableList.<Type>of(VARCHAR, BIGINT));
 
         Operator operator = operatorFactory.createOperator(driverContext);

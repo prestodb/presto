@@ -81,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
@@ -543,7 +544,7 @@ public final class FunctionAssertions
                 session
         );
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new GenericPageProcessor(filterFunction, ImmutableList.of(projectionFunction)), toTypes(
+        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), () -> new GenericPageProcessor(filterFunction, ImmutableList.of(projectionFunction)), toTypes(
                 ImmutableList.of(projectionFunction)));
         return operatorFactory.createOperator(createDriverContext(session));
     }
@@ -555,7 +556,7 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
-            PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), ImmutableList.of());
+            Supplier<PageProcessor> processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), ImmutableList.of());
 
             return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.<Type>of());
         }
@@ -577,7 +578,7 @@ public final class FunctionAssertions
 
         try {
             List<RowExpression> projections = ImmutableList.of(toRowExpression(projection, expressionTypes));
-            PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), projections);
+            Supplier<PageProcessor> processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), projections);
 
             return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(expressionTypes.get(projection)));
         }
@@ -603,7 +604,7 @@ public final class FunctionAssertions
                     ImmutableList.of(toRowExpression(projection, expressionTypes)),
                     SOURCE_ID);
 
-            PageProcessor pageProcessor = compiler.compilePageProcessor(
+            Supplier<PageProcessor> pageProcessor = compiler.compilePageProcessor(
                     toRowExpression(filter, expressionTypes),
                     ImmutableList.of(toRowExpression(projection, expressionTypes)));
 

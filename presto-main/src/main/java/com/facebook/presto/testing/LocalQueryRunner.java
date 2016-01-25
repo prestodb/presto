@@ -676,7 +676,7 @@ public class LocalQueryRunner
         return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 operatorId,
                 planNodeId,
-                new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projectionFunctions.build()),
+                () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projectionFunctions.build()),
                 ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))));
     }
 

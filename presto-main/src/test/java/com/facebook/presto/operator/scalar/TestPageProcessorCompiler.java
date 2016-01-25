@@ -58,8 +58,8 @@ public class TestPageProcessorCompiler
         projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(new InputReferenceExpression(0, arrayType), new InputReferenceExpression(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
-        PageProcessor pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BOOLEAN), projections);
-        PageProcessor pageProcessor2 = compiler.compilePageProcessor(new ConstantExpression(true, BOOLEAN), projections);
+        PageProcessor pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BOOLEAN), projections).get();
+        PageProcessor pageProcessor2 = compiler.compilePageProcessor(new ConstantExpression(true, BOOLEAN), projections).get();
         assertTrue(pageProcessor != pageProcessor2);
     }
 
@@ -68,7 +68,7 @@ public class TestPageProcessorCompiler
             throws Exception
     {
         PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(new ConstantExpression(TRUE, BOOLEAN), ImmutableList.of(new InputReferenceExpression(0, BIGINT), new InputReferenceExpression(1, VARCHAR)));
+                .compilePageProcessor(new ConstantExpression(TRUE, BOOLEAN), ImmutableList.of(new InputReferenceExpression(0, BIGINT), new InputReferenceExpression(1, VARCHAR))).get();
 
         Slice varcharValue = Slices.utf8Slice("hello");
         Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 123L, 100), RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100));
@@ -90,7 +90,7 @@ public class TestPageProcessorCompiler
             throws Exception
     {
         PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(new ConstantExpression(TRUE, BOOLEAN), ImmutableList.of(new InputReferenceExpression(0, VARCHAR)));
+                .compilePageProcessor(new ConstantExpression(TRUE, BOOLEAN), ImmutableList.of(new InputReferenceExpression(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
         Page outputPage = processor.processColumnarDictionary(null, page, ImmutableList.of(VARCHAR));

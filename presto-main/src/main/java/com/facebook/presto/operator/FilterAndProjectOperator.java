@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.isColumnarProcessingDictionaryEnabled;
 import static com.facebook.presto.SystemSessionProperties.isColumnarProcessingEnabled;
@@ -130,11 +131,11 @@ public class FilterAndProjectOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final PageProcessor processor;
+        private final Supplier<PageProcessor> processor;
         private final List<Type> types;
         private boolean closed;
 
-        public FilterAndProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, PageProcessor processor, List<Type> types)
+        public FilterAndProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, Supplier<PageProcessor> processor, List<Type> types)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -153,7 +154,7 @@ public class FilterAndProjectOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, FilterAndProjectOperator.class.getSimpleName());
-            return new FilterAndProjectOperator(operatorContext, types, processor);
+            return new FilterAndProjectOperator(operatorContext, types, processor.get());
         }
 
         @Override
