@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
@@ -1397,6 +1398,12 @@ public class TestSqlParser
     public void testDeallocatePrepare()
     {
         assertStatement("DEALLOCATE PREPARE myquery", new Deallocate("myquery"));
+    }
+
+    @Test
+    public void testExecute()
+    {
+        assertStatement("EXECUTE myquery", new Execute("myquery"));
     }
 
     private static void assertCast(String type)
