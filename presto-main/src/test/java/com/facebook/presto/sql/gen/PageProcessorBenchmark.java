@@ -108,7 +108,7 @@ public class PageProcessorBenchmark
         types = projections.stream().map(RowExpression::getType).collect(toList());
 
         inputPage = createPage(types, dictionaryBlocks);
-        processor = new ExpressionCompiler(createTestMetadataManager()).compilePageProcessor(getFilter(type), projections);
+        processor = new ExpressionCompiler(createTestMetadataManager()).compilePageProcessor(getFilter(type), projections).get();
     }
 
     @Benchmark
