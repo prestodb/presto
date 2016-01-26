@@ -15,9 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.Throwables;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.inject.Inject;
 
@@ -26,21 +28,24 @@ import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
-import static com.facebook.presto.hive.HiveWriteUtils.createTemporaryPath;
+import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.HiveWriteUtils.getTableDefaultLocation;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 
 public class HiveLocationService
         implements LocationService
 {
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
+    private final String hdfsTemporaryDirectoryTemplate;
 
     @Inject
-    public HiveLocationService(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment)
+    public HiveLocationService(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HiveClientConfig hiveClientConfig)
     {
+        this.hdfsTemporaryDirectoryTemplate = hiveClientConfig.getHdfsTemporaryDirectoryTemplate();
         this.metastore = requireNonNull(metastore);
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment);
     }
@@ -91,6 +96,29 @@ public class HiveLocationService
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
+    }
+
+    private Path createTemporaryPath(HdfsEnvironment hdfsEnvironment, Path targetPath)
+    {
+        // use a per-user temporary directory to avoid permission problems
+
+        String temporaryPrefix;
+        try {
+            String currentUser = UserGroupInformation.getCurrentUser().getUserName();
+            temporaryPrefix = HiveClientConfig.getHdfsTemporaryDirectory(hdfsTemporaryDirectoryTemplate, currentUser);
+            temporaryPrefix = temporaryPrefix + "/prestotmp-" + currentUser;
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+
+        // create a temporary directory on the same filesystem
+        Path temporaryRoot = new Path(targetPath, temporaryPrefix);
+        Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
+
+        createDirectory(hdfsEnvironment, temporaryPath);
+
+        return temporaryPath;
     }
 
     @Override

@@ -150,7 +150,7 @@ public abstract class AbstractTestHiveClientS3
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
         metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket, hdfsEnvironment);
-        locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
+        locationService = new HiveLocationService(metastoreClient, hdfsEnvironment, hiveClientConfig);
         TypeRegistry typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadata = new HiveMetadata(

@@ -124,7 +124,7 @@ public class HiveClientConfig
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.SIMPLE;
-    private String temporaryDirectory = "/tmp";
+    private String hdfsTemporaryDirectoryTemplate = "/tmp";
 
     public int getMaxInitialSplits()
     {
@@ -898,6 +898,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore.authentication.type")
+    @ConfigDescription("Hive Metastore authentication type. Possible values are: SIMPLE, SASL. Defaults to: SIMPLE")
     public HiveClientConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
     {
         this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
@@ -910,6 +911,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore.principal")
+    @ConfigDescription("Hive Metastore service principal")
     public HiveClientConfig setHiveMetastorePrincipal(String hiveMetastorePrincipal)
     {
         this.hiveMetastorePrincipal = hiveMetastorePrincipal;
@@ -922,6 +924,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore.presto.principal")
+    @ConfigDescription("Presto principal used to access Hive Metastore")
     public HiveClientConfig setHiveMetastorePrestoPrincipal(String hiveMetastorePrestoPrincipal)
     {
         this.hiveMetastorePrestoPrincipal = hiveMetastorePrestoPrincipal;
@@ -934,6 +937,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore.presto.keytab")
+    @ConfigDescription("Presto keytab used to access Hive Metastore")
     public HiveClientConfig setHiveMetastorePrestoKeytab(String hiveMetastorePrestoKeytab)
     {
         this.hiveMetastorePrestoKeytab = hiveMetastorePrestoKeytab;
@@ -954,6 +958,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.hdfs.authentication.type")
+    @ConfigDescription("HDFS authentication type. Possible values are: SIMPLE, SIMPLE_IMPERSONATION, KERBEROS, KERBEROS_IMPERSONATION. Defaults to: SIMPLE")
     public HiveClientConfig setHdfsAuthenticationType(HdfsAuthenticationType hdfsAuthenticationType)
     {
         this.hdfsAuthenticationType = hdfsAuthenticationType;
@@ -966,6 +971,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.hdfs.presto.principal")
+    @ConfigDescription("Presto principal used to access HDFS")
     public HiveClientConfig setHdfsPrestoPrincipal(String hdfsPrestoPrincipal)
     {
         this.hdfsPrestoPrincipal = hdfsPrestoPrincipal;
@@ -978,9 +984,28 @@ public class HiveClientConfig
     }
 
     @Config("hive.hdfs.presto.keytab")
+    @ConfigDescription("Presto keytab used to access HDFS")
     public HiveClientConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
     {
         this.hdfsPrestoKeytab = hdfsPrestoKeytab;
+        return this;
+    }
+
+    public static String getHdfsTemporaryDirectory(String hdfsTemporaryDirectoryTemplate, String userName)
+    {
+        return hdfsTemporaryDirectoryTemplate.replace("%NAME%", userName);
+    }
+
+    public String getHdfsTemporaryDirectoryTemplate()
+    {
+        return hdfsTemporaryDirectoryTemplate;
+    }
+
+    @Config("hive.hdfs.temporary.directory")
+    @ConfigDescription("HDFS temporary directory template. '%NAME%' pattern will be replaced with the actual username")
+    public HiveClientConfig setHdfsTemporaryDirectoryTemplate(String hdfsTemporaryDirectoryTemplate)
+    {
+        this.hdfsTemporaryDirectoryTemplate = hdfsTemporaryDirectoryTemplate;
         return this;
     }
 }
