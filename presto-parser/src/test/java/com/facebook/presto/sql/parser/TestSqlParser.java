@@ -1077,16 +1077,16 @@ public class TestSqlParser
         QualifiedName table = QualifiedName.of("foo");
 
         assertStatement("CREATE TABLE foo AS SELECT * FROM t",
-                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), true));
+                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), true, false));
 
         assertStatement("CREATE TABLE IF NOT EXISTS foo AS SELECT * FROM t",
-                new CreateTableAsSelect(table, query, true, ImmutableMap.of(), true));
+                new CreateTableAsSelect(table, query, true, ImmutableMap.of(), true, false));
 
         assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH DATA",
-                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), true));
+                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), true, false));
 
         assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH NO DATA",
-                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), false));
+                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), false, false));
 
         ImmutableMap<String, Expression> properties = ImmutableMap.<String, Expression>builder()
                 .put("string", new StringLiteral("bar"))
@@ -1101,14 +1101,22 @@ public class TestSqlParser
                         "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                         "AS " +
                         "SELECT * FROM t",
-                new CreateTableAsSelect(table, query, false, properties, true));
+                new CreateTableAsSelect(table, query, false, properties, true, false));
 
         assertStatement("CREATE TABLE foo " +
                         "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                         "AS " +
                         "SELECT * FROM t " +
                         "WITH NO DATA",
-                new CreateTableAsSelect(table, query, false, properties, false));
+                new CreateTableAsSelect(table, query, false, properties, false, false));
+
+        assertStatement("CREATE TABLE foo " +
+                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                        "AS " +
+                        "SELECT * FROM t " +
+                        "WITH NO DATA " +
+                        "REFRESH ON DEMAND",
+                new CreateTableAsSelect(table, query, false, properties, false, true));
     }
 
     @Test
