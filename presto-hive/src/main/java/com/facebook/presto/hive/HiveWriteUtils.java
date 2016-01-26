@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.fs.Path;
@@ -55,7 +54,6 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.security.UserGroupInformation;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -84,7 +82,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getProtectMode;
@@ -372,26 +369,6 @@ public final class HiveWriteUtils
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s", source, target), e);
         }
-    }
-
-    public static Path createTemporaryPath(HdfsEnvironment hdfsEnvironment, Path targetPath)
-    {
-        // use a per-user temporary directory to avoid permission problems
-        String temporaryPrefix;
-        try {
-            temporaryPrefix = "/tmp/presto-" + UserGroupInformation.getCurrentUser().getUserName();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-
-        // create a temporary directory on the same filesystem
-        Path temporaryRoot = new Path(targetPath, temporaryPrefix);
-        Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
-
-        createDirectory(hdfsEnvironment, temporaryPath);
-
-        return temporaryPath;
     }
 
     public static void createDirectory(HdfsEnvironment hdfsEnvironment, Path path)

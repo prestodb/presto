@@ -125,6 +125,7 @@ public class HiveClientConfig
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
     private AuthenticationType hdfsAuthenticationType = SIMPLE;
+    private String temporaryDirectory = "/tmp";
 
     public int getMaxInitialSplits()
     {
@@ -962,6 +963,26 @@ public class HiveClientConfig
     public HiveClientConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
     {
         this.hdfsPrestoKeytab = hdfsPrestoKeytab;
+        return this;
+    }
+
+    public String getTemporaryDirectory(String userName)
+    {
+        return temporaryDirectory.replace("%NAME%", userName);
+    }
+
+    @Deprecated
+    public String getTemporaryDirectory()
+    {
+        // this is needed due to airlift config validation
+        // getTemporaryDirectory(String userName) should be used
+        return temporaryDirectory;
+    }
+
+    @Config("hive.hdfs.temporary.directory")
+    public HiveClientConfig setTemporaryDirectory(String temporaryDirectory)
+    {
+        this.temporaryDirectory = temporaryDirectory;
         return this;
     }
 }
