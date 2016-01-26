@@ -202,7 +202,7 @@ public class TestHivePageSink
         HiveOutputTableHandle handle = new HiveOutputTableHandle(CLIENT_ID, SCHEMA_NAME, TABLE_NAME, getColumnHandles(), "test", locationHandle, config.getHiveStorageFormat(), ImmutableList.of(), "test", ImmutableMap.of());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HdfsEnvironment hdfsEnvironment = createHdfsEnvironment(config);
-        HivePageSinkProvider provider = new HivePageSinkProvider(hdfsEnvironment, metastore, new GroupByHashPageIndexerFactory(), TYPE_MANAGER, config, new HiveLocationService(metastore, hdfsEnvironment), partitionUpdateCodec);
+        HivePageSinkProvider provider = new HivePageSinkProvider(hdfsEnvironment, metastore, new GroupByHashPageIndexerFactory(), TYPE_MANAGER, config, new HiveLocationService(metastore, hdfsEnvironment, config), partitionUpdateCodec);
         return provider.createPageSink(transaction, getSession(config), handle);
     }
 
