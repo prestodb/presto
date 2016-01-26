@@ -23,7 +23,19 @@ public class LogicalBinaryExpression
 {
     public enum Type
     {
-        AND, OR
+        AND, OR;
+
+        public Type flip()
+        {
+            switch (this) {
+                case AND:
+                    return LogicalBinaryExpression.Type.OR;
+                case OR:
+                    return LogicalBinaryExpression.Type.AND;
+                default:
+                    throw new IllegalArgumentException("Unsupported logical expression type: " + this);
+            }
+        }
     }
 
     private final Type type;
