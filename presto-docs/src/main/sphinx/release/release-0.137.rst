@@ -15,3 +15,4 @@ Hive Changes
 * Add validation to :doc:`/sql/create-table` and :doc:`/sql/create-table-as`
   to check that partition keys are the last columns in the table and in the same 
   order as the table properties.
+* Remove ``retention_days`` table property. This property is not used by Hive.
