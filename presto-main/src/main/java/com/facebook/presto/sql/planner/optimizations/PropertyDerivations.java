@@ -73,6 +73,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
@@ -523,12 +524,12 @@ class PropertyDerivations
             return properties.build();
         }
 
-        private static Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, Object> constants)
+        private Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, Object> constants)
         {
             Optional<List<Symbol>> partitioning = layout.getPartitioningColumns()
                     .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));
 
-            if (layout.getNodePartitioning().isPresent()) {
+            if (planWithTableNodePartitioning(session) && layout.getNodePartitioning().isPresent()) {
                 NodePartitioning nodePartitioning = layout.getNodePartitioning().get();
                 if (assignments.keySet().containsAll(nodePartitioning.getPartitioningColumns())) {
                     List<Symbol> parameters = nodePartitioning.getPartitioningColumns().stream()
