@@ -23,6 +23,10 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
+import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
@@ -218,16 +222,26 @@ final class ResourceUtil
         assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_PREPARED_STATEMENT);
 
         String statementName;
-        String query;
+        String sqlString;
         try {
             statementName = URLDecoder.decode(nameValue.get(0), "UTF-8");
-            query = URLDecoder.decode(nameValue.get(1), "UTF-8");
+            sqlString = URLDecoder.decode(nameValue.get(1), "UTF-8");
         }
         catch (UnsupportedEncodingException e) {
             throw badRequest(e.getMessage());
         }
 
-        preparedStatements.put(statementName, query);
+        SqlParser sqlParser = new SqlParser();
+        Statement statement;
+        try {
+            statement = sqlParser.createStatement(sqlString);
+        }
+        catch (ParsingException e) {
+            throw badRequest(e.getMessage());
+        }
+        assertRequest(statement instanceof Query, "Invalid %s header", PRESTO_PREPARED_STATEMENT);
+
+        preparedStatements.put(statementName, sqlString);
     }
 
     private static TimeZoneKey getTimeZoneKey(String timeZoneId)
