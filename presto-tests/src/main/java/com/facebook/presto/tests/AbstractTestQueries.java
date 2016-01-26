@@ -137,6 +137,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLimitIntMax()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey from orders LIMIT " + Integer.MAX_VALUE);
+    }
+
+    @Test
     public void testNonDeterministicFilter()
     {
         MaterializedResult materializedResult = computeActual("SELECT u FROM ( SELECT if(rand() > 0.5, 0, 1) AS u ) WHERE u <> u");
