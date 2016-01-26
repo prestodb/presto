@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,7 +30,6 @@ public class HiveOutputTableHandle
 {
     private final List<String> partitionedBy;
     private final String tableOwner;
-    private final OptionalInt retentionDays;
     private final Map<String, String> additionalTableParameters;
 
     @JsonCreator
@@ -45,7 +43,6 @@ public class HiveOutputTableHandle
             @JsonProperty("hiveStorageFormat") HiveStorageFormat hiveStorageFormat,
             @JsonProperty("partitionedBy") List<String> partitionedBy,
             @JsonProperty("tableOwner") String tableOwner,
-            @JsonProperty("retentionDays") OptionalInt retentionDays,
             @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters)
     {
         super(
@@ -59,7 +56,6 @@ public class HiveOutputTableHandle
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
-        this.retentionDays = requireNonNull(retentionDays, "retentionDays is null");
         this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
     }
 
@@ -73,12 +69,6 @@ public class HiveOutputTableHandle
     public String getTableOwner()
     {
         return tableOwner;
-    }
-
-    @JsonProperty
-    public OptionalInt getRetentionDays()
-    {
-        return retentionDays;
     }
 
     @JsonProperty
