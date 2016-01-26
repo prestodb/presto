@@ -397,23 +397,12 @@ public class HiveMetadata
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         OptionalInt retentionDays = getRetentionDays(tableMetadata.getProperties());
-        createTable(session, schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, retentionDays);
-    }
 
-    public void createTable(
-            ConnectorSession session,
-            String schemaName,
-            String tableName,
-            String tableOwner,
-            List<HiveColumnHandle> columnHandles,
-            HiveStorageFormat hiveStorageFormat,
-            List<String> partitionedBy,
-            OptionalInt retentionDays)
-    {
         LocationHandle locationHandle = locationService.forNewTable(session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(hdfsEnvironment, targetPath);
-        createTable(schemaName, tableName, tableOwner, columnHandles, hiveStorageFormat, partitionedBy, retentionDays, targetPath);
+
+        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, retentionDays, targetPath);
     }
 
     private Table createTable(
