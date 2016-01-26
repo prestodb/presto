@@ -141,6 +141,7 @@ public class HiveMetadata
     private final DateTimeZone timeZone;
     private final TypeManager typeManager;
     private final LocationService locationService;
+    private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
 
@@ -155,6 +156,7 @@ public class HiveMetadata
             @ForHiveClient ExecutorService executorService,
             TypeManager typeManager,
             LocationService locationService,
+            TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this(connectorId,
@@ -170,6 +172,7 @@ public class HiveMetadata
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 typeManager,
                 locationService,
+                tableParameterCodec,
                 partitionUpdateCodec,
                 executorService);
     }
@@ -188,6 +191,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             TypeManager typeManager,
             LocationService locationService,
+            TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService)
     {
@@ -205,6 +209,7 @@ public class HiveMetadata
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
+        this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
@@ -283,6 +288,9 @@ public class HiveMetadata
                 .collect(toList());
         if (!partitionedBy.isEmpty()) {
             properties.put(PARTITIONED_BY_PROPERTY, partitionedBy);
+        }
+        if (table.get().isSetParameters()) {
+            properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
         }
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), table.get().getOwner(), sampled);
@@ -397,12 +405,13 @@ public class HiveMetadata
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         OptionalInt retentionDays = getRetentionDays(tableMetadata.getProperties());
+        Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
         LocationHandle locationHandle = locationService.forNewTable(session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(hdfsEnvironment, targetPath);
 
-        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, retentionDays, targetPath);
+        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, retentionDays, additionalTableParameters, targetPath);
     }
 
     private Table createTable(
@@ -413,6 +422,7 @@ public class HiveMetadata
             HiveStorageFormat hiveStorageFormat,
             List<String> partitionedBy,
             OptionalInt retentionDays,
+            Map<String, String> additionalTableParameters,
             Path targetPath)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
@@ -463,7 +473,10 @@ public class HiveMetadata
         if (sampled) {
             tableComment = "Sampled table created by Presto. Only query this table from Hive if you understand how Presto implements sampling.";
         }
-        table.setParameters(ImmutableMap.of("comment", tableComment));
+        table.setParameters(ImmutableMap.<String, String>builder()
+                .put("comment", tableComment)
+                .putAll(additionalTableParameters)
+                .build());
         table.setPartitionKeys(partitionColumns);
         table.setSd(sd);
         if (retentionDays.isPresent()) {
@@ -584,6 +597,7 @@ public class HiveMetadata
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         OptionalInt retentionDays = getRetentionDays(tableMetadata.getProperties());
+        Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -602,7 +616,8 @@ public class HiveMetadata
                 hiveStorageFormat,
                 partitionedBy,
                 tableMetadata.getOwner(),
-                retentionDays);
+                retentionDays,
+                additionalTableParameters);
     }
 
     @Override
@@ -643,6 +658,7 @@ public class HiveMetadata
                     handle.getHiveStorageFormat(),
                     handle.getPartitionedBy(),
                     handle.getRetentionDays(),
+                    handle.getAdditionalTableParameters(),
                     targetPath);
 
             if (!handle.getPartitionedBy().isEmpty()) {

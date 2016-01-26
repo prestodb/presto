@@ -162,6 +162,7 @@ public abstract class AbstractTestHiveClientS3
                 newDirectExecutorService(),
                 typeManager,
                 locationService,
+                new TableParameterCodec(),
                 partitionUpdateCodec);
         splitManager = new HiveSplitManager(
                 connectorId,
