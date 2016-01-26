@@ -457,6 +457,7 @@ public abstract class AbstractTestHiveClient
                 true,
                 typeManager,
                 locationService,
+                new TableParameterCodec(),
                 partitionUpdateCodec,
                 newFixedThreadPool(2));
         splitManager = new HiveSplitManager(
