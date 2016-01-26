@@ -54,6 +54,7 @@ public final class SystemSessionProperties
     public static final String COLUMNAR_PROCESSING = "columnar_processing";
     public static final String COLUMNAR_PROCESSING_DICTIONARY = "columnar_processing_dictionary";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
+    public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -180,6 +181,11 @@ public final class SystemSessionProperties
                         DICTIONARY_AGGREGATION,
                         "Enable optimization for aggregations on dictionaries",
                         featuresConfig.isDictionaryAggregation(),
+                        false),
+                booleanSessionProperty(
+                        PLAN_WITH_TABLE_NODE_PARTITIONING,
+                        "Experimental: Adapt plan to pre-partitioned tables",
+                        true,
                         false));
     }
 
@@ -286,6 +292,11 @@ public final class SystemSessionProperties
     public static boolean resourceOvercommit(Session session)
     {
         return session.getProperty(RESOURCE_OVERCOMMIT, Boolean.class);
+    }
+
+    public static boolean planWithTableNodePartitioning(Session session)
+    {
+        return session.getProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
     }
 
     private static <T> T getPropertyOr(Session session, String propertyName, String defaultPropertyName, Class<T> type)
