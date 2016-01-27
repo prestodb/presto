@@ -77,7 +77,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.partition;
-import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static java.util.Arrays.asList;
@@ -376,7 +375,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public ResultIterator<ShardNodes> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ResultIterator<BucketShards> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
         return new ShardIterator(tableId, bucketed, merged, effectivePredicate, dbi);
     }
@@ -477,42 +476,53 @@ public class DatabaseShardManager
     @Override
     public void createBuckets(long distributionId, int bucketCount)
     {
-        List<Node> nodes = new ArrayList<>(nodeSupplier.getWorkerNodes());
-        if (nodes.isEmpty()) {
-            throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available for bucket assignments");
-        }
-
-        Collections.shuffle(nodes);
-        Iterator<Node> nodeIterator = Iterables.cycle(nodes).iterator();
+        Iterator<String> nodeIterator = cyclingShuffledIterator(getNodeIdentifiers());
 
         List<Integer> bucketNumbers = new ArrayList<>();
         List<Integer> nodeIds = new ArrayList<>();
         for (int bucket = 0; bucket < bucketCount; bucket++) {
             bucketNumbers.add(bucket);
-            nodeIds.add(getOrCreateNodeId(nodeIterator.next().getNodeIdentifier()));
+            nodeIds.add(getOrCreateNodeId(nodeIterator.next()));
         }
 
         runIgnoringConstraintViolation(() -> dao.insertBuckets(distributionId, bucketNumbers, nodeIds));
     }
 
     @Override
-    public Map<Integer, Node> getBucketAssignments(long distributionId)
+    public Map<Integer, String> getBucketAssignments(long distributionId)
     {
-        Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
-        List<String> bucketNodes = dao.getBucketNodeIdentifiers(distributionId);
+        Set<String> nodeIds = getNodeIdentifiers();
+        Iterator<String> nodeIterator = cyclingShuffledIterator(nodeIds);
 
-        ImmutableMap.Builder<Integer, Node> distribution = ImmutableMap.builder();
-        int bucket = 0;
-        for (String identifier : bucketNodes) {
-            Node node = nodesById.get(identifier);
-            if (node == null) {
-                // TODO: reassign
-                throw new PrestoException(NO_NODES_AVAILABLE, "Reassignment not yet implemented");
+        ImmutableMap.Builder<Integer, String> assignments = ImmutableMap.builder();
+
+        for (BucketNode bucketNode : dao.getBucketNodes(distributionId)) {
+            int bucket = bucketNode.getBucketNumber();
+            String nodeId = bucketNode.getNodeIdentifier();
+
+            if (!nodeIds.contains(nodeId)) {
+                String oldNodeId = nodeId;
+                // TODO: use smarter system to choose replacement node
+                nodeId = nodeIterator.next();
+                dao.updateBucketNode(distributionId, bucket, getOrCreateNodeId(nodeId));
+                log.info("Reassigned bucket %s for distribution ID %s from %s to %s", bucket, distributionId, oldNodeId, nodeId);
             }
-            distribution.put(bucket, node);
-            bucket++;
+
+            assignments.put(bucket, nodeId);
         }
-        return distribution.build();
+
+        return assignments.build();
+    }
+
+    private Set<String> getNodeIdentifiers()
+    {
+        Set<String> nodeIds = nodeSupplier.getWorkerNodes().stream()
+                .map(Node::getNodeIdentifier)
+                .collect(toSet());
+        if (nodeIds.isEmpty()) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available for bucket assignments");
+        }
+        return nodeIds;
     }
 
     private int getOrCreateNodeId(String nodeIdentifier)
@@ -661,5 +671,12 @@ public class DatabaseShardManager
             }
         }
         return null;
+    }
+
+    private static <T> Iterator<T> cyclingShuffledIterator(Collection<T> collection)
+    {
+        List<T> list = new ArrayList<>(collection);
+        Collections.shuffle(list);
+        return Iterables.cycle(list).iterator();
     }
 }

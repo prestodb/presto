@@ -65,11 +65,11 @@ public class RaptorSplit
             String connectorId,
             Set<UUID> shardUuids,
             int bucketNumber,
-            List<HostAddress> addresses,
+            HostAddress address,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             OptionalLong transactionId)
     {
-        this(connectorId, shardUuids, OptionalInt.of(bucketNumber), addresses, effectivePredicate, transactionId);
+        this(connectorId, shardUuids, OptionalInt.of(bucketNumber), ImmutableList.of(address), effectivePredicate, transactionId);
     }
 
     private RaptorSplit(

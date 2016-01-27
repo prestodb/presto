@@ -27,7 +27,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +45,8 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 
 final class ShardIterator
-        extends AbstractIterator<ShardNodes>
-        implements ResultIterator<ShardNodes>
+        extends AbstractIterator<BucketShards>
+        implements ResultIterator<BucketShards>
 {
     private static final Logger log = Logger.get(ShardIterator.class);
     private final Map<Integer, String> nodeMap = new HashMap<>();
@@ -92,7 +91,7 @@ final class ShardIterator
     }
 
     @Override
-    protected ShardNodes computeNext()
+    protected BucketShards computeNext()
     {
         try {
             return merged ? computeMerged() : compute();
@@ -119,7 +118,7 @@ final class ShardIterator
     /**
      * Compute split-per-shard (separate split for each shard).
      */
-    private ShardNodes compute()
+    private BucketShards compute()
             throws SQLException
     {
         if (!resultSet.next()) {
@@ -130,13 +129,14 @@ final class ShardIterator
         List<Integer> nodeIds = intArrayFromBytes(resultSet.getBytes("node_ids"));
         OptionalInt bucketNumber = bucketed ? OptionalInt.of(resultSet.getInt("bucket_number")) : OptionalInt.empty();
 
-        return new ShardNodes(ImmutableSet.of(shardUuid), bucketNumber, getNodeIdentifiers(nodeIds, shardUuid));
+        ShardNodes shard = new ShardNodes(shardUuid, getNodeIdentifiers(nodeIds, shardUuid));
+        return new BucketShards(bucketNumber, ImmutableSet.of(shard));
     }
 
     /**
      * Compute split-per-bucket (single split for all shards in a bucket).
      */
-    private ShardNodes computeMerged()
+    private BucketShards computeMerged()
             throws SQLException
     {
         if (resultSet.isAfterLast()) {
@@ -149,22 +149,18 @@ final class ShardIterator
         }
 
         int bucketNumber = resultSet.getInt("bucket_number");
-        byte[] nodeIdBytes = resultSet.getBytes("node_ids");
-        ImmutableSet.Builder<UUID> shardBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<ShardNodes> shards = ImmutableSet.builder();
 
         do {
-            if (!Arrays.equals(nodeIdBytes, resultSet.getBytes("node_ids"))) {
-                throw new PrestoException(RAPTOR_ERROR, "Shards in same bucket have different node assignments");
-            }
-            shardBuilder.add(uuidFromBytes(resultSet.getBytes("shard_uuid")));
+            UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
+            List<Integer> nodeIds = intArrayFromBytes(resultSet.getBytes("node_ids"));
+            Set<String> nodeIdentifiers = getNodeIdentifiers(nodeIds, shardUuid);
+
+            shards.add(new ShardNodes(shardUuid, nodeIdentifiers));
         }
         while (resultSet.next() && resultSet.getInt("bucket_number") == bucketNumber);
 
-        List<Integer> nodeIds = intArrayFromBytes(nodeIdBytes);
-        Set<UUID> shardUuids = shardBuilder.build();
-        Set<String> nodeIdentifiers = getNodeIdentifiers(nodeIds, shardUuids.iterator().next());
-
-        return new ShardNodes(shardUuids, OptionalInt.of(bucketNumber), nodeIdentifiers);
+        return new BucketShards(OptionalInt.of(bucketNumber), shards.build());
     }
 
     private Set<String> getNodeIdentifiers(List<Integer> nodeIds, UUID shardUuid)

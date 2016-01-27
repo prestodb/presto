@@ -14,6 +14,8 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
@@ -37,6 +39,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.net.URI;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.Collection;
@@ -64,6 +67,8 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterators.concat;
+import static com.google.common.collect.Iterators.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.time.ZoneOffset.UTC;
 import static java.util.stream.Collectors.toSet;
@@ -278,10 +283,11 @@ public class TestDatabaseShardManager
         expectedAllUuids.addAll(expectedUuids);
 
         // check that shards are replaced in index table as well
-        Set<ShardNodes> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, false, false, TupleDomain.all()));
+        Set<BucketShards> shardNodes = ImmutableSet.copyOf(shardManager.getShardNodes(tableId, false, false, TupleDomain.all()));
         Set<UUID> actualAllUuids = shardNodes.stream()
-                .map(ShardNodes::getShardUuids)
+                .map(BucketShards::getShards)
                 .flatMap(Collection::stream)
+                .map(ShardNodes::getShardUuid)
                 .collect(toSet());
         assertEquals(actualAllUuids, expectedAllUuids);
 
@@ -325,13 +331,41 @@ public class TestDatabaseShardManager
     }
 
     @Test
+    public void testBucketAssignments()
+    {
+        Node node1 = new TestingNode();
+        Node node2 = new TestingNode();
+        Node node3 = new TestingNode();
+
+        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
+        int bucketCount = 13;
+        long distributionId = metadataDao.insertDistribution(null, "test", bucketCount);
+
+        Set<Node> originalNodes = ImmutableSet.of(node1, node2);
+        ShardManager shardManager = new DatabaseShardManager(dbi, () -> originalNodes);
+
+        shardManager.createBuckets(distributionId, bucketCount);
+
+        Map<Integer, String> assignments = shardManager.getBucketAssignments(distributionId);
+        assertEquals(assignments.size(), bucketCount);
+        assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(originalNodes));
+
+        Set<Node> newNodes = ImmutableSet.of(node1, node3);
+        shardManager = new DatabaseShardManager(dbi, () -> newNodes);
+
+        assignments = shardManager.getBucketAssignments(distributionId);
+        assertEquals(assignments.size(), bucketCount);
+        assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(newNodes));
+    }
+
+    @Test
     public void testEmptyTable()
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         shardManager.createTable(tableId, columns, false);
 
-        try (ResultIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, false, false, TupleDomain.all())) {
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, false, false, TupleDomain.all())) {
             assertFalse(iterator.hasNext());
         }
     }
@@ -343,7 +377,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         shardManager.createTable(tableId, columns, true);
 
-        try (ResultIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, true, true, TupleDomain.all())) {
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, true, true, TupleDomain.all())) {
             assertFalse(iterator.hasNext());
         }
     }
@@ -541,8 +575,8 @@ public class TestDatabaseShardManager
 
     private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
     {
-        try (ResultIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, false, false, predicate)) {
-            return ImmutableSet.copyOf(iterator);
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, false, false, predicate)) {
+            return ImmutableSet.copyOf(concat(transform(iterator, i -> i.getShards().iterator())));
         }
     }
 
@@ -635,5 +669,34 @@ public class TestDatabaseShardManager
     private static long timestamp(int year, int month, int day, int hour, int minute, int second)
     {
         return ZonedDateTime.of(year, month, day, hour, minute, second, 0, UTC).toInstant().toEpochMilli();
+    }
+
+    private static Set<String> nodeIds(Collection<Node> nodes)
+    {
+        return nodes.stream().map(Node::getNodeIdentifier).collect(toSet());
+    }
+
+    private static class TestingNode
+            implements Node
+    {
+        private final String nodeId = UUID.randomUUID().toString();
+
+        @Override
+        public HostAddress getHostAndPort()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public URI getHttpUri()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getNodeIdentifier()
+        {
+            return nodeId;
+        }
     }
 }
