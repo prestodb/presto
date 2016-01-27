@@ -74,6 +74,7 @@ import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.createFieldSetter;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
 import static com.facebook.presto.hive.HiveWriteUtils.getRowColumnInspectors;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -496,7 +497,7 @@ public class HivePageSink
             // verify we can write all input columns to the file
             Set<Object> missingColumns = Sets.difference(new HashSet<>(inputColumnNames), new HashSet<>(fileColumnNames));
             if (!missingColumns.isEmpty()) {
-                throw new PrestoException(HIVE_WRITER_ERROR, format("Table %s.%s does not have columns %s", schema, tableName, missingColumns));
+                throw new PrestoException(NOT_FOUND, format("Table %s.%s does not have columns %s", schema, tableName, missingColumns));
             }
             if (fileColumnNames.size() != fileColumnTypes.size()) {
                 throw new PrestoException(HIVE_INVALID_METADATA, format("Partition '%s' in table '%s.%s' has metadata for column names or types",

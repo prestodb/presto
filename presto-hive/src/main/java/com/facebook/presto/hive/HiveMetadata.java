@@ -82,12 +82,12 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_ERROR;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
@@ -784,7 +784,7 @@ public class HiveMetadata
                 throw new TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
             }
             if (!table.get().getSd().getInputFormat().equals(storageFormat.getInputFormat())) {
-                throw new PrestoException(HIVE_WRITER_ERROR, "Table format changed during insert");
+                throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
             }
 
             List<CompletableFuture<?>> fileRenameFutures = new ArrayList<>();
@@ -801,7 +801,7 @@ public class HiveMetadata
                     // add new partition
                     Partition partition = createPartition(table.get(), partitionUpdate);
                     if (!partition.getSd().getInputFormat().equals(storageFormat.getInputFormat())) {
-                        throw new PrestoException(HIVE_WRITER_ERROR, "Partition format changed during insert");
+                        throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                     }
                     partitionCommitter.addPartition(partition);
                 }
