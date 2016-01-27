@@ -34,6 +34,7 @@ public class RaptorOutputTableHandle
     private final long transactionId;
     private final String schemaName;
     private final String tableName;
+    private final Optional<String> mqtQuery;
     private final List<RaptorColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final Optional<RaptorColumnHandle> sampleWeightColumnHandle;
@@ -47,6 +48,7 @@ public class RaptorOutputTableHandle
             @JsonProperty("transactionId") long transactionId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("mqtQuery") Optional<String> mqtQuery,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle,
@@ -58,6 +60,7 @@ public class RaptorOutputTableHandle
         this.transactionId = transactionId;
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
+        this.mqtQuery = requireNonNull(mqtQuery, "mqtQuery is null");
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.sampleWeightColumnHandle = requireNonNull(sampleWeightColumnHandle, "sampleWeightColumnHandle is null");
@@ -88,6 +91,12 @@ public class RaptorOutputTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public Optional<String> getMqtQuery()
+    {
+        return mqtQuery;
     }
 
     @JsonProperty

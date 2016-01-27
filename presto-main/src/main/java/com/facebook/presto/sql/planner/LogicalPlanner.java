@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
@@ -116,7 +117,11 @@ public class LogicalPlanner
 
         RelationPlan plan = createRelationPlan(analysis);
 
-        TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), analysis.getCreateTableProperties(), plan.getSampleWeight().isPresent());
+        TableMetadata tableMetadata = createTableMetadata(destination,
+                getOutputTableColumns(plan),
+                analysis.getCreateTableProperties(),
+                plan.getSampleWeight().isPresent(),
+                analysis.isCreateMaterializedQueryTable() ? Optional.of(SqlFormatter.formatSql(analysis.getQuery())) : Optional.empty());
         if (plan.getSampleWeight().isPresent() && !metadata.canCreateSampledTables(session, destination.getCatalogName())) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot write sampled data to a store that doesn't support sampling");
         }
@@ -268,7 +273,12 @@ public class LogicalPlanner
                 .process(analysis.getQuery(), null);
     }
 
-    private TableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, boolean sampled)
+    private TableMetadata createTableMetadata(
+            QualifiedObjectName table,
+            List<ColumnMetadata> columns,
+            Map<String, Expression> propertyExpressions,
+            boolean sampled,
+            Optional<String> mqtQuery)
     {
         String owner = session.getUser();
 
@@ -278,7 +288,7 @@ public class LogicalPlanner
                 session,
                 metadata);
 
-        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, owner, sampled);
+        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, owner, sampled, mqtQuery);
         // TODO: first argument should actually be connectorId
         return new TableMetadata(table.getCatalogName(), metadata);
     }

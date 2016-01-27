@@ -23,6 +23,7 @@ public interface SchemaDao
             "  table_name VARCHAR(255) NOT NULL,\n" +
             "  temporal_column_id BIGINT,\n" +
             "  compaction_enabled BOOLEAN NOT NULL,\n" +
+            "  mqt_query TEXT,\n" +
             "  UNIQUE (schema_name, table_name)\n" +
             ")")
     void createTableTables();
