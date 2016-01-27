@@ -23,23 +23,23 @@ public class Prepare
         extends Statement
 {
     private final String name;
-    private final Query query;
+    private final Statement statement;
 
-    public Prepare(NodeLocation location, String name, Query query)
+    public Prepare(NodeLocation location, String name, Statement statement)
     {
-        this(Optional.of(location), name, query);
+        this(Optional.of(location), name, statement);
     }
 
-    public Prepare(String name, Query query)
+    public Prepare(String name, Statement statement)
     {
-        this(Optional.empty(), name, query);
+        this(Optional.empty(), name, statement);
     }
 
-    private Prepare(Optional<NodeLocation> location, String name, Query query)
+    private Prepare(Optional<NodeLocation> location, String name, Statement statement)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
-        this.query = requireNonNull(query, "query is null");
+        this.statement = requireNonNull(statement, "statement is null");
     }
 
     public String getName()
@@ -47,9 +47,9 @@ public class Prepare
         return name;
     }
 
-    public Query getQuery()
+    public Statement getStatement()
     {
-        return query;
+        return statement;
     }
 
     @Override
@@ -61,7 +61,7 @@ public class Prepare
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query);
+        return Objects.hash(name, statement);
     }
 
     @Override
@@ -75,7 +75,7 @@ public class Prepare
         }
         Prepare o = (Prepare) obj;
         return Objects.equals(name, o.name) &&
-                Objects.equals(query, o.query);
+                Objects.equals(statement, o.statement);
     }
 
     @Override
@@ -83,7 +83,7 @@ public class Prepare
     {
         return toStringHelper(this)
                 .add("name", name)
-                .add("query", query)
+                .add("statement", statement)
                 .toString();
     }
 }

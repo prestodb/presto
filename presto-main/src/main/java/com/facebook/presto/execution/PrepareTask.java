@@ -51,10 +51,10 @@ public class PrepareTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Prepare statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
     {
-        String statementName = statement.getName();
-        String queryString = getFormattedSql(statement.getQuery(), sqlParser);
+        String statementName = prepare.getName();
+        String queryString = getFormattedSql(prepare.getStatement(), sqlParser);
         stateMachine.addPreparedStatement(statementName, queryString);
         return completedFuture(null);
     }

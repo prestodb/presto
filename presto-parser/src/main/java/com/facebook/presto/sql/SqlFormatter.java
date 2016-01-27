@@ -148,7 +148,7 @@ public final class SqlFormatter
             builder.append(node.getName());
             builder.append(" FROM");
             builder.append("\n");
-            process(node.getQuery(), indent + 1);
+            process(node.getStatement(), indent + 1);
             return null;
         }
 

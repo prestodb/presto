@@ -26,7 +26,6 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.json.JsonCodec;
@@ -109,9 +108,9 @@ public class CreateViewTask
         return analyzer.analyze(statement);
     }
 
-    public static String getFormattedSql(Query query, SqlParser sqlParser)
+    public static String getFormattedSql(Statement statement, SqlParser sqlParser)
     {
-        String sql = formatSql(query);
+        String sql = formatSql(statement);
 
         // verify round-trip
         Statement parsed;
@@ -119,10 +118,10 @@ public class CreateViewTask
             parsed = sqlParser.createStatement(sql);
         }
         catch (ParsingException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Formatted query does not parse: " + query);
+            throw new PrestoException(INTERNAL_ERROR, "Formatted query does not parse: " + statement);
         }
-        if (!query.equals(parsed)) {
-            throw new PrestoException(INTERNAL_ERROR, "Query does not round-trip: " + query);
+        if (!statement.equals(parsed)) {
+            throw new PrestoException(INTERNAL_ERROR, "Query does not round-trip: " + statement);
         }
 
         return sql;

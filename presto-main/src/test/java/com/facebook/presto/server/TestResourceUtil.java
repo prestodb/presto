@@ -83,24 +83,6 @@ public class TestResourceUtil
     }
 
     @Test(expectedExceptions = WebApplicationException.class)
-    public void testPreparedStatementHeaderNotQuery()
-            throws Exception
-    {
-        HttpServletRequest request = new MockHttpServletRequest(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_SOURCE, "testSource")
-                        .put(PRESTO_CATALOG, "testCatalog")
-                        .put(PRESTO_SCHEMA, "testSchema")
-                        .put(PRESTO_LANGUAGE, "zh-TW")
-                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
-                        .put(PRESTO_PREPARED_STATEMENT, "query1=insert into foo select * from bar")
-                        .build(),
-                "testRemote");
-        createSessionForRequest(request, new AllowAllAccessControl(), new SessionPropertyManager(), new QueryId("test_query_id"));
-    }
-
-    @Test(expectedExceptions = WebApplicationException.class)
     public void testPreparedStatementsHeaderDoesNotParse()
             throws Exception
     {

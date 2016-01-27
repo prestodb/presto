@@ -319,8 +319,7 @@ class AstBuilder
     public Node visitPrepare(SqlBaseParser.PrepareContext context)
     {
         String name = context.identifier().getText();
-        Query query = (Query) visitQuery(context.query());
-        return new Prepare(getLocation(context), name, query);
+        return new Prepare(getLocation(context), name, (Statement) visit(context.statement()));
     }
 
     // ********************** query expressions ********************

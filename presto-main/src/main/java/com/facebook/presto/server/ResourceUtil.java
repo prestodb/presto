@@ -25,8 +25,6 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
@@ -231,15 +229,14 @@ final class ResourceUtil
             throw badRequest(e.getMessage());
         }
 
+        // Validate statement
         SqlParser sqlParser = new SqlParser();
-        Statement statement;
         try {
-            statement = sqlParser.createStatement(sqlString);
+            sqlParser.createStatement(sqlString);
         }
         catch (ParsingException e) {
             throw badRequest(e.getMessage());
         }
-        assertRequest(statement instanceof Query, "Invalid %s header", PRESTO_PREPARED_STATEMENT);
 
         preparedStatements.put(statementName, sqlString);
     }

@@ -70,7 +70,7 @@ statement
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
         (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showPartitions
-    | PREPARE identifier FROM query                                    #prepare
+    | PREPARE identifier FROM statement                                #prepare
     ;
 
 query
