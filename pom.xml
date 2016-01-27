@@ -50,6 +50,13 @@
         <dep.slice.version>0.19</dep.slice.version>
         <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
 
+        <!--
+        Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
+        children of AbstractTestHiveClient doesn't always get called.
+        TODO: remove once we can upgrade to a version that fixes it
+        -->
+        <dep.testng.version>6.8.21</dep.testng.version>
+
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
 
