@@ -82,4 +82,20 @@ public class TestRaptorDistributedQueries
         computeActual("CREATE TABLE test_table_properties_1 (foo BIGINT, bar BIGINT, ds DATE) WITH (ordering=array['foo','bar'], temporal_column='ds')");
         computeActual("CREATE TABLE test_table_properties_2 (foo BIGINT, bar BIGINT, ds DATE) WITH (ORDERING=array['foo','bar'], TEMPORAL_COLUMN='ds')");
     }
+
+    @Test
+    public void testShardsSystemTable()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT table_schema, table_name, sum(row_count)\n" +
+                        "FROM system.shards\n" +
+                        "WHERE table_schema = 'tpch'\n" +
+                        "  AND table_name IN ('orders', 'lineitem')\n" +
+                        "GROUP BY 1, 2",
+                "" +
+                        "SELECT 'tpch', 'orders', (SELECT count(*) FROM orders)\n" +
+                        "UNION ALL\n" +
+                        "SELECT 'tpch', 'lineitem', (SELECT count(*) FROM lineitem)");
+    }
 }
