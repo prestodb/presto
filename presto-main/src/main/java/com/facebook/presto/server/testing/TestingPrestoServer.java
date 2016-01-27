@@ -16,7 +16,10 @@ package com.facebook.presto.server.testing;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
+import com.facebook.presto.execution.MaterializedQueryTableRefresher;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.SqlMaterializedQueryTableRefresher;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -202,6 +205,8 @@ public class TestingPrestoServer
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
+                    binder.bind(MaterializedQueryTableRefresher.class).to(SqlMaterializedQueryTableRefresher.class).in(Scopes.SINGLETON);
+                    binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri != null) {

@@ -17,12 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -41,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
@@ -48,18 +51,21 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.MaterializedQueryTableInfo.DEFAULT_REFRESH_TIMESTAMP;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -69,7 +75,6 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class LogicalPlanner
@@ -175,6 +180,10 @@ public class LogicalPlanner
         QualifiedObjectName destination = analysis.getCreateTableDestination().get();
 
         RelationPlan plan = createRelationPlan(analysis, query);
+        Optional<MaterializedQueryTableInfo> materializedQueryTableInfo = Optional.empty();
+        if (analysis.isCreateMaterializedQueryTable()) {
+            materializedQueryTableInfo = Optional.of(getMaterializedQueryTableInfo(analysis, ((CreateTableAsSelect) analysis.getStatement()).getQuery(), session));
+        }
 
         ConnectorTableMetadata tableMetadata = createTableMetadata(
                 destination,
@@ -182,7 +191,8 @@ public class LogicalPlanner
                 analysis.getCreateTableProperties(),
                 plan.getSampleWeight().isPresent(),
                 analysis.getParameters(),
-                Optional.ofNullable(getMaterializedQueryTableInfo(analysis.isCreateMaterializedQueryTable(), analysis.getStatement())));
+                materializedQueryTableInfo);
+
         if (plan.getSampleWeight().isPresent() && !metadata.canCreateSampledTables(session, destination.getCatalogName())) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot write sampled data to a store that doesn't support sampling");
         }
@@ -202,13 +212,56 @@ public class LogicalPlanner
                 newTableLayout);
     }
 
-    private static MaterializedQueryTableInfo getMaterializedQueryTableInfo(boolean isCreateMaterializedQueryTable, Statement statement)
+    private MaterializedQueryTableInfo getMaterializedQueryTableInfo(Analysis analysis, Query query, Session session)
     {
-        if (isCreateMaterializedQueryTable && (statement instanceof CreateTableAsSelect)) {
-            String query = SqlFormatter.formatSql(((CreateTableAsSelect) statement).getQuery(), Optional.empty());
-            return new MaterializedQueryTableInfo(query, emptyMap(), emptyMap(), DEFAULT_REFRESH_TIMESTAMP);
+        checkState(session.getCatalog().isPresent(), "catalog is not present in session");
+        checkState(session.getSchema().isPresent(), "schema is not present in session");
+
+        StringBuilder stringBuilder = new StringBuilder();
+        SqlFormatter.Formatter formatter = new SqlFormatter.Formatter(stringBuilder, false, Optional.empty())
+        {
+            @Override
+            protected Void visitTable(Table node, Integer indent)
+            {
+                QualifiedName qualifiedName = node.getName();
+                if (qualifiedName.getParts().size() == 1) {
+                    qualifiedName = QualifiedName.of(session.getCatalog().get(), session.getSchema().get(), qualifiedName.getSuffix());
+                }
+                else if (qualifiedName.getParts().size() == 2) {
+                    qualifiedName = QualifiedName.of(session.getCatalog().get(), qualifiedName.getPrefix().get().toString(), qualifiedName.getSuffix());
+                }
+                stringBuilder.append(qualifiedName.toString());
+                return null;
+            }
+
+            @Override
+            protected Void visitAllColumns(AllColumns node, Integer context)
+            {
+                throw new PrestoException(NOT_SUPPORTED, "Select * is not supported in materialized query table definition");
+            }
+        };
+
+        formatter.process(query, 0);
+        String queryStr = stringBuilder.toString();
+
+        Map<QualifiedObjectName, List<String>> usedColumns = analysis.getTableColumns();
+        Map<String, byte[]> tableIdentities = new HashMap<>();
+        Map<String, Map<String, byte[]>> columnIdentities = new HashMap<>();
+        for (QualifiedObjectName tableName : usedColumns.keySet()) {
+            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+            checkState(tableHandle.isPresent(), "tableHandle for %s is null", tableName);
+            TableIdentity tableIdentity = metadata.getTableIdentity(session, tableHandle.get());
+
+            Map<String, byte[]> columnIdentitiesMap = metadata.getColumnHandles(session, tableHandle.get()).entrySet().stream()
+                    .filter(entry -> usedColumns.get(tableName).contains(entry.getKey()))
+                    .collect(Collectors.toMap(entry -> entry.getKey(), entry -> metadata.getColumnIdentity(session, tableHandle.get(), entry.getValue()).serialize()));
+
+            checkState(columnIdentitiesMap.size() == usedColumns.get(tableName).size(), "Missing columns for table %s", tableName);
+            tableIdentities.put(tableName.toString(), tableIdentity.serialize());
+            columnIdentities.put(tableName.toString(), columnIdentitiesMap);
         }
-        return null;
+
+        return new MaterializedQueryTableInfo(queryStr, tableIdentities, columnIdentities, MaterializedQueryTableInfo.DEFAULT_REFRESH_TIMESTAMP);
     }
 
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)

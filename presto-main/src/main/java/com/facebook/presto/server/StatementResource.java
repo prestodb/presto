@@ -490,7 +490,7 @@ public class StatementResource
 
             List<Type> types = outputStage.getTypes();
 
-            updateExchangeClient(outputStage);
+            updateExchangeClient(outputStage, exchangeClient);
 
             ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
             // wait up to max wait for data to arrive; then try to return at least DESIRED_RESULT_BYTES
@@ -514,13 +514,13 @@ public class StatementResource
             return Iterables.concat(pages.build());
         }
 
-        private static boolean isQueryStarted(QueryInfo queryInfo)
+        public static boolean isQueryStarted(QueryInfo queryInfo)
         {
             QueryState state = queryInfo.getState();
             return state != QueryState.QUEUED && queryInfo.getState() != QueryState.PLANNING && queryInfo.getState() != QueryState.STARTING;
         }
 
-        private synchronized void updateExchangeClient(StageInfo outputStage)
+        public static synchronized void updateExchangeClient(StageInfo outputStage, ExchangeClient exchangeClient)
         {
             // add any additional output locations
             if (!outputStage.getState().isDone()) {

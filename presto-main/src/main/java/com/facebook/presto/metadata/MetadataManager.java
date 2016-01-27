@@ -30,6 +30,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -733,6 +734,14 @@ public class MetadataManager
     }
 
     @Override
+    public void updateMaterializedQueryTableInfo(TransactionId transactionId, TableHandle tableHandle, MaterializedQueryTableInfo materializedQueryTableInfo)
+    {
+        ConnectorEntry entry = lookupConnectorFor(tableHandle);
+        ConnectorMetadata metadata = entry.getMetadataForWrite(transactionId);
+        metadata.updateMaterializedQueryTableInfo(tableHandle.getConnectorHandle(), materializedQueryTableInfo);
+    }
+
+    @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
@@ -898,7 +907,11 @@ public class MetadataManager
 
         public ConnectorMetadata getMetadataForWrite(Session session)
         {
-            TransactionId transactionId = session.getRequiredTransactionId();
+            return getMetadataForWrite(session.getRequiredTransactionId());
+        }
+
+        public ConnectorMetadata getMetadataForWrite(TransactionId transactionId)
+        {
             ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, connectorId);
             transactionManager.checkConnectorWrite(transactionId, connectorId);
             return metadata;

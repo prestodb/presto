@@ -42,6 +42,7 @@ import com.google.common.collect.ListMultimap;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +78,7 @@ public class Analysis
     private final ListMultimap<Node, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
+    private final HashMap<QualifiedObjectName, List<String>> tableColumnMap = new HashMap<>();
 
     private final IdentityHashMap<Expression, Type> types = new IdentityHashMap<>();
     private final IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
@@ -398,6 +400,16 @@ public class Analysis
     public void registerTable(Table table, TableHandle handle)
     {
         tables.put(table, handle);
+    }
+
+    public void addTableColumns(QualifiedObjectName tableName, List<String> columns)
+    {
+        tableColumnMap.put(tableName, columns);
+    }
+
+    public Map<QualifiedObjectName, List<String>> getTableColumns()
+    {
+        return tableColumnMap;
     }
 
     public Signature getFunctionSignature(FunctionCall function)

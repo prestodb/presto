@@ -23,6 +23,8 @@ import static java.util.Objects.requireNonNull;
 
 public class MaterializedQueryTableInfo
 {
+    public static final long DEFAULT_REFRESH_TIMESTAMP = -1;
+
     private final String query;
     private final Map<String, byte[]> tableIdentities;
     private final Map<String, Map<String, byte[]>> columnIdentities;

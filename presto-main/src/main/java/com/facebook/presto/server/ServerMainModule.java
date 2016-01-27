@@ -19,6 +19,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
@@ -26,6 +27,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
@@ -356,6 +358,24 @@ public class ServerMainModule
                 .addProperty("node_version", nodeVersion.toString())
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
+
+        // statement resource
+        jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
+        jaxrsBinder(binder).bind(StatementResource.class);
+
+        // for refresh materialized query table procedure call
+        jsonCodecBinder(binder).bindMapJsonCodec(String.class, String.class);
+
+        // execute resource
+        jaxrsBinder(binder).bind(ExecuteResource.class);
+        httpClientBinder(binder).bindHttpClient("execute", ForExecute.class)
+                .withTracing()
+                .withConfigDefaults(config -> {
+                    config.setIdleTimeout(new Duration(30, SECONDS));
+                    config.setRequestTimeout(new Duration(10, SECONDS));
+                });
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);

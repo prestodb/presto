@@ -25,6 +25,7 @@ import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.GrantTask;
+import com.facebook.presto.execution.MaterializedQueryTableRefresher;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
@@ -41,6 +42,7 @@ import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RevokeTask;
 import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.SetSessionTask;
+import com.facebook.presto.execution.SqlMaterializedQueryTableRefresher;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.execution.StartTransactionTask;
@@ -134,12 +136,6 @@ public class CoordinatorModule
 
         // execute resource
         jaxrsBinder(binder).bind(ExecuteResource.class);
-        httpClientBinder(binder).bindHttpClient("execute", ForExecute.class)
-                .withTracing()
-                .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(30, SECONDS));
-                    config.setRequestTimeout(new Duration(10, SECONDS));
-                });
 
         // query execution visualizer
         jaxrsBinder(binder).bind(QueryExecutionResource.class);
@@ -159,6 +155,7 @@ public class CoordinatorModule
             binder.bind(QueryQueueManager.class).to(SqlQueryQueueManager.class).in(Scopes.SINGLETON);
             binder.bind(new TypeLiteral<List<QueryQueueRule>>() {}).toProvider(QueryQueueRuleFactory.class).in(Scopes.SINGLETON);
         }
+        binder.bind(MaterializedQueryTableRefresher.class).to(SqlMaterializedQueryTableRefresher.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryManager.class).withGeneratedName();
 
         // cluster memory manager

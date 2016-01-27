@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -375,5 +376,10 @@ public interface ConnectorMetadata
     default ColumnIdentity deserializeColumnIdentity(byte[] bytes)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support column identity");
+    }
+
+    default void updateMaterializedQueryTableInfo(ConnectorTableHandle tableHandle, MaterializedQueryTableInfo materializedQueryTableInfo)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support materialized query table");
     }
 }

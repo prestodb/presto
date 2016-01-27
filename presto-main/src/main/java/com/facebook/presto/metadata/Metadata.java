@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.transaction.TransactionId;
 import io.airlift.slice.Slice;
 
 import javax.validation.constraints.NotNull;
@@ -259,6 +261,11 @@ public interface Metadata
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Updates the materialized query table info
+     */
+    void updateMaterializedQueryTableInfo(TransactionId transactionId, TableHandle tableHandle, MaterializedQueryTableInfo materializedQueryTableInfo);
 
     /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
