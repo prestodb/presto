@@ -60,6 +60,46 @@ public class TestRaptorDistributedQueries
     }
 
     @Test
+    public void testRefreshMaterializedQueryTable()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_refresh_base AS SELECT a, b, c FROM (VALUES (1, 2, 3), (1, 2, 4), (2, 3, 4), (3, 4, 5)) t(a, b, c)", 4);
+        assertUpdate("CREATE TABLE test_refresh_mqt AS SELECT a, b, SUM(c) as c from raptor.tpch.test_refresh_base GROUP BY a, b WITH NO DATA REFRESH ON DEMAND", 4);
+
+        queryRunner.execute(getSession(), "CALL system.runtime.refresh_materialized_query_table('raptor.tpch.test_refresh_mqt')");
+
+        // make sure it has 3 rows.
+        MaterializedResult materializedRows = computeActual("SELECT COUNT(1) FROM test_refresh_mqt");
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 3L);
+
+        // validate the 3 rows.
+        materializedRows = computeActual("SELECT a, b, c FROM test_refresh_mqt ORDER BY a, b");
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(1), 2L);
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 2L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(1), 3L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(2), 4L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(0), 3L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(1), 4L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(2), 5L);
+
+        queryRunner.execute(getSession(), "INSERT INTO test_refresh_base values (2, 3, 5)");
+        queryRunner.execute(getSession(), "CALL system.runtime.refresh_materialized_query_table('raptor.tpch.test_refresh_mqt')");
+
+        materializedRows = computeActual("SELECT a, b, c FROM test_refresh_mqt ORDER BY a, b");
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(1), 2L);
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 2L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(1), 3L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(2), 9L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(0), 3L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(1), 4L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(2), 5L);
+    }
+
+    @Test
     public void testShardUuidHiddenColumn()
             throws Exception
     {

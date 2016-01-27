@@ -70,6 +70,7 @@ public class SystemConnectorModule
         Multibinder.newSetBinder(binder, Procedure.class);
 
         binder.bind(KillQueryProcedure.class).in(Scopes.SINGLETON);
+        binder.bind(RefreshMaterializedQueryTableProcedure.class).in(Scopes.SINGLETON);
 
         binder.bind(GlobalSystemConnectorFactory.class).in(Scopes.SINGLETON);
         binder.bind(SystemConnectorRegistrar.class).asEagerSingleton();
@@ -77,6 +78,12 @@ public class SystemConnectorModule
 
     @ProvidesIntoSet
     public static Procedure getKillQueryProcedure(KillQueryProcedure procedure)
+    {
+        return procedure.getProcedure();
+    }
+
+    @ProvidesIntoSet
+    public static Procedure getRefreshMaterializedQueryTableProcedure(RefreshMaterializedQueryTableProcedure procedure)
     {
         return procedure.getProcedure();
     }

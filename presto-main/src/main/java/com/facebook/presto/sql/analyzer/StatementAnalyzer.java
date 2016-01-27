@@ -28,6 +28,7 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
@@ -514,8 +515,17 @@ class StatementAnalyzer
 
         analysis.setUpdateType("INSERT");
 
+        Query insertQuery = insert.getQuery();
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, targetTable);
+        if (tableHandle.isPresent()) {
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+            if (tableMetadata.getMqtQuery().isPresent()) {
+                insertQuery = (Query) sqlParser.createStatement(tableMetadata.getMqtQuery().get());
+            }
+        }
+
         // analyze the query that creates the data
-        RelationType queryDescriptor = process(insert.getQuery(), context);
+        RelationType queryDescriptor = process(insertQuery, context);
 
         // verify the insert destination columns match the query
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
