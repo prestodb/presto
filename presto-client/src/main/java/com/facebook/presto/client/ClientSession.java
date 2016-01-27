@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -32,6 +33,7 @@ public class ClientSession
 {
     private final URI server;
     private final String user;
+    private final Optional<String> password;
     private final String source;
     private final String catalog;
     private final String schema;
@@ -47,6 +49,7 @@ public class ClientSession
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
+                session.getPassword(),
                 session.getSource(),
                 catalog,
                 schema,
@@ -66,6 +69,7 @@ public class ClientSession
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
+                session.getPassword(),
                 session.getSource(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -82,6 +86,7 @@ public class ClientSession
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
+                session.getPassword(),
                 session.getSource(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -98,6 +103,7 @@ public class ClientSession
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
+                session.getPassword(),
                 session.getSource(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -114,6 +120,7 @@ public class ClientSession
         return new ClientSession(
                 session.getServer(),
                 session.getUser(),
+                session.getPassword(),
                 session.getSource(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -125,10 +132,11 @@ public class ClientSession
                 session.getClientRequestTimeout());
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, String transactionId, boolean debug, Duration clientRequestTimeout)
+    public ClientSession(URI server, String user, Optional<String> password, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, String transactionId, boolean debug, Duration clientRequestTimeout)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
+        this.password = password;
         this.source = source;
         this.catalog = catalog;
         this.schema = schema;
@@ -157,6 +165,11 @@ public class ClientSession
     public String getUser()
     {
         return user;
+    }
+    
+    public Optional<String> getPassword() 
+    {
+        return password;
     }
 
     public String getSource()

@@ -43,6 +43,7 @@ import java.sql.Struct;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,23 +71,33 @@ public class PrestoConnection
     private final URI uri;
     private final HostAndPort address;
     private final String user;
+    private final Optional<String> password;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
+    private boolean isSecure = false;
 
-    PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
+    PrestoConnection(URI uri, String user, Optional<String> password, QueryExecutor queryExecutor)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
         this.user = requireNonNull(user, "user is null");
+        this.password = password;
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
 
         if (!isNullOrEmpty(uri.getPath())) {
             setCatalogAndSchema();
+        }
+        
+        // add LDAP authentication if ldap credential is set
+        if (password.isPresent()) {
+            URI server = createHttpsUri(address);
+            queryExecutor.enableLdapAuthentication(user, password.get(), server);
+            isSecure = server.getScheme().equalsIgnoreCase("https");
         }
     }
 
@@ -571,18 +582,19 @@ public class PrestoConnection
 
     ServerInfo getServerInfo()
     {
-        return queryExecutor.getServerInfo(createHttpUri(address));
+        return queryExecutor.getServerInfo(isSecure ? createHttpsUri(address) : createHttpUri(address));
     }
 
     StatementClient startQuery(String sql)
     {
-        URI uri = createHttpUri(address);
+        URI uri = isSecure ? createHttpsUri(address) : createHttpUri(address);
 
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
 
         ClientSession session = new ClientSession(
                 uri,
                 user,
+                password,
                 source,
                 catalog.get(),
                 schema.get(),
@@ -595,6 +607,12 @@ public class PrestoConnection
 
         return queryExecutor.startQuery(session, sql);
     }
+    
+    boolean isSecure()
+    {
+        return isSecure;
+    }
+    
 
     private void checkOpen()
             throws SQLException
@@ -642,10 +660,20 @@ public class PrestoConnection
         }
     }
 
+    private static URI createHttpsUri(HostAndPort address)
+    {
+        return createUri("https", address);
+    }
+    
     private static URI createHttpUri(HostAndPort address)
     {
+        return createUri("http", address);
+    }
+    
+    private static URI createUri(String scheme, HostAndPort address)
+    {
         return uriBuilder()
-                .scheme("http")
+                .scheme(scheme)
                 .host(address.getHostText())
                 .port(address.getPort())
                 .build();

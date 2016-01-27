@@ -55,11 +55,28 @@ public class QueryRunner
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.queryResultsCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
+        
+        HttpClientConfig config = getHttpClientConfig(
+                                                socksProxy,
+                                                keystorePath,
+                                                keystorePassword,
+                                                kerberosPrincipal,
+                                                kerberosRemoteServiceName,
+                                                authenticationEnabled);
+        
         this.httpClient = new JettyHttpClient(
-                getHttpClientConfig(socksProxy, keystorePath, keystorePassword, kerberosPrincipal, kerberosRemoteServiceName, authenticationEnabled),
+                config,
                 kerberosConfig,
                 Optional.<JettyIoPool>empty(),
                 ImmutableList.<HttpRequestFilter>of());
+        
+        // add LDAP if warranted 
+        if (session.getPassword().isPresent()) { 
+            ((JettyHttpClient) httpClient).enableLdapAuthentication(
+                                                            session.getUser(),
+                                                            session.getPassword().get(),
+                                                            session.getServer());
+        }
     }
 
     public ClientSession getSession()
@@ -116,19 +133,19 @@ public class QueryRunner
             Optional<String> keystorePassword,
             Optional<String> kerberosPrincipal,
             Optional<String> kerberosRemoteServiceName,
-            boolean authenticationEnabled)
+            boolean authenticationEnabled
+)
     {
         HttpClientConfig httpClientConfig = new HttpClientConfig().setConnectTimeout(new Duration(10, TimeUnit.SECONDS));
 
         socksProxy.ifPresent(httpClientConfig::setSocksProxy);
 
-        httpClientConfig.setAuthenticationEnabled(authenticationEnabled);
-
         keystorePath.ifPresent(httpClientConfig::setKeyStorePath);
         keystorePassword.ifPresent(httpClientConfig::setKeyStorePassword);
         kerberosPrincipal.ifPresent(httpClientConfig::setKerberosPrincipal);
         kerberosRemoteServiceName.ifPresent(httpClientConfig::setKerberosRemoteServiceName);
-
+        
         return httpClientConfig;
     }
+ 
 }

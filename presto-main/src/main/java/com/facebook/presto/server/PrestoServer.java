@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
+import com.facebook.presto.server.security.ActiveDirectoryAuthenticationModule;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Joiner;
@@ -115,7 +116,8 @@ public class PrestoServer
                 installModuleIf(
                         NodeSchedulerConfig.class,
                         config -> "flat".equalsIgnoreCase(config.getNetworkTopology()),
-                        binder -> binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON))
+                        binder -> binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)),
+                new ActiveDirectoryAuthenticationModule()
 
         );
 
