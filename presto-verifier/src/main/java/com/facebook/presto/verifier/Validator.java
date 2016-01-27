@@ -223,7 +223,7 @@ public class Validator
         return matches;
     }
 
-    private QueryResult tearDown(Query query, List<QueryResult> postQueryResults, Function<String, QueryResult> executor)
+    private static QueryResult tearDown(Query query, List<QueryResult> postQueryResults, Function<String, QueryResult> executor)
     {
         postQueryResults.clear();
         for (String postqueryString : query.getPostQueries()) {
@@ -237,7 +237,7 @@ public class Validator
         return new QueryResult(State.SUCCESS, null, null, null, ImmutableList.of());
     }
 
-    private QueryResult setup(Query query, List<QueryResult> preQueryResults, Function<String, QueryResult> executor)
+    private static QueryResult setup(Query query, List<QueryResult> preQueryResults, Function<String, QueryResult> executor)
     {
         preQueryResults.clear();
         for (String prequeryString : query.getPreQueries()) {
@@ -363,7 +363,7 @@ public class Validator
         return testPostQueryResults;
     }
 
-    private Duration getCpuTime(ResultSet resultSet)
+    private static Duration getCpuTime(ResultSet resultSet)
             throws SQLException
     {
         if (resultSet.isWrapperFor(PrestoResultSet.class)) {
@@ -450,17 +450,9 @@ public class Validator
         }
     }
 
-    private Callable<List<List<Object>>> getResultSetConverter(final ResultSet resultSet)
+    private Callable<List<List<Object>>> getResultSetConverter(ResultSet resultSet)
     {
-        return new Callable<List<List<Object>>>()
-        {
-            @Override
-            public List<List<Object>> call()
-                    throws Exception
-            {
-                return convertJdbcResultSet(resultSet);
-            }
-        };
+        return () -> convertJdbcResultSet(resultSet);
     }
 
     private static boolean isPrestoQueryInvalid(SQLException e)
@@ -565,65 +557,54 @@ public class Validator
 
     private static Comparator<List<Object>> rowComparator(int precision)
     {
-        final Comparator<Object> comparator = Ordering.from(columnComparator(precision)).nullsFirst();
-        return new Comparator<List<Object>>()
-        {
-            @Override
-            public int compare(List<Object> a, List<Object> b)
-            {
-                if (a.size() != b.size()) {
-                    return Integer.compare(a.size(), b.size());
-                }
-                for (int i = 0; i < a.size(); i++) {
-                    int r = comparator.compare(a.get(i), b.get(i));
-                    if (r != 0) {
-                        return r;
-                    }
-                }
-                return 0;
+        Comparator<Object> comparator = Ordering.from(columnComparator(precision)).nullsFirst();
+        return (a, b) -> {
+            if (a.size() != b.size()) {
+                return Integer.compare(a.size(), b.size());
             }
+            for (int i = 0; i < a.size(); i++) {
+                int r = comparator.compare(a.get(i), b.get(i));
+                if (r != 0) {
+                    return r;
+                }
+            }
+            return 0;
         };
     }
 
     private static Comparator<Object> columnComparator(int precision)
     {
-        return new Comparator<Object>()
-        {
-            @SuppressWarnings("unchecked")
-            @Override
-            public int compare(Object a, Object b)
-            {
-                if (a instanceof Number && b instanceof Number) {
-                    Number x = (Number) a;
-                    Number y = (Number) b;
-                    boolean bothReal = isReal(x) && isReal(y);
-                    boolean bothIntegral = isIntegral(x) && isIntegral(y);
-                    if (!(bothReal || bothIntegral)) {
-                        throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
-                    }
-                    if (isIntegral(x)) {
-                        return Long.compare(x.longValue(), y.longValue());
-                    }
-                    return precisionCompare(x.doubleValue(), y.doubleValue(), precision);
-                }
-                if (a.getClass() != b.getClass()) {
+        return (a, b) -> {
+            if (a instanceof Number && b instanceof Number) {
+                Number x = (Number) a;
+                Number y = (Number) b;
+                boolean bothReal = isReal(x) && isReal(y);
+                boolean bothIntegral = isIntegral(x) && isIntegral(y);
+                if (!(bothReal || bothIntegral)) {
                     throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
                 }
-                if ((a.getClass().isArray() && b.getClass().isArray())) {
-                    if (Arrays.deepEquals((Object[]) a, (Object[]) b)) {
-                        return 0;
-                    }
-                    return Arrays.hashCode((Object[]) a) < Arrays.hashCode((Object[]) b) ? -1 : 1;
+                if (isIntegral(x)) {
+                    return Long.compare(x.longValue(), y.longValue());
                 }
-                if ((a instanceof Map && b instanceof Map)) {
-                    if (a.equals(b)) {
-                        return 0;
-                    }
-                    return a.hashCode() < b.hashCode() ? -1 : 1;
-                }
-                checkArgument(a instanceof Comparable, "item is not Comparable: %s", a.getClass().getName());
-                return ((Comparable<Object>) a).compareTo(b);
+                return precisionCompare(x.doubleValue(), y.doubleValue(), precision);
             }
+            if (a.getClass() != b.getClass()) {
+                throw new TypesDoNotMatchException(format("item types do not match: %s vs %s", a.getClass().getName(), b.getClass().getName()));
+            }
+            if ((a.getClass().isArray() && b.getClass().isArray())) {
+                if (Arrays.deepEquals((Object[]) a, (Object[]) b)) {
+                    return 0;
+                }
+                return Arrays.hashCode((Object[]) a) < Arrays.hashCode((Object[]) b) ? -1 : 1;
+            }
+            if ((a instanceof Map && b instanceof Map)) {
+                if (a.equals(b)) {
+                    return 0;
+                }
+                return a.hashCode() < b.hashCode() ? -1 : 1;
+            }
+            checkArgument(a instanceof Comparable, "item is not Comparable: %s", a.getClass().getName());
+            return ((Comparable<Object>) a).compareTo(b);
         };
     }
 

@@ -107,7 +107,7 @@ public class Verifier
                             true,
                             config.isVerboseResultsComparison(),
                             query);
-                    completionService.submit(validateTask(validator), validator);
+                    completionService.submit(validator::valid, validator);
                     queriesSubmitted++;
                 }
             }
@@ -237,18 +237,6 @@ public class Verifier
         catch (ExecutionException e) {
             throw Throwables.propagate(e);
         }
-    }
-
-    private static Runnable validateTask(final Validator validator)
-    {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                validator.valid();
-            }
-        };
     }
 
     private static boolean shouldAddStackTrace(Exception e)
