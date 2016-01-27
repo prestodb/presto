@@ -16,31 +16,31 @@ package com.facebook.presto.raptor.metadata;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.Set;
-import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class ShardNodes
+public class BucketShards
 {
-    private final UUID shardUuid;
-    private final Set<String> nodeIdentifiers;
+    private final OptionalInt bucketNumber;
+    private final Set<ShardNodes> shards;
 
-    public ShardNodes(UUID shardUuid, Set<String> nodeIdentifiers)
+    public BucketShards(OptionalInt bucketNumber, Set<ShardNodes> shards)
     {
-        this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
-        this.nodeIdentifiers = ImmutableSet.copyOf(requireNonNull(nodeIdentifiers, "nodeIdentifiers is null"));
+        this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
+        this.shards = ImmutableSet.copyOf(requireNonNull(shards, "shards is null"));
     }
 
-    public UUID getShardUuid()
+    public OptionalInt getBucketNumber()
     {
-        return shardUuid;
+        return bucketNumber;
     }
 
-    public Set<String> getNodeIdentifiers()
+    public Set<ShardNodes> getShards()
     {
-        return nodeIdentifiers;
+        return shards;
     }
 
     @Override
@@ -52,23 +52,23 @@ public class ShardNodes
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        ShardNodes other = (ShardNodes) obj;
-        return Objects.equals(this.shardUuid, other.shardUuid) &&
-                Objects.equals(this.nodeIdentifiers, other.nodeIdentifiers);
+        BucketShards other = (BucketShards) obj;
+        return Objects.equals(this.bucketNumber, other.bucketNumber) &&
+                Objects.equals(this.shards, other.shards);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(shardUuid, nodeIdentifiers);
+        return Objects.hash(bucketNumber, shards);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("shardUuid", shardUuid)
-                .add("nodeIdentifiers", nodeIdentifiers)
+                .add("bucketNumber", bucketNumber.getAsInt())
+                .add("shards", shards)
                 .toString();
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.backup.BackupService;
+import com.facebook.presto.raptor.metadata.BucketShards;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
 import com.facebook.presto.raptor.util.SynchronizedResultIterator;
@@ -35,9 +36,9 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
@@ -51,12 +52,14 @@ import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.stream.Collectors.toSet;
 
 public class RaptorSplitManager
         implements ConnectorSplitManager
@@ -98,7 +101,8 @@ public class RaptorSplitManager
         boolean bucketed = table.getBucketCount().isPresent();
         boolean merged = bucketed && !table.isDelete();
         OptionalLong transactionId = table.getTransactionId();
-        return new RaptorSplitSource(tableId, bucketed, merged, effectivePredicate, transactionId);
+        Optional<Map<Integer, String>> bucketToNode = handle.getPartitioning().map(RaptorPartitioningHandle::getBucketToNode);
+        return new RaptorSplitSource(tableId, bucketed, merged, effectivePredicate, transactionId, bucketToNode);
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -132,7 +136,8 @@ public class RaptorSplitManager
         private final long tableId;
         private final TupleDomain<RaptorColumnHandle> effectivePredicate;
         private final OptionalLong transactionId;
-        private final ResultIterator<ShardNodes> iterator;
+        private final Optional<Map<Integer, String>> bucketToNode;
+        private final ResultIterator<BucketShards> iterator;
 
         @GuardedBy("this")
         private CompletableFuture<List<ConnectorSplit>> future;
@@ -142,11 +147,13 @@ public class RaptorSplitManager
                 boolean bucketed,
                 boolean merged,
                 TupleDomain<RaptorColumnHandle> effectivePredicate,
-                OptionalLong transactionId)
+                OptionalLong transactionId,
+                Optional<Map<Integer, String>> bucketToNode)
         {
             this.tableId = tableId;
             this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
             this.transactionId = requireNonNull(transactionId, "transactionId is null");
+            this.bucketToNode = requireNonNull(bucketToNode, "bucketToNode is null");
             this.iterator = new SynchronizedResultIterator<>(shardManager.getShardNodes(tableId, bucketed, merged, effectivePredicate));
         }
 
@@ -197,24 +204,18 @@ public class RaptorSplitManager
             };
         }
 
-        private ConnectorSplit createSplit(ShardNodes shard)
+        private ConnectorSplit createSplit(BucketShards bucketShards)
         {
-            Set<UUID> shardUuids = shard.getShardUuids();
-            Collection<String> nodeIds = shard.getNodeIdentifiers();
-            List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);
-
-            if (shard.getBucketNumber().isPresent()) {
-                int bucketNumber = shard.getBucketNumber().getAsInt();
-                if (addresses.isEmpty()) {
-                    // TODO: reassign
-                    throw new PrestoException(NO_NODES_AVAILABLE, "Reassignment not yet implemented");
-                }
-                return new RaptorSplit(connectorId, shardUuids, bucketNumber, addresses, effectivePredicate, transactionId);
+            if (bucketShards.getBucketNumber().isPresent()) {
+                return createBucketSplit(bucketShards.getBucketNumber().getAsInt(), bucketShards.getShards());
             }
 
-            verify(shardUuids.size() == 1, "wrong shard count for non-bucketed table: %s", shardUuids.size());
-            UUID shardId = shardUuids.iterator().next();
+            verify(bucketShards.getShards().size() == 1, "wrong shard count for non-bucketed table");
+            ShardNodes shard = getOnlyElement(bucketShards.getShards());
+            UUID shardId = shard.getShardUuid();
+            Set<String> nodeIds = shard.getNodeIdentifiers();
 
+            List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);
             if (addresses.isEmpty()) {
                 if (!backupAvailable) {
                     throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, format("No host for shard %s found: %s", shardId, nodeIds));
@@ -232,6 +233,31 @@ public class RaptorSplitManager
             }
 
             return new RaptorSplit(connectorId, shardId, addresses, effectivePredicate, transactionId);
+        }
+
+        private ConnectorSplit createBucketSplit(int bucketNumber, Set<ShardNodes> shards)
+        {
+            String nodeId = bucketToNode.get().get(bucketNumber);
+            Node node = nodesById.get(nodeId);
+            if (node == null) {
+                throw new PrestoException(NO_NODES_AVAILABLE, "Node for bucket is offline: " + nodeId);
+            }
+
+            // Bucket splits contain all the shards for the bucket and run on
+            // the node assigned to the bucket. Reassign any of the bucket
+            // shards not currently assigned to the node for the bucket.
+            for (ShardNodes shard : shards) {
+                if (!shard.getNodeIdentifiers().contains(nodeId)) {
+                    shardManager.assignShard(tableId, shard.getShardUuid(), nodeId);
+                }
+            }
+
+            Set<UUID> shardUuids = shards.stream()
+                    .map(ShardNodes::getShardUuid)
+                    .collect(toSet());
+            HostAddress address = node.getHostAndPort();
+
+            return new RaptorSplit(connectorId, shardUuids, bucketNumber, address, effectivePredicate, transactionId);
         }
     }
 }

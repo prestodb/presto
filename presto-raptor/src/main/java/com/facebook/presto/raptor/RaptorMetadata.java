@@ -41,6 +41,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -272,18 +273,19 @@ public class RaptorMetadata
 
     private ConnectorTableLayout getTableLayout(RaptorTableHandle handle, TupleDomain<ColumnHandle> constraint)
     {
-        RaptorTableLayoutHandle layout = new RaptorTableLayoutHandle(handle, constraint);
         if (!handle.getDistributionId().isPresent()) {
-            return new ConnectorTableLayout(layout);
+            return new ConnectorTableLayout(new RaptorTableLayoutHandle(handle, constraint, Optional.empty()));
         }
 
         List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(handle.getTableId());
+        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().getAsLong());
+
         return new ConnectorTableLayout(
-                layout,
+                new RaptorTableLayoutHandle(handle, constraint, Optional.of(partitioning)),
                 Optional.empty(),
                 TupleDomain.all(),
                 Optional.of(new ConnectorNodePartitioning(
-                        new RaptorPartitioningHandle(handle.getDistributionId().getAsLong()),
+                        partitioning,
                         ImmutableList.copyOf(bucketColumnHandles))),
                 Optional.of(ImmutableSet.copyOf(bucketColumnHandles)),
                 Optional.empty(),
@@ -309,9 +311,13 @@ public class RaptorMetadata
                 .map(RaptorColumnHandle::getColumnName)
                 .collect(toList());
 
-        return Optional.of(new ConnectorNewTableLayout(
-                new RaptorPartitioningHandle(distribution.get().getDistributionId()),
-                partitionColumns));
+        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId());
+        return Optional.of(new ConnectorNewTableLayout(partitioning, partitionColumns));
+    }
+
+    private RaptorPartitioningHandle getPartitioningHandle(long distributionId)
+    {
+        return new RaptorPartitioningHandle(distributionId, shardManager.getBucketAssignments(distributionId));
     }
 
     private Optional<DistributionInfo> getOrCreateDistribution(Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)

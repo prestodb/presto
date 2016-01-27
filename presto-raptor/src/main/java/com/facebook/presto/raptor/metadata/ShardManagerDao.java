@@ -301,10 +301,19 @@ public interface ShardManagerDao
             @Bind("bucketNumber") List<Integer> bucketNumbers,
             @Bind("nodeId") List<Integer> nodeIds);
 
-    @SqlQuery("SELECT n.node_identifier\n" +
+    @SqlQuery("SELECT b.bucket_number, n.node_identifier\n" +
             "FROM buckets b\n" +
             "JOIN nodes n ON (b.node_id = n.node_id)\n" +
             "WHERE b.distribution_id = :distributionId\n" +
             "ORDER BY b.bucket_number")
-    List<String> getBucketNodeIdentifiers(@Bind("distributionId") long distributionId);
+    @Mapper(BucketNode.Mapper.class)
+    List<BucketNode> getBucketNodes(@Bind("distributionId") long distributionId);
+
+    @SqlUpdate("UPDATE buckets SET node_id = :nodeId\n" +
+            "WHERE distribution_id = :distributionId\n" +
+            "  AND bucket_number = :bucketNumber")
+    void updateBucketNode(
+            @Bind("distributionId") long distributionId,
+            @Bind("bucketNumber") int bucketNumber,
+            @Bind("nodeId") int nodeId);
 }

@@ -19,6 +19,8 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class RaptorTableLayoutHandle
@@ -26,14 +28,17 @@ public class RaptorTableLayoutHandle
 {
     private final RaptorTableHandle table;
     private final TupleDomain<ColumnHandle> constraint;
+    private final Optional<RaptorPartitioningHandle> partitioning;
 
     @JsonCreator
     public RaptorTableLayoutHandle(
             @JsonProperty("table") RaptorTableHandle table,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("partitioning") Optional<RaptorPartitioningHandle> partitioning)
     {
         this.table = requireNonNull(table, "table is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.partitioning = requireNonNull(partitioning, "partitioning is null");
     }
 
     @JsonProperty
@@ -46,6 +51,12 @@ public class RaptorTableLayoutHandle
     public TupleDomain<ColumnHandle> getConstraint()
     {
         return constraint;
+    }
+
+    @JsonProperty
+    public Optional<RaptorPartitioningHandle> getPartitioning()
+    {
+        return partitioning;
     }
 
     @Override

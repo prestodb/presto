@@ -16,24 +16,38 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.Map;
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public class RaptorPartitioningHandle
         implements ConnectorPartitioningHandle
 {
     private final long distributionId;
+    private final Map<Integer, String> bucketToNode;
 
     @JsonCreator
-    public RaptorPartitioningHandle(@JsonProperty("distributionId") long distributionId)
+    public RaptorPartitioningHandle(
+            @JsonProperty("distributionId") long distributionId,
+            @JsonProperty("bucketToNode") Map<Integer, String> bucketToNode)
     {
         this.distributionId = distributionId;
+        this.bucketToNode = ImmutableMap.copyOf(requireNonNull(bucketToNode, "bucketToNode is null"));
     }
 
     @JsonProperty
     public long getDistributionId()
     {
         return distributionId;
+    }
+
+    @JsonProperty
+    public Map<Integer, String> getBucketToNode()
+    {
+        return bucketToNode;
     }
 
     @Override
@@ -46,13 +60,14 @@ public class RaptorPartitioningHandle
             return false;
         }
         RaptorPartitioningHandle that = (RaptorPartitioningHandle) o;
-        return distributionId == that.distributionId;
+        return (distributionId == that.distributionId) &&
+                Objects.equals(bucketToNode, that.bucketToNode);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(distributionId);
+        return Objects.hash(distributionId, bucketToNode);
     }
 
     @Override

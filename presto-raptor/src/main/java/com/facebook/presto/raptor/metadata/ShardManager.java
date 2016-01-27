@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.ResultIterator;
 
@@ -60,7 +59,7 @@ public interface ShardManager
     /**
      * Return the shard nodes a given table.
      */
-    ResultIterator<ShardNodes> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    ResultIterator<BucketShards> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Assign a shard to a node.
@@ -95,7 +94,7 @@ public interface ShardManager
     void createBuckets(long distributionId, int bucketCount);
 
     /**
-     * Get map of buckets to nodes for a table.
+     * Get map of buckets to node identifiers for a table.
      */
-    Map<Integer, Node> getBucketAssignments(long distributionId);
+    Map<Integer, String> getBucketAssignments(long distributionId);
 }
