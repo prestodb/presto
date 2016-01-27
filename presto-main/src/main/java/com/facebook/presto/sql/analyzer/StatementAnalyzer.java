@@ -334,6 +334,8 @@ class StatementAnalyzer
 
         analysis.setCreateTableAsSelectWithData(node.isWithData());
 
+        analysis.setCreateMaterializedQueryTable(node.isMaterializedQueryTable());
+
         // analyze the query that creates the table
         Scope queryScope = process(node.getQuery(), scope);
 

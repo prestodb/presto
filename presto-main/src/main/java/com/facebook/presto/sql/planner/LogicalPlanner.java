@@ -21,8 +21,10 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
@@ -57,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.MaterializedQueryTableInfo.DEFAULT_REFRESH_TIMESTAMP;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -66,6 +69,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class LogicalPlanner
@@ -172,7 +176,13 @@ public class LogicalPlanner
 
         RelationPlan plan = createRelationPlan(analysis, query);
 
-        ConnectorTableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), analysis.getCreateTableProperties(), plan.getSampleWeight().isPresent(), analysis.getParameters());
+        ConnectorTableMetadata tableMetadata = createTableMetadata(
+                destination,
+                getOutputTableColumns(plan),
+                analysis.getCreateTableProperties(),
+                plan.getSampleWeight().isPresent(),
+                analysis.getParameters(),
+                Optional.ofNullable(getMaterializedQueryTableInfo(analysis.isCreateMaterializedQueryTable(), analysis.getStatement())));
         if (plan.getSampleWeight().isPresent() && !metadata.canCreateSampledTables(session, destination.getCatalogName())) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot write sampled data to a store that doesn't support sampling");
         }
@@ -190,6 +200,15 @@ public class LogicalPlanner
                 new CreateName(destination.getCatalogName(), tableMetadata, newTableLayout),
                 columnNames,
                 newTableLayout);
+    }
+
+    private static MaterializedQueryTableInfo getMaterializedQueryTableInfo(boolean isCreateMaterializedQueryTable, Statement statement)
+    {
+        if (isCreateMaterializedQueryTable && (statement instanceof CreateTableAsSelect)) {
+            String query = SqlFormatter.formatSql(((CreateTableAsSelect) statement).getQuery(), Optional.empty());
+            return new MaterializedQueryTableInfo(query, emptyMap(), emptyMap(), DEFAULT_REFRESH_TIMESTAMP);
+        }
+        return null;
     }
 
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
@@ -358,7 +377,13 @@ public class LogicalPlanner
                 .process(query, null);
     }
 
-    private ConnectorTableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, boolean sampled, List<Expression> parameters)
+    private ConnectorTableMetadata createTableMetadata(
+            QualifiedObjectName table,
+            List<ColumnMetadata> columns,
+            Map<String, Expression> propertyExpressions,
+            boolean sampled,
+            List<Expression> parameters,
+            Optional<MaterializedQueryTableInfo> materializedQueryTableInfo)
     {
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 table.getCatalogName(),
@@ -367,7 +392,7 @@ public class LogicalPlanner
                 metadata,
                 parameters);
 
-        return new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, sampled);
+        return new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, sampled, materializedQueryTableInfo);
     }
 
     private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan)

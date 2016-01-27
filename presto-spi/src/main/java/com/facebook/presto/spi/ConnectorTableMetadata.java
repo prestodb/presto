@@ -18,8 +18,10 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
 
 public class ConnectorTableMetadata
 {
@@ -27,6 +29,7 @@ public class ConnectorTableMetadata
     private final List<ColumnMetadata> columns;
     private final Map<String, Object> properties;
     private final boolean sampled;
+    private final Optional<MaterializedQueryTableInfo> materializedQueryTableInfo;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
@@ -40,6 +43,16 @@ public class ConnectorTableMetadata
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, boolean sampled)
     {
+        this(table, columns, properties, sampled, Optional.empty());
+    }
+
+    public ConnectorTableMetadata(
+            SchemaTableName table,
+            List<ColumnMetadata> columns,
+            Map<String, Object> properties,
+            boolean sampled,
+            Optional<MaterializedQueryTableInfo> materializedQueryTableInfo)
+    {
         if (table == null) {
             throw new NullPointerException("table is null or empty");
         }
@@ -51,11 +64,17 @@ public class ConnectorTableMetadata
         this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
         this.properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
         this.sampled = sampled;
+        this.materializedQueryTableInfo = requireNonNull(materializedQueryTableInfo, "materializedQueryTableInfo is null");
     }
 
     public boolean isSampled()
     {
         return sampled;
+    }
+
+    public Optional<MaterializedQueryTableInfo> getMaterializedQueryTableInfo()
+    {
+        return materializedQueryTableInfo;
     }
 
     public SchemaTableName getTable()
@@ -80,6 +99,7 @@ public class ConnectorTableMetadata
         sb.append("table=").append(table);
         sb.append(", columns=").append(columns);
         sb.append(", properties=").append(properties);
+        sb.append(", materializedQueryTableInfo=").append(materializedQueryTableInfo);
         sb.append('}');
         return sb.toString();
     }
