@@ -84,7 +84,9 @@ public class RaptorConnector
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
-        return new RaptorTransactionHandle();
+        RaptorTransactionHandle transaction = new RaptorTransactionHandle();
+        transactions.put(transaction, metadataFactory.create());
+        return transaction;
     }
 
     @Override
@@ -116,7 +118,9 @@ public class RaptorConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
-        return transactions.computeIfAbsent(transaction, handle -> metadataFactory.create());
+        RaptorMetadata metadata = transactions.get(transaction);
+        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        return metadata;
     }
 
     @Override
