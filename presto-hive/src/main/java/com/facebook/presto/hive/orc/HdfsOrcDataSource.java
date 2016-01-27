@@ -20,7 +20,8 @@ import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static java.lang.String.format;
 
 public class HdfsOrcDataSource
@@ -53,7 +54,11 @@ public class HdfsOrcDataSource
             throw e;
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("HDFS error reading from %s at position %s", this, position), e);
+            String message = format("HDFS error reading from %s at position %s", this, position);
+            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+            }
+            throw new PrestoException(HIVE_UNKNOWN_ERROR, message, e);
         }
     }
 }
