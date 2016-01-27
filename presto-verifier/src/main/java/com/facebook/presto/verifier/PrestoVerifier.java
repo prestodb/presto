@@ -47,7 +47,6 @@ import io.airlift.event.client.EventClient;
 import org.skife.jdbi.v2.DBI;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -162,13 +161,8 @@ public class PrestoVerifier
             urlList.add(Paths.get(path).toUri().toURL());
             return urlList.build();
         }
-        File[] files = driverPath.listFiles(new FilenameFilter()
-        {
-            @Override
-            public boolean accept(File dir, String name)
-            {
-                return name.endsWith(".jar");
-            }
+        File[] files = driverPath.listFiles((dir, name) -> {
+            return name.endsWith(".jar");
         });
         if (files == null) {
             return urlList.build();
@@ -305,7 +299,7 @@ public class PrestoVerifier
         return ImmutableList.of();
     }
 
-    private static List<QueryPair> applyOverrides(final VerifierConfig config, List<QueryPair> queries)
+    private static List<QueryPair> applyOverrides(VerifierConfig config, List<QueryPair> queries)
     {
         return queries.stream()
                 .map(input -> {
