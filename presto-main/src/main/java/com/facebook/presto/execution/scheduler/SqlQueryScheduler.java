@@ -229,7 +229,7 @@ public class SqlQueryScheduler
             }
         }
 
-        ImmutableSet.Builder<SqlStageExecution> childStages = ImmutableSet.builder();
+        ImmutableSet.Builder<SqlStageExecution> childStagesBuilder = ImmutableSet.builder();
         for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
             List<SqlStageExecution> subTree = createStages(
                     Optional.of(stage),
@@ -248,9 +248,16 @@ public class SqlQueryScheduler
             stages.addAll(subTree);
 
             SqlStageExecution childStage = subTree.get(0);
-            childStages.add(childStage);
+            childStagesBuilder.add(childStage);
         }
-        stageLinkages.put(stageId, new StageLinkage(plan.getFragment().getId(), parent, childStages.build()));
+        Set<SqlStageExecution> childStages = childStagesBuilder.build();
+        stage.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                childStages.stream().forEach(SqlStageExecution::cancel);
+            }
+        });
+
+        stageLinkages.put(stageId, new StageLinkage(plan.getFragment().getId(), parent, childStages));
 
         return stages.build();
     }
