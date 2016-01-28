@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 
 public abstract class AbstractSimpleOperatorBenchmark
         extends AbstractOperatorBenchmark
@@ -47,7 +48,7 @@ public abstract class AbstractSimpleOperatorBenchmark
 
         operatorFactories.add(new NullOutputOperatorFactory(999, new PlanNodeId("test"), Iterables.getLast(operatorFactories).getTypes()));
 
-        return new DriverFactory(true, true, operatorFactories);
+        return new DriverFactory(true, true, operatorFactories, OptionalInt.empty());
     }
 
     @Override
