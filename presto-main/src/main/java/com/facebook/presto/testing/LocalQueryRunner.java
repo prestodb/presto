@@ -563,8 +563,7 @@ public class LocalQueryRunner
                 compiler,
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
-                new TaskManagerConfig().setTaskConcurrency(4).setTaskDefaultConcurrency(4)
-        );
+                new TaskManagerConfig().setTaskConcurrency(4));
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(

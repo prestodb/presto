@@ -50,8 +50,6 @@ public class TestTaskManagerConfig
                 .setMaxPagePartitioningBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setWriterCount(1)
                 .setTaskConcurrency(1)
-                .setTaskDefaultConcurrency(1)
-                .setTaskJoinConcurrency(1)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5));
@@ -79,8 +77,6 @@ public class TestTaskManagerConfig
                 .put("driver.max-page-partitioning-buffer-size", "40MB")
                 .put("task.writer-count", "3")
                 .put("task.concurrency", "5")
-                .put("task.default-concurrency", "7")
-                .put("task.join-concurrency", "8")
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
@@ -105,8 +101,6 @@ public class TestTaskManagerConfig
                 .setMaxPagePartitioningBufferSize(new DataSize(40, Unit.MEGABYTE))
                 .setWriterCount(3)
                 .setTaskConcurrency(5)
-                .setTaskDefaultConcurrency(7)
-                .setTaskJoinConcurrency(8)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)
                 .setTaskNotificationThreads(13);

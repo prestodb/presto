@@ -169,7 +169,7 @@ public class TestingPrestoServer
                 .put("coordinator", String.valueOf(coordinator))
                 .put("presto.version", "testversion")
                 .put("http-client.max-threads", "16")
-                .put("task.default-concurrency", "4")
+                .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4")
                 .put("scheduler.http-client.http2.enabled", "false")
