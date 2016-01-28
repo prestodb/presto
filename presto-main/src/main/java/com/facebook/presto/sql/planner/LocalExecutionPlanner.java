@@ -391,7 +391,7 @@ public class LocalExecutionPlanner
                             .map(OperatorFactory::duplicate)
                             .forEach(newOperators::add);
 
-                    context.addDriverFactory(new DriverFactory(false, factory.isOutputDriver(), newOperators.build()));
+                    context.addDriverFactory(new DriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1)));
                 }
             }
         }
@@ -442,7 +442,7 @@ public class LocalExecutionPlanner
 
         private int nextOperatorId;
         private boolean inputDriver = true;
-        private int driverInstanceCount = 1;
+        private OptionalInt driverInstanceCount = OptionalInt.empty();
 
         public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, boolean singleNode, boolean allowLocalParallel)
         {
@@ -526,7 +526,7 @@ public class LocalExecutionPlanner
             return allowLocalParallel;
         }
 
-        public int getDriverInstanceCount()
+        public OptionalInt getDriverInstanceCount()
         {
             return driverInstanceCount;
         }
@@ -534,7 +534,7 @@ public class LocalExecutionPlanner
         public void setDriverInstanceCount(int driverInstanceCount)
         {
             checkArgument(driverInstanceCount > 0, "driverInstanceCount must be > 0");
-            this.driverInstanceCount = driverInstanceCount;
+            this.driverInstanceCount = OptionalInt.of(driverInstanceCount);
         }
     }
 
@@ -898,7 +898,7 @@ public class LocalExecutionPlanner
                         .addAll(source.getOperatorFactories())
                         .add(exchange.createSinkFactory(intermediateContext.getNextOperatorId(), node.getId()))
                         .build();
-                context.addDriverFactory(new DriverFactory(intermediateContext.isInputDriver(), false, factories));
+                context.addDriverFactory(new DriverFactory(intermediateContext.isInputDriver(), false, factories, intermediateContext.getDriverInstanceCount()));
 
                 OperatorFactory exchangeSource = createRandomDistribution(context.getNextOperatorId(), node.getId(), exchange);
                 source = new PhysicalOperation(exchangeSource, source.getLayout());
@@ -906,7 +906,7 @@ public class LocalExecutionPlanner
             }
 
             int aggregationConcurrency = getTaskAggregationConcurrency(session);
-            if (node.getStep() == Step.PARTIAL || !context.isAllowLocalParallel() || context.getDriverInstanceCount() > 1 || aggregationConcurrency <= 1) {
+            if (node.getStep() == Step.PARTIAL || !context.isAllowLocalParallel() || context.getDriverInstanceCount().isPresent() || aggregationConcurrency <= 1) {
                 PhysicalOperation source = node.getSource().accept(this, context);
                 return planGroupByAggregation(node, source, context.getNextOperatorId(), Optional.empty());
             }
@@ -930,7 +930,7 @@ public class LocalExecutionPlanner
                     .addAll(source.getOperatorFactories())
                     .add(exchange.createSinkFactory(sourceContext.getNextOperatorId(), node.getId()))
                     .build();
-            parallelContext.addDriverFactory(new DriverFactory(sourceContext.isInputDriver(), false, factories));
+            parallelContext.addDriverFactory(new DriverFactory(sourceContext.isInputDriver(), false, factories, sourceContext.getDriverInstanceCount()));
 
             // add broadcast exchange as first parallel operator
             OperatorFactory exchangeSource = createBroadcastDistribution(parallelContext.getNextOperatorId(), node.getId(), exchange);
@@ -1518,13 +1518,15 @@ public class LocalExecutionPlanner
                     node.getId(),
                     buildSource.getTypes());
 
+            checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
             context.addDriverFactory(new DriverFactory(
                     buildContext.isInputDriver(),
                     false,
                     ImmutableList.<OperatorFactory>builder()
                             .addAll(buildSource.getOperatorFactories())
                             .add(nestedLoopBuildOperatorFactory)
-                            .build()));
+                            .build(),
+                    buildContext.getDriverInstanceCount()));
 
             NestedLoopJoinPagesSupplier nestedLoopJoinPagesSupplier = nestedLoopBuildOperatorFactory.getNestedLoopJoinPagesSupplier();
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -1558,7 +1560,7 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource;
             LocalExecutionPlanContext parallelParentContext = null;
             int joinConcurrency = getTaskJoinConcurrency(session);
-            if (context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
+            if (context.isAllowLocalParallel() && !context.getDriverInstanceCount().isPresent() && joinConcurrency > 1) {
                 parallelParentContext = context;
                 context = context.createSubContext();
                 probeSource = createInMemoryExchange(probeNode, context);
@@ -1607,6 +1609,7 @@ public class LocalExecutionPlanner
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
+            checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
             Optional<Integer> buildHashChannel = buildHashSymbol.map(channelGetter(buildSource));
 
@@ -1627,7 +1630,8 @@ public class LocalExecutionPlanner
                         ImmutableList.<OperatorFactory>builder()
                                 .addAll(buildSource.getOperatorFactories())
                                 .add(hashBuilderOperatorFactory)
-                                .build()));
+                                .build(),
+                        buildContext.getDriverInstanceCount()));
 
                 lookupSourceSupplier = hashBuilderOperatorFactory.getLookupSourceSupplier();
             }
@@ -1648,13 +1652,14 @@ public class LocalExecutionPlanner
                         ImmutableList.<OperatorFactory>builder()
                                 .addAll(buildSource.getOperatorFactories())
                                 .add(parallelHashBuilder.getCollectOperatorFactory(buildContext.getNextOperatorId(), node.getId()))
-                                .build()));
+                                .build(),
+                        buildContext.getDriverInstanceCount()));
 
                 context.addDriverFactory(new DriverFactory(
                         false,
                         false,
                         ImmutableList.of(parallelHashBuilder.getBuildOperatorFactory(node.getId())),
-                        parallelBuildCount));
+                        OptionalInt.of(parallelBuildCount)));
 
                 lookupSourceSupplier = parallelHashBuilder.getLookupSourceSupplier();
             }
@@ -1699,7 +1704,7 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource;
             LocalExecutionPlanContext parallelParentContext = null;
             int joinConcurrency = getTaskJoinConcurrency(session);
-            if (context.isAllowLocalParallel() && context.getDriverInstanceCount() == 1 && joinConcurrency > 1) {
+            if (context.isAllowLocalParallel() && context.getDriverInstanceCount().orElse(1) == 1 && joinConcurrency > 1) {
                 parallelParentContext = context;
                 context = context.createSubContext();
                 probeSource = createInMemoryExchange(node.getSource(), context);
@@ -1712,6 +1717,7 @@ public class LocalExecutionPlanner
             // do the same on the build side
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = node.getFilteringSource().accept(this, buildContext);
+            checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
 
             int probeChannel = probeSource.getLayout().get(node.getSourceJoinSymbol());
             int buildChannel = buildSource.getLayout().get(node.getFilteringSourceJoinSymbol());
@@ -1732,7 +1738,8 @@ public class LocalExecutionPlanner
                     ImmutableList.<OperatorFactory>builder()
                             .addAll(buildSource.getOperatorFactories())
                             .add(setBuilderOperatorFactory)
-                            .build());
+                            .build(),
+                    buildContext.getDriverInstanceCount());
             context.addDriverFactory(buildDriverFactory);
 
             // Source channels are always laid out first, followed by the boolean output symbol
@@ -1882,7 +1889,7 @@ public class LocalExecutionPlanner
 
                 operatorFactories.add(inMemoryExchange.createSinkFactory(subContext.getNextOperatorId(), node.getId()));
 
-                DriverFactory driverFactory = new DriverFactory(subContext.isInputDriver(), false, operatorFactories);
+                DriverFactory driverFactory = new DriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount());
                 context.addDriverFactory(driverFactory);
             }
 

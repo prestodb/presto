@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import static com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
@@ -60,10 +61,14 @@ public class IndexBuildDriverFactoryProvider
     public DriverFactory createSnapshot(IndexSnapshotBuilder indexSnapshotBuilder)
     {
         checkArgument(indexSnapshotBuilder.getOutputTypes().equals(outputTypes));
-        return new DriverFactory(inputDriver, false, ImmutableList.<OperatorFactory>builder()
-                .addAll(coreOperatorFactories)
-                .add(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder))
-                .build());
+        return new DriverFactory(
+                inputDriver,
+                false,
+                ImmutableList.<OperatorFactory>builder()
+                        .addAll(coreOperatorFactories)
+                        .add(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder))
+                        .build(),
+                OptionalInt.empty());
     }
 
     public DriverFactory createStreaming(PageBuffer pageBuffer, Page indexKeyTuple)
@@ -78,6 +83,6 @@ public class IndexBuildDriverFactoryProvider
 
         operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer));
 
-        return new DriverFactory(inputDriver, false, operatorFactories.build());
+        return new DriverFactory(inputDriver, false, operatorFactories.build(), OptionalInt.empty());
     }
 }
