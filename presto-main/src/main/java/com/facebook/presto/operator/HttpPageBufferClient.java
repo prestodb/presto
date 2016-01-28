@@ -230,7 +230,7 @@ public final class HttpPageBufferClient
 
         // abort the output buffer on the remote node; response of delete is ignored
         if (shouldSendDelete) {
-            httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+            sendDelete();
         }
     }
 
