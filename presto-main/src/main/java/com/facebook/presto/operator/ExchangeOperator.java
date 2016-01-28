@@ -147,7 +147,7 @@ public class ExchangeOperator
     @Override
     public boolean isFinished()
     {
-        return exchangeClient.isClosed();
+        return exchangeClient.isFinished();
     }
 
     @Override
