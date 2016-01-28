@@ -32,14 +32,28 @@ public final class AverageAggregations
     private AverageAggregations() {}
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void bigintInput(LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
     }
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void doubleInput(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + value);
+    }
+
+    @InputFunction
+    public static void intervalDayToSecondInput(LongAndDoubleState state, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
+    {
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + value);
+    }
+
+    @InputFunction
+    public static void intervalYearToMonthInput(LongAndDoubleState state, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
