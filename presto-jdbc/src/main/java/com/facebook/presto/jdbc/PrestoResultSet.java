@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -128,19 +129,21 @@ public class PrestoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
 
-    PrestoResultSet(StatementClient client)
+    PrestoResultSet(StatementClient client, Consumer<QueryStats> progressCallback)
             throws SQLException
     {
         this.client = requireNonNull(client, "client is null");
+        requireNonNull(progressCallback, "progressCallback is null");
+
         this.sessionTimeZone = DateTimeZone.forID(client.getTimeZoneId());
         this.queryId = client.current().getId();
 
-        List<Column> columns = getColumns(client);
+        List<Column> columns = getColumns(client, progressCallback);
         this.fieldMap = getFieldMap(columns);
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
-        this.results = flatten(new ResultsPageIterator(client));
+        this.results = flatten(new ResultsPageIterator(client, progressCallback));
     }
 
     public String getQueryId()
@@ -150,7 +153,7 @@ public class PrestoResultSet
 
     public QueryStats getStats()
     {
-        return QueryStats.create(client.getStats());
+        return QueryStats.create(queryId, client.getStats());
     }
 
     @Override
@@ -1738,11 +1741,13 @@ public class PrestoResultSet
         throw new SQLException("Value is not a number: " + value.getClass().getCanonicalName());
     }
 
-    private static List<Column> getColumns(StatementClient client)
+    private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback)
             throws SQLException
     {
         while (client.isValid()) {
-            List<Column> columns = client.current().getColumns();
+            QueryResults results = client.current();
+            progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+            List<Column> columns = results.getColumns();
             if (columns != null) {
                 return columns;
             }
@@ -1765,10 +1770,12 @@ public class PrestoResultSet
             extends AbstractIterator<Iterable<List<Object>>>
     {
         private final StatementClient client;
+        private final Consumer<QueryStats> progressCallback;
 
-        private ResultsPageIterator(StatementClient client)
+        private ResultsPageIterator(StatementClient client, Consumer<QueryStats> progressCallback)
         {
             this.client = requireNonNull(client, "client is null");
+            this.progressCallback = requireNonNull(progressCallback, "progressCallback is null");
         }
 
         @Override
@@ -1780,7 +1787,9 @@ public class PrestoResultSet
                     throw propagate(new SQLException("ResultSet thread was interrupted"));
                 }
 
-                Iterable<List<Object>> data = client.current().getData();
+                QueryResults results = client.current();
+                progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+                Iterable<List<Object>> data = results.getData();
                 client.advance();
                 if (data != null) {
                     return data;

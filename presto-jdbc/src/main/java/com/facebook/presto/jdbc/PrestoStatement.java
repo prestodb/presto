@@ -22,10 +22,12 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.jdbc.PrestoResultSet.resultsException;
 import static java.util.Objects.requireNonNull;
@@ -41,10 +43,22 @@ public class PrestoStatement
     private final AtomicReference<PrestoConnection> connection;
     private final AtomicReference<ResultSet> currentResult = new AtomicReference<>();
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
+    private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
+    private final Consumer<QueryStats> progressConsumer = value -> progressCallback.get().ifPresent(callback -> callback.accept(value));
 
     PrestoStatement(PrestoConnection connection)
     {
         this.connection = new AtomicReference<>(requireNonNull(connection, "connection is null"));
+    }
+
+    public void setProgressMonitor(Consumer<QueryStats> progressMonitor)
+    {
+        progressCallback.set(Optional.of(requireNonNull(progressMonitor, "progressMonitor is null")));
+    }
+
+    public void clearProgressMonitor()
+    {
+        progressCallback.set(Optional.empty());
     }
 
     @Override
@@ -176,7 +190,7 @@ public class PrestoStatement
                 throw resultsException(client.finalResults());
             }
 
-            resultSet = new PrestoResultSet(client);
+            resultSet = new PrestoResultSet(client, progressConsumer);
             checkSetOrResetSession(client);
 
             // check if this is a query

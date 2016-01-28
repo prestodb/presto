@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class QueryStats
 {
+    private final String queryId;
     private final String state;
     private final boolean scheduled;
     private final int nodes;
@@ -36,6 +37,7 @@ public final class QueryStats
     private final Optional<StageStats> rootStage;
 
     public QueryStats(
+            String queryId,
             String state,
             boolean scheduled,
             int nodes,
@@ -50,6 +52,7 @@ public final class QueryStats
             long processedBytes,
             Optional<StageStats> rootStage)
     {
+        this.queryId = requireNonNull(queryId, "queryId is null");
         this.state = requireNonNull(state, "state is null");
         this.scheduled = scheduled;
         this.nodes = nodes;
@@ -65,9 +68,10 @@ public final class QueryStats
         this.rootStage = requireNonNull(rootStage, "rootStage is null");
     }
 
-    static QueryStats create(StatementStats stats)
+    static QueryStats create(String queryId, StatementStats stats)
     {
         return new QueryStats(
+                queryId,
                 stats.getState(),
                 stats.isScheduled(),
                 stats.getNodes(),
@@ -81,6 +85,11 @@ public final class QueryStats
                 stats.getProcessedRows(),
                 stats.getProcessedBytes(),
                 Optional.ofNullable(stats.getRootStage()).map(StageStats::create));
+    }
+
+    public String getQueryId()
+    {
+        return queryId;
     }
 
     public String getState()
