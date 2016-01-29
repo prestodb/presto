@@ -142,6 +142,9 @@ public class LazyOutputBuffer
                     case BROADCAST:
                         delegate = new BroadcastOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryUsageListener, executor);
                         break;
+                    case ARBITRARY:
+                        delegate = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryUsageListener, executor);
+                        break;
                 }
 
                 // process pending aborts and reads outside of synchronized lock
