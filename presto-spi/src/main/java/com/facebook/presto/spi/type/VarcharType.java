@@ -157,4 +157,20 @@ public final class VarcharType
     {
         return Objects.hash(length);
     }
+
+    @Override
+    public String getDisplayName()
+    {
+        if (length == MAX_LENGTH) {
+            return getTypeSignature().getBase();
+        }
+
+        return getTypeSignature().toString();
+    }
+
+    @Override
+    public String toString()
+    {
+        return getDisplayName();
+    }
 }

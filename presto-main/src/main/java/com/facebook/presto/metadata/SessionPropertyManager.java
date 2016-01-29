@@ -143,7 +143,7 @@ public final class SessionPropertyManager
                     sessionProperty.getCatalogName(),
                     sessionProperty.getPropertyName(),
                     propertyMetadata.getDescription(),
-                    propertyMetadata.getSqlType().getTypeSignature().toString(),
+                    propertyMetadata.getSqlType().getDisplayName(),
                     propertyMetadata.isHidden()));
         }
 

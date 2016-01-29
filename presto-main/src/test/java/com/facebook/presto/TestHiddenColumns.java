@@ -13,7 +13,6 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -23,7 +22,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiddenColumns
@@ -49,9 +47,9 @@ public class TestHiddenColumns
             throws Exception
     {
         MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR)
-                .row("regionkey", "bigint", true, false, "")
-                .row("name", format("varchar(%s)", VarcharType.MAX_LENGTH), "")
-                .row("comment", format("varchar(%s)", VarcharType.MAX_LENGTH), "")
+                .row("regionkey", "bigint", "")
+                .row("name", "varchar", "")
+                .row("comment", "varchar", "")
                 .build();
         assertEquals(runner.execute("DESC REGION"), expected);
     }
