@@ -49,7 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -77,7 +77,7 @@ public final class SqlStageExecution
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
     private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
-    private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>(INITIAL_EMPTY_OUTPUT_BUFFERS);
+    private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>(createInitialEmptyOutputBuffers());
 
     public SqlStageExecution(
             StageId stageId,

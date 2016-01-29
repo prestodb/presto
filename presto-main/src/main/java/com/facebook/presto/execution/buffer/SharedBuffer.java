@@ -43,7 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
@@ -67,7 +67,7 @@ public class SharedBuffer
     private final SettableFuture<OutputBuffers> finalOutputBuffers = SettableFuture.create();
 
     @GuardedBy("this")
-    private OutputBuffers outputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
+    private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers();
     @GuardedBy("this")
     private final Map<Integer, PartitionBuffer> partitionBuffers = new ConcurrentHashMap<>();
     @GuardedBy("this")

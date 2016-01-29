@@ -59,7 +59,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
-import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
+import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -69,7 +69,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class SqlQueryExecution
         implements QueryExecution
 {
-    private static final OutputBuffers ROOT_OUTPUT_BUFFERS = INITIAL_EMPTY_OUTPUT_BUFFERS
+    private static final OutputBuffers ROOT_OUTPUT_BUFFERS = createInitialEmptyOutputBuffers()
             .withBuffer(new TaskId("output", "buffer", "id"), BROADCAST_PARTITION_ID)
             .withNoMoreBufferIds();
 

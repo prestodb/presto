@@ -31,7 +31,11 @@ import static java.util.Objects.requireNonNull;
 public final class OutputBuffers
 {
     public static final int BROADCAST_PARTITION_ID = 0;
-    public static final OutputBuffers INITIAL_EMPTY_OUTPUT_BUFFERS = new OutputBuffers(0, false, ImmutableMap.<TaskId, Integer>of());
+
+    public static OutputBuffers createInitialEmptyOutputBuffers()
+    {
+        return new OutputBuffers(0, false, ImmutableMap.of());
+    }
 
     private final long version;
     private final boolean noMoreBufferIds;
