@@ -57,7 +57,7 @@ public class Histogram
 
     public Histogram()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("K")), "map(K,bigint)", ImmutableList.of("K"));
+        super(NAME, ImmutableList.of(comparableTypeParameter("K")), ImmutableList.of(), "map(K,bigint)", ImmutableList.of("K"));
     }
 
     @Override

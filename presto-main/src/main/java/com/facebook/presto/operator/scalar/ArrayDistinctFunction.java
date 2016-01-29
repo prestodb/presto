@@ -42,7 +42,7 @@ public final class ArrayDistinctFunction
 
     public ArrayDistinctFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array(E)", ImmutableList.of("array(E)"));
+        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), ImmutableList.of(), "array(E)", ImmutableList.of("array(E)"));
     }
 
     @Override

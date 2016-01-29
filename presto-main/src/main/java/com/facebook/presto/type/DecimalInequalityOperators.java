@@ -106,7 +106,7 @@ public class DecimalInequalityOperators
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(operatorType)
-                .typeParameters(comparableWithVariadicBound("A", DECIMAL), comparableWithVariadicBound("B", DECIMAL))
+                .typeVariableConstraints(comparableWithVariadicBound("A", DECIMAL), comparableWithVariadicBound("B", DECIMAL))
                 .returnType(BOOLEAN)
                 .argumentTypes("A", "B")
                 .build();
@@ -203,7 +203,7 @@ public class DecimalInequalityOperators
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(BETWEEN)
-                .typeParameters(
+                .typeVariableConstraints(
                         comparableWithVariadicBound("V", DECIMAL),
                         comparableWithVariadicBound("A", DECIMAL),
                         comparableWithVariadicBound("B", DECIMAL))

@@ -46,7 +46,7 @@ public class ArrayGreaterThanOperator
 
     private ArrayGreaterThanOperator()
     {
-        super(GREATER_THAN, ImmutableList.of(orderableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
+        super(GREATER_THAN, ImmutableList.of(orderableTypeParameter("T")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
     }
 
     @Override

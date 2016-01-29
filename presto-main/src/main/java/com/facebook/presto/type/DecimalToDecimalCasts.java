@@ -43,7 +43,7 @@ public final class DecimalToDecimalCasts
     public static final Signature SIGNATURE = Signature.builder()
             .kind(SCALAR)
             .operatorType(CAST)
-            .typeParameters(comparableWithVariadicBound("X", DECIMAL), comparableWithVariadicBound("Y", DECIMAL))
+            .typeVariableConstraints(comparableWithVariadicBound("X", DECIMAL), comparableWithVariadicBound("Y", DECIMAL))
             .argumentTypes("X")
             .returnType("Y")
             .build();
