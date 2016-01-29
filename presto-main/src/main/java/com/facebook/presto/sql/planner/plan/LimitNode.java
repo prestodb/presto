@@ -22,8 +22,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +39,6 @@ public class LimitNode
 
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be greater than or equal to zero");
-        checkCondition(count <= Integer.MAX_VALUE, NOT_SUPPORTED, "LIMIT > %s is not supported", Integer.MAX_VALUE);
 
         this.source = source;
         this.count = count;
