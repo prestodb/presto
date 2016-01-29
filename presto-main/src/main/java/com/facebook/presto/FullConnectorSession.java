@@ -35,26 +35,30 @@ public class FullConnectorSession
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final long startTime;
-    private final Map<String, String> properties;
-    private final String catalog;
+    private final Map<String, String> systemProperties;
     private final SessionPropertyManager sessionPropertyManager;
+    private final Map<String, String> catalogProperties;
+    private final String catalog;
 
     public FullConnectorSession(
             String queryId,
             Identity identity,
             TimeZoneKey timeZoneKey,
             Locale locale,
-            long startTime)
+            long startTime,
+            Map<String, String> systemProperties,
+            SessionPropertyManager sessionPropertyManager)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
+        this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
 
-        this.properties = null;
+        this.catalogProperties = null;
         this.catalog = null;
-        this.sessionPropertyManager = null;
     }
 
     public FullConnectorSession(
@@ -63,19 +67,21 @@ public class FullConnectorSession
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime,
-            Map<String, String> properties,
-            String catalog,
-            SessionPropertyManager sessionPropertyManager)
+            Map<String, String> systemProperties,
+            SessionPropertyManager sessionPropertyManager,
+            Map<String, String> catalogProperties,
+            String catalog)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
-
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "properties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+
+        this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     @Override
@@ -111,11 +117,15 @@ public class FullConnectorSession
     @Override
     public <T> T getProperty(String name, Class<T> type)
     {
-        if (properties == null) {
+        if (sessionPropertyManager.containsSessionProperty(name)) {
+            return sessionPropertyManager.decodeProperty(name, systemProperties.get(name), type);
+        }
+
+        if (catalogProperties == null) {
             throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY, "Unknown session property " + name);
         }
 
-        return sessionPropertyManager.decodeProperty(catalog + "." + name, properties.get(name), type);
+        return sessionPropertyManager.decodeProperty(catalog + "." + name, catalogProperties.get(name), type);
     }
 
     @Override
@@ -128,7 +138,9 @@ public class FullConnectorSession
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("startTime", startTime)
-                .add("properties", properties)
+                .add("systemProperties", systemProperties)
+                .add("catalogProperties", catalogProperties)
+                .add("catalog", catalog)
                 .toString();
     }
 }
