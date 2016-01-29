@@ -63,6 +63,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 
 @ThreadSafe
 public class SharedBuffer
+        implements OutputBuffer
 {
     private final SettableFuture<OutputBuffers> finalOutputBuffers = SettableFuture.create();
 
@@ -102,21 +103,25 @@ public class SharedBuffer
         this.memoryManager = new SharedBufferMemoryManager(maxBufferSize.toBytes(), systemMemoryUsageListener);
     }
 
+    @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
         state.addStateChangeListener(stateChangeListener);
     }
 
+    @Override
     public double getUtilization()
     {
         return memoryManager.getUtilization();
     }
 
+    @Override
     public boolean isFinished()
     {
         return state.get() == FINISHED;
     }
 
+    @Override
     public SharedBufferInfo getInfo()
     {
         //
@@ -145,6 +150,7 @@ public class SharedBuffer
                 infos.build());
     }
 
+    @Override
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
@@ -162,7 +168,7 @@ public class SharedBuffer
         for (Entry<TaskId, Integer> entry : outputBuffers.getBuffers().entrySet()) {
             TaskId bufferId = entry.getKey();
             if (!namedBuffers.containsKey(bufferId)) {
-                checkState(state.get().canAddBuffers(), "Cannot add buffers to %s", SharedBuffer.class.getSimpleName());
+                checkState(state.get().canAddBuffers(), "Cannot add buffers to %s", getClass().getSimpleName());
 
                 int partition = entry.getValue();
 
@@ -195,11 +201,13 @@ public class SharedBuffer
         return partitionBuffers.computeIfAbsent(partition, k -> new PartitionBuffer(partition, memoryManager));
     }
 
+    @Override
     public synchronized ListenableFuture<?> enqueue(Page page)
     {
         return enqueue(BROADCAST_PARTITION_ID, page);
     }
 
+    @Override
     public synchronized ListenableFuture<?> enqueue(int partition, Page page)
     {
         requireNonNull(page, "page is null");
@@ -217,6 +225,7 @@ public class SharedBuffer
         return memoryManager.getNotFullFuture();
     }
 
+    @Override
     public synchronized CompletableFuture<BufferResult> get(TaskId outputId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(outputId, "outputId is null");
@@ -236,6 +245,7 @@ public class SharedBuffer
         return getBufferResult.getFuture();
     }
 
+    @Override
     public synchronized void abort(TaskId outputId)
     {
         requireNonNull(outputId, "outputId is null");
@@ -250,6 +260,7 @@ public class SharedBuffer
         updateState();
     }
 
+    @Override
     public synchronized void setNoMorePages()
     {
         if (state.compareAndSet(OPEN, NO_MORE_PAGES) || state.compareAndSet(NO_MORE_BUFFERS, FLUSHING)) {
@@ -257,9 +268,7 @@ public class SharedBuffer
         }
     }
 
-    /**
-     * Destroys the buffer, discarding all pages.
-     */
+    @Override
     public synchronized void destroy()
     {
         // ignore destroy if the buffer already in a terminal state.
@@ -275,9 +284,7 @@ public class SharedBuffer
         processPendingReads();
     }
 
-    /**
-     * Fail the buffer, discarding all pages, but blocking readers.
-     */
+    @Override
     public synchronized void fail()
     {
         // ignore fail if the buffer already in a terminal state.
@@ -352,14 +359,14 @@ public class SharedBuffer
         // This intentionally does not use checkState, because it's called *very* frequently. To the point that
         // SharedBuffer.class.getSimpleName() showed up in perf
         if (!Thread.holdsLock(this)) {
-            throw new IllegalStateException(format("Thread must hold a lock on the %s", SharedBuffer.class.getSimpleName()));
+            throw new IllegalStateException(format("Thread must hold a lock on the %s", getClass().getSimpleName()));
         }
     }
 
     private void checkDoesNotHoldLock()
     {
         if (Thread.holdsLock(this)) {
-            throw new IllegalStateException(format("Thread must NOT hold a lock on the %s", SharedBuffer.class.getSimpleName()));
+            throw new IllegalStateException(format("Thread must NOT hold a lock on the %s", getClass().getSimpleName()));
         }
     }
 
