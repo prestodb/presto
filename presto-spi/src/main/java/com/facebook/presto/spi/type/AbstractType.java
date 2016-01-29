@@ -154,7 +154,7 @@ public abstract class AbstractType
     }
 
     @Override
-    public final String toString()
+    public String toString()
     {
         return getTypeSignature().toString();
     }

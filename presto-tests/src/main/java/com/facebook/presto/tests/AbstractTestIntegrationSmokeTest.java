@@ -15,7 +15,6 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingSession;
@@ -41,7 +40,6 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -50,8 +48,6 @@ public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
     private final Optional<Session> sampledSession;
-
-    private static final String VARCHAR_MAX = format("varchar(%s)", VarcharType.MAX_LENGTH);
 
     protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
     {
@@ -307,18 +303,18 @@ public abstract class AbstractTestIntegrationSmokeTest
             orderDateType = "date";
         }
         else {
-            orderDateType = VARCHAR_MAX;
+            orderDateType = "varchar";
         }
         return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR)
                     .row("orderkey", "bigint", "")
                     .row("custkey", "bigint", "")
-                    .row("orderstatus", VARCHAR_MAX, "")
+                    .row("orderstatus", "varchar", "")
                     .row("totalprice", "double", "")
                     .row("orderdate", orderDateType, "")
-                    .row("orderpriority", VARCHAR_MAX, "")
-                    .row("clerk", VARCHAR_MAX, "")
+                    .row("orderpriority", "varchar", "")
+                    .row("clerk", "varchar", "")
                     .row("shippriority", "bigint", "")
-                    .row("comment", VARCHAR_MAX, "")
+                    .row("comment", "varchar", "")
                     .build();
     }
 

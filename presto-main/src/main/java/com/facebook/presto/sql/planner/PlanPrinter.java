@@ -616,7 +616,7 @@ public class PlanPrinter
 
         private String formatOutputs(Iterable<Symbol> symbols)
         {
-            return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input)));
+            return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input).getDisplayName()));
         }
 
         private void printConstraint(int indent, ColumnHandle column, TupleDomain<ColumnHandle> constraint)

@@ -19,7 +19,6 @@ import com.facebook.presto.operator.scalar.TestingRowConstructor;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -124,8 +123,6 @@ public abstract class AbstractTestQueries
                     "connector double property",
                     99.0,
                     false));
-
-    private static final String VARCHAR_MAX = format("varchar(%s)", VarcharType.MAX_LENGTH);
 
     protected AbstractTestQueries(QueryRunner queryRunner)
     {
@@ -3863,13 +3860,13 @@ public abstract class AbstractTestQueries
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "")
                 .row("custkey", "bigint", "")
-                .row("orderstatus", VARCHAR_MAX, "")
+                .row("orderstatus", "varchar", "")
                 .row("totalprice", "double",  "")
                 .row("orderdate", "date", "")
-                .row("orderpriority", VARCHAR_MAX, "")
-                .row("clerk", VARCHAR_MAX, "")
+                .row("orderpriority", "varchar", "")
+                .row("clerk", "varchar", "")
                 .row("shippriority", "bigint", "")
-                .row("comment", VARCHAR_MAX, "")
+                .row("comment", "varchar", "")
                 .build();
 
         assertEquals(actual, expected);
@@ -3981,9 +3978,9 @@ public abstract class AbstractTestQueries
             return (String) input.getField(0);
         });
 
-        assertEquals(properties.get("test_string"), new MaterializedRow(1, "test_string", "foo string", "test default", VARCHAR_MAX, "test string property"));
+        assertEquals(properties.get("test_string"), new MaterializedRow(1, "test_string", "foo string", "test default", "varchar", "test string property"));
         assertEquals(properties.get("test_long"), new MaterializedRow(1, "test_long", "424242", "42", "bigint", "test long property"));
-        assertEquals(properties.get("connector.connector_string"), new MaterializedRow(1, "connector.connector_string", "bar string", "connector default", VARCHAR_MAX, "connector string property"));
+        assertEquals(properties.get("connector.connector_string"), new MaterializedRow(1, "connector.connector_string", "bar string", "connector default", "varchar", "connector string property"));
         assertEquals(properties.get("connector.connector_long"), new MaterializedRow(1, "connector.connector_long", "11", "33", "bigint", "connector long property"));
     }
 
