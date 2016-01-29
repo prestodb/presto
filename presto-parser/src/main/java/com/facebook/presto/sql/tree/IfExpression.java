@@ -38,7 +38,7 @@ public class IfExpression
         this(Optional.of(location), condition, trueValue, falseValue);
     }
 
-    private IfExpression(Optional<NodeLocation> location, Expression condition, Expression trueValue, Expression falseValue)
+    protected IfExpression(Optional<NodeLocation> location, Expression condition, Expression trueValue, Expression falseValue)
     {
         super(location);
         this.condition = requireNonNull(condition, "condition is null");

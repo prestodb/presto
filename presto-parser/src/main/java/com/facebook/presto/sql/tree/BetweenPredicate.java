@@ -35,7 +35,7 @@ public class BetweenPredicate
         this(Optional.of(location), value, min, max);
     }
 
-    private BetweenPredicate(Optional<NodeLocation> location, Expression value, Expression min, Expression max)
+    protected BetweenPredicate(Optional<NodeLocation> location, Expression value, Expression min, Expression max)
     {
         super(location);
         requireNonNull(value, "value is null");

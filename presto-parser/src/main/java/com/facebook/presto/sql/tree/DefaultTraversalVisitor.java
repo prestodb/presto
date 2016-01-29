@@ -447,4 +447,20 @@ public abstract class DefaultTraversalVisitor<R, C>
 
         return null;
     }
+
+    @Override
+    protected R visitInsert(Insert node, C context)
+    {
+        process(node.getQuery(), context);
+        return null;
+    }
+
+    @Override
+    protected R visitSimpleGroupBy(SimpleGroupBy node, C context)
+    {
+        for (Expression expression : node.getColumnExpressions()) {
+            process(expression, context);
+        }
+        return null;
+    }
 }

@@ -37,7 +37,7 @@ public class WithQuery
         this(Optional.of(location), name, query, columnNames);
     }
 
-    private WithQuery(Optional<NodeLocation> location, String name, Query query, List<String> columnNames)
+    protected WithQuery(Optional<NodeLocation> location, String name, Query query, List<String> columnNames)
     {
         super(location);
         this.name = QualifiedName.of(requireNonNull(name, "name is null")).getParts().get(0);

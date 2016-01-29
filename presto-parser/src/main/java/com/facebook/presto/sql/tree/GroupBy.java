@@ -38,7 +38,7 @@ public class GroupBy
         this(Optional.of(location), isDistinct, groupingElements);
     }
 
-    private GroupBy(Optional<NodeLocation> location, boolean isDistinct, List<GroupingElement> groupingElements)
+    protected GroupBy(Optional<NodeLocation> location, boolean isDistinct, List<GroupingElement> groupingElements)
     {
         super(location);
         this.isDistinct = isDistinct;

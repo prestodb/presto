@@ -56,7 +56,7 @@ public class QuerySpecification
         this(Optional.of(location), select, from, where, groupBy, having, orderBy, limit);
     }
 
-    private QuerySpecification(
+    protected QuerySpecification(
             Optional<NodeLocation> location,
             Select select,
             Optional<Relation> from,

@@ -35,7 +35,7 @@ public class NullIfExpression
         this(Optional.of(location), first, second);
     }
 
-    private NullIfExpression(Optional<NodeLocation> location, Expression first, Expression second)
+    protected NullIfExpression(Optional<NodeLocation> location, Expression first, Expression second)
     {
         super(location);
         this.first = first;

@@ -45,7 +45,7 @@ public class SortItem
         this(Optional.of(location), sortKey, ordering, nullOrdering);
     }
 
-    private SortItem(Optional<NodeLocation> location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
+    protected SortItem(Optional<NodeLocation> location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
     {
         super(location);
         this.ordering = ordering;

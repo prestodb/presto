@@ -41,7 +41,7 @@ public class WindowFrame
         this(Optional.of(location), type, start, end);
     }
 
-    private WindowFrame(Optional<NodeLocation> location, Type type, FrameBound start, Optional<FrameBound> end)
+    protected WindowFrame(Optional<NodeLocation> location, Type type, FrameBound start, Optional<FrameBound> end)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");

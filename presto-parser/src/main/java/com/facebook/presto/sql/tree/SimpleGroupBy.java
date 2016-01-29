@@ -39,7 +39,7 @@ public class SimpleGroupBy
         this(Optional.of(location), simpleGroupByExpressions);
     }
 
-    private SimpleGroupBy(Optional<NodeLocation> location, List<Expression> simpleGroupByExpressions)
+    protected SimpleGroupBy(Optional<NodeLocation> location, List<Expression> simpleGroupByExpressions)
     {
         super(location);
         this.columns = requireNonNull(simpleGroupByExpressions);
@@ -54,6 +54,12 @@ public class SimpleGroupBy
     public List<Set<Expression>> enumerateGroupingSets()
     {
         return ImmutableList.of(ImmutableSet.copyOf(columns));
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitSimpleGroupBy(this, context);
     }
 
     @Override

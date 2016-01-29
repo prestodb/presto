@@ -37,7 +37,7 @@ public class Window
         this(Optional.of(location), partitionBy, orderBy, frame);
     }
 
-    private Window(Optional<NodeLocation> location, List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
+    protected Window(Optional<NodeLocation> location, List<Expression> partitionBy, List<SortItem> orderBy, Optional<WindowFrame> frame)
     {
         super(location);
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");

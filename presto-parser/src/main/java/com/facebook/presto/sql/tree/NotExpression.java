@@ -33,7 +33,7 @@ public class NotExpression
         this(Optional.of(location), value);
     }
 
-    private NotExpression(Optional<NodeLocation> location, Expression value)
+    protected NotExpression(Optional<NodeLocation> location, Expression value)
     {
         super(location);
         requireNonNull(value, "value is null");

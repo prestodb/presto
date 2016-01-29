@@ -32,7 +32,7 @@ public class WhenClause
         this(Optional.of(location), operand, result);
     }
 
-    private WhenClause(Optional<NodeLocation> location, Expression operand, Expression result)
+    protected WhenClause(Optional<NodeLocation> location, Expression operand, Expression result)
     {
         super(location);
         this.operand = operand;

@@ -42,7 +42,7 @@ public class CoalesceExpression
         this(Optional.of(location), operands);
     }
 
-    private CoalesceExpression(Optional<NodeLocation> location, List<Expression> operands)
+    protected CoalesceExpression(Optional<NodeLocation> location, List<Expression> operands)
     {
         super(location);
         requireNonNull(operands, "operands is null");
