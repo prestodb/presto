@@ -61,6 +61,15 @@ public class QueryExecutionResource
     }
 
     @GET
+    @Path("/ui/plan")
+    @Produces(MediaType.TEXT_HTML)
+    public String getPlanUi()
+            throws IOException
+    {
+        return Resources.toString(getResource(getClass(), "plan.html"), StandardCharsets.UTF_8);
+    }
+
+    @GET
     @Path("/ui/query-execution")
     @Produces(MediaType.TEXT_HTML)
     public String getUi()

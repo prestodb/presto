@@ -128,7 +128,7 @@
         <dt>Raw</dt>
         <dd><a id="rawJson"></a></dd>
 
-        <dt>Execution</dt>
+        <dt>Plan</dt>
         <dd><a id="executionLink"></a></dd>
 
         <dt>Visualization</dt>
@@ -273,7 +273,7 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#rawJson').text(uri);
     d3.select('#rawJson').attr("href", uri);
 
-    var executionLink = "/ui/query-execution?" + query.queryId;
+    var executionLink = "/ui/plan?" + query.queryId;
     d3.select('#executionLink').text(executionLink);
     d3.select('#executionLink').attr("href", executionLink);
 
