@@ -16,12 +16,16 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.sql.QueryUtil.equal;
+import static com.facebook.presto.sql.QueryUtil.nameReference;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
@@ -44,6 +48,28 @@ public class TestStatementCreator
         Session session = TEST_SESSION.withPreparedStatement("my_query", "select * from foo");
         assertEquals(statementCreator.createStatement("execute my_query", session),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
+    }
+
+    @Test
+    public void testExecuteWithParameters() throws Exception
+    {
+        Session session = TEST_SESSION.withPreparedStatement("my_query", "select * from foo where bar = ?");
+        assertEquals(statementCreator.createStatement("execute my_query USING 123", session),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo")), equal(nameReference("bar"), new LongLiteral("123"))));
+    }
+
+    @Test(expectedExceptions = SemanticException.class)
+    public void testTooManyParameters() throws Exception
+    {
+        Session session = TEST_SESSION.withPreparedStatement("my_query", "select * from foo");
+        statementCreator.createStatement("execute my_query USING 123", session);
+    }
+
+    @Test(expectedExceptions = SemanticException.class)
+    public void testTooFewParameters() throws Exception
+    {
+        Session session = TEST_SESSION.withPreparedStatement("my_query", "select * from foo where bar = ? and baz = ?");
+        statementCreator.createStatement("execute my_query USING 123", session);
     }
 
     @Test(expectedExceptions = PrestoException.class)

@@ -63,6 +63,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -115,6 +116,7 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -1395,6 +1397,15 @@ public class TestSqlParser
     }
 
     @Test
+    public void testPrepareWithParameters()
+    {
+        assertStatement("PREPARE myquery FROM select ?, ? from foo",
+                new Prepare("myquery", simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
+                        table(QualifiedName.of("foo")))));
+    }
+
+    @Test
     public void testDeallocatePrepare()
     {
         assertStatement("DEALLOCATE PREPARE myquery", new Deallocate("myquery"));
@@ -1403,7 +1414,13 @@ public class TestSqlParser
     @Test
     public void testExecute()
     {
-        assertStatement("EXECUTE myquery", new Execute("myquery"));
+        assertStatement("EXECUTE myquery", new Execute("myquery", emptyList()));
+    }
+
+    @Test
+    public void testExecuteWithUsing()
+    {
+        assertStatement("EXECUTE myquery USING 1, 'abc'", new Execute("myquery", ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"))));
     }
 
     private static void assertCast(String type)

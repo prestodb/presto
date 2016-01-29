@@ -42,6 +42,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Prepare;
@@ -167,6 +168,12 @@ public final class SqlFormatter
         {
             append(indent, "EXECUTE ");
             builder.append(node.getName());
+            List<Literal> parameters = node.getParameters();
+            if (!parameters.isEmpty()) {
+                builder.append(" USING ");
+                String parameterString = Joiner.on(", ").join(parameters);
+                builder.append(parameterString);
+            }
             return null;
         }
 
