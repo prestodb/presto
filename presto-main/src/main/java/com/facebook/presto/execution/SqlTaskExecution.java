@@ -19,7 +19,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskExecutor.TaskHandle;
 import com.facebook.presto.execution.buffer.BufferState;
-import com.facebook.presto.execution.buffer.SharedBuffer;
+import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -75,7 +75,7 @@ public class SqlTaskExecution
     private final TaskId taskId;
     private final TaskStateMachine taskStateMachine;
     private final TaskContext taskContext;
-    private final SharedBuffer sharedBuffer;
+    private final OutputBuffer outputBuffer;
 
     private final TaskHandle taskHandle;
     private final TaskExecutor taskExecutor;
@@ -109,7 +109,7 @@ public class SqlTaskExecution
     public static SqlTaskExecution createSqlTaskExecution(
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
-            SharedBuffer sharedBuffer,
+            OutputBuffer outputBuffer,
             PlanFragment fragment,
             List<TaskSource> sources,
             LocalExecutionPlanner planner,
@@ -118,7 +118,10 @@ public class SqlTaskExecution
             QueryMonitor queryMonitor)
     {
         SqlTaskExecution task = new SqlTaskExecution(
-                taskStateMachine, taskContext, sharedBuffer, fragment,
+                taskStateMachine,
+                taskContext,
+                outputBuffer,
+                fragment,
                 planner,
                 taskExecutor,
                 queryMonitor,
@@ -135,7 +138,7 @@ public class SqlTaskExecution
     private SqlTaskExecution(
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
-            SharedBuffer sharedBuffer,
+            OutputBuffer outputBuffer,
             PlanFragment fragment,
             LocalExecutionPlanner planner,
             TaskExecutor taskExecutor,
@@ -145,7 +148,7 @@ public class SqlTaskExecution
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.taskId = taskStateMachine.getTaskId();
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
-        this.sharedBuffer = requireNonNull(sharedBuffer, "sharedBuffer is null");
+        this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
 
         this.taskExecutor = requireNonNull(taskExecutor, "driverExecutor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -160,7 +163,7 @@ public class SqlTaskExecution
                         fragment.getRoot(),
                         fragment.getSymbols(),
                         fragment.getPartitioningScheme(),
-                        sharedBuffer);
+                        outputBuffer);
                 driverFactories = localExecutionPlan.getDriverFactories();
             }
             catch (Throwable e) {
@@ -190,7 +193,7 @@ public class SqlTaskExecution
 
             // don't register the task if it is already completed (most likely failed during planning above)
             if (!taskStateMachine.getState().isDone()) {
-                taskHandle = taskExecutor.addTask(taskId, sharedBuffer::getUtilization, getInitialSplitsPerNode(taskContext.getSession()), getSplitConcurrencyAdjustmentInterval(taskContext.getSession()));
+                taskHandle = taskExecutor.addTask(taskId, outputBuffer::getUtilization, getInitialSplitsPerNode(taskContext.getSession()), getSplitConcurrencyAdjustmentInterval(taskContext.getSession()));
                 taskStateMachine.addStateChangeListener(new RemoveTaskHandleWhenDone(taskExecutor, taskHandle));
                 taskStateMachine.addStateChangeListener(state -> {
                     if (state.isDone()) {
@@ -204,7 +207,7 @@ public class SqlTaskExecution
                 taskHandle = null;
             }
 
-            sharedBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
+            outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
         }
     }
 
@@ -448,10 +451,10 @@ public class SqlTaskExecution
         }
 
         // no more output will be created
-        sharedBuffer.setNoMorePages();
+        outputBuffer.setNoMorePages();
 
         // are there still pages in the output buffer
-        if (!sharedBuffer.isFinished()) {
+        if (!outputBuffer.isFinished()) {
             return;
         }
 
