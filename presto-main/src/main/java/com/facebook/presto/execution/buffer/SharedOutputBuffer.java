@@ -94,10 +94,22 @@ public class SharedOutputBuffer
 
     public SharedOutputBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
     {
-        requireNonNull(taskId, "taskId is null");
-        requireNonNull(executor, "executor is null");
+        this(
+                taskInstanceId,
+                new StateMachine<>(
+                        requireNonNull(taskId, "taskId is null") + "-buffer",
+                        requireNonNull(executor, "executor is null"),
+                        OPEN,
+                        TERMINAL_BUFFER_STATES),
+                maxBufferSize,
+                systemMemoryUsageListener);
+    }
+
+    public SharedOutputBuffer(String taskInstanceId, StateMachine<BufferState> state, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
+    {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
-        state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
+        this.state = requireNonNull(state, "state is null");
+
         requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");

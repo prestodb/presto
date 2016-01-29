@@ -298,6 +298,7 @@ public class TestSqlTask
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.<SqlTask>identity(),
-                new DataSize(32, MEGABYTE));
+                new DataSize(32, MEGABYTE),
+                true);
     }
 }
