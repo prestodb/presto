@@ -141,6 +141,7 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         assertQuery("SELECT orderkey from orders LIMIT " + Integer.MAX_VALUE);
+        assertQuery("SELECT orderkey from orders ORDER BY orderkey LIMIT " + Integer.MAX_VALUE);
     }
 
     @Test

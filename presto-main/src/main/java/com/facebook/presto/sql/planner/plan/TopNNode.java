@@ -26,6 +26,8 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -50,6 +52,7 @@ public class TopNNode
 
         requireNonNull(source, "source is null");
         Preconditions.checkArgument(count >= 0, "count must be positive");
+        checkCondition(count <= Integer.MAX_VALUE, NOT_SUPPORTED, "ORDER BY LIMIT > %s is not supported", Integer.MAX_VALUE);
         requireNonNull(orderBy, "orderBy is null");
         Preconditions.checkArgument(!orderBy.isEmpty(), "orderBy is empty");
         Preconditions.checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
