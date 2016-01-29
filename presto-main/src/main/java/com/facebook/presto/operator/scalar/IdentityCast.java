@@ -26,7 +26,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class IdentityCast
@@ -36,7 +36,7 @@ public class IdentityCast
 
     protected IdentityCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"));
+        super(OperatorType.CAST, ImmutableList.of(typeVariable("T")), ImmutableList.of(), "T", ImmutableList.of("T"));
     }
 
     @Override

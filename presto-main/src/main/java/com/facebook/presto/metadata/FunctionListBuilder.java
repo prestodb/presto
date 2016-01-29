@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.aggregation.GenericAggregationFunctionFactory.fromAggregationDefinition;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -130,7 +130,8 @@ public class FunctionListBuilder
         Signature signature = new Signature(
                 name,
                 WINDOW,
-                ImmutableList.of(typeParameter(typeVariable)),
+                ImmutableList.of(typeVariable(typeVariable)),
+                ImmutableList.of(),
                 typeVariable,
                 ImmutableList.copyOf(argumentTypes),
                 false,
