@@ -135,6 +135,7 @@ import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.QueryUtil.aliased;
@@ -520,6 +521,9 @@ class StatementAnalyzer
         if (tableHandle.isPresent()) {
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
             if (tableMetadata.getMqtQuery().isPresent()) {
+                if (!insert.isTriggeredByRefresh()) {
+                    throw new PrestoException(USER_ERROR, "Cannot insert into materialized query table");
+                }
                 insertQuery = (Query) sqlParser.createStatement(tableMetadata.getMqtQuery().get());
             }
         }
@@ -619,6 +623,14 @@ class StatementAnalyzer
         QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
         if (metadata.getView(session, tableName).isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
+        }
+
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        if (tableHandle.isPresent()) {
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+            if (tableMetadata.getMqtQuery().isPresent() && !node.isTriggeredByRefresh()) {
+                throw new PrestoException(USER_ERROR, "Cannot delete from materialized query table");
+            }
         }
 
         analysis.setUpdateType("DELETE");

@@ -26,18 +26,25 @@ public final class Insert
     private final QualifiedName target;
     private final Query query;
     private final Optional<List<String>> columns;
+    private final boolean triggeredByRefresh;
 
     public Insert(QualifiedName target, Optional<List<String>> columns, Query query)
     {
-        this(Optional.empty(), columns, target, query);
+        this(Optional.empty(), columns, target, query, false);
     }
 
-    private Insert(Optional<NodeLocation> location, Optional<List<String>> columns, QualifiedName target, Query query)
+    public Insert(QualifiedName target, Optional<List<String>> columns, Query query, boolean triggeredByRefresh)
+    {
+        this(Optional.empty(), columns, target, query, triggeredByRefresh);
+    }
+
+    private Insert(Optional<NodeLocation> location, Optional<List<String>> columns, QualifiedName target, Query query, boolean triggeredByRefresh)
     {
         super(location);
         this.target = requireNonNull(target, "target is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.query = requireNonNull(query, "query is null");
+        this.triggeredByRefresh = triggeredByRefresh;
     }
 
     public QualifiedName getTarget()
@@ -55,6 +62,11 @@ public final class Insert
         return query;
     }
 
+    public boolean isTriggeredByRefresh()
+    {
+        return triggeredByRefresh;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -64,7 +76,7 @@ public final class Insert
     @Override
     public int hashCode()
     {
-        return Objects.hash(target, columns, query);
+        return Objects.hash(target, columns, query, triggeredByRefresh);
     }
 
     @Override
@@ -79,7 +91,8 @@ public final class Insert
         Insert o = (Insert) obj;
         return Objects.equals(target, o.target) &&
                 Objects.equals(columns, o.columns) &&
-                Objects.equals(query, o.query);
+                Objects.equals(query, o.query) &&
+                Objects.equals(triggeredByRefresh, o.triggeredByRefresh);
     }
 
     @Override
@@ -89,6 +102,7 @@ public final class Insert
                 .add("target", target)
                 .add("columns", columns)
                 .add("query", query)
+                .add("triggeredByRefresh", triggeredByRefresh)
                 .toString();
     }
 }
