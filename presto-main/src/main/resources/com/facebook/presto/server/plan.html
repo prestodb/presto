@@ -107,10 +107,10 @@ function flattenNode(stages, nodeInfo, result)
         case 'join':
             sources = [nodeInfo.left, nodeInfo.right];
             break;
-        case 'semiJoin':
+        case 'semijoin':
             sources = [nodeInfo.source, nodeInfo.filteringSource];
             break;
-        case 'indexJoin':
+        case 'indexjoin':
             sources = [nodeInfo.probeSource, nodeInfo.filterSource];
             break;
         case 'union':
