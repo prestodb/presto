@@ -158,7 +158,7 @@ public class TestAnalyzer
     public void testScalarSubQuery()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES 1) GROUP BY 1");
+        analyze("SELECT 'a', (VALUES 1) GROUP BY 1");
         analyze("SELECT 'a', (SELECT (1))");
         analyze("SELECT * FROM t1 WHERE (VALUES 1) = 2");
         analyze("SELECT * FROM t1 WHERE (VALUES 1) IN (VALUES 1)");

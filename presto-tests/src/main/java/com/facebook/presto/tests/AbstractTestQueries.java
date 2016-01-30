@@ -67,6 +67,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.tests.QueryAssertions.assertQuery;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -4539,6 +4540,11 @@ public abstract class AbstractTestQueries
     public void testSemiJoin()
             throws Exception
     {
+        assertQuery("SELECT linenumber, min(orderkey) " +
+                "FROM lineitem " +
+                "GROUP BY linenumber " +
+                "HAVING min(orderkey) IN (SELECT orderkey FROM orders WHERE orderkey > 1)");
+
         // Throw in a bunch of IN subquery predicates
         assertQuery("" +
                 "SELECT *, o2.custkey\n" +
@@ -4663,6 +4669,49 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSemiJoinWithGroupBy()
+            throws Exception
+    {
+        // using the same subquery in query
+        assertQuery("SELECT linenumber, min(orderkey), 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber");
+
+        assertQuery("SELECT linenumber, min(orderkey), 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey) " +
+                "FROM lineitem " +
+                "GROUP BY linenumber, 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey) " +
+                "FROM lineitem " +
+                "GROUP BY linenumber " +
+                "HAVING 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey), 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "HAVING 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)");
+
+        // using different subqueries
+        assertQuery("SELECT linenumber, min(orderkey), 6 IN (SELECT max(orderkey) FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, 6 IN (SELECT sum(orderkey) FROM orders WHERE orderkey < 5)");
+
+        assertQuery("SELECT linenumber, min(orderkey) " +
+                "FROM lineitem " +
+                "GROUP BY linenumber, 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "HAVING 6 IN (SELECT orderkey FROM orders WHERE orderkey > 3)");
+
+        assertQuery("SELECT linenumber, min(orderkey), 6 IN (SELECT orderkey FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, 6 IN (SELECT orderkey FROM orders WHERE orderkey < 5)" +
+                "HAVING 6 IN (SELECT orderkey FROM orders WHERE orderkey > 3)");
+    }
+
+    @Test
     public void testScalarSubquery()
             throws Exception
     {
@@ -4715,17 +4764,63 @@ public abstract class AbstractTestQueries
                     "GROUP BY l.orderkey");
         }
 
+        // subqueries with ORDER BY
+        assertQuery("SELECT orderkey, totalprice FROM orders ORDER BY (SELECT 2)");
+
         // subquery returns multiple rows
         String multipleRowsErrorMsg = "Scalar sub-query has returned multiple rows";
         assertQueryFails("SELECT * FROM lineitem WHERE orderkey = (\n" +
                 "SELECT orderkey FROM orders ORDER BY totalprice)",
                 multipleRowsErrorMsg);
-        assertQueryFails("SELECT (VALUES (1), (2)) IN (1,2)",
+        assertQueryFails("SELECT orderkey, totalprice FROM orders ORDER BY (VALUES 1, 2)",
                 multipleRowsErrorMsg);
 
         // exposes a bug in optimize hash generation because EnforceSingleNode does not
         // support more than one column from the underlying query
         assertQuery("SELECT custkey, (SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 1) FROM orders");
+    }
+
+    @Test
+    public void testScalarSubqueryWithGroupBy()
+            throws Exception
+    {
+        // using the same subquery in query
+        assertQuery("SELECT linenumber, min(orderkey), (SELECT max(orderkey) FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber");
+
+        assertQuery("SELECT linenumber, min(orderkey), (SELECT max(orderkey) FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, (SELECT max(orderkey) FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey) " +
+                "FROM lineitem " +
+                "GROUP BY linenumber, (SELECT max(orderkey) FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey) " +
+                "FROM lineitem " +
+                "GROUP BY linenumber " +
+                "HAVING min(orderkey) < (SELECT avg(orderkey) FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey), (SELECT max(orderkey) FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, (SELECT max(orderkey) FROM orders WHERE orderkey < 7)" +
+                "HAVING min(orderkey) < (SELECT max(orderkey) FROM orders WHERE orderkey < 7)");
+
+        // using different subqueries
+        assertQuery("SELECT linenumber, min(orderkey), (SELECT max(orderkey) FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, (SELECT sum(orderkey) FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, max(orderkey), (SELECT min(orderkey) FROM orders WHERE orderkey < 5)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber " +
+                "HAVING sum(orderkey) > (SELECT min(orderkey) FROM orders WHERE orderkey < 7)");
+
+        assertQuery("SELECT linenumber, min(orderkey), (SELECT max(orderkey) FROM orders WHERE orderkey < 7)" +
+                "FROM lineitem " +
+                "GROUP BY linenumber, (SELECT count(orderkey) FROM orders WHERE orderkey < 7)" +
+                "HAVING min(orderkey) < (SELECT sum(orderkey) FROM orders WHERE orderkey < 7)");
     }
 
     @Test

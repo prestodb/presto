@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -74,8 +75,10 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -112,11 +115,11 @@ class QueryPlanner
     protected PlanBuilder visitQuery(Query query, Void context)
     {
         PlanBuilder builder = planQueryBody(query);
-        builder = appendSemiJoins(builder, analysis.getInPredicates(query));
-        builder = appendScalarSubqueryJoins(builder, analysis.getScalarSubqueries(query));
 
         List<FieldOrExpression> orderBy = analysis.getOrderByExpressions(query);
+        builder = handleSubqueries(builder, query, orderBy);
         List<FieldOrExpression> outputs = analysis.getOutputExpressions(query);
+        builder = handleSubqueries(builder, query, outputs);
         builder = project(builder, Iterables.concat(orderBy, outputs));
 
         builder = sort(builder, query);
@@ -131,17 +134,16 @@ class QueryPlanner
     {
         PlanBuilder builder = planFrom(node);
 
-        builder = appendSemiJoins(builder, analysis.getInPredicates(node));
-        builder = appendScalarSubqueryJoins(builder, analysis.getScalarSubqueries(node));
-
-        builder = filter(builder, analysis.getWhere(node));
+        builder = filter(builder, analysis.getWhere(node), node);
         builder = aggregate(builder, node);
-        builder = filter(builder, analysis.getHaving(node));
+        builder = filter(builder, analysis.getHaving(node), node);
 
         builder = window(builder, node);
 
         List<FieldOrExpression> orderBy = analysis.getOrderByExpressions(node);
+        builder = handleSubqueries(builder, node, orderBy);
         List<FieldOrExpression> outputs = analysis.getOutputExpressions(node);
+        builder = handleSubqueries(builder, node, outputs);
         builder = project(builder, Iterables.concat(orderBy, outputs));
 
         builder = distinct(builder, node, outputs, orderBy);
@@ -221,12 +223,8 @@ class QueryPlanner
 
         PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight());
 
-        // add semi-joins and filters
-        Set<InPredicate> inPredicates = analysis.getInPredicates(node);
-        builder = appendSemiJoins(builder, inPredicates);
-
         if (node.getWhere().isPresent()) {
-            builder = filter(builder, node.getWhere().get());
+            builder = filter(builder, node.getWhere().get(), node);
         }
 
         // create delete node
@@ -248,14 +246,20 @@ class QueryPlanner
                 Optional.empty());
     }
 
-    private PlanBuilder filter(PlanBuilder subPlan, Expression predicate)
+    private PlanBuilder filter(PlanBuilder subPlan, Expression predicate, Node node)
     {
         if (predicate == null) {
             return subPlan;
         }
 
-        Expression rewritten = subPlan.rewrite(predicate);
-        return new PlanBuilder(subPlan.getTranslations(), new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), rewritten), subPlan.getSampleWeight());
+        // rewrite expressions which contain already handled subqueries
+        Expression rewrittenBeforeSubqueries = subPlan.rewrite(predicate);
+        subPlan = handleSubqueries(subPlan, rewrittenBeforeSubqueries, node);
+        Expression rewrittenAfterSubqueries = subPlan.rewrite(predicate);
+        return new PlanBuilder(
+                subPlan.getTranslations(),
+                new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), rewrittenAfterSubqueries),
+                subPlan.getSampleWeight());
     }
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<FieldOrExpression> expressions)
@@ -368,6 +372,9 @@ class QueryPlanner
 
         // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
         Iterable<FieldOrExpression> inputs = Iterables.concat(groupingSet, arguments);
+
+        subPlan = handleSubqueries(subPlan, node, inputs);
+
         if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
             subPlan = project(subPlan, inputs);
         }
@@ -610,6 +617,34 @@ class QueryPlanner
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());
     }
 
+    private PlanBuilder handleSubqueries(PlanBuilder subPlan, Node node, Iterable<FieldOrExpression> inputs)
+    {
+        for (FieldOrExpression input : inputs) {
+            if (input.isExpression()) {
+                Expression rewritten = subPlan.rewrite(input.getExpression());
+                subPlan = handleSubqueries(subPlan, rewritten, node);
+            }
+        }
+        return subPlan;
+    }
+
+    private PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
+    {
+        builder = appendSemiJoins(
+                builder,
+                analysis.getInPredicates(node)
+                        .stream()
+                        .filter(inPredicate -> nodeContains(expression, inPredicate.getValueList()))
+                        .collect(toImmutableSet()));
+        builder = appendScalarSubqueryJoins(
+                builder,
+                analysis.getScalarSubqueries(node)
+                        .stream()
+                        .filter(subquery -> nodeContains(expression, subquery))
+                        .collect(toImmutableSet()));
+        return builder;
+    }
+
     private PlanBuilder appendSemiJoins(PlanBuilder subPlan, Set<InPredicate> inPredicates)
     {
         for (InPredicate inPredicate : inPredicates) {
@@ -624,7 +659,7 @@ class QueryPlanner
      * 2) Create a new SemiJoinNode that connects the semijoin lookup field with the planned subquery and have it output a new boolean
      * symbol for the result of the semijoin.
      * 3) Add an entry to the TranslationMap that notes to map the InPredicate into semijoin output symbol
-     * <p>
+     * <p/>
      * Currently, we only support semijoins deriving from InPredicates, but we will probably need
      * to add support for more SQL constructs in the future.
      */
