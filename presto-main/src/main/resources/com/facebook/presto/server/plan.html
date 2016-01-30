@@ -115,6 +115,7 @@ function flattenNode(stages, nodeInfo, result)
             sources = [nodeInfo.probeSource, nodeInfo.filterSource];
             break;
         case 'union':
+        case 'exchange':
             sources = nodeInfo.sources;
             break;
         case 'remoteSource':
