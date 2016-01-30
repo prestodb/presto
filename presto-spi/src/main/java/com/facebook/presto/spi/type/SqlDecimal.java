@@ -16,7 +16,9 @@ package com.facebook.presto.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.Objects;
 
 public final class SqlDecimal
@@ -66,5 +68,10 @@ public final class SqlDecimal
     public String toString()
     {
         return Decimals.toString(unscaledValue, scale);
+    }
+
+    public BigDecimal toBigDecimal()
+    {
+        return new BigDecimal(unscaledValue, scale, new MathContext(precision));
     }
 }
