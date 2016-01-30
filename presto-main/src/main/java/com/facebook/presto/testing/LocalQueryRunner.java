@@ -571,9 +571,7 @@ public class LocalQueryRunner
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitionFunction().getOutputLayout(),
                 plan.getTypes(),
-                outputFactory,
-                true,
-                false);
+                outputFactory);
 
         // generate sources
         List<TaskSource> sources = new ArrayList<>();

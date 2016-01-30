@@ -150,9 +150,7 @@ public class SqlTaskExecution
                         fragment.getRoot(),
                         fragment.getSymbols(),
                         fragment.getPartitionFunction(),
-                        sharedBuffer,
-                        fragment.getPartitioning().isSingleNode(),
-                        fragment.getPartitionedSource() == null);
+                        sharedBuffer);
                 driverFactories = localExecutionPlan.getDriverFactories();
             }
             catch (Throwable e) {
