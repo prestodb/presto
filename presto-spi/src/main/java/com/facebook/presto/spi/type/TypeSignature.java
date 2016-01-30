@@ -17,10 +17,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -32,6 +34,7 @@ public class TypeSignature
 {
     private final String base;
     private final List<TypeSignatureParameter> parameters;
+    private final boolean calculated;
 
     public TypeSignature(String base, List<TypeSignatureParameter> parameters)
     {
@@ -41,6 +44,8 @@ public class TypeSignature
         checkArgument(validateName(base), "Bad characters in base type: %s", base);
         checkArgument(parameters != null, "parameters is null");
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
+
+        this.calculated = parameters.stream().anyMatch(TypeSignatureParameter::isCalculated);
     }
 
     // TODO: merge literalParameters for Row with TypeSignatureParameter
@@ -79,7 +84,7 @@ public class TypeSignature
     {
         List<TypeSignature> result = new ArrayList<>();
         for (TypeSignatureParameter parameter : parameters) {
-            if (parameter.getKind() != ParameterKind.TYPE_SIGNATURE) {
+            if (parameter.getKind() != ParameterKind.TYPE) {
                 throw new IllegalStateException(
                         format("Expected all parameters to be TypeSignatures but [%s] was found", parameter.toString()));
             }
@@ -88,8 +93,18 @@ public class TypeSignature
         return result;
     }
 
+    public boolean isCalculated()
+    {
+        return calculated;
+    }
+
     @JsonCreator
     public static TypeSignature parseTypeSignature(String signature)
+    {
+        return parseTypeSignature(signature, new HashSet<>());
+    }
+
+    public static TypeSignature parseTypeSignature(String signature, Set<String> literalCalculationParameters)
     {
         if (!signature.contains("<") && !signature.contains("(")) {
             return new TypeSignature(signature, new ArrayList<>());
@@ -122,7 +137,7 @@ public class TypeSignature
                 checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
                 if (bracketCount == 0) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parseTypeSignatureParameter(signature, parameterStart, i, parameters);
+                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
                     parameterStart = i + 1;
                     if (i == signature.length() - 1) {
                         return new TypeSignature(baseName, parameters);
@@ -132,7 +147,7 @@ public class TypeSignature
             else if (c == ',') {
                 if (bracketCount == 1) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parseTypeSignatureParameter(signature, parameterStart, i, parameters);
+                    parameters.add(parseTypeSignatureParameter(signature, parameterStart, i, literalCalculationParameters));
                     parameterStart = i + 1;
                 }
             }
@@ -227,17 +242,21 @@ public class TypeSignature
         return result;
     }
 
-    private static void parseTypeSignatureParameter(
+    private static TypeSignatureParameter parseTypeSignatureParameter(
             String signature,
             int begin,
             int end,
-            List<TypeSignatureParameter> parameters)
+            Set<String> literalCalculationParameters)
     {
+        String parameterName = signature.substring(begin, end);
         if (Character.isDigit(signature.charAt(begin))) {
-            parameters.add(TypeSignatureParameter.of(Long.parseLong(signature.substring(begin, end))));
+            return TypeSignatureParameter.of(Long.parseLong(parameterName));
+        }
+        else if (literalCalculationParameters.contains(parameterName)) {
+            return TypeSignatureParameter.of(new TypeLiteralCalculation(parameterName));
         }
         else {
-            parameters.add(TypeSignatureParameter.of(parseTypeSignature(signature.substring(begin, end))));
+            return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));
         }
     }
 
@@ -276,7 +295,7 @@ public class TypeSignature
     @Deprecated
     private String rowToString()
     {
-        verify(parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE_SIGNATURE),
+        verify(parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
                 format("Incorrect parameters for row type %s", parameters));
 
         String types = parameters.stream()

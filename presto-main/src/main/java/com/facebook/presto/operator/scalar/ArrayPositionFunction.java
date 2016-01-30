@@ -46,7 +46,7 @@ public final class ArrayPositionFunction
 
     public ArrayPositionFunction()
     {
-        super("array_position", ImmutableList.of(comparableTypeParameter("E")), "bigint", ImmutableList.of("array<E>", "E"));
+        super("array_position", ImmutableList.of(comparableTypeParameter("E")), "bigint", ImmutableList.of("array(E)", "E"));
     }
 
     @Override

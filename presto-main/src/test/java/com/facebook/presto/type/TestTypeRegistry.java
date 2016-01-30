@@ -41,6 +41,17 @@ import static org.testng.Assert.assertTrue;
 public class TestTypeRegistry
 {
     @Test
+    public void testIsTypeOnlyCoercion()
+    {
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(44)")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("varchar(44)"), parseTypeSignature("varchar(42)")));
+
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(varchar(42))"), parseTypeSignature("array(varchar(44))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(varchar(44))"), parseTypeSignature("array(varchar(42))")));
+    }
+
+    @Test
     public void testCanCoerce()
     {
         assertTrue(TypeRegistry.canCoerce(BIGINT, BIGINT));
@@ -61,13 +72,23 @@ public class TestTypeRegistry
         assertFalse(TypeRegistry.canCoerce(TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP));
         assertFalse(TypeRegistry.canCoerce(VARBINARY, VARCHAR));
 
-        assertTrue(TypeRegistry.canCoerce(UNKNOWN.getTypeSignature(), parseTypeSignature("array<bigint>")));
-        assertFalse(TypeRegistry.canCoerce(parseTypeSignature("array<bigint>"), UNKNOWN.getTypeSignature()));
-        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("array<bigint>"), parseTypeSignature("array<double>")));
-        assertFalse(TypeRegistry.canCoerce(parseTypeSignature("array<double>"), parseTypeSignature("array<bigint>")));
-        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("map<bigint,double>"), parseTypeSignature("map<bigint,double>")));
-        assertFalse(TypeRegistry.canCoerce(parseTypeSignature("map<bigint,double>"), parseTypeSignature("map<double,double>"))); // map covariant cast is not supported yet
+        assertTrue(TypeRegistry.canCoerce(UNKNOWN.getTypeSignature(), parseTypeSignature("array(bigint)")));
+        assertFalse(TypeRegistry.canCoerce(parseTypeSignature("array(bigint)"), UNKNOWN.getTypeSignature()));
+        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("array(bigint)"), parseTypeSignature("array(double)")));
+        assertFalse(TypeRegistry.canCoerce(parseTypeSignature("array(double)"), parseTypeSignature("array(bigint)")));
+        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("map(bigint,double)"), parseTypeSignature("map(bigint,double)")));
+        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("map(bigint,double)"), parseTypeSignature("map(double,double)")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("row<bigint,double,varchar>('a','b','c')"), parseTypeSignature("row<bigint,double,varchar>('a','b','c')")));
+
+        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(42)")));
+        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar(44)")));
+        assertFalse(TypeRegistry.canCoerce(parseTypeSignature("varchar(44)"), parseTypeSignature("varchar(42)")));
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testCanCoerceWithImplicitParameters()
+    {
+        assertFalse(TypeRegistry.canCoerce(parseTypeSignature("varchar(42)"), parseTypeSignature("varchar")));
     }
 
     @Test
@@ -89,12 +110,14 @@ public class TestTypeRegistry
         assertCommonSuperType(TIMESTAMP, TIME_WITH_TIME_ZONE, null);
         assertCommonSuperType(VARBINARY, VARCHAR, null);
 
-        assertCommonSuperType("unknown", "array<bigint>", "array<bigint>");
-        assertCommonSuperType("array<bigint>", "array<double>", "array<double>");
-        assertCommonSuperType("array<bigint>", "array<unknown>", "array<bigint>");
-        assertCommonSuperType("map<bigint,double>", "map<bigint,double>", "map<bigint,double>");
-        assertCommonSuperType("map<bigint,double>", "map<double,double>", null); // map covariant cast is not supported yet
+        assertCommonSuperType("unknown", "array(bigint)", "array(bigint)");
+        assertCommonSuperType("array(bigint)", "array(double)", "array(double)");
+        assertCommonSuperType("array(bigint)", "array(unknown)", "array(bigint)");
+        assertCommonSuperType("map(bigint,double)", "map(bigint,double)", "map(bigint,double)");
+        assertCommonSuperType("map(bigint,double)", "map(double,double)", "map(double,double)");
         assertCommonSuperType("row<bigint,double,varchar>('a','b','c')", "row<bigint,double,varchar>('a','b','c')", "row<bigint,double,varchar>('a','b','c')");
+
+        assertCommonSuperType("varchar(42)", "varchar(44)", "varchar(44)");
     }
 
     private void assertCommonSuperType(Type firstType, Type secondType, Type expected)

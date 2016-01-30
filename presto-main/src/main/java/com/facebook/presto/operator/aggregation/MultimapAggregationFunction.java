@@ -56,7 +56,7 @@ public class MultimapAggregationFunction
 
     public MultimapAggregationFunction()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map<K,array<V>>", ImmutableList.of("K", "V"));
+        super(NAME, ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map(K,array(V))", ImmutableList.of("K", "V"));
     }
 
     @Override

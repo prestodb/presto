@@ -134,7 +134,7 @@ public final class HiveWriteUtils
         else if (type.equals(DoubleType.DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        else if (type.equals(VarcharType.VARCHAR)) {
+        else if (type instanceof VarcharType) {
             return writableStringObjectInspector;
         }
         else if (type.equals(VarbinaryType.VARBINARY)) {
@@ -180,7 +180,7 @@ public final class HiveWriteUtils
         if (DoubleType.DOUBLE.equals(type)) {
             return type.getDouble(block, position);
         }
-        if (VarcharType.VARCHAR.equals(type)) {
+        if (type instanceof VarcharType) {
             return new Text(type.getSlice(block, position).getBytes());
         }
         if (VarbinaryType.VARBINARY.equals(type)) {
@@ -466,7 +466,7 @@ public final class HiveWriteUtils
             return new DoubleFieldSetter(rowInspector, row, field);
         }
 
-        if (type.equals(VarcharType.VARCHAR)) {
+        if (type instanceof VarcharType) {
             return new VarcharFieldSetter(rowInspector, row, field);
         }
 

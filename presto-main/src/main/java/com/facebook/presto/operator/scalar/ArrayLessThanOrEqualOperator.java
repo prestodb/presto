@@ -45,7 +45,7 @@ public class ArrayLessThanOrEqualOperator
 
     private ArrayLessThanOrEqualOperator()
     {
-        super(LESS_THAN_OR_EQUAL, ImmutableList.of(orderableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array<T>", "array<T>"));
+        super(LESS_THAN_OR_EQUAL, ImmutableList.of(orderableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
     }
 
     @Override

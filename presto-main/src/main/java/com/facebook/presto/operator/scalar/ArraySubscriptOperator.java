@@ -48,7 +48,7 @@ public class ArraySubscriptOperator
 
     protected ArraySubscriptOperator()
     {
-        super(SUBSCRIPT, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array<E>", "bigint"));
+        super(SUBSCRIPT, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array(E)", "bigint"));
     }
 
     @Override

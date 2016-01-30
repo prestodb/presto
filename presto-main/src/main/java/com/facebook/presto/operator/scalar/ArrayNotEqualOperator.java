@@ -39,7 +39,7 @@ public class ArrayNotEqualOperator
 
     private ArrayNotEqualOperator()
     {
-        super(NOT_EQUAL, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array<T>", "array<T>"));
+        super(NOT_EQUAL, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
     }
 
     @Override

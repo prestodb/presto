@@ -41,7 +41,7 @@ public class ArrayConcatFunction
 
     public ArrayConcatFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("array<E>", "array<E>"));
+        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array(E)", ImmutableList.of("array(E)", "array(E)"));
     }
 
     @Override

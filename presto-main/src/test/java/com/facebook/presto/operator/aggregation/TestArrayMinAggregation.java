@@ -56,6 +56,6 @@ public class TestArrayMinAggregation
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of("array<bigint>");
+        return ImmutableList.of("array(bigint)");
     }
 }

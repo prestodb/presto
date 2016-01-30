@@ -54,7 +54,7 @@ public final class ArrayRemoveFunction
 
     public ArrayRemoveFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>", "E"));
+        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array(E)", ImmutableList.of("array(E)", "E"));
     }
 
     @Override

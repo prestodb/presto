@@ -181,8 +181,8 @@ public class BenchmarkArrayDistinct
     }
 
     @ScalarFunction
-    @SqlType("array<varchar>")
-    public static Block oldArrayDistinct(@SqlType("array<varchar>") Block array)
+    @SqlType("array(varchar)")
+    public static Block oldArrayDistinct(@SqlType("array(varchar)") Block array)
     {
         if (array.getPositionCount() == 0) {
             return array;

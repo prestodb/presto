@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -47,7 +46,6 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
@@ -88,7 +86,6 @@ public final class TypeRegistry
         addType(BOOLEAN);
         addType(BIGINT);
         addType(DOUBLE);
-        addType(VARCHAR);
         addType(VARBINARY);
         addType(DATE);
         addType(TIME);
@@ -104,6 +101,7 @@ public final class TypeRegistry
         addType(JSON_PATH);
         addType(COLOR);
         addType(JSON);
+        addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
@@ -159,7 +157,9 @@ public final class TypeRegistry
             return null;
         }
         Type instantiatedType = parametricType.createType(parameters);
-        checkState(instantiatedType.getTypeSignature().equals(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+
+        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
+        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
         return instantiatedType;
     }
 
@@ -237,7 +237,52 @@ public final class TypeRegistry
         // Other methods should reference these two functions instead of hand-code new rules.
 
         // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
-        return firstTypeBase.equals(StandardTypes.ARRAY);
+        return firstTypeBase.equals(StandardTypes.ARRAY) || firstTypeBase.equals(StandardTypes.MAP);
+    }
+
+    /*
+     * Return true if actualType can be coerced to expectedType AND they are both binary compatible (so it's only type coercion)
+     */
+    public static boolean isTypeOnlyCoercion(TypeSignature actualType, TypeSignature expectedType)
+    {
+        if (!canCoerce(actualType, expectedType)) {
+            return false;
+        }
+
+        if (actualType.equals(expectedType)) {
+            return true;
+        }
+        else if (actualType.getBase().equals(StandardTypes.VARCHAR) && expectedType.getBase().equals(StandardTypes.VARCHAR)) {
+            return true;
+        }
+
+        if (actualType.getBase().equals(expectedType.getBase()) &&
+                actualType.getParameters().size() == expectedType.getParameters().size()) {
+            for (int i = 0; i < actualType.getParameters().size(); i++) {
+                if (!isCovariantParameterPosition(actualType.getBase(), i)) {
+                    return false;
+                }
+
+                TypeSignatureParameter actualParameter = actualType.getParameters().get(i);
+                TypeSignatureParameter expectedParameter = expectedType.getParameters().get(i);
+                if (actualParameter.equals(expectedParameter)) {
+                    continue;
+                }
+
+                Optional<TypeSignature> actualParameterSignature = actualParameter.getTypeSignatureOrNamedTypeSignature();
+                Optional<TypeSignature> expectedParameterSignature = expectedParameter.getTypeSignatureOrNamedTypeSignature();
+                if (!actualParameterSignature.isPresent() || !expectedParameterSignature.isPresent()) {
+                    return false;
+                }
+
+                if (!isTypeOnlyCoercion(actualParameterSignature.get(), expectedParameterSignature.get())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        return false;
     }
 
     public static boolean canCoerce(Type actualType, Type expectedType)
@@ -296,18 +341,20 @@ public final class TypeRegistry
     public static Optional<TypeSignature> getCommonSuperTypeSignature(TypeSignature firstType, TypeSignature secondType)
     {
         // Special handling for UnknownType is necessary because we forbid cast between types with different number of type parameters.
-        // Without this, cast from null to map<bigint, bigint> will not be allowed.
+        // Without this, cast from null to map(bigint, bigint) will not be allowed.
         if (UnknownType.NAME.equals(firstType.getBase())) {
             return Optional.of(secondType);
         }
         if (UnknownType.NAME.equals(secondType.getBase())) {
             return Optional.of(firstType);
         }
-
-        List<TypeSignatureParameter> firstTypeTypeParameters = firstType.getParameters();
-        List<TypeSignatureParameter> secondTypeTypeParameters = secondType.getParameters();
-        if (firstTypeTypeParameters.size() != secondTypeTypeParameters.size()) {
-            return Optional.empty();
+        for (String varcharSubType : new String[] {RegexpType.NAME, LikePatternType.NAME, JsonPathType.NAME}) {
+            if (firstType.getBase().equals(StandardTypes.VARCHAR) && secondType.getBase().equals(varcharSubType)) {
+                return Optional.of(secondType);
+            }
+            else if (secondType.getBase().equals(StandardTypes.VARCHAR) && firstType.getBase().equals(varcharSubType)) {
+                return Optional.of(firstType);
+            }
         }
 
         Optional<String> commonSuperTypeBase = getCommonSuperTypeBase(firstType.getBase(), secondType.getBase());
@@ -315,12 +362,20 @@ public final class TypeRegistry
             return Optional.empty();
         }
 
+        List<TypeSignatureParameter> firstTypeTypeParameters = firstType.getParameters();
+        List<TypeSignatureParameter> secondTypeTypeParameters = secondType.getParameters();
+        checkArgument(
+                firstTypeTypeParameters.size() == secondTypeTypeParameters.size(),
+                "Can not compare types [%s, %s] with different number of parameters. All default parameters should be expanded",
+                firstType,
+                secondType);
+
         ImmutableList.Builder<TypeSignatureParameter> typeParameters = ImmutableList.builder();
         for (int i = 0; i < firstTypeTypeParameters.size(); i++) {
             TypeSignatureParameter firstParameter = firstTypeTypeParameters.get(i);
             TypeSignatureParameter secondParameter = secondTypeTypeParameters.get(i);
 
-            if (firstParameter.getKind() == secondParameter.getKind() && firstParameter.getKind() == ParameterKind.LONG_LITERAL) {
+            if (firstParameter.isLongLiteral() && secondParameter.isLongLiteral()) {
                 typeParameters.add(TypeSignatureParameter.of(Math.max(
                         firstParameter.getLongLiteral(),
                         secondParameter.getLongLiteral())));
