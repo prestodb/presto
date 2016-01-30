@@ -21,6 +21,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -322,6 +323,9 @@ public class MaterializedResult
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
                 jdbcValue = new Timestamp(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc());
+            }
+            else if (prestoValue instanceof SqlDecimal) {
+                jdbcValue = ((SqlDecimal) prestoValue).toBigDecimal();
             }
             else {
                 jdbcValue = prestoValue;

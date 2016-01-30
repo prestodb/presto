@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -35,6 +36,7 @@ import org.skife.jdbi.v2.PreparedBatchPart;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -212,6 +214,15 @@ public class H2QueryRunner
                         Object objectValue = resultSet.getObject(i);
                         checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
                         row.add(null);
+                    }
+                    else if (type instanceof DecimalType) {
+                        BigDecimal decimalValue = resultSet.getBigDecimal(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(decimalValue);
+                        }
                     }
                     else {
                         throw new AssertionError("unhandled type: " + type);
