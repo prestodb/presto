@@ -117,6 +117,9 @@ public class TestTypeRegistry
         assertTrue(canCoerce("bigint", "decimal(37,1)"));
         assertTrue(canCoerce("array(bigint)", "array(decimal(20,1))"));
         assertFalse(canCoerce("array(bigint)", "array(decimal(2,1))"));
+
+        assertTrue(canCoerce("decimal(3,2)", "double"));
+        assertTrue(canCoerce("decimal(22,1)", "double"));
     }
 
     @Test
@@ -153,6 +156,9 @@ public class TestTypeRegistry
         assertCommonSuperType("bigint", "decimal(37,1)", "decimal(37,1)");
         assertCommonSuperType("array(decimal(23,1))", "array(decimal(22,1))", "array(decimal(23,1))");
         assertCommonSuperType("array(bigint)", "array(decimal(2,1))", "array(decimal(20,1))");
+
+        assertCommonSuperType("decimal(3,2)", "double", "double");
+        assertCommonSuperType("decimal(22,1)", "double", "double");
     }
 
     @Test
