@@ -326,7 +326,7 @@ class RelationPlanner
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
         PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root, sampleWeight);
-        Set<InPredicate> inPredicates = analysis.getInPredicates(node);
+        List<InPredicate> inPredicates = analysis.getInPredicates(node);
         if (inPredicates != null) {
             rootPlanBuilder = appendSemiJoins(rootPlanBuilder, inPredicates);
         }
@@ -676,7 +676,7 @@ class RelationPlanner
         return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), subPlan.getSampleWeight());
     }
 
-    private PlanBuilder appendSemiJoins(PlanBuilder subPlan, Set<InPredicate> inPredicates)
+    private PlanBuilder appendSemiJoins(PlanBuilder subPlan, Iterable<InPredicate> inPredicates)
     {
         for (InPredicate inPredicate : inPredicates) {
             subPlan = appendSemiJoin(subPlan, inPredicate);
