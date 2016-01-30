@@ -10,6 +10,7 @@ Functions and Operators
     functions/conditional
     functions/conversion
     functions/math
+    functions/bitwise
     functions/string
     functions/binary
     functions/datetime
