@@ -55,6 +55,9 @@ public class MaterializedRow
         if (value instanceof Double || value instanceof Float) {
             return new ApproximateDouble(((Number) value).doubleValue(), precision);
         }
+        if (value instanceof BigDecimal) {
+            return value;
+        }
         if (value instanceof Number) {
             return ((Number) value).longValue();
         }
