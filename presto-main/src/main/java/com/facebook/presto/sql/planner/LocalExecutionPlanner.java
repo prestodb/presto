@@ -269,15 +269,13 @@ public class LocalExecutionPlanner
             PlanNode plan,
             Map<Symbol, Type> types,
             PartitionFunctionBinding functionBinding,
-            SharedBuffer sharedBuffer,
-            boolean singleNode,
-            boolean allowLocalParallel)
+            SharedBuffer sharedBuffer)
     {
         List<Symbol> outputLayout = functionBinding.getOutputLayout();
         if (functionBinding.getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
                 functionBinding.getPartitioningHandle().equals(SINGLE_DISTRIBUTION) ||
                 functionBinding.getPartitioningHandle().equals(COORDINATOR_DISTRIBUTION)) {
-            return plan(session, plan, outputLayout, types, new TaskOutputFactory(sharedBuffer), singleNode, allowLocalParallel);
+            return plan(session, plan, outputLayout, types, new TaskOutputFactory(sharedBuffer));
         }
 
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
@@ -325,20 +323,16 @@ public class LocalExecutionPlanner
                 plan,
                 outputLayout,
                 types,
-                new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, maxPagePartitioningBufferSize),
-                singleNode,
-                allowLocalParallel);
+                new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer, maxPagePartitioningBufferSize));
     }
 
     public LocalExecutionPlan plan(Session session,
             PlanNode plan,
             List<Symbol> outputLayout,
             Map<Symbol, Type> types,
-            OutputFactory outputOperatorFactory,
-            boolean singleNode,
-            boolean allowLocalParallel)
+            OutputFactory outputOperatorFactory)
     {
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types, singleNode, allowLocalParallel);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
 
         PhysicalOperation physicalOperation = enforceLayout(plan.getId(), outputLayout, context, plan.accept(new Visitor(session), context));
 
@@ -433,8 +427,6 @@ public class LocalExecutionPlanner
     {
         private final Session session;
         private final Map<Symbol, Type> types;
-        private final boolean singleNode;
-        private final boolean allowLocalParallel;
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
@@ -442,23 +434,19 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types, boolean singleNode, boolean allowLocalParallel)
+        public LocalExecutionPlanContext(Session session, Map<Symbol, Type> types)
         {
-            this(session, types, singleNode, allowLocalParallel, new ArrayList<>(), Optional.empty());
+            this(session, types, new ArrayList<>(), Optional.empty());
         }
 
         private LocalExecutionPlanContext(
                 Session session,
                 Map<Symbol, Type> types,
-                boolean singleNode,
-                boolean allowLocalParallel,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext)
         {
             this.session = session;
             this.types = types;
-            this.singleNode = singleNode;
-            this.allowLocalParallel = allowLocalParallel;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
         }
@@ -506,22 +494,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
-            return new LocalExecutionPlanContext(session, types, singleNode, allowLocalParallel, driverFactories, indexSourceContext);
+            return new LocalExecutionPlanContext(session, types, driverFactories, indexSourceContext);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(session, types, true, false, driverFactories, Optional.of(indexSourceContext));
-        }
-
-        public boolean isSingleNode()
-        {
-            return singleNode;
-        }
-
-        public boolean isAllowLocalParallel()
-        {
-            return allowLocalParallel;
+            return new LocalExecutionPlanContext(session, types, driverFactories, Optional.of(indexSourceContext));
         }
 
         public OptionalInt getDriverInstanceCount()
