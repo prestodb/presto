@@ -366,6 +366,14 @@ public final class TypeRegistry
                         return Optional.empty();
                 }
             }
+            case StandardTypes.DECIMAL: {
+                switch (resultTypeBase) {
+                    case StandardTypes.DOUBLE:
+                        return Optional.of(DOUBLE);
+                    default:
+                        return Optional.empty();
+                }
+            }
             case StandardTypes.DATE: {
                 switch (resultTypeBase) {
                     case StandardTypes.TIMESTAMP:
