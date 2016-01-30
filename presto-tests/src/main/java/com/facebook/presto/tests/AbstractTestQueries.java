@@ -5941,4 +5941,63 @@ public abstract class AbstractTestQueries
         assertAccessDenied("DELETE FROM orders", "Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
     }
+
+    @Test
+    public void testDecimalCoercions()
+            throws Exception
+    {
+        assertQuery("SELECT CAST(292 AS DECIMAL(38,1)) + CAST(292.1 AS DECIMAL(5,1))");
+        assertQuery("SELECT CAST(292 AS BIGINT) + CAST(101 AS BIGINT)");
+        assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(292 AS BIGINT)");
+        assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + NULL");
+        assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) IS NULL");
+        assertQuery("SELECT CAST(292 AS DECIMAL(38,1)) = CAST(292.1 AS DECIMAL(5,1))");
+        assertQuery("SELECT CAST(292 AS DECIMAL(38,1)) = 292");
+        assertQuery("SELECT CAST(292 AS DECIMAL(38,1)) = CAST(292 AS BIGINT)");
+
+        assertEqualsIgnoreOrder(
+                computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1))] || CAST(292 AS DECIMAL(5,1))"),
+                computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1)), CAST(292 AS DECIMAL(5,1))]"));
+        assertEqualsIgnoreOrder(
+                computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1))] || CAST(292 AS BIGINT)"),
+                computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1)), CAST(292 AS DECIMAL(19,0))]"));
+        assertEqualsIgnoreOrder(
+                computeActual("SELECT ARRAY[CAST(282.1 AS DOUBLE), CAST(283.2 AS DOUBLE)] || CAST(101.3 AS DECIMAL(5,1))"),
+                computeActual("SELECT ARRAY[CAST(282.1 AS DOUBLE), CAST(283.2 AS DOUBLE), CAST(101.3 AS DOUBLE)]"));
+
+        assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(1.1 AS DOUBLE)");
+        assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) = CAST(1.1 AS DOUBLE)");
+        assertQuery("SELECT SIN(CAST(1.1 AS DECIMAL(38,1)))");
+    }
+
+    @Test
+    public void testVarcharCoercions()
+            throws Exception
+    {
+        assertQuery("SELECT length(NULL)");
+        assertQuery("SELECT CAST('abc' AS VARCHAR(255)) || CAST('abc' AS VARCHAR(252))");
+        assertQuery("SELECT CAST('abc' AS VARCHAR(255)) || 'abc'");
+    }
+
+    /**
+     * Concatenation with NULL is broken.
+     * <p/>
+     * Concat function signature: concat<E>(E,array(E)):array(E)
+     * When `E` is get bounded to some concrete type, array(E) is still unbounded.
+     * Than TypeManager can't resolve concrete type for (array(E)) which is the common super type for (NULL, (array(E)))
+     * It seems that once E is bound, we should bound it recursive in type arguments, similar to as we bind the base type
+     * for the signatures like do_something<E>(E,E):E
+     */
+    @Test(enabled = false)
+    public void testConcatenationWithNull()
+            throws Exception
+    {
+        assertQuery("SELECT 'something' || NULL");
+        assertEqualsIgnoreOrder(
+                computeActual("SELECT ARRAY[123, 123] || NULL"),
+                computeActual("SELECT ARRAY[123, 123, NULL]"));
+        assertEqualsIgnoreOrder(
+                computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1))] || NULL"),
+                computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1)), NULL]"));
+    }
 }
