@@ -128,6 +128,10 @@ public class TestTypeRegistry
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("array(decimal(2,1))"), parseTypeSignature("array(decimal)")));
         assertTrue(TypeRegistry.canCoerce(parseTypeSignature("array(bigint)"), parseTypeSignature("array(decimal)")));
         assertFalse(TypeRegistry.canCoerce(parseTypeSignature("array(bigint)"), parseTypeSignature("array(decimal(2,1))")));
+
+        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("decimal(22,1)"), DOUBLE.getTypeSignature()));
+        assertTrue(TypeRegistry.canCoerce(parseTypeSignature("decimal"), DOUBLE.getTypeSignature()));
+        assertTrue(TypeRegistry.canCoerce(decimalPS, DOUBLE.getTypeSignature()));
     }
 
     @Test
@@ -173,6 +177,10 @@ public class TestTypeRegistry
 
         assertCommonSuperType("array(decimal(23,1))", "array(decimal(22,1))", "array(decimal(23,1))");
         assertCommonSuperType("array(bigint)", "array(decimal(2,1))", "array(decimal(20,1))");
+
+        assertCommonSuperType("decimal(22,1)", "double", "double");
+        assertCommonSuperType("decimal", "double", "double");
+        assertCommonSuperType(decimalPS, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature());
     }
 
     private void assertCommonSuperType(Type firstType, Type secondType, Type expected)

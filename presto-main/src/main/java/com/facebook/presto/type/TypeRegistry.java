@@ -236,6 +236,8 @@ public final class TypeRegistry
                 return RegexpType.NAME.equals(toTypeBase) || LikePatternType.NAME.equals(toTypeBase) || JsonPathType.NAME.equals(toTypeBase);
             case StandardTypes.P4_HYPER_LOG_LOG:
                 return StandardTypes.HYPER_LOG_LOG.equals(toTypeBase);
+            case StandardTypes.DECIMAL:
+                return StandardTypes.DOUBLE.equals(toTypeBase);
         }
         return false;
     }
@@ -525,6 +527,10 @@ public final class TypeRegistry
                     typeSignaturePair.get(StandardTypes.DECIMAL),
                     createDecimalTypeSignature(1, 0)
             ));
+        }
+
+        if (typeSignaturePair.is(StandardTypes.DECIMAL, StandardTypes.DOUBLE)) {
+            return Optional.of(typeSignaturePair.get(StandardTypes.DOUBLE));
         }
 
         if (typeSignaturePair.is(StandardTypes.DECIMAL, StandardTypes.BIGINT)) {
