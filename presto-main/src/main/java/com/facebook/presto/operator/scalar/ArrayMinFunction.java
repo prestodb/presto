@@ -26,10 +26,10 @@ import javax.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
-import static com.facebook.presto.operator.scalar.AbstractArrayMinMaxFunction.booleanArrayMinMax;
-import static com.facebook.presto.operator.scalar.AbstractArrayMinMaxFunction.doubleArrayMinMax;
-import static com.facebook.presto.operator.scalar.AbstractArrayMinMaxFunction.longArrayMinMax;
-import static com.facebook.presto.operator.scalar.AbstractArrayMinMaxFunction.sliceArrayMinMax;
+import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.booleanArrayMinMax;
+import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.doubleArrayMinMax;
+import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.longArrayMinMax;
+import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.sliceArrayMinMax;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 
