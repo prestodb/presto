@@ -108,7 +108,6 @@ public class HandTpchQuery1
                         COUNT.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)
                         ),
                 Optional.empty(),
-                Optional.empty(),
                 10_000,
                 new DataSize(16, MEGABYTE));
 
