@@ -32,12 +32,12 @@ import static java.util.Objects.requireNonNull;
 public class LookupJoinOperator
         implements Operator, Closeable
 {
-    private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
-    private final LookupSourceSupplier lookupSourceSupplier;
-
     private final OperatorContext operatorContext;
-    private final JoinProbeFactory joinProbeFactory;
     private final List<Type> types;
+    private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
+    private final JoinProbeFactory joinProbeFactory;
+    private final Runnable onClose;
+
     private final PageBuilder pageBuilder;
 
     private final boolean probeOnOuterSide;
@@ -51,28 +51,23 @@ public class LookupJoinOperator
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
-            LookupSourceSupplier lookupSourceSupplier,
-            List<Type> probeTypes,
+            List<Type> types,
             JoinType joinType,
-            JoinProbeFactory joinProbeFactory)
+            ListenableFuture<LookupSource> lookupSourceFuture,
+            JoinProbeFactory joinProbeFactory,
+            Runnable onClose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
-        // todo pass in desired projection
-        this.lookupSourceSupplier = requireNonNull(lookupSourceSupplier, "lookupSourceSupplier is null");
-        lookupSourceSupplier.retain();
-        requireNonNull(probeTypes, "probeTypes is null");
-
-        this.lookupSourceFuture = lookupSourceSupplier.getLookupSource(operatorContext);
-        this.joinProbeFactory = joinProbeFactory;
-
+        requireNonNull(joinType, "joinType is null");
         // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
         probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
 
-        this.types = ImmutableList.<Type>builder()
-                .addAll(probeTypes)
-                .addAll(lookupSourceSupplier.getTypes())
-                .build();
+        this.lookupSourceFuture = requireNonNull(lookupSourceFuture, "lookupSourceFuture is null");
+        this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
+        this.onClose = requireNonNull(onClose, "onClose is null");
+
         this.pageBuilder = new PageBuilder(types);
     }
 
@@ -101,12 +96,7 @@ public class LookupJoinOperator
 
         // if finished drop references so memory is freed early
         if (finished) {
-            if (lookupSource != null) {
-                lookupSource.close();
-                lookupSource = null;
-            }
-            probe = null;
-            pageBuilder.reset();
+            close();
         }
         return finished;
     }
@@ -177,16 +167,18 @@ public class LookupJoinOperator
     @Override
     public void close()
     {
-        if (lookupSource != null) {
-            lookupSource.close();
-            lookupSource = null;
-        }
         // Closing the lookupSource is always safe to do, but we don't want to release the supplier multiple times, since its reference counted
         if (closed) {
             return;
         }
         closed = true;
-        lookupSourceSupplier.release();
+        probe = null;
+        pageBuilder.reset();
+        onClose.run();
+        // closing lookup source is only here for index join
+        if (lookupSource != null) {
+            lookupSource.close();
+        }
     }
 
     private boolean joinCurrentPosition()

@@ -74,7 +74,7 @@ public class HashBuildAndJoinBenchmark
         }
 
         // hash build
-        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(2, new PlanNodeId("test"), source.getTypes(), Ints.asList(0), hashChannel, 1_500_000);
+        HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(2, new PlanNodeId("test"), source.getTypes(), Ints.asList(0), hashChannel, false, 1_500_000);
         driversBuilder.add(hashBuilder);
         DriverFactory hashBuildDriverFactory = new DriverFactory(true, false, driversBuilder.build(), OptionalInt.empty());
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(true, false).addDriverContext());

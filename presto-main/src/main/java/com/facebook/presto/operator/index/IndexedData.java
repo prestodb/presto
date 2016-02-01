@@ -21,8 +21,8 @@ import java.io.Closeable;
 public interface IndexedData
         extends Closeable
 {
-    public static final long UNLOADED_INDEX_KEY = -2;
-    public static final long NO_MORE_POSITIONS = -1;
+    long UNLOADED_INDEX_KEY = -2;
+    long NO_MORE_POSITIONS = -1;
 
     /**
      * Returns UNLOADED_INDEX_KEY if the key has not been loaded.
@@ -39,5 +39,6 @@ public interface IndexedData
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
 
+    @Override
     void close();
 }

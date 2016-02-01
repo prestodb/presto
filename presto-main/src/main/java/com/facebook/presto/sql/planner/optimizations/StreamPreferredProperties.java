@@ -40,14 +40,25 @@ class StreamPreferredProperties
 {
     private final Optional<StreamDistribution> distribution;
 
-    private final Optional<Set<Symbol>> partitioningColumns; // if missing => any partitioning scheme is acceptable
+    private final boolean exactColumnOrder;
+    private final Optional<List<Symbol>> partitioningColumns; // if missing => any partitioning scheme is acceptable
 
     private final boolean orderSensitive;
 
     private StreamPreferredProperties(Optional<StreamDistribution> distribution, Optional<? extends Iterable<Symbol>> partitioningColumns, boolean orderSensitive)
     {
+        this(distribution, false, partitioningColumns, orderSensitive);
+    }
+
+    private StreamPreferredProperties(
+            Optional<StreamDistribution> distribution,
+            boolean exactColumnOrder,
+            Optional<? extends Iterable<Symbol>> partitioningColumns,
+            boolean orderSensitive)
+    {
         this.distribution = requireNonNull(distribution, "distribution is null");
-        this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningColumns is null").map(ImmutableSet::copyOf);
+        this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningColumns is null").map(ImmutableList::copyOf);
+        this.exactColumnOrder = exactColumnOrder;
         this.orderSensitive = orderSensitive;
 
         checkArgument(!orderSensitive || !partitioningColumns.isPresent(), "An order sensitive context can not prefer partitioning");
@@ -85,6 +96,16 @@ class StreamPreferredProperties
         return new StreamPreferredProperties(Optional.of(MULTIPLE), Optional.empty(), orderSensitive);
     }
 
+    public static StreamPreferredProperties exactlyPartitionedOn(Collection<Symbol> partitionSymbols)
+    {
+        if (partitionSymbols.isEmpty()) {
+            return singleStream();
+        }
+
+        // this must be the exact partitioning symbols, in the exact order
+        return new StreamPreferredProperties(Optional.of(FIXED), true, Optional.of(ImmutableList.copyOf(partitionSymbols)), false);
+    }
+
     public StreamPreferredProperties withoutPreference()
     {
         return new StreamPreferredProperties(Optional.empty(), Optional.empty(), orderSensitive);
@@ -98,12 +119,19 @@ class StreamPreferredProperties
 
         Iterable<Symbol> desiredPartitioning = partitionSymbols;
         if (partitioningColumns.isPresent()) {
-            // If there are common columns between our requirements and the desired partitionSymbols, both can be satisfied in one shot
-            Set<Symbol> common = Sets.intersection(ImmutableSet.copyOf(desiredPartitioning), ImmutableSet.copyOf(partitioningColumns.get()));
+            if (exactColumnOrder) {
+                if (partitioningColumns.get().equals(desiredPartitioning)) {
+                    return this;
+                }
+            }
+            else {
+                // If there are common columns between our requirements and the desired partitionSymbols, both can be satisfied in one shot
+                Set<Symbol> common = Sets.intersection(ImmutableSet.copyOf(desiredPartitioning), ImmutableSet.copyOf(partitioningColumns.get()));
 
-            // If we find common partitioning columns, use them, else use child's partitioning columns
-            if (!common.isEmpty()) {
-                desiredPartitioning = common;
+                // If we find common partitioning columns, use them, else use child's partitioning columns
+                if (!common.isEmpty()) {
+                    desiredPartitioning = common;
+                }
             }
         }
 
@@ -150,6 +178,9 @@ class StreamPreferredProperties
 
         // is there a preference for a specific partitioning scheme?
         if (partitioningColumns.isPresent()) {
+            if (exactColumnOrder) {
+                return actualProperties.isExactlyPartitionedOn(partitioningColumns.get());
+            }
             return actualProperties.isPartitionedOn(partitioningColumns.get());
         }
 
@@ -166,7 +197,7 @@ class StreamPreferredProperties
         return distribution.isPresent() && distribution.get() != SINGLE;
     }
 
-    public Optional<Set<Symbol>> getPartitioningColumns()
+    public Optional<List<Symbol>> getPartitioningColumns()
     {
         return partitioningColumns;
     }
@@ -209,7 +240,7 @@ class StreamPreferredProperties
 
     public StreamPreferredProperties withOrderSensitivity()
     {
-        return new StreamPreferredProperties(distribution, Optional.empty(), true);
+        return new StreamPreferredProperties(distribution, false, Optional.empty(), true);
     }
 
     public StreamPreferredProperties constrainTo(Iterable<Symbol> symbols)
@@ -218,9 +249,17 @@ class StreamPreferredProperties
             return this;
         }
 
-        Set<Symbol> common = Sets.intersection(ImmutableSet.copyOf(symbols), ImmutableSet.copyOf(partitioningColumns.get()));
+        ImmutableSet<Symbol> availableSymbols = ImmutableSet.copyOf(symbols);
+        if (exactColumnOrder) {
+            if (availableSymbols.containsAll(partitioningColumns.get())) {
+                return this;
+            }
+            return any();
+        }
+
+        Set<Symbol> common = Sets.intersection(availableSymbols, ImmutableSet.copyOf(partitioningColumns.get()));
         if (common.isEmpty()) {
-            return singleStream();
+            return any();
         }
         return new StreamPreferredProperties(distribution, Optional.of(common), false);
     }

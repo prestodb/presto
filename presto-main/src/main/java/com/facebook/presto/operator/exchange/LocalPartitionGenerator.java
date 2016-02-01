@@ -33,11 +33,23 @@ public class LocalPartitionGenerator
 
     public int getPartition(int position, Page page)
     {
-        long rawHash = hashGenerator.hashPosition(position, page);
+        long rawHash = getRawHash(position, page);
+        return processRawHash(rawHash) & hashMask;
+    }
 
+    public long getRawHash(int position, Page page)
+    {
+        return hashGenerator.hashPosition(position, page);
+    }
+
+    public int getPartition(long rawHash)
+    {
+        return processRawHash(rawHash) & hashMask;
+    }
+
+    private static int processRawHash(long rawHash)
+    {
         // mix the bits so we don't use the same hash used to distribute between stages
-        int mixedHash = (int) XxHash64.hash(Long.reverse(rawHash));
-
-        return mixedHash & hashMask;
+        return (int) XxHash64.hash(Long.reverse(rawHash));
     }
 }

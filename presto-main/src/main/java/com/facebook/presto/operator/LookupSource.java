@@ -35,6 +35,17 @@ public interface LookupSource
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
 
+    default OuterPositionIterator getOuterPositionIterator()
+    {
+        return (pageBuilder, outputChannelOffset) -> false;
+    }
+
+    // this is only here for index lookup source
     @Override
     void close();
+
+    interface OuterPositionIterator
+    {
+        boolean appendToNext(PageBuilder pageBuilder, int outputChannelOffset);
+    }
 }
