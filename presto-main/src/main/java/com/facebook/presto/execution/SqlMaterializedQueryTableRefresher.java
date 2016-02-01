@@ -23,6 +23,7 @@ import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -74,7 +75,7 @@ public class SqlMaterializedQueryTableRefresher
     }
 
     @Override
-    public void refreshMaterializedQueryTable(String materializedQueryTable, ConnectorSession connectorSession)
+    public void refreshMaterializedQueryTable(String materializedQueryTable, String predicate, ConnectorSession connectorSession)
             throws InterruptedException
     {
         requireNonNull(materializedQueryTable, "materializedQueryTable is null");
@@ -95,7 +96,12 @@ public class SqlMaterializedQueryTableRefresher
 
         // materializedQueryTable is always the fully qualified name.
         QualifiedName materializedQueryTableName = DereferenceExpression.getQualifiedName((DereferenceExpression) sqlParser.createExpression(materializedQueryTable));
-        Delete delete = new Delete(new Table(materializedQueryTableName), Optional.empty(), true);
+        Optional<Expression> where = Optional.empty();
+        if (predicate != null && !predicate.trim().isEmpty()) {
+            Expression expression = sqlParser.createExpression(predicate);
+            where = Optional.of(expression);
+        }
+        Delete delete = new Delete(new Table(materializedQueryTableName), where, true);
         QueryId deleteQueryId = queryIdGenerator.createNextQueryId();
         QueryInfo queryInfo = queryManager.createQuery(session, SqlFormatter.formatSql(delete), Optional.of(delete), deleteQueryId);
         queryInfo = waitForQueryToFinish(queryInfo, deleteQueryId);
@@ -104,7 +110,7 @@ public class SqlMaterializedQueryTableRefresher
             throw new PrestoException(REFRESH_TABLE_FAILED, String.format("Failed to delete from materialized query table %s", materializedQueryTable));
         }
 
-        Insert insert = new Insert(materializedQueryTableName, Optional.empty(), dummyInsertQuery, true);
+        Insert insert = new Insert(materializedQueryTableName, Optional.empty(), dummyInsertQuery, true, where);
         queryInfo = queryManager.createQuery(session, SqlFormatter.formatSql(insert), Optional.of(insert), session.getQueryId());
         queryInfo = waitForQueryToFinish(queryInfo, session.getQueryId());
 

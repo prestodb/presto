@@ -17,6 +17,6 @@ import com.facebook.presto.spi.ConnectorSession;
 
 public interface MaterializedQueryTableRefresher
 {
-    void refreshMaterializedQueryTable(String materializedQueryTable, ConnectorSession connectorSession)
+    void refreshMaterializedQueryTable(String materializedQueryTable, String predicate, ConnectorSession connectorSession)
             throws InterruptedException;
 }

@@ -36,9 +36,9 @@ public class RefreshMaterializedQueryTableProcedure
     }
 
     @UsedByGeneratedCode
-    public void refresh(String materializedQueryTable, ConnectorSession session) throws Exception
+    public void refresh(String materializedQueryTable, String predicate, ConnectorSession session) throws Exception
     {
-        tableRefresher.refreshMaterializedQueryTable(materializedQueryTable, session);
+        tableRefresher.refreshMaterializedQueryTable(materializedQueryTable, predicate, session);
     }
 
     public Procedure getProcedure()
@@ -46,7 +46,7 @@ public class RefreshMaterializedQueryTableProcedure
         return new Procedure(
                 "runtime",
                 "refresh_materialized_query_table",
-                ImmutableList.of(new Procedure.Argument("materializedQueryTable", VARCHAR)),
-                methodHandle(getClass(), "refresh", String.class, ConnectorSession.class).bindTo(this));
+                ImmutableList.of(new Procedure.Argument("materializedQueryTable", VARCHAR), new Procedure.Argument("predicate", VARCHAR)),
+                methodHandle(getClass(), "refresh", String.class, String.class, ConnectorSession.class).bindTo(this));
     }
 }
