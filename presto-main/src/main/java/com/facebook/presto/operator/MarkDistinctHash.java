@@ -37,7 +37,7 @@ public class MarkDistinctHash
     }
     public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues)
     {
-        this.groupByHash = createGroupByHash(session, types, channels, Optional.empty(), hashChannel, expectedDistinctValues);
+        this.groupByHash = createGroupByHash(session, types, channels, hashChannel, expectedDistinctValues);
     }
 
     public long getEstimatedSize()

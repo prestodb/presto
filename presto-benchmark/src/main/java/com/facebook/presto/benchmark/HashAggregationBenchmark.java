@@ -50,7 +50,6 @@ public class HashAggregationBenchmark
                 Step.SINGLE,
                 ImmutableList.of(DOUBLE_SUM.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0)),
                 Optional.empty(),
-                Optional.empty(),
                 100_000,
                 new DataSize(16, MEGABYTE));
         return ImmutableList.of(tableScanOperator, aggregationOperator);

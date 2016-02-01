@@ -868,7 +868,7 @@ public class LocalExecutionPlanner
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
             }
 
-            return planGroupByAggregation(node, source, context.getNextOperatorId(), Optional.empty());
+            return planGroupByAggregation(node, source, context.getNextOperatorId());
         }
 
         @Override
@@ -1764,7 +1764,6 @@ public class LocalExecutionPlanner
                 Signature function,
                 FunctionCall call,
                 @Nullable Symbol mask,
-                Optional<Integer> defaultMaskChannel,
                 Optional<Symbol> sampleWeight,
                 double confidence)
         {
@@ -1774,8 +1773,7 @@ public class LocalExecutionPlanner
                 arguments.add(source.getLayout().get(argumentSymbol));
             }
 
-            Optional<Integer> maskChannel = defaultMaskChannel;
-
+            Optional<Integer> maskChannel = Optional.empty();
             if (mask != null) {
                 maskChannel = Optional.of(source.getLayout().get(mask));
             }
@@ -1800,7 +1798,6 @@ public class LocalExecutionPlanner
                         node.getFunctions().get(symbol),
                         entry.getValue(),
                         node.getMasks().get(entry.getKey()),
-                        Optional.<Integer>empty(),
                         node.getSampleWeight(),
                         node.getConfidence()));
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
@@ -1811,7 +1808,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
         }
 
-        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, int operatorId, Optional<Integer> defaultMaskChannel)
+        private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, int operatorId)
         {
             List<Symbol> groupBySymbols = node.getGroupBy();
 
@@ -1820,7 +1817,13 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, node.getFunctions().get(symbol), entry.getValue(), node.getMasks().get(entry.getKey()), defaultMaskChannel, node.getSampleWeight(), node.getConfidence()));
+                accumulatorFactories.add(buildAccumulatorFactory(
+                        source,
+                        node.getFunctions().get(symbol),
+                        entry.getValue(),
+                        node.getMasks().get(entry.getKey()),
+                        node.getSampleWeight(),
+                        node.getConfidence()));
                 aggregationOutputSymbols.add(symbol);
             }
 
@@ -1857,7 +1860,6 @@ public class LocalExecutionPlanner
                     groupByChannels,
                     node.getStep(),
                     accumulatorFactories,
-                    defaultMaskChannel,
                     hashChannel,
                     10_000,
                     maxPartialAggregationMemorySize);

@@ -25,16 +25,13 @@ import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
-import static java.util.Objects.requireNonNull;
 
 public class BigintGroupByHash
         implements GroupByHash
@@ -44,7 +41,6 @@ public class BigintGroupByHash
     private static final List<Type> TYPES_WITH_RAW_HASH = ImmutableList.of(BIGINT, BIGINT);
 
     private final int hashChannel;
-    private final int maskChannel;
     private final boolean outputRawHash;
 
     private int hashCapacity;
@@ -63,13 +59,12 @@ public class BigintGroupByHash
 
     private int nextGroupId;
 
-    public BigintGroupByHash(int hashChannel, Optional<Integer> maskChannel, boolean outputRawHash, int expectedSize)
+    public BigintGroupByHash(int hashChannel, boolean outputRawHash, int expectedSize)
     {
         checkArgument(hashChannel >= 0, "hashChannel must be at least zero");
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
         this.hashChannel = hashChannel;
-        this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
         this.outputRawHash = outputRawHash;
 
         hashCapacity = arraySize(expectedSize, FILL_RATIO);
@@ -133,19 +128,9 @@ public class BigintGroupByHash
     {
         int positionCount = page.getPositionCount();
 
-        Block maskBlock = null;
-        if (maskChannel >= 0) {
-            maskBlock = page.getBlock(maskChannel);
-        }
-
         // get the group id for each position
         Block block = page.getBlock(hashChannel);
         for (int position = 0; position < positionCount; position++) {
-            // skip masked rows
-            if (maskBlock != null && !BOOLEAN.getBoolean(maskBlock, position)) {
-                continue;
-            }
-
             // get the group for the current row
             putIfAbsent(position, block);
         }
@@ -159,20 +144,9 @@ public class BigintGroupByHash
         // we know the exact size required for the block
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
 
-        Block maskBlock = null;
-        if (maskChannel >= 0) {
-            maskBlock = page.getBlock(maskChannel);
-        }
-
         // get the group id for each position
         Block block = page.getBlock(hashChannel);
         for (int position = 0; position < positionCount; position++) {
-            // skip masked rows
-            if (maskBlock != null && !BOOLEAN.getBoolean(maskBlock, position)) {
-                blockBuilder.appendNull();
-                continue;
-            }
-
             // get the group for the current row
             int groupId = putIfAbsent(position, block);
 

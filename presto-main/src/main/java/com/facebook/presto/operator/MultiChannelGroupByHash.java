@@ -35,7 +35,6 @@ import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -60,7 +59,6 @@ public class MultiChannelGroupByHash
     private final Optional<Integer> inputHashChannel;
     private final HashGenerator hashGenerator;
     private final Optional<Integer> precomputedHashChannel;
-    private final int maskChannel;
     private final boolean processDictionary;
     private PageBuilder currentPageBuilder;
 
@@ -80,7 +78,6 @@ public class MultiChannelGroupByHash
     public MultiChannelGroupByHash(
             List<? extends Type> hashTypes,
             int[] hashChannels,
-            Optional<Integer> maskChannel,
             Optional<Integer> inputHashChannel,
             int expectedSize,
             boolean processDictionary)
@@ -93,7 +90,6 @@ public class MultiChannelGroupByHash
         this.inputHashChannel = requireNonNull(inputHashChannel, "inputHashChannel is null");
         this.types = inputHashChannel.isPresent() ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : this.hashTypes;
         this.channels = requireNonNull(hashChannels, "hashChannels is null").clone();
-        this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
 
         this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.get()) : new InterpretedHashGenerator(this.hashTypes, hashChannels);
         this.processDictionary = processDictionary;
@@ -172,11 +168,6 @@ public class MultiChannelGroupByHash
     @Override
     public void addPage(Page page)
     {
-        Block maskBlock = null;
-        if (maskChannel >= 0) {
-            maskBlock = page.getBlock(maskChannel);
-        }
-
         if (canProcessDictionary(page)) {
             addDictionaryPage(page);
             return;
@@ -185,11 +176,6 @@ public class MultiChannelGroupByHash
         // get the group id for each position
         int positionCount = page.getPositionCount();
         for (int position = 0; position < positionCount; position++) {
-            // skip masked rows
-            if (maskBlock != null && !BOOLEAN.getBoolean(maskBlock, position)) {
-                continue;
-            }
-
             // get the group for the current row
             putIfAbsent(position, page);
         }
@@ -203,11 +189,6 @@ public class MultiChannelGroupByHash
         // we know the exact size required for the block
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(positionCount);
 
-        Block maskBlock = null;
-        if (maskChannel >= 0) {
-            maskBlock = page.getBlock(maskChannel);
-        }
-
         if (canProcessDictionary(page)) {
             Block groupIds = processDictionary(page);
             return new GroupByIdBlock(nextGroupId, groupIds);
@@ -215,12 +196,6 @@ public class MultiChannelGroupByHash
 
         // get the group id for each position
         for (int position = 0; position < positionCount; position++) {
-            // skip masked rows
-            if (maskBlock != null && !BOOLEAN.getBoolean(maskBlock, position)) {
-                blockBuilder.appendNull();
-                continue;
-            }
-
             // get the group for the current row
             int groupId = putIfAbsent(position, page);
 
@@ -475,7 +450,6 @@ public class MultiChannelGroupByHash
     private boolean canProcessDictionary(Page page)
     {
         boolean processDictionary = this.processDictionary &&
-                maskChannel < 0 &&
                 channels.length == 1 &&
                 page.getBlock(channels[0]) instanceof DictionaryBlock;
 

@@ -30,25 +30,23 @@ public interface GroupByHash
             Session session,
             List<? extends Type> hashTypes,
             int[] hashChannels,
-            Optional<Integer> maskChannel,
             Optional<Integer> inputHashChannel,
             int expectedSize)
     {
-        return createGroupByHash(hashTypes, hashChannels, maskChannel, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session));
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session));
     }
 
     static GroupByHash createGroupByHash(
             List<? extends Type> hashTypes,
             int[] hashChannels,
-            Optional<Integer> maskChannel,
             Optional<Integer> inputHashChannel,
             int expectedSize,
             boolean processDictionary)
     {
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
-            return new BigintGroupByHash(hashChannels[0], maskChannel, inputHashChannel.isPresent(), expectedSize);
+            return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize);
         }
-        return new MultiChannelGroupByHash(hashTypes, hashChannels, maskChannel, inputHashChannel, expectedSize, processDictionary);
+        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary);
     }
 
     long getEstimatedSize();
