@@ -247,11 +247,6 @@
             <artifactId>jgrapht-core</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.antlr</groupId>
-            <artifactId>antlr4-runtime</artifactId>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -311,10 +306,6 @@
                 <configuration>
                     <failOnViolations>false</failOnViolations>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.antlr</groupId>
-                <artifactId>antlr4-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

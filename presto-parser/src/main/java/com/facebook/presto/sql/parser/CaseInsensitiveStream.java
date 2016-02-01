@@ -17,7 +17,7 @@ import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.IntStream;
 import org.antlr.v4.runtime.misc.Interval;
 
-class CaseInsensitiveStream
+public class CaseInsensitiveStream
         implements CharStream
 {
     private final CharStream stream;
