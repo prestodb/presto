@@ -53,7 +53,14 @@ public class HashJoinBenchmark
     {
         if (lookupSourceSupplier == null) {
             OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
-            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(1, new PlanNodeId("test"), ordersTableScan.getTypes(), Ints.asList(0), Optional.empty(), 1_500_000);
+            HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
+                    1,
+                    new PlanNodeId("test"),
+                    ordersTableScan.getTypes(),
+                    Ints.asList(0),
+                    Optional.empty(),
+                    false,
+                    1_500_000);
 
             DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
             Driver driver = new DriverFactory(false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty()).createDriver(driverContext);

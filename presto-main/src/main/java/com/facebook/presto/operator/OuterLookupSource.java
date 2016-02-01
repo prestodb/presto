@@ -15,26 +15,25 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.google.common.primitives.Ints;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public final class SharedLookupSource
+public final class OuterLookupSource
         implements LookupSource
 {
-    private final TaskContext taskContext;
     private final LookupSource lookupSource;
-    @GuardedBy("this")
-    private boolean freed;
 
-    public SharedLookupSource(LookupSource lookupSource, OperatorContext operatorContext)
+    @GuardedBy("this")
+    private final boolean[] visitedPositions;
+
+    public OuterLookupSource(LookupSource lookupSource)
     {
-        requireNonNull(operatorContext, "operatorContext is null");
         this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
-        this.taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
-        operatorContext.transferMemoryToTaskContext(lookupSource.getInMemorySizeInBytes());
+        this.visitedPositions = new boolean[lookupSource.getJoinPositionCount()];
     }
 
     @Override
@@ -77,18 +76,51 @@ public final class SharedLookupSource
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
         lookupSource.appendTo(position, pageBuilder, outputChannelOffset);
+        synchronized (this) {
+            visitedPositions[Ints.checkedCast(position)] = true;
+        }
     }
 
-    synchronized void freeMemory()
+    @Override
+    public synchronized OuterPositionIterator getOuterPositionIterator()
     {
-        checkState(!freed, "Already freed");
-        freed = true;
-        taskContext.freeMemory(lookupSource.getInMemorySizeInBytes());
+        return new SharedLookupOuterPositionIterator(lookupSource, visitedPositions);
     }
 
     @Override
     public void close()
     {
-        lookupSource.close();
+        // this method only exists for index lookup which does not support build outer
+    }
+
+    private static class SharedLookupOuterPositionIterator
+            implements OuterPositionIterator
+    {
+        private final LookupSource lookupSource;
+        private final boolean[] visitedPositions;
+
+        @GuardedBy("this")
+        private int currentPosition;
+
+        public SharedLookupOuterPositionIterator(LookupSource lookupSource, boolean[] visitedPositions)
+        {
+            this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
+            this.visitedPositions = requireNonNull(visitedPositions, "visitedPositions is null");
+            checkArgument(lookupSource.getJoinPositionCount() == visitedPositions.length);
+        }
+
+        @Override
+        public synchronized boolean appendToNext(PageBuilder pageBuilder, int outputChannelOffset)
+        {
+            while (currentPosition < visitedPositions.length) {
+                if (!visitedPositions[currentPosition]) {
+                    lookupSource.appendTo(currentPosition, pageBuilder, outputChannelOffset);
+                    currentPosition++;
+                    return true;
+                }
+                currentPosition++;
+            }
+            return false;
+        }
     }
 }

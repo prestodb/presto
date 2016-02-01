@@ -42,7 +42,6 @@ import com.facebook.presto.operator.JoinOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.LookupOuterOperator.OuterLookupSourceSupplier;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
@@ -51,6 +50,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.ParallelHashBuildOperator.ParallelHashBuildOperatorFactory;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import com.facebook.presto.operator.ProjectionFunction;
@@ -1453,32 +1453,45 @@ public class LocalExecutionPlanner
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
-            checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
             Optional<Integer> buildHashChannel = buildHashSymbol.map(channelGetter(buildSource));
 
-            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
-                    buildContext.getNextOperatorId(),
-                    node.getId(),
-                    buildSource.getTypes(),
-                    buildChannels,
-                    buildHashChannel,
-                    10_000);
+            OperatorFactory operatorFactory;
+            LookupSourceSupplier lookupSourceSupplier;
+            if (buildContext.getDriverInstanceCount().orElse(1) == 1) {
+                HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
+                        buildContext.getNextOperatorId(),
+                        node.getId(),
+                        buildSource.getTypes(),
+                        buildChannels,
+                        buildHashChannel,
+                        node.getType() == RIGHT || node.getType() == FULL,
+                        10_000);
+                operatorFactory = hashBuilderOperatorFactory;
+                lookupSourceSupplier = hashBuilderOperatorFactory.getLookupSourceSupplier();
+            }
+            else {
+                ParallelHashBuildOperatorFactory hashBuilderOperatorFactory = new ParallelHashBuildOperatorFactory(
+                        buildContext.getNextOperatorId(),
+                        node.getId(),
+                        buildSource.getTypes(),
+                        buildChannels,
+                        buildHashChannel,
+                        node.getType() == RIGHT || node.getType() == FULL,
+                        10_000,
+                        buildContext.getDriverInstanceCount().getAsInt());
+                operatorFactory = hashBuilderOperatorFactory;
+                lookupSourceSupplier = hashBuilderOperatorFactory.getLookupSourceSupplier();
+            }
 
             context.addDriverFactory(new DriverFactory(
                     buildContext.isInputDriver(),
                     false,
                     ImmutableList.<OperatorFactory>builder()
                             .addAll(buildSource.getOperatorFactories())
-                            .add(hashBuilderOperatorFactory)
+                            .add(operatorFactory)
                             .build(),
                     buildContext.getDriverInstanceCount()));
-
-            LookupSourceSupplier lookupSourceSupplier = hashBuilderOperatorFactory.getLookupSourceSupplier();
-
-            if (node.getType() == RIGHT || node.getType() == FULL) {
-                lookupSourceSupplier = new OuterLookupSourceSupplier(lookupSourceSupplier);
-            }
 
             return lookupSourceSupplier;
         }

@@ -22,31 +22,40 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public final class SettableLookupSourceSupplier
+public final class PartitionedLookupSourceSupplier
         implements LookupSourceSupplier
 {
-    private enum State
-    {
-        NOT_SET, SET, DESTROYED
-    }
-
     private final List<Type> types;
-    private final boolean outer;
+    private final List<Type> hashChannelTypes;
     private final SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
+    private final LookupSource[] partitions;
+    private final boolean outer;
 
     @GuardedBy("this")
-    private State state = State.NOT_SET;
+    private int partitionsSet;
 
     @GuardedBy("this")
-    private Runnable onDestroy;
+    private TaskContext taskContext;
 
-    public SettableLookupSourceSupplier(List<Type> types, boolean outer)
+    @GuardedBy("this")
+    private long reservedMemory;
+
+    @GuardedBy("this")
+    private boolean destroyed;
+
+    public PartitionedLookupSourceSupplier(List<Type> types, List<Integer> hashChannels, int partitionCount, boolean outer)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.partitions = new LookupSource[partitionCount];
         this.outer = outer;
+
+        hashChannelTypes = hashChannels.stream()
+                .map(types::get)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -61,49 +70,57 @@ public final class SettableLookupSourceSupplier
         return lookupSourceFuture;
     }
 
-    public void setLookupSource(LookupSource lookupSource, OperatorContext operatorContext)
+    public void setLookupSource(int partitionIndex, LookupSource lookupSource, OperatorContext operatorContext)
     {
-        if (outer) {
-            lookupSource = new OuterLookupSource(lookupSource);
-        }
-
+        PartitionedLookupSource partitionedLookupSource = null;
         synchronized (this) {
             requireNonNull(lookupSource, "lookupSource is null");
             requireNonNull(operatorContext, "operatorContext is null");
 
-            if (state == State.DESTROYED) {
+            if (destroyed) {
                 return;
             }
 
-            checkState(state == State.NOT_SET, "Lookup source already set");
-            state = State.SET;
+            checkState(partitions[partitionIndex] == null, "Partition already set");
+            partitions[partitionIndex] = lookupSource;
+            partitionsSet++;
 
             // transfer lookup source memory to task context
             long lookupSourceSizeInBytes = lookupSource.getInMemorySizeInBytes();
             operatorContext.transferMemoryToTaskContext(lookupSourceSizeInBytes);
+            reservedMemory += lookupSourceSizeInBytes;
 
-            // when all references are released, free the task memory
-            TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
-            onDestroy = () -> taskContext.freeMemory(lookupSourceSizeInBytes);
+            if (taskContext == null) {
+                taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
+            }
+
+            if (partitionsSet == partitions.length) {
+                partitionedLookupSource = new PartitionedLookupSource(ImmutableList.copyOf(partitions), hashChannelTypes, outer);
+            }
         }
 
-        lookupSourceFuture.set(lookupSource);
+        if (partitionedLookupSource != null) {
+            lookupSourceFuture.set(partitionedLookupSource);
+        }
     }
 
     @Override
     public void destroy()
     {
-        Runnable onDestroy;
+        TaskContext taskContext;
+        long reservedMemory;
         synchronized (this) {
-            if (state == State.DESTROYED) {
+            if (destroyed) {
                 return;
             }
-            state = State.DESTROYED;
-            onDestroy = this.onDestroy;
+            destroyed = true;
+            taskContext = this.taskContext;
+            reservedMemory = this.reservedMemory;
         }
 
-        if (onDestroy != null) {
-            onDestroy.run();
+        // all references are released, free the task memory
+        if (taskContext != null) {
+            taskContext.freeMemory(reservedMemory);
         }
     }
 }

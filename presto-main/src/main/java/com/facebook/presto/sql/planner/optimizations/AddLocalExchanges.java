@@ -58,6 +58,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,12 +69,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.any;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
+import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.singleStream;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
@@ -476,7 +479,7 @@ public class AddLocalExchanges
                 return deriveProperties(exchangeNode, inputProperties);
             }
 
-            Optional<Set<Symbol>> preferredPartitionColumns = preferredProperties.getPartitioningColumns();
+            Optional<List<Symbol>> preferredPartitionColumns = preferredProperties.getPartitioningColumns();
             if (preferredPartitionColumns.isPresent()) {
                 ExchangeNode exchangeNode = new ExchangeNode(
                         idAllocator.getNextId(),
@@ -520,7 +523,15 @@ public class AddLocalExchanges
                     parentPreferences.constrainTo(node.getLeft().getOutputSymbols()).withDefaultParallelism(session));
 
             // this build consumes the input completely, so we do not pass through parent preferences
-            PlanWithProperties build = planAndEnforce(node.getRight(), singleStream(), singleStream());
+            List<Symbol> buildHashSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+            StreamPreferredProperties buildPreference;
+            if (getTaskConcurrency(session) > 1) {
+                buildPreference = exactlyPartitionedOn(buildHashSymbols);
+            }
+            else {
+                buildPreference = singleStream();
+            }
+            PlanWithProperties build = planAndEnforce(node.getRight(), buildPreference, buildPreference);
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
         }
@@ -600,7 +611,7 @@ public class AddLocalExchanges
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }
 
-            Optional<Set<Symbol>> requiredPartitionColumns = requiredProperties.getPartitioningColumns();
+            Optional<List<Symbol>> requiredPartitionColumns = requiredProperties.getPartitioningColumns();
             if (!requiredPartitionColumns.isPresent()) {
                 // unpartitioned parallel streams required
                 ExchangeNode exchangeNode = partitionedExchange(
@@ -618,7 +629,7 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         LOCAL,
                         planWithProperties.getNode(),
-                        ImmutableList.copyOf(requiredPartitionColumns.get()),
+                        requiredPartitionColumns.get(),
                         Optional.empty());
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }
