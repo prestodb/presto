@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeLiteralCalculation;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
@@ -184,8 +183,7 @@ public final class TypeUtils
 
     public static TypeSignature resolveCalculatedType(
             TypeSignature typeSignature,
-            Map<String, OptionalLong> inputs,
-            boolean allowExpressionsInSignature)
+            Map<String, OptionalLong> inputs)
     {
         ImmutableList.Builder<TypeSignatureParameter> parametersBuilder = ImmutableList.builder();
 
@@ -195,14 +193,13 @@ public final class TypeUtils
                 case TYPE:
                     parametersBuilder.add(TypeSignatureParameter.of(resolveCalculatedType(
                             parameter.getTypeSignature(),
-                            inputs,
-                            allowExpressionsInSignature)));
+                            inputs)));
                     break;
-                case LITERAL_CALCULATION: {
+                case VARIABLE: {
                     OptionalLong optionalLong = TypeCalculation.calculateLiteralValue(
-                            parameter.getLiteralCalculation().getCalculation(),
+                            parameter.getVariable(),
                             inputs,
-                            allowExpressionsInSignature);
+                            false);
                     if (optionalLong.isPresent()) {
                         parametersBuilder.add(TypeSignatureParameter.of(optionalLong.getAsLong()));
                     }
@@ -240,8 +237,8 @@ public final class TypeUtils
         if (!declaredType.getBase().equals(actualType.getBase())) {
             checkArgument(actualParameters.isEmpty(), "Expected empty argument list for actual type with different base");
             for (TypeSignatureParameter parameter : declaredParameters) {
-                if (parameter.isLiteralCalculation()) {
-                    inputs.put(parameter.getLiteralCalculation().getCalculation().toUpperCase(Locale.US), OptionalLong.empty());
+                if (parameter.isVariable()) {
+                    inputs.put(parameter.getVariable().toUpperCase(Locale.US), OptionalLong.empty());
                 }
             }
             return inputs;
@@ -271,12 +268,12 @@ public final class TypeUtils
                             actualParameter.getTypeSignature()));
                 }
             }
-            else if (declaredParameter.isLiteralCalculation()) {
-                TypeLiteralCalculation calculation = declaredParameter.getLiteralCalculation();
+            else if (declaredParameter.isVariable()) {
+                String variable = declaredParameter.getVariable();
                 if (!actualParameter.isLongLiteral()) {
                     throw new IllegalArgumentException(format("Expected type %s parameter %s to be a numeric literal", actualType, index));
                 }
-                inputs.put(calculation.getCalculation().toUpperCase(Locale.US), OptionalLong.of(actualParameter.getLongLiteral()));
+                inputs.put(variable.toUpperCase(Locale.US), OptionalLong.of(actualParameter.getLongLiteral()));
             }
         }
         return inputs;

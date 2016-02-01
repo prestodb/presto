@@ -259,11 +259,8 @@ public class TypeSignature
         if (Character.isDigit(signature.charAt(begin))) {
             return TypeSignatureParameter.of(Long.parseLong(parameterName));
         }
-        else if (literalCalculationParameters.contains(parameterName) ||
-                parameterName.matches(".*[/\\+\\-\\*].*") ||
-                parameterName.contains("min") ||
-                parameterName.contains("max")) {
-            return TypeSignatureParameter.of(new TypeLiteralCalculation(parameterName));
+        else if (literalCalculationParameters.contains(parameterName)) {
+            return TypeSignatureParameter.of(parameterName);
         }
         else {
             return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));
