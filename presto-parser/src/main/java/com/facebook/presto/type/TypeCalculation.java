@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.sql.parser.CaseInsensitiveStream;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.type.TypeCalculationParser.ArithmeticBinaryContext;
 import com.facebook.presto.type.TypeCalculationParser.ArithmeticUnaryContext;
@@ -23,14 +24,11 @@ import com.facebook.presto.type.TypeCalculationParser.ParenthesizedExpressionCon
 import com.facebook.presto.type.TypeCalculationParser.TypeCalculationContext;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.BaseErrorListener;
-import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.IntStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
-import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.ParseTree;
 
@@ -224,79 +222,6 @@ public final class TypeCalculation
         public OptionalLong visitParenthesizedExpression(ParenthesizedExpressionContext ctx)
         {
             return visit(ctx.expression());
-        }
-    }
-
-    private static class CaseInsensitiveStream
-            implements CharStream
-    {
-        private final CharStream stream;
-
-        public CaseInsensitiveStream(CharStream stream)
-        {
-            this.stream = stream;
-        }
-
-        @Override
-        public String getText(Interval interval)
-        {
-            return stream.getText(interval);
-        }
-
-        @Override
-        public void consume()
-        {
-            stream.consume();
-        }
-
-        @Override
-        public int LA(int i)
-        {
-            int result = stream.LA(i);
-
-            switch (result) {
-                case 0:
-                case IntStream.EOF:
-                    return result;
-                default:
-                    return Character.toUpperCase(result);
-            }
-        }
-
-        @Override
-        public int mark()
-        {
-            return stream.mark();
-        }
-
-        @Override
-        public void release(int marker)
-        {
-            stream.release(marker);
-        }
-
-        @Override
-        public int index()
-        {
-            return stream.index();
-        }
-
-        @Override
-        public void seek(int index)
-        {
-            stream.seek(index);
-        }
-
-        @Override
-        public int size()
-        {
-            return stream.size();
-        }
-
-        @Override
-        public String getSourceName()
-        {
-            return stream.getSourceName();
         }
     }
 }
