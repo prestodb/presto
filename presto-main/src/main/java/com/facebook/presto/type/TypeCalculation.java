@@ -25,12 +25,12 @@ import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.IntStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Interval;
-import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.ParseTree;
 
@@ -50,7 +50,7 @@ public final class TypeCalculation
     private static final BaseErrorListener ERROR_LISTENER = new BaseErrorListener()
     {
         @Override
-        public void syntaxError(@NotNull Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, @NotNull String message, RecognitionException e)
+        public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
         {
             throw new ParsingException(message, e, line, charPositionInLine);
         }
@@ -118,22 +118,24 @@ public final class TypeCalculation
             extends TypeCalculationBaseVisitor<Boolean>
     {
         @Override
-        public Boolean visitArithmeticBinary(@NotNull ArithmeticBinaryContext ctx)
+        public Boolean visitArithmeticBinary(ArithmeticBinaryContext ctx)
         {
             return false;
         }
 
         @Override
-        public Boolean visitArithmeticUnary(@NotNull ArithmeticUnaryContext ctx)
+        public Boolean visitArithmeticUnary(ArithmeticUnaryContext ctx)
         {
             return false;
         }
 
+        @Override
         protected Boolean defaultResult()
         {
             return true;
         }
 
+        @Override
         protected Boolean aggregateResult(Boolean aggregate, Boolean nextResult)
         {
             return aggregate && nextResult;
@@ -151,13 +153,13 @@ public final class TypeCalculation
         }
 
         @Override
-        public OptionalLong visitTypeCalculation(@NotNull TypeCalculationContext ctx)
+        public OptionalLong visitTypeCalculation(TypeCalculationContext ctx)
         {
             return visit(ctx.expression());
         }
 
         @Override
-        public OptionalLong visitArithmeticBinary(@NotNull ArithmeticBinaryContext ctx)
+        public OptionalLong visitArithmeticBinary(ArithmeticBinaryContext ctx)
         {
             OptionalLong left = visit(ctx.left);
             OptionalLong right = visit(ctx.right);
@@ -179,7 +181,7 @@ public final class TypeCalculation
         }
 
         @Override
-        public OptionalLong visitArithmeticUnary(@NotNull ArithmeticUnaryContext ctx)
+        public OptionalLong visitArithmeticUnary(ArithmeticUnaryContext ctx)
         {
             OptionalLong value = visit(ctx.expression());
             if (!value.isPresent()) {
@@ -196,19 +198,19 @@ public final class TypeCalculation
         }
 
         @Override
-        public OptionalLong visitNumericLiteral(@NotNull NumericLiteralContext ctx)
+        public OptionalLong visitNumericLiteral(NumericLiteralContext ctx)
         {
             return OptionalLong.of(Long.parseLong(ctx.INTEGER_VALUE().getText()));
         }
 
         @Override
-        public OptionalLong visitNullLiteral(@NotNull NullLiteralContext ctx)
+        public OptionalLong visitNullLiteral(NullLiteralContext ctx)
         {
             return OptionalLong.empty();
         }
 
         @Override
-        public OptionalLong visitIdentifier(@NotNull IdentifierContext ctx)
+        public OptionalLong visitIdentifier(IdentifierContext ctx)
         {
             String identifier = ctx.getText();
             OptionalLong value = inputs.get(identifier.toUpperCase(Locale.US));
@@ -219,7 +221,7 @@ public final class TypeCalculation
         }
 
         @Override
-        public OptionalLong visitParenthesizedExpression(@NotNull ParenthesizedExpressionContext ctx)
+        public OptionalLong visitParenthesizedExpression(ParenthesizedExpressionContext ctx)
         {
             return visit(ctx.expression());
         }
@@ -236,8 +238,7 @@ public final class TypeCalculation
         }
 
         @Override
-        @NotNull
-        public String getText(@NotNull Interval interval)
+        public String getText(Interval interval)
         {
             return stream.getText(interval);
         }
@@ -255,7 +256,7 @@ public final class TypeCalculation
 
             switch (result) {
                 case 0:
-                case CharStream.EOF:
+                case IntStream.EOF:
                     return result;
                 default:
                     return Character.toUpperCase(result);
@@ -293,7 +294,6 @@ public final class TypeCalculation
         }
 
         @Override
-        @NotNull
         public String getSourceName()
         {
             return stream.getSourceName();
