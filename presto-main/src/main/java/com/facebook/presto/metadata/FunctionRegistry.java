@@ -428,7 +428,9 @@ public class FunctionRegistry
                 boundArguments.add(lastArgument);
             }
         }
-        return new Signature(signature.getName(), signature.getKind(), signature.getReturnType().bindParameters(boundParameters), boundArguments.build());
+
+        return new Signature(signature.getName(), signature.getKind(), ImmutableList.of(), signature.getLongVariableConstraints(),
+                signature.getReturnType().bindParameters(boundParameters), boundArguments.build(), false);
     }
 
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
