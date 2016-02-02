@@ -96,7 +96,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -437,38 +436,7 @@ public class AddExchanges
                 }
             }
 
-            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
-
-            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
-            if (!node.getPartitionBy().isEmpty()) {
-                Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
-                Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
-                prePartitionedInputs = node.getPartitionBy().stream()
-                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
-                        .collect(toImmutableSet());
-            }
-
-            int preSortedOrderPrefix = 0;
-            if (prePartitionedInputs.equals(ImmutableSet.copyOf(node.getPartitionBy()))) {
-                while (matchIterator.hasNext() && !matchIterator.next().isPresent()) {
-                    preSortedOrderPrefix++;
-                }
-            }
-
-            return withDerivedProperties(
-                    new WindowNode(
-                            node.getId(),
-                            child.getNode(),
-                            node.getPartitionBy(),
-                            node.getOrderBy(),
-                            node.getOrderings(),
-                            node.getFrame(),
-                            node.getWindowFunctions(),
-                            node.getSignatures(),
-                            node.getHashSymbol(),
-                            prePartitionedInputs,
-                            preSortedOrderPrefix),
-                    child.getProperties());
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override

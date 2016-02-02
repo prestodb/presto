@@ -58,6 +58,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -83,6 +84,7 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -386,6 +388,17 @@ class PropertyDerivations
             Map<Symbol, NullableValue> constants = entries.stream()
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+            // Local exchanges are only created in AddLocalExchanges, at the end of optimization, and
+            // local exchanges do not produce global properties as represented by ActualProperties.
+            // This is acceptable because AddLocalExchanges does not use global properties and is only
+            // interested in the local properties.
+            // TODO: implement full properties for local exchanges
+            if (node.getScope() == LOCAL) {
+                return ActualProperties.builder()
+                        .constants(constants)
+                        .build();
+            }
+
             switch (node.getType()) {
                 case GATHER:
                     return ActualProperties.builder()
@@ -504,6 +517,14 @@ class PropertyDerivations
                 }
                 return Optional.empty();
             });
+        }
+
+        @Override
+        public ActualProperties visitValues(ValuesNode node, List<ActualProperties> context)
+        {
+            return ActualProperties.builder()
+                    .global(singleStreamPartition())
+                    .build();
         }
 
         @Override

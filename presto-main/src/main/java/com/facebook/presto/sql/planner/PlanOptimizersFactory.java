@@ -108,7 +108,7 @@ public class PlanOptimizersFactory
         builder.add(new PruneIdentityProjections());
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
-        builder.add(new AddLocalExchanges(metadata));
+        builder.add(new AddLocalExchanges(metadata, sqlParser));
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
