@@ -249,6 +249,11 @@ public class Decimals
         decimalType.writeSlice(blockBuilder, encodeScaledValue(value));
     }
 
+    public static void writeShortDecimal(BlockBuilder blockBuilder, long value)
+    {
+        blockBuilder.writeLong(value).closeEntry();
+    }
+
     public static BigDecimal rescale(BigDecimal value, DecimalType type)
     {
         value = value.setScale(type.getScale(), ROUND_UNNECESSARY);
