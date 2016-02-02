@@ -26,11 +26,11 @@ public class FeaturesConfig
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
     private boolean pushTableWriteThroughUnion = true;
-    private boolean intermediateAggregationsEnabled = false;
+    private boolean intermediateAggregationsEnabled;
 
-    private boolean columnarProcessing = false;
-    private boolean columnarProcessingDictionary = false;
-    private boolean dictionaryAggregation = false;
+    private boolean columnarProcessing;
+    private boolean columnarProcessingDictionary;
+    private boolean dictionaryAggregation;
 
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
