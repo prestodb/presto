@@ -517,7 +517,7 @@ public class TestDatabaseShardManager
 
     private long createTable(String name)
     {
-        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false);
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, null);
     }
 
     public static ShardInfo shardInfo(UUID shardUuid, String nodeIdentifier)

@@ -53,6 +53,7 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -159,6 +160,7 @@ public class RaptorMetadata
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         SchemaTableName tableName = new SchemaTableName(handle.getSchemaName(), handle.getTableName());
+
         List<ColumnMetadata> columns = dao.getTableColumns(handle.getTableId()).stream()
                 .map(TableColumn::toColumnMetadata)
                 .filter(isSampleWeightColumn().negate())
@@ -168,7 +170,10 @@ public class RaptorMetadata
         }
 
         columns.add(hiddenColumn(SHARD_UUID_COLUMN_NAME, VARCHAR));
-        return new ConnectorTableMetadata(tableName, columns);
+
+        String mqtQuery = dao.getMqtQuery(handle.getTableId());
+
+        return new ConnectorTableMetadata(tableName, columns, Collections.EMPTY_MAP, null, false, Optional.ofNullable(mqtQuery));
     }
 
     @Override
@@ -342,6 +347,7 @@ public class RaptorMetadata
                 transactionId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
+                tableMetadata.getMqtQuery(),
                 columnHandles.build(),
                 columnTypes.build(),
                 Optional.ofNullable(sampleWeightColumnHandle),
@@ -383,7 +389,7 @@ public class RaptorMetadata
 
         long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
-            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true);
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, table.getMqtQuery().orElse(null));
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
 
             for (int i = 0; i < table.getColumnTypes().size(); i++) {

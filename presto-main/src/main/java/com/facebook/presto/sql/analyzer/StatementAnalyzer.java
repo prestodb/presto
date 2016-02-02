@@ -28,6 +28,7 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
@@ -68,6 +69,7 @@ import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LikePredicate;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
@@ -134,6 +136,7 @@ import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.QueryUtil.aliased;
@@ -514,8 +517,23 @@ class StatementAnalyzer
 
         analysis.setUpdateType("INSERT");
 
+        Query insertQuery = insert.getQuery();
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, targetTable);
+        if (tableHandle.isPresent()) {
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+            if (tableMetadata.getMqtQuery().isPresent()) {
+                if (!insert.isTriggeredByRefresh()) {
+                    throw new PrestoException(USER_ERROR, "Cannot insert into materialized query table");
+                }
+                insertQuery = (Query) sqlParser.createStatement(tableMetadata.getMqtQuery().get());
+                if (insert.getMqtRefreshPredicate().isPresent()) {
+                    insertQuery = replaceInsertPredicate(insertQuery, insert.getMqtRefreshPredicate().get());
+                }
+            }
+        }
+
         // analyze the query that creates the data
-        RelationType queryDescriptor = process(insert.getQuery(), context);
+        RelationType queryDescriptor = process(insertQuery, context);
 
         // verify the insert destination columns match the query
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -602,6 +620,40 @@ class StatementAnalyzer
         return baseName.equals(StandardTypes.MAP) || baseName.equals(StandardTypes.ARRAY) || baseName.equals(StandardTypes.ROW);
     }
 
+    private static Query replaceInsertPredicate(Query insert, Expression refreshPredicate)
+    {
+        QuerySpecification querySpecification = ((QuerySpecification) insert.getQueryBody());
+
+        Optional<Expression> where = querySpecification.getWhere();
+        refreshPredicate = andPredicates(refreshPredicate, where);
+
+        querySpecification = new QuerySpecification(
+                querySpecification.getLocation(),
+                querySpecification.getSelect(),
+                querySpecification.getFrom(),
+                Optional.of(refreshPredicate),
+                querySpecification.getGroupBy(),
+                querySpecification.getHaving(),
+                querySpecification.getOrderBy(),
+                querySpecification.getLimit());
+
+        return new Query(
+                insert.getLocation().get(),
+                insert.getWith(),
+                querySpecification,
+                insert.getOrderBy(),
+                insert.getLimit(),
+                insert.getApproximate());
+    }
+
+    private static Expression andPredicates(Expression predicate1, Optional<Expression> predicate2)
+    {
+        if (predicate2.isPresent()) {
+            return new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND, predicate1, predicate2.get());
+        }
+        return predicate1;
+    }
+
     @Override
     protected RelationType visitDelete(Delete node, AnalysisContext context)
     {
@@ -611,9 +663,27 @@ class StatementAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
         }
 
-        analysis.setUpdateType("DELETE");
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        if (tableHandle.isPresent()) {
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+            if (tableMetadata.getMqtQuery().isPresent()) {
+                if (!node.isTriggeredByRefresh()) {
+                    throw new PrestoException(USER_ERROR, "Cannot delete from materialized query table");
+                }
 
-        analysis.setDelete(node);
+                Query mqtQuery = (Query) sqlParser.createStatement(tableMetadata.getMqtQuery().get());
+                Optional<Expression> mqtQueryWhere = ((QuerySpecification) mqtQuery.getQueryBody()).getWhere();
+                if (mqtQueryWhere.isPresent()) {
+                    // replace the where clause
+                    Expression newPredicate = andPredicates(mqtQueryWhere.get(), node.getWhere());
+                    node = new Delete(node.getTable(), Optional.of(newPredicate), node.isTriggeredByRefresh());
+                }
+            }
+        }
+
+        analysis.setUpdateType("DELETE");
+        Delete deleteNode = node;
+        analysis.setDelete(deleteNode);
 
         // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
         // TODO: we shouldn't need to create a new analyzer. The access control should be carried in the context object
@@ -627,7 +697,7 @@ class StatementAnalyzer
                 queryExplainer);
 
         RelationType descriptor = analyzer.process(table, context);
-        node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, descriptor, context, where));
+        node.getWhere().ifPresent(where -> analyzer.analyzeWhere(deleteNode, descriptor, context, where));
 
         accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
@@ -657,6 +727,8 @@ class StatementAnalyzer
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
         analysis.setCreateTableAsSelectWithData(node.isWithData());
+
+        analysis.setCreateMaterializedQueryTable(node.isMaterializedQueryTable());
 
         // analyze the query that creates the table
         RelationType descriptor = process(node.getQuery(), context);

@@ -24,22 +24,29 @@ public class Delete
 {
     private final Table table;
     private final Optional<Expression> where;
+    private final boolean triggeredByRefresh;
 
     public Delete(Table table, Optional<Expression> where)
     {
-        this(Optional.empty(), table, where);
+        this(Optional.empty(), table, where, false);
+    }
+
+    public Delete(Table table, Optional<Expression> where, boolean triggeredByRefresh)
+    {
+        this(Optional.empty(), table, where, triggeredByRefresh);
     }
 
     public Delete(NodeLocation location, Table table, Optional<Expression> where)
     {
-        this(Optional.of(location), table, where);
+        this(Optional.of(location), table, where, false);
     }
 
-    private Delete(Optional<NodeLocation> location, Table table, Optional<Expression> where)
+    private Delete(Optional<NodeLocation> location, Table table, Optional<Expression> where, boolean triggeredByRefresh)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
         this.where = requireNonNull(where, "where is null");
+        this.triggeredByRefresh = triggeredByRefresh;
     }
 
     public Table getTable()
@@ -52,6 +59,11 @@ public class Delete
         return where;
     }
 
+    public boolean isTriggeredByRefresh()
+    {
+        return triggeredByRefresh;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -61,7 +73,7 @@ public class Delete
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, where);
+        return Objects.hash(table, where, triggeredByRefresh);
     }
 
     @Override
@@ -75,7 +87,8 @@ public class Delete
         }
         Delete o = (Delete) obj;
         return Objects.equals(table, o.table) &&
-                Objects.equals(where, o.where);
+                Objects.equals(where, o.where) &&
+                Objects.equals(triggeredByRefresh, o.triggeredByRefresh);
     }
 
     @Override
@@ -84,6 +97,7 @@ public class Delete
         return toStringHelper(this)
                 .add("table", table.getName())
                 .add("where", where)
+                .add("triggeredByRefresh", triggeredByRefresh)
                 .toString();
     }
 }

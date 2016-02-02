@@ -18,8 +18,10 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
 
 public class ConnectorTableMetadata
 {
@@ -29,6 +31,7 @@ public class ConnectorTableMetadata
     /* nullable */
     private final String owner;
     private final boolean sampled;
+    private final Optional<String> mqtQuery;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
@@ -47,6 +50,17 @@ public class ConnectorTableMetadata
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, String owner, boolean sampled)
     {
+        this(table, columns, properties, owner, sampled, Optional.empty());
+    }
+
+    public ConnectorTableMetadata(
+            SchemaTableName table,
+            List<ColumnMetadata> columns,
+            Map<String, Object> properties,
+            String owner,
+            boolean sampled,
+            Optional<String> mqtQuery)
+    {
         if (table == null) {
             throw new NullPointerException("table is null or empty");
         }
@@ -59,11 +73,17 @@ public class ConnectorTableMetadata
         this.properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
         this.owner = owner;
         this.sampled = sampled;
+        this.mqtQuery = requireNonNull(mqtQuery, "mqtQuery is null");
     }
 
     public boolean isSampled()
     {
         return sampled;
+    }
+
+    public Optional<String> getMqtQuery()
+    {
+        return mqtQuery;
     }
 
     public SchemaTableName getTable()
@@ -97,6 +117,7 @@ public class ConnectorTableMetadata
         sb.append(", columns=").append(columns);
         sb.append(", properties=").append(properties);
         sb.append(", owner=").append(owner);
+        sb.append(", mqtQuery=").append(mqtQuery);
         sb.append('}');
         return sb.toString();
     }

@@ -60,6 +60,101 @@ public class TestRaptorDistributedQueries
     }
 
     @Test
+    public void testRefreshMaterializedQueryTable()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_refresh_base AS " +
+                "SELECT a, b, c FROM (VALUES (1, 2, 3), (1, 2, 4), (2, 3, 4), (3, 4, 5), (10, 20, 30)) t(a, b, c)", 4);
+
+        // Create two materialized query tables. One without filtering and one with.
+        assertUpdate("CREATE TABLE test_refresh_mqt1 AS " +
+                "SELECT a, b, SUM(c) as c from raptor.tpch.test_refresh_base " +
+                "GROUP BY a, b " +
+                "WITH NO DATA " +
+                "REFRESH ON DEMAND", 4);
+        assertUpdate("CREATE TABLE test_refresh_mqt2 AS " +
+                "SELECT a, b, SUM(c) as c from raptor.tpch.test_refresh_base " +
+                "WHERE b < 10 " +
+                "GROUP BY a, b " +
+                "WITH NO DATA " +
+                "REFRESH ON DEMAND", 3);
+
+        // Refresh both materialized tables with no predicate
+        queryRunner.execute(getSession(), "CALL system.runtime.refresh_materialized_query_table('raptor.tpch.test_refresh_mqt1', '')");
+        queryRunner.execute(getSession(), "CALL system.runtime.refresh_materialized_query_table('raptor.tpch.test_refresh_mqt2', '')");
+
+        MaterializedResult materializedRows1 = computeActual("SELECT COUNT(1) FROM test_refresh_mqt1");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(0), 4L);
+
+        materializedRows1 = computeActual("SELECT a, b, c FROM test_refresh_mqt1 ORDER BY a, b");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(1), 2L);
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(0), 2L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(1), 3L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(2), 4L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(0), 3L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(1), 4L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(2), 5L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(0), 10L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(1), 20L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(2), 30L);
+
+        MaterializedResult materializedRows2 = computeActual("SELECT COUNT(1) FROM test_refresh_mqt2");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(0), 3L);
+
+        materializedRows2 = computeActual("SELECT a, b, c FROM test_refresh_mqt2 ORDER BY a, b");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(1), 2L);
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(0), 2L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(1), 3L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(2), 4L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(0), 3L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(1), 4L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(2), 5L);
+
+        queryRunner.execute(getSession(), "INSERT INTO test_refresh_base values (1, 2, 10)");
+        queryRunner.execute(getSession(), "INSERT INTO test_refresh_base values (2, 3, 5)");
+        queryRunner.execute(getSession(), "INSERT INTO test_refresh_base values (10, 20, 5)");
+
+        // Refresh both materialized tables with predicate
+        queryRunner.execute(getSession(), "CALL system.runtime.refresh_materialized_query_table('raptor.tpch.test_refresh_mqt1', 'a > 1')");
+        queryRunner.execute(getSession(), "CALL system.runtime.refresh_materialized_query_table('raptor.tpch.test_refresh_mqt2', 'a > 1')");
+
+        materializedRows1 = computeActual("SELECT COUNT(1) FROM test_refresh_mqt1");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(0), 4L);
+
+        materializedRows1 = computeActual("SELECT a, b, c FROM test_refresh_mqt1 ORDER BY a, b");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(1), 2L);
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(0), 2L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(1), 3L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(2), 9L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(0), 3L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(1), 4L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(2), 5L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(0), 10L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(1), 20L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(2), 35L);
+
+        materializedRows2 = computeActual("SELECT COUNT(1) FROM test_refresh_mqt2");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(0), 3L);
+
+        materializedRows2 = computeActual("SELECT a, b, c FROM test_refresh_mqt2 ORDER BY a, b");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(1), 2L);
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(0), 2L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(1), 3L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(2), 9L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(0), 3L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(1), 4L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(2), 5L);
+    }
+
+    @Test
     public void testShardUuidHiddenColumn()
             throws Exception
     {

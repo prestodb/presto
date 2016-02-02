@@ -29,24 +29,26 @@ public class CreateTableAsSelect
     private final Query query;
     private final Map<String, Expression> properties;
     private final boolean withData;
+    private final boolean materializedQueryTable;
 
-    public CreateTableAsSelect(QualifiedName name, Query query, Map<String, Expression> properties, boolean withData)
+    public CreateTableAsSelect(QualifiedName name, Query query, Map<String, Expression> properties, boolean withData, boolean materializedQueryTable)
     {
-        this(Optional.empty(), name, query, properties, withData);
+        this(Optional.empty(), name, query, properties, withData, materializedQueryTable);
     }
 
-    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, Map<String, Expression> properties, boolean withData)
+    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, Map<String, Expression> properties, boolean withData, boolean materializedQueryTable)
     {
-        this(Optional.of(location), name, query, properties, withData);
+        this(Optional.of(location), name, query, properties, withData, materializedQueryTable);
     }
 
-    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, Map<String, Expression> properties, boolean withData)
+    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, Map<String, Expression> properties, boolean withData, boolean materializedQueryTable)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.withData = withData;
+        this.materializedQueryTable = materializedQueryTable;
     }
 
     public QualifiedName getName()
@@ -69,6 +71,11 @@ public class CreateTableAsSelect
         return withData;
     }
 
+    public boolean isMaterializedQueryTable()
+    {
+        return materializedQueryTable;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -78,7 +85,7 @@ public class CreateTableAsSelect
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, properties, withData);
+        return Objects.hash(name, query, properties, withData, materializedQueryTable);
     }
 
     @Override
@@ -94,7 +101,8 @@ public class CreateTableAsSelect
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
                 && Objects.equals(properties, o.properties)
-                && Objects.equals(withData, o.withData);
+                && Objects.equals(withData, o.withData)
+                && Objects.equals(materializedQueryTable, materializedQueryTable);
     }
 
     @Override
@@ -105,6 +113,7 @@ public class CreateTableAsSelect
                 .add("query", query)
                 .add("properties", properties)
                 .add("withData", withData)
+                .add("materializedQueryTable", materializedQueryTable)
                 .toString();
     }
 }
