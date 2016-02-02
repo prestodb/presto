@@ -850,15 +850,22 @@ public class CachingHiveMetastore
     }
 
     private Set<String> loadRoles(String user)
+            throws Exception
     {
-        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-            List<Role> roles = client.listRoles(user, USER);
-            if (roles == null) {
-                return ImmutableSet.of();
-            }
-            return ImmutableSet.copyOf(roles.stream()
-                    .map(Role::getRoleName)
-                    .collect(toSet()));
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("loadRoles", stats.getLoadRoles().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            List<Role> roles = client.listRoles(user, USER);
+                            if (roles == null) {
+                                return ImmutableSet.<String>of();
+                            }
+                            return ImmutableSet.copyOf(roles.stream()
+                                    .map(Role::getRoleName)
+                                    .collect(toSet()));
+                        }
+                    }));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -962,26 +969,37 @@ public class CachingHiveMetastore
 
     private Set<HivePrivilege> getPrivileges(String user, HiveObjectRef objectReference)
     {
-        ImmutableSet.Builder<HivePrivilege> privileges = ImmutableSet.builder();
-        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-            PrincipalPrivilegeSet privilegeSet = client.getPrivilegeSet(objectReference, user, null);
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("getPrivilegeSet", stats.getGetPrivilegeSet().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            ImmutableSet.Builder<HivePrivilege> privileges = ImmutableSet.builder();
+                            PrincipalPrivilegeSet privilegeSet = client.getPrivilegeSet(objectReference, user, null);
+                            if (privilegeSet != null) {
+                                Map<String, List<PrivilegeGrantInfo>> userPrivileges = privilegeSet.getUserPrivileges();
+                                if (userPrivileges != null) {
+                                    privileges.addAll(toGrants(userPrivileges.get(user)));
+                                }
+                                for (List<PrivilegeGrantInfo> rolePrivileges : privilegeSet.getRolePrivileges().values()) {
+                                    privileges.addAll(toGrants(rolePrivileges));
+                                }
+                                // We do not add the group permissions as Hive does not seem to process these
+                            }
 
-            if (privilegeSet != null) {
-                Map<String, List<PrivilegeGrantInfo>> userPrivileges = privilegeSet.getUserPrivileges();
-                if (userPrivileges != null) {
-                    privileges.addAll(toGrants(userPrivileges.get(user)));
-                }
-                for (List<PrivilegeGrantInfo> rolePrivileges : privilegeSet.getRolePrivileges().values()) {
-                    privileges.addAll(toGrants(rolePrivileges));
-                }
-                // We do not add the group permissions as Hive does not seem to process these
-            }
+                            return privileges.build();
+                        }
+                    }));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
-
-        return privileges.build();
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
     }
 
     private static Set<HivePrivilege> toGrants(List<PrivilegeGrantInfo> userGrants)
