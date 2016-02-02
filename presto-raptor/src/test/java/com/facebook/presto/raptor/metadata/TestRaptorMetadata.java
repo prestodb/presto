@@ -50,6 +50,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
@@ -394,7 +395,7 @@ public class TestRaptorMetadata
     {
         // start table creation
         long transactionId = 1;
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable());
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty());
 
         // transaction is in progress
         assertTrue(transactionExists(transactionId));
@@ -479,7 +480,7 @@ public class TestRaptorMetadata
     {
         // start table creation
         long transactionId = 1;
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable());
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty());
 
         // transaction is in progress
         assertTrue(transactionExists(transactionId));

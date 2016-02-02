@@ -161,7 +161,7 @@ public class LegacyConnectorMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         checkState(rollbackAction.get() == null, "Cannot begin a new write while in an existing one");
         ConnectorOutputTableHandle outputTableHandle = metadata.beginCreateTable(session, tableMetadata);

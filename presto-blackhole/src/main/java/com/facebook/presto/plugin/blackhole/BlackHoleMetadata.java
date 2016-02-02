@@ -145,7 +145,7 @@ public class BlackHoleMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata);
+        ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty());
         finishCreateTable(session, outputTableHandle, ImmutableList.of());
     }
 
@@ -170,7 +170,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         int splitCount = (Integer) tableMetadata.getProperties().get(SPLIT_COUNT_PROPERTY);
         int pagesPerSplit = (Integer) tableMetadata.getProperties().get(PAGES_PER_SPLIT_PROPERTY);

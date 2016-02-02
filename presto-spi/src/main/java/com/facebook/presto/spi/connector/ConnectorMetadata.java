@@ -172,7 +172,7 @@ public interface ConnectorMetadata
     /**
      * Begin the atomic creation of a table with data.
      */
-    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
