@@ -143,6 +143,7 @@ import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunct
 import static com.facebook.presto.operator.aggregation.ArrayAggregationFunction.ARRAY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
@@ -412,7 +413,8 @@ public class FunctionRegistry
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_EQUAL, ROW_NOT_EQUAL)
                 .function(CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
-                .function(TRY_CAST);
+                .function(TRY_CAST)
+                .function(DECIMAL_AVERAGE_AGGREGATION);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)

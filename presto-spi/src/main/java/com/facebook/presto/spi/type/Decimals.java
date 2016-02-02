@@ -248,6 +248,11 @@ public class Decimals
         decimalType.writeSlice(blockBuilder, encodeScaledValue(value));
     }
 
+    public static void writeShortDecimal(BlockBuilder blockBuilder, long value)
+    {
+        blockBuilder.writeLong(value).closeEntry();
+    }
+
     public static long rescale(long value, int fromScale, int toScale)
     {
         if (toScale < fromScale) {

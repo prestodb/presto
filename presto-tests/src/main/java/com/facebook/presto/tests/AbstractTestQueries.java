@@ -4207,13 +4207,16 @@ public abstract class AbstractTestQueries
         });
 
         assertTrue(functions.containsKey("avg"), "Expected function names " + functions + " to contain 'avg'");
-        assertEquals(functions.get("avg").asList().size(), 2);
-        assertEquals(functions.get("avg").asList().get(0).getField(1), "double");
-        assertEquals(functions.get("avg").asList().get(0).getField(2), "bigint");
+        assertEquals(functions.get("avg").asList().size(), 3);
+        assertEquals(functions.get("avg").asList().get(0).getField(1), "T");
+        assertEquals(functions.get("avg").asList().get(0).getField(2), "T");
         assertEquals(functions.get("avg").asList().get(0).getField(3), "aggregate");
         assertEquals(functions.get("avg").asList().get(1).getField(1), "double");
-        assertEquals(functions.get("avg").asList().get(1).getField(2), "double");
-        assertEquals(functions.get("avg").asList().get(0).getField(3), "aggregate");
+        assertEquals(functions.get("avg").asList().get(1).getField(2), "bigint");
+        assertEquals(functions.get("avg").asList().get(1).getField(3), "aggregate");
+        assertEquals(functions.get("avg").asList().get(2).getField(1), "double");
+        assertEquals(functions.get("avg").asList().get(2).getField(2), "double");
+        assertEquals(functions.get("avg").asList().get(2).getField(3), "aggregate");
 
         assertTrue(functions.containsKey("abs"), "Expected function names " + functions + " to contain 'abs'");
         assertEquals(functions.get("abs").asList().get(0).getField(3), "scalar");
