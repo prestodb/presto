@@ -17,6 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -79,25 +82,42 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 final class StreamPropertyDerivations
 {
     private StreamPropertyDerivations() {}
 
-    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session)
+    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session);
+        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, parser);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session)
+    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+        requireNonNull(parser, "parser is null");
 
-        return node.accept(new Visitor(metadata, session), inputProperties);
+        // properties.otherActualProperties will never be null here because the only way
+        // an external caller should obtain StreamProperties is from this method, and the
+        // last line of this method assures otherActualProperties is set.
+        ActualProperties otherProperties = PropertyDerivations.deriveProperties(
+                node,
+                inputProperties.stream()
+                        .map(properties -> properties.otherActualProperties)
+                        .collect(toImmutableList()),
+                metadata,
+                session,
+                types,
+                parser);
+
+        return node.accept(new Visitor(metadata, session), inputProperties)
+                .withOtherActualProperties(otherProperties);
     }
 
     private static class Visitor
@@ -447,10 +467,23 @@ final class StreamPropertyDerivations
 
         private final boolean ordered;
 
+        // We are only interested in the local properties, but PropertyDerivations requires input
+        // ActualProperties, so we hold on to the whole object
+        private final ActualProperties otherActualProperties;
+
         // NOTE: Partitioning on zero columns (or effectively zero columns if the columns are constant) indicates that all
         // the rows will be partitioned into a single stream.
 
-        public StreamProperties(StreamDistribution distribution, Optional<? extends Iterable<Symbol>> partitioningColumns, boolean ordered)
+        private StreamProperties(StreamDistribution distribution, Optional<? extends Iterable<Symbol>> partitioningColumns, boolean ordered)
+        {
+            this(distribution, partitioningColumns, ordered, null);
+        }
+
+        private StreamProperties(
+                StreamDistribution distribution,
+                Optional<? extends Iterable<Symbol>> partitioningColumns,
+                boolean ordered,
+                ActualProperties otherActualProperties)
         {
             this.distribution = requireNonNull(distribution, "distribution is null");
 
@@ -462,9 +495,17 @@ final class StreamPropertyDerivations
 
             this.ordered = ordered;
             checkArgument(!ordered || distribution == SINGLE, "Ordered must be a single stream");
+
+            this.otherActualProperties = otherActualProperties;
         }
 
-        public static StreamProperties singleStream()
+        public List<LocalProperty<Symbol>> getLocalProperties()
+        {
+            checkState(otherActualProperties != null, "otherActualProperties not set");
+            return otherActualProperties.getLocalProperties();
+        }
+
+        private static StreamProperties singleStream()
         {
             return new StreamProperties(SINGLE, Optional.of(ImmutableSet.of()), false);
         }
@@ -505,7 +546,7 @@ final class StreamPropertyDerivations
             return ordered;
         }
 
-        public StreamProperties withUnspecifiedPartitioning()
+        private StreamProperties withUnspecifiedPartitioning()
         {
             // a single stream has no symbols
             if (isSingleStream()) {
@@ -514,6 +555,11 @@ final class StreamPropertyDerivations
             // otherwise we are distributed on some symbols, but since we are trying to remove all symbols,
             // just say we have multiple partitions with an unknown scheme
             return new StreamProperties(distribution, Optional.empty(), ordered);
+        }
+
+        private StreamProperties withOtherActualProperties(ActualProperties actualProperties)
+        {
+            return new StreamProperties(distribution, partitioningColumns, ordered, actualProperties);
         }
 
         public StreamProperties translate(Function<Symbol, Optional<Symbol>> translator)
@@ -531,7 +577,8 @@ final class StreamPropertyDerivations
                         }
                         return Optional.of(newPartitioningColumns.build());
                     }),
-                    ordered);
+                    ordered,
+                    otherActualProperties.translate(translator));
         }
 
         @Override

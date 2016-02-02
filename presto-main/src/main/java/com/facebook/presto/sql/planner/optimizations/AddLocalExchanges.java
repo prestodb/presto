@@ -18,7 +18,11 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.GroupingProperty;
+import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -53,9 +57,11 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,6 +84,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -86,10 +93,12 @@ public class AddLocalExchanges
         extends PlanOptimizer
 {
     private final Metadata metadata;
+    private final SqlParser parser;
 
-    public AddLocalExchanges(Metadata metadata)
+    public AddLocalExchanges(Metadata metadata, SqlParser parser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.parser = requireNonNull(parser, "parser is null");
     }
 
     @Override
@@ -326,9 +335,52 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitWindow(WindowNode node, StreamPreferredProperties parentPreferences)
         {
-            // window requires that all data be partitioned
-            StreamPreferredProperties requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(node.getPartitionBy());
-            return planAndEnforceChildren(node, requiredProperties, requiredProperties);
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputSymbols())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(node.getPartitionBy());
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+
+            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            if (!node.getPartitionBy().isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+            }
+            for (Symbol symbol : node.getOrderBy()) {
+                desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+            }
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+
+            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
+            if (!node.getPartitionBy().isEmpty()) {
+                Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
+                Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+                prePartitionedInputs = node.getPartitionBy().stream()
+                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                        .collect(toImmutableSet());
+            }
+
+            int preSortedOrderPrefix = 0;
+            if (prePartitionedInputs.equals(ImmutableSet.copyOf(node.getPartitionBy()))) {
+                while (matchIterator.hasNext() && !matchIterator.next().isPresent()) {
+                    preSortedOrderPrefix++;
+                }
+            }
+
+            WindowNode result = new WindowNode(
+                    node.getId(),
+                    child.getNode(),
+                    node.getPartitionBy(),
+                    node.getOrderBy(),
+                    node.getOrderings(),
+                    node.getFrame(),
+                    node.getWindowFunctions(),
+                    node.getSignatures(),
+                    node.getHashSymbol(),
+                    prePartitionedInputs,
+                    preSortedOrderPrefix);
+
+            return deriveProperties(result, child.getProperties());
         }
 
         @Override
@@ -596,12 +648,12 @@ public class AddLocalExchanges
 
         private PlanWithProperties deriveProperties(PlanNode result, StreamProperties inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser));
         }
 
         private PlanWithProperties deriveProperties(PlanNode result, List<StreamProperties> inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser));
         }
 
         private StreamProperties derivePropertiesRecursively(PlanNode node)
@@ -609,7 +661,7 @@ public class AddLocalExchanges
             List<StreamProperties> inputProperties = node.getSources().stream()
                     .map(this::derivePropertiesRecursively)
                     .collect(toImmutableList());
-            return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session);
+            return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, symbolAllocator.getTypes(), parser);
         }
     }
 
