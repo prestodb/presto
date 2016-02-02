@@ -30,10 +30,13 @@ import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.realm.activedirectory.ActiveDirectoryRealm;
 import org.apache.shiro.realm.ldap.JndiLdapContextFactory;
 import org.apache.shiro.realm.ldap.LdapContextFactory;
+import org.apache.shiro.realm.ldap.LdapUtils;
 import org.apache.shiro.subject.Subject;
 
+import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import javax.naming.directory.SearchControls;
+import javax.naming.ldap.LdapContext;
 import javax.servlet.Filter;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -106,10 +109,25 @@ public class ActiveDirectoryAuthenticationModule
                             protected AuthenticationInfo queryForAuthenticationInfo(AuthenticationToken token, LdapContextFactory ldapSystemContextFactory) throws NamingException
                             {
                                 UsernamePasswordToken upToken = (UsernamePasswordToken) token;
-                                /* Add your custom LDAP validation code here. At this point, you have systemLdapContext (ldapSystemContextFactory)
-                                 * from your systemAccount and UserId/Password pass in from JDBC driver or Presto client ready for validation.
-                                 * The code currently return successful, no LDAP validation.
-                                 */
+                                LdapContext ctxSystem = ldapSystemContextFactory.getSystemLdapContext();
+                                LdapContext realUserCtx = null;
+                                String userId = upToken.getUsername();
+                                try {
+                                    NamingEnumeration<javax.naming.directory.SearchResult> answers = ctxSystem.search(searchBase, "sAMAccountName=" + userId, searchControls);
+
+                                    if (!answers.hasMore()) {
+                                        throw new NamingException(String.format("User does not exist. Can't find user: %s.", userId));
+                                    }
+
+                                    javax.naming.directory.SearchResult result = answers.nextElement();
+                                    String realuser = result.getNameInNamespace();
+
+                                    realUserCtx = ldapSystemContextFactory.getLdapContext(realuser, String.valueOf(upToken.getPassword()));
+                                }
+                                finally {
+                                    LdapUtils.closeContext(realUserCtx);
+                                }
+
                                 return buildAuthenticationInfo(upToken.getUsername(), upToken.getPassword());
                             }
                         };
@@ -152,7 +170,7 @@ public class ActiveDirectoryAuthenticationModule
     {
         SearchControls cons = new SearchControls();
         cons.setSearchScope(SearchControls.SUBTREE_SCOPE);
-        String[] attrIDs = {"sn", "mail", "telephonenumber", "memberOf", "thumbnailPhoto"};
+        String[] attrIDs = {"distinguishedName", "sn", "givenname", "mail", "telephonenumber", "memberOf", "thumbnailPhoto"};
         cons.setReturningAttributes(attrIDs);
         return cons;
     }
