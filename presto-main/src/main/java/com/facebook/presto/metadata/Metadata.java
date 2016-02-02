@@ -145,7 +145,7 @@ public interface Metadata
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata);
+    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata, Optional<NewTableLayout> layout);
 
     /**
      * Finish a table creation with data after the data is written.

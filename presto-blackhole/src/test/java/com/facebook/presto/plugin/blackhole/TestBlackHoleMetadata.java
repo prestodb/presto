@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
@@ -50,7 +51,8 @@ public class TestBlackHoleMetadata
                         schemaTableName,
                         ImmutableList.of(),
                         tableProperties,
-                        null));
+                        null),
+                Optional.empty());
 
         assertThatNoTableIsCreated();
 

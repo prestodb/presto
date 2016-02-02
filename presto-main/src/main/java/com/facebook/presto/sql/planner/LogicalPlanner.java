@@ -126,7 +126,7 @@ public class LogicalPlanner
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new CreateName(destination.getCatalogName(), tableMetadata),
+                new CreateName(destination.getCatalogName(), tableMetadata, newTableLayout),
                 tableMetadata.getVisibleColumnNames(),
                 newTableLayout);
     }

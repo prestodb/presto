@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.InsertTableHandle;
+import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
@@ -145,11 +146,13 @@ public class TableWriterNode
     {
         private final String catalog;
         private final TableMetadata tableMetadata;
+        private final Optional<NewTableLayout> layout;
 
-        public CreateName(String catalog, TableMetadata tableMetadata)
+        public CreateName(String catalog, TableMetadata tableMetadata, Optional<NewTableLayout> layout)
         {
             this.catalog = requireNonNull(catalog, "catalog is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
+            this.layout = requireNonNull(layout, "layout is null");
         }
 
         public String getCatalog()
@@ -160,6 +163,11 @@ public class TableWriterNode
         public TableMetadata getTableMetadata()
         {
             return tableMetadata;
+        }
+
+        public Optional<NewTableLayout> getLayout()
+        {
+            return layout;
         }
 
         @Override
