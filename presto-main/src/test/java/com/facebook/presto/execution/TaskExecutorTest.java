@@ -39,9 +39,9 @@ public class TaskExecutorTest
         try {
             TaskHandle taskHandle = taskExecutor.addTask(new TaskId("test", "test", "test"));
 
-            final Phaser beginPhase = new Phaser();
+            Phaser beginPhase = new Phaser();
             beginPhase.register();
-            final Phaser verificationComplete = new Phaser();
+            Phaser verificationComplete = new Phaser();
             verificationComplete.register();
 
             // add two jobs

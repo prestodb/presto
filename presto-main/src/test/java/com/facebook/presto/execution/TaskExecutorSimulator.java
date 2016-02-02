@@ -63,8 +63,8 @@ public class TaskExecutorSimulator
         }
     }
 
-    private ListeningExecutorService executor;
-    private TaskExecutor taskExecutor;
+    private final ListeningExecutorService executor;
+    private final TaskExecutor taskExecutor;
 
     public TaskExecutorSimulator()
     {
@@ -121,14 +121,14 @@ public class TaskExecutorSimulator
 
         // warm up
         for (int i = 0; i < 30; i++) {
-            TimeUnit.MILLISECONDS.sleep(1000);
+            MILLISECONDS.sleep(1000);
             System.out.println(taskExecutor);
         }
         tasks.clear();
 
         // run
         for (int i = 0; i < 60; i++) {
-            TimeUnit.MILLISECONDS.sleep(1000);
+            MILLISECONDS.sleep(1000);
             System.out.println(taskExecutor);
         }
 
@@ -160,10 +160,10 @@ public class TaskExecutorSimulator
                     for (SimulationSplit split : task.getSplits()) {
                         taskStart = Math.min(taskStart, split.getStartNanos());
                         taskEnd = Math.max(taskEnd, split.getDoneNanos());
-                        totalCpuTime += TimeUnit.MILLISECONDS.toNanos(split.getRequiredProcessMillis());
+                        totalCpuTime += MILLISECONDS.toNanos(split.getRequiredProcessMillis());
                     }
 
-                    Duration taskDuration = new Duration(taskEnd - taskStart, NANOSECONDS).convertTo(TimeUnit.MILLISECONDS);
+                    Duration taskDuration = new Duration(taskEnd - taskStart, NANOSECONDS).convertTo(MILLISECONDS);
                     durationDistribution.add(taskDuration.toMillis());
 
                     double taskParallelism = 1.0 * totalCpuTime / (taskEnd - taskStart);
@@ -200,30 +200,24 @@ public class TaskExecutorSimulator
         Thread.sleep(10);
     }
 
-    private ListenableFuture<?> createUser(final String userId,
-            final int splitsPerTask,
-            final TaskExecutor taskExecutor,
-            final AtomicBoolean done,
-            final Multimap<Integer, SimulationTask> tasks)
+    private ListenableFuture<?> createUser(String userId,
+            int splitsPerTask,
+            TaskExecutor taskExecutor,
+            AtomicBoolean done,
+            Multimap<Integer, SimulationTask> tasks)
     {
-        return executor.submit(new Callable<Void>()
-        {
-            @Override
-            public Void call()
-                    throws Exception
-            {
-                long taskId = 0;
-                while (!done.get()) {
-                    SimulationTask task = new SimulationTask(taskExecutor, new TaskId(userId, "0", String.valueOf(taskId++)));
-                    task.schedule(splitsPerTask, executor, new Duration(0, MILLISECONDS)).get();
-                    task.destroy();
+        return executor.submit((Callable<Void>) () -> {
+            long taskId = 0;
+            while (!done.get()) {
+                SimulationTask task = new SimulationTask(taskExecutor, new TaskId(userId, "0", String.valueOf(taskId++)));
+                task.schedule(splitsPerTask, executor, new Duration(0, MILLISECONDS)).get();
+                task.destroy();
 
-                    printTaskCompletion(task);
+                printTaskCompletion(task);
 
-                    tasks.put(splitsPerTask, task);
-                }
-                return null;
+                tasks.put(splitsPerTask, task);
             }
+            return null;
         });
     }
 
@@ -242,22 +236,22 @@ public class TaskExecutorSimulator
             taskStart = Math.min(taskStart, split.getStartNanos());
             taskEnd = Math.max(taskEnd, split.getDoneNanos());
             taskQueuedTime += split.getQueuedNanos();
-            totalCpuTime += TimeUnit.MILLISECONDS.toNanos(split.getRequiredProcessMillis());
+            totalCpuTime += MILLISECONDS.toNanos(split.getRequiredProcessMillis());
         }
 
         System.out.printf("%-12s %8s %8s %.2f\n",
                 task.getTaskId() + ":",
-                new Duration(taskQueuedTime, NANOSECONDS).convertTo(TimeUnit.MILLISECONDS),
-                new Duration(taskEnd - taskStart, NANOSECONDS).convertTo(TimeUnit.MILLISECONDS),
+                new Duration(taskQueuedTime, NANOSECONDS).convertTo(MILLISECONDS),
+                new Duration(taskEnd - taskStart, NANOSECONDS).convertTo(MILLISECONDS),
                 1.0 * totalCpuTime / (taskEnd - taskStart)
         );
 
         // print split info
         if (PRINT_SPLIT_COMPLETION) {
             for (SimulationSplit split : task.getSplits()) {
-                Duration totalQueueTime = new Duration(split.getQueuedNanos(), NANOSECONDS).convertTo(TimeUnit.MILLISECONDS);
-                Duration executionWallTime = new Duration(split.getDoneNanos() - split.getStartNanos(), NANOSECONDS).convertTo(TimeUnit.MILLISECONDS);
-                Duration totalWallTime = new Duration(split.getDoneNanos() - split.getCreatedNanos(), NANOSECONDS).convertTo(TimeUnit.MILLISECONDS);
+                Duration totalQueueTime = new Duration(split.getQueuedNanos(), NANOSECONDS).convertTo(MILLISECONDS);
+                Duration executionWallTime = new Duration(split.getDoneNanos() - split.getStartNanos(), NANOSECONDS).convertTo(MILLISECONDS);
+                Duration totalWallTime = new Duration(split.getDoneNanos() - split.getCreatedNanos(), NANOSECONDS).convertTo(MILLISECONDS);
                 System.out.printf("         %8s %8s %8s\n", totalQueueTime, executionWallTime, totalWallTime);
             }
 
@@ -288,30 +282,25 @@ public class TaskExecutorSimulator
             taskExecutor.removeTask(taskHandle);
         }
 
-        public ListenableFuture<?> schedule(final int splits, ExecutorService executor, final Duration entryDelay)
+        public ListenableFuture<?> schedule(int splits, ExecutorService executor, Duration entryDelay)
         {
-            final SettableFuture<Void> future = SettableFuture.create();
+            SettableFuture<Void> future = SettableFuture.create();
 
-            executor.submit(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    try {
-                        for (int splitId = 0; splitId < splits; splitId++) {
-                            SimulationSplit split = new SimulationSplit(new Duration(80, TimeUnit.MILLISECONDS), new Duration(1, TimeUnit.MILLISECONDS));
-                            SimulationTask.this.splits.add(split);
-                            splitFutures.addAll(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(split)));
-                            Thread.sleep(entryDelay.toMillis());
-                        }
+            executor.submit((Runnable) () -> {
+                try {
+                    for (int splitId = 0; splitId < splits; splitId++) {
+                        SimulationSplit split = new SimulationSplit(new Duration(80, MILLISECONDS), new Duration(1, MILLISECONDS));
+                        SimulationTask.this.splits.add(split);
+                        splitFutures.addAll(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(split)));
+                        Thread.sleep(entryDelay.toMillis());
+                    }
 
-                        Futures.allAsList(splitFutures).get();
-                        future.set(null);
-                    }
-                    catch (Throwable e) {
-                        future.setException(e);
-                        throw Throwables.propagate(e);
-                    }
+                    Futures.allAsList(splitFutures).get();
+                    future.set(null);
+                }
+                catch (Throwable e) {
+                    future.setException(e);
+                    throw Throwables.propagate(e);
                 }
             });
 
@@ -402,7 +391,7 @@ public class TaskExecutorSimulator
             queuedNanos.addAndGet(callStart - lastCallNanos);
 
             long processMillis = Math.min(requiredProcessMillis - completedProcessMillis.get(), processMillisPerCall);
-            TimeUnit.MILLISECONDS.sleep(processMillis);
+            MILLISECONDS.sleep(processMillis);
             long completedMillis = completedProcessMillis.addAndGet(processMillis);
 
             boolean isFinished = completedMillis >= requiredProcessMillis;
