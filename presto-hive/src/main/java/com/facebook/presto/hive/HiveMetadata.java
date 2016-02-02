@@ -101,6 +101,7 @@ import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
+import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static com.facebook.presto.hive.HiveWriteUtils.renameDirectory;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -690,6 +691,12 @@ public class HiveMetadata
         HiveStorageFormat hiveStorageFormat = extractHiveStorageFormat(table.get());
 
         List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get());
+
+        for (HiveColumnHandle hiveColumnHandle : handles) {
+            if (!isWritableType(hiveColumnHandle.getHiveType())) {
+                throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with column type %s not supported", hiveColumnHandle.getHiveType()));
+            }
+        }
 
         return new HiveInsertTableHandle(
                 connectorId,

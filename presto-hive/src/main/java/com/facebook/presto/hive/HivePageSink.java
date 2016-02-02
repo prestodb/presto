@@ -498,7 +498,7 @@ public class HivePageSink
                 throw new PrestoException(NOT_FOUND, format("Table %s.%s does not have columns %s", schema, tableName, missingColumns));
             }
             if (fileColumnNames.size() != fileColumnHiveTypes.size()) {
-                throw new PrestoException(HIVE_INVALID_METADATA, format("Partition '%s' in table '%s.%s' has mismatched metadata for column names or types",
+                throw new PrestoException(HIVE_INVALID_METADATA, format("Partition '%s' in table '%s.%s' has mismatched metadata for column names and types",
                         partitionName,
                         schemaName,
                         tableName));
