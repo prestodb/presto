@@ -82,6 +82,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -1304,8 +1305,23 @@ public class HiveMetadata
         throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serializationLib));
     }
 
+    private static void validateColumnOrdering(ConnectorTableMetadata tableMetadata)
+    {
+        List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+
+        List<String> allColumns = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toList());
+
+        if (!allColumns.subList(allColumns.size() - partitionedBy.size(), allColumns.size()).equals(partitionedBy)) {
+            throw new PrestoException(HIVE_COLUMN_ORDER_MISMATCH, "Partition keys must be the last columns in the table and in the same order as the table properties: " + partitionedBy);
+        }
+    }
+
     private static List<HiveColumnHandle> getColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames)
     {
+        validateColumnOrdering(tableMetadata);
+
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
         Set<String> foundPartitionColumns = new HashSet<>();
         int ordinal = 0;

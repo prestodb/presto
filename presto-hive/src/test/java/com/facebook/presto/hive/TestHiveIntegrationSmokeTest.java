@@ -144,13 +144,13 @@ public class TestHiveIntegrationSmokeTest
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_partitioned_table (" +
-                "  _partition_varchar VARCHAR" +
-                ", _partition_bigint BIGINT" +
-                ", _varchar VARCHAR" +
+                "  _varchar VARCHAR" +
                 ", _varbinary VARBINARY" +
                 ", _bigint BIGINT" +
                 ", _double DOUBLE" +
                 ", _boolean BOOLEAN" +
+                ", _partition_varchar VARCHAR" +
+                ", _partition_bigint BIGINT" +
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
@@ -244,12 +244,32 @@ public class TestHiveIntegrationSmokeTest
         List<HivePartition> partitions = getPartitions("test_create_partitioned_table_as");
         assertEquals(partitions.size(), 3);
 
-        // Hive will reorder the partition keys to the end
         assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
         assertUpdate("DROP TABLE test_create_partitioned_table_as");
 
         assertFalse(queryRunner.tableExists(getSession(), "test_create_partitioned_table_as"));
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
+    public void testCreatePartitionedTableInvalidColumnOrdering()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_show_columns_partition_key\n" +
+                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
+                "WITH (partitioned_by = ARRAY['apple'])");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition keys must be the last columns in the table and in the same order as the table properties.*")
+    public void testCreatePartitionedTableAsInvalidColumnOrdering()
+            throws Exception
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_create_partitioned_table_as " +
+                "WITH (partitioned_by = ARRAY['SHIP_PRIORITY', 'ORDER_STATUS']) " +
+                "AS " +
+                "SELECT shippriority AS ship_priority, orderkey AS order_key, orderstatus AS order_status " +
+                "FROM tpch.tiny.orders");
     }
 
     @Test
@@ -317,9 +337,9 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_insert_partitioned_table " +
                 "(" +
-                "  ORDER_STATUS VARCHAR," +
+                "  ORDER_KEY BIGINT," +
                 "  SHIP_PRIORITY BIGINT," +
-                "  ORDER_KEY BIGINT" +
+                "  ORDER_STATUS VARCHAR" +
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
@@ -380,9 +400,9 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_metadata_delete " +
                 "(" +
-                "  LINE_STATUS VARCHAR," +
+                "  ORDER_KEY BIGINT," +
                 "  LINE_NUMBER BIGINT," +
-                "  ORDER_KEY BIGINT" +
+                "  LINE_STATUS VARCHAR" +
                 ") " +
                 "WITH (" +
                 STORAGE_FORMAT_PROPERTY + " = '" + storageFormat + "', " +
@@ -391,7 +411,6 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(createTable);
 
-        // Hive will reorder the partition keys, so we must insert into the table assuming the partition keys have been moved to the end
         assertUpdate("" +
                         "INSERT INTO test_metadata_delete " +
                         "SELECT orderkey, linenumber, linestatus " +
@@ -459,10 +478,9 @@ public class TestHiveIntegrationSmokeTest
     {
         assertUpdate("" +
                 "CREATE TABLE test_show_columns_partition_key\n" +
-                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
+                "(grape bigint, orange bigint, pear varchar, apple varchar)\n" +
                 "WITH (partitioned_by = ARRAY['apple'])");
 
-        // partition keys go last and have a special comment
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
                 .row("grape", "bigint", "")
