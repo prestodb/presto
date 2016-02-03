@@ -31,7 +31,6 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
@@ -55,6 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.function.DoubleSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -183,9 +183,11 @@ public class TaskExecutor
         }
     }
 
-    public synchronized TaskHandle addTask(TaskId taskId)
+    public synchronized TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
     {
-        TaskHandle taskHandle = new TaskHandle(requireNonNull(taskId, "taskId is null"));
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(utilizationSupplier, "utilizationSupplier is null");
+        TaskHandle taskHandle = new TaskHandle(taskId, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
         tasks.add(taskHandle);
         return taskHandle;
     }
@@ -327,27 +329,38 @@ public class TaskExecutor
         return null;
     }
 
-    @NotThreadSafe
+    @ThreadSafe
     public static class TaskHandle
     {
         private final TaskId taskId;
+        private final DoubleSupplier utilizationSupplier;
+        @GuardedBy("this")
         private final Queue<PrioritizedSplitRunner> queuedSplits = new ArrayDeque<>(10);
+        @GuardedBy("this")
         private final List<PrioritizedSplitRunner> runningSplits = new ArrayList<>(10);
+        @GuardedBy("this")
         private final List<PrioritizedSplitRunner> forcedRunningSplits = new ArrayList<>(10);
-        private final AtomicLong taskThreadUsageNanos = new AtomicLong();
-
-        private final AtomicBoolean destroyed = new AtomicBoolean();
+        @GuardedBy("this")
+        private long taskThreadUsageNanos;
+        @GuardedBy("this")
+        private boolean destroyed;
+        @GuardedBy("this")
+        private final SplitConcurrencyController concurrencyController;
 
         private final AtomicInteger nextSplitId = new AtomicInteger();
 
-        private TaskHandle(TaskId taskId)
+        private TaskHandle(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
         {
             this.taskId = taskId;
+            this.utilizationSupplier = utilizationSupplier;
+            this.concurrencyController = new SplitConcurrencyController(initialSplitConcurrency, splitConcurrencyAdjustFrequency);
         }
 
-        private long addThreadUsageNanos(long durationNanos)
+        private synchronized long addThreadUsageNanos(long durationNanos)
         {
-            return taskThreadUsageNanos.addAndGet(durationNanos);
+            concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningSplits.size());
+            taskThreadUsageNanos += durationNanos;
+            return taskThreadUsageNanos;
         }
 
         private TaskId getTaskId()
@@ -355,15 +368,15 @@ public class TaskExecutor
             return taskId;
         }
 
-        public boolean isDestroyed()
+        public synchronized boolean isDestroyed()
         {
-            return destroyed.get();
+            return destroyed;
         }
 
         // Returns any remaining splits. The caller must destroy these.
-        private List<PrioritizedSplitRunner> destroy()
+        private synchronized List<PrioritizedSplitRunner> destroy()
         {
-            destroyed.set(true);
+            destroyed = true;
 
             ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builder();
             builder.addAll(forcedRunningSplits);
@@ -375,32 +388,36 @@ public class TaskExecutor
             return builder.build();
         }
 
-        private void enqueueSplit(PrioritizedSplitRunner split)
+        private synchronized void enqueueSplit(PrioritizedSplitRunner split)
         {
-            checkState(!destroyed.get(), "Can not add split to destroyed task handle");
+            checkState(!destroyed, "Can not add split to destroyed task handle");
             queuedSplits.add(split);
         }
 
-        private void recordForcedRunningSplit(PrioritizedSplitRunner split)
+        private synchronized void recordForcedRunningSplit(PrioritizedSplitRunner split)
         {
-            checkState(!destroyed.get(), "Can not add split to destroyed task handle");
+            checkState(!destroyed, "Can not add split to destroyed task handle");
             forcedRunningSplits.add(split);
         }
 
         @VisibleForTesting
-        int getRunningSplits()
+        synchronized int getRunningSplits()
         {
             return runningSplits.size();
         }
 
-        private long getThreadUsageNanos()
+        private synchronized long getThreadUsageNanos()
         {
-            return taskThreadUsageNanos.get();
+            return taskThreadUsageNanos;
         }
 
-        private PrioritizedSplitRunner pollNextSplit()
+        private synchronized PrioritizedSplitRunner pollNextSplit()
         {
-            if (destroyed.get()) {
+            if (destroyed) {
+                return null;
+            }
+
+            if (runningSplits.size() >= concurrencyController.getTargetConcurrency()) {
                 return null;
             }
 
@@ -411,8 +428,9 @@ public class TaskExecutor
             return split;
         }
 
-        private void splitComplete(PrioritizedSplitRunner split)
+        private synchronized void splitComplete(PrioritizedSplitRunner split)
         {
+            concurrencyController.splitFinished(split.getSplitThreadUsageNanos(), utilizationSupplier.getAsDouble(), runningSplits.size());
             forcedRunningSplits.remove(split);
             runningSplits.remove(split);
         }
@@ -449,6 +467,7 @@ public class TaskExecutor
 
         private final AtomicInteger priorityLevel = new AtomicInteger();
         private final AtomicLong threadUsageNanos = new AtomicLong();
+        private final AtomicLong splitThreadUsageNanos = new AtomicLong();
         private final AtomicLong lastRun = new AtomicLong();
         private final AtomicLong start = new AtomicLong();
 
@@ -494,6 +513,11 @@ public class TaskExecutor
             return finished || destroyed.get() || taskHandle.isDestroyed();
         }
 
+        public long getSplitThreadUsageNanos()
+        {
+            return splitThreadUsageNanos.get();
+        }
+
         public ListenableFuture<?> process()
                 throws Exception
         {
@@ -508,6 +532,7 @@ public class TaskExecutor
 
                 // update priority level base on total thread usage of task
                 long durationNanos = elapsed.getWall().roundTo(NANOSECONDS);
+                this.splitThreadUsageNanos.addAndGet(durationNanos);
                 long threadUsageNanos = taskHandle.addThreadUsageNanos(durationNanos);
                 this.threadUsageNanos.set(threadUsageNanos);
                 priorityLevel.set(calculatePriorityLevel(threadUsageNanos));

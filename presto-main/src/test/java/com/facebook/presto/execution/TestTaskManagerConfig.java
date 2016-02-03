@@ -32,6 +32,8 @@ public class TestTaskManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
+                .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 4)
+                .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
                 .setInfoRefreshMaxWait(new Duration(200, TimeUnit.MILLISECONDS))
                 .setVerboseStats(false)
                 .setTaskCpuTimerEnabled(true)
@@ -55,6 +57,8 @@ public class TestTaskManagerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("task.initial-splits-per-node", "1")
+                .put("task.split-concurrency-adjustment-interval", "1s")
                 .put("task.info-refresh-max-wait", "1s")
                 .put("task.verbose-stats", "true")
                 .put("task.cpu-timer-enabled", "false")
@@ -75,6 +79,8 @@ public class TestTaskManagerConfig
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
+                .setInitialSplitsPerNode(1)
+                .setSplitConcurrencyAdjustmentInterval(new Duration(1, TimeUnit.SECONDS))
                 .setInfoRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
                 .setVerboseStats(true)
                 .setTaskCpuTimerEnabled(false)

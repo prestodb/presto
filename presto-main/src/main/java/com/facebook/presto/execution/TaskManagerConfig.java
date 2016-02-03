@@ -39,6 +39,8 @@ public class TaskManagerConfig
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 4;
     private Integer minDrivers;
+    private Integer initialSplitsPerNode;
+    private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
 
@@ -153,6 +155,35 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
     {
         this.maxWorkerThreads = maxWorkerThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getInitialSplitsPerNode()
+    {
+        if (initialSplitsPerNode == null) {
+            return maxWorkerThreads;
+        }
+        return initialSplitsPerNode;
+    }
+
+    @Config("task.initial-splits-per-node")
+    public TaskManagerConfig setInitialSplitsPerNode(int initialSplitsPerNode)
+    {
+        this.initialSplitsPerNode = initialSplitsPerNode;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getSplitConcurrencyAdjustmentInterval()
+    {
+        return splitConcurrencyAdjustmentInterval;
+    }
+
+    @Config("task.split-concurrency-adjustment-interval")
+    public TaskManagerConfig setSplitConcurrencyAdjustmentInterval(Duration splitConcurrencyAdjustmentInterval)
+    {
+        this.splitConcurrencyAdjustmentInterval = splitConcurrencyAdjustmentInterval;
         return this;
     }
 

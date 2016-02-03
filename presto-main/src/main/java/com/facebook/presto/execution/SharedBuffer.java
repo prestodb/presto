@@ -170,6 +170,11 @@ public class SharedBuffer
         state.addStateChangeListener(stateChangeListener);
     }
 
+    public double getUtilization()
+    {
+        return memoryManager.getUtilization();
+    }
+
     public boolean isFinished()
     {
         return state.get() == FINISHED;

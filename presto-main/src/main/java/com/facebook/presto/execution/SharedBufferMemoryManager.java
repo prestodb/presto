@@ -38,6 +38,11 @@ public class SharedBufferMemoryManager
         bufferedBytes.addAndGet(bytesAdded);
     }
 
+    public double getUtilization()
+    {
+        return bufferedBytes.get() / (double) maxBufferedBytes;
+    }
+
     public boolean isFull()
     {
         return bufferedBytes.get() >= maxBufferedBytes;

@@ -274,7 +274,7 @@ public class TaskExecutorSimulator
         {
             this.taskExecutor = taskExecutor;
             this.taskId = taskId;
-            taskHandle = taskExecutor.addTask(taskId);
+            taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS));
         }
 
         public void destroy()
