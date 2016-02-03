@@ -15,8 +15,10 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -28,16 +30,21 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
 {
+    @SuppressWarnings("unused")
     public TestRaptorDistributedQueries()
             throws Exception
     {
-        super(createRaptorQueryRunner(getTables()), createSampledSession());
+        super(createRaptorQueryRunner(ImmutableMap.of(), true, false), createSampledSession());
+    }
+
+    protected TestRaptorDistributedQueries(QueryRunner queryRunner)
+    {
+        super(queryRunner);
     }
 
     @Test
