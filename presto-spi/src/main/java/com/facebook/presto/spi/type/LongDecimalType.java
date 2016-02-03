@@ -35,6 +35,7 @@ public final class LongDecimalType
     public static final BigInteger MIN_DECIMAL_UNSCALED_VALUE = MAX_DECIMAL_UNSCALED_VALUE.negate();
 
     private static final BigInteger[] TEN_TO_NTH = new BigInteger[TEN_TO_NTH_TABLE_LENGTH];
+    public static final int SING_BIT_MASK = 0x80;
 
     static {
         for (int i = 0; i < TEN_TO_NTH.length; ++i) {
@@ -113,6 +114,11 @@ public final class LongDecimalType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
+        byte leftInitialByte = leftBlock.getByte(leftPosition, 0);
+        byte rightInitialByte = rightBlock.getByte(rightPosition, 0);
+        if (((leftInitialByte & SING_BIT_MASK) ^ (rightInitialByte & SING_BIT_MASK)) == SING_BIT_MASK) {
+            return (rightInitialByte & SING_BIT_MASK) - (leftInitialByte & SING_BIT_MASK);
+        }
         return leftBlock.compareTo(leftPosition, 0, LONG_DECIMAL_LENGTH, rightBlock, rightPosition, 0, LONG_DECIMAL_LENGTH);
     }
 
