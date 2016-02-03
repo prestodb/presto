@@ -1260,6 +1260,9 @@ class AstBuilder
         if (type.equalsIgnoreCase("decimal")) {
             return new DecimalLiteral(getLocation(context), value);
         }
+        if (type.equalsIgnoreCase("double")) {
+            return new DoubleLiteral(getLocation(context), value);
+        }
 
         return new GenericLiteral(getLocation(context), type, value);
     }
@@ -1272,6 +1275,12 @@ class AstBuilder
 
     @Override
     public Node visitDecimalLiteral(SqlBaseParser.DecimalLiteralContext context)
+    {
+        return new DecimalLiteral(getLocation(context), context.getText());
+    }
+
+    @Override
+    public Node visitDoubleLiteral(SqlBaseParser.DoubleLiteralContext context)
     {
         return new DoubleLiteral(getLocation(context), context.getText());
     }

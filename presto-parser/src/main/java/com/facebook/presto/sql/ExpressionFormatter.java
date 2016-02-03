@@ -193,7 +193,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitDoubleLiteral(DoubleLiteral node, Boolean unmangleNames)
         {
-            return Double.toString(node.getValue());
+            return "DOUBLE '" + Double.toString(node.getValue()) + "'";
         }
 
         @Override
