@@ -304,6 +304,20 @@ public class TestEqualityInference
         assertTrue(equalityPartition.getScopeStraddlingEqualities().isEmpty());
     }
 
+    @Test
+    public void testEqualityGeneration()
+            throws Exception
+    {
+        EqualityInference.Builder builder = new EqualityInference.Builder();
+        builder.addEquality(nameReference("a1"), add("b", "c")); // a1 = b + c
+        builder.addEquality(nameReference("e1"), add("b", "d")); // e1 = b + d
+        addEquality("c", "d", builder);
+        EqualityInference inference = builder.build();
+
+        Expression scopedCanonical = inference.getScopedCanonical(nameReference("e1"), symbolBeginsWith("a"));
+        assertEquals(scopedCanonical, nameReference("a1"));
+    }
+
     private static Predicate<Expression> matchesSymbolScope(final Predicate<Symbol> symbolScope)
     {
         return expression -> Iterables.all(DependencyExtractor.extractUnique(expression), symbolScope);
