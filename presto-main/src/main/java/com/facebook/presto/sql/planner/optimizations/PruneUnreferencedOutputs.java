@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -112,7 +113,10 @@ public class PruneUnreferencedOutputs
         {
             Set<Symbol> expectedOutputSymbols = Sets.newHashSet(context.get());
             node.getPartitionFunction().getHashColumn().ifPresent(expectedOutputSymbols::add);
-            expectedOutputSymbols.addAll(node.getPartitionFunction().getPartitioningColumns());
+            node.getPartitionFunction().getPartitionFunctionArguments().stream()
+                    .filter(PartitionFunctionArgumentBinding::isVariable)
+                    .map(PartitionFunctionArgumentBinding::getColumn)
+                    .forEach(expectedOutputSymbols::add);
 
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {
@@ -134,7 +138,7 @@ public class PruneUnreferencedOutputs
             PartitionFunctionBinding partitionFunctionBinding = new PartitionFunctionBinding(
                     node.getPartitionFunction().getPartitioningHandle(),
                     newOutputSymbols,
-                    node.getPartitionFunction().getPartitioningColumns(),
+                    node.getPartitionFunction().getPartitionFunctionArguments(),
                     node.getPartitionFunction().getHashColumn(),
                     node.getPartitionFunction().isReplicateNulls(),
                     node.getPartitionFunction().getBucketToPartition());
@@ -550,7 +554,10 @@ public class PruneUnreferencedOutputs
             }
             if (node.getPartitionFunction().isPresent()) {
                 PartitionFunctionBinding functionBinding = node.getPartitionFunction().get();
-                expectedInputs.addAll(functionBinding.getPartitioningColumns());
+                functionBinding.getPartitionFunctionArguments().stream()
+                        .filter(PartitionFunctionArgumentBinding::isVariable)
+                        .map(PartitionFunctionArgumentBinding::getColumn)
+                        .forEach(expectedInputs::add);
                 functionBinding.getHashColumn().ifPresent(expectedInputs::add);
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());

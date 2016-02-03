@@ -29,7 +29,7 @@ public final class Utils
 
     public static Block nativeValueToBlock(Type type, Object object)
     {
-        if (!Primitives.wrap(type.getJavaType()).isInstance(object)) {
+        if (object != null && !Primitives.wrap(type.getJavaType()).isInstance(object)) {
             throw new IllegalArgumentException(String.format("Object '%s' does not match type %s", object, type.getJavaType()));
         }
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);

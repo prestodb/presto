@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -125,7 +126,9 @@ public class ProjectionPushDown
                 ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
 
                 // Need to retain the partition keys for the exchange
-                exchange.getPartitionFunction().getPartitioningColumns().stream()
+                exchange.getPartitionFunction().getPartitionFunctionArguments().stream()
+                        .filter(PartitionFunctionArgumentBinding::isVariable)
+                        .map(PartitionFunctionArgumentBinding::getColumn)
                         .map(outputToInputMap::get)
                         .forEach(nameReference -> {
                             Symbol symbol = Symbol.fromQualifiedName(nameReference.getName());
@@ -151,7 +154,9 @@ public class ProjectionPushDown
 
             // Construct the output symbols in the same order as the sources
             ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
-            exchange.getPartitionFunction().getPartitioningColumns().stream()
+            exchange.getPartitionFunction().getPartitionFunctionArguments().stream()
+                    .filter(PartitionFunctionArgumentBinding::isVariable)
+                    .map(PartitionFunctionArgumentBinding::getColumn)
                     .forEach(outputBuilder::add);
             if (exchange.getPartitionFunction().getHashColumn().isPresent()) {
                 outputBuilder.add(exchange.getPartitionFunction().getHashColumn().get());
@@ -164,7 +169,7 @@ public class ProjectionPushDown
             PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
                     exchange.getPartitionFunction().getPartitioningHandle(),
                     outputBuilder.build(),
-                    exchange.getPartitionFunction().getPartitioningColumns(),
+                    exchange.getPartitionFunction().getPartitionFunctionArguments(),
                     exchange.getPartitionFunction().getHashColumn(),
                     exchange.getPartitionFunction().isReplicateNulls(),
                     exchange.getPartitionFunction().getBucketToPartition());

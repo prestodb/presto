@@ -25,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -207,6 +208,7 @@ public class LogicalPlanner
                 layout.getPartitionColumns().stream()
                         .mapToInt(columnNames::indexOf)
                         .mapToObj(symbols::get)
+                        .map(PartitionFunctionArgumentBinding::new)
                         .collect(toImmutableList()),
                 Optional.empty()));
 

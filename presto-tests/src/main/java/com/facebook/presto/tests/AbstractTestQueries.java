@@ -1519,6 +1519,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithConstantPredicatePushDown()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT\n" +
+                "  a.orderstatus\n" +
+                "  , a.clerk\n" +
+                "FROM (\n" +
+                "  SELECT DISTINCT orderstatus, clerk FROM orders\n" +
+                ") a\n" +
+                "INNER JOIN (\n" +
+                "  SELECT DISTINCT orderstatus, clerk FROM orders\n" +
+                ") b\n" +
+                "ON\n" +
+                "  a.orderstatus = b.orderstatus\n" +
+                "  and a.clerk = b.clerk\n" +
+                "where a.orderstatus = 'F'\n");
+    }
+
+    @Test
     public void testJoinUsing()
             throws Exception
     {
