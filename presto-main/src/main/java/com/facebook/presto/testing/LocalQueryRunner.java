@@ -146,6 +146,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
@@ -426,11 +427,19 @@ public class LocalQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
+        return inTransaction(session, transactionSession -> executeInternal(transactionSession, sql));
+    }
+
+    public <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
+    {
+        return inTransaction(defaultSession, transactionSessionConsumer);
+    }
+
+    public <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
+    {
         return transaction(transactionManager)
                 .singleStatement()
-                .execute(session, transactionSession -> {
-                    return executeInternal(transactionSession, sql);
-                });
+                .execute(session, transactionSessionConsumer);
     }
 
     private MaterializedResult executeInternal(Session session, @Language("SQL") String sql)
@@ -479,28 +488,7 @@ public class LocalQueryRunner
 
     public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
-        Statement statement = sqlParser.createStatement(sql);
-
-        assertFormattedSql(sqlParser, statement);
-
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setExperimentalSyntaxEnabled(true)
-                .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, true);
-
-        QueryExplainer queryExplainer = new QueryExplainer(
-                planOptimizersFactory.get(),
-                metadata,
-                accessControl,
-                sqlParser,
-                dataDefinitionTask,
-                featuresConfig.isExperimentalSyntaxEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
-
-        Analysis analysis = analyzer.analyze(statement);
-        Plan plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata).plan(analysis);
+        Plan plan = createPlan(session, sql);
 
         if (printPlan) {
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session));
@@ -584,6 +572,32 @@ public class LocalQueryRunner
         }
 
         return ImmutableList.copyOf(drivers);
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql)
+    {
+        Statement statement = sqlParser.createStatement(sql);
+
+        assertFormattedSql(sqlParser, statement);
+
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        FeaturesConfig featuresConfig = new FeaturesConfig()
+                .setExperimentalSyntaxEnabled(true)
+                .setDistributedIndexJoinsEnabled(false)
+                .setOptimizeHashGeneration(true);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, true);
+
+        QueryExplainer queryExplainer = new QueryExplainer(
+                planOptimizersFactory.get(),
+                metadata,
+                accessControl,
+                sqlParser,
+                dataDefinitionTask,
+                featuresConfig.isExperimentalSyntaxEnabled());
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled());
+
+        Analysis analysis = analyzer.analyze(statement);
+        return new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator, metadata).plan(analysis);
     }
 
     public OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
