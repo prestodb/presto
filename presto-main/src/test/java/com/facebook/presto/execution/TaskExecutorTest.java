@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TaskExecutorTest
@@ -37,7 +38,8 @@ public class TaskExecutorTest
         taskExecutor.start();
 
         try {
-            TaskHandle taskHandle = taskExecutor.addTask(new TaskId("test", "test", "test"));
+            TaskId taskId = new TaskId("test", "test", "test");
+            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS));
 
             Phaser beginPhase = new Phaser();
             beginPhase.register();
@@ -121,7 +123,8 @@ public class TaskExecutorTest
         taskExecutor.start();
 
         try {
-            TaskHandle taskHandle = taskExecutor.addTask(new TaskId("test", "test", "test"));
+            TaskId taskId = new TaskId("test", "test", "test");
+            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS));
 
             Phaser beginPhase = new Phaser();
             beginPhase.register();

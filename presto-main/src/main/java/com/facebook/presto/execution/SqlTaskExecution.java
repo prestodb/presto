@@ -54,6 +54,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.SystemSessionProperties.getInitialSplitsPerNode;
+import static com.facebook.presto.SystemSessionProperties.getSplitConcurrencyAdjustmentInterval;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -180,7 +182,7 @@ public class SqlTaskExecution
 
             // don't register the task if it is already completed (most likely failed during planning above)
             if (!taskStateMachine.getState().isDone()) {
-                taskHandle = taskExecutor.addTask(taskId);
+                taskHandle = taskExecutor.addTask(taskId, sharedBuffer::getUtilization, getInitialSplitsPerNode(taskContext.getSession()), getSplitConcurrencyAdjustmentInterval(taskContext.getSession()));
                 taskStateMachine.addStateChangeListener(new RemoveTaskHandleWhenDone(taskExecutor, taskHandle));
                 taskStateMachine.addStateChangeListener(state -> {
                     if (state.isDone()) {
