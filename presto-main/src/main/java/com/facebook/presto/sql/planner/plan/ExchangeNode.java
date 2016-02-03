@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.PartitionFunctionBinding;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -80,7 +81,16 @@ public class ExchangeNode
 
     public static ExchangeNode partitionedExchange(PlanNodeId id, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns)
     {
-        return partitionedExchange(id, child, new PartitionFunctionBinding(FIXED_HASH_DISTRIBUTION, child.getOutputSymbols(), partitioningColumns, hashColumns));
+        return partitionedExchange(
+                id,
+                child,
+                new PartitionFunctionBinding(
+                        FIXED_HASH_DISTRIBUTION,
+                        child.getOutputSymbols(),
+                        partitioningColumns.stream()
+                                .map(PartitionFunctionArgumentBinding::new)
+                                .collect(toImmutableList()),
+                        hashColumns));
     }
 
     public static ExchangeNode partitionedExchange(PlanNodeId id, PlanNode child, PartitionFunctionBinding partitionFunction)

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -140,17 +141,26 @@ public class PlanPrinter
                             Joiner.on(", ").join(partitionFunction.getOutputLayout())));
 
             boolean replicateNulls = partitionFunction.isReplicateNulls();
-            List<Symbol> symbols = partitionFunction.getPartitioningColumns();
+            List<String> arguments = partitionFunction.getPartitionFunctionArguments().stream()
+                    .map(argument -> {
+                            if (argument.isConstant()) {
+                                NullableValue constant = argument.getConstant();
+                                String printableValue = castToVarchar(constant.getType(), constant.getValue(), metadata, session);
+                                return constant.getType().getDisplayName() + "(" + printableValue + ")";
+                            }
+                            return argument.getColumn().toString();
+                    })
+                    .collect(toImmutableList());
             builder.append(indentString(1));
             if (replicateNulls) {
                 builder.append(format("Output partitioning: %s (replicate nulls) [%s]\n",
                         partitionFunction.getPartitioningHandle(),
-                        Joiner.on(", ").join(symbols)));
+                        Joiner.on(", ").join(arguments)));
             }
             else {
                 builder.append(format("Output partitioning: %s [%s]\n",
                         partitionFunction.getPartitioningHandle(),
-                        Joiner.on(", ").join(symbols)));
+                        Joiner.on(", ").join(arguments)));
             }
 
             builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, session, 1))
@@ -643,7 +653,7 @@ public class PlanPrinter
                         for (Range range : ranges.getOrderedRanges()) {
                             StringBuilder builder = new StringBuilder();
                             if (range.isSingleValue()) {
-                                String value = castToVarchar(type, range.getSingleValue());
+                                String value = castToVarchar(type, range.getSingleValue(), PlanPrinter.this.metadata, session);
                                 builder.append('[').append(value).append(']');
                             }
                             else {
@@ -653,7 +663,7 @@ public class PlanPrinter
                                     builder.append("<min>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getLow().getValue()));
+                                    builder.append(castToVarchar(type, range.getLow().getValue(), PlanPrinter.this.metadata, session));
                                 }
 
                                 builder.append(", ");
@@ -662,7 +672,7 @@ public class PlanPrinter
                                     builder.append("<max>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getHigh().getValue()));
+                                    builder.append(castToVarchar(type, range.getHigh().getValue(), PlanPrinter.this.metadata, session));
                                 }
 
                                 builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
@@ -671,7 +681,7 @@ public class PlanPrinter
                         }
                     },
                     discreteValues -> discreteValues.getValues().stream()
-                            .map(value -> castToVarchar(type, value))
+                            .map(value -> castToVarchar(type, value, PlanPrinter.this.metadata, session))
                             .sorted() // Sort so the values will be printed in predictable order
                             .forEach(parts::add),
                     allOrNone -> {
@@ -682,21 +692,21 @@ public class PlanPrinter
 
             return "[" + Joiner.on(", ").join(parts.build()) + "]";
         }
+    }
 
-        private String castToVarchar(Type type, Object value)
-        {
-            Signature coercion = metadata.getFunctionRegistry().getCoercion(type, VARCHAR);
+    private static String castToVarchar(Type type, Object value, Metadata metadata, Session session)
+    {
+        Signature coercion = metadata.getFunctionRegistry().getCoercion(type, VARCHAR);
 
-            try {
-                Slice coerced = (Slice) new FunctionInvoker(metadata.getFunctionRegistry()).invoke(coercion, session.toConnectorSession(), value);
-                return coerced.toStringUtf8();
-            }
-            catch (OperatorNotFoundException e) {
-                return "<UNREPRESENTABLE VALUE>";
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+        try {
+            Slice coerced = (Slice) new FunctionInvoker(metadata.getFunctionRegistry()).invoke(coercion, session.toConnectorSession(), value);
+            return coerced.toStringUtf8();
+        }
+        catch (OperatorNotFoundException e) {
+            return "<UNREPRESENTABLE VALUE>";
+        }
+        catch (Throwable throwable) {
+            throw Throwables.propagate(throwable);
         }
     }
 }

@@ -83,12 +83,14 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -272,25 +274,42 @@ public class LocalExecutionPlanner
 
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
         List<Integer> partitionChannels;
+        List<Optional<NullableValue>> partitionConstants;
         List<Type> partitionChannelTypes;
         if (functionBinding.getHashColumn().isPresent()) {
             partitionChannels = ImmutableList.of(outputLayout.indexOf(functionBinding.getHashColumn().get()));
+            partitionConstants = ImmutableList.of(Optional.empty());
             partitionChannelTypes = ImmutableList.of(BIGINT);
         }
         else {
-            partitionChannels = functionBinding.getPartitioningColumns().stream()
+            partitionChannels = functionBinding.getPartitionFunctionArguments().stream()
+                    .map(PartitionFunctionArgumentBinding::getColumn)
                     .map(outputLayout::indexOf)
                     .collect(toImmutableList());
-            partitionChannelTypes = functionBinding.getPartitioningColumns().stream()
-                    .map(types::get)
+            partitionConstants = functionBinding.getPartitionFunctionArguments().stream()
+                    .map(argument -> {
+                        if (argument.isConstant()) {
+                            return Optional.of(argument.getConstant());
+                        }
+                        return Optional.<NullableValue>empty();
+                    })
+                    .collect(toImmutableList());
+            partitionChannelTypes = functionBinding.getPartitionFunctionArguments().stream()
+                    .map(argument -> {
+                        if (argument.isConstant()) {
+                            return argument.getConstant().getType();
+                        }
+                        return types.get(argument.getColumn());
+                    })
                     .collect(toImmutableList());
         }
 
         PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(session, functionBinding, partitionChannelTypes);
         OptionalInt nullChannel = OptionalInt.empty();
         if (functionBinding.isReplicateNulls()) {
-            checkArgument(functionBinding.getPartitioningColumns().size() == 1);
-            nullChannel = OptionalInt.of(outputLayout.indexOf(Iterables.getOnlyElement(functionBinding.getPartitioningColumns())));
+            checkArgument(functionBinding.getPartitionFunctionArguments().size() == 1);
+            checkArgument(functionBinding.getPartitionFunctionArguments().get(0).isVariable());
+            nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(functionBinding.getPartitionFunctionArguments()).getColumn()));
         }
 
         return plan(
@@ -298,7 +317,7 @@ public class LocalExecutionPlanner
                 plan,
                 outputLayout,
                 types,
-                new PartitionedOutputFactory(partitionFunction, partitionChannels, nullChannel, sharedBuffer),
+                new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer),
                 singleNode,
                 allowLocalParallel);
     }

@@ -66,6 +66,11 @@ public final class NullableValue
         return new Serializable(type, value == null ? null : Utils.nativeValueToBlock(type, value));
     }
 
+    public Block asBlock()
+    {
+        return Utils.nativeValueToBlock(type, value);
+    }
+
     public Type getType()
     {
         return type;

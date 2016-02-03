@@ -33,11 +33,10 @@ import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding;
-import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -77,12 +76,14 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.SetMultimap;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -121,6 +122,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.toList;
 
@@ -803,20 +805,24 @@ public class AddExchanges
                     }
                 }
                 else {
-                    // assure right side is partitioned on the same columns (and handle) as the left side
-                    List<Symbol> rightPartitioningColumns = left.getProperties().getNodePartitioningColumns().get().stream()
-                            .mapToInt(leftSymbols::indexOf)
-                            .mapToObj(rightSymbols::get)
-                            .collect(toImmutableList());
+                    // translate the partition arguments on the left symbols to the right symbols
+                    SetMultimap<Symbol, Symbol> leftToRight = HashMultimap.create();
+                    for (int i = 0; i < leftSymbols.size(); i++) {
+                        leftToRight.put(leftSymbols.get(i), rightSymbols.get(i));
+                    }
 
-                    PartitioningHandle partitioning = left.getProperties().getNodePartitioningHandle().get();
-                    if (!right.getProperties().isNodePartitionedOn(partitioning, rightPartitioningColumns)) {
-                        PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
-                                partitioning,
+                    if (!left.getProperties().isNodePartitionedWith(right.getProperties(), leftToRight::get)) {
+                        Function<Symbol, Optional<Symbol>> leftToRightTranslator = leftSymbol -> leftToRight.get(leftSymbol).stream().findAny();
+                        Optional<List<PartitionFunctionArgumentBinding>> rightPartitionColumns = left.getProperties().translate(leftToRightTranslator).getNodePartitioningColumns();
+
+                        verify(rightPartitionColumns.isPresent(), "Could not translate JOIN probe partitioning to build symbols");
+
+                        PartitionFunctionBinding partitionFunction =  new PartitionFunctionBinding(
+                                left.getProperties().getNodePartitioningHandle().get(),
                                 node.getRight().getOutputSymbols(),
-                                rightPartitioningColumns,
-                                // currently only system distributions support precomputed "hash" optimization
-                                partitioning.getConnectorHandle() instanceof SystemPartitioningHandle ? node.getRightHashSymbol() : Optional.empty());
+                                rightPartitionColumns.get(),
+                                Optional.empty());
+
                         right = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), right.getNode(), partitionFunction),
                                 right.getProperties());
@@ -892,7 +898,9 @@ public class AddExchanges
                 PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
                         FIXED_HASH_DISTRIBUTION,
                         filteringSource.getNode().getOutputSymbols(),
-                        filteringSourceSymbols,
+                        filteringSourceSymbols.stream()
+                                .map(PartitionFunctionArgumentBinding::new)
+                                .collect(toImmutableList()),
                         node.getFilteringSourceHashSymbol(),
                         true,
                         Optional.empty());
@@ -1091,10 +1099,14 @@ public class AddExchanges
                     outputToSourcesMapping.build(),
                     ImmutableList.copyOf(outputToSourcesMapping.build().keySet()));
 
+            List<PartitionFunctionArgumentBinding> hashArguments = hashingColumns.stream()
+                    .map(PartitionFunctionArgumentBinding::new)
+                    .collect(toImmutableList());
+
             return new PlanWithProperties(
                     newNode,
                     ActualProperties.builder()
-                            .global(partitionedOn(FIXED_HASH_DISTRIBUTION, hashingColumns, Optional.of(hashingColumns)))
+                            .global(partitionedOn(FIXED_HASH_DISTRIBUTION, hashArguments, Optional.of(hashArguments)))
                             .build());
         }
 

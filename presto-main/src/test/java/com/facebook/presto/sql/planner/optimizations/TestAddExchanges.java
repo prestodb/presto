@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.google.common.collect.ImmutableList;
@@ -43,8 +44,6 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 public class TestAddExchanges
 {
-    private static final List<Symbol> ALL_COLUMNS = ImmutableList.of(symbol("a"), symbol("b"));
-
     @Test
     public void testPickLayoutAnyPreference()
             throws Exception
@@ -53,7 +52,7 @@ public class TestAddExchanges
 
         List<ActualProperties> input = ImmutableList.<ActualProperties>builder()
                 .add(builder()
-                        .global(streamPartitionedOn(ALL_COLUMNS))
+                        .global(streamPartitionedOn("a", "b"))
                         .build())
                 .add(builder()
                         .global(singleStreamPartition())
@@ -762,7 +761,7 @@ public class TestAddExchanges
 
     private static Global hashDistributedOn(String... columnNames)
     {
-        return partitionedOn(FIXED_HASH_DISTRIBUTION, symbols(columnNames), Optional.of(symbols(columnNames)));
+        return partitionedOn(FIXED_HASH_DISTRIBUTION, arguments(columnNames), Optional.of(arguments(columnNames)));
     }
 
     public static Global singleStream()
@@ -772,10 +771,10 @@ public class TestAddExchanges
 
     private static Global streamPartitionedOn(String... columnNames)
     {
-        return streamPartitionedOn(symbols(columnNames));
+        return streamPartitionedOn(arguments(columnNames));
     }
 
-    public static Global streamPartitionedOn(List<Symbol> partitionColumns)
+    public static Global streamPartitionedOn(List<PartitionFunctionArgumentBinding> partitionColumns)
     {
         return Global.streamPartitionedOn(partitionColumns);
     }
@@ -800,10 +799,11 @@ public class TestAddExchanges
         return new Symbol(name);
     }
 
-    private static List<Symbol> symbols(String[] columnNames)
+    private static List<PartitionFunctionArgumentBinding> arguments(String[] columnNames)
     {
         return Arrays.asList(columnNames).stream()
                 .map(Symbol::new)
+                .map(PartitionFunctionArgumentBinding::new)
                 .collect(toImmutableList());
     }
 }
