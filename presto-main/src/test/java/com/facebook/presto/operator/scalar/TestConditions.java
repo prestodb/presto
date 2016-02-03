@@ -25,6 +25,8 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 public class TestConditions
         extends AbstractTestFunctions
 {
+    // todo add decimal cases
+
     @Test
     public void testLike()
     {
@@ -205,7 +207,7 @@ public class TestConditions
                 33L);
 
         assertFunction("case " +
-                        "when false then 1.0 " +
+                        "when false then CAST(1.0 as DOUBLE) " +
                         "when true then 33 " +
                         "end",
                 DOUBLE,
@@ -272,7 +274,7 @@ public class TestConditions
                 33);
 
         assertFunction("case true " +
-                        "when false then 1.0 " +
+                        "when false then CAST(1.0 as DOUBLE) " +
                         "when true then 33 " +
                         "end",
                 DOUBLE,

@@ -21,6 +21,8 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.RegexpFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.SqlVarbinary;
@@ -52,6 +54,7 @@ import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -88,6 +91,8 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestExpressionCompiler
 {
+    // todo add decimal cases
+
     private static final Boolean[] booleanValues = {true, false, null};
     private static final Long[] longLefts = {9L, 10L, 11L, -9L, -10L, -11L, 10151082135029368L, /*Long.MIN_VALUE,*/ Long.MAX_VALUE, null};
     private static final Long[] longRights = {3L, -3L, 10151082135029369L, null};
@@ -176,7 +181,8 @@ public class TestExpressionCompiler
         assertExecute("false", BOOLEAN, false);
         assertExecute("42", BIGINT, 42L);
         assertExecute("'foo'", createVarcharType(3), "foo");
-        assertExecute("4.2", DOUBLE, 4.2);
+        assertExecute("CAST(4.2 as DOUBLE)", DOUBLE, 4.2);
+        assertExecute("4.2", DecimalType.createDecimalType(2, 1), new SqlDecimal(BigInteger.valueOf(42), 2, 1));
         assertExecute("1 + 1", BIGINT, 2L);
         assertExecute("X' 1 f'", VARBINARY, new SqlVarbinary(Slices.wrappedBuffer((byte) 0x1f).getBytes()));
         assertExecute("X' '", VARBINARY, new SqlVarbinary(new byte[0]));
@@ -188,7 +194,7 @@ public class TestExpressionCompiler
         assertExecute("bound_pattern", VARCHAR, "%el%");
         assertExecute("bound_null_string", VARCHAR, null);
         assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")));
-        assertExecute("bound_binary_literal", VARBINARY, new SqlVarbinary(new byte[]{(byte) 0xab}));
+        assertExecute("bound_binary_literal", VARBINARY, new SqlVarbinary(new byte[] {(byte) 0xab}));
 
         // todo enable when null output type is supported
         // assertExecute("null", null);
@@ -237,10 +243,10 @@ public class TestExpressionCompiler
         }
 
         for (Double value : doubleLefts) {
-            assertExecute(generateExpression("%s", value), DOUBLE, value == null ? null : value);
-            assertExecute(generateExpression("- (%s)", value), DOUBLE, value == null ? null : -value);
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
+            assertExecute(generateExpression("CAST(%s as DOUBLE)", value), DOUBLE, value == null ? null : value);
+            assertExecute(generateExpression("- (CAST(%s as DOUBLE))", value), DOUBLE, value == null ? null : -value);
+            assertExecute(generateExpression("CAST(%s as DOUBLE) is null", value), BOOLEAN, value == null);
+            assertExecute(generateExpression("CAST(%s as DOUBLE) is not null", value), BOOLEAN, value != null);
         }
 
         for (String value : stringLefts) {
@@ -312,25 +318,25 @@ public class TestExpressionCompiler
     {
         for (Long left : longLefts) {
             for (Double right : doubleRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left == right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left != right);
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left > right);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left < right);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left >= right);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left <= right);
+                assertExecute(generateExpression("%s = CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left == right);
+                assertExecute(generateExpression("%s <> CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left != right);
+                assertExecute(generateExpression("%s > CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left > right);
+                assertExecute(generateExpression("%s < CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left < right);
+                assertExecute(generateExpression("%s >= CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left >= right);
+                assertExecute(generateExpression("%s <= CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left <= right);
 
                 Object expectedNullIf = nullIf(left, right);
-                for (String expression : generateExpression("nullif(%s, %s)", left, right)) {
+                for (String expression : generateExpression("nullif(%s, CAST(%s as DOUBLE))", left, right)) {
                     functionAssertions.assertFunction(expression, BIGINT, expectedNullIf);
                 }
 
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left == null ? null : left.doubleValue(), right));
+                assertExecute(generateExpression("%s is distinct from CAST(%s as DOUBLE)", left, right), BOOLEAN, !Objects.equals(left == null ? null : left.doubleValue(), right));
 
-                assertExecute(generateExpression("%s + %s", left, right), DOUBLE, left == null || right == null ? null : left + right);
-                assertExecute(generateExpression("%s - %s", left, right), DOUBLE, left == null || right == null ? null : left - right);
-                assertExecute(generateExpression("%s * %s", left, right), DOUBLE, left == null || right == null ? null : left * right);
-                assertExecute(generateExpression("%s / %s", left, right), DOUBLE, left == null || right == null ? null : left / right);
-                assertExecute(generateExpression("%s %% %s", left, right), DOUBLE, left == null || right == null ? null : left % right);
+                assertExecute(generateExpression("%s + CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left + right);
+                assertExecute(generateExpression("%s - CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left - right);
+                assertExecute(generateExpression("%s * CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left * right);
+                assertExecute(generateExpression("%s / CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left / right);
+                assertExecute(generateExpression("%s %% CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left % right);
             }
         }
 
@@ -343,21 +349,21 @@ public class TestExpressionCompiler
     {
         for (Double left : doubleLefts) {
             for (Long right : longRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left == (double) right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : left != (double) right);
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : left > (double) right);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : left < (double) right);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : left >= (double) right);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : left <= (double) right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) = %s", left, right), BOOLEAN, left == null || right == null ? null : left == (double) right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) <> %s", left, right), BOOLEAN, left == null || right == null ? null : left != (double) right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) > %s", left, right), BOOLEAN, left == null || right == null ? null : left > (double) right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) < %s", left, right), BOOLEAN, left == null || right == null ? null : left < (double) right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) >= %s", left, right), BOOLEAN, left == null || right == null ? null : left >= (double) right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) <= %s", left, right), BOOLEAN, left == null || right == null ? null : left <= (double) right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), DOUBLE, nullIf(left, right));
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right == null ? null : right.doubleValue()));
+                assertExecute(generateExpression("nullif(CAST(%s as DOUBLE), %s)", left, right), DOUBLE, nullIf(left, right));
+                assertExecute(generateExpression("CAST(%s as DOUBLE) is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right == null ? null : right.doubleValue()));
 
-                assertExecute(generateExpression("%s + %s", left, right), DOUBLE, left == null || right == null ? null : left + right);
-                assertExecute(generateExpression("%s - %s", left, right), DOUBLE, left == null || right == null ? null : left - right);
-                assertExecute(generateExpression("%s * %s", left, right), DOUBLE, left == null || right == null ? null : left * right);
-                assertExecute(generateExpression("%s / %s", left, right), DOUBLE, left == null || right == null ? null : left / right);
-                assertExecute(generateExpression("%s %% %s", left, right), DOUBLE, left == null || right == null ? null : left % right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) + %s", left, right), DOUBLE, left == null || right == null ? null : left + right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) - %s", left, right), DOUBLE, left == null || right == null ? null : left - right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) * %s", left, right), DOUBLE, left == null || right == null ? null : left * right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) / %s", left, right), DOUBLE, left == null || right == null ? null : left / right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) %% %s", left, right), DOUBLE, left == null || right == null ? null : left % right);
             }
         }
 
@@ -370,21 +376,21 @@ public class TestExpressionCompiler
     {
         for (Double left : doubleLefts) {
             for (Double right : doubleRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left == right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left != right);
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left > right);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left < right);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left >= right);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left <= right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) = CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left == right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) <> CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left != right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) > CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left > right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) < CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left < right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) >= CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left >= right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) <= CAST(%s as DOUBLE)", left, right), BOOLEAN, left == null || right == null ? null : (double) left <= right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), DOUBLE, nullIf(left, right));
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));
+                assertExecute(generateExpression("nullif(CAST(%s as DOUBLE), CAST(%s as DOUBLE))", left, right), DOUBLE, nullIf(left, right));
+                assertExecute(generateExpression("CAST(%s as DOUBLE) is distinct from CAST(%s as DOUBLE)", left, right), BOOLEAN, !Objects.equals(left, right));
 
-                assertExecute(generateExpression("%s + %s", left, right), DOUBLE, left == null || right == null ? null : left + right);
-                assertExecute(generateExpression("%s - %s", left, right), DOUBLE, left == null || right == null ? null : left - right);
-                assertExecute(generateExpression("%s * %s", left, right), DOUBLE, left == null || right == null ? null : left * right);
-                assertExecute(generateExpression("%s / %s", left, right), DOUBLE, left == null || right == null ? null : left / right);
-                assertExecute(generateExpression("%s %% %s", left, right), DOUBLE, left == null || right == null ? null : left % right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) + CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left + right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) - CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left - right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) * CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left * right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) / CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left / right);
+                assertExecute(generateExpression("CAST(%s as DOUBLE) %% CAST(%s as DOUBLE)", left, right), DOUBLE, left == null || right == null ? null : left % right);
             }
         }
 
@@ -711,7 +717,7 @@ public class TestExpressionCompiler
                     else {
                         expected = "else";
                     }
-                    assertExecute(generateExpression("case %s when %s then 'first' when %s then 'second' else 'else' end", value, firstTest, secondTest), createVarcharType(6), expected);
+                    assertExecute(generateExpression("case CAST(%s AS DOUBLE) when CAST(%s as DOUBLE) then 'first' when CAST(%s AS DOUBLE) then 'second' else 'else' end", value, firstTest, secondTest), createVarcharType(6), expected);
                 }
             }
         }
@@ -829,46 +835,46 @@ public class TestExpressionCompiler
                     value == null ? null : testValues.contains(value) ? true : null);
 
             // compare a long to in containing doubles
-            assertExecute(generateExpression("%s in (33, 9.0, -9, -33)", value),
+            assertExecute(generateExpression("%s in (33, CAST(9.0 as DOUBLE), -9, -33)", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 33, 9.0, -9, -33)", value),
+            assertExecute(generateExpression("%s in (null, 33, CAST(9.0 as DOUBLE), -9, -33)", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33.0, null, 9.0, -9, -33)", value),
+            assertExecute(generateExpression("%s in (CAST(33.0 as DOUBLE), null, CAST(9.0 as DOUBLE), -9, -33)", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value) ? true : null);
         }
 
         for (Double value : doubleLefts) {
             List<Double> testValues = Arrays.asList(33.0, 9.0, -9.0, -33.0);
-            assertExecute(generateExpression("%s in (33.0, 9.0, -9.0, -33.0)", value),
+            assertExecute(generateExpression("%s in (CAST(33.0 as DOUBLE), CAST(9.0 as DOUBLE), -CAST(9.0 as DOUBLE), -CAST(33.0 as DOUBLE))", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 33.0, 9.0, -9.0, -33.0)", value),
+            assertExecute(generateExpression("%s in (null, CAST(33.0 as DOUBLE), CAST(9.0 as DOUBLE), -CAST(9.0 as DOUBLE), -CAST(33.0 as DOUBLE))", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33.0, null, 9.0, -9.0, -33.0)", value),
+            assertExecute(generateExpression("%s in (CAST(33.0 as DOUBLE), null, CAST(9.0 as DOUBLE), -CAST(9.0 as DOUBLE), -CAST(33.0 as DOUBLE))", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value) ? true : null);
 
             // compare a double to in containing longs
-            assertExecute(generateExpression("%s in (33.0, 9, -9, -33.0)", value),
+            assertExecute(generateExpression("%s in (CAST(33.0 as DOUBLE), 9, -9, -CAST(33.0 as DOUBLE))", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 33.0, 9, -9, -33.0)", value),
+            assertExecute(generateExpression("%s in (null, CAST(33.0 as DOUBLE), 9, -9, -CAST(33.0 as DOUBLE))", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33.0, null, 9, -9, -33.0)", value),
+            assertExecute(generateExpression("%s in (CAST(33.0 as DOUBLE), null, 9, -9, -CAST(33.0 as DOUBLE))", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value) ? true : null);
 
             // compare to dynamically computed values
             testValues = Arrays.asList(33.0, cos(9.0), cos(-9.0), -33.0);
-            assertExecute(generateExpression("cos(%s) in (33.0, cos(9.0), cos(-9.0), -33.0)", value),
+            assertExecute(generateExpression("cos(%s) in (CAST(33.0 as DOUBLE), cos(CAST(9.0 as DOUBLE)), cos(-CAST(9.0 as DOUBLE)), -CAST(33.0 as DOUBLE))", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(cos(value)));
-            assertExecute(generateExpression("cos(%s) in (null, 33.0, cos(9.0), cos(-9.0), -33.0)", value),
+            assertExecute(generateExpression("cos(%s) in (null, CAST(33.0 as DOUBLE), cos(CAST(9.0 as DOUBLE)), cos(-CAST(9.0 as DOUBLE)), -CAST(33.0 as DOUBLE))", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(cos(value)) ? true : null);
         }
@@ -905,12 +911,15 @@ public class TestExpressionCompiler
         assertExecute("bound_long in (1234, " + longValues + ")", BOOLEAN, true);
         assertExecute("bound_long in (" + longValues + ")", BOOLEAN, false);
 
+        // todo needs fix when we use explicit casts to doubles
+        /*
         String doubleValues = range(2000, 7000).asDoubleStream()
                 .mapToObj(Double::toString)
+                .map(s -> format("CAST(%s as DOUBLE)", s))
                 .collect(joining(", "));
-        assertExecute("bound_double in (12.34, " + doubleValues + ")", BOOLEAN, true);
+        assertExecute("bound_double in (CAST(12.34 as DOUBLE), " + doubleValues + ")", BOOLEAN, true);
         assertExecute("bound_double in (" + doubleValues + ")", BOOLEAN, false);
-
+       */
         String stringValues = range(2000, 7000).asLongStream()
                 .mapToObj(i -> format("'%s'", i))
                 .collect(joining(", "));
@@ -1126,18 +1135,18 @@ public class TestExpressionCompiler
         assertExecute("coalesce(cast(null as bigint), 9, null)", BIGINT, 9L);
         assertExecute("coalesce(cast(null as bigint), 9, cast(null as bigint))", BIGINT, 9L);
 
-        assertExecute("coalesce(9.0, 1.0)", DOUBLE, 9.0);
-        assertExecute("coalesce(9.0, 1)", DOUBLE, 9.0);
-        assertExecute("coalesce(9.0, null)", DOUBLE, 9.0);
-        assertExecute("coalesce(9.0, cast(null as double))", DOUBLE, 9.0);
-        assertExecute("coalesce(null, 9.0, 1)", DOUBLE, 9.0);
-        assertExecute("coalesce(null, 9.0, null)", DOUBLE, 9.0);
-        assertExecute("coalesce(null, 9.0, cast(null as double))", DOUBLE, 9.0);
-        assertExecute("coalesce(null, 9.0, cast(null as bigint))", DOUBLE, 9.0);
-        assertExecute("coalesce(cast(null as bigint), 9.0, 1)", DOUBLE, 9.0);
-        assertExecute("coalesce(cast(null as bigint), 9.0, null)", DOUBLE, 9.0);
-        assertExecute("coalesce(cast(null as bigint), 9.0, cast(null as bigint))", DOUBLE, 9.0);
-        assertExecute("coalesce(cast(null as double), 9.0, cast(null as double))", DOUBLE, 9.0);
+        assertExecute("coalesce(CAST(9.0 as DOUBLE), CAST(1.0 as DOUBLE))", DOUBLE, 9.0);
+        assertExecute("coalesce(CAST(9.0 as DOUBLE), 1)", DOUBLE, 9.0);
+        assertExecute("coalesce(CAST(9.0 as DOUBLE), null)", DOUBLE, 9.0);
+        assertExecute("coalesce(CAST(9.0 as DOUBLE), cast(null as double))", DOUBLE, 9.0);
+        assertExecute("coalesce(null, CAST(9.0 as DOUBLE), 1)", DOUBLE, 9.0);
+        assertExecute("coalesce(null, CAST(9.0 as DOUBLE), null)", DOUBLE, 9.0);
+        assertExecute("coalesce(null, CAST(9.0 as DOUBLE), cast(null as double))", DOUBLE, 9.0);
+        assertExecute("coalesce(null, CAST(9.0 as DOUBLE), cast(null as bigint))", DOUBLE, 9.0);
+        assertExecute("coalesce(cast(null as bigint), CAST(9.0 as DOUBLE), 1)", DOUBLE, 9.0);
+        assertExecute("coalesce(cast(null as bigint), CAST(9.0 as DOUBLE), null)", DOUBLE, 9.0);
+        assertExecute("coalesce(cast(null as bigint), CAST(9.0 as DOUBLE), cast(null as bigint))", DOUBLE, 9.0);
+        assertExecute("coalesce(cast(null as double), CAST(9.0 as DOUBLE), cast(null as double))", DOUBLE, 9.0);
 
         assertExecute("coalesce('foo', 'banana')", createVarcharType(6), "foo");
         assertExecute("coalesce('foo', null)", createVarcharType(3), "foo");

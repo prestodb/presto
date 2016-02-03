@@ -73,6 +73,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestExpressionInterpreter
 {
+    // todo add decimal cases
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
     private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_long"), BIGINT)
@@ -484,31 +485,31 @@ public class TestExpressionInterpreter
             throws Exception
     {
         // long
-        assertOptimizedEquals("cast(0 as DOUBLE)", "0.0");
-        assertOptimizedEquals("cast(123 as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast(-123 as DOUBLE)", "-123.0");
+        assertOptimizedEquals("cast(0 as DOUBLE)", "cast(0.0 as DOUBLE)");
+        assertOptimizedEquals("cast(123 as DOUBLE)", "cast(123.0 as DOUBLE)");
+        assertOptimizedEquals("cast(-123 as DOUBLE)", "cast(-123.0 as DOUBLE)");
 
         // double
-        assertOptimizedEquals("cast(123.0 as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast(-123.0 as DOUBLE)", "-123.0");
-        assertOptimizedEquals("cast(123.456 as DOUBLE)", "123.456");
-        assertOptimizedEquals("cast(-123.456 as DOUBLE)", "-123.456");
+        assertOptimizedEquals("cast(123.0 as DOUBLE)", "cast(123.0 as DOUBLE)");
+        assertOptimizedEquals("cast(-123.0 as DOUBLE)", "cast(-123.0 as DOUBLE)");
+        assertOptimizedEquals("cast(123.456 as DOUBLE)", "cast(123.456 as DOUBLE)");
+        assertOptimizedEquals("cast(-123.456 as DOUBLE)", "cast(-123.456 as DOUBLE)");
 
         // string
-        assertOptimizedEquals("cast('0' as DOUBLE)", "0.0");
-        assertOptimizedEquals("cast('123' as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast('-123' as DOUBLE)", "-123.0");
-        assertOptimizedEquals("cast('123.0' as DOUBLE)", "123.0");
-        assertOptimizedEquals("cast('-123.0' as DOUBLE)", "-123.0");
-        assertOptimizedEquals("cast('123.456' as DOUBLE)", "123.456");
-        assertOptimizedEquals("cast('-123.456' as DOUBLE)", "-123.456");
+        assertOptimizedEquals("cast('0' as DOUBLE)", "cast(0.0 as DOUBLE)");
+        assertOptimizedEquals("cast('123' as DOUBLE)", "cast(123.0 as DOUBLE)");
+        assertOptimizedEquals("cast('-123' as DOUBLE)", "cast(-123.0 as DOUBLE)");
+        assertOptimizedEquals("cast('123.0' as DOUBLE)", "cast(123.0 as DOUBLE)");
+        assertOptimizedEquals("cast('-123.0' as DOUBLE)", "cast(-123.0 as DOUBLE)");
+        assertOptimizedEquals("cast('123.456' as DOUBLE)", "cast(123.456 as DOUBLE)");
+        assertOptimizedEquals("cast('-123.456' as DOUBLE)", "cast(-123.456 as DOUBLE)");
 
         // null
         assertOptimizedEquals("cast(null as DOUBLE)", "null");
 
         // boolean
-        assertOptimizedEquals("cast(true as DOUBLE)", "1.0");
-        assertOptimizedEquals("cast(false as DOUBLE)", "0.0");
+        assertOptimizedEquals("cast(true as DOUBLE)", "cast(1.0 as DOUBLE)");
+        assertOptimizedEquals("cast(false as DOUBLE)", "cast(0.0 as DOUBLE)");
     }
 
     @Test

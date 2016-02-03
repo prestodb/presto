@@ -94,23 +94,16 @@ public class TestDecimalCasts
     @Test
     public void testDoubleToDecimalCasts()
     {
-        assertDecimalFunction("CAST(234.0 AS DECIMAL(4,1))", decimal("234.0"));
-        assertDecimalFunction("CAST(.01 AS DECIMAL(3,3))", decimal(".010"));
-        assertDecimalFunction("CAST(.0 AS DECIMAL(3,3))", decimal(".000"));
-        assertDecimalFunction("CAST(0 AS DECIMAL(1,0))", decimal("0"));
-        assertDecimalFunction("CAST(0 AS DECIMAL(4,0))", decimal("0000"));
-        assertDecimalFunction("CAST(1000 AS DECIMAL(4,0))", decimal("1000"));
-        assertDecimalFunction("CAST(1000.01 AS DECIMAL(7,2))", decimal("01000.01"));
-        assertDecimalFunction("CAST(-234.0 AS DECIMAL(3,0))", decimal("-234"));
-        assertDecimalFunction("CAST(12345678901234567 AS DECIMAL(17,0))", decimal("12345678901234567"));
-        assertDecimalFunction("CAST(-12345678901234567 AS DECIMAL(17,0))", decimal("-12345678901234567"));
-        assertDecimalFunction("CAST(1234567890 AS DECIMAL(20,10))", decimal("1234567890.0000000000"));
-        assertDecimalFunction("CAST(-1234567890 AS DECIMAL(20,10))", decimal("-1234567890.0000000000"));
+        assertDecimalFunction("CAST(CAST(234.0 AS DOUBLE) AS DECIMAL(4,1))", decimal("234.0"));
+        assertDecimalFunction("CAST(CAST(.01 AS DOUBLE) AS DECIMAL(3,3))", decimal(".010"));
+        assertDecimalFunction("CAST(CAST(.0 AS DOUBLE) AS DECIMAL(3,3))", decimal(".000"));
+        assertDecimalFunction("CAST(CAST(1000.01 AS DOUBLE) AS DECIMAL(7,2))", decimal("01000.01"));
+        assertDecimalFunction("CAST(-CAST(234.0 AS DOUBLE) AS DECIMAL(3,0))", decimal("-234"));
 
-        assertInvalidCast("CAST(234.0 AS DECIMAL(2,0))", "Cannot cast DOUBLE '234.0' to DECIMAL(2, 0)");
-        assertInvalidCast("CAST(1000.01 AS DECIMAL(5,2))", "Cannot cast DOUBLE '1000.01' to DECIMAL(5, 2)");
-        assertInvalidCast("CAST(-234.0 AS DECIMAL(2,0))", "Cannot cast DOUBLE '-234.0' to DECIMAL(2, 0)");
-        assertInvalidCast("CAST(12345678901.1 AS DECIMAL(20, 10))", "Cannot cast DOUBLE '1.23456789011E10' to DECIMAL(20, 10)");
+        assertInvalidCast("CAST(CAST(234.0 AS DOUBLE) AS DECIMAL(2,0))", "Cannot cast DOUBLE '234.0' to DECIMAL(2, 0)");
+        assertInvalidCast("CAST(CAST(1000.01 AS DOUBLE) AS DECIMAL(5,2))", "Cannot cast DOUBLE '1000.01' to DECIMAL(5, 2)");
+        assertInvalidCast("CAST(-CAST(234.0 AS DOUBLE) AS DECIMAL(2,0))", "Cannot cast DOUBLE '-234.0' to DECIMAL(2, 0)");
+        assertInvalidCast("CAST(CAST(12345678901.1 AS DOUBLE) AS DECIMAL(20, 10))", "Cannot cast DOUBLE '1.23456789011E10' to DECIMAL(20, 10)");
     }
 
     @Test
