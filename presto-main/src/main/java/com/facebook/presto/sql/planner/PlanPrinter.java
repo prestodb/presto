@@ -26,6 +26,7 @@ import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -72,7 +73,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 
-import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -686,10 +686,10 @@ public class PlanPrinter
         private String castToVarchar(Type type, Object value)
         {
             Signature coercion = metadata.getFunctionRegistry().getCoercion(type, VARCHAR);
-            MethodHandle method = metadata.getFunctionRegistry().getScalarFunctionImplementation(coercion).getMethodHandle();
 
             try {
-                return ((Slice) method.invokeWithArguments(value)).toStringUtf8();
+                Slice coerced = (Slice) new FunctionInvoker(metadata.getFunctionRegistry()).invoke(coercion, session.toConnectorSession(), value);
+                return coerced.toStringUtf8();
             }
             catch (OperatorNotFoundException e) {
                 return "<UNREPRESENTABLE VALUE>";
