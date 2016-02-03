@@ -55,6 +55,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
@@ -77,6 +78,8 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -205,6 +208,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.ParameterCollector.getParameters;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -345,6 +349,47 @@ class StatementAnalyzer
                 ordering(ascending("ordinal_position")));
 
         return process(query, context);
+    }
+
+    @Override
+    protected RelationType visitDescribeInput(DescribeInput node, AnalysisContext context)
+    {
+        String sqlString = session.getPreparedStatement(node.getName());
+        Statement statement = sqlParser.createStatement(sqlString);
+
+        // create separate analysis for the query we are describing.
+        Analysis queryAnalysis = new Analysis();
+        queryAnalysis.setIsDescribe(true);
+        StatementAnalyzer analyzer = new StatementAnalyzer(queryAnalysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, queryExplainer);
+        analyzer.process(statement, context);
+
+        // get all parameters in query
+        List<Parameter> parameters = getParameters(statement);
+
+        // return the positions and types of all parameters.  If there are no parameters, return a single null row.
+        Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(parameter, queryAnalysis)).toArray(Row[]::new);
+        if (rows.length == 0) {
+            rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
+        }
+
+        Query query = simpleQuery(
+                selectList(nameReference("Position"), nameReference("Type")),
+                aliased(
+                        values(rows),
+                        "Parameter Input",
+                        ImmutableList.of("Position", "Type")),
+                ordering(ascending("Position")));
+        return process(query, context);
+    }
+
+    private Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)
+    {
+        Type type = queryAnalysis.getCoercion(parameter);
+        if (type == null) {
+            type = UNKNOWN;
+        }
+
+        return row(new LongLiteral(Integer.toString(parameter.getPosition())), new StringLiteral(type.getDisplayName()));
     }
 
     @Override
@@ -677,7 +722,7 @@ class StatementAnalyzer
 
         for (Expression expression : node.getProperties().values()) {
             // analyze table property value expressions which must be constant
-            createConstantAnalyzer(metadata, session)
+            createConstantAnalyzer(metadata, session, analysis.isDescribe())
                     .analyze(expression, new RelationType(), context);
         }
         analysis.setCreateTableProperties(node.getProperties());
@@ -972,7 +1017,7 @@ class StatementAnalyzer
             throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
         }
 
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, ImmutableMap.<Symbol, Type>of(), relation.getSamplePercentage());
+        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, ImmutableMap.<Symbol, Type>of(), relation.getSamplePercentage(), analysis.isDescribe());
         ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
 
         Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
@@ -1753,7 +1798,8 @@ class StatementAnalyzer
         }
 
         // is this an aggregation query?
-        if (!groupingSets.isEmpty()) {
+        // skip describe queries because if there are parameters involved we can't verify equality
+        if (!groupingSets.isEmpty() && !analysis.isDescribe()) {
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group
             // e.g, these are all valid expressions:
             //     SELECT f(a) GROUP BY a
