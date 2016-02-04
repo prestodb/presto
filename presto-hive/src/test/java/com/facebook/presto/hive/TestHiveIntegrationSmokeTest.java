@@ -255,7 +255,7 @@ public class TestHiveIntegrationSmokeTest
     public void testCreatePartitionedTableInvalidColumnOrdering()
     {
         assertUpdate("" +
-                "CREATE TABLE test_show_columns_partition_key\n" +
+                "CREATE TABLE test_create_table_invalid_column_ordering\n" +
                 "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
                 "WITH (partitioned_by = ARRAY['apple'])");
     }
@@ -265,7 +265,7 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         assertUpdate("" +
-                "CREATE TABLE test_create_partitioned_table_as " +
+                "CREATE TABLE test_create_table_as_invalid_column_ordering " +
                 "WITH (partitioned_by = ARRAY['SHIP_PRIORITY', 'ORDER_STATUS']) " +
                 "AS " +
                 "SELECT shippriority AS ship_priority, orderkey AS order_key, orderstatus AS order_status " +
