@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorSavepointHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
@@ -107,6 +108,11 @@ public class HandleResolver
         return getId(transactionHandle, MaterializedHandleResolver::getTransactionHandleClass);
     }
 
+    public String getId(ConnectorSavepointHandle savepointHandle)
+    {
+        return getId(savepointHandle, MaterializedHandleResolver::getSavepointHandleClass);
+    }
+
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         return resolverFor(id).getTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
@@ -152,6 +158,11 @@ public class HandleResolver
         return resolverFor(id).getTransactionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
+    public Class<? extends ConnectorSavepointHandle> getSavepointHandleClass(String id)
+    {
+        return resolverFor(id).getSavepointHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
     private MaterializedHandleResolver resolverFor(String id)
     {
         MaterializedHandleResolver resolver = handleResolvers.get(id);
@@ -184,6 +195,7 @@ public class HandleResolver
         private final Optional<Class<? extends ConnectorInsertTableHandle>> insertTableHandle;
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
+        private final Optional<Class<? extends ConnectorSavepointHandle>> savepointHandle;
 
         public MaterializedHandleResolver(ConnectorHandleResolver resolver)
         {
@@ -196,6 +208,7 @@ public class HandleResolver
             insertTableHandle = getHandleClass(resolver::getInsertTableHandleClass);
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
+            savepointHandle = getHandleClass(resolver::getSavepointHandleClass);
         }
 
         private static <T> Optional<Class<? extends T>> getHandleClass(Supplier<Class<? extends T>> callable)
@@ -253,6 +266,11 @@ public class HandleResolver
             return transactionHandle;
         }
 
+        public Optional<Class<? extends ConnectorSavepointHandle>> getSavepointHandleClass()
+        {
+            return savepointHandle;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -271,13 +289,24 @@ public class HandleResolver
                     Objects.equals(outputTableHandle, that.outputTableHandle) &&
                     Objects.equals(insertTableHandle, that.insertTableHandle) &&
                     Objects.equals(partitioningHandle, that.partitioningHandle) &&
-                    Objects.equals(transactionHandle, that.transactionHandle);
+                    Objects.equals(transactionHandle, that.transactionHandle) &&
+                    Objects.equals(savepointHandle, that.savepointHandle);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, partitioningHandle, transactionHandle);
+            return Objects.hash(
+                    tableHandle,
+                    layoutHandle,
+                    columnHandle,
+                    split,
+                    indexHandle,
+                    outputTableHandle,
+                    insertTableHandle,
+                    partitioningHandle,
+                    transactionHandle,
+                    savepointHandle);
         }
     }
 }

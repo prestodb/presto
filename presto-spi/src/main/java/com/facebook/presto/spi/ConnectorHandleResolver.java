@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorSavepointHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public interface ConnectorHandleResolver
@@ -47,6 +48,11 @@ public interface ConnectorHandleResolver
     }
 
     default Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Class<? extends ConnectorSavepointHandle> getSavepointHandleClass()
     {
         throw new UnsupportedOperationException();
     }

@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorSavepointHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.base.Supplier;
@@ -33,6 +34,8 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -52,12 +55,15 @@ import static com.facebook.presto.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLIC
 import static com.facebook.presto.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.READ_ONLY_VIOLATION;
+import static com.facebook.presto.spi.StandardErrorCode.SAVEPOINT_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
+import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ROLLBACK;
 import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Iterables.removeIf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
@@ -273,7 +279,22 @@ public class TransactionManager
     public void fail(TransactionId transactionId)
     {
         // Mark transaction as failed, but don't remove it.
-        tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::asyncAbort);
+        tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::fail);
+    }
+
+    public void savepoint(TransactionId transactionId, String name)
+    {
+        getTransactionMetadata(transactionId).savepoint(name);
+    }
+
+    public void releaseSavepoint(TransactionId transactionId, String name)
+    {
+        getTransactionMetadata(transactionId).releaseSavepoint(name);
+    }
+
+    public void rollbackToSavepoint(TransactionId transactionId, String name)
+    {
+        getTransactionMetadata(transactionId).rollbackToSavepoint(name);
     }
 
     @ThreadSafe
@@ -282,6 +303,7 @@ public class TransactionManager
         private enum State
         {
             ACTIVE,
+            FAILED,
             COMMITTED,
             ABORTED
         }
@@ -298,6 +320,9 @@ public class TransactionManager
         private final AtomicReference<ConnectorId> writtenConnectorId = new AtomicReference<>();
         private final Executor finishingExecutor;
         private final AtomicReference<Long> idleStartTime = new AtomicReference<>();
+
+        @GuardedBy("this")
+        private final Deque<Savepoint> savepoints = new ArrayDeque<>();
 
         @GuardedBy("this")
         private State state = State.ACTIVE;
@@ -349,6 +374,7 @@ public class TransactionManager
                 case COMMITTED:
                     // Should not happen normally
                     throw new IllegalStateException("Current transaction already committed");
+                case FAILED:
                 case ABORTED:
                     throw new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
             }
@@ -447,6 +473,16 @@ public class TransactionManager
             if (transactionMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
                 throw new PrestoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog " + connectorId + " only supports writes using autocommit");
             }
+
+            // Create previously requested savepoints now that we know which connector is writing
+            List<String> names = savepoints.stream()
+                    .peek(savepoint -> verify(!savepoint.getHandle().isPresent(), "savepoint handle already present"))
+                    .map(Savepoint::getName)
+                    .collect(toList());
+            savepoints.clear();
+            for (String name : names) {
+                savepoints.push(new Savepoint(name, Optional.of(getWrittenConnector().savepoint())));
+            }
         }
 
         public synchronized CompletableFuture<?> asyncCommit()
@@ -456,10 +492,15 @@ public class TransactionManager
                     return completedFuture(null);
                 case ABORTED:
                     return failedFuture(new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
+                case FAILED:
+                    asyncAbort();
+                    return failedFuture(new PrestoException(TRANSACTION_ROLLBACK, "Current transaction is in a failed state, rollback forced"));
                 case ACTIVE:
                     break;
             }
             state = State.COMMITTED;
+
+            savepoints.clear();
 
             ConnectorId writeConnectorId = this.writtenConnectorId.get();
             if (writeConnectorId == null) {
@@ -506,9 +547,12 @@ public class TransactionManager
                     // Already done
                     return completedFuture(null);
                 case ACTIVE:
+                case FAILED:
                     break;
             }
             state = State.ABORTED;
+
+            savepoints.clear();
 
             return abortInternal();
         }
@@ -530,6 +574,83 @@ public class TransactionManager
             catch (Exception e) {
                 log.error(e, "Connector threw exception on abort");
             }
+        }
+
+        public synchronized void fail()
+        {
+            switch (state) {
+                case COMMITTED:
+                    throw new IllegalStateException("Current transaction already committed");
+                case ABORTED:
+                case FAILED:
+                    // Already failed
+                    break;
+                case ACTIVE:
+                    state = State.FAILED;
+            }
+        }
+
+        public synchronized void savepoint(String name)
+        {
+            checkOpenTransaction();
+
+            Optional<ConnectorSavepointHandle> handle = Optional.ofNullable(writtenConnectorId.get())
+                    .map(id -> connectorIdToMetadata.get(id).savepoint());
+
+            // Replace any existing savepoint with same name
+            removeIf(savepoints, savepoint -> savepoint.getName().equals(name));
+
+            savepoints.push(new Savepoint(name, handle));
+        }
+
+        public synchronized void releaseSavepoint(String name)
+        {
+            checkOpenTransaction();
+
+            getSavepoint(name).getHandle()
+                    .ifPresent(handle -> getWrittenConnector().releaseSavepoint(handle));
+
+            // Discard all savepoints after and including this one
+            while (!savepoints.peek().getName().equals(name)) {
+                savepoints.pop();
+            }
+            savepoints.pop();
+        }
+
+        public synchronized void rollbackToSavepoint(String name)
+        {
+            switch (state) {
+                case COMMITTED:
+                    throw new IllegalStateException("Current transaction already committed");
+                case ABORTED:
+                    throw new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted");
+                case ACTIVE:
+                case FAILED:
+                    break;
+            }
+
+            getSavepoint(name).getHandle()
+                    .ifPresent(handle -> getWrittenConnector().rollbackToSavepoint(handle));
+
+            // Discard all savepoints after this one (it can be rolled back to multiple times)
+            while (!savepoints.peek().getName().equals(name)) {
+                savepoints.pop();
+            }
+
+            state = State.ACTIVE;
+        }
+
+        private synchronized Savepoint getSavepoint(String name)
+        {
+            return savepoints.stream()
+                    .filter(savepoint -> savepoint.getName().equals(name))
+                    .findFirst()
+                    .orElseThrow(() -> new PrestoException(SAVEPOINT_NOT_FOUND, "No such savepoint: " + name));
+        }
+
+        private synchronized ConnectorTransactionMetadata getWrittenConnector()
+        {
+            return connectorIdToMetadata.get(writtenConnectorId.get());
         }
 
         public TransactionInfo getTransactionInfo()
@@ -597,6 +718,43 @@ public class TransactionManager
                 if (finished.compareAndSet(false, true)) {
                     connector.rollback(transactionHandle);
                 }
+            }
+
+            public ConnectorSavepointHandle savepoint()
+            {
+                return connector.savepoint(transactionHandle);
+            }
+
+            public void releaseSavepoint(ConnectorSavepointHandle savepoint)
+            {
+                connector.releaseSavepoint(transactionHandle, savepoint);
+            }
+
+            public void rollbackToSavepoint(ConnectorSavepointHandle savepoint)
+            {
+                connector.rollbackToSavepoint(transactionHandle, savepoint);
+            }
+        }
+
+        private static class Savepoint
+        {
+            private final String name;
+            private final Optional<ConnectorSavepointHandle> handle;
+
+            public Savepoint(String name, Optional<ConnectorSavepointHandle> handle)
+            {
+                this.name = requireNonNull(name, "name is null");
+                this.handle = requireNonNull(handle, "handle is null");
+            }
+
+            public String getName()
+            {
+                return name;
+            }
+
+            public Optional<ConnectorSavepointHandle> getHandle()
+            {
+                return handle;
             }
         }
     }

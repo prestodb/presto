@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -21,6 +22,8 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
@@ -147,6 +150,29 @@ public interface Connector
      */
     default void rollback(ConnectorTransactionHandle transactionHandle)
     {
+    }
+
+    /**
+     * Create a savepoint within the transaction.
+     */
+    default ConnectorSavepointHandle savepoint(ConnectorTransactionHandle transaction)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support savepoints");
+    }
+
+    /**
+     * Release the specified savepoint and all subsequent savepoints.
+     * A released savepoint will not be rolled back, allowing the
+     * connector to release any resources associated with the savepoint.
+     */
+    default void releaseSavepoint(ConnectorTransactionHandle transaction, ConnectorSavepointHandle savepoint) {}
+
+    /**
+     * Rollback the the transaction to a savepoint.
+     */
+    default void rollbackToSavepoint(ConnectorTransactionHandle transaction, ConnectorSavepointHandle savepoint)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Connector savepoint() is implemented without rollbackToSavepoint()");
     }
 
     /**

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorSavepointHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -69,6 +70,15 @@ public class TpchConnectorFactory
             {
                 return TpchTransactionHandle.INSTANCE;
             }
+
+            @Override
+            public ConnectorSavepointHandle savepoint(ConnectorTransactionHandle transaction)
+            {
+                return TpchSavepointHandle.INSTANCE;
+            }
+
+            @Override
+            public void rollbackToSavepoint(ConnectorTransactionHandle transaction, ConnectorSavepointHandle savepoint) {}
 
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
