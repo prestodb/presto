@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.google.common.base.Throwables;
+
 import java.io.Closeable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.Driver;
-
+import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -51,8 +53,19 @@ public class PrestoDriver
     private static final String PWD_PROPERTY = "password";
 
     private final QueryExecutor queryExecutor;
+    
+    static {
+        JettyLogging.useJavaUtilLogging();
 
-     public PrestoDriver()
+        try {
+            DriverManager.registerDriver(new PrestoDriver());
+        }
+        catch (SQLException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    public PrestoDriver()
     {
         this.queryExecutor = QueryExecutor.create(DRIVER_NAME + "/" + DRIVER_VERSION);
     }

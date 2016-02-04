@@ -13,14 +13,12 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.google.common.base.Throwables;
 import io.airlift.log.Logging;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 
 import static com.facebook.presto.jdbc.TestDriver.closeQuietly;
 import static org.testng.Assert.assertTrue;
@@ -28,23 +26,12 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestJdbcDriverWithPassword
 {
-    static {
-        JettyLogging.useJavaUtilLogging();
-
-        try {
-            System.setProperty("javax.net.ssl.keyStore", "src/main/resources/keystore");
-            System.setProperty("javax.net.ssl.keyStorePassword", "changeit");
-            DriverManager.registerDriver(new PrestoDriver());
-        }
-        catch (SQLException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
     @BeforeClass
     public void setupServer()
             throws Exception
     {
+        System.setProperty("javax.net.ssl.keyStore", "src/main/resources/keystore");
+        System.setProperty("javax.net.ssl.keyStorePassword", "changeit");
         Logging.initialize();
     }
 
