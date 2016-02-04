@@ -89,7 +89,9 @@ public class SpnegoFilter
                     if (LOG.isDebugEnabled()) {
                         options.put("debug", "true");
                     }
-
+                    if (config.getKeytab() != null) {
+                        options.put("keyTab", config.getKeytab().getAbsolutePath());
+                    }
                     options.put("isInitiator", "false");
                     options.put("useKeyTab", "true");
                     options.put("principal", servicePrincipal);
