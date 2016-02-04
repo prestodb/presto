@@ -144,7 +144,7 @@ public final class BlockAssertions
         }
         int[] ids = new int[length];
         for (int i = 0; i < length; i++) {
-            ids[i] = length % dictionarySize;
+            ids[i] = i % dictionarySize;
         }
         return new DictionaryBlock(length, builder.build(), wrappedIntArray(ids));
     }
@@ -254,7 +254,7 @@ public final class BlockAssertions
         }
         int[] ids = new int[length];
         for (int i = 0; i < length; i++) {
-            ids[i] = length % dictionarySize;
+            ids[i] = i % dictionarySize;
         }
         return new DictionaryBlock(length, builder.build(), wrappedIntArray(ids));
     }
