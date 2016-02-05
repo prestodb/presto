@@ -21,7 +21,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -171,7 +170,7 @@ public final class SqlScalarFunctionBuilder
 
         public Long getLiteral(String name)
         {
-            return boundVariables.getLongVariable(name.toUpperCase(Locale.ENGLISH)).getAsLong();
+            return boundVariables.getLongVariable(name);
         }
 
         public List<Type> getParameterTypes()
