@@ -30,24 +30,17 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.OptionalLong;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeUtils
 {
-    public static final int EXPECTED_ARRAY_SIZE = 1024;
     public static final int NULL_HASH_CODE = 0;
 
     private TypeUtils()
@@ -179,100 +172,5 @@ public final class TypeUtils
         if (isNull) {
             throw new PrestoException(NOT_SUPPORTED, errorMsg);
         }
-    }
-
-    public static TypeSignature resolveCalculatedType(
-            TypeSignature typeSignature,
-            Map<String, OptionalLong> inputs)
-    {
-        ImmutableList.Builder<TypeSignatureParameter> parametersBuilder = ImmutableList.builder();
-
-        boolean failedToCalculateLiteral = false;
-        for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
-            switch (parameter.getKind()) {
-                case TYPE:
-                    parametersBuilder.add(TypeSignatureParameter.of(resolveCalculatedType(
-                            parameter.getTypeSignature(),
-                            inputs)));
-                    break;
-                case VARIABLE: {
-                    OptionalLong optionalLong = TypeCalculation.calculateLiteralValue(
-                            parameter.getVariable(),
-                            inputs,
-                            false);
-                    if (optionalLong.isPresent()) {
-                        parametersBuilder.add(TypeSignatureParameter.of(optionalLong.getAsLong()));
-                    }
-                    else {
-                        failedToCalculateLiteral = true;
-                    }
-                    break;
-                }
-                default:
-                    parametersBuilder.add(parameter);
-                    break;
-            }
-        }
-
-        List<TypeSignatureParameter> calculatedParameters = parametersBuilder.build();
-        if (failedToCalculateLiteral && !calculatedParameters.isEmpty()) {
-            throw new IllegalArgumentException(
-                    format("Could not evaluate type expression %s with parameter bindings %s",
-                            typeSignature, inputs));
-        }
-        return new TypeSignature(typeSignature.getBase(), calculatedParameters);
-    }
-
-    public static Map<String, OptionalLong> computeParameterBindings(TypeSignature declaredType, TypeSignature actualType)
-    {
-        if (!declaredType.isCalculated()) {
-            return emptyMap();
-        }
-        Map<String, OptionalLong> inputs = new HashMap<>();
-
-        List<TypeSignatureParameter> declaredParameters = declaredType.getParameters();
-        List<TypeSignatureParameter> actualParameters = actualType.getParameters();
-
-        // in case of coercion to different base type we ignore arguments
-        if (!declaredType.getBase().equals(actualType.getBase())) {
-            checkArgument(actualParameters.isEmpty(), "Expected empty argument list for actual type with different base");
-            for (TypeSignatureParameter parameter : declaredParameters) {
-                if (parameter.isVariable()) {
-                    inputs.put(parameter.getVariable().toUpperCase(Locale.US), OptionalLong.empty());
-                }
-            }
-            return inputs;
-        }
-
-        if (declaredParameters.size() != actualParameters.size()) {
-            return inputs;
-        }
-
-        for (int index = 0; index < declaredParameters.size(); index++) {
-            TypeSignatureParameter declaredParameter = declaredParameters.get(index);
-            TypeSignatureParameter actualParameter = actualParameters.get(index);
-
-            if (declaredParameter.isTypeSignature()) {
-                checkState(
-                        actualParameter.isTypeSignature(),
-                        "declared type %s doesn't match actual type %s",
-                        declaredType,
-                        actualType);
-
-                if (declaredParameter.isCalculated()) {
-                    inputs.putAll(computeParameterBindings(
-                            declaredParameter.getTypeSignature(),
-                            actualParameter.getTypeSignature()));
-                }
-            }
-            else if (declaredParameter.isVariable()) {
-                String variable = declaredParameter.getVariable();
-                if (!actualParameter.isLongLiteral()) {
-                    throw new IllegalArgumentException(format("Expected type %s parameter %s to be a numeric literal", actualType, index));
-                }
-                inputs.put(variable.toUpperCase(Locale.US), OptionalLong.of(actualParameter.getLongLiteral()));
-            }
-        }
-        return inputs;
     }
 }
