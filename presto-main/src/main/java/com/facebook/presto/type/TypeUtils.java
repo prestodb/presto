@@ -245,10 +245,7 @@ public final class TypeUtils
         }
 
         if (declaredParameters.size() != actualParameters.size()) {
-            throw new IllegalArgumentException(format(
-                    "Number of parameters for declared type %s don't match actual type %s",
-                    declaredType,
-                    actualType));
+            return inputs;
         }
 
         for (int index = 0; index < declaredParameters.size(); index++) {
