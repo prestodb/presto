@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -29,7 +28,6 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class TypeSignature
 {
@@ -59,21 +57,6 @@ public class TypeSignature
     public TypeSignature(String base, List<TypeSignature> typeSignatureParameters, List<String> literalParameters)
     {
         this(base, createNamedTypeParameters(typeSignatureParameters, literalParameters));
-    }
-
-    public TypeSignature bindParameters(Map<String, Type> boundParameters)
-    {
-        if (boundParameters.containsKey(base)) {
-            if (!getParameters().isEmpty()) {
-                throw new IllegalStateException("Type parameters cannot have parameters");
-            }
-            return boundParameters.get(base).getTypeSignature();
-        }
-
-        List<TypeSignatureParameter> parameters = getParameters().stream()
-                .map(signature -> signature.bindParameters(boundParameters))
-                .collect(toList());
-        return new TypeSignature(base, parameters);
     }
 
     public String getBase()

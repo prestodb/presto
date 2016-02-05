@@ -25,18 +25,13 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 
-import static com.facebook.presto.type.TypeUtils.resolveCalculatedType;
+import static com.facebook.presto.metadata.SignatureBinder.bindVariables;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
-import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 class PolymorphicScalarFunction
         extends SqlScalarFunction
@@ -88,9 +83,10 @@ class PolymorphicScalarFunction
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type resolvedReturnType = typeManager.getType(resolveTypeSignature(getSignature().getReturnType(), boundVariables));
-        List<TypeSignature> resolvedParameterSignatures = resolveTypeSignatures(getSignature().getArgumentTypes(), boundVariables);
-        List<Type> resolvedParameterTypes = resolveTypes(resolvedParameterSignatures, typeManager);
+        List<TypeSignature> resolvedParameterTypeSignatures = bindVariables(getSignature().getArgumentTypes(), boundVariables);
+        List<Type> resolvedParameterTypes = resolveTypes(resolvedParameterTypeSignatures, typeManager);
+        TypeSignature resolvedReturnTypeSignature = bindVariables(getSignature().getReturnType(), boundVariables);
+        Type resolvedReturnType = typeManager.getType(resolvedReturnTypeSignature);
 
         SpecializeContext context = new SpecializeContext(boundVariables, resolvedParameterTypes, resolvedReturnType, typeManager, functionRegistry);
         Optional<Method> matchingMethod = Optional.empty();
@@ -104,8 +100,7 @@ class PolymorphicScalarFunction
                         if (onlyFirstMatchedMethodHasPredicate(matchingMethodsGroup.get(), candidateMethodsGroup)) {
                             continue;
                         }
-
-                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getName() + " and " + candidateMethod.getName() + ") for parameter types " + resolvedParameterTypes);
+                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getName() + " and " + candidateMethod.getName() + ") for parameter types " + resolvedParameterTypeSignatures);
                     }
 
                     matchingMethod = Optional.of(candidateMethod);
@@ -119,19 +114,6 @@ class PolymorphicScalarFunction
         MethodHandle matchingMethodHandle = applyExtraParameters(matchingMethod.get(), extraParameters);
 
         return new ScalarFunctionImplementation(nullableResult, nullableArguments, matchingMethodHandle, deterministic);
-    }
-
-    private List<TypeSignature> resolveTypeSignatures(List<TypeSignature> declaredSignatures, BoundVariables boundVariables)
-    {
-        return declaredSignatures.stream()
-                .map(parameter -> resolveTypeSignature(parameter, boundVariables))
-                .collect(toImmutableList());
-    }
-
-    private TypeSignature resolveTypeSignature(TypeSignature declaredSignature, BoundVariables boundVariables)
-    {
-        TypeSignature typeSignature = declaredSignature.bindParameters(boundVariables.getTypeVariables());
-        return resolveCalculatedType(typeSignature, boundVariables.getLongVariables());
     }
 
     private boolean matchesParameterAndReturnTypes(Method method, List<Type> resolvedTypes, Type returnType)
@@ -162,13 +144,6 @@ class PolymorphicScalarFunction
     private List<Object> computeExtraParameters(MethodsGroup methodsGroup, SpecializeContext context)
     {
         return methodsGroup.getExtraParametersFunction().map(function -> function.apply(context)).orElse(emptyList());
-    }
-
-    private Map<String, Long> filterPresentLiterals(Map<String, OptionalLong> boundLiterals)
-    {
-        return boundLiterals.entrySet().stream()
-                .filter(entry -> entry.getValue().isPresent())
-                .collect(toMap(entry -> entry.getKey().toLowerCase(US), entry -> entry.getValue().getAsLong()));
     }
 
     private MethodHandle applyExtraParameters(Method matchingMethod, List<Object> extraParameters)

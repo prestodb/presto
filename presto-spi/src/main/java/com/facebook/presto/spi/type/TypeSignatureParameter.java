@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.type;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -156,20 +155,6 @@ public class TypeSignatureParameter
     public int hashCode()
     {
         return Objects.hash(kind, value);
-    }
-
-    public TypeSignatureParameter bindParameters(Map<String, Type> boundParameters)
-    {
-        switch (kind) {
-            case TYPE:
-                return TypeSignatureParameter.of(getTypeSignature().bindParameters(boundParameters));
-            case NAMED_TYPE:
-                return TypeSignatureParameter.of(new NamedTypeSignature(
-                        getNamedTypeSignature().getName(),
-                        getNamedTypeSignature().getTypeSignature().bindParameters(boundParameters)));
-            default:
-                return this;
-        }
     }
 
     private static void verify(boolean argument, String message)
