@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.auth.HdfsAuthenticatingMetadata;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
@@ -22,6 +23,7 @@ import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
@@ -30,6 +32,7 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.PrivateModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
@@ -105,10 +108,20 @@ public class HiveClientModule
 
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorMetadata.class).to(HiveMetadata.class).in(Scopes.SINGLETON);
+        binder.install(new PrivateModule()
+        {
+            @Override
+            protected void configure()
+            {
+                bind(HiveMetadata.class).in(Scopes.SINGLETON);
+                bind(ConnectorMetadata.class).to(HdfsAuthenticatingMetadata.class).in(Scopes.SINGLETON);
+                expose(ConnectorMetadata.class);
+            }
+        });
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorHandleResolver.class).to(HiveHandleResolver.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
 

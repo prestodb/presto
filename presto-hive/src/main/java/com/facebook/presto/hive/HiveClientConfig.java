@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveClientConfig.AuthenticationType.SIMPLE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
@@ -114,6 +115,17 @@ public class HiveClientConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
+
+    private boolean hiveMetastoreSaslEnabled;
+    private String hiveMetastorePrincipal;
+    private String hiveMetastorePrestoPrincipal;
+    private String hiveMetastorePrestoKeytab;
+
+    private boolean hdfsSaslEnabled;
+    private String hdfsPrestoPrincipal;
+    private String hdfsPrestoKeytab;
+    private AuthenticationType hdfsAuthenticationType = SIMPLE;
+    private String temporaryDirectory = "/tmp";
 
     public int getMaxInitialSplits()
     {
@@ -850,7 +862,7 @@ public class HiveClientConfig
     }
 
     public boolean isUseParquetColumnNames()
-   {
+    {
         return useParquetColumnNames;
     }
 
@@ -859,6 +871,118 @@ public class HiveClientConfig
     public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public boolean isHiveMetastoreSaslEnabled()
+    {
+        return hiveMetastoreSaslEnabled;
+    }
+
+    @Config("hive.metastore.sasl.enabled")
+    public HiveClientConfig setHiveMetastoreSaslEnabled(boolean hiveMetastoreSaslEnabled)
+    {
+        this.hiveMetastoreSaslEnabled = hiveMetastoreSaslEnabled;
+        return this;
+    }
+
+    public String getHiveMetastorePrincipal()
+    {
+        return hiveMetastorePrincipal;
+    }
+
+    @Config("hive.metastore.principal")
+    public HiveClientConfig setHiveMetastorePrincipal(String hiveMetastorePrincipal)
+    {
+        this.hiveMetastorePrincipal = hiveMetastorePrincipal;
+        return this;
+    }
+
+    public String getHiveMetastorePrestoPrincipal()
+    {
+        return hiveMetastorePrestoPrincipal;
+    }
+
+    @Config("hive.metastore.presto.principal")
+    public HiveClientConfig setHiveMetastorePrestoPrincipal(String hiveMetastorePrestoPrincipal)
+    {
+        this.hiveMetastorePrestoPrincipal = hiveMetastorePrestoPrincipal;
+        return this;
+    }
+
+    public String getHiveMetastorePrestoKeytab()
+    {
+        return hiveMetastorePrestoKeytab;
+    }
+
+    @Config("hive.metastore.presto.keytab")
+    public HiveClientConfig setHiveMetastorePrestoKeytab(String hiveMetastorePrestoKeytab)
+    {
+        this.hiveMetastorePrestoKeytab = hiveMetastorePrestoKeytab;
+        return this;
+    }
+
+    public enum AuthenticationType
+    {
+        SIMPLE,
+        SIMPLE_IMPERSONATION,
+        KERBEROS,
+        KERBEROS_IMPERSONATION
+    }
+
+    public AuthenticationType getHdfsAuthenticationType()
+    {
+        return hdfsAuthenticationType;
+    }
+
+    @Config("hive.hdfs.authentication.type")
+    public HiveClientConfig setHdfsAuthenticationType(AuthenticationType hdfsAuthenticationType)
+    {
+        this.hdfsAuthenticationType = hdfsAuthenticationType;
+        return this;
+    }
+
+    public String getHdfsPrestoPrincipal()
+    {
+        return hdfsPrestoPrincipal;
+    }
+
+    @Config("hive.hdfs.presto.principal")
+    public HiveClientConfig setHdfsPrestoPrincipal(String hdfsPrestoPrincipal)
+    {
+        this.hdfsPrestoPrincipal = hdfsPrestoPrincipal;
+        return this;
+    }
+
+    public String getHdfsPrestoKeytab()
+    {
+        return hdfsPrestoKeytab;
+    }
+
+    @Config("hive.hdfs.presto.keytab")
+    public HiveClientConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
+    {
+        this.hdfsPrestoKeytab = hdfsPrestoKeytab;
+        return this;
+    }
+
+    public String getTemporaryDirectory(String userName)
+    {
+        return temporaryDirectory.replace("%NAME%", userName);
+    }
+
+    @Deprecated
+    public String getTemporaryDirectory()
+    {
+        // this is needed due to airlift config validation
+        // getTemporaryDirectory(String userName) should be used
+        return temporaryDirectory;
+    }
+
+    @Config("hive.hdfs.temporary.directory")
+    public HiveClientConfig setTemporaryDirectory(String temporaryDirectory)
+    {
+        this.temporaryDirectory = temporaryDirectory;
         return this;
     }
 }

@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.fs.Path;
@@ -83,7 +82,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getProtectMode;
@@ -371,21 +369,6 @@ public final class HiveWriteUtils
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s", source, target), e);
         }
-    }
-
-    public static Path createTemporaryPath(HdfsEnvironment hdfsEnvironment, Path targetPath)
-    {
-        // use a per-user temporary directory to avoid permission problems
-        // TODO: this should use Hadoop UserGroupInformation
-        String temporaryPrefix = "/tmp/presto-" + StandardSystemProperty.USER_NAME.value();
-
-        // create a temporary directory on the same filesystem
-        Path temporaryRoot = new Path(targetPath, temporaryPrefix);
-        Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
-
-        createDirectory(hdfsEnvironment, temporaryPath);
-
-        return temporaryPath;
     }
 
     public static void createDirectory(HdfsEnvironment hdfsEnvironment, Path path)

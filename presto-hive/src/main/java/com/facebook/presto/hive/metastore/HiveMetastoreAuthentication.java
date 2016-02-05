@@ -11,15 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.metastore;
 
-import org.apache.hadoop.conf.Configuration;
+import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
-import java.net.URI;
-
-public interface HdfsConfiguration
+public interface HiveMetastoreAuthentication
 {
-    Configuration getConfiguration(URI uri);
-
-    Configuration getDefaultConfiguration();
+    TTransport createAuthenticatedTransport(TTransport rawTransport, String hiveMetastoreHost)
+            throws TTransportException;
 }
