@@ -103,6 +103,12 @@ public class ClientOptions
 
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, MINUTES);
+    
+    @Option(name = "--ldap-user", title = "ldap/active directory user id", description = "valid active directory/ldap user id")
+    public String ldapUser;
+
+    @Option(name = "--ldap-password", title = "ldap/active directory password", description = "valid active directory password")
+    public String ldapPassword;
 
     public enum OutputFormat
     {
@@ -117,9 +123,16 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
+        if (null != ldapUser && !ldapUser.isEmpty()) {
+            user = ldapUser;
+        }
+        
+        Optional<String> password = Optional.ofNullable(ldapPassword);
+        
         return new ClientSession(
                 parseServer(server),
                 user,
+                password,
                 source,
                 catalog,
                 schema,

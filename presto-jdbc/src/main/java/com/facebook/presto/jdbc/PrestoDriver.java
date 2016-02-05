@@ -24,6 +24,7 @@ import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.logging.Logger;
 
@@ -48,9 +49,11 @@ public class PrestoDriver
     private static final String DRIVER_URL_START = "jdbc:presto:";
 
     private static final String USER_PROPERTY = "user";
+    
+    private static final String PWD_PROPERTY = "password";
 
     private final QueryExecutor queryExecutor;
-
+    
     static {
         JettyLogging.useJavaUtilLogging();
 
@@ -85,8 +88,11 @@ public class PrestoDriver
         if (isNullOrEmpty(user)) {
             throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
         }
-
-        return new PrestoConnection(parseDriverUrl(url), user, queryExecutor);
+        
+        //optional password
+        Optional<String> password = Optional.ofNullable(info.getProperty(PWD_PROPERTY));
+        
+        return new PrestoConnection(parseDriverUrl(url), user, password, queryExecutor);
     }
 
     @Override

@@ -48,6 +48,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -158,6 +159,7 @@ public class PerfTest
                 ClientSession session = new ClientSession(
                         server,
                         "test-" + i,
+                        Optional.empty(),
                         "presto-perf",
                         catalog,
                         schema,

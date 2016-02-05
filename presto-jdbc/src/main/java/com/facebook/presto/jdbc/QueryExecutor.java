@@ -58,14 +58,21 @@ class QueryExecutor
 
         this.queryInfoCodec = queryResultsCodec;
         this.serverInfoCodec = serverInfoCodec;
+        
         this.httpClient = new JettyHttpClient(
-                new HttpClientConfig()
-                        .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
-                        .setSocksProxy(socksProxy),
-                new JettyIoPool("presto-jdbc", new JettyIoPoolConfig()),
-                ImmutableSet.of(new UserAgentRequestFilter(userAgent)));
+                        getHttpClientConfig(socksProxy),
+                        new JettyIoPool("presto-jdbc", new JettyIoPoolConfig()),
+                        ImmutableSet.of(new UserAgentRequestFilter(userAgent)));
     }
 
+    public void enableLdapAuthentication(String user, String password, URI server)
+    {
+        ((JettyHttpClient) httpClient).enableLdapAuthentication(
+                                                            user,
+                                                            password,
+                                                            server);
+    }
+    
     public StatementClient startQuery(ClientSession session, String query)
     {
         return new StatementClient(httpClient, queryInfoCodec, session, query);
@@ -82,6 +89,18 @@ class QueryExecutor
         URI uri = uriBuilderFrom(server).replacePath("/v1/info").build();
         Request request = prepareGet().setUri(uri).build();
         return httpClient.execute(request, createJsonResponseHandler(serverInfoCodec));
+    }
+    
+    private static HttpClientConfig getHttpClientConfig(HostAndPort socksProxy)
+    {
+        String keystorePath = System.getProperty("javax.net.ssl.keyStore");
+        String keyStorePassword = System.getProperty("javax.net.ssl.keyStorePassword");
+        HttpClientConfig config = new HttpClientConfig();
+        config.setKeyStorePath(keystorePath)
+              .setKeyStorePassword(keyStorePassword)
+              .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
+              .setSocksProxy(socksProxy);
+        return config;
     }
 
     // TODO: replace this with a phantom reference
