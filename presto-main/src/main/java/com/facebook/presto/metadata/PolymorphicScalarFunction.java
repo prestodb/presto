@@ -20,23 +20,19 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.TypeUtils;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 
-import static com.facebook.presto.type.TypeUtils.resolveCalculatedType;
-import static com.facebook.presto.type.TypeUtils.resolveType;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
-import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 class PolymorphicScalarFunction
         extends SqlScalarFunction
@@ -80,16 +76,13 @@ class PolymorphicScalarFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Signature signature = getSignature();
-        Map<String, OptionalLong> literalParameters = signature.bindLongVariables(parameterTypes);
-        TypeSignature calculatedReturnType = resolveCalculatedType(signature.getReturnType(), literalParameters);
+        Type resolvedReturnType = typeManager.getType(resolveTypeSignature(getSignature().getReturnType(), boundVariables));
+        List<TypeSignature> resolvedParameterSignatures = resolveTypeSignatures(getSignature().getArgumentTypes(), boundVariables);
+        List<Type> resolvedParameterTypes = resolveTypes(resolvedParameterSignatures, typeManager);
 
-        List<Type> resolvedParameterTypes = resolveTypes(parameterTypes, typeManager);
-        Type resolvedReturnType = resolveReturnType(types, typeManager, calculatedReturnType);
-        SpecializeContext context = new SpecializeContext(types, filterPresentLiterals(literalParameters), resolvedParameterTypes, resolvedReturnType, typeManager, functionRegistry);
-
+        SpecializeContext context = new SpecializeContext(boundVariables, resolvedParameterTypes, resolvedReturnType, typeManager, functionRegistry);
         Optional<TargetMethodDelegate> matchingMethod = Optional.empty();
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();
         for (MethodsGroup candidateMethodsGroup : methodsGroups) {
@@ -101,7 +94,7 @@ class PolymorphicScalarFunction
                             continue;
                         }
 
-                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getName() + " and " + candidateMethod.getName() + ") for parameter types " + parameterTypes);
+                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getName() + " and " + candidateMethod.getName() + ") for parameter types " + resolvedParameterSignatures);
                     }
 
                     matchingMethod = Optional.of(candidateMethod);
@@ -109,10 +102,10 @@ class PolymorphicScalarFunction
                 }
             }
         }
-        checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", parameterTypes);
+        checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", resolvedParameterTypes);
 
         if (matchingMethod.get().getScalarFunctionDelegate().isPresent()) {
-            return matchingMethod.get().getScalarFunctionDelegate().get().specialize(types, parameterTypes, typeManager, functionRegistry);
+            return matchingMethod.get().getScalarFunctionDelegate().get().specialize(boundVariables, arity, typeManager, functionRegistry);
         }
         else {
             List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
@@ -121,16 +114,17 @@ class PolymorphicScalarFunction
         }
     }
 
-    private Type resolveReturnType(Map<String, Type> types, TypeManager typeManager, TypeSignature calculatedReturnType)
+    private List<TypeSignature> resolveTypeSignatures(List<TypeSignature> declaredSignatures, BoundVariables boundVariables)
     {
-        Type resolvedReturnType;
-        if (types.containsKey(calculatedReturnType.getBase())) {
-            resolvedReturnType = types.get(calculatedReturnType.getBase());
-        }
-        else {
-            resolvedReturnType = resolveType(calculatedReturnType, typeManager);
-        }
-        return resolvedReturnType;
+        return declaredSignatures.stream()
+                .map(parameter -> resolveTypeSignature(parameter, boundVariables))
+                .collect(toImmutableList());
+    }
+
+    private TypeSignature resolveTypeSignature(TypeSignature declaredSignature, BoundVariables boundVariables)
+    {
+        TypeSignature typeSignature = declaredSignature.bindParameters(boundVariables.getTypeVariables());
+        return TypeUtils.resolveCalculatedType(typeSignature, boundVariables.getLongVariables());
     }
 
     private boolean matchesParameterAndReturnTypes(TargetMethodDelegate method, List<Type> resolvedTypes, Type returnType)
@@ -163,13 +157,6 @@ class PolymorphicScalarFunction
         return methodsGroup.getExtraParametersFunction().map(function -> function.apply(context)).orElse(emptyList());
     }
 
-    private Map<String, Long> filterPresentLiterals(Map<String, OptionalLong> boundLiterals)
-    {
-        return boundLiterals.entrySet().stream()
-                .filter(entry -> entry.getValue().isPresent())
-                .collect(toMap(entry -> entry.getKey().toLowerCase(US), entry -> entry.getValue().getAsLong()));
-    }
-
     private MethodHandle applyExtraParameters(TargetMethodDelegate matchingMethod, List<Object> extraParameters)
     {
         Signature signature = getSignature();
@@ -178,7 +165,6 @@ class PolymorphicScalarFunction
         checkState(matchingMethodParameterCount == expectedNumberOfArguments,
                 "method %s has invalid number of arguments: %s (should have %s)", matchingMethod.getName(), matchingMethodParameterCount, expectedNumberOfArguments);
 
-        MethodHandle matchingMethodHandle = MethodHandles.insertArguments(matchingMethod.getMethodHandle(), signature.getArgumentTypes().size(), extraParameters.toArray());
-        return matchingMethodHandle;
+        return MethodHandles.insertArguments(matchingMethod.getMethodHandle(), signature.getArgumentTypes().size(), extraParameters.toArray());
     }
 }

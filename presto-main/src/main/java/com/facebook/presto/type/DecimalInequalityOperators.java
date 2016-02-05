@@ -14,6 +14,7 @@
 
 package com.facebook.presto.type;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -227,10 +228,10 @@ public class DecimalInequalityOperators
         Type bType = context.getType("B");
         Type vType = context.getType("V");
         MethodHandle lowerBoundTestMethodHandle = DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR.specialize(
-                ImmutableMap.of("A", aType, "B", vType), ImmutableList.of(aType.getTypeSignature(), vType.getTypeSignature()),
+                new BoundVariables(ImmutableMap.of("A", aType, "B", vType), ImmutableMap.of()), context.getParameterTypes().size(),
                 context.getTypeManager(), context.getFunctionRegistry()).getMethodHandle();
         MethodHandle upperBoundTestMethodHandle = DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR.specialize(
-                ImmutableMap.of("A", bType, "B", vType), ImmutableList.of(bType.getTypeSignature(), vType.getTypeSignature()),
+                new BoundVariables(ImmutableMap.of("A", bType, "B", vType), ImmutableMap.of()), context.getParameterTypes().size(),
                 context.getTypeManager(), context.getFunctionRegistry()).getMethodHandle();
         return ImmutableList.of(lowerBoundTestMethodHandle, upperBoundTestMethodHandle);
     }

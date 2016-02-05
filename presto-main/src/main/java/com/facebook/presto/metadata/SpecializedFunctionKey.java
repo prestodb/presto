@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -25,14 +20,14 @@ import static java.util.Objects.requireNonNull;
 public class SpecializedFunctionKey
 {
     private final SqlFunction function;
-    private final Map<String, Type> boundTypeParameters;
-    private final List<TypeSignature> parameterTypes;
+    private final BoundVariables boundVariables;
+    private final int arity;
 
-    public SpecializedFunctionKey(SqlFunction function, Map<String, Type> boundTypeParameters, List<TypeSignature> parameterTypes)
+    public SpecializedFunctionKey(SqlFunction function, BoundVariables boundVariables, int arity)
     {
         this.function = requireNonNull(function, "function is null");
-        this.boundTypeParameters = requireNonNull(boundTypeParameters, "boundTypeParameters is null");
-        this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
+        this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
+        this.arity = arity;
     }
 
     public SqlFunction getFunction()
@@ -40,14 +35,14 @@ public class SpecializedFunctionKey
         return function;
     }
 
-    public Map<String, Type> getBoundTypeParameters()
+    public BoundVariables getBoundVariables()
     {
-        return boundTypeParameters;
+        return boundVariables;
     }
 
-    public List<TypeSignature> getParameterTypes()
+    public int getArity()
     {
-        return parameterTypes;
+        return arity;
     }
 
     @Override
@@ -62,14 +57,14 @@ public class SpecializedFunctionKey
 
         SpecializedFunctionKey that = (SpecializedFunctionKey) o;
 
-        return Objects.equals(parameterTypes, that.parameterTypes) &&
-                Objects.equals(boundTypeParameters, that.boundTypeParameters) &&
-                Objects.equals(function.getSignature(), that.function.getSignature());
+        return Objects.equals(boundVariables, that.boundVariables) &&
+                Objects.equals(function.getSignature(), that.function.getSignature()) &&
+                arity == that.arity;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(function.getSignature(), boundTypeParameters, parameterTypes);
+        return Objects.hash(function.getSignature(), boundVariables, arity);
     }
 }
