@@ -24,8 +24,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import java.util.OptionalLong;
-
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.ADD;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
@@ -52,7 +50,7 @@ public class TestPolymorphicScalarFunction
     private static final Slice INPUT_SLICE = Slices.allocate(Ints.checkedCast(INPUT_VARCHAR_LENGTH));
     private static final BoundVariables BOUND_VARIABLES = new BoundVariables(
             ImmutableMap.of("V", TYPE_REGISTRY.getType(INPUT_VARCHAR_TYPE)),
-            ImmutableMap.of("X", OptionalLong.of(INPUT_VARCHAR_LENGTH))
+            ImmutableMap.of("x", INPUT_VARCHAR_LENGTH)
     );
 
     @Test

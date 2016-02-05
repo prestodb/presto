@@ -30,7 +30,6 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 import java.util.List;
-import java.util.OptionalLong;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
@@ -248,10 +247,10 @@ public class DecimalInequalityOperators
                 new BoundVariables(
                         ImmutableMap.of(),
                         ImmutableMap.of(
-                                "a_precision", OptionalLong.of(lowPrecision),
-                                "a_scale", OptionalLong.of(lowScale),
-                                "b_precision", OptionalLong.of(valuePrecision),
-                                "b_scale", OptionalLong.of(valueScale)
+                                "a_precision", lowPrecision,
+                                "a_scale", lowScale,
+                                "b_precision", valuePrecision,
+                                "b_scale", valueScale
                         )
                 ),
                 2,
@@ -262,10 +261,10 @@ public class DecimalInequalityOperators
                 new BoundVariables(
                         ImmutableMap.of(),
                         ImmutableMap.of(
-                                "a_precision", OptionalLong.of(highPrecision),
-                                "a_scale", OptionalLong.of(highScale),
-                                "b_precision", OptionalLong.of(valuePrecision),
-                                "b_scale", OptionalLong.of(valueScale)
+                                "a_precision", highPrecision,
+                                "a_scale", highScale,
+                                "b_precision", valuePrecision,
+                                "b_scale", valueScale
                         )
                 ),
                 2,
