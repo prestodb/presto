@@ -248,10 +248,10 @@ public class DecimalInequalityOperators
                 new BoundVariables(
                         ImmutableMap.of(),
                         ImmutableMap.of(
-                                "A_PRECISION", OptionalLong.of(lowPrecision),
-                                "A_SCALE", OptionalLong.of(lowScale),
-                                "B_PRECISION", OptionalLong.of(valuePrecision),
-                                "B_SCALE", OptionalLong.of(valueScale)
+                                "a_precision", OptionalLong.of(lowPrecision),
+                                "a_scale", OptionalLong.of(lowScale),
+                                "b_precision", OptionalLong.of(valuePrecision),
+                                "b_scale", OptionalLong.of(valueScale)
                         )
                 ),
                 2,
@@ -262,10 +262,10 @@ public class DecimalInequalityOperators
                 new BoundVariables(
                         ImmutableMap.of(),
                         ImmutableMap.of(
-                                "A_PRECISION", OptionalLong.of(highPrecision),
-                                "A_SCALE", OptionalLong.of(highScale),
-                                "B_PRECISION", OptionalLong.of(valuePrecision),
-                                "B_SCALE", OptionalLong.of(valueScale)
+                                "a_precision", OptionalLong.of(highPrecision),
+                                "a_scale", OptionalLong.of(highScale),
+                                "b_precision", OptionalLong.of(valuePrecision),
+                                "b_scale", OptionalLong.of(valueScale)
                         )
                 ),
                 2,

@@ -165,6 +165,9 @@ public class TestDecimalOperators
         assertDecimalFunction("DECIMAL '200.00000' / DECIMAL '-0.3'", decimal("-0666.66667"));
         assertDecimalFunction("DECIMAL '10' / DECIMAL '.00000001'", decimal("1000000000.00000000"));
         assertDecimalFunction("DECIMAL '99999999999999999' / DECIMAL '1'", decimal("99999999999999999"));
+        assertDecimalFunction("DECIMAL '1' / DECIMAL '99999999999999999999999999999999999999'", decimal("0"));
+        assertDecimalFunction("DECIMAL '9' / DECIMAL '00000000000000003'", decimal("3"));
+        assertDecimalFunction("DECIMAL '9.0' / DECIMAL '3.0'", decimal("03.0"));
 
         // long short -> long
         assertDecimalFunction("DECIMAL '200000000000000000000000000000000000' / DECIMAL '0.30'", decimal("666666666666666666666666666666666666.67"));
@@ -176,6 +179,9 @@ public class TestDecimalOperators
         // short long -> long
         assertDecimalFunction("DECIMAL '1' / DECIMAL '.000000000000000001'", decimal("1000000000000000000.000000000000000000"));
         assertDecimalFunction("DECIMAL '-1' / DECIMAL '.000000000000000001'", decimal("-1000000000000000000.000000000000000000"));
+
+        // short long -> short
+        assertDecimalFunction("DECIMAL '9' / DECIMAL '00000000000000003.0'", decimal("03.0"));
 
         // long long -> long
         assertDecimalFunction("DECIMAL '99999999999999999999999999999999999999' / DECIMAL '11111111111111111111111111111111111111'", decimal("00000000000000000000000000000000000009"));
