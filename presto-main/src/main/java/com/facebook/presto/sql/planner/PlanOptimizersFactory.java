@@ -81,11 +81,8 @@ public class PlanOptimizersFactory
                 new HashGenerationOptimizer(), // This must run after all other optimizers have run to that all the PlanNodes are created
                 new MergeProjections(),
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
-                new PruneIdentityProjections()); // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
-
-        if (featuresConfig.isOptimizeMetadataQueries()) {
-            builder.add(new MetadataQueryOptimizer(metadata));
-        }
+                new PruneIdentityProjections(), // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
+                new MetadataQueryOptimizer(metadata));
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
             builder.add(new SingleDistinctOptimizer());
