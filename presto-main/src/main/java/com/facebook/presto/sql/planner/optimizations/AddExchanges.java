@@ -782,9 +782,9 @@ public class AddExchanges
             PlanWithProperties left;
             PlanWithProperties right;
 
-            boolean isCrossJoin = type != INNER || !leftSymbols.isEmpty();
-            boolean joinWithNonScalar = !node.getRight().accept(new IsScalarPlanVisitor(), null);
-            if ((distributedJoins && isCrossJoin && joinWithNonScalar) || type == FULL || type == RIGHT) {
+            boolean isCrossJoin = type == INNER && leftSymbols.isEmpty();
+            boolean joinWithNonScalar = node.getRight().accept(new IsScalarPlanVisitor(), null);
+            if ((distributedJoins && !isCrossJoin && !joinWithNonScalar) || type == FULL || type == RIGHT) {
                 // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
 
                 left = node.getLeft().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(leftSymbols)));
