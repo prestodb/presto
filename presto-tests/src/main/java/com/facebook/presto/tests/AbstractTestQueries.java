@@ -2404,6 +2404,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByNullConstant()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT count(*)\n" +
+                "FROM (\n" +
+                "  SELECT cast(null as VARCHAR) constant, orderdate\n" +
+                "  FROM orders\n" +
+                ") a\n" +
+                "group by constant, orderdate\n");
+    }
+
+    @Test
     public void testChecksum()
             throws Exception
     {
@@ -4676,6 +4689,20 @@ public abstract class AbstractTestQueries
                 "WHERE orders.orderkey = orders.orderkey\n" +
                 "  AND lineitem.orderkey % 4 = 0\n" +
                 "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)");
+    }
+
+    @Test
+    public void testLeftJoinPredicatePushdownWithNullConstant()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT count(*)\n" +
+                "FROM orders a\n" +
+                "LEFT OUTER JOIN orders b\n" +
+                "  ON a.clerk = b.clerk\n" +
+                "WHERE a.orderdate=DATE'1992-01-01'\n" +
+                "  AND b.orderdate=DATE'1992-01-02'\n" +
+                "  AND b.clerk is null\n");
     }
 
     @Test
