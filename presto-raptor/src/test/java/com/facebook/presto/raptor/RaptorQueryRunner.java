@@ -67,10 +67,7 @@ public final class RaptorQueryRunner
 
         if (loadTpch) {
             copyTables(queryRunner, "tpch", createSession(), bucketed);
-            if (!bucketed) {
-                // TODO: https://github.com/facebook/presto/issues/4468
-                copyTables(queryRunner, "tpch_sampled", createSampledSession(), false);
-            }
+            copyTables(queryRunner, "tpch_sampled", createSampledSession(), bucketed);
         }
 
         return queryRunner;
