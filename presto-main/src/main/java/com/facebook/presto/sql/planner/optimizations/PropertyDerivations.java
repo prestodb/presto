@@ -445,8 +445,7 @@ class PropertyDerivations
                         constants.put(assignment.getKey(), new NullableValue(type, value));
                     }
                 }
-                // TODO: remove value null check when constants are supported
-                else if (value != null && !(value instanceof Expression)) {
+                else if (!(value instanceof Expression)) {
                     constants.put(assignment.getKey(), new NullableValue(type, value));
                 }
             }

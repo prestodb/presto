@@ -206,7 +206,6 @@ public class PartitionFunctionBinding
         public PartitionFunctionArgumentBinding(NullableValue constant)
         {
             this.constant = requireNonNull(constant, "constant is null");
-            checkArgument(!constant.isNull());
             this.column = null;
         }
 
