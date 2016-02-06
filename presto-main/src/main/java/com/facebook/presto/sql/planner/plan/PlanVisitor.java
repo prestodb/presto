@@ -120,7 +120,7 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitTableCommit(TableCommitNode node, C context)
+    public R visitTableFinish(TableFinishNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -151,6 +151,11 @@ public class PlanVisitor<C, R>
     }
 
     public R visitExchange(ExchangeNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitEnforceSingleRow(EnforceSingleRowNode node, C context)
     {
         return visitPlan(node, context);
     }

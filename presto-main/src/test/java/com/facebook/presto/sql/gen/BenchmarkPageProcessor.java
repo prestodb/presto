@@ -22,10 +22,10 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -43,6 +43,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -55,7 +56,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.google.common.base.Preconditions.checkState;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.Slices.utf8Slice;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -69,8 +70,8 @@ public class BenchmarkPageProcessor
     private static final int SHIP_DATE = 2;
     private static final int QUANTITY = 3;
 
-    private static final Slice MIN_SHIP_DATE = Slices.copiedBuffer("1994-01-01", UTF_8);
-    private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1995-01-01", UTF_8);
+    private static final Slice MIN_SHIP_DATE = utf8Slice("1994-01-01");
+    private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
 
     private Page inputPage;
     private PageProcessor handCodedProcessor;
@@ -83,7 +84,7 @@ public class BenchmarkPageProcessor
 
         handCodedProcessor = new Tpch1FilterAndProject();
 
-        compiledProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT));
+        compiledProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT)).get();
     }
 
     @Benchmark
@@ -154,6 +155,18 @@ public class BenchmarkPageProcessor
             }
 
             return position;
+        }
+
+        @Override
+        public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types)
+        {
+            throw new UnsupportedOperationException();
         }
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)

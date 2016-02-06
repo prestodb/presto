@@ -27,6 +27,8 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -135,7 +137,7 @@ public class TestShardManagerDao
     public void testInsertShard()
     {
         long tableId = createTable("test");
-        long shardId = dao.insertShard(UUID.randomUUID(), tableId, 13, 42, 84);
+        long shardId = dao.insertShard(UUID.randomUUID(), tableId, null, 13, 42, 84);
 
         String sql = "SELECT table_id, row_count, compressed_size, uncompressed_size " +
                 "FROM shards WHERE shard_id = ?";
@@ -158,7 +160,7 @@ public class TestShardManagerDao
 
         long tableId = createTable("test");
         UUID shard = UUID.randomUUID();
-        dao.insertShard(shard, tableId, 0, 0, 0);
+        dao.insertShard(shard, tableId, null, 0, 0, 0);
 
         dao.insertShardNode(shard, nodeId);
 
@@ -186,10 +188,10 @@ public class TestShardManagerDao
 
         long tableId = createTable("test");
 
-        long shardId1 = dao.insertShard(shardUuid1, tableId, 1, 11, 111);
-        long shardId2 = dao.insertShard(shardUuid2, tableId, 2, 22, 222);
-        long shardId3 = dao.insertShard(shardUuid3, tableId, 3, 33, 333);
-        long shardId4 = dao.insertShard(shardUuid4, tableId, 4, 44, 444);
+        long shardId1 = dao.insertShard(shardUuid1, tableId, null, 1, 11, 111);
+        long shardId2 = dao.insertShard(shardUuid2, tableId, null, 2, 22, 222);
+        long shardId3 = dao.insertShard(shardUuid3, tableId, 8, 3, 33, 333);
+        long shardId4 = dao.insertShard(shardUuid4, tableId, 9, 4, 44, 444);
 
         assertEquals(dao.getShards(tableId), ImmutableList.of(shardUuid1, shardUuid2, shardUuid3, shardUuid4));
 
@@ -203,10 +205,12 @@ public class TestShardManagerDao
         dao.insertShardNode(shardId1, nodeId2);
         dao.insertShardNode(shardId4, nodeId2);
 
-        ShardMetadata shard1 = new ShardMetadata(tableId, shardId1, shardUuid1, 1, 11, 111);
-        ShardMetadata shard2 = new ShardMetadata(tableId, shardId2, shardUuid2, 2, 22, 222);
-        ShardMetadata shard3 = new ShardMetadata(tableId, shardId3, shardUuid3, 3, 33, 333);
-        ShardMetadata shard4 = new ShardMetadata(tableId, shardId4, shardUuid4, 4, 44, 444);
+        OptionalInt noBucket = OptionalInt.empty();
+        OptionalLong noRange = OptionalLong.empty();
+        ShardMetadata shard1 = new ShardMetadata(tableId, shardId1, shardUuid1, noBucket, 1, 11, 111, noRange, noRange);
+        ShardMetadata shard2 = new ShardMetadata(tableId, shardId2, shardUuid2, noBucket, 2, 22, 222, noRange, noRange);
+        ShardMetadata shard3 = new ShardMetadata(tableId, shardId3, shardUuid3, OptionalInt.of(8), 3, 33, 333, noRange, noRange);
+        ShardMetadata shard4 = new ShardMetadata(tableId, shardId4, shardUuid4, OptionalInt.of(9), 4, 44, 444, noRange, noRange);
 
         assertEquals(dao.getNodeShards(nodeName1), ImmutableSet.of(shard1, shard2, shard3, shard4));
         assertEquals(dao.getNodeShards(nodeName2), ImmutableSet.of(shard1, shard4));
@@ -243,10 +247,10 @@ public class TestShardManagerDao
         UUID shardUuid3 = UUID.randomUUID();
         UUID shardUuid4 = UUID.randomUUID();
 
-        long shardId1 = dao.insertShard(shardUuid1, tableId, 0, 0, 0);
-        long shardId2 = dao.insertShard(shardUuid2, tableId, 0, 0, 0);
-        long shardId3 = dao.insertShard(shardUuid3, tableId, 0, 0, 0);
-        long shardId4 = dao.insertShard(shardUuid4, tableId, 0, 0, 0);
+        long shardId1 = dao.insertShard(shardUuid1, tableId, null, 0, 0, 0);
+        long shardId2 = dao.insertShard(shardUuid2, tableId, null, 0, 0, 0);
+        long shardId3 = dao.insertShard(shardUuid3, tableId, null, 0, 0, 0);
+        long shardId4 = dao.insertShard(shardUuid4, tableId, null, 0, 0, 0);
 
         List<UUID> shards = dao.getShards(tableId);
         assertEquals(shards.size(), 4);
@@ -324,7 +328,7 @@ public class TestShardManagerDao
 
     private long createTable(String name)
     {
-        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false);
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, null);
     }
 
     private static void assertContainsShardNode(List<ShardNode> nodes, String nodeName, UUID shardUuid)

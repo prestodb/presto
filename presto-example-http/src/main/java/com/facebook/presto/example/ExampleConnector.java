@@ -14,7 +14,6 @@
 package com.facebook.presto.example;
 
 import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -34,21 +33,18 @@ public class ExampleConnector
     private final ExampleMetadata metadata;
     private final ExampleSplitManager splitManager;
     private final ExampleRecordSetProvider recordSetProvider;
-    private final ExampleHandleResolver handleResolver;
 
     @Inject
     public ExampleConnector(
             LifeCycleManager lifeCycleManager,
             ExampleMetadata metadata,
             ExampleSplitManager splitManager,
-            ExampleRecordSetProvider recordSetProvider,
-            ExampleHandleResolver handleResolver)
+            ExampleRecordSetProvider recordSetProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
     }
 
     @Override
@@ -67,12 +63,6 @@ public class ExampleConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return handleResolver;
     }
 
     @Override

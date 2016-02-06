@@ -92,6 +92,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.transform;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -127,7 +129,7 @@ public final class HiveUtil
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSS").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSSSSSSSS").getParser(),
-        };
+                };
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter();
         HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
     }
@@ -201,7 +203,7 @@ public final class HiveUtil
     {
         // CDH uses different names for Parquet
         if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName) ||
-            "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
+                "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
             return MapredParquetInputFormat.class;
         }
 
@@ -568,5 +570,19 @@ public final class HiveUtil
         if (!condition) {
             throw new PrestoException(errorCode, format(formatString, args));
         }
+    }
+
+    public static String annotateColumnComment(String comment, boolean partitionKey)
+    {
+        comment = nullToEmpty(comment).trim();
+        if (partitionKey) {
+            if (comment.isEmpty()) {
+                comment = "Partition Key";
+            }
+            else {
+                comment = "Partition Key: " + comment;
+            }
+        }
+        return emptyToNull(comment);
     }
 }

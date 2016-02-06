@@ -29,7 +29,7 @@ public interface ShardManager
     /**
      * Create a table.
      */
-    void createTable(long tableId, List<ColumnInfo> columns);
+    void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed);
 
     /**
      * Drop a table.
@@ -59,7 +59,7 @@ public interface ShardManager
     /**
      * Return the shard nodes a given table.
      */
-    ResultIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    ResultIterator<BucketShards> getShardNodes(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Assign a shard to a node.
@@ -87,4 +87,14 @@ public interface ShardManager
      * Rollback a transaction.
      */
     void rollbackTransaction(long transactionId);
+
+    /**
+     * Create initial bucket assignments for a distribution.
+     */
+    void createBuckets(long distributionId, int bucketCount);
+
+    /**
+     * Get map of buckets to node identifiers for a table.
+     */
+    Map<Integer, String> getBucketAssignments(long distributionId);
 }

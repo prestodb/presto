@@ -20,14 +20,17 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static java.util.Collections.singleton;
 
 public class PredicateFilterBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -40,10 +43,11 @@ public class PredicateFilterBenchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
-        OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "totalprice");
+        OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,
-                new GenericPageProcessor(new DoubleFilter(50000.00), ImmutableList.of(singleColumn(DOUBLE, 0))),
+                new PlanNodeId("test"),
+                () -> new GenericPageProcessor(new DoubleFilter(50000.00), ImmutableList.of(singleColumn(DOUBLE, 0))),
                 ImmutableList.<Type>of(DOUBLE));
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);
@@ -69,6 +73,12 @@ public class PredicateFilterBenchmark
         public boolean filter(RecordCursor cursor)
         {
             return cursor.getDouble(0) >= minValue;
+        }
+
+        @Override
+        public Set<Integer> getInputChannels()
+        {
+            return singleton(0);
         }
     }
 

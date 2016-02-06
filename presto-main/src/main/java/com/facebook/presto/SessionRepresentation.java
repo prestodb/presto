@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +32,8 @@ import static java.util.Objects.requireNonNull;
 public final class SessionRepresentation
 {
     private final String queryId;
+    private final Optional<TransactionId> transactionId;
+    private final boolean clientTransactionSupport;
     private final String user;
     private final Optional<String> principal;
     private final Optional<String> source;
@@ -47,6 +50,8 @@ public final class SessionRepresentation
     @JsonCreator
     public SessionRepresentation(
             @JsonProperty("queryId") String queryId,
+            @JsonProperty("transactionId") Optional<TransactionId> transactionId,
+            @JsonProperty("clientTransactionSupport") boolean clientTransactionSupport,
             @JsonProperty("user") String user,
             @JsonProperty("principal") Optional<String> principal,
             @JsonProperty("source") Optional<String> source,
@@ -61,6 +66,8 @@ public final class SessionRepresentation
             @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
+        this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.clientTransactionSupport = clientTransactionSupport;
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.source = requireNonNull(source, "source is null");
@@ -84,6 +91,18 @@ public final class SessionRepresentation
     public String getQueryId()
     {
         return queryId;
+    }
+
+    @JsonProperty
+    public Optional<TransactionId> getTransactionId()
+    {
+        return transactionId;
+    }
+
+    @JsonProperty
+    public boolean isClientTransactionSupport()
+    {
+        return clientTransactionSupport;
     }
 
     @JsonProperty
@@ -162,6 +181,8 @@ public final class SessionRepresentation
     {
         return new Session(
                 new QueryId(queryId),
+                transactionId,
+                clientTransactionSupport,
                 new Identity(user, Optional.empty()),
                 source,
                 catalog,

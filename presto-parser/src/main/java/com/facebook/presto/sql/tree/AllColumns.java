@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -32,6 +33,11 @@ public class AllColumns
     {
         super(Optional.of(location));
         prefix = Optional.empty();
+    }
+
+    public AllColumns(QualifiedName prefix)
+    {
+        this(Optional.empty(), prefix);
     }
 
     public AllColumns(NodeLocation location, QualifiedName prefix)
@@ -68,18 +74,13 @@ public class AllColumns
         }
 
         AllColumns that = (AllColumns) o;
-
-        if (prefix != null ? !prefix.equals(that.prefix) : that.prefix != null) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(prefix, that.prefix);
     }
 
     @Override
     public int hashCode()
     {
-        return prefix != null ? prefix.hashCode() : 0;
+        return prefix.hashCode();
     }
 
     @Override

@@ -37,7 +37,7 @@ public class MapValues
 
     public MapValues()
     {
-        super("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array<V>", ImmutableList.of("map<K,V>"));
+        super("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array(V)", ImmutableList.of("map(K,V)"));
     }
 
     @Override
@@ -55,7 +55,7 @@ public class MapValues
     @Override
     public String getDescription()
     {
-        return "Returns the values of the given map<K,V> as an array";
+        return "Returns the values of the given map(K,V) as an array";
     }
 
     @Override
@@ -69,7 +69,7 @@ public class MapValues
 
     public static Block getValues(Type valueType, Block block)
     {
-        BlockBuilder blockBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), block.getSizeInBytes());
+        BlockBuilder blockBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() / 2);
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             valueType.appendTo(block, i + 1, blockBuilder);
         }

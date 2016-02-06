@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveWriteUtils.FieldSetter;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +42,7 @@ import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
+import org.apache.hadoop.hive.serde2.columnar.OptimizedLazyBinaryColumnarSerde;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -54,10 +55,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -67,17 +68,22 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_ERROR;
+import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
+import static com.facebook.presto.hive.HiveWriteUtils.createFieldSetter;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
-import static com.facebook.presto.hive.HiveWriteUtils.getJavaObjectInspectors;
+import static com.facebook.presto.hive.HiveWriteUtils.getRowColumnInspectors;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
@@ -89,11 +95,10 @@ public class HivePageSink
     private final String schemaName;
     private final String tableName;
 
-    private final int[] dataColumns;
-    private final List<String> dataColumnNames;
-    private final List<Type> dataColumnTypes;
+    private final int[] dataColumnInputIndex; // ordinal of columns (not counting sample weight column)
+    private final List<DataColumn> dataColumns;
 
-    private final int[] partitionColumns;
+    private final int[] partitionColumnsInputIndex; // ordinal of columns (not counting sample weight column)
     private final List<String> partitionColumnNames;
     private final List<Type> partitionColumnTypes;
 
@@ -111,7 +116,6 @@ public class HivePageSink
     private final int maxOpenPartitions;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
-    private final List<Object> dataRow;
     private final List<Object> partitionRow;
 
     private final Table table;
@@ -163,26 +167,23 @@ public class HivePageSink
         // divide input columns into partition and data columns
         ImmutableList.Builder<String> partitionColumnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> partitionColumnTypes = ImmutableList.builder();
-        ImmutableList.Builder<String> dataColumnNames = ImmutableList.builder();
-        ImmutableList.Builder<Type> dataColumnTypes = ImmutableList.builder();
+        ImmutableList.Builder<DataColumn> dataColumns = ImmutableList.builder();
         for (HiveColumnHandle column : inputColumns) {
             if (column.isPartitionKey()) {
                 partitionColumnNames.add(column.getName());
                 partitionColumnTypes.add(typeManager.getType(column.getTypeSignature()));
             }
             else {
-                dataColumnNames.add(column.getName());
-                dataColumnTypes.add(typeManager.getType(column.getTypeSignature()));
+                dataColumns.add(new DataColumn(column.getName(), typeManager.getType(column.getTypeSignature()), column.getHiveType()));
             }
         }
         this.partitionColumnNames = partitionColumnNames.build();
         this.partitionColumnTypes = partitionColumnTypes.build();
-        this.dataColumnNames = dataColumnNames.build();
-        this.dataColumnTypes = dataColumnTypes.build();
+        this.dataColumns = dataColumns.build();
 
         // determine the input index of the partition columns and data columns
         ImmutableList.Builder<Integer> partitionColumns = ImmutableList.builder();
-        ImmutableList.Builder<Integer> dataColumns = ImmutableList.builder();
+        ImmutableList.Builder<Integer> dataColumnsInputIndex = ImmutableList.builder();
         // sample weight column is passed separately, so index must be calculated without this column
         List<HiveColumnHandle> inputColumnsWithoutSample = inputColumns.stream()
                 .filter(column -> !column.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME))
@@ -193,17 +194,16 @@ public class HivePageSink
                 partitionColumns.add(inputIndex);
             }
             else {
-                dataColumns.add(inputIndex);
+                dataColumnsInputIndex.add(inputIndex);
             }
         }
-        this.partitionColumns = Ints.toArray(partitionColumns.build());
-        this.dataColumns = Ints.toArray(dataColumns.build());
+        this.partitionColumnsInputIndex = Ints.toArray(partitionColumns.build());
+        this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
 
         this.pageIndexer = pageIndexerFactory.createPageIndexer(this.partitionColumnTypes);
 
         // preallocate temp space for partition and data
         this.partitionRow = Arrays.asList(new Object[this.partitionColumnNames.size()]);
-        this.dataRow = Arrays.asList(new Object[this.dataColumnNames.size()]);
 
         if (isCreateTable) {
             this.table = null;
@@ -223,7 +223,7 @@ public class HivePageSink
     }
 
     @Override
-    public Collection<Slice> commit()
+    public Collection<Slice> finish()
     {
         ImmutableList.Builder<Slice> partitionUpdates = ImmutableList.builder();
         for (HiveRecordWriter writer : writers) {
@@ -237,7 +237,7 @@ public class HivePageSink
     }
 
     @Override
-    public void rollback()
+    public void abort()
     {
         for (HiveRecordWriter writer : writers) {
             if (writer != null) {
@@ -268,13 +268,15 @@ public class HivePageSink
             int writerIndex = indexes[position];
             HiveRecordWriter writer = writers[writerIndex];
             if (writer == null) {
-                buildRow(partitionColumnTypes, partitionRow, partitionBlocks, position);
+                for (int field = 0; field < partitionBlocks.length; field++) {
+                    Object value = getField(partitionColumnTypes.get(field), partitionBlocks[field], position);
+                    partitionRow.set(field, value);
+                }
                 writer = createWriter(partitionRow);
                 writers[writerIndex] = writer;
             }
 
-            buildRow(dataColumnTypes, dataRow, dataBlocks, position);
-            writer.addRow(dataRow);
+            writer.addRow(dataBlocks, position);
         }
     }
 
@@ -283,7 +285,7 @@ public class HivePageSink
         checkArgument(partitionRow.size() == partitionColumnNames.size(), "size of partitionRow is different from partitionColumnNames");
 
         List<String> partitionValues = partitionRow.stream()
-                .map(Object::toString) // todo this seems wrong
+                .map(value -> (value == null) ? HIVE_DEFAULT_DYNAMIC_PARTITION : value.toString())
                 .collect(toList());
 
         Optional<String> partitionName;
@@ -312,11 +314,13 @@ public class HivePageSink
                 //           or a new unpartitioned table.
                 isNew = true;
                 schema = new Properties();
-                schema.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(dataColumnNames));
-                schema.setProperty(META_TABLE_COLUMN_TYPES, dataColumnTypes.stream()
-                        .map(HiveType::toHiveType)
+                schema.setProperty(META_TABLE_COLUMNS, dataColumns.stream()
+                        .map(DataColumn::getName)
+                        .collect(joining(",")));
+                schema.setProperty(META_TABLE_COLUMN_TYPES, dataColumns.stream()
+                        .map(DataColumn::getHiveType)
                         .map(HiveType::getHiveTypeName)
-                        .collect(Collectors.joining(":")));
+                        .collect(joining(":")));
                 target = locationService.targetPath(locationHandle, partitionName);
                 write = locationService.writePath(locationHandle, partitionName).get();
 
@@ -386,8 +390,7 @@ public class HivePageSink
                 tableName,
                 partitionName.orElse(""),
                 isNew,
-                dataColumnNames,
-                dataColumnTypes,
+                dataColumns,
                 outputFormat,
                 serDe,
                 schema,
@@ -424,9 +427,9 @@ public class HivePageSink
 
     private Block[] getDataBlocks(Page page, Block sampleWeightBlock)
     {
-        Block[] blocks = new Block[dataColumns.length + (sampleWeightBlock != null ? 1 : 0)];
-        for (int i = 0; i < dataColumns.length; i++) {
-            int dataColumn = dataColumns[i];
+        Block[] blocks = new Block[dataColumnInputIndex.length + (sampleWeightBlock != null ? 1 : 0)];
+        for (int i = 0; i < dataColumnInputIndex.length; i++) {
+            int dataColumn = dataColumnInputIndex[i];
             blocks[i] = page.getBlock(dataColumn);
         }
         if (sampleWeightBlock != null) {
@@ -438,19 +441,12 @@ public class HivePageSink
 
     private Block[] getPartitionBlocks(Page page)
     {
-        Block[] blocks = new Block[partitionColumns.length];
-        for (int i = 0; i < partitionColumns.length; i++) {
-            int dataColumn = partitionColumns[i];
+        Block[] blocks = new Block[partitionColumnsInputIndex.length];
+        for (int i = 0; i < partitionColumnsInputIndex.length; i++) {
+            int dataColumn = partitionColumnsInputIndex[i];
             blocks[i] = page.getBlock(dataColumn);
         }
         return blocks;
-    }
-
-    private static void buildRow(List<Type> columnTypes, List<Object> row, Block[] blocks, int position)
-    {
-        for (int field = 0; field < blocks.length; field++) {
-            row.set(field, getField(columnTypes.get(field), blocks[field], position));
-        }
     }
 
     private static class HiveRecordWriter
@@ -467,14 +463,14 @@ public class HivePageSink
         private final SettableStructObjectInspector tableInspector;
         private final List<StructField> structFields;
         private final Object row;
+        private final FieldSetter[] setters;
 
         public HiveRecordWriter(
                 String schemaName,
                 String tableName,
                 String partitionName,
                 boolean isNew,
-                List<String> inputColumnNames,
-                List<Type> inputColumnTypes,
+                List<DataColumn> inputColumns,
                 String outputFormat,
                 String serDe,
                 Properties schema,
@@ -492,17 +488,17 @@ public class HivePageSink
 
             // existing tables may have columns in a different order
             List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
-            List<Type> fileColumnTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, "")).stream()
-                    .map(hiveType -> hiveType.getType(typeManager))
-                    .collect(toList());
+            List<HiveType> fileColumnHiveTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, ""));
 
             // verify we can write all input columns to the file
-            Set<Object> missingColumns = Sets.difference(new HashSet<>(inputColumnNames), new HashSet<>(fileColumnNames));
+            Map<String, DataColumn> inputColumnMap = inputColumns.stream()
+                    .collect(toMap(DataColumn::getName, identity()));
+            Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
             if (!missingColumns.isEmpty()) {
-                throw new PrestoException(HIVE_WRITER_ERROR, format("Table %s.%s does not have columns %s", schema, tableName, missingColumns));
+                throw new PrestoException(NOT_FOUND, format("Table %s.%s does not have columns %s", schema, tableName, missingColumns));
             }
-            if (fileColumnNames.size() != fileColumnTypes.size()) {
-                throw new PrestoException(HIVE_INVALID_METADATA, format("Partition '%s' in table '%s.%s' has metadata for column names or types",
+            if (fileColumnNames.size() != fileColumnHiveTypes.size()) {
+                throw new PrestoException(HIVE_INVALID_METADATA, format("Partition '%s' in table '%s.%s' has mismatched metadata for column names and types",
                         partitionName,
                         schemaName,
                         tableName));
@@ -512,11 +508,10 @@ public class HivePageSink
             // todo adapt input types to the file types as Hive does
             for (int fileIndex = 0; fileIndex < fileColumnNames.size(); fileIndex++) {
                 String columnName = fileColumnNames.get(fileIndex);
-                Type fileColumnType = fileColumnTypes.get(fileIndex);
-                int inputIndex = inputColumnNames.indexOf(columnName);
-                Type inputType = inputColumnTypes.get(inputIndex);
+                HiveType fileColumnHiveType = fileColumnHiveTypes.get(fileIndex);
+                HiveType inputHiveType = inputColumnMap.get(columnName).getHiveType();
 
-                if (!inputType.equals(fileColumnType)) {
+                if (!fileColumnHiveType.equals(inputHiveType)) {
                     // todo this should be moved to a helper
                     throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
                                     "There is a mismatch between the table and partition schemas. " +
@@ -525,34 +520,49 @@ public class HivePageSink
                             columnName,
                             schemaName,
                             tableName,
-                            inputType,
+                            inputHiveType,
                             partitionName,
                             columnName,
-                            fileColumnType));
+                            fileColumnHiveType));
                 }
             }
 
             fieldCount = fileColumnNames.size();
 
+            if (serDe.equals(org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe.class.getName())) {
+                serDe = OptimizedLazyBinaryColumnarSerde.class.getName();
+            }
             serializer = initializeSerializer(conf, schema, serDe);
             recordWriter = HiveWriteUtils.createRecordWriter(new Path(writePath, fileName), conf, schema, outputFormat);
 
-            tableInspector = getStandardStructObjectInspector(fileColumnNames, getJavaObjectInspectors(fileColumnTypes));
+            List<Type> fileColumnTypes = fileColumnHiveTypes.stream()
+                    .map(hiveType -> hiveType.getType(typeManager))
+                    .collect(toList());
+            tableInspector = getStandardStructObjectInspector(fileColumnNames, getRowColumnInspectors(fileColumnTypes));
 
             // reorder (and possibly reduce) struct fields to match input
-            structFields = ImmutableList.copyOf(inputColumnNames.stream()
-                    .map(tableInspector::getStructFieldRef)
-                    .collect(toList()));
+            structFields = ImmutableList.copyOf(inputColumns.stream()
+                            .map(DataColumn::getName)
+                            .map(tableInspector::getStructFieldRef)
+                            .collect(toList()));
 
             row = tableInspector.create();
+
+            setters = new FieldSetter[structFields.size()];
+            for (int i = 0; i < setters.length; i++) {
+                setters[i] = createFieldSetter(tableInspector, row, structFields.get(i), inputColumns.get(i).getType());
+            }
         }
 
-        public void addRow(List<Object> fieldValues)
+        public void addRow(Block[] columns, int position)
         {
-            checkState(fieldValues.size() == fieldCount, "Invalid row");
-
             for (int field = 0; field < fieldCount; field++) {
-                tableInspector.setStructFieldData(row, structFields.get(field), fieldValues.get(field));
+                if (columns[field].isNull(position)) {
+                    tableInspector.setStructFieldData(row, structFields.get(field), null);
+                }
+                else {
+                    setters[field].setField(columns[field], position);
+                }
             }
 
             try {
@@ -614,6 +624,35 @@ public class HivePageSink
                     .add("writePath", writePath)
                     .add("fileName", fileName)
                     .toString();
+        }
+    }
+
+    private class DataColumn
+    {
+        private final String name;
+        private final Type type;
+        private final HiveType hiveType;
+
+        public DataColumn(String name, Type type, HiveType hiveType)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.type = requireNonNull(type, "type is null");
+            this.hiveType = requireNonNull(hiveType, "hiveType is null");
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public HiveType getHiveType()
+        {
+            return hiveType;
         }
     }
 }

@@ -48,7 +48,8 @@ public class TestRowOperators
     {
         functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('a')"));
         Type type = functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('b')"));
-        assertEquals(type.getTypeSignature().getLiteralParameters(), ImmutableList.of("b"));
+        assertEquals(type.getTypeSignature().getParameters().size(), 1);
+        assertEquals(type.getTypeSignature().getParameters().get(0).getNamedTypeSignature().getName(), "b");
     }
 
     @Test
@@ -113,7 +114,7 @@ public class TestRowOperators
             fail("hyperloglog is not comparable");
         }
         catch (SemanticException e) {
-            if (!e.getMessage().matches("line 1:55: Operator EQUAL.* not registered")) {
+            if (!e.getMessage().matches("\\Qline 1:55: '=' cannot be applied to row<HyperLogLog>('col0'), row<HyperLogLog>('col0')\\E")) {
                 throw e;
             }
             //Expected

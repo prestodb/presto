@@ -226,7 +226,7 @@ public final class WindowPartition
     {
         checkCondition(!pagesIndex.isNull(channel, currentPosition), INVALID_WINDOW_FRAME, "Window frame %s offset must not be null", type);
         long value = pagesIndex.getLong(channel, currentPosition);
-        checkCondition(value >= 0, INVALID_WINDOW_FRAME, "Window frame %s offset must not be negative");
+        checkCondition(value >= 0, INVALID_WINDOW_FRAME, "Window frame %s offset must not be negative", value);
         return value;
     }
 }

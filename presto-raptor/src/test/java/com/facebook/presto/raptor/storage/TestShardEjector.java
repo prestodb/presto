@@ -38,6 +38,7 @@ import java.io.File;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
@@ -119,7 +120,7 @@ public class TestShardEjector
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns);
+        shardManager.createTable(tableId, columns, false);
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty());
@@ -132,7 +133,7 @@ public class TestShardEjector
 
         ejector.process();
 
-        shardManager.getShardNodes(tableId, TupleDomain.all());
+        shardManager.getShardNodes(tableId, false, false, TupleDomain.all());
 
         Set<UUID> ejectedShards = shards.subList(0, 4).stream()
                 .map(ShardInfo::getShardUuid)
@@ -165,7 +166,7 @@ public class TestShardEjector
 
     private long createTable(String name)
     {
-        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false);
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, null);
     }
 
     private static Set<UUID> uuids(Set<ShardMetadata> metadata)
@@ -177,7 +178,7 @@ public class TestShardEjector
 
     private static ShardInfo shardInfo(String node, long size)
     {
-        return new ShardInfo(randomUUID(), ImmutableSet.of(node), ImmutableList.of(), 1, size, size * 2);
+        return new ShardInfo(randomUUID(), OptionalInt.empty(), ImmutableSet.of(node), ImmutableList.of(), 1, size, size * 2);
     }
 
     private static NodeManager createNodeManager(String current, String... others)

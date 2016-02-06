@@ -68,12 +68,6 @@ public class TestKafkaDistributed
     }
 
     @Override
-    public void testCreateTableAsSelectSampled()
-            throws Exception
-    {
-    }
-
-    @Override
     public void testSymbolAliasing()
             throws Exception
     {

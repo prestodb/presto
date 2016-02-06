@@ -34,8 +34,8 @@ import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
@@ -51,7 +51,7 @@ public class SqlTask
     private static final Logger log = Logger.get(SqlTask.class);
 
     private final TaskId taskId;
-    private final String nodeInstanceId;
+    private final String taskInstanceId;
     private final URI location;
     private final TaskStateMachine taskStateMachine;
     private final SharedBuffer sharedBuffer;
@@ -66,7 +66,6 @@ public class SqlTask
 
     public SqlTask(
             TaskId taskId,
-            String nodeInstanceId,
             URI location,
             QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
@@ -75,7 +74,7 @@ public class SqlTask
             DataSize maxBufferSize)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
-        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
+        this.taskInstanceId = UUID.randomUUID().toString();
         this.location = requireNonNull(location, "location is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
@@ -83,7 +82,7 @@ public class SqlTask
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
-        sharedBuffer = new SharedBuffer(taskId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
+        sharedBuffer = new SharedBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -207,7 +206,7 @@ public class SqlTask
 
         return new TaskInfo(
                 taskStateMachine.getTaskId(),
-                Optional.of(nodeInstanceId),
+                taskInstanceId,
                 versionNumber,
                 state,
                 location,

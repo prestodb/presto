@@ -37,6 +37,10 @@ public enum QueryState
      */
     RUNNING(false),
     /**
+     * Query is finishing (e.g. commit for autocommit queries)
+     */
+    FINISHING(false),
+    /**
      * Query has finished executing and all output has been consumed.
      */
     FINISHED(true),

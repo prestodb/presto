@@ -116,10 +116,9 @@ public class TestTupleDomain
         Assert.assertEquals(TupleDomain.none().intersect(TupleDomain.all()), TupleDomain.none());
         Assert.assertEquals(TupleDomain.all().intersect(TupleDomain.none()), TupleDomain.none());
         Assert.assertEquals(TupleDomain.none().intersect(TupleDomain.none()), TupleDomain.none());
-        Assert.assertEquals(TupleDomain.withColumnDomains(
-                        ImmutableMap.of(A, Domain.onlyNull(BIGINT)))
-                        .intersect(
-                                TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.notNull(BIGINT)))),
+        Assert.assertEquals(
+                TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.onlyNull(BIGINT)))
+                        .intersect(TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.notNull(BIGINT)))),
                 TupleDomain.<ColumnHandle>none());
     }
 
@@ -186,7 +185,8 @@ public class TestTupleDomain
         Assert.assertEquals(columnWiseUnion(TupleDomain.none(), TupleDomain.all()), TupleDomain.all());
         Assert.assertEquals(columnWiseUnion(TupleDomain.all(), TupleDomain.none()), TupleDomain.all());
         Assert.assertEquals(columnWiseUnion(TupleDomain.none(), TupleDomain.none()), TupleDomain.none());
-        Assert.assertEquals(columnWiseUnion(
+        Assert.assertEquals(
+                columnWiseUnion(
                         TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.onlyNull(BIGINT))),
                         TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.notNull(BIGINT)))),
                 TupleDomain.<ColumnHandle>all());

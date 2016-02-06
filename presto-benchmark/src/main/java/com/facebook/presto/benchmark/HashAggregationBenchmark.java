@@ -17,6 +17,7 @@ import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOpera
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -40,9 +41,10 @@ public class HashAggregationBenchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
-        OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "orderstatus", "totalprice");
+        OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderstatus", "totalprice");
         List<Type> types = ImmutableList.of(tableScanOperator.getTypes().get(0));
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(1,
+                new PlanNodeId("test"),
                 types,
                 Ints.asList(0),
                 Step.SINGLE,

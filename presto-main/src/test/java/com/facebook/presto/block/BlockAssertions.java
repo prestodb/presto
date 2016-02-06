@@ -16,9 +16,11 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
+import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,8 +33,10 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
@@ -98,6 +102,28 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createSlicesBlock(Slice... values)
+    {
+        requireNonNull(values, "varargs 'values' is null");
+        return createSlicesBlock(Arrays.asList(values));
+    }
+
+    public static Block createSlicesBlock(Iterable<Slice> values)
+    {
+        BlockBuilder builder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
+
+        for (Slice value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                VARBINARY.writeSlice(builder, value);
+            }
+        }
+
+        return builder.build();
+    }
+
     public static Block createStringSequenceBlock(int start, int end)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 100);
@@ -107,6 +133,20 @@ public final class BlockAssertions
         }
 
         return builder.build();
+    }
+
+    public static Block createStringDictionaryBlock(int start, int length)
+    {
+        int dictionarySize = length / 5;
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), dictionarySize);
+        for (int i = start; i < dictionarySize; i++) {
+            VARCHAR.writeString(builder, String.valueOf(i));
+        }
+        int[] ids = new int[length];
+        for (int i = 0; i < length; i++) {
+            ids[i] = length % dictionarySize;
+        }
+        return new DictionaryBlock(length, builder.build(), wrappedIntArray(ids));
     }
 
     public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
@@ -203,6 +243,20 @@ public final class BlockAssertions
         }
 
         return builder.build();
+    }
+
+    public static Block createLongDictionaryBlock(int start, int length)
+    {
+        int dictionarySize = length / 5;
+        BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), dictionarySize);
+        for (int i = start; i < dictionarySize; i++) {
+            BIGINT.writeLong(builder, i);
+        }
+        int[] ids = new int[length];
+        for (int i = 0; i < length; i++) {
+            ids[i] = length % dictionarySize;
+        }
+        return new DictionaryBlock(length, builder.build(), wrappedIntArray(ids));
     }
 
     public static Block createLongRepeatBlock(int value, int length)

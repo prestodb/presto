@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -24,19 +25,22 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.TableCommitNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,10 +123,14 @@ public class LogicalPlanner
             throw new PrestoException(NOT_SUPPORTED, "Cannot write sampled data to a store that doesn't support sampling");
         }
 
+        Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
+
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new CreateName(destination.getCatalogName(), tableMetadata), tableMetadata.getVisibleColumnNames());
+                new CreateName(destination.getCatalogName(), tableMetadata, newTableLayout),
+                tableMetadata.getVisibleColumnNames(),
+                newTableLayout);
     }
 
     private RelationPlan createInsertPlan(Analysis analysis)
@@ -160,14 +168,22 @@ public class LogicalPlanner
                 projectNode.getOutputSymbols(),
                 plan.getSampleWeight());
 
+        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
+
         return createTableWriterPlan(
                 analysis,
                 plan,
                 new InsertReference(insert.getTarget()),
-                visibleTableColumnNames);
+                visibleTableColumnNames,
+                newTableLayout);
     }
 
-    private RelationPlan createTableWriterPlan(Analysis analysis, RelationPlan plan, WriterTarget target, List<String> columnNames)
+    private RelationPlan createTableWriterPlan(
+            Analysis analysis,
+            RelationPlan plan,
+            WriterTarget target,
+            List<String> columnNames,
+            Optional<NewTableLayout> writeTableLayout)
     {
         List<Symbol> writerOutputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
@@ -179,17 +195,49 @@ public class LogicalPlanner
             source = new LimitNode(idAllocator.getNextId(), source, 0L);
         }
 
+        // todo this should be checked in analysis
+        writeTableLayout.ifPresent(layout -> {
+            if (!ImmutableSet.copyOf(columnNames).containsAll(layout.getPartitionColumns())) {
+                throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+            }
+        });
+
+        List<Symbol> symbols = plan.getOutputSymbols();
+
+        Optional<PartitionFunctionBinding> partitionFunctionBinding = Optional.empty();
+        if (writeTableLayout.isPresent()) {
+            List<PartitionFunctionArgumentBinding> partitionFunctionArguments = new ArrayList<>();
+            writeTableLayout.get().getPartitionColumns().stream()
+                    .mapToInt(columnNames::indexOf)
+                    .mapToObj(symbols::get)
+                    .map(PartitionFunctionArgumentBinding::new)
+                    .forEach(partitionFunctionArguments::add);
+            plan.getSampleWeight()
+                    .map(PartitionFunctionArgumentBinding::new)
+                    .ifPresent(partitionFunctionArguments::add);
+
+            List<Symbol> outputLayout = new ArrayList<>(symbols);
+            plan.getSampleWeight()
+                    .ifPresent(outputLayout::add);
+
+            partitionFunctionBinding = Optional.of(new PartitionFunctionBinding(
+                    writeTableLayout.get().getPartitioning(),
+                    outputLayout,
+                    partitionFunctionArguments));
+        }
+
         PlanNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),
                 source,
                 target,
-                plan.getOutputSymbols(),
+                symbols,
                 columnNames,
                 writerOutputs,
-                plan.getSampleWeight());
+                plan.getSampleWeight(),
+                partitionFunctionBinding);
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
-        TableCommitNode commitNode = new TableCommitNode(
+        TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 writerNode,
                 target,
@@ -204,7 +252,7 @@ public class LogicalPlanner
         DeleteNode deleteNode = planner.planDelete(analysis.getDelete().get());
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
-        TableCommitNode commitNode = new TableCommitNode(idAllocator.getNextId(), deleteNode, deleteNode.getTarget(), outputs);
+        TableFinishNode commitNode = new TableFinishNode(idAllocator.getNextId(), deleteNode, deleteNode.getTarget(), outputs);
 
         return new RelationPlan(commitNode, analysis.getOutputDescriptor(), commitNode.getOutputSymbols(), Optional.empty());
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,6 +31,7 @@ public class TestOperatorStats
 {
     public static final OperatorStats EXPECTED = new OperatorStats(
             41,
+            new PlanNodeId("test"),
             "test",
 
             1,
@@ -60,6 +62,7 @@ public class TestOperatorStats
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
             41,
+            new PlanNodeId("test"),
             "test",
 
             1,

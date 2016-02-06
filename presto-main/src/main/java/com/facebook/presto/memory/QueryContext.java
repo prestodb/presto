@@ -37,10 +37,13 @@ import static java.util.Objects.requireNonNull;
 public class QueryContext
 {
     private final QueryId queryId;
-    private final long maxMemory;
     private final Executor executor;
     private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
     private final MemoryPool systemMemoryPool;
+
+    // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
+    @GuardedBy("this")
+    private long maxMemory;
 
     @GuardedBy("this")
     private long reserved;
@@ -58,6 +61,13 @@ public class QueryContext
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool is null");
         this.executor = requireNonNull(executor, "executor is null");
+    }
+
+    // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
+    public synchronized void setResourceOvercommit()
+    {
+        // Don't enforce any limit. The coordinator will kill the query if the cluster runs out of memory.
+        maxMemory = Long.MAX_VALUE;
     }
 
     public synchronized ListenableFuture<?> reserveMemory(long bytes)

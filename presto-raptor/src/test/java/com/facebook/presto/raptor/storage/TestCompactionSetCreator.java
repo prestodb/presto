@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
@@ -161,6 +162,7 @@ public class TestCompactionSetCreator
                 1,
                 1,
                 UUID.randomUUID(),
+                OptionalInt.empty(),
                 10,
                 10,
                 uncompressedSize,
@@ -174,6 +176,7 @@ public class TestCompactionSetCreator
                 1,
                 ThreadLocalRandom.current().nextInt(1, 10),
                 UUID.randomUUID(),
+                OptionalInt.empty(),
                 10,
                 10,
                 uncompressedSize,

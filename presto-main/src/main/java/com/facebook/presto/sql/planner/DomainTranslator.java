@@ -24,6 +24,7 @@ import com.facebook.presto.spi.predicate.Ranges;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -40,6 +41,7 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.DoubleMath;
@@ -349,19 +351,24 @@ public final class DomainTranslator
             NormalizedSimpleComparison normalized = optionalNormalized.get();
 
             Symbol symbol = Symbol.fromQualifiedName(normalized.getNameReference().getName());
-            Type type = checkedTypeLookup(symbol);
+            Type fieldType = checkedTypeLookup(symbol);
             NullableValue value = normalized.getValue();
 
-            // Handle the cases where implicit coercions can happen in comparisons
-            // TODO: how to abstract this out
-            if (value.getType().equals(DOUBLE) && type.equals(BIGINT)) {
+            // when the field is BIGINT and the value is DOUBLE, transform the expression in such a way that
+            // the semantics are preserved while doing the comparisons in terms of double
+            // TODO: figure out a way to generalize this for other types
+            if (value.getType().equals(DOUBLE) && fieldType.equals(BIGINT)) {
                 return process(coerceDoubleToLongComparison(normalized), complement);
             }
-            if (value.getType().equals(BIGINT) && type.equals(DOUBLE)) {
-                value = NullableValue.of(DOUBLE, ((Long) value.getValue()).doubleValue());
+
+            if (!TypeRegistry.canCoerce(value.getType(), fieldType)) {
+                return super.visitComparisonExpression(node, complement);
             }
-            checkState(value.isNull() || value.getType().equals(type), "INVARIANT: comparison should be working on the same types");
-            return createComparisonExtractionResult(normalized.getComparisonType(), symbol, type, value.getValue(), complement);
+
+            Object coerced = new FunctionInvoker(metadata.getFunctionRegistry())
+                    .invoke(metadata.getFunctionRegistry().getCoercion(value.getType(), fieldType), session.toConnectorSession(), value.getValue());
+
+            return createComparisonExtractionResult(normalized.getComparisonType(), symbol, fieldType, coerced, complement);
         }
 
         private ExtractionResult createComparisonExtractionResult(ComparisonExpression.Type comparisonType, Symbol column, Type type, @Nullable Object value, boolean complement)

@@ -32,6 +32,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -117,8 +118,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -136,7 +139,6 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.QueryUtil.aliasedNullToEmpty;
-import static com.facebook.presto.sql.QueryUtil.aliasedYesNoToBoolean;
 import static com.facebook.presto.sql.QueryUtil.ascending;
 import static com.facebook.presto.sql.QueryUtil.caseWhen;
 import static com.facebook.presto.sql.QueryUtil.equal;
@@ -193,6 +195,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
+import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -200,7 +203,6 @@ import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.collect.Iterables.elementsEqual;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
@@ -323,8 +325,6 @@ class StatementAnalyzer
                 selectList(
                         aliasedName("column_name", "Column"),
                         aliasedName("data_type", "Type"),
-                        aliasedYesNoToBoolean("is_nullable", "Null"),
-                        aliasedYesNoToBoolean("is_partition_key", "Partition Key"),
                         aliasedNullToEmpty("comment", "Comment")),
                 from(tableName.getCatalogName(), TABLE_COLUMNS),
                 logicalAnd(
@@ -469,6 +469,10 @@ class StatementAnalyzer
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session);
         for (SessionPropertyValue sessionProperty : sessionProperties) {
+            if (sessionProperty.isHidden()) {
+                continue;
+            }
+
             String value = sessionProperty.getValue();
             String defaultValue = sessionProperty.getDefaultValue();
             rows.add(row(
@@ -518,7 +522,7 @@ class StatementAnalyzer
         if (!targetTableHandle.isPresent()) {
             throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
         }
-        accessControl.checkCanInsertIntoTable(session.getIdentity(), targetTable);
+        accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
         List<String> tableColumns = tableMetadata.getVisibleColumnNames();
@@ -554,13 +558,48 @@ class StatementAnalyzer
 
         Iterable<Type> queryTypes = transform(queryDescriptor.getVisibleFields(), Field::getType);
 
-        if (!elementsEqual(tableTypes, queryTypes)) {
+        // TODO replace this workaround with injecting implicit coercions for INSERTed values.
+        if (!typesMatchForInsert(tableTypes, queryTypes)) {
             throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, insert, "Insert query has mismatched column types: " +
                     "Table: (" + Joiner.on(", ").join(tableTypes) + "), " +
                     "Query: (" + Joiner.on(", ").join(queryTypes) + ")");
         }
 
         return new RelationType(Field.newUnqualified("rows", BIGINT));
+    }
+
+    private boolean typesMatchForInsert(Iterable<Type> tableTypes, Iterable<Type> queryTypes)
+    {
+        if (Iterables.size(tableTypes) != Iterables.size(queryTypes)) {
+            return false;
+        }
+        Iterator<Type> tableTypesIterator = tableTypes.iterator();
+        Iterator<Type> queryTypesIterator = queryTypes.iterator();
+        while (tableTypesIterator.hasNext()) {
+            Type tableType = tableTypesIterator.next();
+            Type queryType = queryTypesIterator.next();
+
+            if (isStructuralType(tableType)) {
+                if (!tableType.getTypeSignature().getBase().equals(queryType.getTypeSignature().getBase())) {
+                    return false;
+                }
+                if (!typesMatchForInsert(tableType.getTypeParameters(), queryType.getTypeParameters())) {
+                    return false;
+                }
+            }
+            else {
+                if (!Objects.equals(tableType, queryType) && !isTypeOnlyCoercion(queryType.getTypeSignature(), tableType.getTypeSignature())) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static boolean isStructuralType(Type type)
+    {
+        String baseName = type.getTypeSignature().getBase();
+        return baseName.equals(StandardTypes.MAP) || baseName.equals(StandardTypes.ARRAY) || baseName.equals(StandardTypes.ROW);
     }
 
     @Override
@@ -590,7 +629,7 @@ class StatementAnalyzer
         RelationType descriptor = analyzer.process(table, context);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, descriptor, context, where));
 
-        accessControl.checkCanDeleteFromTable(session.getIdentity(), tableName);
+        accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
         return new RelationType(Field.newUnqualified("rows", BIGINT));
     }
@@ -615,7 +654,7 @@ class StatementAnalyzer
         if (targetTableHandle.isPresent()) {
             throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
         }
-        accessControl.checkCanCreateTable(session.getIdentity(), targetTable);
+        accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
         analysis.setCreateTableAsSelectWithData(node.isWithData());
 
@@ -644,7 +683,7 @@ class StatementAnalyzer
         RelationType descriptor = analyzer.process(node.getQuery(), new AnalysisContext());
 
         QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
-        accessControl.checkCanCreateView(session.getIdentity(), viewName);
+        accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), viewName);
 
         validateColumnNames(node, descriptor);
 
@@ -799,7 +838,7 @@ class StatementAnalyzer
 
             analysis.registerNamedQuery(table, query);
 
-            accessControl.checkCanSelectFromView(session.getIdentity(), name);
+            accessControl.checkCanSelectFromView(session.getRequiredTransactionId(), session.getIdentity(), name);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
 
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
@@ -826,7 +865,7 @@ class StatementAnalyzer
 
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
-        accessControl.checkCanSelectFromTable(session.getIdentity(), name);
+        accessControl.checkCanSelectFromTable(session.getRequiredTransactionId(), session.getIdentity(), name);
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
@@ -1311,7 +1350,7 @@ class StatementAnalyzer
             Expression predicate = node.getHaving().get();
 
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, tupleDescriptor, context);
-            analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+            analysis.recordSubqueries(node, expressionAnalysis);
 
             Type predicateType = expressionAnalysis.getType(predicate);
             if (!predicateType.equals(BOOLEAN) && !predicateType.equals(UNKNOWN)) {
@@ -1390,7 +1429,7 @@ class StatementAnalyzer
 
                 if (orderByExpression.isExpression()) {
                     ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression.getExpression(), tupleDescriptor, context);
-                    analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+                    analysis.recordSubqueries(node, expressionAnalysis);
 
                     Type type = expressionAnalysis.getType(orderByExpression.getExpression());
                     if (!type.isOrderable()) {
@@ -1464,7 +1503,7 @@ class StatementAnalyzer
             }
             else {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, tupleDescriptor, context);
-                analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+                analysis.recordSubqueries(node, expressionAnalysis);
                 groupByExpression = new FieldOrExpression(groupingColumn);
             }
 
@@ -1557,7 +1596,7 @@ class StatementAnalyzer
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(column.getExpression(), tupleDescriptor, context);
-                analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+                analysis.recordSubqueries(node, expressionAnalysis);
                 outputExpressionBuilder.add(new FieldOrExpression(column.getExpression()));
 
                 Type type = expressionAnalysis.getType(column.getExpression());
@@ -1581,7 +1620,7 @@ class StatementAnalyzer
         Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
 
         ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, tupleDescriptor, context);
-        analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+        analysis.recordSubqueries(node, expressionAnalysis);
 
         Type predicateType = expressionAnalysis.getType(predicate);
         if (!predicateType.equals(BOOLEAN)) {
@@ -1628,7 +1667,7 @@ class StatementAnalyzer
                 .collect(toImmutableList());
 
         // is this an aggregation query?
-        if (!aggregates.isEmpty() || !allGroupingColumns.isEmpty()) {
+        if (!groupingSets.isEmpty()) {
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group
             // e.g, these are all valid expressions:
             //     SELECT f(a) GROUP BY a
@@ -1650,16 +1689,16 @@ class StatementAnalyzer
         AggregateExtractor extractor = new AggregateExtractor(metadata);
         for (SelectItem item : node.getSelect().getSelectItems()) {
             if (item instanceof SingleColumn) {
-                ((SingleColumn) item).getExpression().accept(extractor, null);
+                extractor.process(((SingleColumn) item).getExpression(), null);
             }
         }
 
         for (SortItem item : node.getOrderBy()) {
-            item.getSortKey().accept(extractor, null);
+            extractor.process(item.getSortKey(), null);
         }
 
         if (node.getHaving().isPresent()) {
-            node.getHaving().get().accept(extractor, null);
+            extractor.process(node.getHaving().get(), null);
         }
 
         List<FunctionCall> aggregates = extractor.getAggregates();
@@ -1722,6 +1761,7 @@ class StatementAnalyzer
 
             Session viewSession = Session.builder(metadata.getSessionPropertyManager())
                     .setQueryId(session.getQueryId())
+                    .setTransactionId(session.getTransactionId().orElse(null))
                     .setIdentity(identity)
                     .setSource(session.getSource().orElse(null))
                     .setCatalog(catalog.orElse(null))
@@ -1854,7 +1894,7 @@ class StatementAnalyzer
                             experimentalSyntaxEnabled,
                             context,
                             orderByField.getExpression());
-                    analysis.addInPredicates(node, expressionAnalysis.getSubqueryInPredicates());
+                    analysis.recordSubqueries(node, expressionAnalysis);
                 }
 
                 orderByFieldsBuilder.add(orderByField);

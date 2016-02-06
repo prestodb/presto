@@ -14,7 +14,6 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
@@ -25,10 +24,8 @@ import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -36,8 +33,8 @@ import org.testng.annotations.AfterClass;
 import java.util.List;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
@@ -159,6 +156,21 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count));
     }
 
+    protected void assertQueryFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        queryRunner.getExclusiveLock().lock();
+        try {
+            queryRunner.execute(getSession(), sql);
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(ex, expectedMessageRegExp);
+        }
+        finally {
+            queryRunner.getExclusiveLock().unlock();
+        }
+    }
+
     public void assertApproximateQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
             throws Exception
     {
@@ -209,7 +221,7 @@ public abstract class AbstractTestQueryFramework
             fail("Expected " + AccessDeniedException.class.getSimpleName());
         }
         catch (RuntimeException e) {
-            assertExceptionMessage(e, exceptionsMessageRegExp);
+            assertExceptionMessage(e, ".*Access Denied: " + exceptionsMessageRegExp);
         }
         finally {
             queryRunner.getAccessControl().reset();
@@ -217,9 +229,8 @@ public abstract class AbstractTestQueryFramework
         }
     }
 
-    private static void assertExceptionMessage(Exception exception, @Language("RegExp") String exceptionMessagePattern)
+    private static void assertExceptionMessage(Exception exception, @Language("RegExp") String regex)
     {
-        String regex = ".*Access Denied: " + exceptionMessagePattern;
         if (!exception.getMessage().matches(regex)) {
             fail(format("Expected exception message '%s' to match '%s'", exception.getMessage(), regex));
         }
@@ -230,24 +241,24 @@ public abstract class AbstractTestQueryFramework
         return h2QueryRunner.execute(getSession(), sql, resultTypes);
     }
 
-    public Function<MaterializedRow, String> onlyColumnGetter()
-    {
-        return input -> {
-            assertEquals(input.getFieldCount(), 1);
-            return (String) input.getField(0);
-        };
-    }
-
     public String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getPlan(queryRunner.getDefaultSession(), sqlParser.createStatement(query), planType);
+        return transaction(queryRunner.getTransactionManager())
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getPlan(session, sqlParser.createStatement(query), planType);
+                });
     }
 
     public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return explainer.getGraphvizPlan(queryRunner.getDefaultSession(), sqlParser.createStatement(query), planType);
+        return transaction(queryRunner.getTransactionManager())
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getGraphvizPlan(session, sqlParser.createStatement(query), planType);
+                });
     }
 
     private QueryExplainer getQueryExplainer()
@@ -255,7 +266,7 @@ public abstract class AbstractTestQueryFramework
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true).setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
-        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, new IndexManager(), featuresConfig, forceSingleNode).get();
+        List<PlanOptimizer> optimizers = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, forceSingleNode).get();
         return new QueryExplainer(
                 optimizers,
                 metadata,

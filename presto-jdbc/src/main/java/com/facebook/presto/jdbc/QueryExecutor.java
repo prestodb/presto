@@ -50,20 +50,11 @@ class QueryExecutor
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final HttpClient httpClient;
 
-    private QueryExecutor(String userAgent, JsonCodec<QueryResults> queryResultsCodec, JsonCodec<ServerInfo> serverInfoCodec, HostAndPort socksProxy)
+    private QueryExecutor(JsonCodec<QueryResults> queryResultsCodec, JsonCodec<ServerInfo> serverInfoCodec, HttpClient httpClient)
     {
-        requireNonNull(userAgent, "userAgent is null");
-        requireNonNull(queryResultsCodec, "queryResultsCodec is null");
-        requireNonNull(serverInfoCodec, "serverInfoCodec is null");
-
-        this.queryInfoCodec = queryResultsCodec;
-        this.serverInfoCodec = serverInfoCodec;
-        this.httpClient = new JettyHttpClient(
-                new HttpClientConfig()
-                        .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
-                        .setSocksProxy(socksProxy),
-                new JettyIoPool("presto-jdbc", new JettyIoPoolConfig()),
-                ImmutableSet.of(new UserAgentRequestFilter(userAgent)));
+        this.queryInfoCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
+        this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
 
     public StatementClient startQuery(ClientSession session, String query)
@@ -94,7 +85,17 @@ class QueryExecutor
 
     static QueryExecutor create(String userAgent)
     {
-        return new QueryExecutor(userAgent, jsonCodec(QueryResults.class), jsonCodec(ServerInfo.class), getSystemSocksProxy());
+        return create(new JettyHttpClient(
+                new HttpClientConfig()
+                        .setConnectTimeout(new Duration(10, TimeUnit.SECONDS))
+                        .setSocksProxy(getSystemSocksProxy()),
+                new JettyIoPool("presto-jdbc", new JettyIoPoolConfig()),
+                ImmutableSet.of(new UserAgentRequestFilter(userAgent))));
+    }
+
+    static QueryExecutor create(HttpClient httpClient)
+    {
+        return new QueryExecutor(jsonCodec(QueryResults.class), jsonCodec(ServerInfo.class), httpClient);
     }
 
     @Nullable

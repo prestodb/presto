@@ -162,6 +162,7 @@ public abstract class AbstractTestHiveClientS3
                 newDirectExecutorService(),
                 typeManager,
                 locationService,
+                new TableParameterCodec(),
                 partitionUpdateCodec);
         splitManager = new HiveSplitManager(
                 connectorId,
@@ -319,7 +320,7 @@ public abstract class AbstractTestHiveClientS3
         // write the records
         ConnectorPageSink sink = pageSinkProvider.createPageSink(SESSION, outputHandle);
         sink.appendPage(data.toPage(), null);
-        Collection<Slice> fragments = sink.commit();
+        Collection<Slice> fragments = sink.finish();
 
         // commit the table
         metadata.commitCreateTable(SESSION, outputHandle, fragments);

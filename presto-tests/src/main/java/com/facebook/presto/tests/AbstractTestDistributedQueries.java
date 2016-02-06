@@ -28,14 +28,12 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
@@ -168,33 +166,61 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
-    }
 
-    @Test
-    public void testCreateTableAsSelectSampled()
-            throws Exception
-    {
         assertCreateTableAsSelect(
                 "test_sampled",
                 "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
+
+        // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
+
+        assertCreateTableAsSelect(
+                "test_union_all",
+                "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 0 UNION ALL " +
+                        "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 1",
+                "SELECT orderdate, orderkey, totalprice FROM orders",
+                "SELECT count(*) FROM orders");
+
+        assertCreateTableAsSelect(
+                getSession().withSystemProperty("redistribute_writes", "true"),
+                "test_union_all",
+                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
+                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
+                "SELECT count(*) + 1 FROM orders");
+
+        assertCreateTableAsSelect(
+                getSession().withSystemProperty("redistribute_writes", "false"),
+                "test_union_all",
+                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
+                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
+                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
+                "SELECT count(*) + 1 FROM orders");
     }
 
     private void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
             throws Exception
     {
-        assertCreateTableAsSelect(table, query, query, rowCountQuery);
+        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
     }
 
     private void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
             throws Exception
     {
-        assertUpdate("CREATE TABLE " + table + " AS " + query, rowCountQuery);
-        assertQuery("SELECT * FROM " + table, expectedQuery);
-        assertUpdate("DROP TABLE " + table);
+        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
+    }
 
-        assertFalse(queryRunner.tableExists(getSession(), table));
+    private void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+            throws Exception
+    {
+        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
+        assertUpdate(session, "DROP TABLE " + table);
+
+        assertFalse(queryRunner.tableExists(session, table));
     }
 
     @Test
@@ -478,9 +504,9 @@ public abstract class AbstractTestDistributedQueries
         // test SHOW COLUMNS
         actual = computeActual("SHOW COLUMNS FROM meta_test_view");
 
-        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, BOOLEAN, BOOLEAN, VARCHAR)
-                .row("x", "bigint", true, false, "")
-                .row("y", "varchar", true, false, "")
+        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
+                .row("x", "bigint", "")
+                .row("y", "varchar(3)", "")
                 .build();
 
         assertEquals(actual, expected);
@@ -500,8 +526,7 @@ public abstract class AbstractTestDistributedQueries
             throws Exception
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
-        ImmutableSet<String> schemaNames = ImmutableSet.copyOf(transform(result.getMaterializedRows(), onlyColumnGetter()));
-        assertTrue(schemaNames.containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
+        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
     }
 
     @Test

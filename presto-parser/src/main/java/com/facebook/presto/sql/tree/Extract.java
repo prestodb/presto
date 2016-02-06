@@ -15,6 +15,7 @@ package com.facebook.presto.sql.tree;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -94,22 +95,13 @@ public class Extract
         }
 
         Extract that = (Extract) o;
-
-        if (!expression.equals(that.expression)) {
-            return false;
-        }
-        if (field != that.field) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(expression, that.expression) &&
+                (field == that.field);
     }
 
     @Override
     public int hashCode()
     {
-        int result = expression.hashCode();
-        result = 31 * result + field.hashCode();
-        return result;
+        return Objects.hash(expression, field);
     }
 }

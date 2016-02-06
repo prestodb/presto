@@ -22,6 +22,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -90,6 +91,8 @@ public class SqlQueryManager
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
 
+    private final TransactionManager transactionManager;
+
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
 
     private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
@@ -102,6 +105,7 @@ public class SqlQueryManager
             QueryQueueManager queueManager,
             ClusterMemoryManager memoryManager,
             LocationFactory locationFactory,
+            TransactionManager transactionManager,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -117,6 +121,8 @@ public class SqlQueryManager
 
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
+
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
         this.maxQueryAge = config.getMaxQueryAge();
         this.maxQueryHistory = config.getMaxQueryHistory();
@@ -267,20 +273,20 @@ public class SqlQueryManager
 
         QueryId queryId = session.getQueryId();
 
-        Statement statement;
-        QueryExecutionFactory<?> queryExecutionFactory;
+        QueryExecution queryExecution;
         try {
-            statement = sqlParser.createStatement(query);
-            queryExecutionFactory = executionFactories.get(statement.getClass());
+            Statement statement = sqlParser.createStatement(query);
+            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + statement.getClass().getSimpleName());
             }
+            queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         }
         catch (ParsingException | PrestoException e) {
             // This is intentionally not a method, since after the state change listener is registered
             // it's not safe to do any of this, and we had bugs before where people reused this code in a method
             URI self = locationFactory.createQueryLocation(queryId);
-            QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, queryExecutor, e);
+            QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, transactionManager, queryExecutor, e);
 
             queries.put(queryId, execution);
             queryMonitor.createdEvent(execution.getQueryInfo());
@@ -291,7 +297,6 @@ public class SqlQueryManager
             return execution.getQueryInfo();
         }
 
-        QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
         queryExecution.addStateChangeListener(newValue -> {

@@ -36,7 +36,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonParser.NumberType;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -50,7 +49,6 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class JsonFunctions
 {
@@ -65,28 +63,10 @@ public final class JsonFunctions
     private JsonFunctions() {}
 
     @ScalarOperator(OperatorType.CAST)
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice castJsonToVarchar(@SqlType(StandardTypes.JSON) Slice slice)
-    {
-        // TEMPORARY: added to ease migrating user away from cast between json and varchar
-        throw new PrestoException(NOT_SUPPORTED,
-                "`CAST (jsonValue as VARCHAR)` is removed. Use `JSON_FORMAT(jsonValue)`.");
-    }
-
-    @ScalarOperator(OperatorType.CAST)
-    @SqlType(StandardTypes.JSON)
-    public static Slice castVarcharToJson(@SqlType(StandardTypes.VARCHAR) Slice slice) throws IOException
-    {
-        // TEMPORARY: added to ease migrating user away from cast between json and varchar
-        throw new PrestoException(NOT_SUPPORTED,
-                "`CAST (varcharValue as JSON)` is removed. Use `JSON_PARSE(varcharValue)`.");
-    }
-
-    @ScalarOperator(OperatorType.CAST)
     @SqlType(JsonPathType.NAME)
     public static JsonPath castToJsonPath(@SqlType(StandardTypes.VARCHAR) Slice pattern)
     {
-        return new JsonPath(pattern.toString(UTF_8));
+        return new JsonPath(pattern.toStringUtf8());
     }
 
     @ScalarFunction
@@ -124,7 +104,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BIGINT)
     public static Long jsonArrayLength(@SqlType(StandardTypes.JSON) Slice json)
     {
-        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
+        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -161,7 +141,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
+        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -200,7 +180,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long value)
     {
-        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
+        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -244,7 +224,7 @@ public final class JsonFunctions
             return false;
         }
 
-        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
+        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -284,9 +264,9 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
-        String valueString = value.toString(UTF_8);
+        String valueString = value.toStringUtf8();
 
-        try (JsonParser parser = JSON_FACTORY.createJsonParser(json.getInput())) {
+        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -324,7 +304,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonArrayGet(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
-        try (JsonParser parser = MAPPING_JSON_FACTORY.createJsonParser(json.getInput())) {
+        try (JsonParser parser = MAPPING_JSON_FACTORY.createParser(json.getInput())) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }

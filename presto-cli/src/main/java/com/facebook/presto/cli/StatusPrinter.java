@@ -101,6 +101,8 @@ Parallelism: 2.5
                         partialCancel();
                     }
                     else if (key == CTRL_C) {
+                        updateScreen();
+                        update = false;
                         client.close();
                     }
                     else if (toUpperCase(key) == 'D') {
@@ -111,8 +113,7 @@ Parallelism: 2.5
 
                     // update screen
                     if (update) {
-                        console.repositionCursor();
-                        printQueryInfo(client.current());
+                        updateScreen();
                         lastPrint = System.nanoTime();
                     }
 
@@ -121,12 +122,21 @@ Parallelism: 2.5
                 }
                 catch (RuntimeException e) {
                     log.debug(e, "error printing status");
+                    if (debug) {
+                        e.printStackTrace(out);
+                    }
                 }
             }
         }
         finally {
             console.resetScreen();
         }
+    }
+
+    private void updateScreen()
+    {
+        console.repositionCursor();
+        printQueryInfo(client.current());
     }
 
     public void printFinalInfo()

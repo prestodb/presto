@@ -13,17 +13,13 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -220,26 +216,17 @@ public class BaseJdbcClient
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorSplitSource getSplits(JdbcTableLayoutHandle layoutHandle)
     {
-        // currently we don't support partitions
-        return new ConnectorPartitionResult(
-                ImmutableList.<ConnectorPartition>of(new JdbcPartition(jdbcTableHandle, tupleDomain)),
-                tupleDomain);
-    }
-
-    @Override
-    public ConnectorSplitSource getPartitionSplits(JdbcPartition jdbcPartition)
-    {
-        JdbcTableHandle jdbcTableHandle = jdbcPartition.getJdbcTableHandle();
+        JdbcTableHandle tableHandle = layoutHandle.getTable();
         JdbcSplit jdbcSplit = new JdbcSplit(
                 connectorId,
-                jdbcTableHandle.getCatalogName(),
-                jdbcTableHandle.getSchemaName(),
-                jdbcTableHandle.getTableName(),
+                tableHandle.getCatalogName(),
+                tableHandle.getSchemaName(),
+                tableHandle.getTableName(),
                 connectionUrl,
                 fromProperties(connectionProperties),
-                jdbcPartition.getTupleDomain());
+                layoutHandle.getTupleDomain());
         return new FixedSplitSource(connectorId, ImmutableList.of(jdbcSplit));
     }
 
@@ -397,7 +384,7 @@ public class BaseJdbcClient
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, escape),
                 escapeNamePattern(tableName, escape),
-                new String[] {"TABLE"});
+                new String[] {"TABLE", "VIEW"});
     }
 
     protected SchemaTableName getSchemaTableName(ResultSet resultSet)

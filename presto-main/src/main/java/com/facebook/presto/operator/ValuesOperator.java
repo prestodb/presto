@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 
@@ -31,13 +32,15 @@ public class ValuesOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> types;
         private final List<Page> pages;
         private boolean closed;
 
-        public ValuesOperatorFactory(int operatorId, List<Type> types, List<Page> pages)
+        public ValuesOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> types, List<Page> pages)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.pages = ImmutableList.copyOf(requireNonNull(pages, "pages is null"));
         }
@@ -52,7 +55,7 @@ public class ValuesOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ValuesOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ValuesOperator.class.getSimpleName());
             return new ValuesOperator(operatorContext, types, pages);
         }
 
@@ -65,7 +68,7 @@ public class ValuesOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ValuesOperatorFactory(operatorId, types, pages);
+            return new ValuesOperatorFactory(operatorId, planNodeId, types, pages);
         }
     }
 

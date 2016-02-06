@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
@@ -54,12 +55,13 @@ public class HandTpchQuery6
         //    and discount >= 0.05
         //    and discount <= 0.07
         //    and quantity < 24;
-        OperatorFactory tableScanOperator = createTableScanOperator(0, "lineitem", "extendedprice", "discount", "shipdate", "quantity");
+        OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(1, new TpchQuery6Processor(), ImmutableList.<Type>of(DOUBLE));
+        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(1, new PlanNodeId("test"), () -> new TpchQuery6Processor(), ImmutableList.<Type>of(DOUBLE));
 
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,
+                new PlanNodeId("test"),
                 Step.SINGLE,
                 ImmutableList.of(
                         DOUBLE_SUM.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)
@@ -90,6 +92,18 @@ public class HandTpchQuery6
                 }
             }
             return position;
+        }
+
+        @Override
+        public Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types)
+        {
+            throw new UnsupportedOperationException();
         }
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)

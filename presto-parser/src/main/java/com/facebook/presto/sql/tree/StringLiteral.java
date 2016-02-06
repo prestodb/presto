@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.tree;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
+import java.util.Objects;
 import java.util.Optional;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public class StringLiteral
@@ -42,7 +42,7 @@ public class StringLiteral
         super(location);
         requireNonNull(value, "value is null");
         this.value = value;
-        this.slice = Slices.wrappedBuffer(value.getBytes(UTF_8));
+        this.slice = utf8Slice(value);
     }
 
     public String getValue()
@@ -72,12 +72,7 @@ public class StringLiteral
         }
 
         StringLiteral that = (StringLiteral) o;
-
-        if (!value.equals(that.value)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(value, that.value);
     }
 
     @Override

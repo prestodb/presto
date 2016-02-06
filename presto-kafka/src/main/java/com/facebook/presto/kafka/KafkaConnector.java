@@ -13,16 +13,19 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -37,31 +40,29 @@ public class KafkaConnector
     private final KafkaMetadata metadata;
     private final KafkaSplitManager splitManager;
     private final KafkaRecordSetProvider recordSetProvider;
-    private final KafkaHandleResolver handleResolver;
 
     @Inject
     public KafkaConnector(
             LifeCycleManager lifeCycleManager,
-            KafkaHandleResolver handleResolver,
             KafkaMetadata metadata,
             KafkaSplitManager splitManager,
             KafkaRecordSetProvider recordSetProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
-        return handleResolver;
+        checkConnectorSupports(READ_COMMITTED, isolationLevel);
+        return KafkaTransactionHandle.INSTANCE;
     }
 
     @Override
-    public ConnectorMetadata getMetadata()
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
         return metadata;
     }

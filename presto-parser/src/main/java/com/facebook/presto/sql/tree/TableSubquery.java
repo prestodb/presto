@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -68,12 +69,7 @@ public class TableSubquery
         }
 
         TableSubquery tableSubquery = (TableSubquery) o;
-
-        if (!query.equals(tableSubquery.query)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(query, tableSubquery.query);
     }
 
     @Override

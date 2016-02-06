@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.util.array.ObjectBigArray;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
@@ -96,7 +95,7 @@ public class KeyValuePairs
     }
 
     /**
-     * Serialize as a map: map<key, value>
+     * Serialize as a map: map(key, value)
      */
     public Block toMapNativeEncoding()
     {
@@ -108,7 +107,7 @@ public class KeyValuePairs
     }
 
     /**
-     * Serialize as a multimap: map<key, array<value>>, each key can be associated with multiple values
+     * Serialize as a multimap: map(key, array(value)), each key can be associated with multiple values
      */
     public Block toMultimapNativeEncoding()
     {
@@ -137,7 +136,7 @@ public class KeyValuePairs
         // Write keys and value arrays into one Block
         Block distinctKeys = distinctKeyBlockBuilder.build();
         Type valueArrayType = new ArrayType(valueType);
-        BlockBuilder multimapBlockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueArrayType), new BlockBuilderStatus(), distinctKeyBlockBuilder.getSizeInBytes() + Ints.checkedCast(valueArrayBlockBuilders.sizeOf()));
+        BlockBuilder multimapBlockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueArrayType), new BlockBuilderStatus(), distinctKeyBlockBuilder.getPositionCount());
         for (int i = 0; i < distinctKeys.getPositionCount(); i++) {
             keyType.appendTo(distinctKeys, i, multimapBlockBuilder);
             valueArrayType.writeObject(multimapBlockBuilder, valueArrayBlockBuilders.get(i).build());
@@ -151,7 +150,7 @@ public class KeyValuePairs
         long size = INSTANCE_SIZE;
         size += keyBlockBuilder.getRetainedSizeInBytes();
         size += valueBlockBuilder.getRetainedSizeInBytes();
-        size += keySet.getEstimatedSize();
+        size += keySet.getRetainedSizeInBytes();
         return size;
     }
 

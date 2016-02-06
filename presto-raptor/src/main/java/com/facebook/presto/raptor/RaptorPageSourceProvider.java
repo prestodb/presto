@@ -15,16 +15,22 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.raptor.storage.StorageManager;
+import com.facebook.presto.raptor.util.ConcatPageSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 
 import javax.inject.Inject;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -44,22 +50,40 @@ public class RaptorPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
 
-        UUID shardUuid = raptorSplit.getShardUuid();
+        OptionalInt bucketNumber = raptorSplit.getBucketNumber();
+        TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
+        ReaderAttributes attributes = ReaderAttributes.from(session);
+        OptionalLong transactionId = raptorSplit.getTransactionId();
+
+        if (raptorSplit.getShardUuids().size() == 1) {
+            UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
+            return createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId);
+        }
+
+        Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
+                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId))
+                .iterator();
+
+        return new ConcatPageSource(iterator);
+    }
+
+    private ConnectorPageSource createPageSource(
+            UUID shardUuid,
+            OptionalInt bucketNumber,
+            List<ColumnHandle> columns,
+            TupleDomain<RaptorColumnHandle> predicate,
+            ReaderAttributes attributes,
+            OptionalLong transactionId)
+    {
         List<RaptorColumnHandle> columnHandles = columns.stream().map(toRaptorColumnHandle()).collect(toList());
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(
-                shardUuid,
-                columnIds,
-                columnTypes,
-                raptorSplit.getEffectivePredicate(),
-                ReaderAttributes.from(session),
-                raptorSplit.getTransactionId());
+        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId);
     }
 
     private static Function<ColumnHandle, RaptorColumnHandle> toRaptorColumnHandle()

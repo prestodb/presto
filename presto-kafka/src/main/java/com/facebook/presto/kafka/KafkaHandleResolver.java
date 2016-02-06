@@ -17,8 +17,8 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
-
-import javax.inject.Inject;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -29,33 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class KafkaHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    @Inject
-    public KafkaHandleResolver(KafkaConnectorId connectorId, KafkaConnectorConfig kafkaConnectorConfig)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle != null && tableHandle instanceof KafkaTableHandle && connectorId.equals(((KafkaTableHandle) tableHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle != null && columnHandle instanceof KafkaColumnHandle && connectorId.equals(((KafkaColumnHandle) columnHandle).getConnectorId());
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split != null && split instanceof KafkaSplit && connectorId.equals(((KafkaSplit) split).getConnectorId());
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
@@ -74,31 +47,43 @@ public class KafkaHandleResolver
         return KafkaSplit.class;
     }
 
-    KafkaTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
+    @Override
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+    {
+        return KafkaTableLayoutHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
+    {
+        return KafkaTransactionHandle.class;
+    }
+
+    static KafkaTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof KafkaTableHandle, "tableHandle is not an instance of KafkaTableHandle");
-        KafkaTableHandle kafkaTableHandle = (KafkaTableHandle) tableHandle;
-        checkArgument(kafkaTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
-
-        return kafkaTableHandle;
+        return (KafkaTableHandle) tableHandle;
     }
 
-    KafkaColumnHandle convertColumnHandle(ColumnHandle columnHandle)
+    static KafkaColumnHandle convertColumnHandle(ColumnHandle columnHandle)
     {
         requireNonNull(columnHandle, "columnHandle is null");
         checkArgument(columnHandle instanceof KafkaColumnHandle, "columnHandle is not an instance of KafkaColumnHandle");
-        KafkaColumnHandle kafkaColumnHandle = (KafkaColumnHandle) columnHandle;
-        checkArgument(kafkaColumnHandle.getConnectorId().equals(connectorId), "columnHandle is not for this connector");
-        return kafkaColumnHandle;
+        return (KafkaColumnHandle) columnHandle;
     }
 
-    KafkaSplit convertSplit(ConnectorSplit split)
+    static KafkaSplit convertSplit(ConnectorSplit split)
     {
         requireNonNull(split, "split is null");
         checkArgument(split instanceof KafkaSplit, "split is not an instance of KafkaSplit");
-        KafkaSplit kafkaSplit = (KafkaSplit) split;
-        checkArgument(kafkaSplit.getConnectorId().equals(connectorId), "split is not for this connector");
-        return kafkaSplit;
+        return (KafkaSplit) split;
+    }
+
+    static KafkaTableLayoutHandle convertLayout(ConnectorTableLayoutHandle layout)
+    {
+        requireNonNull(layout, "layout is null");
+        checkArgument(layout instanceof KafkaTableLayoutHandle, "layout is not an instance of KafkaTableLayoutHandle");
+        return (KafkaTableLayoutHandle) layout;
     }
 }

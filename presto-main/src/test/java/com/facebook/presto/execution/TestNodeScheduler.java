@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
+import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -27,6 +28,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +41,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -50,10 +51,11 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -109,7 +111,7 @@ public class TestNodeScheduler
     public void testScheduleLocal()
             throws Exception
     {
-        Split split = new Split("foo", new TestSplitLocal());
+        Split split = new Split("foo", TestingTransactionHandle.create("test"), new TestSplitLocal());
         Set<Split> splits = ImmutableSet.of(split);
 
         Map.Entry<Node, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).entries());
@@ -117,10 +119,11 @@ public class TestNodeScheduler
         assertEquals(assignment.getValue(), split);
     }
 
-    @Test
+    @Test(timeOut = 60 * 1000)
     public void testTopologyAwareScheduling()
-            throws UnknownHostException
+            throws Exception
     {
+        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
@@ -140,13 +143,27 @@ public class TestNodeScheduler
                 .setMaxPendingSplitsPerNodePerTask(15);
 
         TestNetworkTopology topology = new TestNetworkTopology();
-        NodeScheduler nodeScheduler = new NodeScheduler(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NetworkLocationCache locationCache = new NetworkLocationCache(topology)
+        {
+            @Override
+            public NetworkLocation get(HostAddress host)
+            {
+                // Bypass the cache for workers, since we only look them up once and they would all be unresolved otherwise
+                if (host.getHostText().startsWith("host")) {
+                    return topology.locate(host);
+                }
+                else {
+                    return super.get(host);
+                }
+            }
+        };
+        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector("foo");
 
         // Fill up the nodes with non-local data
         ImmutableSet.Builder<Split> nonRackLocalBuilder = ImmutableSet.builder();
         for (int i = 0; i < 26 * 3; i++) {
-            nonRackLocalBuilder.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("data.other_rack", 1))));
+            nonRackLocalBuilder.add(new Split("foo", transactionHandle, new TestSplitRemote(HostAddress.fromParts("data.other_rack", 1))));
         }
         Set<Split> nonRackLocalSplits = nonRackLocalBuilder.build();
         Multimap<Node, Split> assignments = nodeSelector.computeAssignments(nonRackLocalSplits, ImmutableList.copyOf(taskMap.values()));
@@ -173,11 +190,13 @@ public class TestNodeScheduler
 
         // Assign rack-local splits
         ImmutableSet.Builder<Split> rackLocalSplits = ImmutableSet.builder();
+        HostAddress dataHost1 = HostAddress.fromParts("data.rack1", 1);
+        HostAddress dataHost2 = HostAddress.fromParts("data.rack2", 1);
         for (int i = 0; i < 6 * 2; i++) {
-            rackLocalSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("data.rack1", 1))));
+            rackLocalSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(dataHost1)));
         }
         for (int i = 0; i < 6; i++) {
-            rackLocalSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("data.rack2", 1))));
+            rackLocalSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(dataHost2)));
         }
         assignments = nodeSelector.computeAssignments(rackLocalSplits.build(), ImmutableList.copyOf(taskMap.values()));
         for (Node node : assignments.keySet()) {
@@ -185,6 +204,25 @@ public class TestNodeScheduler
             remoteTask.addSplits(new PlanNodeId("sourceId"), assignments.get(node));
         }
         Set<Split> unassigned = Sets.difference(rackLocalSplits.build(), new HashSet<>(assignments.values()));
+        // Compute the assignments a second time to account for the fact that some splits may not have been assigned due to asynchronous
+        // loading of the NetworkLocationCache
+        boolean cacheRefreshed = false;
+        while (!cacheRefreshed) {
+            cacheRefreshed = true;
+            if (locationCache.get(dataHost1).equals(ROOT_LOCATION)) {
+                cacheRefreshed = false;
+            }
+            if (locationCache.get(dataHost2).equals(ROOT_LOCATION)) {
+                cacheRefreshed = false;
+            }
+            MILLISECONDS.sleep(10);
+        }
+        assignments = nodeSelector.computeAssignments(unassigned, ImmutableList.copyOf(taskMap.values()));
+        for (Node node : assignments.keySet()) {
+            RemoteTask remoteTask = taskMap.get(node);
+            remoteTask.addSplits(new PlanNodeId("sourceId"), assignments.get(node));
+        }
+        unassigned = Sets.difference(unassigned, new HashSet<>(assignments.values()));
         assertEquals(unassigned.size(), 3);
         int rack1 = 0;
         int rack2 = 0;
@@ -206,9 +244,9 @@ public class TestNodeScheduler
 
         // Assign local splits
         ImmutableSet.Builder<Split> localSplits = ImmutableSet.builder();
-        localSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("host1.rack1", 1))));
-        localSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("host2.rack1", 1))));
-        localSplits.add(new Split("foo", new TestSplitRemote(HostAddress.fromParts("host3.rack2", 1))));
+        localSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(HostAddress.fromParts("host1.rack1", 1))));
+        localSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(HostAddress.fromParts("host2.rack1", 1))));
+        localSplits.add(new Split("foo", transactionHandle, new TestSplitRemote(HostAddress.fromParts("host3.rack2", 1))));
         assignments = nodeSelector.computeAssignments(localSplits.build(), ImmutableList.copyOf(taskMap.values()));
         assertEquals(assignments.size(), 3);
         assertEquals(assignments.keySet().size(), 3);
@@ -247,7 +285,7 @@ public class TestNodeScheduler
             throws Exception
     {
         Set<Split> splits = new HashSet<>();
-        splits.add(new Split("foo", new TestSplitRemote()));
+        splits.add(new Split("foo", TestingTransactionHandle.create("foo"), new TestSplitRemote()));
         Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
         assertEquals(assignments.size(), 1);
     }
@@ -259,7 +297,7 @@ public class TestNodeScheduler
         // One split for each node
         Set<Split> splits = new HashSet<>();
         for (int i = 0; i < 3; i++) {
-            splits.add(new Split("foo", new TestSplitRemote()));
+            splits.add(new Split("foo", TestingTransactionHandle.create("foo"), new TestSplitRemote()));
         }
         Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
         assertEquals(assignments.entries().size(), 3);
@@ -272,12 +310,14 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNode()
             throws Exception
     {
+        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
+
         Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
         nodeManager.addNode("foo", newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
         for (int i = 0; i < 10; i++) {
-            initialSplits.add(new Split("foo", new TestSplitRemote()));
+            initialSplits.add(new Split("foo", transactionHandle, new TestSplitRemote()));
         }
 
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
@@ -292,7 +332,7 @@ public class TestNodeScheduler
 
         Set<Split> splits = new HashSet<>();
         for (int i = 0; i < 5; i++) {
-            splits.add(new Split("foo", new TestSplitRemote()));
+            splits.add(new Split("foo", transactionHandle, new TestSplitRemote()));
         }
         Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
 
@@ -309,12 +349,14 @@ public class TestNodeScheduler
     public void testMaxSplitsPerNodePerTask()
             throws Exception
     {
+        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
+
         Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
         nodeManager.addNode("foo", newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
         for (int i = 0; i < 20; i++) {
-            initialSplits.add(new Split("foo", new TestSplitRemote()));
+            initialSplits.add(new Split("foo", transactionHandle, new TestSplitRemote()));
         }
 
         List<RemoteTask> tasks = new ArrayList<>();
@@ -336,7 +378,7 @@ public class TestNodeScheduler
 
         Set<Split> splits = new HashSet<>();
         for (int i = 0; i < 5; i++) {
-            splits.add(new Split("foo", new TestSplitRemote()));
+            splits.add(new Split("foo", transactionHandle, new TestSplitRemote()));
         }
         Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
 
@@ -361,12 +403,12 @@ public class TestNodeScheduler
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
                 taskId,
                 chosenNode,
-                ImmutableList.of(new Split("foo", new TestSplitRemote())),
+                ImmutableList.of(new Split("foo", TestingTransactionHandle.create("foo"), new TestSplitRemote())),
                 nodeTaskMap.createPartitionedSplitCountTracker(chosenNode, taskId));
         nodeTaskMap.addTask(chosenNode, remoteTask);
         assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 1);
         remoteTask.abort();
-        TimeUnit.MILLISECONDS.sleep(100); // Sleep until cache expires
+        MILLISECONDS.sleep(100); // Sleep until cache expires
         assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
 
         remoteTask.abort();
@@ -383,14 +425,14 @@ public class TestNodeScheduler
         TaskId taskId1 = new TaskId(new StageId("test", "1"), "1");
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,
                 chosenNode,
-                ImmutableList.of(new Split("foo", new TestSplitRemote()), new Split("bar", new TestSplitRemote())),
+                ImmutableList.of(new Split("foo", TestingTransactionHandle.create("foo"), new TestSplitRemote()), new Split("bar", TestingTransactionHandle.create("bar"), new TestSplitRemote())),
                 nodeTaskMap.createPartitionedSplitCountTracker(chosenNode, taskId1));
 
         TaskId taskId2 = new TaskId(new StageId("test", "1"), "2");
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(
                 taskId2,
                 chosenNode,
-                ImmutableList.of(new Split("foo2", new TestSplitRemote())),
+                ImmutableList.of(new Split("foo2", TestingTransactionHandle.create("foo2"), new TestSplitRemote())),
                 nodeTaskMap.createPartitionedSplitCountTracker(chosenNode, taskId2));
 
         nodeTaskMap.addTask(chosenNode, remoteTask1);

@@ -43,6 +43,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.redis.RedisHandleResolver.convertColumnHandle;
+import static com.facebook.presto.redis.RedisHandleResolver.convertLayout;
+import static com.facebook.presto.redis.RedisHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -56,7 +59,6 @@ public class RedisMetadata
     private static final Logger log = Logger.get(RedisMetadata.class);
 
     private final String connectorId;
-    private final RedisHandleResolver handleResolver;
     private final boolean hideInternalColumns;
 
     private final Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier;
@@ -66,12 +68,10 @@ public class RedisMetadata
     RedisMetadata(
             RedisConnectorId connectorId,
             RedisConnectorConfig redisConnectorConfig,
-            RedisHandleResolver handleResolver,
             Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier,
             Set<RedisInternalFieldDescription> internalFieldDescriptions)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
 
         requireNonNull(redisConnectorConfig, "redisConfig is null");
         hideInternalColumns = redisConnectorConfig.isHideInternalColumns();
@@ -124,8 +124,7 @@ public class RedisMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        RedisTableHandle redisTableHandle = handleResolver.convertTableHandle(tableHandle);
-        return getTableMetadata(redisTableHandle.toSchemaTableName());
+        return getTableMetadata(convertTableHandle(tableHandle).toSchemaTableName());
     }
 
     @Override
@@ -135,7 +134,7 @@ public class RedisMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        RedisTableHandle tableHandle = handleResolver.convertTableHandle(table);
+        RedisTableHandle tableHandle = convertTableHandle(table);
 
         ConnectorTableLayout layout = new ConnectorTableLayout(new RedisTableLayoutHandle(tableHandle));
 
@@ -145,7 +144,7 @@ public class RedisMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        RedisTableLayoutHandle layout = handleResolver.convertLayout(handle);
+        RedisTableLayoutHandle layout = convertLayout(handle);
 
         // tables in this connector have a single layout
         return getTableLayouts(session, layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
@@ -169,7 +168,7 @@ public class RedisMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        RedisTableHandle redisTableHandle = handleResolver.convertTableHandle(tableHandle);
+        RedisTableHandle redisTableHandle = convertTableHandle(tableHandle);
 
         RedisTableDescription redisTableDescription = getDefinedTables().get(redisTableHandle.toSchemaTableName());
         if (redisTableDescription == null) {
@@ -237,10 +236,8 @@ public class RedisMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        handleResolver.convertTableHandle(tableHandle);
-        RedisColumnHandle redisColumnHandle = handleResolver.convertColumnHandle(columnHandle);
-
-        return redisColumnHandle.getColumnMetadata();
+        convertTableHandle(tableHandle);
+        return convertColumnHandle(columnHandle).getColumnMetadata();
     }
 
     @VisibleForTesting

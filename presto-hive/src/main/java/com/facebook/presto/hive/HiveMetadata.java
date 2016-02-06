@@ -64,7 +64,6 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
-import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -82,24 +81,27 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_ERROR;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
+import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static com.facebook.presto.hive.HiveWriteUtils.renameDirectory;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -116,7 +118,6 @@ import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
@@ -139,6 +140,7 @@ public class HiveMetadata
     private final DateTimeZone timeZone;
     private final TypeManager typeManager;
     private final LocationService locationService;
+    private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
 
@@ -153,6 +155,7 @@ public class HiveMetadata
             @ForHiveClient ExecutorService executorService,
             TypeManager typeManager,
             LocationService locationService,
+            TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this(connectorId,
@@ -168,6 +171,7 @@ public class HiveMetadata
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 typeManager,
                 locationService,
+                tableParameterCodec,
                 partitionUpdateCodec,
                 executorService);
     }
@@ -186,6 +190,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             TypeManager typeManager,
             LocationService locationService,
+            TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService)
     {
@@ -203,6 +208,7 @@ public class HiveMetadata
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
+        this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
@@ -281,6 +287,9 @@ public class HiveMetadata
                 .collect(toList());
         if (!partitionedBy.isEmpty()) {
             properties.put(PARTITIONED_BY_PROPERTY, partitionedBy);
+        }
+        if (table.get().isSetParameters()) {
+            properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
         }
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), table.get().getOwner(), sampled);
@@ -394,22 +403,13 @@ public class HiveMetadata
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        createTable(session, schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy);
-    }
+        Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
-    public void createTable(
-            ConnectorSession session,
-            String schemaName,
-            String tableName,
-            String tableOwner,
-            List<HiveColumnHandle> columnHandles,
-            HiveStorageFormat hiveStorageFormat,
-            List<String> partitionedBy)
-    {
         LocationHandle locationHandle = locationService.forNewTable(session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
         createDirectory(hdfsEnvironment, targetPath);
-        createTable(schemaName, tableName, tableOwner, columnHandles, hiveStorageFormat, partitionedBy, targetPath);
+
+        createTable(schemaName, tableName, tableMetadata.getOwner(), columnHandles, hiveStorageFormat, partitionedBy, additionalTableParameters, targetPath);
     }
 
     private Table createTable(
@@ -419,6 +419,7 @@ public class HiveMetadata
             List<HiveColumnHandle> columnHandles,
             HiveStorageFormat hiveStorageFormat,
             List<String> partitionedBy,
+            Map<String, String> additionalTableParameters,
             Path targetPath)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
@@ -469,7 +470,10 @@ public class HiveMetadata
         if (sampled) {
             tableComment = "Sampled table created by Presto. Only query this table from Hive if you understand how Presto implements sampling.";
         }
-        table.setParameters(ImmutableMap.of("comment", tableComment));
+        table.setParameters(ImmutableMap.<String, String>builder()
+                .put("comment", tableComment)
+                .putAll(additionalTableParameters)
+                .build());
         table.setPartitionKeys(partitionColumns);
         table.setSd(sd);
 
@@ -586,6 +590,7 @@ public class HiveMetadata
 
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+        Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -599,11 +604,12 @@ public class HiveMetadata
                 schemaName,
                 tableName,
                 columnHandles,
-                randomUUID().toString(), // todo this should really be the queryId
+                session.getQueryId(),
                 locationService.forNewTable(session.getQueryId(), schemaName, tableName),
                 hiveStorageFormat,
                 partitionedBy,
-                tableMetadata.getOwner());
+                tableMetadata.getOwner(),
+                additionalTableParameters);
     }
 
     @Override
@@ -643,6 +649,7 @@ public class HiveMetadata
                     handle.getInputColumns(),
                     handle.getHiveStorageFormat(),
                     handle.getPartitionedBy(),
+                    handle.getAdditionalTableParameters(),
                     targetPath);
 
             if (!handle.getPartitionedBy().isEmpty()) {
@@ -650,7 +657,7 @@ public class HiveMetadata
                         .map(partitionUpdate -> createPartition(table, partitionUpdate))
                         .forEach(partitionCommitter::addPartition);
             }
-            partitionCommitter.close();
+            partitionCommitter.flush();
         }
         catch (Throwable throwable) {
             partitionCommitter.abort();
@@ -685,18 +692,23 @@ public class HiveMetadata
 
         List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get());
 
+        for (HiveColumnHandle hiveColumnHandle : handles) {
+            if (!isWritableType(hiveColumnHandle.getHiveType())) {
+                throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with column type %s not supported", hiveColumnHandle.getHiveType()));
+            }
+        }
+
         return new HiveInsertTableHandle(
                 connectorId,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 handles,
-                randomUUID().toString(), // todo this should really be the queryId
+                session.getQueryId(),
                 locationService.forExistingTable(session.getQueryId(), table.get()),
                 hiveStorageFormat);
     }
 
     private static class PartitionCommitter
-            implements Closeable
     {
         private final String schemaName;
         private final String tableName;
@@ -727,8 +739,7 @@ public class HiveMetadata
             }
         }
 
-        @Override
-        public void close()
+        public void flush()
         {
             if (!batch.isEmpty()) {
                 addBatch();
@@ -776,7 +787,7 @@ public class HiveMetadata
                 throw new TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
             }
             if (!table.get().getSd().getInputFormat().equals(storageFormat.getInputFormat())) {
-                throw new PrestoException(HIVE_WRITER_ERROR, "Table format changed during insert");
+                throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
             }
 
             List<CompletableFuture<?>> fileRenameFutures = new ArrayList<>();
@@ -793,7 +804,7 @@ public class HiveMetadata
                     // add new partition
                     Partition partition = createPartition(table.get(), partitionUpdate);
                     if (!partition.getSd().getInputFormat().equals(storageFormat.getInputFormat())) {
-                        throw new PrestoException(HIVE_WRITER_ERROR, "Partition format changed during insert");
+                        throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                     }
                     partitionCommitter.addPartition(partition);
                 }
@@ -826,7 +837,7 @@ public class HiveMetadata
                     }
                 }
             }
-            partitionCommitter.close();
+            partitionCommitter.flush();
             for (CompletableFuture<?> fileRenameFuture : fileRenameFutures) {
                 MoreFutures.getFutureValue(fileRenameFuture, PrestoException.class);
             }
@@ -1248,7 +1259,14 @@ public class HiveMetadata
         if (!partitionDomains.isEmpty()) {
             predicate = TupleDomain.columnWiseUnion(partitionDomains);
         }
-        return new ConnectorTableLayout(hiveLayoutHandle, Optional.empty(), predicate, Optional.empty(), Optional.of(partitionDomains), ImmutableList.of());
+        return new ConnectorTableLayout(
+                hiveLayoutHandle,
+                Optional.empty(),
+                predicate,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(partitionDomains),
+                ImmutableList.of());
     }
 
     @Override
@@ -1289,8 +1307,23 @@ public class HiveMetadata
         throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serializationLib));
     }
 
+    private static void validateColumnOrdering(ConnectorTableMetadata tableMetadata)
+    {
+        List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+
+        List<String> allColumns = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toList());
+
+        if (!allColumns.subList(allColumns.size() - partitionedBy.size(), allColumns.size()).equals(partitionedBy)) {
+            throw new PrestoException(HIVE_COLUMN_ORDER_MISMATCH, "Partition keys must be the last columns in the table and in the same order as the table properties: " + partitionedBy);
+        }
+    }
+
     private static List<HiveColumnHandle> getColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames)
     {
+        validateColumnOrdering(tableMetadata);
+
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
         Set<String> foundPartitionColumns = new HashSet<>();
         int ordinal = 0;
@@ -1349,11 +1382,11 @@ public class HiveMetadata
         }
         Map<String, String> columnComment = builder.build();
 
-        return input -> new ColumnMetadata(
-                input.getName(),
-                typeManager.getType(input.getTypeSignature()),
-                input.isPartitionKey(),
-                columnComment.get(input.getName()),
+        return handle -> new ColumnMetadata(
+                handle.getName(),
+                typeManager.getType(handle.getTypeSignature()),
+                handle.isPartitionKey(),
+                annotateColumnComment(columnComment.get(handle.getName()), handle.isPartitionKey()),
                 false);
     }
 }

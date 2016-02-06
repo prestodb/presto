@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.random.RandomDataGenerator;
 
@@ -33,15 +34,17 @@ public class SampleOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final double sampleRatio;
         private final boolean rescaled;
 
         private final List<Type> types;
         private boolean closed;
 
-        public SampleOperatorFactory(int operatorId, double sampleRatio, boolean rescaled, List<Type> sourceTypes)
+        public SampleOperatorFactory(int operatorId, PlanNodeId planNodeId, double sampleRatio, boolean rescaled, List<Type> sourceTypes)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sampleRatio = sampleRatio;
             this.rescaled = rescaled;
             this.types = ImmutableList.<Type>builder()
@@ -60,7 +63,7 @@ public class SampleOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, SampleOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, SampleOperator.class.getSimpleName());
             return new SampleOperator(operatorContext, sampleRatio, rescaled, types);
         }
 
@@ -73,7 +76,7 @@ public class SampleOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new SampleOperatorFactory(operatorId, sampleRatio, rescaled, types.subList(0, types.size() - 1));
+            return new SampleOperatorFactory(operatorId, planNodeId, sampleRatio, rescaled, types.subList(0, types.size() - 1));
         }
     }
 

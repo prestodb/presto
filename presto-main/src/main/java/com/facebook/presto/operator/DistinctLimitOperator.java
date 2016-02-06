@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -34,15 +35,17 @@ public class DistinctLimitOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Integer> distinctChannels;
         private final List<Type> types;
         private final long limit;
         private final Optional<Integer> hashChannel;
         private boolean closed;
 
-        public DistinctLimitOperatorFactory(int operatorId, List<? extends Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel)
+        public DistinctLimitOperatorFactory(int operatorId, PlanNodeId planNodeId, List<? extends Type> types, List<Integer> distinctChannels, long limit, Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.distinctChannels = requireNonNull(distinctChannels, "distinctChannels is null");
 
@@ -61,7 +64,7 @@ public class DistinctLimitOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, DistinctLimitOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, DistinctLimitOperator.class.getSimpleName());
             return new DistinctLimitOperator(operatorContext, types, distinctChannels, limit, hashChannel);
         }
 
@@ -74,7 +77,7 @@ public class DistinctLimitOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new DistinctLimitOperatorFactory(operatorId, types, distinctChannels, limit, hashChannel);
+            return new DistinctLimitOperatorFactory(operatorId, planNodeId, types, distinctChannels, limit, hashChannel);
         }
     }
 
@@ -102,7 +105,13 @@ public class DistinctLimitOperator
         for (int channel : distinctChannels) {
             distinctTypes.add(types.get(channel));
         }
-        this.groupByHash = createGroupByHash(distinctTypes.build(), Ints.toArray(distinctChannels), Optional.<Integer>empty(), hashChannel, Math.min((int) limit, 10_000));
+        this.groupByHash = createGroupByHash(
+                operatorContext.getSession(),
+                distinctTypes.build(),
+                Ints.toArray(distinctChannels),
+                Optional.empty(),
+                hashChannel,
+                Math.min((int) limit, 10_000));
         this.pageBuilder = new PageBuilder(types);
         remainingLimit = limit;
     }

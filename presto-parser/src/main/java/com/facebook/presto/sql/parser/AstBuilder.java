@@ -23,9 +23,13 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Call;
+import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
+import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -58,6 +62,7 @@ import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.Isolation;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
@@ -81,6 +86,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
@@ -99,6 +105,7 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
@@ -108,6 +115,8 @@ import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.TransactionAccessMode;
+import com.facebook.presto.sql.tree.TransactionMode;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
@@ -129,6 +138,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -235,6 +245,69 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.REPLACE() != null);
+    }
+
+    @Override
+    public Node visitStartTransaction(SqlBaseParser.StartTransactionContext context)
+    {
+        return new StartTransaction(visit(context.transactionMode(), TransactionMode.class));
+    }
+
+    @Override
+    public Node visitCommit(SqlBaseParser.CommitContext context)
+    {
+        return new Commit(getLocation(context));
+    }
+
+    @Override
+    public Node visitRollback(SqlBaseParser.RollbackContext context)
+    {
+        return new Rollback(getLocation(context));
+    }
+
+    @Override
+    public Node visitTransactionAccessMode(SqlBaseParser.TransactionAccessModeContext context)
+    {
+        return new TransactionAccessMode(getLocation(context), context.accessMode.getType() == SqlBaseLexer.ONLY);
+    }
+
+    @Override
+    public Node visitIsolationLevel(SqlBaseParser.IsolationLevelContext context)
+    {
+        return visit(context.levelOfIsolation());
+    }
+
+    @Override
+    public Node visitReadUncommitted(SqlBaseParser.ReadUncommittedContext context)
+    {
+        return new Isolation(getLocation(context), Isolation.Level.READ_UNCOMMITTED);
+    }
+
+    @Override
+    public Node visitReadCommitted(SqlBaseParser.ReadCommittedContext context)
+    {
+        return new Isolation(getLocation(context), Isolation.Level.READ_COMMITTED);
+    }
+
+    @Override
+    public Node visitRepeatableRead(SqlBaseParser.RepeatableReadContext context)
+    {
+        return new Isolation(getLocation(context), Isolation.Level.REPEATABLE_READ);
+    }
+
+    @Override
+    public Node visitSerializable(SqlBaseParser.SerializableContext context)
+    {
+        return new Isolation(getLocation(context), Isolation.Level.SERIALIZABLE);
+    }
+
+    @Override
+    public Node visitCall(SqlBaseParser.CallContext context)
+    {
+        return new Call(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                visit(context.callArgument(), CallArgument.class));
     }
 
     // ********************** query expressions ********************
@@ -885,6 +958,7 @@ class AstBuilder
         return new FunctionCall(getLocation(context), new QualifiedName("strpos"), arguments);
     }
 
+    @Override
     public Node visitNormalize(SqlBaseParser.NormalizeContext context)
     {
         Expression str = (Expression) visit(context.valueExpression());
@@ -966,7 +1040,7 @@ class AstBuilder
                     (Expression) visit(context.expression(1)),
                     elseExpression);
         }
-        else if (name.toString().equalsIgnoreCase("nullif")) {
+        if (name.toString().equalsIgnoreCase("nullif")) {
             check(context.expression().size() == 2, "Invalid number of arguments for 'nullif' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'nullif' function", context);
             check(!distinct, "DISTINCT not valid for 'nullif' function", context);
@@ -976,7 +1050,7 @@ class AstBuilder
                     (Expression) visit(context.expression(0)),
                     (Expression) visit(context.expression(1)));
         }
-        else if (name.toString().equalsIgnoreCase("coalesce")) {
+        if (name.toString().equalsIgnoreCase("coalesce")) {
             check(!window.isPresent(), "OVER clause not valid for 'coalesce' function", context);
             check(!distinct, "DISTINCT not valid for 'coalesce' function", context);
 
@@ -1076,6 +1150,13 @@ class AstBuilder
     }
 
     @Override
+    public Node visitBinaryLiteral(SqlBaseParser.BinaryLiteralContext context)
+    {
+        String raw = context.BINARY_LITERAL().getText();
+        return new BinaryLiteral(getLocation(context), unquote(raw.substring(1)));
+    }
+
+    @Override
     public Node visitTypeConstructor(SqlBaseParser.TypeConstructorContext context)
     {
         String type = context.identifier().getText();
@@ -1084,7 +1165,7 @@ class AstBuilder
         if (type.equalsIgnoreCase("time")) {
             return new TimeLiteral(getLocation(context), value);
         }
-        else if (type.equalsIgnoreCase("timestamp")) {
+        if (type.equalsIgnoreCase("timestamp")) {
             return new TimestampLiteral(getLocation(context), value);
         }
 
@@ -1125,6 +1206,20 @@ class AstBuilder
                         .map(AstBuilder::getIntervalFieldType));
     }
 
+    // ***************** arguments *****************
+
+    @Override
+    public Node visitPositionalArgument(SqlBaseParser.PositionalArgumentContext context)
+    {
+        return new CallArgument(getLocation(context), (Expression) visit(context.expression()));
+    }
+
+    @Override
+    public Node visitNamedArgument(SqlBaseParser.NamedArgumentContext context)
+    {
+        return new CallArgument(getLocation(context), context.identifier().getText(), (Expression) visit(context.expression()));
+    }
+
     // ***************** helpers *****************
 
     @Override
@@ -1162,9 +1257,9 @@ class AstBuilder
                 .collect(toList());
     }
 
-    private static String unquote(String string)
+    private static String unquote(String value)
     {
-        return string.substring(1, string.length() - 1)
+        return value.substring(1, value.length() - 1)
                 .replace("''", "'");
     }
 
@@ -1383,19 +1478,39 @@ class AstBuilder
 
     private static String getType(SqlBaseParser.TypeContext type)
     {
-        if (type.simpleType() != null) {
-            return type.simpleType().getText();
+        if (type.baseType() != null) {
+            String signature = type.baseType().getText();
+            if (!type.typeParameter().isEmpty()) {
+                String typeParameterSignature = type
+                        .typeParameter()
+                        .stream()
+                        .map(AstBuilder::typeParameterToString)
+                        .collect(Collectors.joining(","));
+                signature += "(" + typeParameterSignature + ")";
+            }
+            return signature;
         }
 
         if (type.ARRAY() != null) {
-            return "ARRAY<" + getType(type.type(0)) + ">";
+            return "ARRAY(" + getType(type.type(0)) + ")";
         }
 
         if (type.MAP() != null) {
-            return "MAP<" + getType(type.type(0)) + "," + getType(type.type(1)) + ">";
+            return "MAP(" + getType(type.type(0)) + "," + getType(type.type(1)) + ")";
         }
 
         throw new IllegalArgumentException("Unsupported type specification: " + type.getText());
+    }
+
+    private static String typeParameterToString(SqlBaseParser.TypeParameterContext typeParameter)
+    {
+        if (typeParameter.INTEGER_VALUE() != null) {
+            return typeParameter.INTEGER_VALUE().toString();
+        }
+        if (typeParameter.type() != null) {
+            return getType(typeParameter.type());
+        }
+        throw new IllegalArgumentException("Unsupported typeParameter: " + typeParameter.getText());
     }
 
     private static void check(boolean condition, String message, ParserRuleContext context)

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
@@ -72,10 +73,11 @@ public class ParallelHashBuilder
         lookupSourceSupplier = new ParallelLookupSourceSupplier(types, hashChannels, this.lookupSourceFutures);
     }
 
-    public OperatorFactory getCollectOperatorFactory(int operatorId)
+    public OperatorFactory getCollectOperatorFactory(int operatorId, PlanNodeId planNodeId)
     {
         return new ParallelHashCollectOperatorFactory(
                 operatorId,
+                planNodeId,
                 pagesIndexFutures,
                 types,
                 hashChannels,
@@ -83,10 +85,11 @@ public class ParallelHashBuilder
                 expectedPositions);
     }
 
-    public OperatorFactory getBuildOperatorFactory()
+    public OperatorFactory getBuildOperatorFactory(PlanNodeId planNodeId)
     {
         return new ParallelHashBuilderOperatorFactory(
                 0,
+                planNodeId,
                 types,
                 pagesIndexFutures,
                 lookupSourceFutures,
@@ -103,6 +106,7 @@ public class ParallelHashBuilder
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<SettableFuture<PagesIndex>> partitionFutures;
         private final List<Type> types;
         private final List<Integer> hashChannels;
@@ -113,6 +117,7 @@ public class ParallelHashBuilder
 
         public ParallelHashCollectOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<SettableFuture<PagesIndex>> partitionFutures,
                 List<Type> types,
                 List<Integer> hashChannels,
@@ -120,6 +125,7 @@ public class ParallelHashBuilder
                 int expectedPositions)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.partitionFutures = partitionFutures;
             this.types = types;
             this.hashChannels = hashChannels;
@@ -137,7 +143,7 @@ public class ParallelHashBuilder
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ParallelHashBuilder.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ParallelHashBuilder.class.getSimpleName());
             return new ParallelHashCollectOperator(
                     operatorContext,
                     partitionFutures,
@@ -279,6 +285,7 @@ public class ParallelHashBuilder
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final List<Type> types;
         private final List<ListenableFuture<PagesIndex>> partitionFutures;
         private final List<SettableFuture<SharedLookupSource>> lookupSourceFutures;
@@ -290,6 +297,7 @@ public class ParallelHashBuilder
 
         public ParallelHashBuilderOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<Type> types,
                 List<? extends ListenableFuture<PagesIndex>> partitionFutures,
                 List<SettableFuture<SharedLookupSource>> lookupSourceFutures,
@@ -297,6 +305,7 @@ public class ParallelHashBuilder
                 Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.types = types;
             this.partitionFutures = ImmutableList.copyOf(partitionFutures);
             this.lookupSourceFutures = lookupSourceFutures;
@@ -317,7 +326,7 @@ public class ParallelHashBuilder
             checkState(!closed, "Factory is already closed");
             checkState(partition < lookupSourceFutures.size(), "All operators already created");
 
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, ParallelHashBuilder.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ParallelHashBuilder.class.getSimpleName());
             ParallelHashBuilderOperator parallelHashBuilderOperator = new ParallelHashBuilderOperator(
                     operatorContext,
                     types,

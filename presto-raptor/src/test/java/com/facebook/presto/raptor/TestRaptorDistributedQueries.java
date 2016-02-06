@@ -15,8 +15,10 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -28,16 +30,21 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
 {
+    @SuppressWarnings("unused")
     public TestRaptorDistributedQueries()
             throws Exception
     {
-        super(createRaptorQueryRunner(getTables()), createSampledSession());
+        super(createRaptorQueryRunner(ImmutableMap.of(), true, false), createSampledSession());
+    }
+
+    protected TestRaptorDistributedQueries(QueryRunner queryRunner)
+    {
+        super(queryRunner);
     }
 
     @Test
@@ -81,5 +88,50 @@ public class TestRaptorDistributedQueries
     {
         computeActual("CREATE TABLE test_table_properties_1 (foo BIGINT, bar BIGINT, ds DATE) WITH (ordering=array['foo','bar'], temporal_column='ds')");
         computeActual("CREATE TABLE test_table_properties_2 (foo BIGINT, bar BIGINT, ds DATE) WITH (ORDERING=array['foo','bar'], TEMPORAL_COLUMN='ds')");
+    }
+
+    @Test
+    public void testShardsSystemTable()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT table_schema, table_name, sum(row_count)\n" +
+                        "FROM system.shards\n" +
+                        "WHERE table_schema = 'tpch'\n" +
+                        "  AND table_name IN ('orders', 'lineitem')\n" +
+                        "GROUP BY 1, 2",
+                "" +
+                        "SELECT 'tpch', 'orders', (SELECT count(*) FROM orders)\n" +
+                        "UNION ALL\n" +
+                        "SELECT 'tpch', 'lineitem', (SELECT count(*) FROM lineitem)");
+    }
+
+    @Test
+    public void testCreateBucketedTable()
+            throws Exception
+    {
+        assertUpdate("" +
+                        "CREATE TABLE orders_bucketed " +
+                        "WITH (bucket_count = 50, bucketed_on = ARRAY ['orderkey']) " +
+                        "AS SELECT * FROM orders",
+                "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT * FROM orders_bucketed", "SELECT * FROM orders");
+        assertQuery("SELECT count(*) FROM orders_bucketed", "SELECT count(*) FROM orders");
+        assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 50");
+
+        assertUpdate("INSERT INTO orders_bucketed SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT * FROM orders_bucketed", "SELECT * FROM orders UNION ALL SELECT * FROM orders");
+        assertQuery("SELECT count(*) FROM orders_bucketed", "SELECT count(*) * 2 FROM orders");
+        assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 50 * 2");
+
+        assertQuery("SELECT count(*) FROM orders_bucketed a JOIN orders_bucketed b USING (orderkey)", "SELECT count(*) * 4 FROM orders");
+
+        assertUpdate("DELETE FROM orders_bucketed WHERE orderkey = 37", 2);
+        assertQuery("SELECT count(*) FROM orders_bucketed", "SELECT (count(*) * 2) - 2 FROM orders");
+        assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 50 * 2");
+
+        assertUpdate("DROP TABLE orders_bucketed");
     }
 }

@@ -27,6 +27,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 
+@Deprecated
 public interface ConnectorMetadata
 {
     /**
@@ -41,7 +42,7 @@ public interface ConnectorMetadata
 
     /**
      * Return a list of table layouts that satisfy the given constraint.
-     *
+     * <p>
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
      */
     default List<ConnectorTableLayoutResult> getTableLayouts(
@@ -212,7 +213,7 @@ public interface ConnectorMetadata
     /**
      * Commit delete query
      *
-     * @param fragments all fragments returned by {@link com.facebook.presto.spi.UpdatablePageSource#commit()}
+     * @param fragments all fragments returned by {@link com.facebook.presto.spi.UpdatablePageSource#finish()}
      */
     default void commitDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
@@ -266,6 +267,7 @@ public interface ConnectorMetadata
 
     /**
      * Delete the provided table layout
+     *
      * @return number of rows deleted, or null for unknown
      */
     default OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)

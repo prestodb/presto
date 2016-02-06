@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -53,7 +53,7 @@ public class ArrayAggregationFunction
 
     public ArrayAggregationFunction()
     {
-        super(NAME, ImmutableList.of(typeParameter("T")), "array<T>", ImmutableList.of("T"));
+        super(NAME, ImmutableList.of(typeParameter("T")), "array(T)", ImmutableList.of("T"));
     }
 
     @Override

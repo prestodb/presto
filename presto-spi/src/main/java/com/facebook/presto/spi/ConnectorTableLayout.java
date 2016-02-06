@@ -28,8 +28,9 @@ public class ConnectorTableLayout
     private final ConnectorTableLayoutHandle handle;
     private final Optional<List<ColumnHandle>> columns;
     private final TupleDomain<ColumnHandle> predicate;
+    private final Optional<ConnectorNodePartitioning> nodePartitioning;
+    private final Optional<Set<ColumnHandle>> streamPartitioningColumns;
     private final Optional<List<TupleDomain<ColumnHandle>>> discretePredicates;
-    private final Optional<Set<ColumnHandle>> partitioningColumns;
     private final List<LocalProperty<ColumnHandle>> localProperties;
 
     public ConnectorTableLayout(ConnectorTableLayoutHandle handle)
@@ -39,6 +40,7 @@ public class ConnectorTableLayout
                 TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 emptyList());
     }
 
@@ -46,20 +48,23 @@ public class ConnectorTableLayout
             ConnectorTableLayoutHandle handle,
             Optional<List<ColumnHandle>> columns,
             TupleDomain<ColumnHandle> predicate,
-            Optional<Set<ColumnHandle>> partitioningColumns,
+            Optional<ConnectorNodePartitioning> nodePartitioning,
+            Optional<Set<ColumnHandle>> streamPartitioningColumns,
             Optional<List<TupleDomain<ColumnHandle>>> discretePredicates,
             List<LocalProperty<ColumnHandle>> localProperties)
     {
         requireNonNull(handle, "handle is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(partitioningColumns, "partitioningColumns is null");
+        requireNonNull(streamPartitioningColumns, "partitioningColumns is null");
+        requireNonNull(nodePartitioning, "nodePartitioning is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(discretePredicates, "discretePredicates is null");
         requireNonNull(localProperties, "localProperties is null");
 
         this.handle = handle;
         this.columns = columns;
-        this.partitioningColumns = partitioningColumns;
+        this.nodePartitioning = nodePartitioning;
+        this.streamPartitioningColumns = streamPartitioningColumns;
         this.predicate = predicate;
         this.discretePredicates = discretePredicates;
         this.localProperties = localProperties;
@@ -88,17 +93,28 @@ public class ConnectorTableLayout
     }
 
     /**
-     * The partitioning for the table.
+     * The partitioning of the table across the worker nodes.
+     * <p>
+     * If the table is node partitioned, the connector guarantees that each combination of values for
+     * the distributed columns will be contained within a single worker.
+     */
+    public Optional<ConnectorNodePartitioning> getNodePartitioning()
+    {
+        return nodePartitioning;
+    }
+
+    /**
+     * The partitioning for the table streams.
      * If empty, the table layout is partitioned arbitrarily.
-     * Otherwise, it is partitioned on the given set of columns (or unpartitioned, if the set is empty)
+     * Otherwise, table steams are partitioned on the given set of columns (or unpartitioned, if the set is empty)
      * <p>
      * If the table is partitioned, the connector guarantees that each combination of values for
      * the partition columns will be contained within a single split (i.e., partitions cannot
      * straddle multiple splits)
      */
-    public Optional<Set<ColumnHandle>> getPartitioningColumns()
+    public Optional<Set<ColumnHandle>> getStreamPartitioningColumns()
     {
-        return partitioningColumns;
+        return streamPartitioningColumns;
     }
 
     /**
@@ -122,7 +138,7 @@ public class ConnectorTableLayout
     @Override
     public int hashCode()
     {
-        return Objects.hash(handle, columns, predicate, discretePredicates, partitioningColumns, localProperties);
+        return Objects.hash(handle, columns, predicate, discretePredicates, streamPartitioningColumns, nodePartitioning, localProperties);
     }
 
     @Override
@@ -134,12 +150,13 @@ public class ConnectorTableLayout
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final ConnectorTableLayout other = (ConnectorTableLayout) obj;
+        ConnectorTableLayout other = (ConnectorTableLayout) obj;
         return Objects.equals(this.handle, other.handle)
                 && Objects.equals(this.columns, other.columns)
                 && Objects.equals(this.predicate, other.predicate)
                 && Objects.equals(this.discretePredicates, other.discretePredicates)
-                && Objects.equals(this.partitioningColumns, other.partitioningColumns)
+                && Objects.equals(this.streamPartitioningColumns, other.streamPartitioningColumns)
+                && Objects.equals(this.nodePartitioning, other.nodePartitioning)
                 && Objects.equals(this.localProperties, other.localProperties);
     }
 }

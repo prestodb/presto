@@ -113,7 +113,7 @@ public interface Block
     /**
      * Gets the value at the specified position as a single element block.  The method
      * must copy the data into a new block.
-     *
+     * <p>
      * This method is useful for operators that hold on to a single value without
      * holding on to the entire block.
      *
@@ -144,7 +144,7 @@ public interface Block
     /**
      * Returns a block containing the specified positions.
      * All specified positions must be valid for this block.
-     *
+     * <p>
      * The returned block must be a compact representation of the original block.
      */
     Block copyPositions(List<Integer> positions);
@@ -153,7 +153,7 @@ public interface Block
      * Returns a block starting at the specified position and extends for the
      * specified length.  The specified region must be entirely contained
      * within this block.
-     *
+     * <p>
      * The region can be a view over this block.  If this block is released
      * the region block may also be released.  If the region block is released
      * this block may also be released.
@@ -164,7 +164,7 @@ public interface Block
      * Returns a block starting at the specified position and extends for the
      * specified length.  The specified region must be entirely contained
      * within this block.
-     *
+     * <p>
      * The region returned must be a compact representation of the original block, unless their internal
      * representation will be exactly the same. This method is useful for
      * operators that hold on to a range of values without holding on to the
@@ -181,7 +181,7 @@ public interface Block
 
     /**
      * Assures that all data for the block is in memory.
-     *
+     * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */

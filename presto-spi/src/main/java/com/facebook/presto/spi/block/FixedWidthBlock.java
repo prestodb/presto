@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.spi.block;
 
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -26,6 +26,8 @@ import static com.facebook.presto.spi.block.BlockValidationUtil.checkValidPositi
 public class FixedWidthBlock
         extends AbstractFixedWidthBlock
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedWidthBlock.class).instanceSize();
+
     private final int positionCount;
     private final Slice slice;
     private final Slice valueIsNull;
@@ -78,7 +80,7 @@ public class FixedWidthBlock
     @Override
     public int getRetainedSizeInBytes()
     {
-        long size = getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize();
+        long size = INSTANCE_SIZE + getRawSlice().getRetainedSize() + valueIsNull.getRetainedSize();
         if (size > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
@@ -90,12 +92,12 @@ public class FixedWidthBlock
     {
         checkValidPositions(positions, positionCount);
 
-        SliceOutput newSlice = new DynamicSliceOutput(positions.size() * fixedSize);
-        SliceOutput newValueIsNull = new DynamicSliceOutput(positions.size());
+        SliceOutput newSlice = Slices.allocate(positions.size() * fixedSize).getOutput();
+        SliceOutput newValueIsNull = Slices.allocate(positions.size()).getOutput();
 
         for (int position : positions) {
-            newValueIsNull.appendByte(valueIsNull.getByte(position));
-            newSlice.appendBytes(getRawSlice().getBytes(position * fixedSize, fixedSize));
+            newSlice.writeBytes(slice, position * fixedSize, fixedSize);
+            newValueIsNull.writeByte(valueIsNull.getByte(position));
         }
         return new FixedWidthBlock(fixedSize, positions.size(), newSlice.slice(), newValueIsNull.slice());
     }

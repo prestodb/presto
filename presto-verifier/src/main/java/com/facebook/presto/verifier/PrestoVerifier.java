@@ -13,6 +13,27 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowSchemas;
+import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowTables;
+import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
@@ -26,18 +47,21 @@ import io.airlift.event.client.EventClient;
 import org.skife.jdbi.v2.DBI;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Paths;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.verifier.QueryType.CREATE;
+import static com.facebook.presto.verifier.QueryType.MODIFY;
+import static com.facebook.presto.verifier.QueryType.READ;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class PrestoVerifier
@@ -87,6 +111,7 @@ public class PrestoVerifier
 
             List<QueryPair> queries = queriesBuilder.build();
             queries = applyOverrides(config, queries);
+            queries = filterQueryTypes(new SqlParser(getParserOptions()), config, queries);
             queries = filterQueries(queries);
 
             // Load jdbc drivers if needed
@@ -136,13 +161,8 @@ public class PrestoVerifier
             urlList.add(Paths.get(path).toUri().toURL());
             return urlList.build();
         }
-        File[] files = driverPath.listFiles(new FilenameFilter()
-        {
-            @Override
-            public boolean accept(File dir, String name)
-            {
-                return name.endsWith(".jar");
-            }
+        File[] files = driverPath.listFiles((dir, name) -> {
+            return name.endsWith(".jar");
         });
         if (files == null) {
             return urlList.build();
@@ -158,6 +178,14 @@ public class PrestoVerifier
     }
 
     /**
+     * Override this method to change the parser options used when parsing queries to decide if they match the allowed query types
+     */
+    protected SqlParserOptions getParserOptions()
+    {
+        return new SqlParserOptions();
+    }
+
+    /**
      * Override this method to apply additional filtering to queries, before they're run.
      */
     protected List<QueryPair> filterQueries(List<QueryPair> queries)
@@ -165,12 +193,113 @@ public class PrestoVerifier
         return queries;
     }
 
+    private static List<QueryPair> filterQueryTypes(SqlParser parser, VerifierConfig config, List<QueryPair> queries)
+    {
+        ImmutableList.Builder<QueryPair> builder = ImmutableList.builder();
+        for (QueryPair pair : queries) {
+            if (queryTypeAllowed(parser, config.getControlQueryTypes(), pair.getControl()) && queryTypeAllowed(parser, config.getTestQueryTypes(), pair.getTest())) {
+                builder.add(pair);
+            }
+        }
+        return builder.build();
+    }
+
+    private static boolean queryTypeAllowed(SqlParser parser, Set<QueryType> allowedTypes, Query query)
+    {
+        Set<QueryType> types = EnumSet.noneOf(QueryType.class);
+        try {
+            for (String sql : query.getPreQueries()) {
+                types.add(statementToQueryType(parser, sql));
+            }
+            types.add(statementToQueryType(parser, query.getQuery()));
+            for (String sql : query.getPostQueries()) {
+                types.add(statementToQueryType(parser, sql));
+            }
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+        return allowedTypes.containsAll(types);
+    }
+
+    private static QueryType statementToQueryType(SqlParser parser, String sql)
+    {
+        Statement statement;
+        try {
+            statement = parser.createStatement(sql);
+        }
+        catch (RuntimeException e) {
+            throw new UnsupportedOperationException();
+        }
+        if (statement instanceof AddColumn) {
+            return MODIFY;
+        }
+        if (statement instanceof CreateTable) {
+            return CREATE;
+        }
+        if (statement instanceof CreateTableAsSelect) {
+            return CREATE;
+        }
+        if (statement instanceof CreateView) {
+            if (((CreateView) statement).isReplace()) {
+                return MODIFY;
+            }
+            return CREATE;
+        }
+        if (statement instanceof Delete) {
+            return MODIFY;
+        }
+        if (statement instanceof DropTable) {
+            return MODIFY;
+        }
+        if (statement instanceof DropView) {
+            return MODIFY;
+        }
+        if (statement instanceof Explain) {
+            return READ;
+        }
+        if (statement instanceof Insert) {
+            return MODIFY;
+        }
+        if (statement instanceof com.facebook.presto.sql.tree.Query) {
+            return READ;
+        }
+        if (statement instanceof RenameColumn) {
+            return MODIFY;
+        }
+        if (statement instanceof RenameTable) {
+            return MODIFY;
+        }
+        if (statement instanceof ShowCatalogs) {
+            return READ;
+        }
+        if (statement instanceof ShowColumns) {
+            return READ;
+        }
+        if (statement instanceof ShowFunctions) {
+            return READ;
+        }
+        if (statement instanceof ShowPartitions) {
+            return READ;
+        }
+        if (statement instanceof ShowSchemas) {
+            return READ;
+        }
+        if (statement instanceof ShowSession) {
+            return READ;
+        }
+        if (statement instanceof ShowTables) {
+            return READ;
+        }
+        throw new UnsupportedOperationException();
+    }
+
     protected Iterable<Module> getAdditionalModules()
     {
         return ImmutableList.of();
     }
 
-    private static List<QueryPair> applyOverrides(final VerifierConfig config, List<QueryPair> queries)
+    private static List<QueryPair> applyOverrides(VerifierConfig config, List<QueryPair> queries)
     {
         return queries.stream()
                 .map(input -> {

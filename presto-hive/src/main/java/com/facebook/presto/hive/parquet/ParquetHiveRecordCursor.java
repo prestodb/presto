@@ -1152,7 +1152,6 @@ public class ParquetHiveRecordCursor
         private final Type type;
         private final int fieldIndex;
         private BlockBuilder builder;
-        private boolean wroteValue;
 
         public ParquetPrimitiveConverter(Type type, int fieldIndex)
         {
@@ -1164,7 +1163,6 @@ public class ParquetHiveRecordCursor
         public void beforeValue(BlockBuilder builder)
         {
             this.builder = requireNonNull(builder, "parent builder is null");
-            wroteValue = false;
         }
 
         @Override
@@ -1212,7 +1210,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             BOOLEAN.writeBoolean(builder, value);
-            wroteValue = true;
         }
 
         @Override
@@ -1220,7 +1217,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             DOUBLE.writeDouble(builder, value);
-            wroteValue = true;
         }
 
         @Override
@@ -1228,7 +1224,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             BIGINT.writeLong(builder, value);
-            wroteValue = true;
         }
 
         @Override
@@ -1241,7 +1236,6 @@ public class ParquetHiveRecordCursor
             else {
                 VARBINARY.writeSlice(builder, wrappedBuffer(value.getBytes()));
             }
-            wroteValue = true;
         }
 
         @Override
@@ -1249,7 +1243,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             DOUBLE.writeDouble(builder, value);
-            wroteValue = true;
         }
 
         @Override
@@ -1257,7 +1250,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             BIGINT.writeLong(builder, value);
-            wroteValue = true;
         }
     }
 }

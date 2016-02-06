@@ -22,7 +22,7 @@ import com.google.common.collect.Multimaps;
 import java.util.Collection;
 import java.util.List;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -99,7 +99,7 @@ public class PartitionUpdate
                 if (partition.isNew() != firstPartition.isNew() ||
                         !partition.getWritePath().equals(firstPartition.getWritePath()) ||
                         !partition.getTargetPath().equals(firstPartition.getTargetPath())) {
-                    throw new PrestoException(HIVE_WRITER_ERROR, format("Partition %s was added or modified during INSERT", firstPartition.getName()));
+                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, format("Partition %s was added or modified during INSERT", firstPartition.getName()));
                 }
                 allFileNames.addAll(partition.getFileNames());
             }

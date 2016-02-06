@@ -26,7 +26,6 @@ import io.airlift.units.DataSize;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
@@ -57,7 +56,7 @@ public class TypedHistogram
 
         maxFill = calculateMaxFill(hashSize);
         mask = hashSize - 1;
-        values = this.type.createBlockBuilder(new BlockBuilderStatus(), hashSize, expectedValueSize(type, hashSize));
+        values = this.type.createBlockBuilder(new BlockBuilderStatus(), hashSize);
         hashPositions = new IntBigArray(-1);
         hashPositions.ensureCapacity(hashSize);
         counts = new LongBigArray();

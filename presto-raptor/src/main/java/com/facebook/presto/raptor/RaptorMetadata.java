@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ColumnInfo;
-import com.facebook.presto.raptor.metadata.ForMetadata;
+import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
@@ -25,7 +25,8 @@ import com.facebook.presto.raptor.metadata.ViewResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorNodePartitioning;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -39,6 +40,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -51,16 +55,17 @@ import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
@@ -69,13 +74,20 @@ import static com.facebook.presto.raptor.RaptorColumnHandle.shardRowIdHandle;
 import static com.facebook.presto.raptor.RaptorColumnHandle.shardUuidColumnHandle;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatchId;
+import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.getBucketColumns;
+import static com.facebook.presto.raptor.RaptorTableProperties.getBucketCount;
+import static com.facebook.presto.raptor.RaptorTableProperties.getDistributionName;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
+import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
@@ -84,6 +96,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -100,24 +113,21 @@ public class RaptorMetadata
     private final JsonCodec<ShardDelta> shardDeltaCodec;
     private final String connectorId;
 
-    @Inject
+    private final AtomicReference<Long> currentTransactionId = new AtomicReference<>();
+
     public RaptorMetadata(
-            RaptorConnectorId connectorId,
-            @ForMetadata IDBI dbi,
+            String connectorId,
+            IDBI dbi,
             ShardManager shardManager,
             JsonCodec<ShardInfo> shardInfoCodec,
             JsonCodec<ShardDelta> shardDeltaCodec)
     {
-        requireNonNull(connectorId, "connectorId is null");
-
-        this.connectorId = connectorId.toString();
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
-
-        createTablesWithRetry(dbi);
     }
 
     @Override
@@ -154,8 +164,11 @@ public class RaptorMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getTableId(),
+                table.getDistributionId(),
+                table.getBucketCount(),
                 OptionalLong.empty(),
-                Optional.ofNullable(sampleWeightColumnHandle));
+                Optional.ofNullable(sampleWeightColumnHandle),
+                false);
     }
 
     @Override
@@ -247,20 +260,138 @@ public class RaptorMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         RaptorTableHandle handle = checkType(table, RaptorTableHandle.class, "table");
-        ConnectorTableLayout layout = new ConnectorTableLayout(new RaptorTableLayoutHandle(handle, constraint.getSummary()));
+        ConnectorTableLayout layout = getTableLayout(handle, constraint.getSummary());
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        return new ConnectorTableLayout(handle);
+        RaptorTableLayoutHandle raptorHandle = checkType(handle, RaptorTableLayoutHandle.class, "handle");
+        return getTableLayout(raptorHandle.getTable(), raptorHandle.getConstraint());
+    }
+
+    private ConnectorTableLayout getTableLayout(RaptorTableHandle handle, TupleDomain<ColumnHandle> constraint)
+    {
+        if (!handle.getDistributionId().isPresent()) {
+            return new ConnectorTableLayout(new RaptorTableLayoutHandle(handle, constraint, Optional.empty()));
+        }
+
+        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(handle.getTableId());
+        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().getAsLong());
+
+        return new ConnectorTableLayout(
+                new RaptorTableLayoutHandle(handle, constraint, Optional.of(partitioning)),
+                Optional.empty(),
+                TupleDomain.all(),
+                Optional.of(new ConnectorNodePartitioning(
+                        partitioning,
+                        ImmutableList.copyOf(bucketColumnHandles))),
+                Optional.of(ImmutableSet.copyOf(bucketColumnHandles)),
+                Optional.empty(),
+                ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata metadata)
+    {
+        ImmutableMap.Builder<String, RaptorColumnHandle> map = ImmutableMap.builder();
+        long columnId = 1;
+        for (ColumnMetadata column : metadata.getColumns()) {
+            map.put(column.getName(), new RaptorColumnHandle(connectorId, column.getName(), columnId, column.getType()));
+            columnId++;
+        }
+
+        Optional<DistributionInfo> distribution = getOrCreateDistribution(map.build(), metadata.getProperties());
+        if (!distribution.isPresent()) {
+            return Optional.empty();
+        }
+
+        List<String> partitionColumns = distribution.get().getBucketColumns().stream()
+                .map(RaptorColumnHandle::getColumnName)
+                .collect(toList());
+
+        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId());
+        return Optional.of(new ConnectorNewTableLayout(partitioning, partitionColumns));
+    }
+
+    private RaptorPartitioningHandle getPartitioningHandle(long distributionId)
+    {
+        return new RaptorPartitioningHandle(distributionId, shardManager.getBucketAssignments(distributionId));
+    }
+
+    private Optional<DistributionInfo> getOrCreateDistribution(Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
+    {
+        OptionalInt bucketCount = getBucketCount(properties);
+        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(getBucketColumns(properties), columnHandleMap);
+
+        if (bucketCount.isPresent() && bucketColumnHandles.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, BUCKET_COUNT_PROPERTY));
+        }
+        if (!bucketCount.isPresent() && !bucketColumnHandles.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKET_COUNT_PROPERTY, BUCKETED_ON_PROPERTY));
+        }
+        ImmutableList.Builder<Type> bucketColumnTypes = ImmutableList.builder();
+        for (RaptorColumnHandle column : bucketColumnHandles) {
+            if (!column.getColumnType().equals(BIGINT)) {
+                throw new PrestoException(NOT_SUPPORTED, "Bucketing is only supported for BIGINT columns");
+            }
+            bucketColumnTypes.add(column.getColumnType());
+        }
+
+        long distributionId;
+        String distributionName = getDistributionName(properties);
+        if (distributionName != null) {
+            if (bucketColumnHandles.isEmpty()) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, DISTRIBUTION_NAME_PROPERTY));
+            }
+
+            Distribution distribution = dao.getDistribution(distributionName);
+            if (distribution == null) {
+                if (!bucketCount.isPresent()) {
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, "Distribution does not exist and bucket count is not specified");
+                }
+                distribution = getOrCreateDistribution(distributionName, bucketColumnTypes.build(), bucketCount.getAsInt());
+            }
+            distributionId = distribution.getId();
+
+            if (bucketCount.isPresent() && (distribution.getBucketCount() != bucketCount.getAsInt())) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Bucket count must match distribution");
+            }
+            if (!distribution.getColumnTypes().equals(bucketColumnTypes.build())) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Bucket column types must match distribution");
+            }
+        }
+        else if (bucketCount.isPresent()) {
+            String types = Distribution.serializeColumnTypes(bucketColumnTypes.build());
+            distributionId = dao.insertDistribution(null, types, bucketCount.getAsInt());
+        }
+        else {
+            return Optional.empty();
+        }
+
+        shardManager.createBuckets(distributionId, bucketCount.getAsInt());
+
+        return Optional.of(new DistributionInfo(distributionId, bucketCount.getAsInt(), bucketColumnHandles));
+    }
+
+    private Distribution getOrCreateDistribution(String name, List<Type> columnTypes, int bucketCount)
+    {
+        String types = Distribution.serializeColumnTypes(columnTypes);
+        runIgnoringConstraintViolation(() -> dao.insertDistribution(name, types, bucketCount));
+
+        Distribution distribution = dao.getDistribution(name);
+        if (distribution == null) {
+            throw new PrestoException(RAPTOR_ERROR, "Distribution does not exist after insert");
+        }
+        return distribution;
     }
 
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        commitCreateTable(session, beginCreateTable(session, tableMetadata), ImmutableList.of());
+        Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
+        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of());
     }
 
     @Override
@@ -294,7 +425,7 @@ public class RaptorMetadata
         int ordinalPosition = existingColumns.size();
 
         String type = column.getType().getTypeSignature().toString();
-        dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null);
+        dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null, null);
         shardManager.addColumn(table.getTableId(), new ColumnInfo(columnId, column.getType()));
     }
 
@@ -307,8 +438,12 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        Optional<RaptorPartitioningHandle> partitioning = layout
+                .map(ConnectorNewTableLayout::getPartitioning)
+                .map(handle -> checkType(handle, RaptorPartitioningHandle.class, "partitioning"));
+
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
 
@@ -339,6 +474,11 @@ public class RaptorMetadata
 
         long transactionId = shardManager.beginTransaction();
 
+        setTransactionId(transactionId);
+
+        Optional<DistributionInfo> distribution = partitioning.map(handle ->
+                getDistributionInfo(handle.getDistributionId(), columnHandleMap, tableMetadata.getProperties()));
+
         return new RaptorOutputTableHandle(
                 connectorId,
                 transactionId,
@@ -349,7 +489,20 @@ public class RaptorMetadata
                 Optional.ofNullable(sampleWeightColumnHandle),
                 sortColumnHandles,
                 nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
-                temporalColumnHandle);
+                temporalColumnHandle,
+                distribution.map(info -> OptionalLong.of(info.getDistributionId())).orElse(OptionalLong.empty()),
+                distribution.map(info -> OptionalInt.of(info.getBucketCount())).orElse(OptionalInt.empty()),
+                distribution.map(DistributionInfo::getBucketColumns).orElse(ImmutableList.of()));
+    }
+
+    private DistributionInfo getDistributionInfo(long distributionId, Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
+    {
+        Distribution distribution = dao.getDistribution(distributionId);
+        if (distribution == null) {
+            throw new PrestoException(RAPTOR_ERROR, "Distribution ID does not exist: " + distributionId);
+        }
+        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(getBucketColumns(properties), columnHandleMap);
+        return new DistributionInfo(distributionId, distribution.getBucketCount(), bucketColumnHandles);
     }
 
     private static Optional<RaptorColumnHandle> getTemporalColumnHandle(String temporalColumn, Map<String, RaptorColumnHandle> columnHandleMap)
@@ -377,16 +530,32 @@ public class RaptorMetadata
         return columnHandles.build();
     }
 
+    private static List<RaptorColumnHandle> getBucketColumnHandles(List<String> bucketColumns, Map<String, RaptorColumnHandle> columnHandleMap)
+    {
+        ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
+        for (String column : bucketColumns) {
+            if (!columnHandleMap.containsKey(column)) {
+                throw new PrestoException(NOT_FOUND, "Bucketing column does not exist: " + column);
+            }
+            columnHandles.add(columnHandleMap.get(column));
+        }
+        return columnHandles.build();
+    }
+
     @Override
-    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
+    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Collection<Slice> fragments)
     {
         RaptorOutputTableHandle table = checkType(outputTableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
         long transactionId = table.getTransactionId();
 
         long newTableId = runTransaction(dbi, (dbiHandle, status) -> {
             MetadataDao dao = dbiHandle.attach(MetadataDao.class);
-            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true);
+
+            Long distributionId = table.getDistributionId().isPresent() ? table.getDistributionId().getAsLong() : null;
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, distributionId);
+
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
+            List<RaptorColumnHandle> bucketColumnHandles = table.getBucketColumnHandles();
 
             for (int i = 0; i < table.getColumnTypes().size(); i++) {
                 RaptorColumnHandle column = table.getColumnHandles().get(i);
@@ -394,7 +563,9 @@ public class RaptorMetadata
                 int columnId = i + 1;
                 String type = table.getColumnTypes().get(i).getTypeSignature().toString();
                 Integer sortPosition = sortColumnHandles.contains(column) ? sortColumnHandles.indexOf(column) : null;
-                dao.insertColumn(tableId, columnId, column.getColumnName(), i, type, sortPosition);
+                Integer bucketPosition = bucketColumnHandles.contains(column) ? bucketColumnHandles.indexOf(column) : null;
+
+                dao.insertColumn(tableId, columnId, column.getColumnName(), i, type, sortPosition, bucketPosition);
 
                 if (table.getTemporalColumnHandle().isPresent() && table.getTemporalColumnHandle().get().equals(column)) {
                     dao.updateTemporalColumnId(tableId, columnId);
@@ -407,21 +578,17 @@ public class RaptorMetadata
         List<ColumnInfo> columns = table.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
 
         // TODO: refactor this to avoid creating an empty table on failure
-        shardManager.createTable(newTableId, columns);
+        shardManager.createTable(newTableId, columns, table.getBucketCount().isPresent());
         shardManager.commitShards(transactionId, newTableId, columns, parseFragments(fragments), Optional.empty());
-    }
 
-    @Override
-    public void rollbackCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
-    {
-        RaptorOutputTableHandle handle = checkType(tableHandle, RaptorOutputTableHandle.class, "outputTableHandle");
-        shardManager.rollbackTransaction(handle.getTransactionId());
+        clearRollback();
     }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        long tableId = checkType(tableHandle, RaptorTableHandle.class, "tableHandle").getTableId();
+        RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        long tableId = handle.getTableId();
 
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -432,8 +599,11 @@ public class RaptorMetadata
 
         long transactionId = shardManager.beginTransaction();
 
+        setTransactionId(transactionId);
+
         Optional<String> externalBatchId = getExternalBatchId(session);
         List<RaptorColumnHandle> sortColumnHandles = getSortColumnHandles(tableId);
+        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(tableId);
         return new RaptorInsertTableHandle(connectorId,
                 transactionId,
                 tableId,
@@ -441,7 +611,9 @@ public class RaptorMetadata
                 columnTypes.build(),
                 externalBatchId,
                 sortColumnHandles,
-                nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST));
+                nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
+                handle.getBucketCount(),
+                bucketColumnHandles);
     }
 
     private List<RaptorColumnHandle> getSortColumnHandles(long tableId)
@@ -451,8 +623,15 @@ public class RaptorMetadata
                 .collect(toList());
     }
 
+    private List<RaptorColumnHandle> getBucketColumnHandles(long tableId)
+    {
+        return dao.listBucketColumns(tableId).stream()
+                .map(this::getRaptorColumnHandle)
+                .collect(toList());
+    }
+
     @Override
-    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public void finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
         long transactionId = handle.getTransactionId();
@@ -461,13 +640,8 @@ public class RaptorMetadata
         List<ColumnInfo> columns = handle.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
 
         shardManager.commitShards(transactionId, tableId, columns, parseFragments(fragments), externalBatchId);
-    }
 
-    @Override
-    public void rollbackInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle)
-    {
-        RaptorInsertTableHandle handle = checkType(insertHandle, RaptorInsertTableHandle.class, "insertHandle");
-        shardManager.rollbackTransaction(handle.getTransactionId());
+        clearRollback();
     }
 
     @Override
@@ -483,17 +657,22 @@ public class RaptorMetadata
 
         long transactionId = shardManager.beginTransaction();
 
+        setTransactionId(transactionId);
+
         return new RaptorTableHandle(
                 connectorId,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getTableId(),
+                handle.getDistributionId(),
+                handle.getBucketCount(),
                 OptionalLong.of(transactionId),
-                handle.getSampleWeightColumnHandle());
+                handle.getSampleWeightColumnHandle(),
+                true);
     }
 
     @Override
-    public void commitDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         RaptorTableHandle table = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
         long transactionId = table.getTransactionId().getAsLong();
@@ -514,13 +693,8 @@ public class RaptorMetadata
                 });
 
         shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids.build(), newShards.build());
-    }
 
-    @Override
-    public void rollbackDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
-        shardManager.rollbackTransaction(handle.getTransactionId().getAsLong());
+        clearRollback();
     }
 
     @Override
@@ -606,5 +780,52 @@ public class RaptorMetadata
     private static ColumnMetadata hiddenColumn(String name, Type type)
     {
         return new ColumnMetadata(name, type, false, null, true);
+    }
+
+    private void setTransactionId(long transactionId)
+    {
+        checkState(currentTransactionId.compareAndSet(null, transactionId), "current transaction ID already set");
+    }
+
+    private void clearRollback()
+    {
+        currentTransactionId.set(null);
+    }
+
+    public void rollback()
+    {
+        Long transactionId = currentTransactionId.getAndSet(null);
+        if (transactionId != null) {
+            shardManager.rollbackTransaction(transactionId);
+        }
+    }
+
+    private static class DistributionInfo
+    {
+        private final long distributionId;
+        private final int bucketCount;
+        private final List<RaptorColumnHandle> bucketColumns;
+
+        public DistributionInfo(long distributionId, int bucketCount, List<RaptorColumnHandle> bucketColumns)
+        {
+            this.distributionId = distributionId;
+            this.bucketCount = bucketCount;
+            this.bucketColumns = ImmutableList.copyOf(requireNonNull(bucketColumns, "bucketColumns is null"));
+        }
+
+        public long getDistributionId()
+        {
+            return distributionId;
+        }
+
+        public int getBucketCount()
+        {
+            return bucketCount;
+        }
+
+        public List<RaptorColumnHandle> getBucketColumns()
+        {
+            return bucketColumns;
+        }
     }
 }

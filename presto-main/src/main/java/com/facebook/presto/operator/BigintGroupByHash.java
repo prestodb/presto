@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
@@ -37,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class BigintGroupByHash
         implements GroupByHash
 {
-    private static final float FILL_RATIO = 0.9f;
+    private static final float FILL_RATIO = 0.75f;
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final List<Type> TYPES_WITH_RAW_HASH = ImmutableList.of(BIGINT, BIGINT);
 
@@ -45,6 +47,7 @@ public class BigintGroupByHash
     private final int maskChannel;
     private final boolean outputRawHash;
 
+    private int hashCapacity;
     private int maxFill;
     private int mask;
 
@@ -69,17 +72,17 @@ public class BigintGroupByHash
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
         this.outputRawHash = outputRawHash;
 
-        int hashSize = arraySize(expectedSize, FILL_RATIO);
+        hashCapacity = arraySize(expectedSize, FILL_RATIO);
 
-        maxFill = calculateMaxFill(hashSize);
-        mask = hashSize - 1;
+        maxFill = calculateMaxFill(hashCapacity);
+        mask = hashCapacity - 1;
         values = new LongBigArray();
-        values.ensureCapacity(hashSize);
+        values.ensureCapacity(hashCapacity);
         groupIds = new IntBigArray(-1);
-        groupIds.ensureCapacity(hashSize);
+        groupIds.ensureCapacity(hashCapacity);
 
         valuesByGroupId = new LongBigArray();
-        valuesByGroupId.ensureCapacity(hashSize);
+        valuesByGroupId.ensureCapacity(hashCapacity);
     }
 
     @Override
@@ -180,7 +183,7 @@ public class BigintGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page)
+    public boolean contains(int position, Page page, int[] hashChannels)
     {
         Block block = page.getBlock(hashChannel);
         if (block.isNull(position)) {
@@ -255,20 +258,24 @@ public class BigintGroupByHash
 
         // increase capacity, if necessary
         if (nextGroupId >= maxFill) {
-            rehash(maxFill * 2);
+            rehash();
         }
         return groupId;
     }
 
-    private void rehash(int size)
+    private void rehash()
     {
-        int newSize = arraySize(size + 1, FILL_RATIO);
+        long newCapacityLong = hashCapacity * 2L;
+        if (newCapacityLong > Integer.MAX_VALUE) {
+            throw new PrestoException(INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+        }
+        int newCapacity = (int) newCapacityLong;
 
-        int newMask = newSize - 1;
+        int newMask = newCapacity - 1;
         LongBigArray newValues = new LongBigArray();
-        newValues.ensureCapacity(newSize);
+        newValues.ensureCapacity(newCapacity);
         IntBigArray newGroupIds = new IntBigArray(-1);
-        newGroupIds.ensureCapacity(newSize);
+        newGroupIds.ensureCapacity(newCapacity);
 
         for (int groupId = 0; groupId < nextGroupId; groupId++) {
             if (groupId == nullGroupId) {
@@ -288,7 +295,8 @@ public class BigintGroupByHash
         }
 
         mask = newMask;
-        maxFill = calculateMaxFill(newSize);
+        hashCapacity = newCapacity;
+        maxFill = calculateMaxFill(hashCapacity);
         values = newValues;
         groupIds = newGroupIds;
 
@@ -302,12 +310,12 @@ public class BigintGroupByHash
 
     private static int calculateMaxFill(int hashSize)
     {
-        checkArgument(hashSize > 0, "hashSize must greater than 0");
+        checkArgument(hashSize > 0, "hashCapacity must greater than 0");
         int maxFill = (int) Math.ceil(hashSize * FILL_RATIO);
         if (maxFill == hashSize) {
             maxFill--;
         }
-        checkArgument(hashSize > maxFill, "hashSize must be larger than maxFill");
+        checkArgument(hashSize > maxFill, "hashCapacity must be larger than maxFill");
         return maxFill;
     }
 }

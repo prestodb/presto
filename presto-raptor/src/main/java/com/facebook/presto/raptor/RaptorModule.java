@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
@@ -50,11 +51,12 @@ public class RaptorModule
     {
         binder.bind(RaptorConnectorId.class).toInstance(new RaptorConnectorId(connectorId));
         binder.bind(RaptorConnector.class).in(Scopes.SINGLETON);
-        binder.bind(RaptorMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(RaptorMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(RaptorPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorHandleResolver.class).in(Scopes.SINGLETON);
+        binder.bind(RaptorNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(RaptorTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(NodeSupplier.class).to(RaptorNodeSupplier.class).in(Scopes.SINGLETON);
@@ -73,6 +75,7 @@ public class RaptorModule
     {
         DBI dbi = new DBI(connectionFactory);
         dbi.registerMapper(new TableColumn.Mapper(typeManager));
+        dbi.registerMapper(new Distribution.Mapper(typeManager));
         return dbi;
     }
 }

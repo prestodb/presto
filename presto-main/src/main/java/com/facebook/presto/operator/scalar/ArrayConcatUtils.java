@@ -13,29 +13,51 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 public final class ArrayConcatUtils
 {
-    private ArrayConcatUtils() {}
+    private final PageBuilder pageBuilder;
 
-    public static Block concat(Type elementType, Block leftBlock, Block rightBlock)
+    public ArrayConcatUtils(Type elementType)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), leftBlock.getSizeInBytes() + rightBlock.getSizeInBytes());
+        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+    }
+
+    public Block concat(Type elementType, Block leftBlock, Block rightBlock)
+    {
+        if (leftBlock.getPositionCount() == 0) {
+            return rightBlock;
+        }
+        if (rightBlock.getPositionCount() == 0) {
+            return leftBlock;
+        }
+
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
+
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
         for (int i = 0; i < leftBlock.getPositionCount(); i++) {
             elementType.appendTo(leftBlock, i, blockBuilder);
         }
         for (int i = 0; i < rightBlock.getPositionCount(); i++) {
             elementType.appendTo(rightBlock, i, blockBuilder);
         }
-        return blockBuilder.build();
+        int total = leftBlock.getPositionCount() + rightBlock.getPositionCount();
+        pageBuilder.declarePositions(total);
+        return blockBuilder.getRegion(blockBuilder.getPositionCount() - total, total);
     }
 
     // Usage of appendElement: ArrayToElementConcatFunction
+    @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, long value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
@@ -48,6 +70,7 @@ public final class ArrayConcatUtils
         return blockBuilder.build();
     }
 
+    @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, boolean value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
@@ -60,6 +83,7 @@ public final class ArrayConcatUtils
         return blockBuilder.build();
     }
 
+    @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, double value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
@@ -72,6 +96,7 @@ public final class ArrayConcatUtils
         return blockBuilder.build();
     }
 
+    @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, Slice value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
@@ -84,6 +109,7 @@ public final class ArrayConcatUtils
         return blockBuilder.build();
     }
 
+    @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, Object value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
@@ -97,6 +123,7 @@ public final class ArrayConcatUtils
     }
 
     // Usage of prependElement: ElementToArrayConcatFunction
+    @UsedByGeneratedCode
     public static Block prependElement(Type elementType, Slice value, Block block)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
@@ -109,6 +136,7 @@ public final class ArrayConcatUtils
         return blockBuilder.build();
     }
 
+    @UsedByGeneratedCode
     public static Block prependElement(Type elementType, Object value, Block block)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
@@ -121,6 +149,7 @@ public final class ArrayConcatUtils
         return blockBuilder.build();
     }
 
+    @UsedByGeneratedCode
     public static Block prependElement(Type elementType, long value, Block block)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
@@ -133,6 +162,7 @@ public final class ArrayConcatUtils
         return blockBuilder.build();
     }
 
+    @UsedByGeneratedCode
     public static Block prependElement(Type elementType, boolean value, Block block)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);
@@ -145,6 +175,7 @@ public final class ArrayConcatUtils
         return blockBuilder.build();
     }
 
+    @UsedByGeneratedCode
     public static Block prependElement(Type elementType, double value, Block block)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount() + 1);

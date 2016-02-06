@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.predicate.Utils;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -24,6 +27,14 @@ import static java.util.Objects.requireNonNull;
 public class RunLengthEncodedBlock
         implements Block
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RunLengthEncodedBlock.class).instanceSize();
+
+    public static Block create(Type type, Object value, int positionCount)
+    {
+        Block block = Utils.nativeValueToBlock(type, value);
+        return new RunLengthEncodedBlock(block, positionCount);
+    }
+
     private final Block value;
     private final int positionCount;
 
@@ -67,7 +78,7 @@ public class RunLengthEncodedBlock
     @Override
     public int getRetainedSizeInBytes()
     {
-        return value.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + value.getRetainedSizeInBytes();
     }
 
     @Override
@@ -232,7 +243,7 @@ public class RunLengthEncodedBlock
 
     private void checkReadablePosition(int position)
     {
-        if (position < 0  || position >= positionCount) {
+        if (position < 0 || position >= positionCount) {
             throw new IllegalArgumentException("position is not valid");
         }
     }

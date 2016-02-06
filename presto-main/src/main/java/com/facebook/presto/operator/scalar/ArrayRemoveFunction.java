@@ -54,7 +54,7 @@ public final class ArrayRemoveFunction
 
     public ArrayRemoveFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array<E>", ImmutableList.of("array<E>", "E"));
+        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array(E)", ImmutableList.of("array(E)", "E"));
     }
 
     @Override
@@ -149,7 +149,11 @@ public final class ArrayRemoveFunction
             return array;
         }
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), sizeAfterRemove);
+        int entrySize = 0;
+        if (!positions.isEmpty()) {
+            entrySize = (int) Math.ceil(sizeAfterRemove / (double) positions.size());
+        }
+        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), positions.size(), entrySize);
 
         for (int position : positions) {
             type.appendTo(array, position, blockBuilder);

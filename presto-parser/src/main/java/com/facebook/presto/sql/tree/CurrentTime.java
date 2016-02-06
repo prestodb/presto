@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -33,7 +34,7 @@ public class CurrentTime
 
         private final String name;
 
-        private Type(String name)
+        Type(String name)
         {
             this.name = name;
         }
@@ -94,27 +95,17 @@ public class CurrentTime
         if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((o == null) || (getClass() != o.getClass())) {
             return false;
         }
-
         CurrentTime that = (CurrentTime) o;
-
-        if (precision != null ? !precision.equals(that.precision) : that.precision != null) {
-            return false;
-        }
-        if (type != that.type) {
-            return false;
-        }
-
-        return true;
+        return (type == that.type) &&
+                Objects.equals(precision, that.precision);
     }
 
     @Override
     public int hashCode()
     {
-        int result = type.hashCode();
-        result = 31 * result + (precision != null ? precision.hashCode() : 0);
-        return result;
+        return Objects.hash(type, precision);
     }
 }

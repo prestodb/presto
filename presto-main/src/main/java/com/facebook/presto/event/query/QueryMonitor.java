@@ -23,6 +23,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
@@ -65,6 +66,7 @@ public class QueryMonitor
         eventClient.post(
                 new QueryCreatedEvent(
                         queryInfo.getQueryId(),
+                        queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(null),
                         queryInfo.getSession().getUser(),
                         queryInfo.getSession().getPrincipal().orElse(null),
                         queryInfo.getSession().getSource().orElse(null),
@@ -111,6 +113,7 @@ public class QueryMonitor
             eventClient.post(
                     new QueryCompletionEvent(
                             queryInfo.getQueryId(),
+                            queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(null),
                             queryInfo.getSession().getUser(),
                             queryInfo.getSession().getPrincipal().orElse(null),
                             queryInfo.getSession().getSource().orElse(null),
@@ -212,8 +215,9 @@ public class QueryMonitor
 
             Duration finishing = millis(queryEndTime.getMillis() - lastTaskEndTime);
 
-            log.info("TIMELINE: Query %s :: elapsed %s :: planning %s :: scheduling %s :: running %s :: finishing %s :: begin %s :: end %s",
+            log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %s :: planning %s :: scheduling %s :: running %s :: finishing %s :: begin %s :: end %s",
                     queryInfo.getQueryId(),
+                     queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(""),
                     elapsed,
                     planning,
                     scheduling,

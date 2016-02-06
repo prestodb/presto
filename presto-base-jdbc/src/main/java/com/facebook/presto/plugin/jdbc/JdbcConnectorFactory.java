@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -49,6 +50,12 @@ public class JdbcConnectorFactory
     public String getName()
     {
         return name;
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new JdbcHandleResolver();
     }
 
     @Override

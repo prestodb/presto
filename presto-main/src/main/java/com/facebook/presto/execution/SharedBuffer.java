@@ -141,23 +141,24 @@ public class SharedBuffer
     private final Set<TaskId> abortedBuffers = new HashSet<>();
 
     private final StateMachine<BufferState> state;
+    private final String taskInstanceId;
 
     @GuardedBy("this")
     private final List<GetBufferResult> stateChangeListeners = new ArrayList<>();
 
     private final SharedBufferMemoryManager memoryManager;
 
-    public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize)
+    public SharedBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize)
     {
-        this(taskId, executor, maxBufferSize, deltaMemory -> { });
+        this(taskId, taskInstanceId, executor, maxBufferSize, deltaMemory -> { });
     }
 
-    public SharedBuffer(TaskId taskId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
+    public SharedBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(executor, "executor is null");
+        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
-
         requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         requireNonNull(systemMemoryUsageListener, "systemMemoryUsageListener is null");
@@ -192,11 +193,6 @@ public class SharedBuffer
         long totalPagesSent = partitionBuffers.values().stream().mapToLong(PartitionBuffer::getPageCount).sum();
 
         return new SharedBufferInfo(state, state.canAddBuffers(), state.canAddPages(), totalBufferedBytes, totalBufferedPages, totalQueuedPages, totalPagesSent, infos.build());
-    }
-
-    public ListenableFuture<OutputBuffers> getFinalOutputBuffers()
-    {
-        return finalOutputBuffers;
     }
 
     public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
@@ -280,7 +276,7 @@ public class SharedBuffer
         // this can happen with limit queries
         BufferState state = this.state.get();
         if (state != FAILED && !state.canAddBuffers() && namedBuffers.get(outputId) == null) {
-            return completedFuture(emptyResults(0, true));
+            return completedFuture(emptyResults(taskInstanceId, 0, true));
         }
 
         // return a future for data
@@ -474,17 +470,17 @@ public class SharedBuffer
             }
 
             if (isFinished()) {
-                return emptyResults(startingSequenceId, true);
+                return emptyResults(taskInstanceId, startingSequenceId, true);
             }
 
             List<Page> pages = partitionBuffer.getPages(maxSize, sequenceId);
 
             // if we can't have any more pages, indicate that the buffer is complete
             if (pages.isEmpty() && !state.get().canAddPages()) {
-                return emptyResults(startingSequenceId, true);
+                return emptyResults(taskInstanceId, startingSequenceId, true);
             }
 
-            return new BufferResult(startingSequenceId, startingSequenceId + pages.size(), false, pages);
+            return new BufferResult(taskInstanceId, startingSequenceId, startingSequenceId + pages.size(), false, pages);
         }
 
         public void abort()
@@ -553,7 +549,7 @@ public class SharedBuffer
                 // this could be a request for a buffer that never existed, but that is ok since the buffer
                 // could have been destroyed before the creation message was received
                 if (state.get() == FINISHED) {
-                    future.complete(emptyResults(namedBuffer == null ? 0 : namedBuffer.getSequenceId(), true));
+                    future.complete(emptyResults(taskInstanceId, namedBuffer == null ? 0 : namedBuffer.getSequenceId(), true));
                     return true;
                 }
 
@@ -564,7 +560,7 @@ public class SharedBuffer
 
                 // if request is for pages before the current position, just return an empty page
                 if (startingSequenceId < namedBuffer.getSequenceId()) {
-                    future.complete(emptyResults(startingSequenceId, false));
+                    future.complete(emptyResults(taskInstanceId, startingSequenceId, false));
                     return true;
                 }
 

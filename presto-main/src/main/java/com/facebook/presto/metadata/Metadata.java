@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -139,20 +140,19 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
+    Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, TableMetadata tableMetadata);
+
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata);
+    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata, Optional<NewTableLayout> layout);
 
     /**
-     * Commit a table creation with data after the data is written.
+     * Finish a table creation with data after the data is written.
      */
-    void commitCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+    void finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
-    /**
-     * Rollback a table creation
-     */
-    void rollbackCreateTable(Session session, OutputTableHandle tableHandle);
+    Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
 
     /**
      * Begin insert query
@@ -160,14 +160,9 @@ public interface Metadata
     InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
 
     /**
-     * Commit insert query
+     * Finish insert query
      */
-    void commitInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
-
-    /**
-     * Rollback insert query
-     */
-    void rollbackInsert(Session session, InsertTableHandle tableHandle);
+    void finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
@@ -192,14 +187,9 @@ public interface Metadata
     TableHandle beginDelete(Session session, TableHandle tableHandle);
 
     /**
-     * Commit delete query
+     * Finish delete query
      */
-    void commitDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
-
-    /**
-     * Rollback delete query
-     */
-    void rollbackDelete(Session session, TableHandle tableHandle);
+    void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Gets all the loaded catalogs
@@ -237,7 +227,14 @@ public interface Metadata
      */
     void dropView(Session session, QualifiedObjectName viewName);
 
+    /**
+     * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
+     */
+    Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
+
     FunctionRegistry getFunctionRegistry();
+
+    ProcedureRegistry getProcedureRegistry();
 
     TypeManager getTypeManager();
 
