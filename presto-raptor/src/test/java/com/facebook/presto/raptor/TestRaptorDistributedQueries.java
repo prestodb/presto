@@ -39,12 +39,12 @@ public class TestRaptorDistributedQueries
     public TestRaptorDistributedQueries()
             throws Exception
     {
-        super(createRaptorQueryRunner(ImmutableMap.of(), true, false), createSampledSession());
+        this(createRaptorQueryRunner(ImmutableMap.of(), true, false));
     }
 
     protected TestRaptorDistributedQueries(QueryRunner queryRunner)
     {
-        super(queryRunner);
+        super(queryRunner, createSampledSession());
     }
 
     @Test
