@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -202,15 +203,28 @@ public class LogicalPlanner
         });
 
         List<Symbol> symbols = plan.getOutputSymbols();
-        Optional<PartitionFunctionBinding> partitionFunctionBinding = writeTableLayout.map(layout -> new PartitionFunctionBinding(
-                layout.getPartitioning(),
-                symbols,
-                layout.getPartitionColumns().stream()
-                        .mapToInt(columnNames::indexOf)
-                        .mapToObj(symbols::get)
-                        .map(PartitionFunctionArgumentBinding::new)
-                        .collect(toImmutableList()),
-                Optional.empty()));
+
+        Optional<PartitionFunctionBinding> partitionFunctionBinding = Optional.empty();
+        if (writeTableLayout.isPresent()) {
+            List<PartitionFunctionArgumentBinding> partitionFunctionArguments = new ArrayList<>();
+            writeTableLayout.get().getPartitionColumns().stream()
+                    .mapToInt(columnNames::indexOf)
+                    .mapToObj(symbols::get)
+                    .map(PartitionFunctionArgumentBinding::new)
+                    .forEach(partitionFunctionArguments::add);
+            plan.getSampleWeight()
+                    .map(PartitionFunctionArgumentBinding::new)
+                    .ifPresent(partitionFunctionArguments::add);
+
+            List<Symbol> outputLayout = new ArrayList<>(symbols);
+            plan.getSampleWeight()
+                    .ifPresent(outputLayout::add);
+
+            partitionFunctionBinding = Optional.of(new PartitionFunctionBinding(
+                    writeTableLayout.get().getPartitioning(),
+                    outputLayout,
+                    partitionFunctionArguments));
+        }
 
         PlanNode writerNode = new TableWriterNode(
                 idAllocator.getNextId(),
