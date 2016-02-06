@@ -72,6 +72,7 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
+import com.facebook.presto.operator.exchange.PageChannelSelector;
 import com.facebook.presto.operator.index.DynamicTupleFilterFactory;
 import com.facebook.presto.operator.index.FieldSetFilteringRecordSet;
 import com.facebook.presto.operator.index.IndexBuildDriverFactoryProvider;
@@ -82,6 +83,7 @@ import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
@@ -130,8 +132,6 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -148,7 +148,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
@@ -159,6 +158,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -185,7 +185,6 @@ import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
@@ -206,10 +205,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.util.Collections.singleton;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.IntStream.range;
 
 public class LocalExecutionPlanner
 {
@@ -334,14 +333,20 @@ public class LocalExecutionPlanner
     {
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(session, types);
 
-        PhysicalOperation physicalOperation = enforceLayout(plan.getId(), outputLayout, context, plan.accept(new Visitor(session), context));
+        PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
+
+        Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(outputLayout, physicalOperation.getLayout());
+
+        List<Type> outputTypes = outputLayout.stream()
+                .map(types::get)
+                .collect(toImmutableList());
 
         DriverFactory driverFactory = new DriverFactory(
                 context.isInputDriver(),
                 true,
                 ImmutableList.<OperatorFactory>builder()
                         .addAll(physicalOperation.getOperatorFactories())
-                        .add(outputOperatorFactory.createOutputOperator(context.getNextOperatorId(), plan.getId(), physicalOperation.getTypes()))
+                        .add(outputOperatorFactory.createOutputOperator(context.getNextOperatorId(), plan.getId(), outputTypes, pagePreprocessor))
                         .build(),
                 context.getDriverInstanceCount());
         context.addDriverFactory(driverFactory);
@@ -387,40 +392,6 @@ public class LocalExecutionPlanner
                 }
             }
         }
-    }
-
-    private PhysicalOperation enforceLayout(PlanNodeId planNodeId, List<Symbol> outputLayout, LocalExecutionPlanContext context, PhysicalOperation physicalOperation)
-    {
-        // are the symbols of the source in the same order as the sink expects?
-        boolean projectionMatchesOutput = physicalOperation.getLayout()
-                .entrySet().stream()
-                .sorted(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
-                .map(Map.Entry::getKey)
-                .collect(toImmutableList())
-                .equals(outputLayout);
-
-        if (!projectionMatchesOutput) {
-            IdentityProjectionInfo projectionInfo = computeIdentityProjectionInfo(outputLayout, physicalOperation.getLayout(), context.getTypes());
-            List<RowExpression> projections = projectionInfo.getProjections();
-
-            OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
-                    context.getNextOperatorId(),
-                    planNodeId,
-                    compiler.compilePageProcessor(trueExpression(), projections),
-                    projections.stream()
-                            .map(RowExpression::getType)
-                            .collect(toImmutableList()));
-            // NOTE: the generated output layout may not be completely accurate if the same field was projected as multiple inputs.
-            // However, this should not affect the operation of the sink.
-            physicalOperation = new PhysicalOperation(operatorFactory, projectionInfo.getOutputLayout(), physicalOperation);
-        }
-
-        return physicalOperation;
-    }
-
-    private static RowExpression trueExpression()
-    {
-        return new ConstantExpression(TRUE, BOOLEAN);
     }
 
     private static class LocalExecutionPlanContext
@@ -1706,26 +1677,8 @@ public class LocalExecutionPlanner
                 PhysicalOperation source = sourceNode.accept(this, subContext);
                 List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
 
-                boolean projectionMatchesOutput = source.getLayout()
-                        .entrySet().stream()
-                        .sorted(Ordering.<Integer>natural().onResultOf(Map.Entry::getValue))
-                        .map(Map.Entry::getKey)
-                        .collect(toImmutableList())
-                        .equals(expectedLayout);
-
-                if (!projectionMatchesOutput) {
-                    IdentityProjectionInfo projectionInfo = computeIdentityProjectionInfo(expectedLayout, source.getLayout(), context.getTypes());
-                    List<RowExpression> projections = projectionInfo.getProjections();
-                    operatorFactories.add(new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
-                            subContext.getNextOperatorId(),
-                            node.getId(),
-                            compiler.compilePageProcessor(trueExpression(), projections),
-                            projections.stream()
-                                    .map(RowExpression::getType)
-                                    .collect(toImmutableList())));
-                }
-
-                operatorFactories.add(new LocalExchangeSinkOperatorFactory(subContext.getNextOperatorId(), node.getId(), localExchange.createSinkFactory()));
+                Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
+                operatorFactories.add(new LocalExchangeSinkOperatorFactory(subContext.getNextOperatorId(), node.getId(), localExchange.createSinkFactory(), pagePreprocessor));
 
                 DriverFactory driverFactory = new DriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount());
                 context.addDriverFactory(driverFactory);
@@ -1901,23 +1854,18 @@ public class LocalExecutionPlanner
         };
     }
 
-    private static IdentityProjectionInfo computeIdentityProjectionInfo(List<Symbol> symbols, Map<Symbol, Integer> inputLayout, Map<Symbol, Type> types)
+    public static Function<Page, Page> enforceLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
     {
-        Map<Symbol, Integer> outputMappings = new HashMap<>();
-        List<RowExpression> projections = new ArrayList<>();
+        int[] channels = expectedLayout.stream()
+                .mapToInt(inputLayout::get)
+                .toArray();
 
-        int channel = 0;
-        for (Symbol symbol : symbols) {
-            Type type = types.get(symbol);
-            RowExpression expression = new InputReferenceExpression(inputLayout.get(symbol), type);
-            projections.add(expression);
-            if (!outputMappings.containsKey(symbol)) {
-                outputMappings.put(symbol, channel);
-                channel++;
-            }
+        if (Arrays.equals(channels, range(0, inputLayout.size()).toArray())) {
+            // this is an identity mapping
+            return Function.identity();
         }
 
-        return new IdentityProjectionInfo(projections, outputMappings);
+        return new PageChannelSelector(channels);
     }
 
     private static List<Integer> getChannelsForSymbols(List<Symbol> symbols, Map<Symbol, Integer> layout)
@@ -1927,28 +1875,6 @@ public class LocalExecutionPlanner
             builder.add(layout.get(symbol));
         }
         return builder.build();
-    }
-
-    private static class IdentityProjectionInfo
-    {
-        private final List<RowExpression> projections;
-        private final Map<Symbol, Integer> outputLayout;
-
-        public IdentityProjectionInfo(List<RowExpression> projections, Map<Symbol, Integer> outputLayout)
-        {
-            this.projections = requireNonNull(projections, "projections is null");
-            this.outputLayout = requireNonNull(outputLayout, "outputLayout is null");
-        }
-
-        public List<RowExpression> getProjections()
-        {
-            return projections;
-        }
-
-        public Map<Symbol, Integer> getOutputLayout()
-        {
-            return outputLayout;
-        }
     }
 
     private static Function<Symbol, Integer> channelGetter(PhysicalOperation source)

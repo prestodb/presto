@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,9 +35,9 @@ public class NullOutputOperator
             implements OutputFactory
     {
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> sourceTypes)
+        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor)
         {
-            return new NullOutputOperatorFactory(operatorId, planNodeId, sourceTypes);
+            return new NullOutputOperatorFactory(operatorId, planNodeId, types);
         }
     }
 

@@ -17,32 +17,54 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class MaterializingOperator
+public class PageConsumerOperator
         implements Operator
 {
-    public static class MaterializingOperatorFactory
+    public static class PageConsumerOutputFactory
+            implements OutputFactory
+    {
+        private final Function<List<Type>, Consumer<Page>> pageConsumerFactory;
+
+        public PageConsumerOutputFactory(Function<List<Type>, Consumer<Page>> pageConsumerFactory)
+        {
+            this.pageConsumerFactory = requireNonNull(pageConsumerFactory, "pageConsumerFactory is null");
+        }
+
+        @Override
+        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor)
+        {
+            return new PageConsumerOperatorFactory(operatorId, planNodeId, pageConsumerFactory.apply(types), pagePreprocessor);
+        }
+    }
+
+    public static class PageConsumerOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> sourceTypes;
+        private final Consumer<Page> pageConsumer;
+        private final Function<Page, Page> pagePreprocessor;
         private boolean closed;
 
-        public MaterializingOperatorFactory(int operatorId, PlanNodeId planNodeId, List<Type> sourceTypes)
+        public PageConsumerOperatorFactory(int operatorId, PlanNodeId planNodeId, Consumer<Page> pageConsumer, Function<Page, Page> pagePreprocessor)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.sourceTypes = sourceTypes;
+            this.pageConsumer = requireNonNull(pageConsumer, "pageConsumer is null");
+            this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         }
 
         @Override
@@ -52,11 +74,11 @@ public class MaterializingOperator
         }
 
         @Override
-        public MaterializingOperator createOperator(DriverContext driverContext)
+        public PageConsumerOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MaterializingOperator.class.getSimpleName());
-            return new MaterializingOperator(operatorContext, sourceTypes);
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PageConsumerOperator.class.getSimpleName());
+            return new PageConsumerOperator(operatorContext, pageConsumer, pagePreprocessor);
         }
 
         @Override
@@ -68,35 +90,26 @@ public class MaterializingOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new MaterializingOperatorFactory(operatorId, planNodeId, sourceTypes);
+            return new PageConsumerOperatorFactory(operatorId, planNodeId, pageConsumer, pagePreprocessor);
         }
     }
 
     private final OperatorContext operatorContext;
-    private final MaterializedResult.Builder resultBuilder;
+    private final Consumer<Page> pageConsumer;
+    private final Function<Page, Page> pagePreprocessor;
     private boolean finished;
     private boolean closed;
 
-    public MaterializingOperator(OperatorContext operatorContext, List<Type> sourceTypes)
+    public PageConsumerOperator(OperatorContext operatorContext, Consumer<Page> pageConsumer, Function<Page, Page> pagePreprocessor)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        resultBuilder = MaterializedResult.resultBuilder(operatorContext.getSession(), sourceTypes);
-    }
-
-    public MaterializingOperator(OperatorContext operatorContext, MaterializedResult.Builder resultBuilder)
-    {
-        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.resultBuilder = requireNonNull(resultBuilder, "resultBuilder is null");
+        this.pageConsumer = requireNonNull(pageConsumer, "pageConsumer is null");
+        this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
     }
 
     public boolean isClosed()
     {
         return closed;
-    }
-
-    public MaterializedResult getMaterializedResult()
-    {
-        return resultBuilder.build();
     }
 
     @Override
@@ -135,7 +148,8 @@ public class MaterializingOperator
         requireNonNull(page, "page is null");
         checkState(!finished, "operator finished");
 
-        resultBuilder.page(page);
+        page = pagePreprocessor.apply(page);
+        pageConsumer.accept(page);
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 

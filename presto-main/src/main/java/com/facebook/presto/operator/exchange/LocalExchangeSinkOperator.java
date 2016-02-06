@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -38,13 +39,15 @@ public class LocalExchangeSinkOperator
         private final int operatorId;
         private final LocalExchangeSinkFactory sinkFactory;
         private final PlanNodeId planNodeId;
+        private final Function<Page, Page> pagePreprocessor;
         private boolean closed;
 
-        public LocalExchangeSinkOperatorFactory(int operatorId, PlanNodeId planNodeId, LocalExchangeSinkFactory sinkFactory)
+        public LocalExchangeSinkOperatorFactory(int operatorId, PlanNodeId planNodeId, LocalExchangeSinkFactory sinkFactory, Function<Page, Page> pagePreprocessor)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sinkFactory = requireNonNull(sinkFactory, "sinkFactory is null");
+            this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         }
 
         @Override
@@ -58,7 +61,7 @@ public class LocalExchangeSinkOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalExchangeSinkOperator.class.getSimpleName());
-            return new LocalExchangeSinkOperator(operatorContext, sinkFactory.createSink());
+            return new LocalExchangeSinkOperator(operatorContext, sinkFactory.createSink(), pagePreprocessor);
         }
 
         @Override
@@ -73,7 +76,7 @@ public class LocalExchangeSinkOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new LocalExchangeSinkOperatorFactory(operatorId, planNodeId, sinkFactory.duplicate());
+            return new LocalExchangeSinkOperatorFactory(operatorId, planNodeId, sinkFactory.duplicate(), pagePreprocessor);
         }
 
         @Override
@@ -85,11 +88,13 @@ public class LocalExchangeSinkOperator
 
     private final OperatorContext operatorContext;
     private final LocalExchangeSink sink;
+    private final Function<Page, Page> pagePreprocessor;
 
-    LocalExchangeSinkOperator(OperatorContext operatorContext, LocalExchangeSink sink)
+    LocalExchangeSinkOperator(OperatorContext operatorContext, LocalExchangeSink sink, Function<Page, Page> pagePreprocessor)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sink = requireNonNull(sink, "sink is null");
+        this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
     }
 
     @Override
@@ -132,6 +137,7 @@ public class LocalExchangeSinkOperator
     public void addInput(Page page)
     {
         requireNonNull(page, "page is null");
+        page = pagePreprocessor.apply(page);
         sink.addPage(page);
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }

@@ -118,6 +118,7 @@ import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -149,7 +150,7 @@ import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -379,57 +380,6 @@ public class LocalQueryRunner
         return this;
     }
 
-    public static class MaterializedOutputFactory
-            implements OutputFactory
-    {
-        private final AtomicReference<MaterializedResult.Builder> materializedResultBuilder = new AtomicReference<>();
-
-        public MaterializedResult getMaterializedResult()
-        {
-            MaterializedResult.Builder resultBuilder = materializedResultBuilder.get();
-            checkState(resultBuilder != null, "Output not created");
-            return resultBuilder.build();
-        }
-
-        @Override
-        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> sourceTypes)
-        {
-            requireNonNull(sourceTypes, "sourceType is null");
-
-            return new OperatorFactory()
-            {
-                @Override
-                public List<Type> getTypes()
-                {
-                    return ImmutableList.of();
-                }
-
-                @Override
-                public Operator createOperator(DriverContext driverContext)
-                {
-                    MaterializedResult.Builder resultBuilder = materializedResultBuilder.get();
-                    if (resultBuilder == null) {
-                        materializedResultBuilder.compareAndSet(null, MaterializedResult.resultBuilder(driverContext.getSession(), sourceTypes));
-                        resultBuilder = materializedResultBuilder.get();
-                    }
-                    OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MaterializingOperator.class.getSimpleName());
-                    return new MaterializingOperator(operatorContext, resultBuilder);
-                }
-
-                @Override
-                public void close()
-                {
-                }
-
-                @Override
-                public OperatorFactory duplicate()
-                {
-                    return createOutputOperator(operatorId, planNodeId, sourceTypes);
-                }
-            };
-        }
-    }
-
     @Override
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
@@ -482,7 +432,11 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try {
-            MaterializedOutputFactory outputFactory = new MaterializedOutputFactory();
+            AtomicReference<MaterializedResult.Builder> builder = new AtomicReference<>();
+            PageConsumerOutputFactory outputFactory = new PageConsumerOutputFactory(types -> {
+                builder.compareAndSet(null, MaterializedResult.resultBuilder(session, types));
+                return builder.get()::page;
+            });
 
             TaskContext taskContext = createTaskContext(executor, session);
             List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
@@ -499,7 +453,8 @@ public class LocalQueryRunner
                 done = !processed;
             }
 
-            return outputFactory.getMaterializedResult();
+            verify(builder.get() != null, "Output operator was not created");
+            return builder.get().build();
         }
         finally {
             lock.readLock().unlock();
