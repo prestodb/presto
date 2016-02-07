@@ -163,7 +163,7 @@ function update(graph, query)
                 break;
         }
 
-        graph.setNode(clusterId, {label: "Stage " + stage.id + " [" + stage.distribution + "]", clusterLabelPos: 'top-right', style: 'fill: ' + color});
+        graph.setNode(clusterId, {label: "Stage " + stage.id, clusterLabelPos: 'top-right', style: 'fill: ' + color});
 
         var stats = stage.stats;
         var html = "" +
