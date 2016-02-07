@@ -557,7 +557,13 @@ class RelationPlanner
                 newSymbols.add(outputSymbol);
             }
             Field oldField = oldDescriptor.getFieldByIndex(i);
-            newFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), targetColumnTypes[i], oldField.isHidden());
+            newFields[i] = new Field(
+                    oldField.getRelationAlias(),
+                    oldField.getName(),
+                    targetColumnTypes[i],
+                    oldField.isHidden(),
+                    oldField.getQualifiedOriginTable(),
+                    oldField.isAliased());
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
         return new RelationPlan(projectNode, Scope.builder().withRelationType(new RelationType(newFields)).build(), newSymbols.build(), plan.getSampleWeight());
