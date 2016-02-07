@@ -35,6 +35,7 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
+import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -1422,6 +1423,12 @@ public class TestSqlParser
     public void testExecuteWithUsing()
     {
         assertStatement("EXECUTE myquery USING 1, 'abc'", new Execute("myquery", ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"))));
+    }
+
+    @Test
+    public void testDescribeOutput()
+    {
+        assertStatement("DESCRIBE OUTPUT myquery", new DescribeOutput("myquery"));
     }
 
     @Test
