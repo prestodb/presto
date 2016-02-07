@@ -36,6 +36,8 @@ public class HiveMetadataFactory
     private final boolean allowAddColumn;
     private final boolean allowRenameColumn;
     private final boolean allowCorruptWritesForTesting;
+    private final boolean respectTableFormat;
+    private final HiveStorageFormat defaultStorageFormat;
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -71,6 +73,8 @@ public class HiveMetadataFactory
                 hiveClientConfig.getAllowAddColumn(),
                 hiveClientConfig.getAllowRenameColumn(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
+                hiveClientConfig.isRespectTableFormat(),
+                hiveClientConfig.getHiveStorageFormat(),
                 typeManager,
                 locationService,
                 tableParameterCodec,
@@ -90,6 +94,8 @@ public class HiveMetadataFactory
             boolean allowAddColumn,
             boolean allowRenameColumn,
             boolean allowCorruptWritesForTesting,
+            boolean respectTableFormat,
+            HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -103,6 +109,8 @@ public class HiveMetadataFactory
         this.allowAddColumn = allowAddColumn;
         this.allowRenameColumn = allowRenameColumn;
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
+        this.respectTableFormat = respectTableFormat;
+        this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
 
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -136,6 +144,8 @@ public class HiveMetadataFactory
                 allowAddColumn,
                 allowRenameColumn,
                 allowCorruptWritesForTesting,
+                respectTableFormat,
+                defaultStorageFormat,
                 typeManager,
                 locationService,
                 tableParameterCodec,

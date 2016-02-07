@@ -145,6 +145,8 @@ public class HiveMetadata
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final Executor renameExecutor;
+    private final boolean respectTableFormat;
+    private final HiveStorageFormat defaultStorageFormat;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
@@ -159,6 +161,8 @@ public class HiveMetadata
             boolean allowAddColumn,
             boolean allowRenameColumn,
             boolean allowCorruptWritesForTesting,
+            boolean respectTableFormat,
+            HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -181,6 +185,8 @@ public class HiveMetadata
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
+        this.respectTableFormat = respectTableFormat;
+        this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
 
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecution is null");
     }
@@ -412,19 +418,6 @@ public class HiveMetadata
             }
         }
 
-        SerDeInfo serdeInfo = new SerDeInfo();
-        serdeInfo.setName(tableName);
-        serdeInfo.setSerializationLib(hiveStorageFormat.getSerDe());
-        serdeInfo.setParameters(ImmutableMap.of());
-
-        StorageDescriptor sd = new StorageDescriptor();
-        sd.setLocation(targetPath.toString());
-        sd.setCols(columns.build());
-        sd.setSerdeInfo(serdeInfo);
-        sd.setInputFormat(hiveStorageFormat.getInputFormat());
-        sd.setOutputFormat(hiveStorageFormat.getOutputFormat());
-        sd.setParameters(ImmutableMap.of());
-
         Table table = new Table();
         table.setDbName(schemaName);
         table.setTableName(tableName);
@@ -439,7 +432,7 @@ public class HiveMetadata
                 .putAll(additionalTableParameters)
                 .build());
         table.setPartitionKeys(partitionColumns);
-        table.setSd(sd);
+        table.setSd(makeStorageDescriptor(tableName, hiveStorageFormat, targetPath, columns.build()));
 
         PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, tableOwner, PrincipalType.USER, true);
         table.setPrivileges(new PrincipalPrivilegeSet(
@@ -660,7 +653,10 @@ public class HiveMetadata
 
         checkTableIsWritable(table.get());
 
-        HiveStorageFormat hiveStorageFormat = extractHiveStorageFormat(table.get());
+        HiveStorageFormat hiveStorageFormat = defaultStorageFormat;
+        if (respectTableFormat) {
+            hiveStorageFormat = extractHiveStorageFormat(table.get());
+        }
 
         List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get());
 
@@ -761,7 +757,7 @@ public class HiveMetadata
             if (!table.isPresent()) {
                 throw new TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
             }
-            if (!table.get().getSd().getInputFormat().equals(storageFormat.getInputFormat())) {
+            if (!table.get().getSd().getInputFormat().equals(storageFormat.getInputFormat()) && respectTableFormat) {
                 throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
             }
 
@@ -778,7 +774,7 @@ public class HiveMetadata
                     }
                     // add new partition
                     Partition partition = createPartition(table.get(), partitionUpdate);
-                    if (!partition.getSd().getInputFormat().equals(storageFormat.getInputFormat())) {
+                    if (!partition.getSd().getInputFormat().equals(storageFormat.getInputFormat()) && respectTableFormat) {
                         throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                     }
                     partitionCommitter.addPartition(partition);
@@ -826,15 +822,22 @@ public class HiveMetadata
         clearRollback();
     }
 
-    private static Partition createPartition(Table table, PartitionUpdate partitionUpdate)
+    private Partition createPartition(Table table, PartitionUpdate partitionUpdate)
     {
         List<String> values = HivePartitionManager.extractPartitionKeyValues(partitionUpdate.getName());
         Partition partition = new Partition();
         partition.setDbName(table.getDbName());
         partition.setTableName(table.getTableName());
         partition.setValues(values);
-        partition.setSd(table.getSd().deepCopy());
-        partition.getSd().setLocation(partitionUpdate.getTargetPath());
+
+        if (respectTableFormat) {
+            partition.setSd(table.getSd().deepCopy());
+            partition.getSd().setLocation(partitionUpdate.getTargetPath());
+        }
+        else {
+            partition.setSd(makeStorageDescriptor(table.getTableName(), defaultStorageFormat, new Path(partitionUpdate.getTargetPath()), table.getSd().getCols()));
+        }
+
         return partition;
     }
 
@@ -1406,5 +1409,22 @@ public class HiveMetadata
         if (rollbackAction != null) {
             rollbackAction.run();
         }
+    }
+
+    private static StorageDescriptor makeStorageDescriptor(String tableName, HiveStorageFormat format, Path targetPath, List<FieldSchema> columns)
+    {
+        SerDeInfo serdeInfo = new SerDeInfo();
+        serdeInfo.setName(tableName);
+        serdeInfo.setSerializationLib(format.getSerDe());
+        serdeInfo.setParameters(ImmutableMap.of());
+
+        StorageDescriptor sd = new StorageDescriptor();
+        sd.setLocation(targetPath.toString());
+        sd.setCols(columns);
+        sd.setSerdeInfo(serdeInfo);
+        sd.setInputFormat(format.getInputFormat());
+        sd.setOutputFormat(format.getOutputFormat());
+        sd.setParameters(ImmutableMap.of());
+        return sd;
     }
 }

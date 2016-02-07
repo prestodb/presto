@@ -36,7 +36,6 @@ public class HivePageSinkProvider
     private final HiveMetastore metastore;
     private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
-    private final boolean respectTableFormat;
     private final int maxOpenPartitions;
     private final boolean immutablePartitions;
     private final boolean compressed;
@@ -57,7 +56,6 @@ public class HivePageSinkProvider
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.respectTableFormat = config.isRespectTableFormat();
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.immutablePartitions = config.isImmutablePartitions();
         this.compressed = config.getHiveCompressionCodec() != HiveCompressionCodec.NONE;
@@ -94,7 +92,6 @@ public class HivePageSinkProvider
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,
-                respectTableFormat,
                 maxOpenPartitions,
                 immutablePartitions,
                 compressed,
