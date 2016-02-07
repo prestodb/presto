@@ -245,6 +245,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName temporaryInsertTable;
     protected SchemaTableName temporaryInsertIntoNewPartitionTable;
     protected SchemaTableName temporaryInsertIntoExistingPartitionTable;
+    protected SchemaTableName temporaryInsertUnsupportedWriteType;
     protected SchemaTableName temporaryMetadataDeleteTable;
     protected SchemaTableName temporaryRenameTableOld;
     protected SchemaTableName temporaryRenameTableNew;
@@ -321,6 +322,7 @@ public abstract class AbstractTestHiveClient
         temporaryInsertTable = new SchemaTableName(database, "tmp_presto_test_insert_" + randomName());
         temporaryInsertIntoExistingPartitionTable = new SchemaTableName(database, "tmp_presto_test_insert_exsting_partitioned_" + randomName());
         temporaryInsertIntoNewPartitionTable = new SchemaTableName(database, "tmp_presto_test_insert_new_partitioned_" + randomName());
+        temporaryInsertUnsupportedWriteType = new SchemaTableName(database, "tmp_presto_test_insert_unsupported_type_" + randomName());
         temporaryMetadataDeleteTable = new SchemaTableName(database, "tmp_presto_test_metadata_delete_" + randomName());
         temporaryRenameTableOld = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
@@ -1384,10 +1386,10 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         try {
-            doInsertUnsupportedWriteType(ORC, temporaryInsertIntoExistingPartitionTable);
+            doInsertUnsupportedWriteType(ORC, temporaryInsertUnsupportedWriteType);
         }
         finally {
-            dropTable(temporaryInsertIntoExistingPartitionTable);
+            dropTable(temporaryInsertUnsupportedWriteType);
         }
     }
 
