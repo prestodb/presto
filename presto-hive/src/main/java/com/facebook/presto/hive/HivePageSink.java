@@ -122,7 +122,6 @@ public class HivePageSink
 
     private final Table table;
     private final boolean immutablePartitions;
-    private final boolean respectTableFormat;
     private final boolean compress;
 
     private HiveRecordWriter[] writers = new HiveRecordWriter[0];
@@ -140,7 +139,6 @@ public class HivePageSink
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
-            boolean respectTableFormat,
             int maxOpenPartitions,
             boolean immutablePartitions,
             boolean compress,
@@ -163,7 +161,6 @@ public class HivePageSink
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.respectTableFormat = respectTableFormat;
         this.maxOpenPartitions = maxOpenPartitions;
         this.immutablePartitions = immutablePartitions;
         this.compress = compress;
@@ -365,13 +362,8 @@ public class HivePageSink
                         table.getPartitionKeys());
                 target = locationService.targetPath(locationHandle, partitionName);
                 write = locationService.writePath(locationHandle, partitionName).orElse(target);
-                if (respectTableFormat) {
-                    outputFormat = table.getSd().getOutputFormat();
-                }
-                else {
-                    outputFormat = tableStorageFormat.getOutputFormat();
-                }
-                serDe = table.getSd().getSerdeInfo().getSerializationLib();
+                outputFormat = tableStorageFormat.getOutputFormat();
+                serDe = tableStorageFormat.getSerDe();
             }
         }
         else {
