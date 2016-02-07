@@ -917,8 +917,13 @@ class StatementAnalyzer
                 RelationType queryDescriptor = analysis.getOutputDescriptor(query);
                 ImmutableList.Builder<Field> fields = ImmutableList.builder();
                 for (Field field : queryDescriptor.getAllFields()) {
-                    fields.add(Field.newQualified(QualifiedName.of(name), field.getName(), field.getType(), false));
-                }
+                    fields.add(Field.newQualified(
+                            QualifiedName.of(name),
+                            field.getName(),
+                            field.getType(),
+                            false,
+                            field.getQualifiedOriginTable(),
+                            field.isAliased()));                }
 
                 RelationType descriptor = new RelationType(fields.build());
                 analysis.setOutputDescriptor(table, descriptor);
@@ -973,7 +978,13 @@ class StatementAnalyzer
         // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType(), column.isHidden());
+            Field field = Field.newQualified(
+                    table.getName(),
+                    Optional.of(column.getName()),
+                    column.getType(),
+                    column.isHidden(),
+                    Optional.of(name),
+                    false);
             fields.add(field);
             ColumnHandle columnHandle = columnHandles.get(column.getName());
             checkArgument(columnHandle != null, "Unknown field %s", field);
@@ -1123,7 +1134,13 @@ class StatementAnalyzer
         RelationType firstDescriptor = descriptors[0].withOnlyVisibleFields();
         for (int i = 0; i < outputFieldTypes.length; i++) {
             Field oldField = firstDescriptor.getFieldByIndex(i);
-            outputDescriptorFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), outputFieldTypes[i], oldField.isHidden());
+            outputDescriptorFields[i] = new Field(
+                    oldField.getRelationAlias(),
+                    oldField.getName(),
+                    outputFieldTypes[i],
+                    oldField.isHidden(),
+                    oldField.getQualifiedOriginTable(),
+                    oldField.isAliased());
         }
         RelationType outputDescriptor = new RelationType(outputDescriptorFields);
         analysis.setOutputDescriptor(node, outputDescriptor);
@@ -1672,28 +1689,39 @@ class StatementAnalyzer
                 Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
                 for (Field field : inputTupleDescriptor.resolveFieldsWithPrefix(starPrefix)) {
-                    outputFields.add(Field.newUnqualified(field.getName(), field.getType()));
+                    outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getQualifiedOriginTable(), false));
                 }
             }
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
-                Expression expression = column.getExpression();
 
+                Expression expression = column.getExpression();
                 Optional<String> alias = column.getAlias();
+
+                Optional<QualifiedObjectName> qualifiedOriginTable = Optional.empty();
+                QualifiedName name = null;
+
+                if (expression instanceof QualifiedNameReference) {
+                    name = ((QualifiedNameReference) expression).getName();
+                }
+                else if (expression instanceof DereferenceExpression) {
+                    name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
+                }
+
+                if (name != null) {
+                    List<Field> matchingFields = inputTupleDescriptor.resolveFields(name);
+                    if (!matchingFields.isEmpty()) {
+                        qualifiedOriginTable = matchingFields.get(0).getQualifiedOriginTable();
+                    }
+                }
+
                 if (!alias.isPresent()) {
-                    QualifiedName name = null;
-                    if (expression instanceof QualifiedNameReference) {
-                        name = ((QualifiedNameReference) expression).getName();
-                    }
-                    else if (expression instanceof DereferenceExpression) {
-                        name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
-                    }
                     if (name != null) {
                         alias = Optional.of(getLast(name.getOriginalParts()));
                     }
                 }
 
-                outputFields.add(Field.newUnqualified(alias, analysis.getType(expression))); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                outputFields.add(Field.newUnqualified(alias, analysis.getType(expression), qualifiedOriginTable, alias.isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
             }
             else {
                 throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
