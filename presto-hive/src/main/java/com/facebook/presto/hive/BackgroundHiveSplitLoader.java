@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.util.HiveFileIterator;
 import com.facebook.presto.hive.util.ResumableTask;
 import com.facebook.presto.hive.util.ResumableTasks;
+import com.facebook.presto.hive.util.UgiUtils;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -38,8 +39,10 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
@@ -138,8 +141,15 @@ public class BackgroundHiveSplitLoader
     public void start(HiveSplitSource splitSource)
     {
         this.hiveSplitSource = splitSource;
+
+        UserGroupInformation ugi = null;
+
+        if (HiveSessionProperties.getReadAsQueryUser(session)) {
+            ugi = UgiUtils.getUgi(session.getUser());
+        }
+
         for (int i = 0; i < maxPartitionBatchSize; i++) {
-            ResumableTasks.submit(executor, new HiveSplitLoaderTask());
+            ResumableTasks.submit(executor, new HiveSplitLoaderTask(ugi));
         }
     }
 
@@ -152,8 +162,30 @@ public class BackgroundHiveSplitLoader
     private class HiveSplitLoaderTask
             implements ResumableTask
     {
+        private UserGroupInformation ugi;
+
+        public HiveSplitLoaderTask(UserGroupInformation ugi)
+        {
+            this.ugi = ugi;
+        }
+
         @Override
         public TaskStatus process()
+        {
+            if (ugi != null) {
+                try {
+                    return ugi.doAs((PrivilegedExceptionAction<TaskStatus>) this::doProcess);
+                }
+                catch (IOException | InterruptedException e) {
+                    throw new RuntimeException("Could not runAs " + session.getUser(), e);
+                }
+            }
+            else {
+                return doProcess();
+            }
+        }
+
+        private TaskStatus doProcess()
         {
             while (true) {
                 if (stopped) {
