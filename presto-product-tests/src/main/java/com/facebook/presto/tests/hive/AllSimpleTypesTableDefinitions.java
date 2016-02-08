@@ -47,8 +47,7 @@ public final class AllSimpleTypesTableDefinitions
     {
         String tableName = fileFormat.toLowerCase() + "_all_types";
         HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types/data." + fileFormat.toLowerCase());
-        return HiveTableDefinition.builder()
-                .setName(tableName)
+        return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE EXTERNAL TABLE %NAME%(" +
                         "   c_tinyint            TINYINT," +
@@ -78,8 +77,7 @@ public final class AllSimpleTypesTableDefinitions
     {
         String tableName = "parquet_all_types";
         HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types/data.parquet");
-        return HiveTableDefinition.builder()
-                .setName(tableName)
+        return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE EXTERNAL TABLE %NAME%(" +
                         "   c_tinyint            TINYINT," +
@@ -104,8 +102,7 @@ public final class AllSimpleTypesTableDefinitions
     {
         String tableName = "textfile_all_types_known_to_presto";
         HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/all_types_known_to_presto/data.textfile");
-        return HiveTableDefinition.builder()
-                .setName(tableName)
+        return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE EXTERNAL TABLE %NAME%(" +
                         "   c_tinyint            TINYINT," +
