@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.SqlDecimal;
 import com.google.common.collect.ImmutableList;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.Decimals.writeBigDecimal;
@@ -48,7 +47,7 @@ public class TestLongDecimalMaxAggregation
         if (length == 0) {
             return null;
         }
-        return new SqlDecimal(BigInteger.valueOf(start + length - 1), 30, 5);
+        return SqlDecimal.of(start + length - 1, 30, 5);
     }
 
     @Override
