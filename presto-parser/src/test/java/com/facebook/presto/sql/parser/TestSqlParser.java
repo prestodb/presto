@@ -93,7 +93,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -1301,7 +1300,7 @@ public class TestSqlParser
         }
         catch (ParsingException e) {
             if (!e.getErrorMessage().matches(expectedErrorMessageRegex)) {
-                Assert.fail(String.format("Expected error message to match '%s', but was: '%s'", expectedErrorMessageRegex, e.getErrorMessage()));
+                fail(format("Expected error message to match '%s', but was: '%s'", expectedErrorMessageRegex, e.getErrorMessage()));
             }
         }
     }

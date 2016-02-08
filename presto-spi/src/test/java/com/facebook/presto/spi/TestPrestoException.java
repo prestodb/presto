@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.spi;
 
-import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
 
 public class TestPrestoException
 {
@@ -22,13 +23,13 @@ public class TestPrestoException
     public void testMessage()
     {
         PrestoException exception = new PrestoException(new TestErrorCode(), "test");
-        Assert.assertEquals(exception.getMessage(), "test");
+        assertEquals(exception.getMessage(), "test");
 
         exception = new PrestoException(new TestErrorCode(), new RuntimeException("test2"));
-        Assert.assertEquals(exception.getMessage(), "test2");
+        assertEquals(exception.getMessage(), "test2");
 
         exception = new PrestoException(new TestErrorCode(), new RuntimeException());
-        Assert.assertEquals(exception.getMessage(), "test");
+        assertEquals(exception.getMessage(), "test");
     }
 
     private static class TestErrorCode
