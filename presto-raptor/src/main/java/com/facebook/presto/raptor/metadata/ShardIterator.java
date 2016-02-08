@@ -57,6 +57,7 @@ final class ShardIterator
     private final Connection connection;
     private final PreparedStatement statement;
     private final ResultSet resultSet;
+    private boolean first = true;
 
     public ShardIterator(long tableId, boolean bucketed, boolean merged, TupleDomain<RaptorColumnHandle> effectivePredicate, IDBI dbi)
     {
@@ -142,7 +143,8 @@ final class ShardIterator
         if (resultSet.isAfterLast()) {
             return endOfData();
         }
-        if (resultSet.getRow() == 0) {
+        if (first) {
+            first = false;
             if (!resultSet.next()) {
                 return endOfData();
             }
