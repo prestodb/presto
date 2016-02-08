@@ -454,6 +454,25 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testCompatibleTypeChangeForView()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_table AS SELECT 'abcdefg' a", 1);
+        assertUpdate("CREATE VIEW test_view AS SELECT a FROM test_table");
+
+        assertQuery("SELECT * FROM test_view", "VALUES 'abcdefg'");
+
+        // replace table with a version that's implicitly coercible to the previous one
+        assertUpdate("DROP TABLE test_table");
+        assertUpdate("CREATE TABLE test_table AS SELECT 'abc' a", 1);
+
+        assertQuery("SELECT * FROM test_view", "VALUES 'abc'");
+
+        assertUpdate("DROP VIEW test_view");
+        assertUpdate("DROP TABLE test_table");
+    }
+
+    @Test
     public void testViewMetadata()
             throws Exception
     {

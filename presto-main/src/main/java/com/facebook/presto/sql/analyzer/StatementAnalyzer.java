@@ -104,6 +104,8 @@ import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
+import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -845,7 +847,16 @@ class StatementAnalyzer
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
             }
 
-            analysis.setOutputDescriptor(table, descriptor);
+            // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
+            // This is needed in case the underlying table(s) changed and the query in the view now produces types that
+            // are implicitly coercible to the declared view types.
+            List<Field> outputFields = view.getColumns().stream()
+                    .map(column -> Field.newUnqualified(column.getName(), column.getType()))
+                    .collect(ImmutableCollectors.toImmutableList());
+
+            analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
+
+            analysis.setOutputDescriptor(table, new RelationType(outputFields));
             return descriptor;
         }
 
@@ -1803,7 +1814,7 @@ class StatementAnalyzer
             ViewDefinition.ViewColumn column = columns.get(i);
             Field field = fieldList.get(i);
             if (!column.getName().equals(field.getName().orElse(null)) ||
-                    !column.getType().equals(field.getType())) {
+                    !TypeRegistry.canCoerce(field.getType(), column.getType())) {
                 return true;
             }
         }
