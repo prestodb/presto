@@ -43,7 +43,6 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.IdentityHashMap;
@@ -70,6 +69,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestExpressionInterpreter
 {
@@ -284,9 +284,9 @@ public class TestExpressionInterpreter
 
         // evaluate should execute
         Object value = evaluate("random()");
-        Assert.assertTrue(value instanceof Double);
+        assertTrue(value instanceof Double);
         double randomValue = (double) value;
-        Assert.assertTrue(0 <= randomValue && randomValue < 1);
+        assertTrue(0 <= randomValue && randomValue < 1);
     }
 
     @Test

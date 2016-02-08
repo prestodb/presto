@@ -23,7 +23,6 @@ import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -41,6 +40,7 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.builder;
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.streamingExecutionPreference;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static org.testng.Assert.assertEquals;
 
 public class TestAddExchanges
 {
@@ -77,7 +77,7 @@ public class TestAddExchanges
                         .build())
                 .build();
         // Given no preferences, the original input order should be maintained
-        Assert.assertEquals(stableSort(input, preference), input);
+        assertEquals(stableSort(input, preference), input);
     }
 
     @Test
@@ -139,7 +139,7 @@ public class TestAddExchanges
                         .local(ImmutableList.of(sorted("a", ASC_NULLS_FIRST)))
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     @Test
@@ -201,7 +201,7 @@ public class TestAddExchanges
                         .local(ImmutableList.of(constant("a"), sorted("b", ASC_NULLS_FIRST)))
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     @Test
@@ -264,7 +264,7 @@ public class TestAddExchanges
                         .global(arbitraryPartition())
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     @Test
@@ -333,7 +333,7 @@ public class TestAddExchanges
                         .global(arbitraryPartition())
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     @Test
@@ -402,7 +402,7 @@ public class TestAddExchanges
                         .global(hashDistributedOn("a"))
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     @Test
@@ -471,7 +471,7 @@ public class TestAddExchanges
                         .global(hashDistributedOn("a"))
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     @Test
@@ -540,7 +540,7 @@ public class TestAddExchanges
                         .global(hashDistributedOn("a"))
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     @Test
@@ -609,7 +609,7 @@ public class TestAddExchanges
                         .global(hashDistributedOn("a"))
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     @Test
@@ -678,7 +678,7 @@ public class TestAddExchanges
                         .global(hashDistributedOn("a"))
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     @Test
@@ -749,7 +749,7 @@ public class TestAddExchanges
                         .global(arbitraryPartition())
                         .build())
                 .build();
-        Assert.assertEquals(stableSort(input, preference), expected);
+        assertEquals(stableSort(input, preference), expected);
     }
 
     private static <T> List<T> stableSort(List<T> list, Comparator<T> comparator)
