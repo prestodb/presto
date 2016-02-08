@@ -14,7 +14,6 @@
 
 package com.facebook.presto.tests.hive;
 
-import com.facebook.presto.tests.querystats.QueryStatsClient;
 import com.google.inject.Inject;
 import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
@@ -51,15 +50,11 @@ public class TestTablePartitioningSelect
     @Inject
     private MutableTablesState tablesState;
 
-    @Inject
-    private QueryStatsClient queryStatsClient;
-
     private static HiveTableDefinition singleIntColumnPartitionedTableDefinition(String fileFormat, Optional<String> serde)
     {
         String tableName = fileFormat.toLowerCase() + "_single_int_column_partitioned";
         HiveDataSource dataSource = createResourceDataSource(tableName, "" + System.currentTimeMillis(), "com/facebook/presto/tests/hive/data/single_int_column/data." + fileFormat.toLowerCase());
-        return HiveTableDefinition.builder()
-                .setName(tableName)
+        return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate(buildSingleIntColumnPartitionedTableDDL(fileFormat, serde))
                 .addPartition("part_col = 1", dataSource)
                 .addPartition("part_col = 2", dataSource)

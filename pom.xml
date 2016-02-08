@@ -708,13 +708,13 @@
             <dependency>
                 <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
-                <version>1.0.39</version>
+                <version>1.4</version>
             </dependency>
 
             <dependency>
                 <groupId>com.teradata.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
-                <version>1.0.39</version>
+                <version>1.4</version>
             </dependency>
 
             <dependency>

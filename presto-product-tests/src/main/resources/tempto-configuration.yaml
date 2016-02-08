@@ -34,4 +34,6 @@ databases:
 tests:
   hdfs:
     path: /product-test
+  assert:
+    float_tolerance: 0.000001
 
