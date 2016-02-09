@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class StructuralTestUtil
 {
@@ -77,6 +78,19 @@ public final class StructuralTestUtil
         BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), 1024);
         appendToBlockBuilder(keyType, key, blockBuilder);
         appendToBlockBuilder(valueType, value, blockBuilder);
+        return blockBuilder.build();
+    }
+
+    public static Block mapBlockOf(Type keyType, Type valueType, Object[] keys, Object[] values)
+    {
+        checkArgument(keys.length == values.length, "keys/values must have the same length");
+        BlockBuilder blockBuilder = new InterleavedBlockBuilder(ImmutableList.of(keyType, valueType), new BlockBuilderStatus(), 1024);
+        for (int i = 0; i < keys.length; i++) {
+            Object key = keys[i];
+            Object value = values[i];
+            appendToBlockBuilder(keyType, key, blockBuilder);
+            appendToBlockBuilder(valueType, value, blockBuilder);
+        }
         return blockBuilder.build();
     }
 
