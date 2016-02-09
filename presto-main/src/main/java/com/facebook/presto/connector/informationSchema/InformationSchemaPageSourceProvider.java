@@ -34,6 +34,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -241,7 +242,9 @@ public class InformationSchemaPageSourceProvider
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_PARTITIONS));
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
+        if (!tableHandle.isPresent()) {
+            throw new TableNotFoundException(tableName.asSchemaTableName());
+        }
 
         List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
 
