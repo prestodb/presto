@@ -79,6 +79,13 @@ public class TestRedisDistributed
     }
 
     @Override
+    public void testCompatibleTypeChangeForView()
+            throws Exception
+    {
+        // Redis connector currently does not support views
+    }
+
+    @Override
     public void testViewMetadata()
     {
     }

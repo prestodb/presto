@@ -59,6 +59,13 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testCompatibleTypeChangeForView()
+            throws Exception
+    {
+        // Cassandra connector currently does not support views
+    }
+
+    @Override
     public void testViewMetadata()
             throws Exception
     {
