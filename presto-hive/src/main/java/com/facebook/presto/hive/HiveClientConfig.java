@@ -95,6 +95,7 @@ public class HiveClientConfig
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
     private boolean useParquetColumnNames;
+    private boolean useOrcColumnNames;
     private boolean pinS3ClientToCurrentRegion;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
@@ -850,7 +851,7 @@ public class HiveClientConfig
     }
 
     public boolean isUseParquetColumnNames()
-   {
+    {
         return useParquetColumnNames;
     }
 
@@ -859,6 +860,19 @@ public class HiveClientConfig
     public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public boolean isUseOrcColumnNames()
+    {
+        return useOrcColumnNames;
+    }
+
+    @Config("hive.orc.use-column-names")
+    @ConfigDescription("Access Orc columns using names from the file")
+    public HiveClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
+    {
+        this.useOrcColumnNames = useOrcColumnNames;
         return this;
     }
 }

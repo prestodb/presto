@@ -377,7 +377,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource()
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER);
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false);
             return orcPageSourceFactory.createPageSource(
                     new Configuration(),
                     SESSION,
