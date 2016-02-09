@@ -563,8 +563,8 @@ class StatementAnalyzer
         // TODO replace this workaround with injecting implicit coercions for INSERTed values.
         if (!typesMatchForInsert(tableTypes, queryTypes)) {
             throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, insert, "Insert query has mismatched column types: " +
-                    "Table: (" + Joiner.on(", ").join(tableTypes) + "), " +
-                    "Query: (" + Joiner.on(", ").join(queryTypes) + ")");
+                    "Table: [" + Joiner.on(", ").join(tableTypes) + "], " +
+                    "Query: [" + Joiner.on(", ").join(queryTypes) + "]");
         }
 
         return new RelationType(Field.newUnqualified("rows", BIGINT));
