@@ -36,6 +36,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -137,9 +138,11 @@ public final class BlockAssertions
 
     public static Block createStringDictionaryBlock(int start, int length)
     {
+        checkArgument(length > 5, "block must have more than 5 entries");
+
         int dictionarySize = length / 5;
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), dictionarySize);
-        for (int i = start; i < dictionarySize; i++) {
+        for (int i = start; i < start + dictionarySize; i++) {
             VARCHAR.writeString(builder, String.valueOf(i));
         }
         int[] ids = new int[length];
@@ -247,9 +250,11 @@ public final class BlockAssertions
 
     public static Block createLongDictionaryBlock(int start, int length)
     {
+        checkArgument(length > 5, "block must have more than 5 entries");
+
         int dictionarySize = length / 5;
         BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), dictionarySize);
-        for (int i = start; i < dictionarySize; i++) {
+        for (int i = start; i < start + dictionarySize; i++) {
             BIGINT.writeLong(builder, i);
         }
         int[] ids = new int[length];
