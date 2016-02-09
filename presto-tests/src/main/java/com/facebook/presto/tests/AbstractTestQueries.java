@@ -4613,6 +4613,10 @@ public abstract class AbstractTestQueries
                 multipleRowsErrorMsg);
         assertQueryFails("SELECT (VALUES (1), (2)) IN (1,2)",
                 multipleRowsErrorMsg);
+
+        // exposes a bug in optimize hash generation because EnforceSingleNode does not
+        // support more than one column from the underlying query
+        assertQuery("SELECT custkey, (SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 1) FROM orders");
     }
 
     @Test

@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -85,6 +86,25 @@ public class HashGenerationOptimizer
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.types = requireNonNull(types, "types is null");
+        }
+
+        @Override
+        public PlanNode visitEnforceSingleRow(EnforceSingleRowNode node, RewriteContext<Void> context)
+        {
+            PlanNode child = context.rewrite(node.getSource(), null);
+
+            if (!child.getOutputSymbols().equals(node.getSource().getOutputSymbols())) {
+                // Add a projection to remove extraneous hash output columns,
+                // since EnforceSingleRow doesn't support them
+                ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+                for (Symbol symbol : node.getSource().getOutputSymbols()) {
+                    assignments.put(symbol, symbol.toQualifiedNameReference());
+                }
+
+                child = new ProjectNode(idAllocator.getNextId(), child, assignments.build());
+            }
+
+            return new EnforceSingleRowNode(node.getId(), child);
         }
 
         @Override
