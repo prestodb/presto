@@ -14,7 +14,8 @@
 package com.facebook.presto.verifier;
 
 import com.facebook.presto.jdbc.PrestoConnection;
-import com.facebook.presto.jdbc.PrestoResultSet;
+import com.facebook.presto.jdbc.PrestoStatement;
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.verifier.Validator.ChangedRow.Changed;
 import com.google.common.base.Joiner;
@@ -49,13 +50,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.facebook.presto.verifier.QueryResult.State;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.primitives.Doubles.isFinite;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -363,15 +365,6 @@ public class Validator
         return testPostQueryResults;
     }
 
-    private static Duration getCpuTime(ResultSet resultSet)
-            throws SQLException
-    {
-        if (resultSet.isWrapperFor(PrestoResultSet.class)) {
-            return new Duration(resultSet.unwrap(PrestoResultSet.class).getStats().getCpuTimeMillis(), TimeUnit.MILLISECONDS);
-        }
-        return null;
-    }
-
     private QueryResult executeQuery(String url, String username, String password, Query query, String sql, Duration timeout, Map<String, String> sessionProperties)
     {
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
@@ -379,7 +372,6 @@ public class Validator
             for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
                 connection.unwrap(PrestoConnection.class).setSessionProperty(entry.getKey(), entry.getValue());
             }
-            long start = System.nanoTime();
 
             try (Statement statement = connection.createStatement()) {
                 TimeLimiter limiter = new SimpleTimeLimiter();
@@ -388,17 +380,26 @@ public class Validator
                 if (explainOnly) {
                     sql = "EXPLAIN " + sql;
                 }
+                PrestoStatement prestoStatement = limitedStatement.unwrap(PrestoStatement.class);
+                ProgressMonitor progressMonitor = new ProgressMonitor();
+                prestoStatement.setProgressMonitor(progressMonitor);
                 try {
-                    if (limitedStatement.execute(sql)) {
-                        List<List<Object>> results = limiter.callWithTimeout(
+                    boolean isSelectQuery = limitedStatement.execute(sql);
+                    List<List<Object>> results = null;
+                    if (isSelectQuery) {
+                        results = limiter.callWithTimeout(
                                 getResultSetConverter(limitedStatement.getResultSet()),
                                 timeout.toMillis() - stopwatch.elapsed(TimeUnit.MILLISECONDS),
                                 TimeUnit.MILLISECONDS, true);
-                        return new QueryResult(State.SUCCESS, null, nanosSince(start), getCpuTime(limitedStatement.getResultSet()), results);
                     }
-                    else {
-                        return new QueryResult(State.SUCCESS, null, nanosSince(start), null, null);
+                    prestoStatement.clearProgressMonitor();
+                    QueryStats queryStats = progressMonitor.getFinalQueryStats();
+                    if (queryStats == null) {
+                        throw new VerifierException("Cannot fetch query stats");
                     }
+                    Duration queryWallTime = new Duration(queryStats.getWallTimeMillis(), TimeUnit.MILLISECONDS);
+                    Duration queryCpuTime = new Duration(queryStats.getCpuTimeMillis(), TimeUnit.MILLISECONDS);
+                    return new QueryResult(State.SUCCESS, null, queryWallTime, queryCpuTime, results);
                 }
                 catch (AssertionError e) {
                     if (e.getMessage().startsWith("unimplemented type:")) {
@@ -667,6 +668,26 @@ public class Validator
                     .compare(this.row, that.row, rowComparator(precision))
                     .compareFalseFirst(this.changed == Changed.ADDED, that.changed == Changed.ADDED)
                     .result();
+        }
+    }
+
+    private static class ProgressMonitor
+            implements Consumer<QueryStats>
+    {
+        private QueryStats queryStats;
+        private boolean finished = false;
+
+        @Override
+        public synchronized void accept(QueryStats queryStats)
+        {
+            checkState(!finished);
+            this.queryStats = queryStats;
+        }
+
+        public synchronized QueryStats getFinalQueryStats()
+        {
+            finished = true;
+            return queryStats;
         }
     }
 }
