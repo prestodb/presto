@@ -39,6 +39,7 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
+import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -89,10 +90,12 @@ public class PageProcessorCompiler
         implements BodyCompiler<PageProcessor>
 {
     private final Metadata metadata;
+    private final DeterminismEvaluator determinismEvaluator;
 
     public PageProcessorCompiler(Metadata metadata)
     {
         this.metadata = metadata;
+        this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionRegistry());
     }
 
     @Override
@@ -329,7 +332,7 @@ public class PageProcessorCompiler
         return method;
     }
 
-    private static MethodDefinition generateProjectRLEMethod(
+    private MethodDefinition generateProjectRLEMethod(
             ClassDefinition classDefinition,
             String methodName,
             RowExpression projection,
@@ -356,7 +359,7 @@ public class PageProcessorCompiler
         Variable thisVariable = method.getThis();
         List<Integer> inputChannels = getInputChannels(projection);
 
-        if (inputChannels.size() != 1) {
+        if (inputChannels.size() != 1 || !determinismEvaluator.isDeterministic(projection)) {
             body.append(thisVariable.invoke(projectColumnar, params)
                     .ret());
             return method;
@@ -386,7 +389,7 @@ public class PageProcessorCompiler
         return method;
     }
 
-    private static MethodDefinition generateProjectDictionaryMethod(
+    private MethodDefinition generateProjectDictionaryMethod(
             ClassDefinition classDefinition,
             String methodName,
             RowExpression projection,
@@ -425,7 +428,7 @@ public class PageProcessorCompiler
 
         List<Integer> inputChannels = getInputChannels(projection);
 
-        if (inputChannels.size() != 1) {
+        if (inputChannels.size() != 1 || !determinismEvaluator.isDeterministic(projection)) {
             body.append(thisVariable.invoke(projectColumnar, columnarParams)
                     .ret());
             return method;
@@ -604,7 +607,7 @@ public class PageProcessorCompiler
         body.append(page.ret());
     }
 
-    private static void generateFilterPageMethod(ClassDefinition classDefinition, RowExpression filter)
+    private void generateFilterPageMethod(ClassDefinition classDefinition, RowExpression filter)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
@@ -630,7 +633,7 @@ public class PageProcessorCompiler
             blockVariablesBuilder.add(blockVariable);
         }
         List<Variable> blockVariables = blockVariablesBuilder.build();
-        if (filterChannels.size() == 1) {
+        if (filterChannels.size() == 1 && determinismEvaluator.isDeterministic(filter)) {
             BytecodeBlock ifFilterOnDictionaryBlock = getBytecodeFilterOnDictionary(session, scope, blockVariables.get(0));
             BytecodeBlock ifFilterOnRLEBlock = getBytecodeFilterOnRLE(session, scope, blockVariables.get(0));
 
