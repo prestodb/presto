@@ -14,12 +14,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.SqlDecimal;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
@@ -104,6 +106,8 @@ public class TestMathFunctions
         assertFunction("ceil(DOUBLE '123.45')", DOUBLE, 124.0);
         assertFunction("ceil(DOUBLE '-123.45')", DOUBLE, -123.0);
         assertFunction("ceil(CAST(NULL as DOUBLE))", DOUBLE, null);
+        assertFunction("ceil(DECIMAL '123.45')", createDecimalType(4), SqlDecimal.of("124"));
+        assertFunction("ceil(DECIMAL '1234567890123456.78')", createDecimalType(17), SqlDecimal.of("1234567890123457"));
         assertFunction("ceiling(123)", BIGINT, 123);
         assertFunction("ceiling(-123)", BIGINT, -123);
         assertFunction("ceiling(CAST(NULL AS BIGINT))", BIGINT, null);
@@ -112,6 +116,20 @@ public class TestMathFunctions
         assertFunction("ceiling(DOUBLE '123.45')", DOUBLE, 124.0);
         assertFunction("ceiling(DOUBLE '-123.45')", DOUBLE, -123.0);
         assertFunction("ceiling(CAST(NULL AS DOUBLE))", DOUBLE, null);
+        assertFunction("ceiling(DECIMAL '123')", createDecimalType(3), SqlDecimal.of("123"));
+        assertFunction("ceiling(DECIMAL '-123')", createDecimalType(3), SqlDecimal.of("-123"));
+        assertFunction("ceiling(DECIMAL '123.45')", createDecimalType(4), SqlDecimal.of("124"));
+        assertFunction("ceiling(DECIMAL '-123.45')", createDecimalType(4), SqlDecimal.of("-123"));
+        assertFunction("ceiling(DECIMAL '999.9')", createDecimalType(4), SqlDecimal.of("1000"));
+        assertFunction("ceiling(DECIMAL '123456789012345678')", createDecimalType(18), SqlDecimal.of("123456789012345678"));
+        assertFunction("ceiling(DECIMAL '-123456789012345678')", createDecimalType(18), SqlDecimal.of("-123456789012345678"));
+        assertFunction("ceiling(DECIMAL '123456789012345678.00')", createDecimalType(19), SqlDecimal.of("123456789012345678"));
+        assertFunction("ceiling(DECIMAL '123456789012345678.99')", createDecimalType(19), SqlDecimal.of("123456789012345679"));
+        assertFunction("ceiling(DECIMAL '-123456789012345678.99')", createDecimalType(19), SqlDecimal.of("-123456789012345678"));
+        assertFunction("ceiling(DECIMAL '999999999999999999.9')", createDecimalType(19), SqlDecimal.of("1000000000000000000"));
+        assertFunction("ceiling(DECIMAL '1234567890123456.78')", createDecimalType(17), SqlDecimal.of("1234567890123457"));
+        assertFunction("ceiling(DECIMAL '-1234567890123456.78')", createDecimalType(17), SqlDecimal.of("-1234567890123456"));
+        assertFunction("ceiling(CAST(NULL AS DECIMAL(1,0)))", createDecimalType(1), null);
     }
 
     @Test
@@ -182,6 +200,20 @@ public class TestMathFunctions
         assertFunction("floor(DOUBLE '123.45')", DOUBLE, 123.0);
         assertFunction("floor(DOUBLE '-123.45')", DOUBLE, -124.0);
         assertFunction("floor(CAST(NULL as DOUBLE))", DOUBLE, null);
+        assertFunction("floor(DECIMAL '123')", createDecimalType(3), SqlDecimal.of("123"));
+        assertFunction("floor(DECIMAL '-123')", createDecimalType(3), SqlDecimal.of("-123"));
+        assertFunction("floor(DECIMAL '123.45')", createDecimalType(4), SqlDecimal.of("123"));
+        assertFunction("floor(DECIMAL '-123.45')", createDecimalType(4), SqlDecimal.of("-124"));
+        assertFunction("floor(DECIMAL '-999.9')", createDecimalType(4), SqlDecimal.of("-1000"));
+        assertFunction("floor(DECIMAL '123456789012345678')", createDecimalType(18), SqlDecimal.of("123456789012345678"));
+        assertFunction("floor(DECIMAL '-123456789012345678')", createDecimalType(18), SqlDecimal.of("-123456789012345678"));
+        assertFunction("floor(DECIMAL '123456789012345678.00')", createDecimalType(19), SqlDecimal.of("123456789012345678"));
+        assertFunction("floor(DECIMAL '123456789012345678.99')", createDecimalType(19), SqlDecimal.of("123456789012345678"));
+        assertFunction("floor(DECIMAL '-123456789012345678.99')", createDecimalType(19), SqlDecimal.of("-123456789012345679"));
+        assertFunction("floor(DECIMAL '-999999999999999999.9')", createDecimalType(19), SqlDecimal.of("-1000000000000000000"));
+        assertFunction("floor(DECIMAL '1234567890123456.78')", createDecimalType(17), SqlDecimal.of("1234567890123456"));
+        assertFunction("floor(DECIMAL '-1234567890123456.78')", createDecimalType(17), SqlDecimal.of("-1234567890123457"));
+        assertFunction("floor(CAST(NULL as DECIMAL(1,0)))", createDecimalType(1), null);
     }
 
     @Test

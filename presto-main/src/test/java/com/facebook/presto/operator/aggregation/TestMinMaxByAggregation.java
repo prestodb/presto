@@ -34,7 +34,6 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -237,7 +236,7 @@ public class TestMinMaxByAggregation
         assertAggregation(
                 function,
                 1.0,
-                sqlDecimal("2.2"),
+                SqlDecimal.of("2.2"),
                 createLongDecimalsBlock("1.1", "2.2", "3.3"),
                 createLongDecimalsBlock("1.2", "1.0", "2.0"));
     }
@@ -249,7 +248,7 @@ public class TestMinMaxByAggregation
         assertAggregation(
                 function,
                 1.0,
-                sqlDecimal("3.3"),
+                SqlDecimal.of("3.3"),
                 createLongDecimalsBlock("1.1", "2.2", "3.3", "4.4"),
                 createLongDecimalsBlock("1.2", "1.0", "2.0", "1.5"));
     }
@@ -261,7 +260,7 @@ public class TestMinMaxByAggregation
         assertAggregation(
                 function,
                 1.0,
-                sqlDecimal("2.2"),
+                SqlDecimal.of("2.2"),
                 createShortDecimalsBlock("1.1", "2.2", "3.3"),
                 createShortDecimalsBlock("1.2", "1.0", "2.0"));
     }
@@ -273,15 +272,9 @@ public class TestMinMaxByAggregation
         assertAggregation(
                 function,
                 1.0,
-                sqlDecimal("3.3"),
+                SqlDecimal.of("3.3"),
                 createShortDecimalsBlock("1.1", "2.2", "3.3", "4.4"),
                 createShortDecimalsBlock("1.2", "1.0", "2.0", "1.5"));
-    }
-
-    private SqlDecimal sqlDecimal(String value)
-    {
-        BigDecimal bigDecimal = new BigDecimal(value);
-        return new SqlDecimal(bigDecimal.unscaledValue(), bigDecimal.precision(), bigDecimal.scale());
     }
 
     @Test

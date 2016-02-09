@@ -192,6 +192,8 @@ import static com.facebook.presto.operator.scalar.MapNotEqualOperator.MAP_NOT_EQ
 import static com.facebook.presto.operator.scalar.MapSubscriptOperator.MAP_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static com.facebook.presto.operator.scalar.MapValues.MAP_VALUES;
+import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_CEILING_FUNCTIONS;
+import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_FLOOR_FUNCTION;
 import static com.facebook.presto.operator.scalar.RowEqualOperator.ROW_EQUAL;
 import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
@@ -416,7 +418,9 @@ public class FunctionRegistry
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(TRY_CAST)
                 .function(DECIMAL_AVERAGE_AGGREGATION)
-                .function(DECIMAL_SUM_AGGREGATION);
+                .function(DECIMAL_SUM_AGGREGATION)
+                .functions(DECIMAL_CEILING_FUNCTIONS)
+                .function(DECIMAL_FLOOR_FUNCTION);
 
         if (experimentalSyntaxEnabled) {
             builder.aggregate(ApproximateAverageAggregations.class)
