@@ -16,7 +16,6 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.SqlFunction;
@@ -31,7 +30,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -105,7 +103,6 @@ import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -529,7 +526,7 @@ class StatementAnalyzer
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
         List<String> tableColumns = tableMetadata.getVisibleColumnNames();
 
-        final List<String> insertColumns;
+        List<String> insertColumns;
         if (insert.getColumns().isPresent()) {
             insertColumns = insert.getColumns().get().stream()
                     .map(String::toLowerCase)
@@ -552,7 +549,7 @@ class StatementAnalyzer
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
         analysis.setInsert(new Analysis.Insert(
                 targetTableHandle.get(),
-                insertColumns.stream().map(column -> columnHandles.get(column)).collect(toImmutableList())));
+                insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
         Iterable<Type> tableTypes = insertColumns.stream()
                 .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
@@ -570,7 +567,7 @@ class StatementAnalyzer
         return new RelationType(Field.newUnqualified("rows", BIGINT));
     }
 
-    private boolean typesMatchForInsert(Iterable<Type> tableTypes, Iterable<Type> queryTypes)
+    private static boolean typesMatchForInsert(Iterable<Type> tableTypes, Iterable<Type> queryTypes)
     {
         if (Iterables.size(tableTypes) != Iterables.size(queryTypes)) {
             return false;
@@ -799,7 +796,7 @@ class StatementAnalyzer
             }
         }
         if (node.isWithOrdinality()) {
-            outputFields.add(Field.newUnqualified(Optional.empty(), BigintType.BIGINT));
+            outputFields.add(Field.newUnqualified(Optional.empty(), BIGINT));
         }
         RelationType descriptor = new RelationType(outputFields.build());
         analysis.setOutputDescriptor(node, descriptor);
@@ -830,7 +827,7 @@ class StatementAnalyzer
             }
         }
 
-        QualifiedObjectName name = MetadataUtil.createQualifiedObjectName(session, table, table.getName());
+        QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
 
         Optional<ViewDefinition> optionalView = metadata.getView(session, name);
         if (optionalView.isPresent()) {
@@ -852,7 +849,7 @@ class StatementAnalyzer
             // are implicitly coercible to the declared view types.
             List<Field> outputFields = view.getColumns().stream()
                     .map(column -> Field.newUnqualified(column.getName(), column.getType()))
-                    .collect(ImmutableCollectors.toImmutableList());
+                    .collect(toImmutableList());
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
@@ -917,7 +914,7 @@ class StatementAnalyzer
     }
 
     @Override
-    protected RelationType visitSampledRelation(final SampledRelation relation, AnalysisContext context)
+    protected RelationType visitSampledRelation(SampledRelation relation, AnalysisContext context)
     {
         if (relation.getColumnsToStratifyOn().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
@@ -943,7 +940,7 @@ class StatementAnalyzer
         if (samplePercentageValue < 0.0) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
         }
-        else if ((samplePercentageValue > 100.0) && (relation.getType() != SampledRelation.Type.POISSONIZED || relation.isRescaled())) {
+        if ((samplePercentageValue > 100.0) && ((relation.getType() != SampledRelation.Type.POISSONIZED) || relation.isRescaled())) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
         }
 
@@ -1403,7 +1400,7 @@ class StatementAnalyzer
                     if (expressions.size() > 1) {
                         throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
                     }
-                    else if (expressions.size() == 1) {
+                    if (expressions.size() == 1) {
                         orderByExpression = new FieldOrExpression(Iterables.getOnlyElement(expressions));
                     }
 
@@ -1417,7 +1414,7 @@ class StatementAnalyzer
                         throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 
-                    orderByExpression = outputExpressions.get((int) (ordinal - 1));
+                    orderByExpression = outputExpressions.get(Ints.checkedCast(ordinal - 1));
 
                     if (orderByExpression.isExpression()) {
                         Type type = analysis.getType(orderByExpression.getExpression());
@@ -1510,7 +1507,7 @@ class StatementAnalyzer
                     throw new SemanticException(INVALID_ORDINAL, groupingColumn, "GROUP BY position %s is not in select list", ordinal);
                 }
 
-                groupByExpression = outputExpressions.get((int) (ordinal - 1));
+                groupByExpression = outputExpressions.get(Ints.checkedCast(ordinal - 1));
             }
             else {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, tupleDescriptor, context);
@@ -1590,9 +1587,7 @@ class StatementAnalyzer
                     if (starPrefix.isPresent()) {
                         throw new SemanticException(MISSING_TABLE, item, "Table '%s' not found", starPrefix.get());
                     }
-                    else {
-                        throw new SemanticException(WILDCARD_WITHOUT_FROM, item, "SELECT * not allowed in queries without FROM clause");
-                    }
+                    throw new SemanticException(WILDCARD_WITHOUT_FROM, item, "SELECT * not allowed in queries without FROM clause");
                 }
 
                 for (Field field : fields) {
@@ -1739,18 +1734,12 @@ class StatementAnalyzer
                     if (field.getName().isPresent()) {
                         throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column '%s.%s' not in GROUP BY clause", field.getRelationAlias().get(), field.getName().get());
                     }
-                    else {
-                        throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Columns from '%s' not in GROUP BY clause", field.getRelationAlias().get());
-                    }
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Columns from '%s' not in GROUP BY clause", field.getRelationAlias().get());
                 }
-                else {
-                    if (field.getName().isPresent()) {
-                        throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column '%s' not in GROUP BY clause", field.getName().get());
-                    }
-                    else {
-                        throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Some columns from FROM clause not in GROUP BY clause");
-                    }
+                if (field.getName().isPresent()) {
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column '%s' not in GROUP BY clause", field.getName().get());
                 }
+                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Some columns from FROM clause not in GROUP BY clause");
             }
         }
     }
