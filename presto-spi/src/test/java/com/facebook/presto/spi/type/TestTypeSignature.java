@@ -14,12 +14,10 @@
 package com.facebook.presto.spi.type;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -34,41 +32,6 @@ import static org.testng.Assert.fail;
 
 public class TestTypeSignature
 {
-    @Test
-    public void testBindParameters()
-            throws Exception
-    {
-        Map<String, Type> boundParameters = ImmutableMap.of("T1", DoubleType.DOUBLE, "T2", BigintType.BIGINT);
-
-        assertBindSignature("bigint", boundParameters, "bigint");
-        assertBindSignature("T1", boundParameters, "double");
-        assertBindSignature("T2", boundParameters, "bigint");
-        assertBindSignature("array(T1)", boundParameters, "array(double)");
-        assertBindSignature("array<T1>", boundParameters, "array(double)");
-        assertBindSignature("map(T1,T2)", boundParameters, "map(double,bigint)");
-        assertBindSignature("map<T1,T2>", boundParameters, "map(double,bigint)");
-        assertBindSignature("row(a T1,b T2)", boundParameters, "row(a double,b bigint)");
-        assertBindSignature("bla(T1,42,T2)", boundParameters, "bla(double,42,bigint)");
-
-        assertBindSignatureFails("T1(bigint)", boundParameters, "Unbounded parameters can not have parameters");
-    }
-
-    private void assertBindSignatureFails(String typeName, Map<String, Type> boundParameters, String reason)
-    {
-        try {
-            parseTypeSignature(typeName).bindParameters(boundParameters);
-            fail(reason);
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
-    }
-
-    private void assertBindSignature(String typeName, Map<String, Type> boundParameters, String expectedTypeName)
-    {
-        assertEquals(parseTypeSignature(typeName).bindParameters(boundParameters).toString(), expectedTypeName);
-    }
-
     @Test
     public void parseSignatureWithLiterals() throws Exception
     {
@@ -188,8 +151,8 @@ public class TestTypeSignature
     @Test
     public void parseWithLiteralParameters()
     {
-        assertSignature("foo(42)", "foo", ImmutableList.<String>of("42"));
-        assertSignature("varchar(10)", "varchar", ImmutableList.<String>of("10"));
+        assertSignature("foo(42)", "foo", ImmutableList.of("42"));
+        assertSignature("varchar(10)", "varchar", ImmutableList.of("10"));
     }
 
     @Test
