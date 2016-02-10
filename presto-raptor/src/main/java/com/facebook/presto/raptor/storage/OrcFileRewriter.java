@@ -91,25 +91,30 @@ public final class OrcFileRewriter
         long rowCount = 0;
         long uncompressedSize = 0;
 
-        while (true) {
+        row = rowsToDelete.nextClearBit(row);
+        if (row < inputRowCount) {
+            reader.seekToRow(row);
+        }
+
+        while (row < inputRowCount) {
             if (Thread.currentThread().isInterrupted()) {
                 throw new InterruptedIOException();
             }
 
-            row = rowsToDelete.nextClearBit(row);
-            if (row >= inputRowCount) {
-                return new OrcFileInfo(rowCount, uncompressedSize);
+            // seekToRow() is extremely expensive
+            if (reader.getRowNumber() < row) {
+                reader.next(object);
+                continue;
             }
 
-            reader.seekToRow(row);
             object = reader.next(object);
             writer.addRow(object);
-
-            row++;
-
             rowCount++;
             uncompressedSize += uncompressedSize(object);
+
+            row = rowsToDelete.nextClearBit(row + 1);
         }
+        return new OrcFileInfo(rowCount, uncompressedSize);
     }
 
     private static Path path(File input)
