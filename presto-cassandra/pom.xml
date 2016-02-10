@@ -13,8 +13,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <cassandra.version>2.1.0</cassandra.version>
-        <datastax.version>2.1.5</datastax.version>
+        <cassandra.version>2.1.6</cassandra.version>
+        <datastax.version>3.0.0</datastax.version>
     </properties>
 
     <dependencies>
@@ -26,6 +26,22 @@
               <exclusion>
                 <groupId>io.netty</groupId>
                 <artifactId>netty</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-buffer</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-handler</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-transport</artifactId>
               </exclusion>
             </exclusions>
         </dependency>
