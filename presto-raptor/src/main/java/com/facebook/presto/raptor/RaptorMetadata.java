@@ -51,6 +51,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.IDBI;
 
@@ -106,6 +107,8 @@ import static java.util.stream.Collectors.toList;
 public class RaptorMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(RaptorMetadata.class);
+
     private final IDBI dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
@@ -682,17 +685,21 @@ public class RaptorMetadata
                 .map(handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle"))
                 .map(ColumnInfo::fromHandle).collect(toList());
 
-        ImmutableSet.Builder<UUID> oldShardUuids = ImmutableSet.builder();
-        ImmutableList.Builder<ShardInfo> newShards = ImmutableList.builder();
+        ImmutableSet.Builder<UUID> oldShardUuidsBuilder = ImmutableSet.builder();
+        ImmutableList.Builder<ShardInfo> newShardsBuilder = ImmutableList.builder();
 
         fragments.stream()
                 .map(fragment -> shardDeltaCodec.fromJson(fragment.getBytes()))
                 .forEach(delta -> {
-                    oldShardUuids.addAll(delta.getOldShardUuids());
-                    newShards.addAll(delta.getNewShards());
+                    oldShardUuidsBuilder.addAll(delta.getOldShardUuids());
+                    newShardsBuilder.addAll(delta.getNewShards());
                 });
 
-        shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids.build(), newShards.build());
+        Set<UUID> oldShardUuids = oldShardUuidsBuilder.build();
+        List<ShardInfo> newShards = newShardsBuilder.build();
+
+        log.info("Finishing delete for tableId %s (removed: %s, rewritten: %s)", tableId, oldShardUuids.size() - newShards.size(), newShards.size());
+        shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids, newShards);
 
         clearRollback();
     }
