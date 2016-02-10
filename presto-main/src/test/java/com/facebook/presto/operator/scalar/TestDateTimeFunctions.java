@@ -25,7 +25,9 @@ import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
-import org.joda.time.DateMidnight;
+import com.facebook.presto.testing.TestingConnectorSession;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalTime;
@@ -33,10 +35,14 @@ import org.joda.time.ReadableInstant;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -46,6 +52,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeUtils.getInstantChronology;
 import static org.joda.time.Days.daysBetween;
@@ -56,6 +63,7 @@ import static org.joda.time.Months.monthsBetween;
 import static org.joda.time.Seconds.secondsBetween;
 import static org.joda.time.Weeks.weeksBetween;
 import static org.joda.time.Years.yearsBetween;
+import static org.testng.Assert.assertEquals;
 
 public class TestDateTimeFunctions
 {
@@ -100,9 +108,30 @@ public class TestDateTimeFunctions
             throws Exception
     {
         // current date is the time at midnight in the session time zone
-        DateMidnight dateMidnight = new DateMidnight(session.getStartTime(), DATE_TIME_ZONE);
-        int days = (int) TimeUnit.MILLISECONDS.toDays(dateMidnight.getMillis());
-        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(days));
+        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate((int) epochDaysInZone(TIME_ZONE_KEY, session.getStartTime())));
+    }
+
+    @Test
+    public void testCurrentDateTimezone()
+            throws Exception
+    {
+        TimeZoneKey kievTimeZoneKey = getTimeZoneKey("Europe/Kiev");
+        for (long instant = new DateTime(2000, 6, 15, 0, 0).getMillis(); instant < new DateTime(2016, 6, 15, 0, 0).getMillis(); instant += TimeUnit.HOURS.toMillis(1)) {
+            assertCurrentDateAtInstant(kievTimeZoneKey, instant);
+            assertCurrentDateAtInstant(TIME_ZONE_KEY, instant);
+        }
+    }
+
+    private static void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, long instant)
+    {
+        long expectedDays = epochDaysInZone(timeZoneKey, instant);
+        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of()));
+        assertEquals(dateTimeCalculation, expectedDays);
+    }
+
+    private static long epochDaysInZone(TimeZoneKey timeZoneKey, long instant)
+    {
+        return LocalDate.from(Instant.ofEpochMilli(instant).atZone(ZoneId.of(timeZoneKey.getId()))).toEpochDay();
     }
 
     @Test
