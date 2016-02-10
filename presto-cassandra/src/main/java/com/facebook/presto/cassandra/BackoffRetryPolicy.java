@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.WriteType;
+import com.datastax.driver.core.exceptions.DriverException;
 import com.datastax.driver.core.policies.DefaultRetryPolicy;
 import com.datastax.driver.core.policies.RetryPolicy;
 
@@ -58,4 +60,16 @@ public class BackoffRetryPolicy
     {
         return DefaultRetryPolicy.INSTANCE.onWriteTimeout(statement, cl, writeType, requiredAcks, receivedAcks, nbRetry);
     }
+
+    @Override
+    public RetryDecision onRequestError(Statement statement, ConsistencyLevel cl, DriverException e, int nbRetry)
+    {
+        return RetryDecision.tryNextHost(cl);
+    }
+
+    @Override
+    public void init(Cluster cluster) {}
+
+    @Override
+    public void close() {}
 }

@@ -181,7 +181,7 @@ public enum CassandraType
                 case TIMEUUID:
                     return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
                 case TIMESTAMP:
-                    return NullableValue.of(nativeType, row.getDate(i).getTime());
+                    return NullableValue.of(nativeType, row.getTimestamp(i).getTime());
                 case INET:
                     return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(i))));
                 case VARINT:
@@ -302,7 +302,7 @@ public enum CassandraType
                 case TIMEUUID:
                     return row.getUUID(i).toString();
                 case TIMESTAMP:
-                    return Long.toString(row.getDate(i).getTime());
+                    return Long.toString(row.getTimestamp(i).getTime());
                 case INET:
                     return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(i)));
                 case VARINT:
