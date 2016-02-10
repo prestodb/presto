@@ -272,6 +272,24 @@ public class TestHiveIntegrationSmokeTest
                 "FROM tpch.tiny.orders");
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Table contains only partition columns")
+    public void testCreateTableOnlyPartitionColumns()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_create_table_only_partition_columns\n" +
+                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
+                "WITH (partitioned_by = ARRAY['grape', 'apple', 'orange', 'pear'])");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Partition columns .* not present in schema")
+    public void testCreateTableNonExistentPartitionColumns()
+    {
+        assertUpdate("" +
+                "CREATE TABLE test_create_table_nonexistent_partition_columns\n" +
+                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
+                "WITH (partitioned_by = ARRAY['dragonfruit'])");
+    }
+
     @Test
     public void insertTable()
             throws Exception

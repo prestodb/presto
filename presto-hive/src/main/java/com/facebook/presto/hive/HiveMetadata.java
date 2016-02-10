@@ -105,7 +105,6 @@ import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static com.facebook.presto.hive.HiveWriteUtils.renameDirectory;
 import static com.facebook.presto.hive.util.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.spi.StandardErrorCode.USER_ERROR;
@@ -1307,13 +1306,21 @@ public class HiveMetadata
         throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serializationLib));
     }
 
-    private static void validateColumnOrdering(ConnectorTableMetadata tableMetadata)
+    private static void validatePartitionColumns(ConnectorTableMetadata tableMetadata)
     {
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
 
         List<String> allColumns = tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
                 .collect(toList());
+
+        if (!allColumns.containsAll(partitionedBy)) {
+            throw new PrestoException(USER_ERROR, format("Partition columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(partitionedBy), ImmutableSet.copyOf(allColumns))));
+        }
+
+        if (allColumns.size() == partitionedBy.size()) {
+            throw new PrestoException(USER_ERROR, "Table contains only partition columns");
+        }
 
         if (!allColumns.subList(allColumns.size() - partitionedBy.size(), allColumns.size()).equals(partitionedBy)) {
             throw new PrestoException(HIVE_COLUMN_ORDER_MISMATCH, "Partition keys must be the last columns in the table and in the same order as the table properties: " + partitionedBy);
@@ -1322,24 +1329,18 @@ public class HiveMetadata
 
     private static List<HiveColumnHandle> getColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames)
     {
-        validateColumnOrdering(tableMetadata);
+        validatePartitionColumns(tableMetadata);
 
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
-        Set<String> foundPartitionColumns = new HashSet<>();
         int ordinal = 0;
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            boolean partitionKey = partitionColumnNames.contains(column.getName());
-            if (partitionKey) {
-                foundPartitionColumns.add(column.getName());
-            }
-
             columnHandles.add(new HiveColumnHandle(
                     connectorId,
                     column.getName(),
                     toHiveType(column.getType()),
                     column.getType().getTypeSignature(),
                     ordinal,
-                    partitionKey));
+                    partitionColumnNames.contains(column.getName())));
             ordinal++;
         }
         if (tableMetadata.isSampled()) {
@@ -1350,13 +1351,6 @@ public class HiveMetadata
                     BIGINT.getTypeSignature(),
                     ordinal,
                     false));
-        }
-
-        if (!partitionColumnNames.equals(foundPartitionColumns)) {
-            throw new PrestoException(NOT_FOUND, format("Partition columns %s were not found", Sets.difference(partitionColumnNames, foundPartitionColumns)));
-        }
-        if (columnHandles.build().isEmpty()) {
-            throw new PrestoException(USER_ERROR, "Table contains only partition columns");
         }
 
         return columnHandles.build();
