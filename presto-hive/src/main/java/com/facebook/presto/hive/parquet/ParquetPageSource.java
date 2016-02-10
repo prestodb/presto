@@ -241,7 +241,7 @@ class ParquetPageSource
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
-                    ColumnDescriptor columnDescriptor = this.requestedSchema.getColumns().get(fieldId);
+                    ColumnDescriptor columnDescriptor = requestedSchema.getColumns().get(fieldId);
                     blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(columnDescriptor, type));
                 }
             }
