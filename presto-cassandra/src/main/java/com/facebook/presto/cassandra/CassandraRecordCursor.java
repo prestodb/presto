@@ -105,7 +105,7 @@ public class CassandraRecordCursor
             case COUNTER:
                 return currentRow.getLong(i);
             case TIMESTAMP:
-                return currentRow.getDate(i).getTime();
+                return currentRow.getTimestamp(i).getTime();
             default:
                 throw new IllegalStateException("Cannot retrieve long for " + getCassandraType(i));
         }
