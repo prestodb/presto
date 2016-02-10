@@ -24,6 +24,7 @@ import com.datastax.driver.core.ResultSetFuture;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
+import com.datastax.driver.core.VersionNumber;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.querybuilder.Clause;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
@@ -396,6 +397,18 @@ public class CassandraSession
         partitionKeys.setFetchSize(fetchSizeForPartitionKeySelect);
 
         if (!fullPartitionKey) {
+            Set<Host> clusterHosts = getSession(schemaName).getCluster().getMetadata().getAllHosts();
+            if (!clusterHosts.isEmpty()) {
+                VersionNumber version = clusterHosts.iterator().next().getCassandraVersion();
+                // Cassandra 2.2 changes the functionality of COUNT(*) to be
+                // more like SQL standard. COUNT(*) can no longer
+                // be used to see if a table has < limitForPartitionKeySelect partitions.
+                // See CASSANDRA-8216
+                if (version.getMajor() >= 3 || (version.getMajor() == 2 && version.getMinor() >= 2)) {
+                    return null;
+                }
+            }
+
             addWhereClause(partitionKeys.where(), partitionKeyColumns, new ArrayList<>());
             ResultSetFuture partitionKeyFuture = executeWithSession(schemaName, new SessionCallable<ResultSetFuture>() {
                 @Override
