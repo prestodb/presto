@@ -61,7 +61,9 @@ public abstract class ParquetColumnReader
     private int readOffset;
 
     public abstract BlockBuilder createBlockBuilder();
+
     public abstract void readValues(BlockBuilder blockBuilder, int valueNumber);
+
     public abstract void skipValues(int offsetNumber);
 
     public static ParquetColumnReader createReader(ColumnDescriptor descriptor)
@@ -142,7 +144,7 @@ public abstract class ParquetColumnReader
     }
 
     public Block readBlock(Type type)
-        throws IOException
+            throws IOException
     {
         checkArgument(currentValueCount <= totalValueCount, "Already read all values in column chunk");
         // Parquet does not have api to skip in datastream, have to skip values
@@ -180,7 +182,7 @@ public abstract class ParquetColumnReader
     }
 
     private void readNextPage()
-        throws IOException
+            throws IOException
     {
         page = pageReader.readPage();
         validateParquet(page != null, "Not enough values to read in column chunk");

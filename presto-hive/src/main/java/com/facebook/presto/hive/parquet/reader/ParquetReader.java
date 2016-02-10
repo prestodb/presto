@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.conf.Configuration;
 import parquet.column.ColumnDescriptor;
-import parquet.column.page.PageReadStore;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.ColumnChunkMetaData;
 import parquet.hadoop.metadata.ColumnPath;
@@ -49,7 +48,6 @@ public class ParquetReader
 
     private int currentBlock;
     private BlockMetaData currentBlockMetadata;
-    private PageReadStore readerStore;
     private long fileRowCount;
     private long currentPosition;
     private long currentGroupRowCount;

@@ -149,12 +149,12 @@ public class ParquetCodecFactory
             this.codecName = codecName;
             this.codec = codec;
             if (codec != null) {
-                this.compressor = CodecPool.getCompressor(codec);
-                this.compressedOutBuffer = new ByteArrayOutputStream(pageSize);
+                compressor = CodecPool.getCompressor(codec);
+                compressedOutBuffer = new ByteArrayOutputStream(pageSize);
             }
             else {
-                this.compressor = null;
-                this.compressedOutBuffer = null;
+                compressor = null;
+                compressedOutBuffer = null;
             }
         }
 

@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import static java.lang.String.format;
+
 public final class ParquetValidationUtils
 {
     private ParquetValidationUtils()
     {
     }
 
-    public static void validateParquet(boolean condition, String errorMessage)
-        throws ParquetCorruptionException
+    public static void validateParquet(boolean condition, String formatString, Object... args)
+            throws ParquetCorruptionException
     {
         if (!condition) {
-            throw new ParquetCorruptionException(errorMessage);
+            throw new ParquetCorruptionException(format(formatString, args));
         }
     }
 }

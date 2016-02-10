@@ -29,15 +29,15 @@ public class ParquetDoubleColumnReader
 
     public BlockBuilder createBlockBuilder()
     {
-        return DOUBLE.createBlockBuilder(new BlockBuilderStatus(), this.nextBatchSize);
+        return DOUBLE.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
     }
 
     @Override
     public void readValues(BlockBuilder blockBuilder, int valueNumber)
     {
         for (int i = 0; i < valueNumber; i++) {
-            if (this.definitionReader.readLevel() == this.columnDescriptor.getMaxDefinitionLevel()) {
-                DOUBLE.writeDouble(blockBuilder, this.valuesReader.readDouble());
+            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
+                DOUBLE.writeDouble(blockBuilder, valuesReader.readDouble());
             }
             else {
                 blockBuilder.appendNull();
@@ -49,8 +49,8 @@ public class ParquetDoubleColumnReader
     public void skipValues(int offsetNumber)
     {
         for (int i = 0; i < offsetNumber; i++) {
-            if (this.definitionReader.readLevel() == this.columnDescriptor.getMaxDefinitionLevel()) {
-                this.valuesReader.readDouble();
+            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
+                valuesReader.readDouble();
             }
         }
     }

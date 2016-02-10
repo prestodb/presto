@@ -101,11 +101,7 @@ public final class ParquetPredicateUtils
             return false;
         }
 
-        Map<Integer, ParquetDictionaryDescriptor> dictionaries = getDictionariesByColumnOrdinal(block,
-                                                                                                configuration,
-                                                                                                dataSource,
-                                                                                                requestedSchema,
-                                                                                                effectivePredicate);
+        Map<Integer, ParquetDictionaryDescriptor> dictionaries = getDictionariesByColumnOrdinal(block, configuration, dataSource, requestedSchema, effectivePredicate);
         return parquetPredicate.matches(dictionaries);
     }
 

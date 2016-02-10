@@ -29,15 +29,15 @@ public class ParquetBooleanColumnReader
 
     public BlockBuilder createBlockBuilder()
     {
-        return BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), this.nextBatchSize);
+        return BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
     }
 
     @Override
     public void readValues(BlockBuilder blockBuilder, int valueNumber)
     {
         for (int i = 0; i < valueNumber; i++) {
-            if (this.definitionReader.readLevel() == this.columnDescriptor.getMaxDefinitionLevel()) {
-                BOOLEAN.writeBoolean(blockBuilder, this.valuesReader.readBoolean());
+            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
+                BOOLEAN.writeBoolean(blockBuilder, valuesReader.readBoolean());
             }
             else {
                 blockBuilder.appendNull();
@@ -49,8 +49,8 @@ public class ParquetBooleanColumnReader
     public void skipValues(int offsetNumber)
     {
         for (int i = 0; i < offsetNumber; i++) {
-            if (this.definitionReader.readLevel() == this.columnDescriptor.getMaxDefinitionLevel()) {
-                this.valuesReader.readBoolean();
+            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
+                valuesReader.readBoolean();
             }
         }
     }

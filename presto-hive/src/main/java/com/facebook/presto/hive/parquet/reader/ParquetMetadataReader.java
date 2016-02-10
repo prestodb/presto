@@ -52,7 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static parquet.format.Util.readFileMetaData;
 
@@ -61,9 +61,7 @@ public final class ParquetMetadataReader
     private static final int PARQUET_METADATA_LENGTH = 4;
     private static final byte[] MAGIC = "PAR1".getBytes(US_ASCII);
 
-    private ParquetMetadataReader()
-    {
-    }
+    private ParquetMetadataReader() {}
 
     public static ParquetMetadata readFooter(Configuration configuration, Path file)
             throws IOException
@@ -80,7 +78,7 @@ public final class ParquetMetadataReader
             // MAGIC
 
             long length = fileStatus.getLen();
-            checkArgument(length >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
+            validateParquet(length >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
             long metadataLengthIndex = length - PARQUET_METADATA_LENGTH - MAGIC.length;
 
             inputStream.seek(metadataLengthIndex);
@@ -88,16 +86,18 @@ public final class ParquetMetadataReader
 
             byte[] magic = new byte[MAGIC.length];
             inputStream.readFully(magic);
-            checkArgument(Arrays.equals(MAGIC, magic),
-                    "Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC), Arrays.toString(magic));
+            validateParquet(Arrays.equals(MAGIC, magic), "Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC), Arrays.toString(magic));
 
             long metadataIndex = metadataLengthIndex - metadataLength;
-            checkArgument(metadataIndex >= MAGIC.length && metadataIndex < metadataLengthIndex,
-                    "Corrupted Parquet file: %s metadata index: %s out of range", file, metadataIndex);
+            validateParquet(
+                    metadataIndex >= MAGIC.length && metadataIndex < metadataLengthIndex,
+                    "Corrupted Parquet file: %s metadata index: %s out of range",
+                    file,
+                    metadataIndex);
             inputStream.seek(metadataIndex);
             FileMetaData fileMetaData = readFileMetaData(inputStream);
             List<SchemaElement> schema = fileMetaData.getSchema();
-            checkArgument(!schema.isEmpty(), "Empty Parquet schema in file: %s", file);
+            validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", file);
 
             MessageType messageType = readParquetSchema(schema);
             List<BlockMetaData> blocks = new ArrayList<>();
@@ -108,10 +108,11 @@ public final class ParquetMetadataReader
                     blockMetaData.setRowCount(rowGroup.getNum_rows());
                     blockMetaData.setTotalByteSize(rowGroup.getTotal_byte_size());
                     List<ColumnChunk> columns = rowGroup.getColumns();
-                    checkArgument(!columns.isEmpty(), "No columns in row group: %s", rowGroup);
+                    validateParquet(!columns.isEmpty(), "No columns in row group: %s", rowGroup);
                     String filePath = columns.get(0).getFile_path();
                     for (ColumnChunk columnChunk : columns) {
-                        checkArgument((filePath == null && columnChunk.getFile_path() == null)
+                        validateParquet(
+                                (filePath == null && columnChunk.getFile_path() == null)
                                         || (filePath != null && filePath.equals(columnChunk.getFile_path())),
                                 "all column chunks of the same row group must be in the same file");
                         ColumnMetaData metaData = columnChunk.meta_data;
