@@ -163,14 +163,16 @@ public class ParquetPageSourceFactory
                         .collect(toList());
             }
 
-            ParquetReader parquetReader = new ParquetReader(fileMetaData.getSchema(),
+            ParquetReader parquetReader = new ParquetReader(
+                    fileMetaData.getSchema(),
                     fileMetaData.getKeyValueMetaData(),
                     requestedSchema,
                     blocks,
                     configuration,
                     dataSource);
 
-            return new ParquetPageSource(parquetReader,
+            return new ParquetPageSource(
+                    parquetReader,
                     fileSchema,
                     requestedSchema,
                     path,

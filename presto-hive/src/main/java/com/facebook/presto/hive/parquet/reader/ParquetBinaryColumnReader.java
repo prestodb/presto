@@ -31,14 +31,14 @@ public class ParquetBinaryColumnReader
 
     public BlockBuilder createBlockBuilder()
     {
-        return VARCHAR.createBlockBuilder(new BlockBuilderStatus(), this.nextBatchSize);
+        return VARCHAR.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
     }
 
     @Override
     public void readValues(BlockBuilder blockBuilder, int valueNumber)
     {
         for (int i = 0; i < valueNumber; i++) {
-            if (this.definitionReader.readLevel() == this.columnDescriptor.getMaxDefinitionLevel()) {
+            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
                 Binary binary = valuesReader.readBytes();
                 if (binary.length() == 0) {
                     VARCHAR.writeSlice(blockBuilder, Slices.EMPTY_SLICE);
@@ -57,8 +57,8 @@ public class ParquetBinaryColumnReader
     public void skipValues(int offsetNumber)
     {
         for (int i = 0; i < offsetNumber; i++) {
-            if (this.definitionReader.readLevel() == this.columnDescriptor.getMaxDefinitionLevel()) {
-                this.valuesReader.readBytes();
+            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
+                valuesReader.readBytes();
             }
         }
     }

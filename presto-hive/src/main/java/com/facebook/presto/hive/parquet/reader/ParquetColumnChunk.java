@@ -111,7 +111,8 @@ public class ParquetColumnChunk
             throws IOException
     {
         DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
-        return new DictionaryPage(getBytesInput(compressedPageSize),
+        return new DictionaryPage(
+                getBytesInput(compressedPageSize),
                 uncompressedPageSize,
                 dicHeader.getNum_values(),
                 Encoding.valueOf(dicHeader.getEncoding().name()));
@@ -124,10 +125,12 @@ public class ParquetColumnChunk
             throws IOException
     {
         DataPageHeader dataHeaderV1 = pageHeader.getData_page_header();
-        pages.add(new DataPageV1(getBytesInput(compressedPageSize),
+        pages.add(new DataPageV1(
+                getBytesInput(compressedPageSize),
                 dataHeaderV1.getNum_values(),
                 uncompressedPageSize,
-                ParquetMetadataReader.readStats(dataHeaderV1.getStatistics(),
+                ParquetMetadataReader.readStats(
+                        dataHeaderV1.getStatistics(),
                         descriptor.getColumnDescriptor().getType()),
                 Encoding.valueOf(dataHeaderV1.getRepetition_level_encoding().name()),
                 Encoding.valueOf(dataHeaderV1.getDefinition_level_encoding().name()),
@@ -143,7 +146,8 @@ public class ParquetColumnChunk
     {
         DataPageHeaderV2 dataHeaderV2 = pageHeader.getData_page_header_v2();
         int dataSize = compressedPageSize - dataHeaderV2.getRepetition_levels_byte_length() - dataHeaderV2.getDefinition_levels_byte_length();
-        pages.add(new DataPageV2(dataHeaderV2.getNum_rows(),
+        pages.add(new DataPageV2(
+                dataHeaderV2.getNum_rows(),
                 dataHeaderV2.getNum_nulls(),
                 dataHeaderV2.getNum_values(),
                 getBytesInput(dataHeaderV2.getRepetition_levels_byte_length()),
@@ -151,7 +155,8 @@ public class ParquetColumnChunk
                 Encoding.valueOf(dataHeaderV2.getEncoding().name()),
                 getBytesInput(dataSize),
                 uncompressedPageSize,
-                ParquetMetadataReader.readStats(dataHeaderV2.getStatistics(),
+                ParquetMetadataReader.readStats(
+                        dataHeaderV2.getStatistics(),
                         descriptor.getColumnDescriptor().getType()),
                 dataHeaderV2.isIs_compressed()));
         return dataHeaderV2.getNum_values();
