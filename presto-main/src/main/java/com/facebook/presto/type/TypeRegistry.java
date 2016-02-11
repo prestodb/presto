@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.ColorType.COLOR;
@@ -186,6 +187,7 @@ public final class TypeRegistry
     public static void verifyTypeClass(Type type)
     {
         requireNonNull(type, "type is null");
+        checkArgument(parseTypeSignature(type.getDisplayName()).equals(type.getTypeSignature()), "Type display name does not round trip: %s", type);
     }
 
     public static boolean canCoerce(List<? extends Type> actualTypes, List<Type> expectedTypes)
