@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.LongDecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
@@ -26,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -48,21 +46,22 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Character.MIN_RADIX;
 import static java.lang.String.format;
-import static java.math.BigDecimal.ROUND_UNNECESSARY;
-import static java.math.BigDecimal.ZERO;
+import static java.math.BigInteger.ONE;
+import static java.math.BigInteger.ZERO;
 
 public final class MathFunctions
 {
     public static final SqlScalarFunction[] DECIMAL_CEILING_FUNCTIONS = {decimalCeilingFunction("ceiling"), decimalCeilingFunction("ceil")};
     public static final SqlScalarFunction DECIMAL_FLOOR_FUNCTION = decimalFloorFunction();
     public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = decimalModFunction();
+    public static final SqlScalarFunction[] DECIMAL_ROUND_FUNCTIONS = {decimalRoundFunction(), decimalRoundNFunction()};
 
     private MathFunctions() {}
 
     @Description("absolute value")
     @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long abs(@SqlType(StandardTypes.BIGINT) long num)
+    @SqlType(BIGINT)
+    public static long abs(@SqlType(BIGINT) long num)
     {
         checkCondition(num != Long.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -9223372036854775808 is out of range for abs()");
         return Math.abs(num);
@@ -137,8 +136,8 @@ public final class MathFunctions
 
     @Description("round up to nearest integer")
     @ScalarFunction(alias = "ceil")
-    @SqlType(StandardTypes.BIGINT)
-    public static long ceiling(@SqlType(StandardTypes.BIGINT) long num)
+    @SqlType(BIGINT)
+    public static long ceiling(@SqlType(BIGINT) long num)
     {
         return num;
     }
@@ -256,8 +255,8 @@ public final class MathFunctions
 
     @Description("round down to nearest integer")
     @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long floor(@SqlType(StandardTypes.BIGINT) long num)
+    @SqlType(BIGINT)
+    public static long floor(@SqlType(BIGINT) long num)
     {
         return num;
     }
@@ -349,8 +348,8 @@ public final class MathFunctions
 
     @Description("remainder of given quotient")
     @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long mod(@SqlType(StandardTypes.BIGINT) long num1, @SqlType(StandardTypes.BIGINT) long num2)
+    @SqlType(BIGINT)
+    public static long mod(@SqlType(BIGINT) long num1, @SqlType(BIGINT) long num2)
     {
         return num1 % num2;
     }
@@ -406,8 +405,8 @@ public final class MathFunctions
 
     @Description("a pseudo-random number between 0 and value (exclusive)")
     @ScalarFunction(alias = "rand", deterministic = false)
-    @SqlType(StandardTypes.BIGINT)
-    public static long random(@SqlType(StandardTypes.BIGINT) long value)
+    @SqlType(BIGINT)
+    public static long random(@SqlType(BIGINT) long value)
     {
         checkCondition(value > 0, INVALID_FUNCTION_ARGUMENT, "bound must be positive");
         return ThreadLocalRandom.current().nextLong(value);
@@ -415,16 +414,16 @@ public final class MathFunctions
 
     @Description("round to nearest integer")
     @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long round(@SqlType(StandardTypes.BIGINT) long num)
+    @SqlType(BIGINT)
+    public static long round(@SqlType(BIGINT) long num)
     {
         return round(num, 0);
     }
 
     @Description("round to nearest integer")
     @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long round(@SqlType(StandardTypes.BIGINT) long num, @SqlType(StandardTypes.BIGINT) long decimals)
+    @SqlType(BIGINT)
+    public static long round(@SqlType(BIGINT) long num, @SqlType(BIGINT) long decimals)
     {
         return num;
     }
@@ -440,7 +439,7 @@ public final class MathFunctions
     @Description("round to given number of decimal places")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.BIGINT) long decimals)
+    public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(BIGINT) long decimals)
     {
         if (num == 0.0) {
             return 0;
@@ -677,7 +676,7 @@ public final class MathFunctions
     @Description("convert a number to a string in the given base")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice toBase(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long radix)
+    public static Slice toBase(@SqlType(BIGINT) long value, @SqlType(BIGINT) long radix)
     {
         checkRadix(radix);
         return utf8Slice(Long.toString(value, (int) radix));
@@ -685,8 +684,8 @@ public final class MathFunctions
 
     @Description("convert a string in the given base to a number")
     @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long fromBase(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.BIGINT) long radix)
+    @SqlType(BIGINT)
+    public static long fromBase(@SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(BIGINT) long radix)
     {
         checkRadix(radix);
         try {
