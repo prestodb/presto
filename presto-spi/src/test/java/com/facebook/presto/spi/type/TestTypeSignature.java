@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -142,6 +144,14 @@ public class TestTypeSignature
     {
         assertSignature("foo(42)", "foo", ImmutableList.<String>of("42"));
         assertSignature("varchar(10)", "varchar", ImmutableList.<String>of("10"));
+    }
+
+    @Test
+    public void testVarchar()
+            throws Exception
+    {
+        assertEquals(VARCHAR.getTypeSignature().toString(), "varchar");
+        assertEquals(createVarcharType(42).getTypeSignature().toString(), "varchar(42)");
     }
 
     private static void assertRowSignature(
