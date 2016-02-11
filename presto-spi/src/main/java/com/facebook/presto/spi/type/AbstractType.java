@@ -154,9 +154,9 @@ public abstract class AbstractType
     }
 
     @Override
-    public String toString()
+    public final String toString()
     {
-        return getTypeSignature().toString();
+        return getDisplayName();
     }
 
     @Override

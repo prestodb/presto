@@ -167,10 +167,4 @@ public final class VarcharType
 
         return getTypeSignature().toString();
     }
-
-    @Override
-    public String toString()
-    {
-        return getDisplayName();
-    }
 }
