@@ -12,6 +12,7 @@ General Changes
 * Improve expression optimizer to remove some redundant operations.
 * Allow using double input for :func:`approx_percentile` with an array of
   percentiles.
+* Do not allow creating views with a column type of ``UNKNOWN``.
 
 Hive Changes
 ------------

@@ -158,6 +158,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
@@ -660,7 +661,7 @@ class StatementAnalyzer
         // analyze the query that creates the table
         RelationType descriptor = process(node.getQuery(), context);
 
-        validateColumnNames(node, descriptor);
+        validateColumns(node, descriptor);
 
         return new RelationType(Field.newUnqualified("rows", BIGINT));
     }
@@ -684,12 +685,12 @@ class StatementAnalyzer
         QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
         accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), viewName);
 
-        validateColumnNames(node, descriptor);
+        validateColumns(node, descriptor);
 
         return descriptor;
     }
 
-    private static void validateColumnNames(Statement node, RelationType descriptor)
+    private static void validateColumns(Statement node, RelationType descriptor)
     {
         // verify that all column names are specified and unique
         // TODO: collect errors and return them all at once
@@ -701,6 +702,9 @@ class StatementAnalyzer
             }
             if (!names.add(fieldName.get())) {
                 throw new SemanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", fieldName.get());
+            }
+            if (field.getType().equals(UNKNOWN)) {
+                throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown: %s", fieldName.get());
             }
         }
     }
