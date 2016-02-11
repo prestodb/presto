@@ -272,8 +272,15 @@ public class TypeSignature
     @JsonValue
     public String toString()
     {
+        // TODO: remove these hacks
         if (base.equalsIgnoreCase(StandardTypes.ROW)) {
             return rowToString();
+        }
+        else if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
+                (parameters.size() == 1) &&
+                parameters.get(0).isLongLiteral() &&
+                parameters.get(0).getLongLiteral() == VarcharType.MAX_LENGTH) {
+            return base;
         }
         else {
             StringBuilder typeName = new StringBuilder(base);
