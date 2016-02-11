@@ -5004,7 +5004,7 @@ public abstract class AbstractTestQueries
         computeActual("SELECT CAST(null AS array(foo))");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar(2147483647), bigint\\E")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar, bigint\\E")
     public void testInvalidTypeInfixOperator()
     {
         // Comment on why error message references varchar(214783647) instead of varchar(2) which seems expected result type for concatenation in expression.
