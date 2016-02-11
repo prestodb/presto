@@ -393,7 +393,7 @@ public class TestHiveFileFormats
     {
         List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
             ObjectInspector objectInspector = testColumn.getObjectInspector();
-            return !hasType(objectInspector, PrimitiveCategory.DATE);
+            return !hasType(objectInspector, PrimitiveCategory.DATE) && !hasType(objectInspector, PrimitiveCategory.DECIMAL);
         }));
 
         HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
@@ -418,7 +418,7 @@ public class TestHiveFileFormats
     {
         List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
             ObjectInspector objectInspector = testColumn.getObjectInspector();
-            return !hasType(objectInspector, PrimitiveCategory.DATE);
+            return !hasType(objectInspector, PrimitiveCategory.DATE) && !hasType(objectInspector, PrimitiveCategory.DECIMAL);
         }));
 
         HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();

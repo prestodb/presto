@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
@@ -25,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
@@ -46,7 +46,7 @@ public final class ArrayPositionFunction
 
     public ArrayPositionFunction()
     {
-        super("array_position", ImmutableList.of(comparableTypeParameter("E")), "bigint", ImmutableList.of("array(E)", "E"));
+        super("array_position", ImmutableList.of(comparableTypeParameter("E")), ImmutableList.of(), "bigint", ImmutableList.of("array(E)", "E"));
     }
 
     @Override
@@ -68,9 +68,9 @@ public final class ArrayPositionFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type type = types.get("E");
+        Type type = boundVariables.getTypeVariable("E");
         MethodHandle equalMethodHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
         MethodHandle arrayPositionMethodHandle;
         if (type.getJavaType() == boolean.class) {

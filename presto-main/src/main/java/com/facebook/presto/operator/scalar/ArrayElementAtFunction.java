@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
@@ -27,7 +28,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,7 +50,7 @@ public class ArrayElementAtFunction
 
     public ArrayElementAtFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array(E)", "bigint"));
+        super(FUNCTION_NAME, ImmutableList.of(typeVariable("E")), ImmutableList.of(), "E", ImmutableList.of("array(E)", "bigint"));
     }
 
     @Override
@@ -71,10 +72,10 @@ public class ArrayElementAtFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(types.size() == 1, "Expected one type, got %s", types);
-        Type elementType = types.get("E");
+        checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected one type, got %s", boundVariables.getTypeVariables());
+        Type elementType = boundVariables.getTypeVariable("E");
 
         MethodHandle methodHandle;
         if (METHOD_HANDLES.containsKey(elementType.getJavaType())) {

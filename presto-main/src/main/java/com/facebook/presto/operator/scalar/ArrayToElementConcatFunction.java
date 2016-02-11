@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
@@ -22,9 +23,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayToElementConcatFunction
@@ -41,7 +41,7 @@ public class ArrayToElementConcatFunction
 
     public ArrayToElementConcatFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array(E)", ImmutableList.of("array(E)", "E"));
+        super(FUNCTION_NAME, ImmutableList.of(typeVariable("E")), ImmutableList.of(), "array(E)", ImmutableList.of("array(E)", "E"));
     }
 
     @Override
@@ -63,9 +63,9 @@ public class ArrayToElementConcatFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type type = types.get("E");
+        Type type = boundVariables.getTypeVariable("E");
         MethodHandle methodHandle;
         if (type.getJavaType() == boolean.class) {
             methodHandle = METHOD_HANDLE_BOOLEAN;

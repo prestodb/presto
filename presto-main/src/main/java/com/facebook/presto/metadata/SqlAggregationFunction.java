@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
@@ -42,23 +41,26 @@ public abstract class SqlAggregationFunction
 
     protected SqlAggregationFunction(
             String name,
-            List<TypeParameterRequirement> typeParameterRequirements,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             String returnType,
             List<String> argumentTypes)
     {
-        this(name, typeParameterRequirements, returnType, argumentTypes, AGGREGATE, ImmutableSet.of());
+        this(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, AGGREGATE, ImmutableSet.of());
     }
 
     protected SqlAggregationFunction(
             String name,
-            List<TypeParameterRequirement> typeParameterRequirements,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             String returnType,
             List<String> argumentTypes,
             FunctionKind kind,
             Set<String> literalParameters)
     {
         requireNonNull(name, "name is null");
-        requireNonNull(typeParameterRequirements, "typeParameters is null");
+        requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
+        requireNonNull(longVariableConstraints, "longVariableConstraints is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
         requireNonNull(literalParameters, "argumentTypes is null");
@@ -66,7 +68,8 @@ public abstract class SqlAggregationFunction
         this.signature = new Signature(
                 name,
                 kind,
-                ImmutableList.copyOf(typeParameterRequirements),
+                ImmutableList.copyOf(typeVariableConstraints),
+                ImmutableList.copyOf(longVariableConstraints),
                 returnType,
                 ImmutableList.copyOf(argumentTypes),
                 false,
@@ -91,7 +94,7 @@ public abstract class SqlAggregationFunction
         return true;
     }
 
-    public abstract InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
+    public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
 
     public static class SimpleSqlAggregationFunction
             extends SqlAggregationFunction
@@ -105,7 +108,8 @@ public abstract class SqlAggregationFunction
                 InternalAggregationFunction function)
         {
             super(name,
-                    ImmutableList.<TypeParameterRequirement>of(),
+                    ImmutableList.<TypeVariableConstraint>of(),
+                    ImmutableList.<LongVariableConstraint>of(),
                     function.getFinalType().getTypeSignature().toString(),
                     function.getParameterTypes().stream()
                             .map(Type::getTypeSignature)
@@ -124,7 +128,7 @@ public abstract class SqlAggregationFunction
         }
 
         @Override
-        public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
             return function;
         }

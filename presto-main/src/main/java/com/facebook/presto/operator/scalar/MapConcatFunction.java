@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.aggregation.TypedSet;
@@ -25,9 +26,8 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapConcatFunction
@@ -38,7 +38,7 @@ public class MapConcatFunction
 
     public MapConcatFunction()
     {
-        super("map_concat", ImmutableList.of(typeParameter("K"), typeParameter("V")), "map(K,V)", ImmutableList.of("map(K,V)", "map(K,V)"));
+        super("map_concat", ImmutableList.of(typeVariable("K"), typeVariable("V")), ImmutableList.of(), "map(K,V)", ImmutableList.of("map(K,V)", "map(K,V)"));
     }
 
     @Override
@@ -60,10 +60,10 @@ public class MapConcatFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type kType = types.get("K");
-        Type vType = types.get("V");
+        Type kType = boundVariables.getTypeVariable("K");
+        Type vType = boundVariables.getTypeVariable("V");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(kType).bindTo(vType);
         return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), methodHandle, isDeterministic());
     }

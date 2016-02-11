@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.SqlOperator;
@@ -22,9 +23,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class IdentityCast
@@ -34,14 +34,14 @@ public class IdentityCast
 
     protected IdentityCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(typeParameter("T")), "T", ImmutableList.of("T"));
+        super(OperatorType.CAST, ImmutableList.of(typeVariable("T")), ImmutableList.of(), "T", ImmutableList.of("T"));
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(types.size() == 1, "Expected only one type");
-        Type type = types.get("T");
+        checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected only one type");
+        Type type = boundVariables.getTypeVariable("T");
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
         return new ScalarFunctionImplementation(false, ImmutableList.of(false), identity, isDeterministic());
     }

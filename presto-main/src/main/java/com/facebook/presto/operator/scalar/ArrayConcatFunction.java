@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
@@ -22,10 +23,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
-import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -41,7 +41,7 @@ public class ArrayConcatFunction
 
     public ArrayConcatFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array(E)", ImmutableList.of("array(E)", "array(E)"));
+        super(FUNCTION_NAME, ImmutableList.of(typeVariable("E")), ImmutableList.of(), "array(E)", ImmutableList.of("array(E)", "array(E)"));
     }
 
     @Override
@@ -63,9 +63,9 @@ public class ArrayConcatFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type elementType = types.get("E");
+        Type elementType = boundVariables.getTypeVariable("E");
         MethodType newType = METHOD_HANDLE.type().changeParameterType(0, Type.class).changeParameterType(1, ArrayConcatUtils.class);
         int[] permutedIndices = new int[newType.parameterCount()];
         permutedIndices[0] = 1;

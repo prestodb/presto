@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
@@ -28,7 +29,6 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
@@ -54,7 +54,7 @@ public final class ArrayRemoveFunction
 
     public ArrayRemoveFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), "array(E)", ImmutableList.of("array(E)", "E"));
+        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("E")), ImmutableList.of(), "array(E)", ImmutableList.of("array(E)", "E"));
     }
 
     @Override
@@ -76,10 +76,10 @@ public final class ArrayRemoveFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(types.size() == 1, format("%s expects only one argument", FUNCTION_NAME));
-        Type type = types.get("E");
+        checkArgument(boundVariables.getTypeVariables().size() == 1, format("%s expects only one argument", FUNCTION_NAME));
+        Type type = boundVariables.getTypeVariable("E");
 
         MethodHandle equalsFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
         MethodHandle baseMethodHandle;
