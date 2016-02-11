@@ -23,12 +23,14 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.type.UnknownType;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
@@ -41,6 +43,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -93,8 +96,12 @@ public class CreateViewTask
 
         List<ViewColumn> columns = analysis.getOutputDescriptor()
                 .getVisibleFields().stream()
-                .map(field -> new ViewColumn(field.getName().get(), field.getType()))
-                .collect(toImmutableList());
+                .map(field -> {
+                    if (field.getType().equals(UnknownType.UNKNOWN)) {
+                        throw new SemanticException(NOT_SUPPORTED, statement, "View column type can not be unknown");
+                    }
+                    return new ViewColumn(field.getName().get(), field.getType());
+                }).collect(toImmutableList());
 
         String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, Optional.of(session.getUser())));
 
