@@ -427,7 +427,7 @@ public class RaptorMetadata
         long columnId = lastColumn.getColumnId() + 1;
         int ordinalPosition = existingColumns.size();
 
-        String type = column.getType().getTypeSignature().toString();
+        String type = column.getType().getDisplayName();
         dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null, null);
         shardManager.addColumn(table.getTableId(), new ColumnInfo(columnId, column.getType()));
     }
@@ -564,7 +564,7 @@ public class RaptorMetadata
                 RaptorColumnHandle column = table.getColumnHandles().get(i);
 
                 int columnId = i + 1;
-                String type = table.getColumnTypes().get(i).getTypeSignature().toString();
+                String type = table.getColumnTypes().get(i).getDisplayName();
                 Integer sortPosition = sortColumnHandles.contains(column) ? sortColumnHandles.indexOf(column) : null;
                 Integer bucketPosition = bucketColumnHandles.contains(column) ? bucketColumnHandles.indexOf(column) : null;
 
