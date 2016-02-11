@@ -34,6 +34,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -101,7 +102,7 @@ public class TestSqlTask
         SqlTask sqlTask = createInitialTask();
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
-                PLAN_FRAGMENT,
+                Optional.of(PLAN_FRAGMENT),
                 ImmutableList.<TaskSource>of(),
                 INITIAL_EMPTY_OUTPUT_BUFFERS);
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
@@ -110,7 +111,7 @@ public class TestSqlTask
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
-                PLAN_FRAGMENT,
+                Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.FINISHED);
@@ -126,7 +127,7 @@ public class TestSqlTask
         SqlTask sqlTask = createInitialTask();
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
-                PLAN_FRAGMENT,
+                Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
@@ -161,7 +162,7 @@ public class TestSqlTask
         SqlTask sqlTask = createInitialTask();
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
-                PLAN_FRAGMENT,
+                Optional.of(PLAN_FRAGMENT),
                 ImmutableList.<TaskSource>of(),
                 INITIAL_EMPTY_OUTPUT_BUFFERS);
         assertEquals(taskInfo.getState(), TaskState.RUNNING);
@@ -187,7 +188,7 @@ public class TestSqlTask
         SqlTask sqlTask = createInitialTask();
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
-                PLAN_FRAGMENT,
+                Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
         assertEquals(taskInfo.getState(), TaskState.RUNNING);

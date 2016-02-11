@@ -47,6 +47,7 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -251,7 +252,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
+    public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
