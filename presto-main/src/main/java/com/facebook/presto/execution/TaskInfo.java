@@ -59,6 +59,7 @@ public class TaskInfo
     private final Set<PlanNodeId> noMoreSplits;
     private final TaskStats stats;
     private final List<ExecutionFailureInfo> failures;
+    private final boolean needsPlan;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskId") TaskId taskId,
@@ -70,7 +71,8 @@ public class TaskInfo
             @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
-            @JsonProperty("failures") List<ExecutionFailureInfo> failures)
+            @JsonProperty("failures") List<ExecutionFailureInfo> failures,
+            @JsonProperty("needsPlan") boolean needsPlan)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -89,6 +91,7 @@ public class TaskInfo
         else {
             this.failures = ImmutableList.of();
         }
+        this.needsPlan = needsPlan;
     }
 
     @JsonProperty
@@ -151,9 +154,15 @@ public class TaskInfo
         return failures;
     }
 
+    @JsonProperty
+    public boolean isNeedsPlan()
+    {
+        return needsPlan;
+    }
+
     public TaskInfo summarize()
     {
-        return new TaskInfo(taskId, taskInstanceId, version, state, self, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), failures);
+        return new TaskInfo(taskId, taskInstanceId, version, state, self, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), failures, needsPlan);
     }
 
     @Override

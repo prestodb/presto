@@ -211,7 +211,8 @@ public class MockRemoteTaskFactory
                     sharedBuffer.getInfo(),
                     ImmutableSet.<PlanNodeId>of(),
                     taskContext.getTaskStats(),
-                    failures);
+                    failures,
+                    true);
         }
 
         public synchronized void finishSplits(int splits)
