@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.SqlDecimal;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -405,6 +406,22 @@ public class TestMathFunctions
 
         assertFunction("mod(5.0, NULL)", DOUBLE, null);
         assertFunction("mod(NULL, 5.0)", DOUBLE, null);
+
+        assertFunction("mod(DECIMAL '0.0', DECIMAL '2.0')", createDecimalType(1, 1), SqlDecimal.of("0.0"));
+        assertFunction("mod(DECIMAL '13.0', DECIMAL '5.0')", createDecimalType(2, 1), SqlDecimal.of("3.0"));
+        assertFunction("mod(DECIMAL '-13.0', DECIMAL '5.0')", createDecimalType(2, 1), SqlDecimal.of("-3.0"));
+        assertFunction("mod(DECIMAL '13.0', DECIMAL '-5.0')", createDecimalType(2, 1), SqlDecimal.of("3.0"));
+        assertFunction("mod(DECIMAL '-13.0', DECIMAL '-5.0')", createDecimalType(2, 1), SqlDecimal.of("-3.0"));
+        assertFunction("mod(DECIMAL '5.0', DECIMAL '2.5')", createDecimalType(2, 1), SqlDecimal.of("0.0"));
+        assertFunction("mod(DECIMAL '5.0', DECIMAL '2.05')", createDecimalType(3, 2), SqlDecimal.of("0.90"));
+        assertFunction("mod(DECIMAL '5.0', DECIMAL '2.55')", createDecimalType(3, 2), SqlDecimal.of("2.45"));
+        assertFunction("mod(DECIMAL '5.0001', DECIMAL '2.55')", createDecimalType(5, 4), SqlDecimal.of("2.4501"));
+        assertFunction("mod(DECIMAL '12345678901234567.90', DECIMAL '12345678901234567.89')", createDecimalType(19, 2), SqlDecimal.of("0.01"));
+        assertFunction("mod(DECIMAL '5.0', CAST(NULL as DECIMAL(1,0)))", createDecimalType(2, 1), null);
+        assertFunction("mod(CAST(NULL as DECIMAL(1,0)), DECIMAL '5.0')", createDecimalType(2, 1), null);
+        assertInvalidFunction("mod(DECIMAL '5.0', DECIMAL '0')", DIVISION_BY_ZERO);
+        assertFunction("mod(DOUBLE '5.0', NULL)", DOUBLE, null);
+        assertFunction("mod(NULL, DOUBLE '5.0')", DOUBLE, null);
     }
 
     @Test
