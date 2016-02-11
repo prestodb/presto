@@ -550,7 +550,7 @@ public class StatementResource
             for (int i = 0; i < names.size(); i++) {
                 String name = names.get(i);
                 TypeSignature typeSignature = types.get(i).getTypeSignature();
-                String type = typeSignature.toString();
+                String type = types.get(i).getDisplayName();
                 list.add(new Column(name, type, new ClientTypeSignature(typeSignature)));
             }
             return list.build();

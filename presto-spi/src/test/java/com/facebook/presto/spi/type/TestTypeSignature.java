@@ -163,7 +163,9 @@ public class TestTypeSignature
 
     private static void assertSignature(String typeName, String base, List<String> parameters)
     {
-        assertSignature(typeName, base, parameters, typeName.replace("<", "(").replace(">", ")"));
+        String expectedTypeName = typeName.replace("<", "(").replace(">", ")");
+        assertSignature(typeName, base, parameters, expectedTypeName);
+        assertSignature(typeName.replace(",", " ,"), base, parameters, expectedTypeName);
     }
 
     private static void assertSignature(
