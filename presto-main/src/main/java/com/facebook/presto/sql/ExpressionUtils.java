@@ -37,6 +37,13 @@ import java.util.Queue;
 
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
@@ -49,26 +56,24 @@ public final class ExpressionUtils
 
     public static List<Expression> extractConjuncts(Expression expression)
     {
-        return extractPredicates(LogicalBinaryExpression.Type.AND, expression);
+        if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getType() == LogicalBinaryExpression.Type.AND) {
+            LogicalBinaryExpression and = (LogicalBinaryExpression) expression;
+            return ImmutableList.<Expression>builder()
+                    .addAll(extractConjuncts(and.getLeft()))
+                    .addAll(extractConjuncts(and.getRight()))
+                    .build();
+        }
+
+        return ImmutableList.of(expression);
     }
 
     public static List<Expression> extractDisjuncts(Expression expression)
     {
-        return extractPredicates(LogicalBinaryExpression.Type.OR, expression);
-    }
-
-    public static List<Expression> extractPredicates(LogicalBinaryExpression expression)
-    {
-        return extractPredicates(expression.getType(), expression);
-    }
-
-    public static List<Expression> extractPredicates(LogicalBinaryExpression.Type type, Expression expression)
-    {
-        if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getType() == type) {
-            LogicalBinaryExpression logicalBinaryExpression = (LogicalBinaryExpression) expression;
+        if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getType() == LogicalBinaryExpression.Type.OR) {
+            LogicalBinaryExpression or = (LogicalBinaryExpression) expression;
             return ImmutableList.<Expression>builder()
-                    .addAll(extractPredicates(type, logicalBinaryExpression.getLeft()))
-                    .addAll(extractPredicates(type, logicalBinaryExpression.getRight()))
+                    .addAll(extractDisjuncts(or.getLeft()))
+                    .addAll(extractDisjuncts(or.getRight()))
                     .build();
         }
 
@@ -107,20 +112,6 @@ public final class ExpressionUtils
             queue.add(new LogicalBinaryExpression(type, queue.remove(), queue.remove()));
         }
         return queue.remove();
-    }
-
-    public static Expression combinePredicates(LogicalBinaryExpression.Type type, Expression... expressions)
-    {
-        return combinePredicates(type, Arrays.asList(expressions));
-    }
-
-    public static Expression combinePredicates(LogicalBinaryExpression.Type type, Iterable<Expression> expressions)
-    {
-        if (type == LogicalBinaryExpression.Type.AND) {
-            return combineConjuncts(expressions);
-        }
-
-        return combineDisjuncts(expressions);
     }
 
     public static Expression combineConjuncts(Expression... expressions)
@@ -182,6 +173,28 @@ public final class ExpressionUtils
                 .collect(toImmutableList()));
     }
 
+    public static ComparisonExpression.Type flipComparison(ComparisonExpression.Type type)
+    {
+        switch (type) {
+            case EQUAL:
+                return EQUAL;
+            case NOT_EQUAL:
+                return NOT_EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN_OR_EQUAL;
+            case GREATER_THAN:
+                return LESS_THAN;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM:
+                return IS_DISTINCT_FROM;
+            default:
+                throw new IllegalArgumentException("Unsupported comparison: " + type);
+        }
+    }
+
     public static Function<Expression, Expression> expressionOrNullSymbols(final Predicate<Symbol>... nullSymbolScopes)
     {
         return expression -> {
@@ -217,13 +230,33 @@ public final class ExpressionUtils
         return Iterables.concat(nonDeterministicDisjuncts, deterministicDisjuncts);
     }
 
+    private static ComparisonExpression.Type negate(ComparisonExpression.Type type)
+    {
+        switch (type) {
+            case EQUAL:
+                return NOT_EQUAL;
+            case NOT_EQUAL:
+                return EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN_OR_EQUAL;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN;
+            case GREATER_THAN:
+                return LESS_THAN_OR_EQUAL;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN;
+            default:
+                throw new IllegalArgumentException("Unsupported comparison: " + type);
+        }
+    }
+
     public static Expression normalize(Expression expression)
     {
         if (expression instanceof NotExpression) {
             NotExpression not = (NotExpression) expression;
             if (not.getValue() instanceof ComparisonExpression) {
                 ComparisonExpression comparison = (ComparisonExpression) not.getValue();
-                return new ComparisonExpression(comparison.getType().negate(), comparison.getLeft(), comparison.getRight());
+                return new ComparisonExpression(negate(comparison.getType()), comparison.getLeft(), comparison.getRight());
             }
         }
         return expression;
