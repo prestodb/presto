@@ -53,7 +53,7 @@ final class MetadataUtil
     {
         private final Map<String, Type> types = ImmutableMap.<String, Type>of(
                 StandardTypes.BIGINT, BIGINT,
-                VARCHAR.getTypeSignature().toString(), VARCHAR); // for varchar(MAX_INT)
+                StandardTypes.VARCHAR, VARCHAR);
 
         public TestingTypeDeserializer()
         {
