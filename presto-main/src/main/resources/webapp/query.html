@@ -206,8 +206,7 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#elapsedTime').text(query.queryStats.elapsedTime);
     d3.select('#queuedTime').text(query.queryStats.queuedTime);
     if (query.queryStats.endTime) {
-        var formatter = d3.time.format("%x %X");
-        d3.select('#endTime').text(formatter(new Date(query.queryStats.endTime)));
+        d3.select('#endTime').text(formatDateTime(new Date(query.queryStats.endTime)));
     }
     d3.select('#memoryPool').text(query.memoryPool);
     d3.select('#totalMemory').text(query.queryStats.totalMemoryReservation);
@@ -288,6 +287,10 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     $.bootstrapSortable(applyLast=true);
     $('#tasks').stickyTableHeaders();
 });
+
+function formatDateTime(date) {
+    return d3.time.format("%Y-%m-%d %H:%M:%S %Z")(date);
+}
 
 function formatCumulativeMemory(cumulativeMemory) {
     return (cumulativeMemory / Math.pow(1000.0, 4)).toLocaleString() + 'GB seconds';
