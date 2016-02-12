@@ -98,6 +98,9 @@
         <dt>Schema</dt>
         <dd id="sessionSchema"></dd>
 
+        <dt>Create Time</dt>
+        <dd id="createTime"></dd>
+
         <dt>Elapsed</dt>
         <dd id="elapsedTime"></dd>
 
@@ -203,6 +206,7 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
     d3.select('#sessionSource').text(query.session.source);
     d3.select('#sessionCatalog').text(query.session.catalog);
     d3.select('#sessionSchema').text(query.session.schema);
+    d3.select('#createTime').text(formatDateTime(new Date(query.queryStats.createTime)));
     d3.select('#elapsedTime').text(query.queryStats.elapsedTime);
     d3.select('#queuedTime').text(query.queryStats.queuedTime);
     if (query.queryStats.endTime) {
