@@ -13,6 +13,7 @@ General Changes
 * Allow using double input for :func:`approx_percentile` with an array of
   percentiles.
 * Do not allow creating views with a column type of ``UNKNOWN``.
+* Add create time to query detail page in UI.
 
 Hive Changes
 ------------
