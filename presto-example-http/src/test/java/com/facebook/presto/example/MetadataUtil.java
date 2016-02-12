@@ -59,8 +59,7 @@ public final class MetadataUtil
                 StandardTypes.BOOLEAN, BOOLEAN,
                 StandardTypes.BIGINT, BIGINT,
                 StandardTypes.DOUBLE, DOUBLE,
-                StandardTypes.VARCHAR, VARCHAR,
-                VARCHAR.getTypeSignature().toString(), VARCHAR); // varchar(MAX_INT)
+                StandardTypes.VARCHAR, VARCHAR);
 
         public TestingTypeDeserializer()
         {
