@@ -30,3 +30,9 @@ Delete all line items for low priority orders::
 Delete all orders::
 
     DELETE FROM orders;
+
+Limitations
+-----------
+
+Some connectors have limited or no support for ``DELETE``.
+See connector documentation for more details.
