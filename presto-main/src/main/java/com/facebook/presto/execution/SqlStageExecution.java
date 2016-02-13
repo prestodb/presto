@@ -249,7 +249,9 @@ public final class SqlStageExecution
         return !tasks.isEmpty();
     }
 
-    public synchronized List<RemoteTask> getAllTasks()
+    // do not synchronize
+    // this is used for query info building which should be independent of scheduling work
+    public List<RemoteTask> getAllTasks()
     {
         return tasks.values().stream()
                 .flatMap(Set::stream)
