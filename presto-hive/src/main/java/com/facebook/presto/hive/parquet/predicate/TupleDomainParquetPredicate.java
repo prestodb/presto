@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import parquet.column.ColumnDescriptor;
 import parquet.column.Dictionary;
@@ -35,7 +36,6 @@ import parquet.column.statistics.LongStatistics;
 import parquet.column.statistics.Statistics;
 import parquet.schema.PrimitiveType.PrimitiveTypeName;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -70,10 +70,16 @@ public class TupleDomainParquetPredicate<C>
 
         for (ColumnReference<C> columnReference : columnReferences) {
             Statistics<?> statistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
-            Domain domain = getDomain(columnReference.getType(), numberOfRows, statistics);
-            if (domain != null) {
-                domains.put(columnReference.getColumn(), domain);
+
+            Domain domain;
+            if (statistics == null || statistics.isEmpty()) {
+                // no stats for column
+                domain = Domain.all(columnReference.getType());
             }
+            else {
+                domain = getDomain(columnReference.getType(), numberOfRows, statistics);
+            }
+            domains.put(columnReference.getColumn(), domain);
         }
         TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
@@ -100,8 +106,8 @@ public class TupleDomainParquetPredicate<C>
     @VisibleForTesting
     public static Domain getDomain(Type type, long rowCount, Statistics<?> statistics)
     {
-        if (statistics == null || statistics.isEmpty() || !(Comparable.class.isAssignableFrom(type.getJavaType()))) {
-            return null;
+        if (statistics == null || statistics.isEmpty()) {
+            return Domain.all(type);
         }
 
         if (statistics.getNumNulls() == rowCount) {
@@ -109,6 +115,11 @@ public class TupleDomainParquetPredicate<C>
         }
 
         boolean hasNullValue = statistics.getNumNulls() != 0L;
+
+        // ignore corrupted statistics
+        if (statistics.genericGetMin() == null || statistics.genericGetMax() == null) {
+            return Domain.create(ValueSet.all(type), hasNullValue);
+        }
 
         if (type.equals(BOOLEAN) && statistics instanceof BooleanStatistics) {
             BooleanStatistics booleanStatistics = (BooleanStatistics) statistics;
@@ -129,10 +140,18 @@ public class TupleDomainParquetPredicate<C>
             ParquetIntegerStatistics parquetIntegerStatistics;
             if (statistics instanceof LongStatistics) {
                 LongStatistics longStatistics = (LongStatistics) statistics;
+                // ignore corrupted statistics
+                if (longStatistics.genericGetMin() > longStatistics.genericGetMax()) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
                 parquetIntegerStatistics = new ParquetIntegerStatistics(longStatistics.genericGetMin(), longStatistics.genericGetMax());
             }
             else {
                 IntStatistics intStatistics = (IntStatistics) statistics;
+                // ignore corrupted statistics
+                if (intStatistics.genericGetMin() > intStatistics.genericGetMax()) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
                 parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
             }
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
@@ -141,19 +160,31 @@ public class TupleDomainParquetPredicate<C>
             ParquetDoubleStatistics parquetDoubleStatistics;
             if (statistics instanceof DoubleStatistics) {
                 DoubleStatistics doubleStatistics = (DoubleStatistics) statistics;
+                // ignore corrupted statistics
+                if (doubleStatistics.genericGetMin() > doubleStatistics.genericGetMax()) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
                 parquetDoubleStatistics = new ParquetDoubleStatistics(doubleStatistics.genericGetMin(), doubleStatistics.genericGetMax());
             }
             else {
                 FloatStatistics floatStatistics = (FloatStatistics) statistics;
+                // ignore corrupted statistics
+                if (floatStatistics.genericGetMin() > floatStatistics.genericGetMax()) {
+                    return Domain.create(ValueSet.all(type), hasNullValue);
+                }
                 parquetDoubleStatistics = new ParquetDoubleStatistics((double) floatStatistics.getMin(), (double) floatStatistics.getMax());
             }
             return createDomain(type, hasNullValue, parquetDoubleStatistics);
         }
         else if (type.equals(VARCHAR) && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
-            ParquetStringStatistics parquetStringStatistics = new ParquetStringStatistics(
-                    Slices.wrappedBuffer(binaryStatistics.getMin().getBytes()),
-                    Slices.wrappedBuffer(binaryStatistics.getMax().getBytes()));
+            Slice minSlice = Slices.wrappedBuffer(binaryStatistics.getMin().getBytes());
+            Slice maxSlice = Slices.wrappedBuffer(binaryStatistics.getMax().getBytes());
+            // ignore corrupted statistics
+            if (minSlice.compareTo(maxSlice) > 0) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
+            ParquetStringStatistics parquetStringStatistics = new ParquetStringStatistics(minSlice, maxSlice);
             return createDomain(type, hasNullValue, parquetStringStatistics);
         }
         return Domain.create(ValueSet.all(type), hasNullValue);
@@ -176,7 +207,9 @@ public class TupleDomainParquetPredicate<C>
         try {
             dictionary = dictionaryPage.getEncoding().initDictionary(columnDescriptor, dictionaryPage);
         }
-        catch (IOException e) {
+        catch (Exception e) {
+            // In case of exception, just continue reading the data, not using dictionary page at all
+            // OK to ignore exception when reading dictionaries
             return null;
         }
 

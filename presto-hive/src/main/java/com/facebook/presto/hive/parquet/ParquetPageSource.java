@@ -51,6 +51,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -84,6 +85,7 @@ class ParquetPageSource
 
     public ParquetPageSource(
             ParquetReader parquetReader,
+            MessageType fileSchema,
             MessageType requestedSchema,
             Path path,
             long totalBytes,
@@ -91,7 +93,8 @@ class ParquetPageSource
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            boolean useParquetColumnNames)
     {
         requireNonNull(path, "path is null");
         checkArgument(totalBytes >= 0, "totalBytes is negative");
@@ -173,6 +176,13 @@ class ParquetPageSource
 
                 constantBlocks[columnIndex] = blockBuilder.build();
             }
+            else if (getParquetType(column, fileSchema, useParquetColumnNames) == null) {
+                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH);
+                for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                    blockBuilder.appendNull();
+                }
+                constantBlocks[columnIndex] = blockBuilder.build();
+            }
         }
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
@@ -231,8 +241,8 @@ class ParquetPageSource
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
-                    ColumnDescriptor columnDescriptor = this.requestedSchema.getColumns().get(fieldId);
-                    blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(columnDescriptor, batchSize, type));
+                    ColumnDescriptor columnDescriptor = requestedSchema.getColumns().get(fieldId);
+                    blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(columnDescriptor, type));
                 }
             }
             Page page = new Page(batchSize, blocks);
@@ -287,14 +297,12 @@ class ParquetPageSource
             implements LazyBlockLoader<LazyBlock>
     {
         private final int expectedBatchId = batchId;
-        private final int batchSize;
         private final ColumnDescriptor columnDescriptor;
         private final Type type;
         private boolean loaded;
 
-        public ParquetBlockLoader(ColumnDescriptor columnDescriptor, int batchSize, Type type)
+        public ParquetBlockLoader(ColumnDescriptor columnDescriptor, Type type)
         {
-            this.batchSize = batchSize;
             this.columnDescriptor = columnDescriptor;
             this.type = requireNonNull(type, "type is null");
         }
@@ -309,7 +317,7 @@ class ParquetPageSource
             checkState(batchId == expectedBatchId);
 
             try {
-                Block block = parquetReader.readBlock(columnDescriptor, batchSize, type);
+                Block block = parquetReader.readBlock(columnDescriptor, type);
                 lazyBlock.setBlock(block);
             }
             catch (IOException e) {

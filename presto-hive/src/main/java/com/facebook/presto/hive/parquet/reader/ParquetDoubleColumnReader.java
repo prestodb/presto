@@ -11,32 +11,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.parquet.reader.block;
+package com.facebook.presto.hive.parquet.reader;
 
-import com.facebook.presto.hive.parquet.reader.ParquetLevelReader;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import parquet.column.ColumnDescriptor;
-import parquet.column.values.ValuesReader;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
-public class ParquetDoubleBuilder
-        extends ParquetBlockBuilder
+public class ParquetDoubleColumnReader
+        extends ParquetColumnReader
 {
-    public ParquetDoubleBuilder(int size, ColumnDescriptor descriptor)
+    public ParquetDoubleColumnReader(ColumnDescriptor descriptor)
     {
-        super(descriptor, DOUBLE.createBlockBuilder(new BlockBuilderStatus(), size));
+        super(descriptor);
+    }
+
+    public BlockBuilder createBlockBuilder()
+    {
+        return DOUBLE.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
     }
 
     @Override
-    public void readValues(ValuesReader valuesReader, int valueNumber, ParquetLevelReader definitionReader)
+    public void readValues(BlockBuilder blockBuilder, int valueNumber)
     {
         for (int i = 0; i < valueNumber; i++) {
-            if (definitionReader.readLevel() == descriptor.getMaxDefinitionLevel()) {
+            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
                 DOUBLE.writeDouble(blockBuilder, valuesReader.readDouble());
             }
             else {
                 blockBuilder.appendNull();
+            }
+        }
+    }
+
+    @Override
+    public void skipValues(int offsetNumber)
+    {
+        for (int i = 0; i < offsetNumber; i++) {
+            if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
+                valuesReader.readDouble();
             }
         }
     }

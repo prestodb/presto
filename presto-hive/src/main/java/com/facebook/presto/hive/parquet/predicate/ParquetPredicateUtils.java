@@ -16,6 +16,7 @@ package com.facebook.presto.hive.parquet.predicate;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.parquet.ParquetCodecFactory;
 import com.facebook.presto.hive.parquet.ParquetCodecFactory.BytesDecompressor;
+import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.hive.parquet.predicate.TupleDomainParquetPredicate.ColumnReference;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -24,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.Path;
 import parquet.bytes.BytesInput;
 import parquet.column.ColumnDescriptor;
 import parquet.column.Encoding;
@@ -93,7 +92,7 @@ public final class ParquetPredicateUtils
     public static boolean predicateMatches(ParquetPredicate parquetPredicate,
             BlockMetaData block,
             Configuration configuration,
-            Path path,
+            ParquetDataSource dataSource,
             MessageType requestedSchema,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
@@ -102,7 +101,7 @@ public final class ParquetPredicateUtils
             return false;
         }
 
-        Map<Integer, ParquetDictionaryDescriptor> dictionaries = getDictionariesByColumnOrdinal(block, path, configuration, requestedSchema, effectivePredicate);
+        Map<Integer, ParquetDictionaryDescriptor> dictionaries = getDictionariesByColumnOrdinal(block, configuration, dataSource, requestedSchema, effectivePredicate);
         return parquetPredicate.matches(dictionaries);
     }
 
@@ -120,8 +119,8 @@ public final class ParquetPredicateUtils
 
     private static Map<Integer, ParquetDictionaryDescriptor> getDictionariesByColumnOrdinal(
             BlockMetaData blockMetadata,
-            Path path,
             Configuration configuration,
+            ParquetDataSource dataSource,
             MessageType requestedSchema,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
@@ -137,15 +136,11 @@ public final class ParquetPredicateUtils
                 if (isColumnPredicate(columnDescriptor, effectivePredicate) &&
                         columnChunkMetaData.getPath().equals(ColumnPath.get(columnDescriptor.getPath())) &&
                         isOnlyDictionaryEncodingPages(columnChunkMetaData.getEncodings())) {
-                    DictionaryPage dictionaryPage;
-                    try (FSDataInputStream inputStream = path.getFileSystem(configuration).open(path)) {
-                        inputStream.seek(columnChunkMetaData.getStartingPos());
-
+                    try {
                         int totalSize = Ints.checkedCast(columnChunkMetaData.getTotalSize());
                         byte[] buffer = new byte[totalSize];
-                        inputStream.readFully(buffer);
-
-                        dictionaryPage = readDictionaryPage(buffer, codecFactory, columnChunkMetaData.getCodec());
+                        dataSource.readFully(columnChunkMetaData.getStartingPos(), buffer);
+                        DictionaryPage dictionaryPage = readDictionaryPage(buffer, codecFactory, columnChunkMetaData.getCodec());
                         dictionaries.put(ordinal, new ParquetDictionaryDescriptor(columnDescriptor, dictionaryPage));
                     }
                     catch (IOException ignored) {
