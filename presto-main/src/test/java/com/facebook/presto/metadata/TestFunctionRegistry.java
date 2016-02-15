@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -27,18 +28,23 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Lists.transform;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestFunctionRegistry
 {
@@ -134,6 +140,236 @@ public class TestFunctionRegistry
         assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");
         assertTrue(names.contains("rank"), "Expected function names " + names + " to contain 'rank'");
         assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
+    }
+
+    @Test
+    public void testResolveFunctionByExactMatch()
+            throws Exception
+    {
+        assertThatResolveFunction()
+                .among(functionSignature("bigint", "bigint"))
+                .forParameters("bigint", "bigint")
+                .returns(functionSignature("bigint", "bigint"));
+    }
+
+    @Test
+    public void testResolveTypeParametrizedFunction()
+            throws Exception
+    {
+        assertThatResolveFunction()
+                .among(functionSignature(ImmutableList.of("T", "T"), ImmutableList.of(typeVariable("T"))))
+                .forParameters("bigint", "bigint")
+                .returns(functionSignature("bigint", "bigint"));
+    }
+
+    @Test
+    public void testResolveFunctionWithCoercion()
+            throws Exception
+    {
+        assertThatResolveFunction()
+                .among(
+                        functionSignature("decimal(p,s)", "double"),
+                        functionSignature("decimal(p,s)", "decimal(p,s)"),
+                        functionSignature("double", "double")
+                )
+                .forParameters("bigint", "bigint")
+                .returns(functionSignature("decimal(19,0)", "decimal(19,0)"));
+    }
+
+    @Test
+    public void testAmbiguousCallWithNoCoercion()
+            throws Exception
+    {
+        assertThatResolveFunction()
+                .among(
+                        functionSignature("decimal(p,s)", "decimal(p,s)"),
+                        functionSignature(ImmutableList.of("T", "T"), ImmutableList.of(typeVariable("T")))
+                )
+                .forParameters("decimal(3,1)", "decimal(3,1)")
+                .returns(functionSignature("decimal(3,1)", "decimal(3,1)"));
+    }
+
+    @Test
+    public void testAmbiguousCallWithCoercion()
+            throws Exception
+    {
+        assertThatResolveFunction()
+                .among(
+                        functionSignature("decimal(p,s)", "double"),
+                        functionSignature("double", "decimal(p,s)")
+                )
+                .forParameters("bigint", "bigint")
+                .failsWithMessage("Ambiguous call to [TEST_FUNCTION_NAME(decimal(p,s),double):boolean, " +
+                        "TEST_FUNCTION_NAME(double,decimal(p,s)):boolean] with parameters [bigint, bigint]");
+    }
+
+    @Test
+    public void testResolveFunctionWithCoercionInTypes()
+            throws Exception
+    {
+        assertThatResolveFunction()
+                .among(
+                        functionSignature("array(decimal(p,s))", "array(double)"),
+                        functionSignature("array(decimal(p,s))", "array(decimal(p,s))"),
+                        functionSignature("array(double)", "array(double)")
+                )
+                .forParameters("array(bigint)", "array(bigint)")
+                .returns(functionSignature("array(decimal(19,0))", "array(decimal(19,0))"));
+    }
+
+    @Test
+    public void testResolveFunctionWithVariableArity()
+            throws Exception
+    {
+        assertThatResolveFunction()
+                .among(
+                        functionSignature("double", "double", "double"),
+                        functionSignature("decimal(p,s)").setVariableArity(true)
+                )
+                .forParameters("bigint", "bigint", "bigint")
+                .returns(functionSignature("decimal(19,0)", "decimal(19,0)", "decimal(19,0)"));
+
+        assertThatResolveFunction()
+                .among(
+                        functionSignature("double", "double", "double"),
+                        functionSignature("bigint").setVariableArity(true)
+                )
+                .forParameters("bigint", "bigint", "bigint")
+                .returns(functionSignature("bigint", "bigint", "bigint"));
+    }
+
+    @Test
+    public void testResolveFunctionWithVariadicBound()
+            throws Exception
+    {
+        assertThatResolveFunction()
+                .among(
+                        functionSignature("bigint", "bigint", "bigint"),
+                        functionSignature(ImmutableList.of("T1", "T2", "T3"),
+                                ImmutableList.of(Signature.withVariadicBound("T1", "decimal"),
+                                        Signature.withVariadicBound("T2", "decimal"),
+                                        Signature.withVariadicBound("T3", "decimal")))
+                )
+                .forParameters("unknown", "bigint", "bigint")
+                .returns(functionSignature("bigint", "bigint", "bigint"));
+    }
+
+    private SignatureBuilder functionSignature(String... argumentTypes)
+    {
+        return functionSignature(ImmutableList.copyOf(argumentTypes), ImmutableList.of());
+    }
+
+    private SignatureBuilder functionSignature(List<String> argumentTypes, List<TypeVariableConstraint> typeVariableConstraints)
+    {
+        return new SignatureBuilder()
+                .returnType("boolean")
+                .argumentTypes(argumentTypes)
+                .typeVariableConstraints(typeVariableConstraints)
+                .literalParameters("p", "s", "p1", "s1", "p2", "s2", "p3", "s3")
+                .kind(SCALAR);
+    }
+
+    private static ResolveFunctionAssertion assertThatResolveFunction()
+    {
+        return new ResolveFunctionAssertion();
+    }
+
+    private static class ResolveFunctionAssertion
+    {
+        private static final String TEST_FUNCTION_NAME = "TEST_FUNCTION_NAME";
+
+        private final TypeRegistry typeRegistry = new TypeRegistry();
+        private final BlockEncodingSerde blockEncoding = new BlockEncodingManager(typeRegistry);
+
+        private List<SignatureBuilder> functionSignatures = ImmutableList.of();
+        private List<TypeSignature> parameterTypes = ImmutableList.of();
+
+        public ResolveFunctionAssertion among(SignatureBuilder... functionSignatures)
+        {
+            this.functionSignatures = ImmutableList.copyOf(functionSignatures);
+            return this;
+        }
+
+        public ResolveFunctionAssertion forParameters(String... parameters)
+        {
+            this.parameterTypes = parseTypeSignatures(parameters);
+            return this;
+        }
+
+        public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
+        {
+            Signature expectedSignature = functionSignature.name(TEST_FUNCTION_NAME).build();
+            Signature actualSignature = resolveSignature();
+            assertEquals(actualSignature, expectedSignature);
+            return this;
+        }
+
+        public ResolveFunctionAssertion failsWithMessage(String... messages)
+        {
+            try {
+                resolveSignature();
+                fail("didn't fail as expected");
+            }
+            catch (RuntimeException e) {
+                String actualMessage = e.getMessage();
+                for (String expectedMessage : messages) {
+                    if (!actualMessage.contains(expectedMessage)) {
+                        fail(format("%s doesn't contain %s", actualMessage, expectedMessage));
+                    }
+                }
+            }
+            return this;
+        }
+
+        private Signature resolveSignature()
+        {
+            FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, blockEncoding, false);
+            functionRegistry.addFunctions(createFunctionsFromSignatures());
+            return functionRegistry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), parameterTypes, false);
+        }
+
+        private List<SqlFunction> createFunctionsFromSignatures()
+        {
+            ImmutableList.Builder<SqlFunction> functions = ImmutableList.builder();
+            for (SignatureBuilder functionSignature : functionSignatures) {
+                Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
+                functions.add(new SqlFunction()
+                {
+                    @Override
+                    public Signature getSignature()
+                    {
+                        return signature;
+                    }
+
+                    @Override
+                    public boolean isHidden()
+                    {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean isDeterministic()
+                    {
+                        return false;
+                    }
+
+                    @Override
+                    public String getDescription()
+                    {
+                        return "testing function that does nothing";
+                    }
+                });
+            }
+            return functions.build();
+        }
+
+        private List<TypeSignature> parseTypeSignatures(String... signatures)
+        {
+            return ImmutableList.copyOf(signatures)
+                    .stream()
+                    .map(TypeSignature::parseTypeSignature)
+                    .collect(toList());
+        }
     }
 
     public static final class ScalarSum
