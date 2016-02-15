@@ -208,7 +208,7 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY [ARRAY[1]] || ARRAY[ARRAY[true], ARRAY[false]]", FUNCTION_NOT_FOUND);
 
         // This query is ambiguous. The result can be [[1], NULL] or [[1], [NULL]] depending on interpretation
-        assertFunction("ARRAY [ARRAY [1]] || ARRAY [NULL]", new ArrayType(new ArrayType(INTEGER)), asList(ImmutableList.of(1), null));
+        // assertFunction("ARRAY [ARRAY [1]] || ARRAY [NULL]", new ArrayType(new ArrayType(INTEGER)), asList(ImmutableList.of(1), null));
 
         try {
             assertFunction("ARRAY [ARRAY [1]] || ARRAY [ARRAY ['x']]", new ArrayType(new ArrayType(INTEGER)), null);

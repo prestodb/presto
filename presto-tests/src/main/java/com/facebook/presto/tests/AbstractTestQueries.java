@@ -6146,4 +6146,13 @@ public abstract class AbstractTestQueries
                 computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1))] || CAST(292 AS INTEGER)"),
                 computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1)), CAST(292 AS DECIMAL(19,0))]"));
     }
+
+    @Test
+    public void testConcatenationWithNull()
+            throws Exception
+    {
+        assertQuery("SELECT 'something' || NULL");
+        assertQuery("SELECT NULL || 'something'");
+        assertQuery("SELECT NULL || NULL");
+    }
 }
