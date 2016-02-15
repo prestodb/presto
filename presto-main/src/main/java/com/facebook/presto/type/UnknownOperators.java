@@ -112,6 +112,9 @@ public final class UnknownOperators
         // concat with unknown operator
         operators.addAll(createConcatWithUnknownOperators());
 
+        // length of unknown operator
+        operators.add(createUnknownFunction("length", BIGINT, UnknownType.NAME));
+
         ImmutableList<SqlScalarFunction> list = operators.build();
         return list.toArray(new SqlScalarFunction[list.size()]);
     }
