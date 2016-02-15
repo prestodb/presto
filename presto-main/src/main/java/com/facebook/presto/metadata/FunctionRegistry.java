@@ -113,7 +113,6 @@ import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
-import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
 import com.google.common.annotations.VisibleForTesting;
@@ -231,6 +230,7 @@ import static com.facebook.presto.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATO
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATOR;
 import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.type.UnknownOperators.UNKNOWN_OPERATORS;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
@@ -354,7 +354,7 @@ public class FunctionRegistry
                 .scalar(ColorFunctions.class)
                 .scalar(ColorOperators.class)
                 .scalar(HyperLogLogFunctions.class)
-                .scalar(UnknownOperators.class)
+                .functions(UNKNOWN_OPERATORS)
                 .scalar(BooleanOperators.class)
                 .scalar(BigintOperators.class)
                 .scalar(IntegerOperators.class)
