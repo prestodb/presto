@@ -34,6 +34,15 @@ public final class SqlDecimal
         this.scale = scale;
     }
 
+    public static SqlDecimal of(BigDecimal bigDecimal)
+    {
+        if (bigDecimal == null) {
+            return null;
+        }
+
+        return new SqlDecimal(bigDecimal.unscaledValue(), bigDecimal.precision(), bigDecimal.scale());
+    }
+
     @Override
     public boolean equals(Object o)
     {

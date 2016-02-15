@@ -33,6 +33,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -181,5 +182,12 @@ public final class TestingRowConstructor
             appendToBlockBuilder(parameterTypes.get(i), values[i], blockBuilder);
         }
         return blockBuilder.build();
+    }
+
+    @ScalarFunction("test_row")
+    @SqlType("row<decimal(2,1),decimal(22,10)>('col0','col1')")
+    public static Block testRowDecimalDecimal(@Nullable @SqlType("decimal(2,1)") Long arg1, @Nullable @SqlType("decimal(22,10)") Slice arg2)
+    {
+        return toStackRepresentation(ImmutableList.of(createDecimalType(2, 1), createDecimalType(22, 10)), arg1, arg2);
     }
 }
