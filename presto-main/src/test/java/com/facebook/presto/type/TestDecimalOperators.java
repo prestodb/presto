@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 
 public class TestDecimalOperators
         extends AbstractTestDecimalFunctions
@@ -62,6 +63,10 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '99999999999999999999999999999999999999' + DECIMAL '.1'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '99999999999999999999999999999999999999' + DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '-99999999999999999999999999999999999999' + DECIMAL '-99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
+
+        // test null
+        assertFunction("NULL + DECIMAL '-2'", createDecimalType(1, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' + NULL", createDecimalType(38, 21), null);
     }
 
     @Test
@@ -101,6 +106,10 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '-1' - DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '99999999999999999999999999999999999999' - DECIMAL '.1'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '-99999999999999999999999999999999999999' - DECIMAL '99999999999999999999999999999999999999'", NUMERIC_VALUE_OUT_OF_RANGE);
+
+        // test null
+        assertFunction("NULL - DECIMAL '-2'", createDecimalType(1, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' - NULL", createDecimalType(38, 21), null);
     }
 
     @Test
@@ -145,6 +154,10 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '9'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '12345678901234567890123456789012345678' * DECIMAL '-9'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '-9'", NUMERIC_VALUE_OUT_OF_RANGE);
+
+        // test null
+        assertFunction("NULL * DECIMAL '-2'", createDecimalType(1, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' * NULL", createDecimalType(38, 21), null);
     }
 
     @Test
@@ -199,6 +212,10 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '1.000000000000000000000000000000000000' / DECIMAL '0'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1.000000000000000000000000000000000000' / DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1' / DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
+
+        // test null
+        assertFunction("NULL / DECIMAL '-2'", createDecimalType(1, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' / NULL", createDecimalType(38, 21), null);
     }
 
     @Test
@@ -264,6 +281,11 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '1.000000000000000000000000000000000000' % DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1' % DECIMAL '0.0000000000000000000000000000000000000'", DIVISION_BY_ZERO);
         assertInvalidFunction("DECIMAL '1' % CAST(0 AS DECIMAL(38,0))", DIVISION_BY_ZERO);
+        assertInvalidFunction("DECIMAL '1' % DECIMAL '00000000000000000000000000000000000000'", DIVISION_BY_ZERO);
+
+        // test null
+        assertFunction("NULL % DECIMAL '-2'", createDecimalType(1, 0), null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' % NULL", createDecimalType(38, 21), null);
     }
 
     @Test
@@ -319,6 +341,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '000000000000000.00000000000000000' = DECIMAL '-000000000000000000000000.0000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000038.0000000000000000000000' = DECIMAL '000000000037.00000000000000000000000'", BOOLEAN, false);
         assertFunction("DECIMAL '-00000000038.0000000000000000000000' = DECIMAL '00000000038.0000000000000000000000'", BOOLEAN, false);
+
+        // test null
+        assertFunction("NULL = DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' = NULL", BOOLEAN, null);
     }
 
     @Test
@@ -359,6 +385,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '000000000000000000000.000000000000000' != DECIMAL '-000000000.0000000000000000000000000'", BOOLEAN, false);
         assertFunction("DECIMAL '00000000038.0000000000000000000000' != DECIMAL '000000000037.00000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000000037.00000000000000000000' != DECIMAL '-00000000000037.00000000000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL != DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' != NULL", BOOLEAN, null);
     }
 
     @Test
@@ -406,6 +436,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' < DECIMAL '38.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' < DECIMAL '000000000037.00000000000000000000001'", BOOLEAN, true);
         assertFunction("DECIMAL '-00000000000100.000000000000' < DECIMAL '0000000020.0000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL < DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' < NULL", BOOLEAN, null);
     }
 
     @Test
@@ -453,6 +487,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' > DECIMAL '36.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' > DECIMAL '000000000036.9999999999999999999999'", BOOLEAN, true);
         assertFunction("DECIMAL '000000000000100.0000000000000000000000' > DECIMAL '-0000000020.00000000000000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL > DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' > NULL", BOOLEAN, null);
     }
 
     @Test
@@ -500,6 +538,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' <= DECIMAL '38.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' <= DECIMAL '000000000037.00000000000000000000001'", BOOLEAN, true);
         assertFunction("DECIMAL '-00000000000100.000000000000' <= DECIMAL '0000000020.0000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL <= DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' <= NULL", BOOLEAN, null);
     }
 
     @Test
@@ -547,6 +589,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '00000000037.0000000000000000000000' >= DECIMAL '36.0000000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '00000000037.0000000000000000000000' >= DECIMAL '000000000036.9999999999999999'", BOOLEAN, true);
         assertFunction("DECIMAL '000000000000100.0000000000000000000000' >= DECIMAL '-0000000020.00000000000000000000000'", BOOLEAN, true);
+
+        // test null
+        assertFunction("NULL >= DECIMAL '-2'", BOOLEAN, null);
+        assertFunction("DECIMAL '12345678901234567.890123456789012345678' >= NULL", BOOLEAN, null);
     }
 
     @Test
@@ -587,5 +633,10 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '1.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, true);
         assertFunction("DECIMAL '-6.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, false);
         assertFunction("DECIMAL '6.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, false);
+
+        // test null
+        assertFunction("NULL BETWEEN DECIMAL '-5.00000000000000000000'  AND DECIMAL '5.00000000000000000000'", BOOLEAN, null);
+        assertFunction("DECIMAL '1.00000000000000000000' BETWEEN NULL  AND DECIMAL '5.00000000000000000000'", BOOLEAN, null);
+        assertFunction("DECIMAL '1.00000000000000000000' BETWEEN DECIMAL '-5.00000000000000000000'  AND NULL", BOOLEAN, null);
     }
 }

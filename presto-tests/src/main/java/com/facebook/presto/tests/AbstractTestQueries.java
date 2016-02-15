@@ -6066,25 +6066,12 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT CAST('abc' AS VARCHAR(255)) || 'abc'");
     }
 
-    /**
-     * Concatenation with NULL is broken.
-     * <p>
-     * Concat function signature: concat<E>(E,array(E)):array(E)
-     * When `E` is get bounded to some concrete type, array(E) is still unbounded.
-     * Than TypeManager can't resolve concrete type for (array(E)) which is the common super type for (NULL, (array(E)))
-     * It seems that once E is bound, we should bound it recursive in type arguments, similar to as we bind the base type
-     * for the signatures like do_something<E>(E,E):E
-     */
-    @Test(enabled = false)
+    @Test
     public void testConcatenationWithNull()
             throws Exception
     {
         assertQuery("SELECT 'something' || NULL");
-        assertEqualsIgnoreOrder(
-                computeActual("SELECT ARRAY[123, 123] || NULL"),
-                computeActual("SELECT ARRAY[123, 123, NULL]"));
-        assertEqualsIgnoreOrder(
-                computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1))] || NULL"),
-                computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1)), NULL]"));
+        assertQuery("SELECT NULL || 'something'");
+        assertQuery("SELECT NULL || NULL");
     }
 }

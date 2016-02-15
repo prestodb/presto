@@ -15,6 +15,8 @@ package com.facebook.presto.type;
 
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+
 public class TestDecimalToDecimalCasts
         extends AbstractTestDecimalFunctions
 {
@@ -84,5 +86,12 @@ public class TestDecimalToDecimalCasts
         assertInvalidCast("CAST(DECIMAL '-1234500000000000000000000.6' AS DECIMAL(20,0))", "Cannot cast DECIMAL '-1234500000000000000000000.6' to DECIMAL(20, 0)");
         assertInvalidCast("CAST(DECIMAL '1234500000000000000000000.6' AS DECIMAL(22,2))", "Cannot cast DECIMAL '1234500000000000000000000.6' to DECIMAL(22, 2)");
         assertInvalidCast("CAST(DECIMAL '-1234500000000000000000000.6' AS DECIMAL(22,2))", "Cannot cast DECIMAL '-1234500000000000000000000.6' to DECIMAL(22, 2)");
+    }
+
+    @Test
+    public void testCastNullToDecimal()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS DECIMAL(22,2))", createDecimalType(22, 2), null);
     }
 }
