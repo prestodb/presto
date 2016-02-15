@@ -143,6 +143,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -204,7 +205,6 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -237,6 +237,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -468,67 +469,37 @@ public class FunctionRegistry
 
     public Signature resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
     {
-        List<SqlFunction> candidates = functions.get(name).stream()
+        List<SqlFunction> allCandidates = functions.get(name).stream()
                 .filter(function -> function.getSignature().getKind() == SCALAR || (function.getSignature().getKind() == APPROXIMATE_AGGREGATE) == approximate)
                 .collect(toImmutableList());
 
-        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
-        // search for exact match
-        Optional<Signature> match = Optional.empty();
-        for (SqlFunction function : candidates) {
-            Optional<Signature> signature = new SignatureBinder(typeManager, function.getSignature(), false).bind(resolvedTypes);
-            if (signature.isPresent()) {
-                checkArgument(!match.isPresent(), "Ambiguous call to %s with parameters %s", name, parameterTypes);
-                match = signature;
-            }
-        }
+        List<SqlFunction> candidatesWithExplicitlySpecifiedParameters = allCandidates.stream()
+                .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(Collectors.toList());
 
+        List<Type> resolvedTypes = resolveTypes(parameterTypes, typeManager);
+
+        Optional<Signature> match = searchForExactMatch(candidatesWithExplicitlySpecifiedParameters, resolvedTypes);
         if (match.isPresent()) {
             return match.get();
         }
 
-        // search for coerced matches
-        List<SqlFunction> coercedCandidates = new ArrayList<>();
-        Optional<Signature> firstCoercedMatch = Optional.empty();
-        for (SqlFunction function : candidates) {
-            Optional<Signature> signature = new SignatureBinder(typeManager, function.getSignature(), true).bind(resolvedTypes);
-            if (signature.isPresent()) {
-                coercedCandidates.add(function);
-
-                if (!firstCoercedMatch.isPresent()) {
-                    firstCoercedMatch = signature;
-                }
-            }
-        }
-
-        // search for a 'best' coerced match if it exists
-        // TODO: remove when we move to a lattice-based type coercion system
-        // TODO: this is a hack that relies on the fact that all functions are specified for bigints, but not for the narrower integral types
-        // converts any ints to bigints and then see if there is an exact match
-        List<Type> promotedTypes = resolvedTypes.stream()
-                .map(type -> type == INTEGER ? BIGINT : type)
+        List<SqlFunction> candidatesWithGenericParameters = allCandidates.stream()
+                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        for (SqlFunction coercedFunction : coercedCandidates) {
-            Optional<Signature> signature = new SignatureBinder(typeManager, coercedFunction.getSignature(), false).bind(promotedTypes);
-            if (signature.isPresent()) {
-                checkState(!match.isPresent(), "ambiguous function implementations found when integers were cast to bigints");
-                match = signature;
-                break;
-            }
+        match = searchForExactMatch(candidatesWithGenericParameters, resolvedTypes);
+        if (match.isPresent()) {
+            return match.get();
         }
 
-        if (!match.isPresent() || coercedCandidates.size() == 1) {
-            // i.e. revert to old behavior
-            match = firstCoercedMatch; // TODO: this does not deal with ambiguities
-        }
-
+        match = searchWithCoercions(allCandidates, resolvedTypes);
         if (match.isPresent()) {
             return match.get();
         }
 
         List<String> expectedParameters = new ArrayList<>();
-        for (SqlFunction function : candidates) {
+        for (SqlFunction function : allCandidates) {
             expectedParameters.add(format("%s(%s) %s",
                     name,
                     Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
@@ -558,6 +529,82 @@ public class FunctionRegistry
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
+    }
+
+    private Optional<Signature> searchForExactMatch(List<SqlFunction> candidates, List<Type> actualParameters)
+    {
+        Optional<Signature> match = Optional.empty();
+        for (SqlFunction function : candidates) {
+            Optional<Signature> signature = new SignatureBinder(typeManager, function.getSignature(), false).bind(actualParameters);
+            if (signature.isPresent()) {
+                checkArgument(!match.isPresent(), "Ambiguous call to %s with parameters %s", function.getSignature().getName(), actualParameters);
+                match = signature;
+            }
+        }
+        return match;
+    }
+
+    private Optional<Signature> searchWithCoercions(List<SqlFunction> candidates, List<Type> actualParameters)
+    {
+        List<ApplicableFunction> applicableFunctions = identifyPotentiallyApplicableFunctions(candidates, actualParameters);
+
+        if (applicableFunctions.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<ApplicableFunction> mostSpecificFunctions = filterOutLessSpecificFunctions(applicableFunctions);
+        checkState(!mostSpecificFunctions.isEmpty(), "at least single function must be left");
+
+        if (mostSpecificFunctions.size() == 1) {
+            ApplicableFunction mostSpecificFunction = getOnlyElement(mostSpecificFunctions);
+            return Optional.of(mostSpecificFunction.getBoundSignature());
+        }
+
+        List<Signature> mostSpecificFunctionDefinitions = mostSpecificFunctions.stream()
+                .map(ApplicableFunction::getDeclaredSignature)
+                .collect(Collectors.toList());
+
+        throw new IllegalStateException(format("Ambiguous call to %s with parameters %s", mostSpecificFunctionDefinitions.toString(), actualParameters.toString()));
+    }
+
+    private List<ApplicableFunction> identifyPotentiallyApplicableFunctions(List<SqlFunction> candidates, List<Type> actualParameters)
+    {
+        ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
+        for (SqlFunction function : candidates) {
+            Signature declaredSignature = function.getSignature();
+            Optional<Signature> boundSignature = new SignatureBinder(typeManager, declaredSignature, true)
+                    .bind(actualParameters);
+            if (boundSignature.isPresent()) {
+                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get()));
+            }
+        }
+        return applicableFunctions.build();
+    }
+
+    private List<ApplicableFunction> filterOutLessSpecificFunctions(List<ApplicableFunction> applicableFunctions)
+    {
+        ImmutableList.Builder<ApplicableFunction> mostSpecificFunctions = ImmutableList.builder();
+        Iterator<ApplicableFunction> applicableFunctionIterator = applicableFunctions.iterator();
+        checkState(applicableFunctionIterator.hasNext());
+        ApplicableFunction mostSpecificFunction = applicableFunctionIterator.next();
+        while (applicableFunctionIterator.hasNext()) {
+            ApplicableFunction function = applicableFunctionIterator.next();
+
+            if (function.isMoreSpecificThan(mostSpecificFunction)) {
+                mostSpecificFunction = function;
+                continue;
+            }
+
+            // there are no most specific function between those 2 functions
+            // functions are just different
+            if (!mostSpecificFunction.isMoreSpecificThan(function)) {
+                mostSpecificFunctions.add(mostSpecificFunction);
+                // we need to remember those function in order to display correct error message
+                mostSpecificFunction = function;
+            }
+        }
+        mostSpecificFunctions.add(mostSpecificFunction);
+        return mostSpecificFunctions.build();
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
@@ -830,6 +877,39 @@ public class FunctionRegistry
         public Collection<SqlFunction> get(QualifiedName name)
         {
             return functions.get(name);
+        }
+    }
+
+    private class ApplicableFunction
+    {
+        private final Signature declaredSignature;
+        private final Signature boundSignature;
+
+        private ApplicableFunction(Signature declaredSignature, Signature boundSignature)
+        {
+            this.declaredSignature = declaredSignature;
+            this.boundSignature = boundSignature;
+        }
+
+        public Signature getDeclaredSignature()
+        {
+            return declaredSignature;
+        }
+
+        public Signature getBoundSignature()
+        {
+            return boundSignature;
+        }
+
+        /**
+         * One method is more specific than another if invocation handled by the first method could be passed on to the other one
+         */
+        public boolean isMoreSpecificThan(ApplicableFunction other)
+        {
+            List<Type> resolvedTypes = resolveTypes(boundSignature.getArgumentTypes(), typeManager);
+            Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, other.getDeclaredSignature(), true)
+                    .bindVariables(resolvedTypes);
+            return boundVariables.isPresent();
         }
     }
 }
