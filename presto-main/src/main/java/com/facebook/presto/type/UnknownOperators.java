@@ -115,6 +115,9 @@ public final class UnknownOperators
         // length of unknown operator
         operators.add(createUnknownFunction("length", BIGINT, UnknownType.NAME));
 
+        // unknown operators for json types
+        operators.addAll(createJsonUnknownOperators());
+
         ImmutableList<SqlScalarFunction> list = operators.build();
         return list.toArray(new SqlScalarFunction[list.size()]);
     }
@@ -148,6 +151,19 @@ public final class UnknownOperators
     }
 
     private static List<SqlScalarFunction> createConcatWithUnknownOperators()
+    {
+        return ImmutableList.of(
+                createUnknownFunction("json_array_length", BIGINT, UnknownType.NAME),
+                createUnknownFunction("json_array_contains", BOOLEAN, UnknownType.NAME, UnknownType.NAME),
+                createUnknownFunction("json_array_contains", BOOLEAN, UnknownType.NAME, "T"),
+                createUnknownFunction("json_array_contains", BOOLEAN, "T", UnknownType.NAME),
+                createUnknownFunction("json_size", BIGINT, UnknownType.NAME, UnknownType.NAME),
+                createUnknownFunction("json_size", BIGINT, UnknownType.NAME, "T"),
+                createUnknownFunction("json_size", BIGINT, "T", UnknownType.NAME)
+        );
+    }
+
+    private static List<SqlScalarFunction> createJsonUnknownOperators()
     {
         return ImmutableList.of(
                 createUnknownFunction("concat", UnknownType.NAME, UnknownType.NAME, UnknownType.NAME),
