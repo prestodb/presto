@@ -78,4 +78,6 @@ public enum SemanticErrorCode
     INVALID_TRANSACTION_MODE,
 
     INVALID_PRIVILEGE,
+
+    AMBIGUOUS_FUNCTION_CALL,
 }
