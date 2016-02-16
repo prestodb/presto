@@ -12,19 +12,30 @@
  * limitations under the License.
  */
 
-/*
- * Copyright 2016, Teradata Corp. All rights reserved.
- */
 package com.facebook.presto.hive.auth;
 
-import org.apache.hadoop.conf.Configuration;
+import com.google.common.base.Throwables;
+import org.apache.hadoop.security.UserGroupInformation;
 
-public class HadoopKerberosAuthentication
-        extends HadoopKerberosBaseAuthentication
+import java.io.IOException;
+
+public class HadoopSimpleImpersonatingAuthentication
         implements HadoopAuthentication
 {
-    public HadoopKerberosAuthentication(String principal, String keytab, Configuration configuration)
+    @Override
+    public void authenticate()
     {
-        super(principal, keytab, configuration);
+        // noop
+    }
+
+    @Override
+    public UserGroupInformation getUserGroupInformation()
+    {
+        try {
+            return UserGroupInformation.getCurrentUser();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 }

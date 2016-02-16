@@ -1,4 +1,8 @@
 /*
+ * Copyright 2016, Teradata Corp. All rights reserved.
+ */
+
+/*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -11,19 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-/*
- * Copyright 2016, Teradata Corp. All rights reserved.
- */
 package com.facebook.presto.hive.auth;
 
 import org.apache.hadoop.conf.Configuration;
 
-public class HadoopKerberosAuthentication
+public class HadoopKerberosImpersonatingAuthentication
         extends HadoopKerberosBaseAuthentication
-        implements HadoopAuthentication
 {
-    public HadoopKerberosAuthentication(String principal, String keytab, Configuration configuration)
+    public HadoopKerberosImpersonatingAuthentication(String principal, String keytab, Configuration configuration)
     {
         super(principal, keytab, configuration);
     }
