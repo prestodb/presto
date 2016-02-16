@@ -37,6 +37,7 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_LENGTH(JSON '[1]')", BIGINT, 1);
         assertFunction("JSON_ARRAY_LENGTH(JSON '[1, \"foo\", null]')", BIGINT, 3);
         assertFunction("JSON_ARRAY_LENGTH(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 4]')", BIGINT, 6);
+        assertFunction("JSON_ARRAY_LENGTH(CAST('[1,2,3]' AS JSON))", BIGINT, 3);
         assertFunction("JSON_ARRAY_LENGTH(null)", BIGINT, null);
     }
 

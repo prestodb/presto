@@ -22,7 +22,7 @@ public class TemptoProductTestRunner
     {
         TemptoRunnerCommandLineParser parser = TemptoRunnerCommandLineParser
                 .builder("presto product tests")
-                .setTestsPackage("com.facebook.presto.tests", false)
+                .setTestsPackage("com.facebook.presto.tests.*", false)
                 .setConfigFile("classpath:/tempto-configuration.yaml", false)
                 .setExcludedGroups("quarantine", true)
                 .build();

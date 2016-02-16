@@ -4,10 +4,11 @@
     - Sort[n_regionkey ASC_NULLS_LAST] => [n_regionkey:bigint, count:bigint]
         - Exchange[GATHER] => n_regionkey:bigint, count:bigint
             - Aggregate(FINAL)[n_regionkey] => [n_regionkey:bigint, count:bigint]
-                    count := "count"("count_8")
-                - Exchange[REPARTITION] => n_regionkey:bigint, count_8:bigint
-                    - Aggregate(PARTIAL)[n_regionkey] => [n_regionkey:bigint, count_8:bigint]
-                            count_8 := "count"(*)
+                    count := "count"("count_9")
+                - Exchange[REPARTITION] => n_regionkey:bigint, count_9:bigint
+                    - Aggregate(PARTIAL)[n_regionkey] => [n_regionkey:bigint, count_9:bigint]
+                            count_9 := "count"(*)
                         - TableScan[hive:hive:default:nation, originalConstraint = true] => [n_regionkey:bigint]
-                                n_regionkey := HiveColumnHandle{clientId=hive, name=n_regionkey, ordinalPosition=2, hiveType=int, hiveColumnIndex=2, partitionKey=false}
+                                LAYOUT: hive
+                                n_regionkey := HiveColumnHandle{clientId=hive, name=n_regionkey, hiveType=int, hiveColumnIndex=2, partitionKey=false}
 |
