@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.SqlDecimal;
 
 import java.math.BigInteger;
 
+import static com.facebook.presto.spi.type.DecimalType.MAX_PRECISION;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 
 public abstract class AbstractTestDecimalFunctions
@@ -43,5 +44,11 @@ public abstract class AbstractTestDecimalFunctions
             scale = decimalString.length() - dotPos - 1;
         }
         return new SqlDecimal(new BigInteger(decimalStringNoDot), precision, scale);
+    }
+
+    protected SqlDecimal maxPrecisionDecimal(long value)
+    {
+        final String maxPrecisionFormat = "%0" + (MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
+        return decimal(String.format(maxPrecisionFormat, value));
     }
 }
