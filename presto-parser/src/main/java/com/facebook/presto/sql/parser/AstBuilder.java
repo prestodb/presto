@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.sql.parser.SqlBaseParser.TablePropertiesContext;
 import com.facebook.presto.sql.parser.SqlBaseParser.TablePropertyContext;
 import com.facebook.presto.sql.tree.AddColumn;
@@ -57,7 +55,6 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingSets;
-import com.facebook.presto.sql.tree.IdentityNode;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -81,7 +78,6 @@ import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.PrivilegeNode;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -139,8 +135,6 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import java.security.Principal;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -602,52 +596,47 @@ class AstBuilder
     @Override
     public Node visitGrant(SqlBaseParser.GrantContext context)
     {
-        IdentityNode prestoIdentity;
+        String grantee;
         if (context.PUBLIC() != null) {
-            prestoIdentity = new IdentityNode(getLocation(context), new Identity("PUBLIC", Optional.<Principal>empty()));
+            grantee = "PUBLIC";
         }
         else {
-            prestoIdentity = (IdentityNode) visit(context.identity());
+            grantee = context.grantee.getText();
         }
 
-        List<PrivilegeNode> privilegeNodes;
+        List<String> privileges;
         if (context.ALL() != null && context.PRIVILEGES() != null) {
-            privilegeNodes = Arrays.stream(Privilege.values())
-                    .map(privilege -> new PrivilegeNode(getLocation(context), privilege))
-                    .collect(Collectors.toList());
+            //List all privileges  declared in 'Privilege' enum in SPI
+            privileges = ImmutableList.of("SELECT", "DELETE", "INSERT");
         }
         else {
-            privilegeNodes = visit(context.privilege(), PrivilegeNode.class);
+            privileges = context.privilege().stream()
+                    .map(privilegeContext -> getPrivilege(privilegeContext))
+                    .collect(toList());
         }
         return new Grant(
                 getLocation(context),
-                privilegeNodes,
+                privileges,
                 context.TABLE() != null,
                 getQualifiedName(context.qualifiedName()),
-                prestoIdentity,
+                grantee,
                 context.OPTION() != null);
     }
 
-    @Override
-    public Node visitPrivilegeNode(SqlBaseParser.PrivilegeNodeContext context)
+    private String getPrivilege(SqlBaseParser.PrivilegeContext context)
     {
-        switch (context.value.getType()) {
-            case SqlBaseLexer.SELECT:
-                return new PrivilegeNode(getLocation(context), Privilege.SELECT);
-            case SqlBaseLexer.INSERT:
-                return new PrivilegeNode(getLocation(context), Privilege.INSERT);
-            case SqlBaseLexer.DELETE:
-                return new PrivilegeNode(getLocation(context), Privilege.DELETE);
-            case SqlBaseLexer.UPDATE:
-                return new PrivilegeNode(getLocation(context), Privilege.UPDATE);
+        if (context.SELECT() != null) {
+            return "SELECT";
         }
-        throw new IllegalArgumentException("Unsupported Privilege: " + context.value.toString());
-    }
-
-    @Override
-    public Node visitIdentityNode(SqlBaseParser.IdentityNodeContext context)
-    {
-        return new IdentityNode(getLocation(context), new Identity(getQualifiedName(context.qualifiedName()).toString(), Optional.<Principal>empty()));
+        else if (context.DELETE() != null) {
+            return "DELETE";
+        }
+        else if (context.INSERT() != null) {
+            return "INSERT";
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported Privilege: " + context.value.toString());
+        }
     }
 
     // ***************** boolean expressions ******************

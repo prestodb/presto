@@ -22,15 +22,16 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Grant;
-import com.facebook.presto.sql.tree.PrivilegeNode;
 import com.facebook.presto.transaction.TransactionManager;
 
+import java.security.Principal;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PRIVILEGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -55,15 +56,19 @@ public class GrantTask
 
         Set<Privilege> privileges = new HashSet<>();
 
-        for (PrivilegeNode privilegeNode : statement.getPrivilegeNodes()) {
-            accessControl.checkCanGrantTablePrivilege(session.getIdentity(), privilegeNode.getPrivilege(), tableName);
+        for (String privilege : statement.getPrivileges()) {
+            if (!Privilege.contains(privilege)) {
+                throw new SemanticException(INVALID_PRIVILEGE, statement, "Unknown privilege: '%s'", privilege);
+            }
 
-            privileges.add(privilegeNode.getPrivilege());
+            accessControl.checkCanGrantTablePrivilege(session.getIdentity(), Enum.valueOf(Privilege.class, privilege), tableName);
+
+            privileges.add(Enum.valueOf(Privilege.class, privilege));
         }
 
-        Identity identity = statement.getIdentityNode().getIdentity();
+        Identity identity = new Identity(statement.getGrantee(), Optional.<Principal>empty());
 
-        metadata.grantTablePrivileges(session, tableName, privileges, identity, statement.isOption());
+        metadata.grantTablePrivileges(session, tableName, privileges, identity, statement.isWithGrantOption());
 
         return completedFuture(null);
     }

@@ -15,5 +15,16 @@ package com.facebook.presto.spi.security;
 
 public enum Privilege
 {
-    SELECT, DELETE, INSERT, UPDATE;
+    SELECT, DELETE, INSERT;
+
+    public static boolean contains(String privilegeString)
+    {
+        for (Privilege privilege : Privilege.values()) {
+            if (privilege.name().equalsIgnoreCase(privilegeString)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

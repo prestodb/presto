@@ -827,8 +827,7 @@ public final class SqlFormatter
         {
             builder.append("GRANT ");
 
-            builder.append(node.getPrivilegeNodes().stream()
-                    .map(privilegeNode -> privilegeNode.getPrivilege().name())
+            builder.append(node.getPrivileges().stream()
                     .collect(Collectors.joining(", ")));
 
             builder.append(" ON ");
@@ -837,8 +836,8 @@ public final class SqlFormatter
             }
             builder.append(node.getTableName())
                     .append(" TO ")
-                    .append(node.getIdentityNode().getIdentity().getUser());
-            if (node.isOption()) {
+                    .append(node.getGrantee());
+            if (node.isWithGrantOption()) {
                 builder.append(" WITH GRANT OPTION");
             }
 

@@ -25,34 +25,34 @@ import static java.util.Objects.requireNonNull;
 public class Grant
         extends Statement
 {
-    private final List<PrivilegeNode> privilegeNodes;
+    private final List<String> privileges;
     private final boolean table;
     private final QualifiedName tableName;
-    private final IdentityNode identityNode;
+    private final String grantee;
     private final boolean withGrantOption;
 
-    public Grant(List<PrivilegeNode> privilegeNodes, boolean table, QualifiedName tableName, IdentityNode identityNode, boolean withGrantOption)
+    public Grant(List<String> privileges, boolean table, QualifiedName tableName, String grantee, boolean withGrantOption)
     {
-        this(Optional.empty(), privilegeNodes, table, tableName, identityNode, withGrantOption);
+        this(Optional.empty(), privileges, table, tableName, grantee, withGrantOption);
     }
 
-    public Grant(NodeLocation location, List<PrivilegeNode> privilegeNodes, boolean table, QualifiedName tableName, IdentityNode identityNode, boolean withGrantOption)
+    public Grant(NodeLocation location, List<String> privileges, boolean table, QualifiedName tableName, String grantee, boolean withGrantOption)
     {
-        this(Optional.of(location), privilegeNodes, table, tableName, identityNode, withGrantOption);
+        this(Optional.of(location), privileges, table, tableName, grantee, withGrantOption);
     }
-    private Grant(Optional<NodeLocation> location, List<PrivilegeNode> privilegeNodes, boolean table, QualifiedName tableName, IdentityNode identityNode, boolean withGrantOption)
+    private Grant(Optional<NodeLocation> location, List<String> privileges, boolean table, QualifiedName tableName, String grantee, boolean withGrantOption)
     {
         super(location);
-        this.privilegeNodes = ImmutableList.copyOf(requireNonNull(privilegeNodes, "privilegeNodes is null"));
+        this.privileges = ImmutableList.copyOf(requireNonNull(privileges, "privileges is null"));
         this.table = table;
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.identityNode = requireNonNull(identityNode, "identityNode is null");
+        this.grantee = requireNonNull(grantee, "grantee is null");
         this.withGrantOption = withGrantOption;
     }
 
-    public List<PrivilegeNode> getPrivilegeNodes()
+    public List<String> getPrivileges()
     {
-        return privilegeNodes;
+        return privileges;
     }
 
     public boolean isTable()
@@ -65,12 +65,12 @@ public class Grant
         return tableName;
     }
 
-    public IdentityNode getIdentityNode()
+    public String getGrantee()
     {
-        return identityNode;
+        return grantee;
     }
 
-    public boolean isOption()
+    public boolean isWithGrantOption()
     {
         return withGrantOption;
     }
@@ -84,7 +84,7 @@ public class Grant
     @Override
     public int hashCode()
     {
-        return Objects.hash(privilegeNodes, table, tableName, identityNode, withGrantOption);
+        return Objects.hash(privileges, table, tableName, grantee, withGrantOption);
     }
 
     @Override
@@ -97,10 +97,10 @@ public class Grant
             return false;
         }
         Grant o = (Grant) obj;
-        return Objects.equals(privilegeNodes, o.privilegeNodes) &&
+        return Objects.equals(privileges, o.privileges) &&
                 Objects.equals(table, o.table) &&
                 Objects.equals(tableName, o.tableName) &&
-                Objects.equals(identityNode, o.identityNode) &&
+                Objects.equals(grantee, o.grantee) &&
                 Objects.equals(withGrantOption, o.withGrantOption);
     }
 
@@ -108,10 +108,10 @@ public class Grant
     public String toString()
     {
         return toStringHelper(this)
-                .add("privilegeNodes", privilegeNodes)
+                .add("privileges", privileges)
                 .add("table", table)
                 .add("tableName", tableName)
-                .add("identityNode", identityNode)
+                .add("grantee", grantee)
                 .add("withGrantOption", withGrantOption)
                 .toString();
     }

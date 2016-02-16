@@ -512,11 +512,6 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
-    protected R visitPrivilegeNode(PrivilegeNode node, C context)
-    {
-        return visitNode(node, context);
-    }
-
     protected R visitIsolationLevel(Isolation node, C context)
     {
         return visitTransactionMode(node, context);
@@ -535,10 +530,5 @@ public abstract class AstVisitor<R, C>
     protected R visitRollback(Rollback node, C context)
     {
         return visitStatement(node, context);
-    }
-
-    protected R visitIdentityNode(IdentityNode node, C context)
-    {
-        return visitNode(node, context);
     }
 }
