@@ -123,6 +123,8 @@ public class HiveClientConfig
 
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
+    private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.SIMPLE;
+    private String temporaryDirectory = "/tmp";
 
     public int getMaxInitialSplits()
     {
@@ -935,6 +937,26 @@ public class HiveClientConfig
     public HiveClientConfig setHiveMetastorePrestoKeytab(String hiveMetastorePrestoKeytab)
     {
         this.hiveMetastorePrestoKeytab = hiveMetastorePrestoKeytab;
+        return this;
+    }
+
+    public enum HdfsAuthenticationType
+    {
+        SIMPLE,
+        SIMPLE_IMPERSONATION,
+        KERBEROS,
+        KERBEROS_IMPERSONATION
+    }
+
+    public HdfsAuthenticationType getHdfsAuthenticationType()
+    {
+        return hdfsAuthenticationType;
+    }
+
+    @Config("hive.hdfs.authentication.type")
+    public HiveClientConfig setHdfsAuthenticationType(HdfsAuthenticationType hdfsAuthenticationType)
+    {
+        this.hdfsAuthenticationType = hdfsAuthenticationType;
         return this;
     }
 
