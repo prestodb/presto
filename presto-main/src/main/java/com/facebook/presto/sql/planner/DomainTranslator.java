@@ -361,14 +361,25 @@ public final class DomainTranslator
                 return process(coerceDoubleToLongComparison(normalized), complement);
             }
 
-            if (!TypeRegistry.canCoerce(value.getType(), fieldType)) {
+            Optional<NullableValue> coercedValue = coerce(value, fieldType);
+            if (!coercedValue.isPresent()) {
                 return super.visitComparisonExpression(node, complement);
             }
 
-            Object coerced = new FunctionInvoker(metadata.getFunctionRegistry())
-                    .invoke(metadata.getFunctionRegistry().getCoercion(value.getType(), fieldType), session.toConnectorSession(), value.getValue());
+            return createComparisonExtractionResult(normalized.getComparisonType(), symbol, fieldType, coercedValue.get().getValue(), complement);
+        }
 
-            return createComparisonExtractionResult(normalized.getComparisonType(), symbol, fieldType, coerced, complement);
+        private Optional<NullableValue> coerce(NullableValue value, Type targetType)
+        {
+            if (!TypeRegistry.canCoerce(value.getType(), targetType)) {
+                return Optional.empty();
+            }
+            if (value.isNull()) {
+                return Optional.of(NullableValue.asNull(targetType));
+            }
+            Object coercedValue = new FunctionInvoker(metadata.getFunctionRegistry())
+                    .invoke(metadata.getFunctionRegistry().getCoercion(value.getType(), targetType), session.toConnectorSession(), value.getValue());
+            return Optional.of(NullableValue.of(targetType, coercedValue));
         }
 
         private ExtractionResult createComparisonExtractionResult(ComparisonExpression.Type comparisonType, Symbol column, Type type, @Nullable Object value, boolean complement)

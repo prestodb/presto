@@ -696,6 +696,10 @@ public class PlanPrinter
 
     private static String castToVarchar(Type type, Object value, Metadata metadata, Session session)
     {
+        if (value == null) {
+            return "NULL";
+        }
+
         Signature coercion = metadata.getFunctionRegistry().getCoercion(type, VARCHAR);
 
         try {
