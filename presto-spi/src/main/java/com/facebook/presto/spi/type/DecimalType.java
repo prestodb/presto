@@ -30,6 +30,8 @@ public abstract class DecimalType
     protected static final int TEN_TO_NTH_TABLE_LENGTH = 100;
     public static final int MAX_PRECISION = 38;
     public static final int MAX_SHORT_PRECISION = 17;
+    public static final int DEFAULT_SCALE = 0;
+    public static final int DEFAULT_PRECISION = MAX_PRECISION;
 
     public static DecimalType createDecimalType(int precision, int scale)
     {
@@ -43,12 +45,12 @@ public abstract class DecimalType
 
     public static DecimalType createDecimalType(int precision)
     {
-        return createDecimalType(precision, 0);
+        return createDecimalType(precision, DEFAULT_SCALE);
     }
 
-    public static DecimalType createUnparametrizedDecimal()
+    public static DecimalType createDecimalType()
     {
-        return new UnparametrizedDecimalType();
+        return createDecimalType(DEFAULT_PRECISION, DEFAULT_SCALE);
     }
 
     protected final int precision;
@@ -94,7 +96,7 @@ public abstract class DecimalType
 
     protected void validatePrecisionScale(int precision, int scale, int maxPrecision)
     {
-        if (precision < 0 || precision > maxPrecision) {
+        if (precision <= 0 || precision > maxPrecision) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid DECIMAL precision " + precision);
         }
 

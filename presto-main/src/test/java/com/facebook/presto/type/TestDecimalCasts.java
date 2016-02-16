@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.SqlDecimal;
 import org.testng.annotations.Test;
-
-import java.math.BigInteger;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -31,7 +28,11 @@ public class TestDecimalCasts
     {
         assertDecimalFunction("CAST(true AS DECIMAL(2, 0))", decimal("01"));
         assertDecimalFunction("CAST(true AS DECIMAL(3, 1))", decimal("01.0"));
+        assertDecimalFunction("CAST(true AS DECIMAL)", maxPrecisionDecimal(1));
+        assertDecimalFunction("CAST(true AS DECIMAL(2))", decimal("01"));
         assertDecimalFunction("CAST(false AS DECIMAL(2, 0))", decimal("00"));
+        assertDecimalFunction("CAST(false AS DECIMAL(2))", decimal("00"));
+        assertDecimalFunction("CAST(false AS DECIMAL)", maxPrecisionDecimal(0));
 
         assertDecimalFunction("CAST(true AS DECIMAL(20, 10))", decimal("0000000001.0000000000"));
         assertDecimalFunction("CAST(false AS DECIMAL(20, 10))", decimal("0000000000.0000000000"));
@@ -57,7 +58,6 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(234 AS DECIMAL(4,0))", decimal("0234"));
         assertDecimalFunction("CAST(-234 AS DECIMAL(4,1))", decimal("-234.0"));
         assertDecimalFunction("CAST(0 AS DECIMAL(4,2))", decimal("00.00"));
-        assertDecimalFunction("CAST(0 AS DECIMAL(0,0))", new SqlDecimal(new BigInteger("0"), 0, 0));
         assertDecimalFunction("CAST(12345678901234567 AS DECIMAL(17, 0))", decimal("12345678901234567"));
         assertDecimalFunction("CAST(1234567890 AS DECIMAL(20, 10))", decimal("1234567890.0000000000"));
         assertDecimalFunction("CAST(-1234567890 AS DECIMAL(20, 10))", decimal("-1234567890.0000000000"));
