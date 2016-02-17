@@ -14,6 +14,8 @@ General Changes
 * Optimize ``>`` operator for :ref:`array_type`.
 * Fix an optimization issue that could result in non-deterministic functions
   being evaluated more than once producing unexpected results.
+* Fix incorrect result for rare ``IN`` lists that contain certain combinations
+  of non-constant expressions that are null and non-null.
 * Improve performance of joins, aggregations, etc. by removing unnecessarily
   duplicated columns.
 

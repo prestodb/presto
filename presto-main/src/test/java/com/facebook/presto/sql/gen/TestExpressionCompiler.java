@@ -885,6 +885,12 @@ public class TestExpressionCompiler
                     value == null ? null : testValues.contains(value) ? true : null);
         }
 
+        // Test null-handling in default case of InCodeGenerator
+        assertExecute("1 in (100, 101, if(rand()>=0, 1), if(rand()<0, 1))", BOOLEAN, true);
+        assertExecute("1 in (100, 101, if(rand()<0, 1), if(rand()>=0, 1))", BOOLEAN, true);
+        assertExecute("2 in (100, 101, if(rand()>=0, 1), if(rand()<0, 1))", BOOLEAN, null);
+        assertExecute("2 in (100, 101, if(rand()<0, 1), if(rand()>=0, 1))", BOOLEAN, null);
+
         Futures.allAsList(futures).get();
     }
 
