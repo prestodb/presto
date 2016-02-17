@@ -3608,6 +3608,7 @@ public abstract class AbstractTestQueries
                 .mapToObj(Long::toString)
                 .collect(joining(", "));
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
+        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
 
         String arrayValues = range(0, 5000).asLongStream()
                 .mapToObj(i -> format("ARRAY[%s, %s, %s]", i, i + 1, i + 2))

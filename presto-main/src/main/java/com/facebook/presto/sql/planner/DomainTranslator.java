@@ -21,6 +21,7 @@ import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.Ranges;
+import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
@@ -44,6 +45,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.PeekingIterator;
 import com.google.common.math.DoubleMath;
 
 import javax.annotation.Nullable;
@@ -72,6 +74,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterators.peekingIterator;
 import static java.math.RoundingMode.CEILING;
 import static java.math.RoundingMode.FLOOR;
 import static java.util.Objects.requireNonNull;
@@ -124,54 +127,97 @@ public final class DomainTranslator
         return combineDisjunctsWithDefault(disjuncts, TRUE_LITERAL);
     }
 
+    private static Expression processRange(Type type, Range range, QualifiedNameReference reference)
+    {
+        if (range.isAll()) {
+            return TRUE_LITERAL;
+        }
+
+        if (isBetween(range)) {
+            // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
+            return new BetweenPredicate(reference, toExpression(range.getLow().getValue(), type), toExpression(range.getHigh().getValue(), type));
+        }
+
+        List<Expression> rangeConjuncts = new ArrayList<>();
+        if (!range.getLow().isLowerUnbounded()) {
+            switch (range.getLow().getBound()) {
+                case ABOVE:
+                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN, reference, toExpression(range.getLow().getValue(), type)));
+                    break;
+                case EXACTLY:
+                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, reference, toExpression(range.getLow().getValue(),
+                            type)));
+                    break;
+                case BELOW:
+                    throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
+                default:
+                    throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
+            }
+        }
+        if (!range.getHigh().isUpperUnbounded()) {
+            switch (range.getHigh().getBound()) {
+                case ABOVE:
+                    throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
+                case EXACTLY:
+                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN_OR_EQUAL, reference, toExpression(range.getHigh().getValue(), type)));
+                    break;
+                case BELOW:
+                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN, reference, toExpression(range.getHigh().getValue(), type)));
+                    break;
+                default:
+                    throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
+            }
+        }
+        // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
+        checkState(!rangeConjuncts.isEmpty());
+        return combineConjuncts(rangeConjuncts);
+    }
+
+    private static Expression combineRangeWithExcludedPoints(Type type, QualifiedNameReference reference, Range range, List<Expression> excludedPoints)
+    {
+        if (excludedPoints.isEmpty()) {
+            return processRange(type, range, reference);
+        }
+
+        Expression excludedPointsExpression = new NotExpression(new InPredicate(reference, new InListExpression(excludedPoints)));
+        if (excludedPoints.size() == 1) {
+            excludedPointsExpression = new ComparisonExpression(NOT_EQUAL, reference, getOnlyElement(excludedPoints));
+        }
+
+        return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
+    }
+
     private static List<Expression> extractDisjuncts(Type type, Ranges ranges, QualifiedNameReference reference)
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
-        for (Range range : ranges.getOrderedRanges()) {
-            checkState(!range.isAll()); // Already checked
+        List<Range> orderedRanges = ranges.getOrderedRanges();
+
+        SortedRangeSet sortedRangeSet = SortedRangeSet.copyOf(type, orderedRanges);
+        SortedRangeSet complement = sortedRangeSet.complement();
+
+        List<Range> singleValueExclusionsList = complement.getOrderedRanges().stream().filter(Range::isSingleValue).collect(toList());
+        List<Range> originalUnionSingleValues = SortedRangeSet.copyOf(type, singleValueExclusionsList).union(sortedRangeSet).getOrderedRanges();
+        PeekingIterator<Range> singleValueExclusions = peekingIterator(singleValueExclusionsList.iterator());
+
+        for (Range range : originalUnionSingleValues) {
             if (range.isSingleValue()) {
                 singleValues.add(toExpression(range.getSingleValue(), type));
+                continue;
             }
-            else if (isBetween(range)) {
-                // Specialize the range with BETWEEN expression if possible b/c it is currently more efficient
-                disjuncts.add(new BetweenPredicate(reference, toExpression(range.getLow().getValue(), type), toExpression(range.getHigh().getValue(), type)));
+
+            // attempt to optimize ranges that can be coalesced as long as single value points are excluded
+            List<Expression> singleValuesInRange = new ArrayList<>();
+            while (singleValueExclusions.hasNext() && range.contains(singleValueExclusions.peek())) {
+                singleValuesInRange.add(toExpression(singleValueExclusions.next().getSingleValue(), type));
             }
-            else {
-                List<Expression> rangeConjuncts = new ArrayList<>();
-                if (!range.getLow().isLowerUnbounded()) {
-                    switch (range.getLow().getBound()) {
-                        case ABOVE:
-                            rangeConjuncts.add(new ComparisonExpression(GREATER_THAN, reference, toExpression(range.getLow().getValue(), type)));
-                            break;
-                        case EXACTLY:
-                            rangeConjuncts.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, reference, toExpression(range.getLow().getValue(),
-                                    type)));
-                            break;
-                        case BELOW:
-                            throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
-                    }
-                }
-                if (!range.getHigh().isUpperUnbounded()) {
-                    switch (range.getHigh().getBound()) {
-                        case ABOVE:
-                            throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
-                        case EXACTLY:
-                            rangeConjuncts.add(new ComparisonExpression(LESS_THAN_OR_EQUAL, reference, toExpression(range.getHigh().getValue(), type)));
-                            break;
-                        case BELOW:
-                            rangeConjuncts.add(new ComparisonExpression(LESS_THAN, reference, toExpression(range.getHigh().getValue(), type)));
-                            break;
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
-                    }
-                }
-                // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
-                checkState(!rangeConjuncts.isEmpty());
-                disjuncts.add(combineConjuncts(rangeConjuncts));
+
+            if (!singleValuesInRange.isEmpty()) {
+                disjuncts.add(combineRangeWithExcludedPoints(type, reference, range, singleValuesInRange));
+                continue;
             }
+
+            disjuncts.add(processRange(type, range, reference));
         }
 
         // Add back all of the possible single values either as an equality or an IN predicate
