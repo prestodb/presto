@@ -378,6 +378,7 @@ public class FunctionRegistry
                 .scalar(DecimalOperators.Add.class)
                 .scalar(DecimalOperators.Subtract.class)
                 .scalar(DecimalOperators.Negation.class)
+                .scalar(DecimalOperators.HashCode.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
                 .scalar(ArrayLessThanOrEqualOperator.class)
                 .scalar(ArrayRemoveFunction.class)
