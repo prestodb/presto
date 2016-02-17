@@ -280,7 +280,7 @@ public abstract class AbstractTestDistributedQueries
     {
         assertUpdate("CREATE TABLE test_add_column AS SELECT 123 x", 1);
         assertUpdate("CREATE TABLE test_add_column_a AS SELECT 234 x, 111 a", 1);
-        assertUpdate("CREATE TABLE test_add_column_ab AS SELECT 345 x, 222 a, 33.3 b", 1);
+        assertUpdate("CREATE TABLE test_add_column_ab AS SELECT 345 x, 222 a, DOUBLE '33.3' b", 1);
 
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN a bigint");
         assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_a", 1);

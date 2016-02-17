@@ -21,6 +21,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -97,12 +98,12 @@ public class TestJdbcResultSet
     public void testObjectTypes()
             throws Exception
     {
-        String sql = "SELECT 123, 0.1, true, 'hello', 1.0 / 0.0, 0.0 / 0.0, ARRAY[1, 2]";
+        String sql = "SELECT 123, 0.1, true, 'hello', 1.0 / DOUBLE '0.0', 0.0 / DOUBLE '0.0', ARRAY[1, 2]";
         try (ResultSet rs = statement.executeQuery(sql)) {
             ResultSetMetaData metadata = rs.getMetaData();
             assertEquals(metadata.getColumnCount(), 7);
             assertEquals(metadata.getColumnType(1), Types.BIGINT);
-            assertEquals(metadata.getColumnType(2), Types.DOUBLE);
+            assertEquals(metadata.getColumnType(2), Types.DECIMAL);
             assertEquals(metadata.getColumnType(3), Types.BOOLEAN);
             assertEquals(metadata.getColumnType(4), Types.LONGNVARCHAR);
             assertEquals(metadata.getColumnType(5), Types.DOUBLE);
@@ -111,7 +112,7 @@ public class TestJdbcResultSet
 
             assertTrue(rs.next());
             assertEquals(rs.getObject(1), 123L);
-            assertEquals(rs.getObject(2), 0.1d);
+            assertEquals(rs.getObject(2), new BigDecimal("0.1"));
             assertEquals(rs.getObject(3), true);
             assertEquals(rs.getObject(4), "hello");
             assertEquals(rs.getObject(5), Double.POSITIVE_INFINITY);

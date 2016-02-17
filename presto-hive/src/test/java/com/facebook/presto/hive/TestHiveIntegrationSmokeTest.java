@@ -109,7 +109,7 @@ public class TestHiveIntegrationSmokeTest
                 " 'foo' _varchar" +
                 ", cast('bar' as varbinary) _varbinary" +
                 ", 1 _bigint" +
-                ", 3.14 _double" +
+                ", DOUBLE '3.14' _double" +
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp";
@@ -193,7 +193,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
                 ", 1 _bigint" +
-                ", 3.14 _double" +
+                ", CAST(3.14 AS DOUBLE) _double" +
                 ", true _boolean";
 
         String createTableAs = String.format("CREATE TABLE test_format_table WITH (format = '%s') AS %s", storageFormat, select);
@@ -323,18 +323,18 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
                 ", 1 _bigint" +
-                ", 3.14 _double" +
+                ", CAST(3.14 as DOUBLE) _double" +
                 ", true _boolean";
 
         assertUpdate("INSERT INTO test_insert_format_table " + select, 1);
 
         assertQuery("SELECT * from test_insert_format_table", select);
 
-        assertUpdate("INSERT INTO test_insert_format_table (_bigint, _double) SELECT 2, 14.3", 1);
+        assertUpdate("INSERT INTO test_insert_format_table (_bigint, _double) SELECT 2, DOUBLE '14.3'", 1);
 
         assertQuery("SELECT * from test_insert_format_table where _bigint = 2", "SELECT null, 2, 14.3, null");
 
-        assertUpdate("INSERT INTO test_insert_format_table (_double, _bigint) SELECT 2.72, 3", 1);
+        assertUpdate("INSERT INTO test_insert_format_table (_double, _bigint) SELECT DOUBLE '2.72', 3", 1);
 
         assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, 3, 2.72, null");
 
@@ -537,7 +537,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT col[2] FROM tmp_array1", "SELECT 2");
         assertQuery("SELECT col[3] FROM tmp_array1", "SELECT NULL");
 
-        assertUpdate("CREATE TABLE tmp_array2 AS SELECT ARRAY[1.0, 2.5, 3.5] AS col", 1);
+        assertUpdate("CREATE TABLE tmp_array2 AS SELECT ARRAY[DOUBLE '1.0', DOUBLE '2.5', DOUBLE '3.5'] AS col", 1);
         assertQuery("SELECT col[2] FROM tmp_array2", "SELECT 2.5");
 
         assertUpdate("CREATE TABLE tmp_array3 AS SELECT ARRAY['puppies', 'kittens', NULL] AS col", 1);
@@ -574,7 +574,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
         assertQuery("SELECT col[1] FROM tmp_map1", "SELECT NULL");
 
-        assertUpdate("CREATE TABLE tmp_map2 AS SELECT MAP(ARRAY[1.0], ARRAY[2.5]) AS col", 1);
+        assertUpdate("CREATE TABLE tmp_map2 AS SELECT MAP(ARRAY[DOUBLE '1.0'], ARRAY[DOUBLE '2.5']) AS col", 1);
         assertQuery("SELECT col[1.0] FROM tmp_map2", "SELECT 2.5");
 
         assertUpdate("CREATE TABLE tmp_map3 AS SELECT MAP(ARRAY['puppies'], ARRAY['kittens']) AS col", 1);
@@ -583,7 +583,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("CREATE TABLE tmp_map4 AS SELECT MAP(ARRAY[TRUE], ARRAY[FALSE]) AS col", 1);
         assertQuery("SELECT col[TRUE] FROM tmp_map4", "SELECT FALSE");
 
-        assertUpdate("CREATE TABLE tmp_map5 AS SELECT MAP(ARRAY[1.0], ARRAY[ARRAY[1, 2]]) AS col", 1);
+        assertUpdate("CREATE TABLE tmp_map5 AS SELECT MAP(ARRAY[DOUBLE '1.0'], ARRAY[ARRAY[1, 2]]) AS col", 1);
         assertQuery("SELECT col[1.0][2] FROM tmp_map5", "SELECT 2");
 
         assertUpdate("CREATE TABLE tmp_map6 AS SELECT MAP(ARRAY[DATE '2014-09-30'], ARRAY[DATE '2014-09-29']) AS col", 1);
@@ -608,7 +608,7 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         assertUpdate("CREATE TABLE tmp_complex1 AS SELECT " +
-                "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
+                "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[DOUBLE '2.0', DOUBLE '4.0']), MAP(ARRAY['c', 'd'], ARRAY[DOUBLE '12.0', DOUBLE '14.0'])] AS a",
                 1);
 
         assertQuery(
