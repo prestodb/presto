@@ -1000,13 +1000,13 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery(session, "SELECT * from test_insert_format_table", select);
 
-        assertUpdate(session, "INSERT INTO test_insert_format_table (_tinyint, _smallint, _integer, _bigint, _real, _double) SELECT CAST(1 AS TINYINT), CAST(2 AS SMALLINT), 3, 4, cast(14.3 as REAL), 14.3", 1);
+        assertUpdate(session, "INSERT INTO test_insert_format_table (_tinyint, _smallint, _integer, _bigint, _real, _double) SELECT CAST(1 AS TINYINT), CAST(2 AS SMALLINT), 3, 4, cast(14.3E0 as REAL), 14.3E0", 1);
 
         assertQuery(session, "SELECT * from test_insert_format_table where _bigint = 4", "SELECT null, null, null, 4, 3, 2, 1, 14.3, 14.3, null, null, null");
 
         assertQuery(session, "SELECT * from test_insert_format_table where _real = CAST(14.3 as REAL)", "SELECT null, null, null, 4, 3, 2, 1, 14.3, 14.3, null, null, null");
 
-        assertUpdate(session, "INSERT INTO test_insert_format_table (_double, _bigint) SELECT 2.72, 3", 1);
+        assertUpdate(session, "INSERT INTO test_insert_format_table (_double, _bigint) SELECT 2.72E0, 3", 1);
 
         assertQuery(session, "SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, null, null, 3, null, null, null, null, 2.72, null, null, null");
 
@@ -1408,7 +1408,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT col[2] FROM tmp_array1", "SELECT 2");
         assertQuery("SELECT col[3] FROM tmp_array1", "SELECT NULL");
 
-        assertUpdate("CREATE TABLE tmp_array2 AS SELECT ARRAY[1.0, 2.5, 3.5] AS col", 1);
+        assertUpdate("CREATE TABLE tmp_array2 AS SELECT ARRAY[1.0E0, 2.5E0, 3.5E0] AS col", 1);
         assertQuery("SELECT col[2] FROM tmp_array2", "SELECT 2.5");
 
         assertUpdate("CREATE TABLE tmp_array3 AS SELECT ARRAY['puppies', 'kittens', NULL] AS col", 1);
@@ -1490,6 +1490,9 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("CREATE TABLE tmp_map11 AS SELECT MAP(ARRAY[REAL'1.234'], ARRAY[REAL'2.345']) AS col", 1);
         assertQuery("SELECT col[REAL'1.234'] FROM tmp_map11", "SELECT 2.345");
+
+        assertUpdate("CREATE TABLE tmp_map12 AS SELECT MAP(ARRAY[1.0E0], ARRAY[ARRAY[1, 2]]) AS col", 1);
+        assertQuery("SELECT col[1.0][2] FROM tmp_map12", "SELECT 2");
     }
 
     @Test
@@ -1507,7 +1510,7 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         assertUpdate("CREATE TABLE tmp_complex1 AS SELECT " +
-                        "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0, 4.0]), MAP(ARRAY['c', 'd'], ARRAY[12.0, 14.0])] AS a",
+                        "ARRAY [MAP(ARRAY['a', 'b'], ARRAY[2.0E0, 4.0E0]), MAP(ARRAY['c', 'd'], ARRAY[12.0E0, 14.0E0])] AS a",
                 1);
 
         assertQuery(
@@ -1581,7 +1584,7 @@ public class TestHiveIntegrationSmokeTest
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
                         "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
-                        "   orc_bloom_filter_fpp = 0.7,\n" +
+                        "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c4','c5']\n" +
                         ")",
                 getSession().getCatalog().get(),

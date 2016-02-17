@@ -1,2 +1,2 @@
--- delimiter: |; ignoreOrder: false; types: DOUBLE 
+-- delimiter: |; ignoreOrder: false; types: DECIMAL
 null
