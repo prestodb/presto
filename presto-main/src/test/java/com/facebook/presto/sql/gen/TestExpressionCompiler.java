@@ -864,6 +864,12 @@ public class TestExpressionCompiler
             assertExecute(generateExpression("%s in ('what?', null, 'foo', 'mellow', 'end')", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in (cast('what?' AS VARCHAR(10)), cast('foo' AS VARCHAR(10)), null, 'mellow', 'end')", value),
+                    BOOLEAN,
+                    value == null ? null : testValues.contains(value) ? true : null);
+            assertExecute(generateExpression("%s in ('what?', CAST(null AS VARCHAR(10)), 'foo', 'mellow', 'end')", value),
+                    BOOLEAN,
+                    value == null ? null : testValues.contains(value) ? true : null);
         }
 
         Futures.allAsList(futures).get();
