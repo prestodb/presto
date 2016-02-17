@@ -25,7 +25,6 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static java.util.Objects.requireNonNull;
 
 public class BenchmarkSuite
@@ -45,8 +44,6 @@ public class BenchmarkSuite
                 new OrderByBenchmark(localQueryRunner),
                 new HashBuildBenchmark(localQueryRunner),
                 new HashJoinBenchmark(localQueryRunner),
-                new HashBuildAndJoinBenchmark(localQueryRunner.getDefaultSession(), localQueryRunner),
-                new HashBuildAndJoinBenchmark(localQueryRunner.getDefaultSession().withSystemProperty(OPTIMIZE_HASH_GENERATION, "true"), localQueryRunner),
                 new HandTpchQuery1(localQueryRunner),
                 new HandTpchQuery6(localQueryRunner),
 
