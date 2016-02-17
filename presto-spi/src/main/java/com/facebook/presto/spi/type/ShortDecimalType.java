@@ -53,7 +53,7 @@ final class ShortDecimalType
     @Override
     public long hash(Block block, int position)
     {
-        return Long.hashCode(block.getLong(position, 0));
+        return block.getLong(position, 0);
     }
 
     @Override
