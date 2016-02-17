@@ -16,10 +16,12 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 
 public class TestBigintOperators
         extends AbstractTestFunctions
@@ -222,5 +224,42 @@ public class TestBigintOperators
     {
         assertFunction("cast('37' as bigint)", BIGINT, 37L);
         assertFunction("cast('17' as bigint)", BIGINT, 17L);
+    }
+
+    @Test
+    public void testOverflowAdd()
+            throws Exception
+    {
+        assertInvalidFunction(format("%s + 1", Long.MAX_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    public void testUnderflowSubtract()
+            throws Exception
+    {
+        long minValue = Long.MIN_VALUE + 1; // due to https://github.com/facebook/presto/issues/4571 MIN_VALUE solely cannot be used
+        assertInvalidFunction(format("%s - 2", minValue), NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    public void testOverflowMultiply()
+            throws Exception
+    {
+        assertInvalidFunction(format("%s * 2", Long.MAX_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
+        //assertInvalidFunction(format("%s * -1", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE); TODO: uncomment when https://github.com/facebook/presto/issues/4571 is fixed
+    }
+
+    @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
+    public void testOverflowDivide()
+            throws Exception
+    {
+        assertInvalidFunction(format("%s / -1", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
+    public void testNegateOverflow()
+            throws Exception
+    {
+        assertInvalidFunction(format("-(%s)", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
     }
 }
