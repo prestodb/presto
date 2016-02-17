@@ -39,7 +39,6 @@ public final class SystemSessionProperties
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
-    public static final String TASK_DEFAULT_CONCURRENCY = "task_default_concurrency";
     public static final String TASK_JOIN_CONCURRENCY = "task_join_concurrency";
     public static final String TASK_HASH_BUILD_CONCURRENCY = "task_hash_build_concurrency";
     public static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
@@ -115,11 +114,6 @@ public final class SystemSessionProperties
                         PUSH_TABLE_WRITE_THROUGH_UNION,
                         "Parallelize writes when using UNION ALL in queries that write data",
                         featuresConfig.isPushTableWriteThroughUnion(),
-                        false),
-                integerSessionProperty(
-                        TASK_DEFAULT_CONCURRENCY,
-                        "Experimental: Default number of local parallel jobs per worker",
-                        taskManagerConfig.getTaskDefaultConcurrency(),
                         false),
                 integerSessionProperty(
                         TASK_JOIN_CONCURRENCY,
@@ -241,17 +235,17 @@ public final class SystemSessionProperties
 
     public static int getTaskJoinConcurrency(Session session)
     {
-        return getPropertyOr(session, TASK_JOIN_CONCURRENCY, TASK_DEFAULT_CONCURRENCY, Integer.class);
+        return session.getProperty(TASK_JOIN_CONCURRENCY, Integer.class);
     }
 
     public static int getTaskHashBuildConcurrency(Session session)
     {
-        return getPropertyOr(session, TASK_HASH_BUILD_CONCURRENCY, TASK_DEFAULT_CONCURRENCY, Integer.class);
+        return session.getProperty(TASK_HASH_BUILD_CONCURRENCY, Integer.class);
     }
 
     public static int getTaskAggregationConcurrency(Session session)
     {
-        return getPropertyOr(session, TASK_AGGREGATION_CONCURRENCY, TASK_DEFAULT_CONCURRENCY, Integer.class);
+        return session.getProperty(TASK_AGGREGATION_CONCURRENCY, Integer.class);
     }
 
     public static boolean isIntermediateAggregation(Session session)
@@ -297,14 +291,5 @@ public final class SystemSessionProperties
     public static boolean planWithTableNodePartitioning(Session session)
     {
         return session.getProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
-    }
-
-    private static <T> T getPropertyOr(Session session, String propertyName, String defaultPropertyName, Class<T> type)
-    {
-        T value = session.getProperty(propertyName, type);
-        if (value == null) {
-            value = session.getProperty(defaultPropertyName, type);
-        }
-        return value;
     }
 }
