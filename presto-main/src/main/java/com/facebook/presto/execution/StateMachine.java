@@ -136,7 +136,7 @@ public class StateMachine<T>
      * Sets the state if the current state satisfies the specified predicate.
      * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
      *
-     * @return the old state
+     * @return true if the state is set
      */
     public boolean setIf(T newState, Predicate<T> predicate)
     {
@@ -168,7 +168,7 @@ public class StateMachine<T>
      * Sets the state if the current state {@code .equals()} the specified expected state.
      * If the new state does not {@code .equals()} the current state, listeners and waiters will be notified.
      *
-     * @return the old state
+     * @return true if the state is set
      */
     public boolean compareAndSet(T expectedState, T newState)
     {
