@@ -124,7 +124,7 @@ public final class SystemSessionProperties
                 integerSessionProperty(
                         TASK_JOIN_CONCURRENCY,
                         "Experimental: Default number of local parallel join jobs per worker",
-                        taskManagerConfig.getTaskDefaultConcurrency(),
+                        taskManagerConfig.getTaskJoinConcurrency(),
                         false),
                 integerSessionProperty(
                         TASK_HASH_BUILD_CONCURRENCY,
