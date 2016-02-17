@@ -46,6 +46,7 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setWriterCount(1)
                 .setTaskDefaultConcurrency(1)
+                .setTaskJoinConcurrency(1)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3));
     }
@@ -68,6 +69,7 @@ public class TestTaskManagerConfig
                 .put("sink.max-buffer-size", "42MB")
                 .put("task.writer-count", "3")
                 .put("task.default-concurrency", "7")
+                .put("task.join-concurrency", "8")
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .build();
@@ -87,6 +89,7 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
                 .setWriterCount(3)
                 .setTaskDefaultConcurrency(7)
+                .setTaskJoinConcurrency(8)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10);
 

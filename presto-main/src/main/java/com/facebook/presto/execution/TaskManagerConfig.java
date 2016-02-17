@@ -47,6 +47,7 @@ public class TaskManagerConfig
     private Duration infoRefreshMaxWait = new Duration(200, TimeUnit.MILLISECONDS);
     private int writerCount = 1;
     private int taskDefaultConcurrency = 1;
+    private Integer taskJoinConcurrency;
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
@@ -222,6 +223,23 @@ public class TaskManagerConfig
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskJoinConcurrency()
+    {
+        if (taskJoinConcurrency == null) {
+            return taskDefaultConcurrency;
+        }
+        return taskJoinConcurrency;
+    }
+
+    @Config("task.join-concurrency")
+    @ConfigDescription("Local concurrency for join operators")
+    public TaskManagerConfig setTaskJoinConcurrency(int taskJoinConcurrency)
+    {
+        this.taskJoinConcurrency = taskJoinConcurrency;
         return this;
     }
 
