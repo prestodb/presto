@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -31,6 +32,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.ADD;
 import static com.facebook.presto.metadata.OperatorType.DIVIDE;
+import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.OperatorType.MODULUS;
 import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
@@ -449,6 +451,24 @@ public final class DecimalOperators
         {
             BigInteger argBigInteger = Decimals.decodeUnscaledValue(arg);
             return Decimals.encodeUnscaledValue(argBigInteger.negate());
+        }
+    }
+
+    @ScalarOperator(HASH_CODE)
+    public static final class HashCode
+    {
+        @LiteralParameters({"p", "s"})
+        @SqlType("bigint")
+        public static long hashCode(@SqlType("decimal(p, s)") long value)
+        {
+            return value;
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType("bigint")
+        public static long hashCode(@SqlType("decimal(p, s)") Slice value)
+        {
+            return XxHash64.hash(value);
         }
     }
 }
