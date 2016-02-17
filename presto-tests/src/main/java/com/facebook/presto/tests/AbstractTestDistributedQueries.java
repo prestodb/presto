@@ -356,7 +356,7 @@ public abstract class AbstractTestDistributedQueries
     {
         assertUpdate("CREATE TABLE test_add_column AS SELECT 123 x", 1);
         assertUpdate("CREATE TABLE test_add_column_a AS SELECT 234 x, 111 a", 1);
-        assertUpdate("CREATE TABLE test_add_column_ab AS SELECT 345 x, 222 a, 33.3 b", 1);
+        assertUpdate("CREATE TABLE test_add_column_ab AS SELECT 345 x, 222 a, 33.3E0 b", 1);
 
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN x bigint", ".* Column 'x' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN X bigint", ".* Column 'X' already exists");
