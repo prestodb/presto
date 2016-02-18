@@ -18,7 +18,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.DefaultRecordPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -106,7 +106,7 @@ public class HivePageSourceProvider
         HiveRecordCursor recordCursor = getHiveRecordCursor(clientId, session, configuration, path, start, length, schema, effectivePredicate, partitionKeys, hiveColumns);
         if (recordCursor != null) {
             List<Type> columnTypes = ImmutableList.copyOf(transform(hiveColumns, input -> typeManager.getType(input.getTypeSignature())));
-            return new RecordPageSource(columnTypes, recordCursor);
+            return new DefaultRecordPageSource(columnTypes, recordCursor);
         }
 
         throw new RuntimeException("Could not find a file reader for split " + hiveSplit);

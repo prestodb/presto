@@ -22,8 +22,8 @@ import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.DefaultRecordPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.type.Type;
@@ -144,7 +144,7 @@ public class IndexSourceOperator
         // Normalize the incoming RecordSet to something that can be consumed by the index
         RecordSet normalizedRecordSet = probeKeyNormalizer.apply(indexSplit.getKeyRecordSet());
         RecordSet result = index.lookup(normalizedRecordSet);
-        source = new PageSourceOperator(new RecordPageSource(result), result.getColumnTypes(), operatorContext);
+        source = new PageSourceOperator(new DefaultRecordPageSource(result), result.getColumnTypes(), operatorContext);
 
         operatorContext.setInfoSupplier(split::getInfo);
 
