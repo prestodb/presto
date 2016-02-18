@@ -277,7 +277,7 @@ class QueryPlanner
             }
             else {
                 Expression expression = fieldOrExpression.getExpression();
-                symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
+                symbol = symbolAllocator.newSymbol(expression, analysis.getTypeAfterCoercion(expression));
             }
 
             projections.put(symbol, subPlan.rewrite(fieldOrExpression));
@@ -619,8 +619,7 @@ class QueryPlanner
 
         ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
         for (Expression expression : expressions) {
-            Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
-
+            Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getTypeAfterCoercion(expression));
             projections.put(symbol, translations.rewrite(expression));
             newTranslations.put(symbol, expression);
         }

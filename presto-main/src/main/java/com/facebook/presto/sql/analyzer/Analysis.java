@@ -45,6 +45,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -167,6 +168,11 @@ public class Analysis
     {
         checkArgument(types.containsKey(expression), "Expression not analyzed: %s", expression);
         return types.get(expression);
+    }
+
+    public Type getTypeAfterCoercion(Expression expression)
+    {
+        return firstNonNull(getCoercion(expression), getType(expression));
     }
 
     public Type[] getRelationCoercion(Relation relation)
