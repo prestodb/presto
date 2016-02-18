@@ -32,8 +32,8 @@ import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.DefaultRecordPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -341,7 +341,7 @@ public enum FileFormat
                         DateTimeZone.forID(session.getTimeZoneKey().getId()),
                         TYPE_MANAGER)
                 .get();
-        return new RecordPageSource(columnTypes, recordCursor);
+        return new DefaultRecordPageSource(columnTypes, recordCursor);
     }
 
     private static ConnectorPageSource createPageSource(

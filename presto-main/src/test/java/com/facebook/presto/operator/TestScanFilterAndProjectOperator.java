@@ -19,9 +19,9 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.index.PageRecordSet;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.DefaultRecordPageSource;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -102,7 +102,7 @@ public class TestScanFilterAndProjectOperator
                     @Override
                     public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
                     {
-                        return new RecordPageSource(new PageRecordSet(ImmutableList.<Type>of(VARCHAR), input));
+                        return new DefaultRecordPageSource(new PageRecordSet(ImmutableList.<Type>of(VARCHAR), input));
                     }
                 },
                 new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
