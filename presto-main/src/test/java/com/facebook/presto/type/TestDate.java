@@ -14,12 +14,12 @@ package com.facebook.presto.type;
  */
 
 import com.facebook.presto.Session;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -38,11 +39,10 @@ import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class TestDate
+    extends AbstractTestFunctions
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
-
-    private FunctionAssertions functionAssertions;
 
     @BeforeClass
     public void setUp()
@@ -51,11 +51,6 @@ public class TestDate
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .build();
         functionAssertions = new FunctionAssertions(session);
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
     @Test
@@ -192,5 +187,43 @@ public class TestDate
         int days = (int) TimeUnit.MILLISECONDS.toDays(new DateTime(2012, 5, 23, 0, 0, UTC).getMillis());
         assertFunction("least(DATE '2013-03-30', DATE '2012-05-23')", DATE, new SqlDate(days));
         assertFunction("least(DATE '2013-03-30', DATE '2012-05-23', DATE '2012-06-01')", DATE, new SqlDate(days));
+    }
+
+    @Test
+    public void dateCanBeImplicitlyCastedFromVarchar()
+            throws Exception
+    {
+        assertFunction("'1999-01-01' < DATE '2000-01-01'", BOOLEAN, true);
+        assertFunction("DATE '1999-01-01' < '2000-01-01'", BOOLEAN, true);
+
+        assertFunction("'2000-01-01' = DATE '2000-01-01'", BOOLEAN, true);
+        assertFunction("DATE '2000-01-01' = '2000-01-02'", BOOLEAN, false);
+    }
+
+    @Test
+    public void dateIsNotImplicitlyCastToVarchar()
+            throws Exception
+    {
+        assertFunction("'999-01-01' < DATE '2000-01-01'", BOOLEAN, true);
+        assertFunction("DATE '999-01-01' < '2000-01-01'", BOOLEAN, true);
+    }
+
+    @Test
+    public void dateIsImplicitlyCastedForCompareOperators()
+    {
+        assertEvaluates("'2000-01-01' < DATE '2000-01-01'", BOOLEAN);
+        assertEvaluates("'2000-01-01' = DATE '2000-01-01'", BOOLEAN);
+        assertEvaluates("'2000-01-01' > DATE '2000-01-01'", BOOLEAN);
+        assertEvaluates("'2000-01-01' <> DATE '2000-01-01'", BOOLEAN);
+        assertEvaluates("'2000-01-01' <= DATE '2000-01-01'", BOOLEAN);
+        assertEvaluates("'2000-01-01' >= DATE '2000-01-01'", BOOLEAN);
+    }
+
+    @Test
+    public void dateIsImplicitlyCastedForMostSpecificFunction()
+    {
+        // Test if there is a possibility of solving ambiguity by selecting
+        // most specific function it's done for date format varchargit .
+        assertFunction("day('2001-01-10')", BIGINT, 10);
     }
 }

@@ -74,6 +74,9 @@ import static java.util.stream.Collectors.toList;
 public final class TypeRegistry
         implements TypeManager
 {
+    private static final List<String> VARCHAR_SUBTYPES = ImmutableList.of(StandardTypes.DATE, StandardTypes.TIME, StandardTypes.TIME_WITH_TIME_ZONE,
+            StandardTypes.TIMESTAMP, StandardTypes.TIMESTAMP_WITH_TIME_ZONE, RegexpType.NAME, LikePatternType.NAME, JsonPathType.NAME);
+
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
@@ -233,7 +236,7 @@ public final class TypeRegistry
             case StandardTypes.TIMESTAMP:
                 return StandardTypes.TIMESTAMP_WITH_TIME_ZONE.equals(toTypeBase);
             case StandardTypes.VARCHAR:
-                return RegexpType.NAME.equals(toTypeBase) || LikePatternType.NAME.equals(toTypeBase) || JsonPathType.NAME.equals(toTypeBase);
+                return VARCHAR_SUBTYPES.contains(toTypeBase);
             case StandardTypes.P4_HYPER_LOG_LOG:
                 return StandardTypes.HYPER_LOG_LOG.equals(toTypeBase);
             case StandardTypes.DECIMAL:
@@ -437,7 +440,7 @@ public final class TypeRegistry
     public static Optional<TypeSignature> getCommonSuperTypeSignature(TypeSignature firstType, TypeSignature secondType)
     {
         TypeSignaturePair typeSignaturePair = new TypeSignaturePair(firstType, secondType);
-        if (typeSignaturePair.containsAnyOf(StandardTypes.VARCHAR, StandardTypes.DECIMAL)) {
+        if (typeSignaturePair.containsAnyOf(StandardTypes.DECIMAL, StandardTypes.VARCHAR)) {
             return getCommonSuperTypeForTypesWithLongParameters(typeSignaturePair);
         }
 
@@ -457,6 +460,7 @@ public final class TypeRegistry
 
         List<TypeSignatureParameter> firstTypeTypeParameters = firstType.getParameters();
         List<TypeSignatureParameter> secondTypeTypeParameters = secondType.getParameters();
+
         if (firstTypeTypeParameters.size() != secondTypeTypeParameters.size()) {
             return Optional.empty();
         }
@@ -505,7 +509,7 @@ public final class TypeRegistry
     {
         checkState(typeSignaturePair.containsAnyOf(StandardTypes.VARCHAR, StandardTypes.DECIMAL));
 
-        for (String varcharSubType : new String[] {RegexpType.NAME, LikePatternType.NAME, JsonPathType.NAME}) {
+        for (String varcharSubType : VARCHAR_SUBTYPES) {
             if (typeSignaturePair.is(StandardTypes.VARCHAR, varcharSubType)) {
                 return Optional.of(typeSignaturePair.get(varcharSubType));
             }

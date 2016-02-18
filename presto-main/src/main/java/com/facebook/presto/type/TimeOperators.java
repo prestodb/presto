@@ -30,7 +30,7 @@ import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithoutTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
 
@@ -122,7 +122,7 @@ public final class TimeOperators
     public static long castFromSlice(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice value)
     {
         try {
-            return parseTimeWithoutTimeZone(session.getTimeZoneKey(), value.toStringUtf8());
+            return parseTime(session.getTimeZoneKey(), value.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, e);

@@ -19,9 +19,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
-import org.joda.time.chrono.ISOChronology;
-
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
 import static com.facebook.presto.metadata.OperatorType.CAST;
@@ -33,13 +30,13 @@ import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
-import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithTimeZone;
-import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
+import static com.facebook.presto.util.DateTimeUtils.timestampWithTimeZoneToDate;
+import static com.facebook.presto.util.DateTimeUtils.timestampWithTimeZoneToTime;
+import static com.facebook.presto.util.DateTimeUtils.timestampWithTimeZoneToTimeWithTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.timestampWithTimeZoneToTimestampWithoutTimeZone;
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 
@@ -106,35 +103,28 @@ public final class TimestampWithTimeZoneOperators
     @SqlType(StandardTypes.DATE)
     public static long castToDate(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        // round down the current timestamp to days
-        ISOChronology chronology = unpackChronology(value);
-        long date = chronology.dayOfYear().roundFloor(unpackMillisUtc(value));
-        // date is currently midnight in timezone of the original value
-        // convert to UTC
-        long millis = date + chronology.getZone().getOffset(date);
-        return TimeUnit.MILLISECONDS.toDays(millis);
+        return timestampWithTimeZoneToDate(value);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIME)
     public static long castToTime(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        return modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
+        return timestampWithTimeZoneToTime(value);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long castToTimeWithTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        int millis = modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
-        return packDateTimeWithZone(millis, unpackZoneKey(value));
+        return timestampWithTimeZoneToTimeWithTimeZone(value);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP)
     public static long castToTimestamp(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        return unpackMillisUtc(value);
+        return timestampWithTimeZoneToTimestampWithoutTimeZone(value);
     }
 
     @ScalarOperator(CAST)

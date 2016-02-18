@@ -39,7 +39,10 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
+import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
@@ -132,6 +135,33 @@ public final class DateTimeUtils
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
         return TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
+    }
+
+    public static long timestampWithTimeZoneToDate(long value)
+    {
+        // round down the current timestamp to days
+        ISOChronology chronology = unpackChronology(value);
+        long date = chronology.dayOfYear().roundFloor(unpackMillisUtc(value));
+        // date is currently midnight in timezone of the original value
+        // we expect midnight in UTC so we shift to that timezone
+        long millis = date + chronology.getZone().getOffset(date);
+        return TimeUnit.MILLISECONDS.toDays(millis);
+    }
+
+    public static long timestampWithTimeZoneToTimestampWithoutTimeZone(long value)
+    {
+        return unpackMillisUtc(value);
+    }
+
+    public static long timestampWithTimeZoneToTime(long value)
+    {
+        return modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
+    }
+
+    public static long timestampWithTimeZoneToTimeWithTimeZone(long value)
+    {
+        int millis = modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
+        return packDateTimeWithZone(millis, unpackZoneKey(value));
     }
 
     public static String printTimestampWithTimeZone(long timestampWithTimeZone)

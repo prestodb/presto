@@ -14,13 +14,13 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -37,11 +37,10 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 
 public class TestTime
+    extends AbstractTestFunctions
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
-
-    private FunctionAssertions functionAssertions;
 
     @BeforeClass
     public void setUp()
@@ -50,11 +49,6 @@ public class TestTime
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .build();
         functionAssertions = new FunctionAssertions(session);
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
     @Test
@@ -180,5 +174,37 @@ public class TestTime
         assertFunction("cast('03:04:05.321' as time) = TIME '03:04:05.321'", BOOLEAN, true);
         assertFunction("cast('03:04:05' as time) = TIME '03:04:05.000'", BOOLEAN, true);
         assertFunction("cast('03:04' as time) = TIME '03:04:00.000'", BOOLEAN, true);
+    }
+
+    @Test
+    public void timeCanBeImplicitlyCastedFromVarchar()
+            throws Exception
+    {
+        assertFunction("'05:30:00.0' < TIME '05:00:00.0'", BOOLEAN, false);
+        assertFunction("TIME '05:30:00.0' < '05:00:00.0'", BOOLEAN, false);
+    }
+
+    @Test void timeIsNotImplicitlyCastToVarchar()
+            throws Exception
+    {
+        assertFunction("'5:00:00.0' < TIME '05:30:00.0'", BOOLEAN, true);
+        assertFunction("TIME '5:00:00.0' < '05:30:00.0'", BOOLEAN, true);
+    }
+
+    @Test
+    public void timeCoertForCompareOperators()
+    {
+        assertEvaluates("'05:30:00.0' < TIME '05:00:00.0'", BOOLEAN);
+        assertEvaluates("'05:30:00.0' = TIME '05:00:00.0'", BOOLEAN);
+        assertEvaluates("'05:30:00.0' > TIME '05:00:00.0'", BOOLEAN);
+        assertEvaluates("'05:30:00.0' <> TIME '05:00:00.0'", BOOLEAN);
+        assertEvaluates("'05:30:00.0' <= TIME '05:00:00.0'", BOOLEAN);
+        assertEvaluates("'05:30:00.0' >= TIME '05:00:00.0'", BOOLEAN);
+    }
+
+    @Test
+    public void timeIsNotImplicitlyCastedForAmbiguousFunctionCalls()
+    {
+        assertAmbiguousCall("hour('05:30:00.0')", "Ambiguous call to [hour(time):bigint, hour(timestamp):bigint] with parameters [varchar(10)]");
     }
 }
