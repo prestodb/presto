@@ -197,6 +197,7 @@ import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.operator.scalar.VarcharToVarcharCast.VARCHAR_TO_VARCHAR_CAST;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
+import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -548,7 +549,10 @@ public class FunctionRegistry
                 .map(ApplicableFunction::getDeclaredSignature)
                 .collect(Collectors.toList());
 
-        throw new IllegalStateException(format("Ambiguous call to %s with parameters %s", mostSpecificFunctionDefinitions.toString(), actualParameters.toString()));
+        // sort just to have a deterministic exception
+        mostSpecificFunctionDefinitions.sort((o1, o2) -> o1.toString().compareTo(o2.toString()));
+
+        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous call to %s with parameters %s", mostSpecificFunctionDefinitions.toString(), actualParameters.toString()));
     }
 
     private List<ApplicableFunction> identifyPotentiallyApplicableFunctions(List<SqlFunction> candidates, List<Type> actualParameters)
@@ -567,28 +571,24 @@ public class FunctionRegistry
 
     private List<ApplicableFunction> filterOutLessSpecificFunctions(List<ApplicableFunction> applicableFunctions)
     {
-        ImmutableList.Builder<ApplicableFunction> mostSpecificFunctions = ImmutableList.builder();
-        Iterator<ApplicableFunction> applicableFunctionIterator = applicableFunctions.iterator();
-        checkState(applicableFunctionIterator.hasNext());
-        ApplicableFunction mostSpecificFunction = applicableFunctionIterator.next();
-        while (applicableFunctionIterator.hasNext()) {
-            ApplicableFunction function = applicableFunctionIterator.next();
+        final List<ApplicableFunction> mostSpecificFunctions = new ArrayList<>();
+        final Iterator<ApplicableFunction> applicableFunctionIterator = applicableFunctions.iterator();
 
-            if (function.isMoreSpecificThan(mostSpecificFunction)) {
-                mostSpecificFunction = function;
-                continue;
+        while (applicableFunctionIterator.hasNext()) {
+            final ApplicableFunction function = applicableFunctionIterator.next();
+
+            Optional<Integer> mostSpecificId = function.getIdOfFunctionFamily(mostSpecificFunctions);
+            if (mostSpecificId.isPresent() && function.isMoreSpecificThan(mostSpecificFunctions.get(mostSpecificId.get()))) {
+                mostSpecificFunctions.set(mostSpecificId.get(), function);
             }
 
-            // there are no most specific function between those 2 functions
-            // functions are just different
-            if (!mostSpecificFunction.isMoreSpecificThan(function)) {
-                mostSpecificFunctions.add(mostSpecificFunction);
-                // we need to remember those function in order to display correct error message
-                mostSpecificFunction = function;
+            if (!mostSpecificId.isPresent()) {
+                // the 'function' does not fit to any specific family
+                mostSpecificFunctions.add(function);
             }
         }
-        mostSpecificFunctions.add(mostSpecificFunction);
-        return mostSpecificFunctions.build();
+
+        return ImmutableList.copyOf(mostSpecificFunctions);
     }
 
     @Nullable
@@ -921,6 +921,21 @@ public class FunctionRegistry
             Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, other.getDeclaredSignature(), true)
                     .matchAndBindSignatureVariables(resolvedTypes);
             return boundVariables.isPresent();
+        }
+
+        public boolean isInSameFamilyAs(ApplicableFunction other)
+        {
+            return isMoreSpecificThan(other) || other.isMoreSpecificThan(this);
+        }
+
+        private Optional<Integer> getIdOfFunctionFamily(List<ApplicableFunction> representatives)
+        {
+            for (int i = 0; i < representatives.size(); ++i) {
+                if (isInSameFamilyAs(representatives.get(i))) {
+                    return Optional.of(i);
+                }
+            }
+            return Optional.empty();
         }
     }
 }
