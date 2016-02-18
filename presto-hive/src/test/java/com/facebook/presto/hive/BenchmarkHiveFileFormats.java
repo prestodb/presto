@@ -15,9 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
-import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
-import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -213,9 +211,7 @@ public final class BenchmarkHiveFileFormats
                         new com.facebook.hive.orc.OrcInputFormat(),
                         new com.facebook.hive.orc.OrcOutputFormat(),
                         new com.facebook.hive.orc.OrcSerde(),
-                        ImmutableList.<HiveRecordCursorProvider>builder()
-                                .add(new DwrfRecordCursorProvider())
-                                .build(),
+                        ImmutableList.of(),
                         ImmutableList.<HivePageSourceFactory>builder()
                                 .add(new DwrfPageSourceFactory(TYPE_MANAGER))
                                 .build()))
@@ -225,9 +221,7 @@ public final class BenchmarkHiveFileFormats
                         new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat(),
                         new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat(),
                         new org.apache.hadoop.hive.ql.io.orc.OrcSerde(),
-                        ImmutableList.<HiveRecordCursorProvider>builder()
-                                .add(new OrcRecordCursorProvider())
-                                .build(),
+                        ImmutableList.of(),
                         ImmutableList.<HivePageSourceFactory>builder()
                                 .add(new OrcPageSourceFactory(TYPE_MANAGER, false))
                                 .build()))
