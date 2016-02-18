@@ -17,11 +17,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hadoop.HadoopFileStatus;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastore;
-import com.facebook.presto.hive.orc.DwrfHiveRecordCursor;
-import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
-import com.facebook.presto.hive.orc.OrcHiveRecordCursor;
 import com.facebook.presto.hive.orc.OrcPageSource;
-import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.parquet.ParquetHiveRecordCursor;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.spi.ColumnHandle;
@@ -81,7 +77,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -90,7 +85,6 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -1186,32 +1180,6 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
-    public void testTypesOrcRecordCursor()
-            throws Exception
-    {
-        ConnectorSession session = newSession();
-
-        if (metadata.getTableHandle(session, new SchemaTableName(database, "presto_test_types_orc")) == null) {
-            return;
-        }
-
-        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_orc"));
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        HiveSplit hiveSplit = getHiveSplit(tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
-
-        ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
-                new HiveClientConfig().setTimeZone(timeZone.getID()),
-                hdfsEnvironment,
-                ImmutableSet.<HiveRecordCursorProvider>of(new OrcRecordCursorProvider()),
-                ImmutableSet.<HivePageSourceFactory>of(),
-                TYPE_MANAGER);
-
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(session, hiveSplit, columnHandles);
-        assertGetRecords(ORC, tableMetadata, hiveSplit, pageSource, columnHandles);
-    }
-
-    @Test
     public void testTypesParquet()
             throws Exception
     {
@@ -1223,34 +1191,6 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         assertGetRecordsOptional("presto_test_types_dwrf", DWRF);
-    }
-
-    @Test
-    public void testTypesDwrfRecordCursor()
-            throws Exception
-    {
-        ConnectorSession session = newSession();
-
-        if (metadata.getTableHandle(session, new SchemaTableName(database, "presto_test_types_dwrf")) == null) {
-            return;
-        }
-
-        ConnectorTableHandle tableHandle = getTableHandle(new SchemaTableName(database, "presto_test_types_dwrf"));
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        HiveSplit hiveSplit = getHiveSplit(tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
-
-        ReaderWriterProfiler.setProfilerOptions(new Configuration());
-
-        ConnectorPageSourceProvider pageSourceProvider = new HivePageSourceProvider(
-                new HiveClientConfig().setTimeZone(timeZone.getID()),
-                hdfsEnvironment,
-                ImmutableSet.<HiveRecordCursorProvider>of(new DwrfRecordCursorProvider()),
-                ImmutableSet.<HivePageSourceFactory>of(),
-                TYPE_MANAGER);
-
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(session, hiveSplit, columnHandles);
-        assertGetRecords(DWRF, tableMetadata, hiveSplit, pageSource, columnHandles);
     }
 
     @Test
@@ -2418,12 +2358,8 @@ public abstract class AbstractTestHiveClient
                 return ColumnarTextHiveRecordCursor.class;
             case RCBINARY:
                 return ColumnarBinaryHiveRecordCursor.class;
-            case ORC:
-                return OrcHiveRecordCursor.class;
             case PARQUET:
                 return ParquetHiveRecordCursor.class;
-            case DWRF:
-                return DwrfHiveRecordCursor.class;
         }
         return GenericHiveRecordCursor.class;
     }

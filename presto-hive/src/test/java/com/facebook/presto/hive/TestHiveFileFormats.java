@@ -15,9 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hadoop.shaded.com.google.common.collect.Lists;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
-import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
-import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
@@ -188,26 +186,6 @@ public class TestHiveFileFormats
 
     @Test
     public void testOrc()
-            throws Exception
-    {
-        HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
-        InputFormat<?, ?> inputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcInputFormat();
-        @SuppressWarnings("deprecation")
-        SerDe serde = new org.apache.hadoop.hive.ql.io.orc.OrcSerde();
-        File file = File.createTempFile("presto_test", "orc");
-        file.delete();
-        try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
-            testCursorProvider(new OrcRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS, NUM_ROWS);
-        }
-        finally {
-            //noinspection ResultOfMethodCallIgnored
-            file.delete();
-        }
-    }
-
-    @Test
-    public void testOrcDataStream()
             throws Exception
     {
         HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
@@ -389,31 +367,6 @@ public class TestHiveFileFormats
 
     @Test
     public void testDwrf()
-            throws Exception
-    {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
-            ObjectInspector objectInspector = testColumn.getObjectInspector();
-            return !hasType(objectInspector, PrimitiveCategory.DATE);
-        }));
-
-        HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
-        InputFormat<?, ?> inputFormat = new com.facebook.hive.orc.OrcInputFormat();
-        @SuppressWarnings("deprecation")
-        SerDe serde = new com.facebook.hive.orc.OrcSerde();
-        File file = File.createTempFile("presto_test", "dwrf");
-        file.delete();
-        try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
-            testCursorProvider(new DwrfRecordCursorProvider(), split, inputFormat, serde, testColumns, NUM_ROWS);
-        }
-        finally {
-            //noinspection ResultOfMethodCallIgnored
-            file.delete();
-        }
-    }
-
-    @Test
-    public void testDwrfDataStream()
             throws Exception
     {
         List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {

@@ -14,9 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
-import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
-import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ColumnHandle;
@@ -53,9 +51,7 @@ public final class HiveTestUtils
     public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveClientConfig hiveClientConfig)
     {
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new OrcRecordCursorProvider())
                 .add(new ParquetRecordCursorProvider(hiveClientConfig))
-                .add(new DwrfRecordCursorProvider())
                 .add(new ColumnarTextHiveRecordCursorProvider())
                 .add(new ColumnarBinaryHiveRecordCursorProvider())
                 .add(new GenericHiveRecordCursorProvider())
