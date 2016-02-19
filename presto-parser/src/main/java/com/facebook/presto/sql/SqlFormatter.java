@@ -483,6 +483,9 @@ public final class SqlFormatter
         protected Void visitExplain(Explain node, Integer indent)
         {
             builder.append("EXPLAIN ");
+            if (node.isAnalyze()) {
+                builder.append("ANALYZE ");
+            }
 
             List<String> options = new ArrayList<>();
 
