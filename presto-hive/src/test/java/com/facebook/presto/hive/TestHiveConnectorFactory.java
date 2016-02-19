@@ -14,14 +14,16 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorSplitManager;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.fail;
@@ -56,9 +58,11 @@ public class TestHiveConnectorFactory
                 new GroupByHashPageIndexerFactory());
 
         Connector connector = connectorFactory.create("hive-test", ImmutableMap.<String, String>of());
-        assertInstanceOf(connector.getMetadata(), ClassLoaderSafeConnectorMetadata.class);
+        ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true);
+        assertInstanceOf(connector.getMetadata(transaction), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);
         assertInstanceOf(connector.getPageSourceProvider(), ConnectorPageSourceProvider.class);
+        connector.commit(transaction);
     }
 
     private static void assertCreateConnectorFails(String metastoreUri, String exceptionString)
