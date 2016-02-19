@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -103,6 +104,9 @@ public class LogicalPlanner
         }
         else if (statement instanceof Query) {
             plan = createRelationPlan(analysis, (Query) statement);
+        }
+        else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
+            throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE not yet implemented");
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());

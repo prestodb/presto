@@ -553,6 +553,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testExplainAnalyze()
+            throws Exception
+    {
+        analyze("EXPLAIN ANALYZE SELECT * FROM t1");
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {

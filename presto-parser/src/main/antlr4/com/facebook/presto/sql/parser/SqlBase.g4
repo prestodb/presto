@@ -51,7 +51,8 @@ statement
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON TABLE? qualifiedName TO grantee=identifier
         (WITH GRANT OPTION)?                                           #grant
-    | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
+    | EXPLAIN ANALYZE?
+        ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)?  #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?                           #showSchemas
     | SHOW CATALOGS                                                    #showCatalogs
@@ -396,7 +397,7 @@ nonReserved
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
     | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
-    | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
+    | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | SET | RESET
@@ -516,6 +517,7 @@ PRIVILEGES: 'PRIVILEGES';
 PUBLIC: 'PUBLIC';
 OPTION: 'OPTION';
 EXPLAIN: 'EXPLAIN';
+ANALYZE: 'ANALYZE';
 FORMAT: 'FORMAT';
 TYPE: 'TYPE';
 TEXT: 'TEXT';

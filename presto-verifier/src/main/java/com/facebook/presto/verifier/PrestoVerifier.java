@@ -224,13 +224,16 @@ public class PrestoVerifier
 
     private static QueryType statementToQueryType(SqlParser parser, String sql)
     {
-        Statement statement;
         try {
-            statement = parser.createStatement(sql);
+            return statementToQueryType(parser.createStatement(sql));
         }
         catch (RuntimeException e) {
             throw new UnsupportedOperationException();
         }
+    }
+
+    private static QueryType statementToQueryType(Statement statement)
+    {
         if (statement instanceof AddColumn) {
             return MODIFY;
         }
@@ -256,6 +259,9 @@ public class PrestoVerifier
             return MODIFY;
         }
         if (statement instanceof Explain) {
+            if (((Explain) statement).isAnalyze()) {
+                return statementToQueryType(((Explain) statement).getStatement());
+            }
             return READ;
         }
         if (statement instanceof Insert) {

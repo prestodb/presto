@@ -1102,17 +1102,27 @@ public class TestSqlParser
             throws Exception
     {
         assertStatement("EXPLAIN SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), ImmutableList.of()));
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false, ImmutableList.of()));
         assertStatement("EXPLAIN (TYPE LOGICAL) SELECT * FROM t",
                 new Explain(
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
                         ImmutableList.of(new ExplainType(ExplainType.Type.LOGICAL))));
         assertStatement("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) SELECT * FROM t",
                 new Explain(
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
                         ImmutableList.of(
                                 new ExplainType(ExplainType.Type.LOGICAL),
                                 new ExplainFormat(ExplainFormat.Type.TEXT))));
+    }
+
+    @Test
+    public void testExplainAnalyze()
+            throws Exception
+    {
+        assertStatement("EXPLAIN ANALYZE SELECT * FROM t",
+                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true, ImmutableList.of()));
     }
 
     @Test

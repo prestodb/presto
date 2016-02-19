@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.tests;
 
+import org.testng.annotations.Test;
+
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 
 public class TestTpchDistributedQueries
@@ -22,5 +24,17 @@ public class TestTpchDistributedQueries
             throws Exception
     {
         super(createQueryRunner());
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE not yet implemented")
+    public void testExplainAnalyze()
+    {
+        computeActual("EXPLAIN ANALYZE SELECT * FROM orders");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE not yet implemented")
+    public void testExplainAnalyzeDDL()
+    {
+        computeActual("EXPLAIN ANALYZE DROP TABLE orders");
     }
 }

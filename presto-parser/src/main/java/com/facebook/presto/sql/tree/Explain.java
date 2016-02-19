@@ -26,22 +26,24 @@ public class Explain
         extends Statement
 {
     private final Statement statement;
+    private final boolean analyze;
     private final List<ExplainOption> options;
 
-    public Explain(Statement statement, List<ExplainOption> options)
+    public Explain(Statement statement, boolean analyze, List<ExplainOption> options)
     {
-        this(Optional.empty(), statement, options);
+        this(Optional.empty(), analyze, statement, options);
     }
 
-    public Explain(NodeLocation location, Statement statement, List<ExplainOption> options)
+    public Explain(NodeLocation location, boolean analyze, Statement statement, List<ExplainOption> options)
     {
-        this(Optional.of(location), statement, options);
+        this(Optional.of(location), analyze, statement, options);
     }
 
-    private Explain(Optional<NodeLocation> location, Statement statement, List<ExplainOption> options)
+    private Explain(Optional<NodeLocation> location, boolean analyze, Statement statement, List<ExplainOption> options)
     {
         super(location);
         this.statement = requireNonNull(statement, "statement is null");
+        this.analyze = analyze;
         if (options == null) {
             this.options = ImmutableList.of();
         }
@@ -53,6 +55,11 @@ public class Explain
     public Statement getStatement()
     {
         return statement;
+    }
+
+    public boolean isAnalyze()
+    {
+        return analyze;
     }
 
     public List<ExplainOption> getOptions()
@@ -69,7 +76,7 @@ public class Explain
     @Override
     public int hashCode()
     {
-        return Objects.hash(statement, options);
+        return Objects.hash(statement, options, analyze);
     }
 
     @Override
@@ -83,7 +90,8 @@ public class Explain
         }
         Explain o = (Explain) obj;
         return Objects.equals(statement, o.statement) &&
-                Objects.equals(options, o.options);
+                Objects.equals(options, o.options) &&
+                Objects.equals(analyze, o.analyze);
     }
 
     @Override
@@ -92,6 +100,7 @@ public class Explain
         return toStringHelper(this)
                 .add("statement", statement)
                 .add("options", options)
+                .add("analyze", analyze)
                 .toString();
     }
 }
