@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastore;
-import com.facebook.presto.hive.metastore.HivePrivilege;
+import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -25,13 +25,14 @@ import com.google.common.collect.ImmutableSet;
 import javax.inject.Inject;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.metastore.HivePrivilege.DELETE;
-import static com.facebook.presto.hive.metastore.HivePrivilege.GRANT;
-import static com.facebook.presto.hive.metastore.HivePrivilege.INSERT;
-import static com.facebook.presto.hive.metastore.HivePrivilege.OWNERSHIP;
-import static com.facebook.presto.hive.metastore.HivePrivilege.SELECT;
-import static com.facebook.presto.hive.metastore.HivePrivilege.toHivePrivilege;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
@@ -160,7 +161,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, SELECT, GRANT)) {
+        if (!checkTablePermission(identity, tableName, SELECT) || !getGrantOptionForPrivilege(identity, Privilege.SELECT, tableName)) {
             denySelectTable(tableName.toString());
         }
     }
@@ -168,7 +169,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
-        if (!checkTablePermission(identity, viewName, SELECT, GRANT)) {
+        if (!checkTablePermission(identity, viewName, SELECT) || !getGrantOptionForPrivilege(identity, Privilege.SELECT, viewName)) {
             denySelectView(viewName.toString());
         }
     }
@@ -189,15 +190,24 @@ public class SqlStandardAccessControl
         }
 
         HivePrivilege hivePrivilege = toHivePrivilege(privilege);
-        if (hivePrivilege == null || !metastore.hasPrivilegeWithGrantOptionOnTable(identity.getUser(), tableName.getSchemaName(), tableName.getTableName(), hivePrivilege)) {
+        if (hivePrivilege == null || !getGrantOptionForPrivilege(identity, privilege, tableName)) {
             denyGrantTablePrivilege(privilege.name(), tableName.toString());
         }
     }
 
     private boolean checkDatabasePermission(Identity identity, String schemaName, HivePrivilege... requiredPrivileges)
     {
-        Set<HivePrivilege> privilegeSet = metastore.getDatabasePrivileges(identity.getUser(), schemaName);
+        Set<HivePrivilege> privilegeSet = metastore.getDatabasePrivileges(identity.getUser(), schemaName).stream()
+                .map(HivePrivilegeInfo::getHivePrivilege)
+                .collect(Collectors.toSet());
+
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
+    }
+
+    private boolean getGrantOptionForPrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    {
+        return metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName())
+                .contains(new HivePrivilegeInfo(toHivePrivilege(privilege), true));
     }
 
     private boolean checkTablePermission(Identity identity, SchemaTableName tableName, HivePrivilege... requiredPrivileges)
@@ -206,7 +216,9 @@ public class SqlStandardAccessControl
             return true;
         }
 
-        Set<HivePrivilege> privilegeSet = metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName());
+        Set<HivePrivilege> privilegeSet = metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName()).stream()
+                .map(HivePrivilegeInfo::getHivePrivilege)
+                .collect(Collectors.toSet());
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 }
