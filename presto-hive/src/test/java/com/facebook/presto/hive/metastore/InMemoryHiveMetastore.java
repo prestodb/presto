@@ -43,7 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.hive.AbstractTestHiveClient.listAllDataPaths;
 import static com.facebook.presto.hive.HiveUtil.createPartitionName;
-import static com.facebook.presto.hive.metastore.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -63,7 +63,7 @@ public class InMemoryHiveMetastore
     private final ConcurrentHashMap<PartitionName, Partition> partitions = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<String, Set<String>> roleGrants = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<PrincipalTableKey, Set<HivePrivilege>> tablePrivileges = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new ConcurrentHashMap<>();
 
     private final File baseDirectory;
 
@@ -120,16 +120,16 @@ public class InMemoryHiveMetastore
         if (privileges != null) {
             for (Entry<String, List<PrivilegeGrantInfo>> entry : privileges.getUserPrivileges().entrySet()) {
                 String user = entry.getKey();
-                Set<HivePrivilege> userPrivileges = entry.getValue().stream()
-                        .map(HivePrivilege::parsePrivilege)
+                Set<HivePrivilegeInfo> userPrivileges = entry.getValue().stream()
+                        .map(HivePrivilegeInfo::parsePrivilege)
                         .flatMap(Collection::stream)
                         .collect(toImmutableSet());
                 setTablePrivileges(user, USER, table.getDbName(), table.getTableName(), userPrivileges);
             }
             for (Entry<String, List<PrivilegeGrantInfo>> entry : privileges.getRolePrivileges().entrySet()) {
                 String role = entry.getKey();
-                Set<HivePrivilege> rolePrivileges = entry.getValue().stream()
-                        .map(HivePrivilege::parsePrivilege)
+                Set<HivePrivilegeInfo> rolePrivileges = entry.getValue().stream()
+                        .map(HivePrivilegeInfo::parsePrivilege)
                         .flatMap(Collection::stream)
                         .collect(toImmutableSet());
                 setTablePrivileges(role, ROLE, table.getDbName(), table.getTableName(), rolePrivileges);
@@ -346,21 +346,21 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilege> getDatabasePrivileges(String user, String databaseName)
+    public Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
     {
-        Set<HivePrivilege> privileges = new HashSet<>();
+        Set<HivePrivilegeInfo> privileges = new HashSet<>();
         if (isDatabaseOwner(user, databaseName)) {
-            privileges.add(OWNERSHIP);
+            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
         }
         return privileges;
     }
 
     @Override
-    public Set<HivePrivilege> getTablePrivileges(String user, String databaseName, String tableName)
+    public Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
     {
-        Set<HivePrivilege> privileges = new HashSet<>();
+        Set<HivePrivilegeInfo> privileges = new HashSet<>();
         if (isTableOwner(user, databaseName, tableName)) {
-            privileges.add(OWNERSHIP);
+            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
         }
         privileges.addAll(tablePrivileges.getOrDefault(new PrincipalTableKey(user, USER, tableName, databaseName), ImmutableSet.of()));
         for (String role : getRoles(user)) {
@@ -373,7 +373,7 @@ public class InMemoryHiveMetastore
             PrincipalType principalType,
             String databaseName,
             String tableName,
-            Set<HivePrivilege> privileges)
+            Set<HivePrivilegeInfo> privileges)
     {
         tablePrivileges.put(new PrincipalTableKey(principalName, principalType, tableName, databaseName), ImmutableSet.copyOf(privileges));
     }
@@ -386,19 +386,12 @@ public class InMemoryHiveMetastore
     @Override
     public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
     {
-        Set<HivePrivilege> hivePrivileges = privilegeGrantInfoSet.stream()
-                .map(HivePrivilege::parsePrivilege)
+        Set<HivePrivilegeInfo> hivePrivileges = privilegeGrantInfoSet.stream()
+                .map(HivePrivilegeInfo::parsePrivilege)
                 .flatMap(Collection::stream)
                 .collect(toImmutableSet());
 
         setTablePrivileges(grantee, USER, databaseName, tableName, hivePrivileges);
-    }
-
-    @Override
-    public boolean hasPrivilegeWithGrantOptionOnTable(String user, String databaseName, String tableName, HivePrivilege hivePrivilege)
-    {
-        //TODO: add grantOption flag information to privileges stored in cache and implement this check properly.
-        throw new UnsupportedOperationException();
     }
 
     private static boolean isParentDir(File directory, File baseDirectory)
