@@ -19,11 +19,8 @@ import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
@@ -31,6 +28,10 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -94,7 +95,7 @@ public abstract class AbstractTestHiveClientS3
     protected HdfsEnvironment hdfsEnvironment;
     protected LocationService locationService;
     protected TestingHiveMetastore metastoreClient;
-    protected HiveMetadata metadata;
+    protected HiveMetadataFactory metadataFactory;
     protected ConnectorSplitManager splitManager;
     protected ConnectorPageSinkProvider pageSinkProvider;
     protected ConnectorPageSourceProvider pageSourceProvider;
@@ -153,7 +154,7 @@ public abstract class AbstractTestHiveClientS3
         locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
         TypeRegistry typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
-        metadata = new HiveMetadata(
+        metadataFactory = new HiveMetadataFactory(
                 connectorId,
                 hiveClientConfig,
                 metastoreClient,
@@ -180,19 +181,22 @@ public abstract class AbstractTestHiveClientS3
     public void testGetRecordsS3()
             throws Exception
     {
-        ConnectorTableHandle table = getTableHandle(tableS3);
+        HiveTransactionHandle transaction = new HiveTransactionHandle();
+        HiveMetadata metadata = metadataFactory.create();
+
+        ConnectorTableHandle table = getTableHandle(metadata, tableS3);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, table).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, table, new Constraint<>(TupleDomain.all(), bindings -> true), Optional.empty());
         HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
         assertEquals(layoutHandle.getPartitions().get().size(), 1);
-        ConnectorSplitSource splitSource = splitManager.getSplits(SESSION, layoutHandle);
+        ConnectorSplitSource splitSource = splitManager.getSplits(transaction, SESSION, layoutHandle);
 
         long sum = 0;
 
         for (ConnectorSplit split : getAllSplits(splitSource)) {
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction, SESSION, split, columnHandles)) {
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
 
                 for (MaterializedRow row : result) {
@@ -299,6 +303,9 @@ public abstract class AbstractTestHiveClientS3
     private void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat, String tableOwner)
             throws Exception
     {
+        HiveTransactionHandle transaction = new HiveTransactionHandle();
+        HiveMetadata metadata = metadataFactory.create();
+
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
                 .add(new ColumnMetadata("id", BIGINT))
@@ -309,7 +316,7 @@ public abstract class AbstractTestHiveClientS3
                 .put(PARTITIONED_BY_PROPERTY, ImmutableList.of())
                 .build();
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, properties, tableOwner);
-        HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata);
+        HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty());
 
         MaterializedResult data = MaterializedResult.resultBuilder(SESSION, BIGINT)
                 .row(1)
@@ -318,12 +325,12 @@ public abstract class AbstractTestHiveClientS3
                 .build();
 
         // write the records
-        ConnectorPageSink sink = pageSinkProvider.createPageSink(SESSION, outputHandle);
+        ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction, SESSION, outputHandle);
         sink.appendPage(data.toPage(), null);
         Collection<Slice> fragments = sink.finish();
 
         // commit the table
-        metadata.commitCreateTable(SESSION, outputHandle, fragments);
+        metadata.finishCreateTable(SESSION, outputHandle, fragments);
 
         // Hack to work around the metastore not being configured for S3.
         // The metastore tries to validate the location when creating the
@@ -333,11 +340,11 @@ public abstract class AbstractTestHiveClientS3
         metastoreClient.updateTableLocation(database, tableName.getTableName(), locationService.writePath(outputHandle.getLocationHandle(), Optional.empty()).get().toString());
 
         // load the new table
-        ConnectorTableHandle tableHandle = getTableHandle(tableName);
+        ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         // verify the metadata
-        tableMetadata = metadata.getTableMetadata(SESSION, getTableHandle(tableName));
+        tableMetadata = metadata.getTableMetadata(SESSION, getTableHandle(metadata, tableName));
         assertEquals(tableMetadata.getOwner(), tableOwner);
         assertEquals(tableMetadata.getColumns(), columns);
 
@@ -345,10 +352,10 @@ public abstract class AbstractTestHiveClientS3
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, new Constraint<>(TupleDomain.all(), bindings -> true), Optional.empty());
         HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
         assertEquals(layoutHandle.getPartitions().get().size(), 1);
-        ConnectorSplitSource splitSource = splitManager.getSplits(SESSION, layoutHandle);
+        ConnectorSplitSource splitSource = splitManager.getSplits(transaction, SESSION, layoutHandle);
         ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(SESSION, split, columnHandles)) {
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction, SESSION, split, columnHandles)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, getTypes(columnHandles));
             assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
         }
@@ -364,7 +371,7 @@ public abstract class AbstractTestHiveClientS3
         }
     }
 
-    private ConnectorTableHandle getTableHandle(SchemaTableName tableName)
+    private ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, SchemaTableName tableName)
     {
         ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
         checkArgument(handle != null, "table not found: %s", tableName);

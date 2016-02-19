@@ -14,7 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.security.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 
@@ -42,12 +43,12 @@ public class NoAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(Identity identity, SchemaTableName tableName)
+    public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanDropTable(Identity identity, SchemaTableName tableName)
+    public void checkCanDropTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!allowDropTable) {
             denyDropTable(tableName.toString());
@@ -55,7 +56,7 @@ public class NoAccessControl
     }
 
     @Override
-    public void checkCanRenameTable(Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanRenameTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
         if (!allowRenameTable) {
             denyRenameTable(tableName.toString(), newTableName.toString());
@@ -63,7 +64,7 @@ public class NoAccessControl
     }
 
     @Override
-    public void checkCanAddColumn(Identity identity, SchemaTableName tableName)
+    public void checkCanAddColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         if (!allowAddColumn) {
             denyAddColumn(tableName.toString());
@@ -71,47 +72,47 @@ public class NoAccessControl
     }
 
     @Override
-    public void checkCanRenameColumn(Identity identity, SchemaTableName tableName)
+    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, SchemaTableName tableName)
+    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanInsertIntoTable(Identity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanDeleteFromTable(Identity identity, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanCreateView(Identity identity, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
     }
 
     @Override
-    public void checkCanDropView(Identity identity, SchemaTableName viewName)
+    public void checkCanDropView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, SchemaTableName viewName)
+    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, SchemaTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
     }
 
