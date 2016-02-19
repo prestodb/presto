@@ -76,7 +76,7 @@ public class TestRaptorSplitManager
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
-            .partitionKeyColumn("ds", VARCHAR)
+            .column("ds", VARCHAR)
             .column("foo", VARCHAR)
             .column("bar", BigintType.BIGINT)
             .build();

@@ -180,14 +180,14 @@ public abstract class AbstractTestHiveClient
             ImmutableList.of("f_string", "f_bigint", "f_boolean"));
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("id", BIGINT, false))
-            .add(new ColumnMetadata("t_string", VARCHAR, false))
-            .add(new ColumnMetadata("t_bigint", BIGINT, false))
-            .add(new ColumnMetadata("t_double", DOUBLE, false))
-            .add(new ColumnMetadata("t_boolean", BOOLEAN, false))
-            .add(new ColumnMetadata("t_array", ARRAY_TYPE, false))
-            .add(new ColumnMetadata("t_map", MAP_TYPE, false))
-            .add(new ColumnMetadata("t_row", ROW_TYPE, false))
+            .add(new ColumnMetadata("id", BIGINT))
+            .add(new ColumnMetadata("t_string", VARCHAR))
+            .add(new ColumnMetadata("t_bigint", BIGINT))
+            .add(new ColumnMetadata("t_double", DOUBLE))
+            .add(new ColumnMetadata("t_boolean", BOOLEAN))
+            .add(new ColumnMetadata("t_array", ARRAY_TYPE))
+            .add(new ColumnMetadata("t_map", MAP_TYPE))
+            .add(new ColumnMetadata("t_row", ROW_TYPE))
             .build();
 
     private static final MaterializedResult CREATE_TABLE_DATA = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, BIGINT, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE)
@@ -1395,7 +1395,7 @@ public abstract class AbstractTestHiveClient
         for (HiveStorageFormat storageFormat : createTableFormats) {
             try {
                 ConnectorSession session = newSession();
-                List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG, false));
+                List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG));
                 ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, createTableProperties(storageFormat), session.getUser());
                 metadata.beginCreateTable(session, tableMetadata);
                 fail("create table with unsupported type should fail for storage format " + storageFormat);
@@ -1409,7 +1409,7 @@ public abstract class AbstractTestHiveClient
     private void createDummyTable(SchemaTableName tableName)
     {
         ConnectorSession session = newSession();
-        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR, false));
+        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", VARCHAR));
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE), session.getUser());
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata);
         metadata.commitCreateTable(session, handle, ImmutableList.of());
@@ -1470,7 +1470,7 @@ public abstract class AbstractTestHiveClient
 
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("sales", BIGINT, false))
+                .add(new ColumnMetadata("sales", BIGINT))
                 .build();
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(RCBINARY), session.getUser(), true);

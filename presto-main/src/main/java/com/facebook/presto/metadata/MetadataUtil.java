@@ -181,13 +181,7 @@ public final class MetadataUtil
 
         public TableMetadataBuilder column(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type, false));
-            return this;
-        }
-
-        public TableMetadataBuilder partitionKeyColumn(String columnName, Type type)
-        {
-            columns.add(new ColumnMetadata(columnName, type, true));
+            columns.add(new ColumnMetadata(columnName, type));
             return this;
         }
 
