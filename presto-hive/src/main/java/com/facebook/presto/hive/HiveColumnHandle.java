@@ -92,7 +92,7 @@ public class HiveColumnHandle
 
     public ColumnMetadata getColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(name, typeManager.getType(typeName), partitionKey);
+        return new ColumnMetadata(name, typeManager.getType(typeName));
     }
 
     @JsonProperty

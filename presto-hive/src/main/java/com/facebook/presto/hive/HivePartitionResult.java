@@ -30,15 +30,26 @@ import static java.util.Objects.requireNonNull;
  */
 public class HivePartitionResult
 {
+    private final List<HiveColumnHandle> partitionColumns;
     private final List<HivePartition> partitions;
     private final TupleDomain<ColumnHandle> unenforcedConstraint;
     private final TupleDomain<ColumnHandle> enforcedConstraint;
 
-    public HivePartitionResult(List<HivePartition> partitions, TupleDomain<ColumnHandle> unenforcedConstraint, TupleDomain<ColumnHandle> enforcedConstraint)
+    public HivePartitionResult(
+            List<HiveColumnHandle> partitionColumns,
+            List<HivePartition> partitions,
+            TupleDomain<ColumnHandle> unenforcedConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint)
     {
+        this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.unenforcedConstraint = requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
+    }
+
+    public List<HiveColumnHandle> getPartitionColumns()
+    {
+        return partitionColumns;
     }
 
     public List<HivePartition> getPartitions()

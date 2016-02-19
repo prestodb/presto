@@ -95,21 +95,25 @@ public class HivePartitionManager
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         requireNonNull(effectivePredicate, "effectivePredicate is null");
 
-        if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(ImmutableList.of(), TupleDomain.none(), TupleDomain.none());
-        }
-
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Table table = getTable(metastore, tableName);
+        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table);
         Optional<HiveBucketing.HiveBucket> bucket = getHiveBucket(table, TupleDomain.extractFixedValues(effectivePredicate).get());
 
         TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
 
-        if (table.getPartitionKeys().isEmpty()) {
-            return new HivePartitionResult(ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, bucket)), effectivePredicate, TupleDomain.none());
+        if (effectivePredicate.isNone()) {
+            return new HivePartitionResult(partitionColumns, ImmutableList.of(), TupleDomain.none(), TupleDomain.none());
         }
 
-        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table);
+        if (partitionColumns.isEmpty()) {
+            return new HivePartitionResult(
+                    partitionColumns,
+                    ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, bucket)),
+                    effectivePredicate,
+                    TupleDomain.none());
+        }
+
         List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate);
 
         // do a final pass to filter based on fields that could not be used to filter the partitions
@@ -125,7 +129,7 @@ public class HivePartitionManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
-        return new HivePartitionResult(partitions.build(), remainingTupleDomain, enforcedTupleDomain);
+        return new HivePartitionResult(partitionColumns, partitions.build(), remainingTupleDomain, enforcedTupleDomain);
     }
 
     private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)

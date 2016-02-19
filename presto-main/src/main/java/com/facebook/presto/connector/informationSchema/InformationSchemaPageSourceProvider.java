@@ -264,9 +264,9 @@ public class InformationSchemaPageSourceProvider
             }
 
             TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
-            layout.getDiscretePredicates().ifPresent(domains -> {
+            layout.getDiscretePredicates().ifPresent(predicates -> {
                 int partitionNumber = 1;
-                for (TupleDomain<ColumnHandle> domain : domains) {
+                for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
                     for (Entry<ColumnHandle, NullableValue> entry : TupleDomain.extractFixedValues(domain).get().entrySet()) {
                         ColumnHandle columnHandle = entry.getKey();
                         String columnName = columnHandles.get(columnHandle);

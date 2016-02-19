@@ -43,6 +43,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
@@ -165,7 +166,8 @@ public class TestHiveIntegrationSmokeTest
         List<String> partitionedBy = ImmutableList.of("_partition_varchar", "_partition_bigint");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            assertEquals(columnMetadata.isPartitionKey(), partitionedBy.contains(columnMetadata.getName()));
+            boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
+            assertEquals(columnMetadata.getComment(), annotateColumnComment(null, partitionKey));
         }
 
         MaterializedResult result = computeActual("SELECT * from test_partitioned_table");
@@ -238,7 +240,8 @@ public class TestHiveIntegrationSmokeTest
         List<String> partitionedBy = ImmutableList.of("ship_priority", "order_status");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            assertEquals(columnMetadata.isPartitionKey(), partitionedBy.contains(columnMetadata.getName()));
+            boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
+            assertEquals(columnMetadata.getComment(), annotateColumnComment(null, partitionKey));
         }
 
         List<HivePartition> partitions = getPartitions("test_create_partitioned_table_as");
@@ -370,6 +373,10 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("ship_priority", "order_status"));
 
+        assertQuery(
+                "SHOW PARTITIONS FROM test_insert_partitioned_table",
+                "SELECT shippriority, orderstatus FROM orders LIMIT 0");
+
         // Hive will reorder the partition keys, so we must insert into the table assuming the partition keys have been moved to the end
         assertUpdate("" +
                         "INSERT INTO test_insert_partitioned_table " +
@@ -382,6 +389,18 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(partitions.size(), 3);
 
         assertQuery("SELECT * from test_insert_partitioned_table", "SELECT orderkey, shippriority, orderstatus FROM orders");
+
+        assertQuery(
+                "SHOW PARTITIONS FROM test_insert_partitioned_table",
+                "SELECT DISTINCT shippriority, orderstatus FROM orders");
+
+        assertQuery(
+                "SHOW PARTITIONS FROM test_insert_partitioned_table ORDER BY order_status LIMIT 2",
+                "SELECT DISTINCT shippriority, orderstatus FROM orders ORDER BY orderstatus LIMIT 2");
+
+        assertQuery(
+                "SHOW PARTITIONS FROM test_insert_partitioned_table WHERE order_status = 'O'",
+                "SELECT DISTINCT shippriority, orderstatus FROM orders WHERE orderstatus = 'O'");
 
         assertUpdate("DROP TABLE test_insert_partitioned_table");
 

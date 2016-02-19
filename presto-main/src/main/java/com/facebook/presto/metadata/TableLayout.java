@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -83,7 +84,7 @@ public class TableLayout
         return layout.getStreamPartitioningColumns();
     }
 
-    public Optional<List<TupleDomain<ColumnHandle>>> getDiscretePredicates()
+    public Optional<DiscretePredicates> getDiscretePredicates()
     {
         return layout.getDiscretePredicates();
     }
