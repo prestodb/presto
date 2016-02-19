@@ -40,6 +40,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordPageSource;
@@ -198,7 +199,7 @@ public abstract class AbstractTestHiveClient
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata("ds", VARCHAR, true))
+            .add(new ColumnMetadata("ds", VARCHAR))
             .build();
 
     private static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA = new MaterializedResult(
@@ -325,9 +326,10 @@ public abstract class AbstractTestHiveClient
         invalidClientId = "hive";
         invalidTableHandle = new HiveTableHandle(invalidClientId, database, INVALID_TABLE);
         invalidTableLayoutHandle = new HiveTableLayoutHandle(invalidClientId,
+                ImmutableList.of(),
                 ImmutableList.of(new HivePartition(invalidTable, TupleDomain.all(), "unknown", ImmutableMap.of(), Optional.empty())),
                 TupleDomain.all());
-        emptyTableLayoutHandle = new HiveTableLayoutHandle(invalidClientId, ImmutableList.of(), TupleDomain.none());
+        emptyTableLayoutHandle = new HiveTableLayoutHandle(invalidClientId, ImmutableList.of(), ImmutableList.of(), TupleDomain.none());
 
         dsColumn = new HiveColumnHandle(connectorId, "ds", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
         fileFormatColumn = new HiveColumnHandle(connectorId, "file_format", HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), -1, true);
@@ -338,6 +340,7 @@ public abstract class AbstractTestHiveClient
         insertTableDestination = new SchemaTableName(database, "presto_insert_destination");
         insertTablePartitionedDestination = new SchemaTableName(database, "presto_insert_destination_partitioned");
 
+        List<ColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
         List<HivePartition> partitions = ImmutableList.<HivePartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
@@ -379,7 +382,7 @@ public abstract class AbstractTestHiveClient
         partitionCount = partitions.size();
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumn, NullableValue.of(VARCHAR, utf8Slice("2012-12-29"))));
         tableLayout = new ConnectorTableLayout(
-                new HiveTableLayoutHandle(clientId, partitions, tupleDomain),
+                new HiveTableLayoutHandle(clientId, partitionColumns, partitions, tupleDomain),
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
@@ -387,7 +390,7 @@ public abstract class AbstractTestHiveClient
                         dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L)), false))),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(ImmutableList.of(
+                Optional.of(new DiscretePredicates(partitionColumns, ImmutableList.of(
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("textfile"))), false),
@@ -404,17 +407,10 @@ public abstract class AbstractTestHiveClient
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("rcbinary"))), false),
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 4L)), false)))
-                )),
+                ))),
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.all()));
-        unpartitionedTableLayout = new ConnectorTableLayout(
-                new HiveTableLayoutHandle(clientId, unpartitionedPartitions, TupleDomain.all()),
-                Optional.empty(),
-                TupleDomain.all(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.of(ImmutableList.of(TupleDomain.all())),
-                ImmutableList.of());
+        unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(clientId, ImmutableList.of(), unpartitionedPartitions, TupleDomain.all()));
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
@@ -576,7 +572,11 @@ public abstract class AbstractTestHiveClient
         assertExpectedTableLayoutHandle(actualTableLayout.getHandle(), expectedTableLayout.getHandle());
         assertEquals(actualTableLayout.getPredicate(), expectedTableLayout.getPredicate());
         assertEquals(actualTableLayout.getDiscretePredicates().isPresent(), expectedTableLayout.getDiscretePredicates().isPresent());
-        actualTableLayout.getDiscretePredicates().ifPresent(actual -> assertEqualsIgnoreOrder(actual, expectedTableLayout.getDiscretePredicates().get()));
+        actualTableLayout.getDiscretePredicates().ifPresent(actual -> {
+            DiscretePredicates expected = expectedTableLayout.getDiscretePredicates().get();
+            assertEquals(actual.getColumns(), expected.getColumns());
+            assertEqualsIgnoreOrder(actual.getPredicates(), expected.getPredicates());
+        });
         assertEquals(actualTableLayout.getStreamPartitioningColumns(), expectedTableLayout.getStreamPartitioningColumns());
         assertEquals(actualTableLayout.getLocalProperties(), expectedTableLayout.getLocalProperties());
     }
@@ -1586,7 +1586,7 @@ public abstract class AbstractTestHiveClient
         ConnectorSession session = newSession();
 
         List<String> partitionedBy = createTableColumns.stream()
-                .filter(ColumnMetadata::isPartitionKey)
+                .filter(column -> column.getName().equals("ds"))
                 .map(ColumnMetadata::getName)
                 .collect(toList());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, createTableColumns, createTableProperties(storageFormat, partitionedBy), session.getUser());
@@ -1604,8 +1604,7 @@ public abstract class AbstractTestHiveClient
                 .map(column -> new ColumnMetadata(
                         column.getName(),
                         column.getType(),
-                        column.isPartitionKey(),
-                        annotateColumnComment(column.getComment(), column.isPartitionKey()),
+                        annotateColumnComment(column.getComment(), partitionedBy.contains(column.getName())),
                         false))
                 .collect(toList());
         assertEquals(tableMetadata.getColumns(), expectedColumns);
@@ -2423,7 +2422,7 @@ public abstract class AbstractTestHiveClient
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);
         assertEquals(column.getType(), type, name);
-        assertEquals(column.isPartitionKey(), partitionKey, name);
+        assertEquals(column.getComment(), annotateColumnComment(null, partitionKey));
     }
 
     protected static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
