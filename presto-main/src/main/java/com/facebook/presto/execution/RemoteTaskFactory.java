@@ -31,5 +31,6 @@ public interface RemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            PartitionedSplitCountTracker partitionedSplitCountTracker);
+            PartitionedSplitCountTracker partitionedSplitCountTracker,
+            boolean summarizeTaskInfo);
 }

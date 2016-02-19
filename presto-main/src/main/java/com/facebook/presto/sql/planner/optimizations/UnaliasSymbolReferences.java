@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -84,13 +85,13 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Re-maps symbol references that are just aliases of each other (e.g., due to projections like {@code $0 := $1})
- * <p/>
+ * <p>
  * E.g.,
- * <p/>
+ * <p>
  * {@code Output[$0, $1] -> Project[$0 := $2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...}
- * <p/>
+ * <p>
  * gets rewritten as
- * <p/>
+ * <p>
  * {@code Output[$2, $1] -> Project[$2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...}
  */
 public class UnaliasSymbolReferences
@@ -155,6 +156,13 @@ public class UnaliasSymbolReferences
                     .collect(Collectors.toList());
 
             return new GroupIdNode(node.getId(), source, canonicalize(node.getInputSymbols()), groupingSetsSymbols, canonicalize(node.getGroupIdSymbol()));
+        }
+
+        @Override
+        public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            return new ExplainAnalyzeNode(node.getId(), source, canonicalize(node.getOutputSymbol()));
         }
 
         @Override

@@ -19,6 +19,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -29,11 +30,13 @@ import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
@@ -48,6 +51,26 @@ public class TestRaptorDistributedQueries
     protected TestRaptorDistributedQueries(QueryRunner queryRunner)
     {
         super(queryRunner, createSampledSession());
+    }
+
+    @Test
+    public void testExplainAnalyzeWriting()
+            throws Exception
+    {
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE analyze_test AS SELECT orderstatus FROM orders");
+        assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO analyze_test SELECT clerk FROM orders");
+        assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM analyze_test WHERE TRUE");
+        assertQuery("SELECT COUNT(*) from analyze_test", "SELECT 0");
+        computeActual("DROP TABLE analyze_test");
+    }
+
+    private void assertExplainAnalyze(@Language("SQL") String query)
+    {
+        String value = getOnlyElement(computeActual(query).getOnlyColumnAsSet());
+        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
+        assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
     }
 
     @Test

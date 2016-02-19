@@ -26,6 +26,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -44,6 +45,7 @@ import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.testing.MockQueryManager;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
@@ -110,6 +112,7 @@ public final class TaskTestUtils
         return new LocalExecutionPlanner(
                 metadata,
                 new SqlParser(),
+                new MockQueryManager(),
                 pageSourceManager,
                 new IndexManager(),
                 nodePartitioningManager,
@@ -118,6 +121,7 @@ public final class TaskTestUtils
                 new ExpressionCompiler(metadata),
                 new IndexJoinLookupStats(),
                 new CompilerConfig(),
+                new ServerConfig(),
                 new TaskManagerConfig());
     }
 

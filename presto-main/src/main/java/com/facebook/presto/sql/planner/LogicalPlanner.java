@@ -28,6 +28,7 @@ import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -118,6 +119,14 @@ public class LogicalPlanner
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
+        }
+
+        if (analysis.getExplainAnalyze().isPresent()) {
+            Explain explainAnalyze = analysis.getExplainAnalyze().get();
+            RelationType descriptor = analysis.getOutputDescriptor(explainAnalyze);
+            Symbol outputSymbol = symbolAllocator.newSymbol(descriptor.getFieldByIndex(0));
+            ExplainAnalyzeNode explainNode = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol);
+            root = createOutputPlan(new RelationPlan(explainNode, descriptor, ImmutableList.of(outputSymbol), Optional.empty()), analysis);
         }
 
         // make sure we produce a valid plan. This is mainly to catch programming errors

@@ -51,7 +51,7 @@ statement
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON TABLE? qualifiedName TO grantee=identifier
         (WITH GRANT OPTION)?                                           #grant
-    | EXPLAIN ANALYZE?
+    | EXPLAIN (ANALYZE)?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)?  #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?                           #showSchemas

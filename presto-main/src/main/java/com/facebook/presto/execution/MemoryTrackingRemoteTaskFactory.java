@@ -45,7 +45,8 @@ public class MemoryTrackingRemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            PartitionedSplitCountTracker partitionedSplitCountTracker)
+            PartitionedSplitCountTracker partitionedSplitCountTracker,
+            boolean summarizeTaskInfo)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
@@ -54,7 +55,8 @@ public class MemoryTrackingRemoteTaskFactory
                 fragment,
                 initialSplits,
                 outputBuffers,
-                partitionedSplitCountTracker);
+                partitionedSplitCountTracker,
+                summarizeTaskInfo);
 
         task.addStateChangeListener(new UpdatePeakMemory(stateMachine));
         return task;

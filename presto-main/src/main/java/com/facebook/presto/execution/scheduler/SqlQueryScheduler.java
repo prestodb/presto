@@ -84,6 +84,7 @@ public class SqlQueryScheduler
     private final StageId rootStageId;
     private final Map<StageId, StageScheduler> stageSchedulers;
     private final Map<StageId, StageLinkage> stageLinkages;
+    private final boolean summarizeTaskInfo;
     private final AtomicBoolean started = new AtomicBoolean();
 
     public SqlQueryScheduler(QueryStateMachine queryStateMachine,
@@ -93,6 +94,7 @@ public class SqlQueryScheduler
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
+            boolean summarizeTaskInfo,
             int splitBatchSize,
             ExecutorService executor,
             OutputBuffers rootOutputBuffers,
@@ -101,6 +103,7 @@ public class SqlQueryScheduler
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
+        this.summarizeTaskInfo = summarizeTaskInfo;
 
         // todo come up with a better way to build this, or eliminate this map
         ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers = ImmutableMap.builder();
@@ -192,6 +195,7 @@ public class SqlQueryScheduler
                 plan.getFragment(),
                 remoteTaskFactory,
                 session,
+                summarizeTaskInfo,
                 nodeTaskMap,
                 executor);
 

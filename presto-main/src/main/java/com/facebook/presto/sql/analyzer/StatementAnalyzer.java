@@ -875,7 +875,7 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
             }
             process(node.getStatement(), context);
-            analysis.setStatement(node);
+            analysis.setExplainAnalyze(node);
             analysis.setUpdateType(null);
             RelationType type = new RelationType(Field.newUnqualified("Query Plan", VARCHAR));
             analysis.setOutputDescriptor(node, type);
