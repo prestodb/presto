@@ -405,6 +405,19 @@ public final class TypeRegistry
             return true;
         }
 
+        if (actualType.getBase().equals(DECIMAL) && expectedType.getBase().equals(DECIMAL)) {
+            long actualPrecision = actualType.getParameters().get(0).getLongLiteral();
+            long expectedPrecision = (long) expectedType.getParameters().get(0).getLongLiteral();
+            long actualScale = (long) actualType.getParameters().get(1).getLongLiteral();
+            long expectedScale = (long) expectedType.getParameters().get(1).getLongLiteral();
+
+            if (actualPrecision <= DecimalType.MAX_SHORT_PRECISION ^ expectedPrecision <= DecimalType.MAX_SHORT_PRECISION) {
+                return false;
+            }
+
+            return actualScale == expectedScale && actualPrecision <= expectedPrecision;
+        }
+
         if (actualType.getBase().equals(expectedType.getBase()) &&
                 actualType.getParameters().size() == expectedType.getParameters().size()) {
             for (int i = 0; i < actualType.getParameters().size(); i++) {
@@ -429,19 +442,6 @@ public final class TypeRegistry
                 }
             }
             return true;
-        }
-
-        if (actualType.getBase().equals(DECIMAL) && expectedType.getBase().equals(DECIMAL)) {
-            long actualPrecision = actualType.getParameters().get(0).getLongLiteral();
-            long expectedPrecision = (long) expectedType.getParameters().get(0).getLongLiteral();
-            long actualScale = (long) actualType.getParameters().get(1).getLongLiteral();
-            long expectedScale = (long) expectedType.getParameters().get(1).getLongLiteral();
-
-            if (actualPrecision <= DecimalType.MAX_SHORT_PRECISION ^ expectedPrecision <= DecimalType.MAX_SHORT_PRECISION) {
-                return false;
-            }
-
-            return actualScale == expectedScale && actualPrecision <= expectedPrecision;
         }
 
         return false;
