@@ -34,8 +34,8 @@ public class TestExampleTable
     public void testColumnMetadata()
     {
         assertEquals(exampleTable.getColumnsMetadata(), ImmutableList.of(
-                new ColumnMetadata("a", VARCHAR, false),
-                new ColumnMetadata("b", BIGINT, false)));
+                new ColumnMetadata("a", VARCHAR),
+                new ColumnMetadata("b", BIGINT)));
     }
 
     @Test

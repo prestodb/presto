@@ -93,6 +93,6 @@ public class JmxColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, false);
+        return new ColumnMetadata(columnName, columnType);
     }
 }

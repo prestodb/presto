@@ -27,9 +27,19 @@ public class ColumnMetadata
     private final String comment;
     private final boolean hidden;
 
+    public ColumnMetadata(String name, Type type)
+    {
+        this(name, type, false);
+    }
+
     public ColumnMetadata(String name, Type type, boolean partitionKey)
     {
         this(name, type, partitionKey, null, false);
+    }
+
+    public ColumnMetadata(String name, Type type, String comment, boolean hidden)
+    {
+        this(name, type, false, comment, hidden);
     }
 
     public ColumnMetadata(String name, Type type, boolean partitionKey, String comment, boolean hidden)

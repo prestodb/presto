@@ -101,8 +101,8 @@ public class TestExampleMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, NUMBERS_TABLE_HANDLE);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", VARCHAR, false),
-                new ColumnMetadata("value", BIGINT, false)));
+                new ColumnMetadata("text", VARCHAR),
+                new ColumnMetadata("value", BIGINT)));
 
         // unknown tables should produce null
         assertNull(metadata.getTableMetadata(SESSION, new ExampleTableHandle(CONNECTOR_ID, "unknown", "unknown")));
@@ -134,7 +134,7 @@ public class TestExampleMetadata
     public void getColumnMetadata()
     {
         assertEquals(metadata.getColumnMetadata(SESSION, NUMBERS_TABLE_HANDLE, new ExampleColumnHandle(CONNECTOR_ID, "text", VARCHAR, 0)),
-                new ColumnMetadata("text", VARCHAR, false));
+                new ColumnMetadata("text", VARCHAR));
 
         // example connector assumes that the table handle and column handle are
         // properly formed, so it will return a metadata object for any
@@ -148,7 +148,7 @@ public class TestExampleMetadata
     {
         metadata.createTable(SESSION, new ConnectorTableMetadata(
                 new SchemaTableName("example", "foo"),
-                ImmutableList.of(new ColumnMetadata("text", VARCHAR, false))));
+                ImmutableList.of(new ColumnMetadata("text", VARCHAR))));
     }
 
     @Test(expectedExceptions = PrestoException.class)

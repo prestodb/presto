@@ -303,7 +303,7 @@ public class LogicalPlanner
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (Field field : plan.getDescriptor().getVisibleFields()) {
-            columns.add(new ColumnMetadata(field.getName().get(), field.getType(), false));
+            columns.add(new ColumnMetadata(field.getName().get(), field.getType()));
         }
         return columns.build();
     }

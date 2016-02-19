@@ -67,15 +67,15 @@ public class ShardMetadataRecordCursor
     public static final ConnectorTableMetadata SHARD_METADATA = new ConnectorTableMetadata(
             SHARD_METADATA_TABLE_NAME,
             ImmutableList.of(
-                    new ColumnMetadata(SCHEMA_NAME, VARCHAR, false),
-                    new ColumnMetadata(TABLE_NAME, VARCHAR, false),
-                    new ColumnMetadata(SHARD_UUID, VARCHAR, false),
-                    new ColumnMetadata("bucket_number", BIGINT, false),
-                    new ColumnMetadata("uncompressed_size", BIGINT, false),
-                    new ColumnMetadata("compressed_size", BIGINT, false),
-                    new ColumnMetadata("row_count", BIGINT, false),
-                    new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP, false),
-                    new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP, false)));
+                    new ColumnMetadata(SCHEMA_NAME, VARCHAR),
+                    new ColumnMetadata(TABLE_NAME, VARCHAR),
+                    new ColumnMetadata(SHARD_UUID, VARCHAR),
+                    new ColumnMetadata("bucket_number", BIGINT),
+                    new ColumnMetadata("uncompressed_size", BIGINT),
+                    new ColumnMetadata("compressed_size", BIGINT),
+                    new ColumnMetadata("row_count", BIGINT),
+                    new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP),
+                    new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP)));
 
     private static final List<ColumnMetadata> COLUMNS = SHARD_METADATA.getColumns();
     private static final List<Type> TYPES = COLUMNS.stream().map(ColumnMetadata::getType).collect(toList());

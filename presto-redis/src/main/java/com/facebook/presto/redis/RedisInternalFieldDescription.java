@@ -118,7 +118,7 @@ public class RedisInternalFieldDescription
 
     ColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new ColumnMetadata(name, type, false, comment, hidden);
+        return new ColumnMetadata(name, type, comment, hidden);
     }
 
     public FieldValueProvider forBooleanValue(boolean value)

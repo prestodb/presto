@@ -253,7 +253,7 @@ public class RaptorMetadata
             if (tableColumn.getColumnName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 continue;
             }
-            ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType(), false);
+            ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType());
             columns.put(tableColumn.getTable(), columnMetadata);
         }
         return Multimaps.asMap(columns.build());
@@ -786,7 +786,7 @@ public class RaptorMetadata
 
     private static ColumnMetadata hiddenColumn(String name, Type type)
     {
-        return new ColumnMetadata(name, type, false, null, true);
+        return new ColumnMetadata(name, type, null, true);
     }
 
     private void setTransactionId(long transactionId)

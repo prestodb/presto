@@ -301,7 +301,7 @@ public abstract class AbstractTestHiveClientS3
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT, false))
+                .add(new ColumnMetadata("id", BIGINT))
                 .build();
 
         Map<String, Object> properties = ImmutableMap.<String, Object>builder()

@@ -419,7 +419,7 @@ public class MetadataManager
 
                 ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                 for (ViewColumn column : deserializeView(entry.getValue().getViewData()).getColumns()) {
-                    columns.add(new ColumnMetadata(column.getName(), column.getType(), false));
+                    columns.add(new ColumnMetadata(column.getName(), column.getType()));
                 }
 
                 tableColumns.put(tableName, columns.build());

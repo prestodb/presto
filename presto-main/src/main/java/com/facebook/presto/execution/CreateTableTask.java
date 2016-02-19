@@ -77,7 +77,7 @@ public class CreateTableTask
             if ((type == null) || type.equals(UNKNOWN)) {
                 throw new SemanticException(TYPE_MISMATCH, element, "Unknown type for column '%s' ", element.getName());
             }
-            columns.add(new ColumnMetadata(element.getName(), type, false));
+            columns.add(new ColumnMetadata(element.getName(), type));
         }
 
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);

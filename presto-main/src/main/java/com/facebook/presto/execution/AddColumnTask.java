@@ -70,7 +70,7 @@ public class AddColumnTask
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
         }
 
-        metadata.addColumn(session, tableHandle.get(), new ColumnMetadata(element.getName(), type, false));
+        metadata.addColumn(session, tableHandle.get(), new ColumnMetadata(element.getName(), type));
 
         return completedFuture(null);
     }

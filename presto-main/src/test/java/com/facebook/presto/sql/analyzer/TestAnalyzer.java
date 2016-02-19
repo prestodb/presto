@@ -945,45 +945,45 @@ public class TestAnalyzer
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false),
-                        new ColumnMetadata("c", BIGINT, false),
-                        new ColumnMetadata("d", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT),
+                        new ColumnMetadata("c", BIGINT),
+                        new ColumnMetadata("d", BIGINT))))));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT))))));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false),
-                        new ColumnMetadata("x", BIGINT, false, null, true))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT),
+                        new ColumnMetadata("x", BIGINT, null, true))))));
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
         inSetupTransaction(session -> metadata.createTable(session, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT))))));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table5,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false, null, true))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT, null, true))))));
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table6,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", VARCHAR, false),
-                        new ColumnMetadata("c", BIGINT, false),
-                        new ColumnMetadata("d", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", VARCHAR),
+                        new ColumnMetadata("c", BIGINT),
+                        new ColumnMetadata("d", BIGINT))))));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(

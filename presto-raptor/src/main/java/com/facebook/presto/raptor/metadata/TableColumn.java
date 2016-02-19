@@ -99,7 +99,7 @@ public class TableColumn
 
     public ColumnMetadata toColumnMetadata()
     {
-        return new ColumnMetadata(columnName, dataType, false);
+        return new ColumnMetadata(columnName, dataType);
     }
 
     public ColumnInfo toColumnInfo()
