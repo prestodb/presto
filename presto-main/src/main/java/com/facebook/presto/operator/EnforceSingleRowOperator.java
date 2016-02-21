@@ -73,11 +73,11 @@ public class EnforceSingleRowOperator
         }
     }
 
-    private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new FixedWidthBlock(1, 1, EMPTY_SLICE, Slices.wrappedBooleanArray(true)));
+    private static final Page SINGLE_NULL_VALUE_PAGE = new Page(1, new FixedWidthBlock(0, 1, EMPTY_SLICE, Slices.wrappedBooleanArray(true)));
 
     private final OperatorContext operatorContext;
     private final Type type;
-    private boolean finishing = false;
+    private boolean finishing;
     private Page page;
 
     public EnforceSingleRowOperator(OperatorContext operatorContext, Type type)
