@@ -324,8 +324,9 @@ public class HivePageSink
                 target = locationService.targetPath(locationHandle, partitionName);
                 write = locationService.writePath(locationHandle, partitionName).get();
 
-                if (partitionName.isPresent()) {
-                    // verify the target directory for the partition does not already exist
+                if (partitionName.isPresent() && !target.equals(write)) {
+                    // When target path is different from write path,
+                    // verify that the target directory for the partition does not already exist
                     if (HiveWriteUtils.pathExists(hdfsEnvironment, target)) {
                         throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                 partitionName,
