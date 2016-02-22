@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
-import static com.facebook.presto.type.TypeRegistry.getCommonSuperTypeSignature;
 
 public class NullIfCodeGenerator
         implements BytecodeGenerator
@@ -53,19 +52,15 @@ public class NullIfCodeGenerator
         Type firstType = first.getType();
         Type secondType = second.getType();
 
-        // this is a hack! We shouldn't be determining type coercions at this point, but there's no way
-        // around it in the current expression AST
-        TypeSignature commonType = getCommonSuperTypeSignature(firstType.getTypeSignature(), secondType.getTypeSignature()).get();
-
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        Signature operatorSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(operatorSignature);
+        Signature equalsSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
+        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsSignature);
         BytecodeNode equalsCall = generatorContext.generateCall(
-                operatorSignature.getName(),
+                equalsSignature.getName(),
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, new BytecodeBlock().dup(firstType.getJavaType()), firstType.getTypeSignature(), commonType),
-                        cast(generatorContext, generatorContext.generate(second), secondType.getTypeSignature(), commonType)));
+                        cast(generatorContext, new BytecodeBlock().dup(firstType.getJavaType()), firstType, equalsSignature.getArgumentTypes().get(0)),
+                        cast(generatorContext, generatorContext.generate(second), secondType, equalsSignature.getArgumentTypes().get(1))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)
@@ -86,11 +81,19 @@ public class NullIfCodeGenerator
         return block;
     }
 
-    private BytecodeNode cast(BytecodeGeneratorContext generatorContext, BytecodeNode argument, TypeSignature fromType, TypeSignature toType)
+    private BytecodeNode cast(
+            BytecodeGeneratorContext generatorContext,
+            BytecodeNode argument,
+            Type actualType,
+            TypeSignature requiredType)
     {
+        if (actualType.getTypeSignature().equals(requiredType)) {
+            return argument;
+        }
+
         Signature function = generatorContext
-            .getRegistry()
-            .getCoercion(fromType, toType);
+                .getRegistry()
+                .getCoercion(actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
         return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(argument));
