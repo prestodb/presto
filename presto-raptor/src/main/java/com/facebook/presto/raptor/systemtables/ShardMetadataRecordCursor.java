@@ -111,7 +111,7 @@ public class ShardMetadataRecordCursor
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT\n");
         sql.append(Joiner.on(",\n").join(columnNames));
-        sql.append("\nFROM " + indexTableName + " x\n");
+        sql.append("\nFROM ").append(indexTableName).append(" x\n");
         sql.append("JOIN shards ON (x.shard_id = shards.shard_id)\n");
         sql.append("JOIN tables ON (shards.table_id = tables.table_id)\n");
 
@@ -233,6 +233,7 @@ public class ShardMetadataRecordCursor
         closeCurrentResultSet();
     }
 
+    @SuppressWarnings("unused")
     private void closeCurrentResultSet()
     {
         // use try-with-resources to close everything properly
