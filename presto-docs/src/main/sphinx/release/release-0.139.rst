@@ -26,5 +26,4 @@ Hive Changes
 
 * Remove cursor-based readers for ORC and DWRF file formats, as they have been
   replaced by page-based readers.
-* Fix query failure in ``CREATE TABLE AS SELECT`` in Hive connector when S3
-  is the storage backend.
+* Fix creating tables on S3 with :doc:`/sql/create-table-as`.
