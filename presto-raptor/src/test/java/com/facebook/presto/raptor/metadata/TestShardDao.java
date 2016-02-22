@@ -40,9 +40,9 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
-public class TestShardManagerDao
+public class TestShardDao
 {
-    private ShardManagerDao dao;
+    private ShardDao dao;
     private IDBI dbi;
     private Handle dummyHandle;
 
@@ -52,7 +52,7 @@ public class TestShardManagerDao
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        dao = dbi.onDemand(ShardManagerDao.class);
+        dao = dbi.onDemand(ShardDao.class);
         createTablesWithRetry(dbi);
     }
 

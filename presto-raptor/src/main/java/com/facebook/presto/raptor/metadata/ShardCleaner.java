@@ -58,7 +58,7 @@ public class ShardCleaner
     private static final Logger log = Logger.get(ShardCleaner.class);
 
     private final IDBI dbi;
-    private final ShardManagerDao dao;
+    private final ShardDao dao;
     private final String currentNode;
     private final boolean coordinator;
     private final StorageService storageService;
@@ -114,7 +114,7 @@ public class ShardCleaner
             int backupDeletionThreads)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
-        this.dao = onDemandDao(dbi, ShardManagerDao.class);
+        this.dao = onDemandDao(dbi, ShardDao.class);
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.coordinator = coordinator;
         this.storageService = requireNonNull(storageService, "storageService is null");
@@ -211,7 +211,7 @@ public class ShardCleaner
     void deleteOldShards()
     {
         try (Handle handle = dbi.open()) {
-            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            ShardDao dao = handle.attach(ShardDao.class);
 
             dao.dropTableTemporaryCreatedShards();
             dao.createTableTemporaryCreatedShards();

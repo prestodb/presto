@@ -117,7 +117,7 @@ public class TestShardCleaner
         long txn2 = dao.insertTransaction(new Timestamp(now - HOURS.toMillis(25)));
         long txn3 = dao.insertTransaction(new Timestamp(now));
 
-        ShardManagerDao shardDao = dbi.onDemand(ShardManagerDao.class);
+        ShardDao shardDao = dbi.onDemand(ShardDao.class);
         assertEquals(shardDao.finalizeTransaction(txn1, true), 1);
 
         assertQuery("SELECT transaction_id, successful FROM transactions",
@@ -137,7 +137,7 @@ public class TestShardCleaner
     public void testDeleteOldShards()
             throws Exception
     {
-        ShardManagerDao dao = dbi.onDemand(ShardManagerDao.class);
+        ShardDao dao = dbi.onDemand(ShardDao.class);
 
         UUID shard1 = randomUUID();
         UUID shard2 = randomUUID();
@@ -200,7 +200,7 @@ public class TestShardCleaner
             throws Exception
     {
         TestingDao dao = dbi.onDemand(TestingDao.class);
-        ShardManagerDao shardDao = dbi.onDemand(ShardManagerDao.class);
+        ShardDao shardDao = dbi.onDemand(ShardDao.class);
 
         UUID shard1 = randomUUID();
         UUID shard2 = randomUUID();
@@ -247,7 +247,7 @@ public class TestShardCleaner
             throws Exception
     {
         TestingDao dao = dbi.onDemand(TestingDao.class);
-        ShardManagerDao shardDao = dbi.onDemand(ShardManagerDao.class);
+        ShardDao shardDao = dbi.onDemand(ShardDao.class);
 
         UUID shard1 = randomUUID();
         UUID shard2 = randomUUID();

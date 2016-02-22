@@ -32,7 +32,7 @@ import java.util.UUID;
 
 @RegisterArgumentFactory(UuidArgumentFactory.class)
 @RegisterMapperFactory(UuidMapperFactory.class)
-public interface ShardManagerDao
+public interface ShardDao
 {
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     @GetGeneratedKeys
