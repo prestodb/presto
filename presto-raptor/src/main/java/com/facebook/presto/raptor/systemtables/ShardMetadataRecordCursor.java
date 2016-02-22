@@ -70,6 +70,7 @@ public class ShardMetadataRecordCursor
                     new ColumnMetadata(SCHEMA_NAME, VARCHAR, false),
                     new ColumnMetadata(TABLE_NAME, VARCHAR, false),
                     new ColumnMetadata(SHARD_UUID, VARCHAR, false),
+                    new ColumnMetadata("bucket_number", BIGINT, false),
                     new ColumnMetadata("uncompressed_size", BIGINT, false),
                     new ColumnMetadata("compressed_size", BIGINT, false),
                     new ColumnMetadata("row_count", BIGINT, false),
@@ -127,6 +128,7 @@ public class ShardMetadataRecordCursor
                 .add("shards" + "." + COLUMNS.get(3).getName())
                 .add("shards" + "." + COLUMNS.get(4).getName())
                 .add("shards" + "." + COLUMNS.get(5).getName())
+                .add("shards" + "." + COLUMNS.get(6).getName())
                 .add("min_timestamp")
                 .add("max_timestamp")
                 .build();
