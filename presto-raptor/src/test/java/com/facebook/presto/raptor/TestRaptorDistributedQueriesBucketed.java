@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 
@@ -24,5 +25,16 @@ public class TestRaptorDistributedQueriesBucketed
             throws Exception
     {
         super(createRaptorQueryRunner(ImmutableMap.of(), true, true));
+    }
+
+    @Test
+    public void testShardsSystemTableBucketNumber()
+            throws Exception
+    {
+        assertQuery("SELECT count(DISTINCT bucket_number)\n" +
+                        "FROM system.shards\n" +
+                        "WHERE table_schema = 'tpch'\n" +
+                        "  AND table_name = 'orders'",
+                "SELECT 25");
     }
 }
