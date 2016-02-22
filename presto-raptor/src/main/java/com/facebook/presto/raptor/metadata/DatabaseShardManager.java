@@ -92,7 +92,7 @@ public class DatabaseShardManager
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
 
     private final IDBI dbi;
-    private final ShardManagerDao dao;
+    private final ShardDao dao;
     private final NodeSupplier nodeSupplier;
 
     private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
@@ -110,7 +110,7 @@ public class DatabaseShardManager
     public DatabaseShardManager(@ForMetadata IDBI dbi, NodeSupplier nodeSupplier)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
-        this.dao = onDemandDao(dbi, ShardManagerDao.class);
+        this.dao = onDemandDao(dbi, ShardDao.class);
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
 
         createTablesWithRetry(dbi);
@@ -168,11 +168,11 @@ public class DatabaseShardManager
         runTransaction(dbi, (handle, status) -> {
             lockTable(handle, tableId);
 
-            ShardManagerDao shardManagerDao = handle.attach(ShardManagerDao.class);
-            shardManagerDao.insertDeletedShardNodes(tableId);
-            shardManagerDao.insertDeletedShards(tableId);
-            shardManagerDao.dropShardNodes(tableId);
-            shardManagerDao.dropShards(tableId);
+            ShardDao shardDao = handle.attach(ShardDao.class);
+            shardDao.insertDeletedShardNodes(tableId);
+            shardDao.insertDeletedShards(tableId);
+            shardDao.dropShardNodes(tableId);
+            shardDao.dropShards(tableId);
 
             MetadataDao dao = handle.attach(MetadataDao.class);
             dao.dropColumns(tableId);
@@ -222,7 +222,7 @@ public class DatabaseShardManager
         Map<String, Integer> nodeIds = toNodeIdMap(shards);
 
         runTransaction(dbi, (handle, status) -> {
-            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            ShardDao dao = handle.attach(ShardDao.class);
             commitTransaction(dao, transactionId);
             externalBatchId.ifPresent(dao::insertExternalBatch);
 
@@ -238,7 +238,7 @@ public class DatabaseShardManager
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
         runTransaction(dbi, (handle, status) -> {
-            commitTransaction(handle.attach(ShardManagerDao.class), transactionId);
+            commitTransaction(handle.attach(ShardDao.class), transactionId);
             lockTable(handle, tableId);
             for (List<ShardInfo> shards : partition(newShards, 1000)) {
                 insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
@@ -282,7 +282,7 @@ public class DatabaseShardManager
             throw transactionConflict();
         }
 
-        ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+        ShardDao dao = handle.attach(ShardDao.class);
         dao.insertDeletedShards(shardUuids);
         dao.insertDeletedShardNodes(shardUuidList.build(), nodeIdList.build());
 
@@ -386,7 +386,7 @@ public class DatabaseShardManager
         int nodeId = getOrCreateNodeId(nodeIdentifier);
 
         runTransaction(dbi, (handle, status) -> {
-            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            ShardDao dao = handle.attach(ShardDao.class);
 
             Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
             if (nodes.add(nodeId)) {
@@ -404,7 +404,7 @@ public class DatabaseShardManager
         int nodeId = getOrCreateNodeId(nodeIdentifier);
 
         runTransaction(dbi, (handle, status) -> {
-            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            ShardDao dao = handle.attach(ShardDao.class);
 
             Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
             if (nodes.remove(nodeId)) {
@@ -452,7 +452,7 @@ public class DatabaseShardManager
         dao.finalizeTransaction(transactionId, false);
     }
 
-    private static void commitTransaction(ShardManagerDao dao, long transactionId)
+    private static void commitTransaction(ShardDao dao, long transactionId)
     {
         if (dao.finalizeTransaction(transactionId, true) != 1) {
             throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
@@ -466,7 +466,7 @@ public class DatabaseShardManager
     {
         int nodeId = getOrCreateNodeId(nodeIdentifier);
         runTransaction(dbi, (handle, status) -> {
-            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+            ShardDao dao = handle.attach(ShardDao.class);
             dao.insertCreatedShard(shardUuid, transactionId);
             dao.insertCreatedShardNode(shardUuid, nodeId, transactionId);
             return null;

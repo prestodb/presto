@@ -53,7 +53,7 @@ final class ShardIterator
 
     private final boolean bucketed;
     private final boolean merged;
-    private final ShardManagerDao dao;
+    private final ShardDao dao;
     private final Connection connection;
     private final PreparedStatement statement;
     private final ResultSet resultSet;
@@ -74,7 +74,7 @@ final class ShardIterator
         }
         sql = format(sql, shardIndexTable(tableId), predicate.getPredicate());
 
-        dao = onDemandDao(dbi, ShardManagerDao.class);
+        dao = onDemandDao(dbi, ShardDao.class);
         fetchNodes();
 
         try {
