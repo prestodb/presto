@@ -9,7 +9,7 @@ General Changes
   ``distributed-joins-enabled`` is true.
 
 Hive Changes
----------------
+------------
 
 * Remove cursor-based readers for ORC and DWRF file formats, as they have been
   replaced by page-based readers.
