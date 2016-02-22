@@ -72,9 +72,12 @@ public class TestRowOperators
     {
         // test_row has both (bigint, double) and (bigint, bigint) so this method is non-deterministic
         // assertFunction("test_row(1, NULL).col1", BIGINT,  null);
+        // test_row has both (boolean, boolean) and (boolean, array<bigint>), so this method is non-deterministic
+        // assertFunction("test_row(TRUE, NULL).col1", BOOLEAN, null);
 
         assertFunction("test_row(1, CAST(NULL AS DOUBLE)).col1", DOUBLE, null);
-        assertFunction("test_row(TRUE, NULL).col1", BOOLEAN, null);
+        assertFunction("test_row(TRUE, CAST(NULL AS BOOLEAN)).col1", BOOLEAN, null);
+        assertFunction("test_row(TRUE, CAST(NULL AS ARRAY<BIGINT>)).col1", new ArrayType(BIGINT), null);
         assertFunction("test_row(1.0, CAST(NULL AS VARCHAR)).col1", VARCHAR, null);
         assertFunction("test_row(1, 2).col0", BIGINT, 1);
         assertFunction("test_row(1, 'kittens').col1", VARCHAR, "kittens");
