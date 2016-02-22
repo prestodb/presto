@@ -601,7 +601,7 @@ public class BytecodeBlock
         if (type == long.class || type == double.class) {
             nodes.add(OpCode.DUP2);
         }
-        else {
+        else if (type != void.class) {
             nodes.add(OpCode.DUP);
         }
         return this;
