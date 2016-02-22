@@ -790,7 +790,7 @@ public class AddExchanges
                 left = node.getLeft().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(leftSymbols)));
                 right = node.getRight().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(rightSymbols)));
 
-                if (!left.getProperties().isNodePartitionedOn(leftSymbols)) {
+                if (!left.getProperties().isNodePartitionedOn(leftSymbols) || (distributedJoins && left.getProperties().isSingleNode())) {
                     left = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), left.getNode(), leftSymbols, node.getLeftHashSymbol()),
                             left.getProperties());
