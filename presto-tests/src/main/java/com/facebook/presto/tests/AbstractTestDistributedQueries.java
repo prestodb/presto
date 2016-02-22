@@ -323,6 +323,11 @@ public abstract class AbstractTestDistributedQueries
                 + " UNION ALL SELECT DATE '2001-01-02', -2"
                 + " UNION ALL SELECT DATE '2001-01-03', -3");
 
+        // changed column order with UNION query
+        assertUpdate("INSERT INTO test_insert (orderkey, orderdate)"
+                + " SELECT orderkey, orderdate FROM orders"
+                + " UNION ALL SELECT orderkey, orderdate FROM orders", "SELECT 2 * count(*) FROM orders");
+
         assertUpdate("DROP TABLE test_insert");
     }
 
