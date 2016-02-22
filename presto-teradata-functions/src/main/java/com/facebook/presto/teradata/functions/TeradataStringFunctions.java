@@ -17,6 +17,7 @@ import com.facebook.presto.operator.Description;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
@@ -36,6 +37,24 @@ public final class TeradataStringFunctions
     public static long index(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice substring)
     {
         return StringFunctions.stringPosition(string, substring);
+    }
+
+    @Description("suffix starting at given index")
+    @ScalarFunction
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice substring(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    {
+        return StringFunctions.substr(utf8, start);
+    }
+
+    @Description("substring of given length starting at an index")
+    @ScalarFunction
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice substring(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    {
+        return StringFunctions.substr(utf8, start, length);
     }
 
     @Description("Returns the hexadecimal representation of the UTF-16BE encoding of the argument")

@@ -759,6 +759,76 @@ public class TestSqlParser
     }
 
     @Test
+    public void testSubstringBuiltInFunction()
+    {
+        final String givenString = "ABCDEF";
+        assertStatement(format("SELECT substring('%s' FROM 2)", givenString),
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2")))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement(format("SELECT substring('%s' FROM 2 FOR 3)", givenString),
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new FunctionCall(QualifiedName.of("substr"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3")))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testSubstringRegisteredFunction()
+    {
+        final String givenString = "ABCDEF";
+        assertStatement(format("SELECT substring('%s', 2)", givenString),
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2")))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement(format("SELECT substring('%s', 2, 3)", givenString),
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3")))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
     public void testSelectWithRowType()
             throws Exception
     {
