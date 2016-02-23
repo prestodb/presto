@@ -60,7 +60,9 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.SetMultimap;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -469,10 +471,10 @@ class QueryPlanner
         if (windowFunctions.isEmpty()) {
             return subPlan;
         }
-
-        for (FunctionCall windowFunction : windowFunctions) {
-            Window window = windowFunction.getWindow().get();
-
+        ImmutableSetMultimap.Builder<Window, FunctionCall> windowFunctionsGroupedByWindowBuilder = ImmutableSetMultimap.builder();
+        windowFunctions.forEach((windowFunction) -> windowFunctionsGroupedByWindowBuilder.put(windowFunction.getWindow().get(), windowFunction));
+        SetMultimap<Window, FunctionCall> windowFunctionsGroupedByWindow = windowFunctionsGroupedByWindowBuilder.build();
+        for (Window window : windowFunctionsGroupedByWindow.keySet()) {
             // Extract frame
             WindowFrame.Type frameType = WindowFrame.Type.RANGE;
             FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
@@ -494,19 +496,21 @@ class QueryPlanner
             }
 
             // Pre-project inputs
-            ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
-                    .addAll(windowFunction.getArguments())
-                    .addAll(window.getPartitionBy())
-                    .addAll(Iterables.transform(window.getOrderBy(), SortItem::getSortKey));
+            for (FunctionCall windowFunction : windowFunctionsGroupedByWindow.get(window)) {
+                ImmutableList.Builder<Expression> inputs = ImmutableList.<Expression>builder()
+                        .addAll(windowFunction.getArguments())
+                        .addAll(window.getPartitionBy())
+                        .addAll(Iterables.transform(window.getOrderBy(), SortItem::getSortKey));
 
-            if (frameStart != null) {
-                inputs.add(frameStart);
-            }
-            if (frameEnd != null) {
-                inputs.add(frameEnd);
-            }
+                if (frameStart != null) {
+                    inputs.add(frameStart);
+                }
+                if (frameEnd != null) {
+                    inputs.add(frameEnd);
+                }
 
-            subPlan = appendProjections(subPlan, inputs.build());
+                subPlan = appendProjections(subPlan, inputs.build());
+            }
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
             ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
@@ -543,18 +547,22 @@ class QueryPlanner
             Map<Symbol, Signature> signatures = new HashMap<>();
 
             // Rewrite function call in terms of pre-projected inputs
-            Expression rewritten = subPlan.rewrite(windowFunction);
-            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(windowFunction));
+            ImmutableList.Builder<FunctionCall> needCoercion = ImmutableList.builder();
+            for (FunctionCall windowFunction : windowFunctionsGroupedByWindow.get(window)) {
+                Expression rewritten = subPlan.rewrite(windowFunction);
+                Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(windowFunction));
 
-            boolean needCoercion = rewritten instanceof Cast;
-            // Strip out the cast and add it back as a post-projection
-            if (rewritten instanceof Cast) {
-                rewritten = ((Cast) rewritten).getExpression();
+                if (rewritten instanceof Cast) {
+                    // Strip out the cast and add it back as a post-projection
+                    rewritten = ((Cast) rewritten).getExpression();
+                    // Keep functions that need coercion
+                    needCoercion.add(windowFunction);
+                }
+                assignments.put(newSymbol, (FunctionCall) rewritten);
+                outputTranslations.put(windowFunction, newSymbol);
+
+                signatures.put(newSymbol, analysis.getFunctionSignature(windowFunction));
             }
-            assignments.put(newSymbol, (FunctionCall) rewritten);
-            outputTranslations.put(windowFunction, newSymbol);
-
-            signatures.put(newSymbol, analysis.getFunctionSignature(windowFunction));
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
 
@@ -574,7 +582,7 @@ class QueryPlanner
                             0),
                     subPlan.getSampleWeight());
 
-            if (needCoercion) {
+            for (FunctionCall windowFunction : needCoercion.build()) {
                 subPlan = explicitCoercionSymbols(subPlan, sourceSymbols, ImmutableList.of(windowFunction));
             }
         }
