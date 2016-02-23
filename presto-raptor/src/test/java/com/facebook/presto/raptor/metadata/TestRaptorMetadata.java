@@ -24,6 +24,7 @@ import com.facebook.presto.raptor.RaptorPartitioningHandle;
 import com.facebook.presto.raptor.RaptorSessionProperties;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
+import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -109,7 +110,7 @@ public class TestRaptorMetadata
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         nodeManager.addCurrentNodeDatasource(connectorId.toString());
         NodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, connectorId);
-        shardManager = new DatabaseShardManager(dbi, nodeSupplier);
+        shardManager = new DatabaseShardManager(dbi, new DaoSupplier<>(dbi, ShardDao.class), nodeSupplier);
         metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
     }
 

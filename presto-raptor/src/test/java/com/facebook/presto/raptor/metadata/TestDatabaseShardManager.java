@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
@@ -341,8 +342,10 @@ public class TestDatabaseShardManager
         int bucketCount = 13;
         long distributionId = metadataDao.insertDistribution(null, "test", bucketCount);
 
+        DaoSupplier<ShardDao> shardDaoDaoSupplier = new DaoSupplier<>(dbi, ShardDao.class);
+
         Set<Node> originalNodes = ImmutableSet.of(node1, node2);
-        ShardManager shardManager = new DatabaseShardManager(dbi, () -> originalNodes);
+        ShardManager shardManager = new DatabaseShardManager(dbi, shardDaoDaoSupplier, () -> originalNodes);
 
         shardManager.createBuckets(distributionId, bucketCount);
 
@@ -351,7 +354,7 @@ public class TestDatabaseShardManager
         assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(originalNodes));
 
         Set<Node> newNodes = ImmutableSet.of(node1, node3);
-        shardManager = new DatabaseShardManager(dbi, () -> newNodes);
+        shardManager = new DatabaseShardManager(dbi, shardDaoDaoSupplier, () -> newNodes);
 
         assignments = shardManager.getBucketAssignments(distributionId);
         assertEquals(assignments.size(), bucketCount);
@@ -604,7 +607,7 @@ public class TestDatabaseShardManager
 
     public static ShardManager createShardManager(IDBI dbi)
     {
-        return new DatabaseShardManager(dbi, ImmutableSet::of);
+        return new DatabaseShardManager(dbi, new DaoSupplier<>(dbi, ShardDao.class), ImmutableSet::of);
     }
 
     private static Domain createDomain(Range first, Range... ranges)
