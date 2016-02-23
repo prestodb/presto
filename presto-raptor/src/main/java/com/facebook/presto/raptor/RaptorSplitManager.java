@@ -228,7 +228,7 @@ public class RaptorSplitManager
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
                 Node node = selectRandom(availableNodes);
-                shardManager.assignShard(tableId, shardId, node.getNodeIdentifier());
+                shardManager.assignShard(tableId, shardId, node.getNodeIdentifier(), true);
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
@@ -248,7 +248,7 @@ public class RaptorSplitManager
             // shards not currently assigned to the node for the bucket.
             for (ShardNodes shard : shards) {
                 if (!shard.getNodeIdentifiers().contains(nodeId)) {
-                    shardManager.assignShard(tableId, shard.getShardUuid(), nodeId);
+                    shardManager.assignShard(tableId, shard.getShardUuid(), nodeId, false);
                 }
             }
 
