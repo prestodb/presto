@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 public class ConditionalModule
         implements ConfigurationAwareModule
 {
-    public static ConfigurationAwareModule installIfPropertyEquals(Module module, String property, String expectedValue)
+    public static ConfigurationAwareModule installIfPropertyEquals(String property, String expectedValue, Module module)
     {
         return new ConditionalModule(module, property, expectedValue);
     }

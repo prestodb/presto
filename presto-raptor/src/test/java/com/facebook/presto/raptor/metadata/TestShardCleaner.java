@@ -17,6 +17,7 @@ import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.storage.FileStorageService;
 import com.facebook.presto.raptor.storage.StorageService;
+import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
@@ -82,6 +83,7 @@ public class TestShardCleaner
         ShardCleanerConfig config = new ShardCleanerConfig();
         cleaner = new ShardCleaner(
                 dbi,
+                new DaoSupplier<>(dbi, ShardDao.class),
                 "node1",
                 true,
                 storageService,

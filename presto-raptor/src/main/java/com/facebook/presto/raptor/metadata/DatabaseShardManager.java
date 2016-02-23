@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -67,7 +68,6 @@ import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.DatabaseUtil.bindOptionalInt;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
-import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
@@ -92,6 +92,7 @@ public class DatabaseShardManager
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
 
     private final IDBI dbi;
+    private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
     private final NodeSupplier nodeSupplier;
 
@@ -107,10 +108,11 @@ public class DatabaseShardManager
             });
 
     @Inject
-    public DatabaseShardManager(@ForMetadata IDBI dbi, NodeSupplier nodeSupplier)
+    public DatabaseShardManager(@ForMetadata IDBI dbi, DaoSupplier<ShardDao> shardDaoSupplier, NodeSupplier nodeSupplier)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
-        this.dao = onDemandDao(dbi, ShardDao.class);
+        this.shardDaoSupplier = requireNonNull(shardDaoSupplier, "shardDaoSupplier is null");
+        this.dao = shardDaoSupplier.onDemand();
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
 
         createTablesWithRetry(dbi);
@@ -168,7 +170,7 @@ public class DatabaseShardManager
         runTransaction(dbi, (handle, status) -> {
             lockTable(handle, tableId);
 
-            ShardDao shardDao = handle.attach(ShardDao.class);
+            ShardDao shardDao = shardDaoSupplier.attach(handle);
             shardDao.insertDeletedShardNodes(tableId);
             shardDao.insertDeletedShards(tableId);
             shardDao.dropShardNodes(tableId);
@@ -222,7 +224,7 @@ public class DatabaseShardManager
         Map<String, Integer> nodeIds = toNodeIdMap(shards);
 
         runTransaction(dbi, (handle, status) -> {
-            ShardDao dao = handle.attach(ShardDao.class);
+            ShardDao dao = shardDaoSupplier.attach(handle);
             commitTransaction(dao, transactionId);
             externalBatchId.ifPresent(dao::insertExternalBatch);
 
@@ -238,7 +240,7 @@ public class DatabaseShardManager
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
         runTransaction(dbi, (handle, status) -> {
-            commitTransaction(handle.attach(ShardDao.class), transactionId);
+            commitTransaction(shardDaoSupplier.attach(handle), transactionId);
             lockTable(handle, tableId);
             for (List<ShardInfo> shards : partition(newShards, 1000)) {
                 insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
@@ -250,7 +252,7 @@ public class DatabaseShardManager
         });
     }
 
-    private static void deleteShardsAndIndex(long tableId, Set<UUID> shardUuids, Handle handle)
+    private void deleteShardsAndIndex(long tableId, Set<UUID> shardUuids, Handle handle)
             throws SQLException
     {
         String args = Joiner.on(",").join(nCopies(shardUuids.size(), "?"));
@@ -282,7 +284,7 @@ public class DatabaseShardManager
             throw transactionConflict();
         }
 
-        ShardDao dao = handle.attach(ShardDao.class);
+        ShardDao dao = shardDaoSupplier.attach(handle);
         dao.insertDeletedShards(shardUuids);
         dao.insertDeletedShardNodes(shardUuidList.build(), nodeIdList.build());
 
@@ -386,7 +388,7 @@ public class DatabaseShardManager
         int nodeId = getOrCreateNodeId(nodeIdentifier);
 
         runTransaction(dbi, (handle, status) -> {
-            ShardDao dao = handle.attach(ShardDao.class);
+            ShardDao dao = shardDaoSupplier.attach(handle);
 
             Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
             if (nodes.add(nodeId)) {
@@ -404,7 +406,7 @@ public class DatabaseShardManager
         int nodeId = getOrCreateNodeId(nodeIdentifier);
 
         runTransaction(dbi, (handle, status) -> {
-            ShardDao dao = handle.attach(ShardDao.class);
+            ShardDao dao = shardDaoSupplier.attach(handle);
 
             Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
             if (nodes.remove(nodeId)) {
@@ -466,7 +468,7 @@ public class DatabaseShardManager
     {
         int nodeId = getOrCreateNodeId(nodeIdentifier);
         runTransaction(dbi, (handle, status) -> {
-            ShardDao dao = handle.attach(ShardDao.class);
+            ShardDao dao = shardDaoSupplier.attach(handle);
             dao.insertCreatedShard(shardUuid, transactionId);
             dao.insertCreatedShardNode(shardUuid, nodeId, transactionId);
             return null;

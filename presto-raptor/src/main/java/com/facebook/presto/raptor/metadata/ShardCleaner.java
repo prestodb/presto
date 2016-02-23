@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.storage.StorageService;
+import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
@@ -43,7 +44,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.callable;
@@ -58,6 +58,7 @@ public class ShardCleaner
     private static final Logger log = Logger.get(ShardCleaner.class);
 
     private final IDBI dbi;
+    private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
     private final String currentNode;
     private final boolean coordinator;
@@ -78,12 +79,14 @@ public class ShardCleaner
     @Inject
     public ShardCleaner(
             @ForMetadata IDBI dbi,
+            DaoSupplier<ShardDao> shardDaoSupplier,
             NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
             ShardCleanerConfig config)
     {
         this(dbi,
+                shardDaoSupplier,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 nodeManager.getCoordinators().contains(nodeManager.getCurrentNode()),
                 storageService,
@@ -100,6 +103,7 @@ public class ShardCleaner
 
     public ShardCleaner(
             IDBI dbi,
+            DaoSupplier<ShardDao> shardDaoSupplier,
             String currentNode,
             boolean coordinator,
             StorageService storageService,
@@ -114,7 +118,8 @@ public class ShardCleaner
             int backupDeletionThreads)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
-        this.dao = onDemandDao(dbi, ShardDao.class);
+        this.shardDaoSupplier = requireNonNull(shardDaoSupplier, "shardDaoSupplier is null");
+        this.dao = shardDaoSupplier.onDemand();
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.coordinator = coordinator;
         this.storageService = requireNonNull(storageService, "storageService is null");
@@ -211,7 +216,7 @@ public class ShardCleaner
     void deleteOldShards()
     {
         try (Handle handle = dbi.open()) {
-            ShardDao dao = handle.attach(ShardDao.class);
+            ShardDao dao = shardDaoSupplier.attach(handle);
 
             dao.dropTableTemporaryCreatedShards();
             dao.createTableTemporaryCreatedShards();
