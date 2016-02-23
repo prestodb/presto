@@ -106,19 +106,19 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.<TaskSource>of(),
                 INITIAL_EMPTY_OUTPUT_BUFFERS);
-        assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withNoMoreBufferIds());
-        assertEquals(taskInfo.getState(), TaskState.FINISHED);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getState(), TaskState.FINISHED);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
     }
 
     @Test
@@ -131,10 +131,10 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
-        assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).get();
         assertEquals(results.isBufferComplete(), false);
@@ -149,11 +149,11 @@ public class TestSqlTask
         TaskInfo info = sqlTask.abortTaskResults(OUT);
         assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, SECONDS);
-        assertEquals(taskInfo.getState(), TaskState.FINISHED);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getState()).get(1, SECONDS);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getState(), TaskState.FINISHED);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
     }
 
     @Test
@@ -166,19 +166,19 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.<TaskSource>of(),
                 INITIAL_EMPTY_OUTPUT_BUFFERS);
-        assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTask.cancel();
-        assertEquals(taskInfo.getState(), TaskState.CANCELED);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
         assertNotNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getState(), TaskState.CANCELED);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
         assertNotNull(taskInfo.getStats().getEndTime());
     }
 
@@ -192,18 +192,18 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(OUT, 0).withNoMoreBufferIds());
-        assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         sqlTask.abortTaskResults(OUT);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, SECONDS);
-        assertEquals(taskInfo.getState(), TaskState.FINISHED);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getState()).get(1, SECONDS);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getState(), TaskState.FINISHED);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
     }
 
     @Test
@@ -227,8 +227,8 @@ public class TestSqlTask
         // buffer will be closed by cancel event (wait for event to fire)
         assertTrue(bufferResult.get(1, SECONDS).isBufferComplete());
         assertEquals(sqlTask.getTaskInfo().getOutputBuffers().getState(), BufferState.FINISHED);
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getState()).get(1, SECONDS);
-        assertEquals(taskInfo.getState(), TaskState.FINISHED);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getState()).get(1, SECONDS);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         // verify the buffer is closed
         bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
@@ -248,7 +248,7 @@ public class TestSqlTask
         assertFalse(bufferResult.isDone());
 
         sqlTask.cancel();
-        assertEquals(sqlTask.getTaskInfo().getState(), TaskState.CANCELED);
+        assertEquals(sqlTask.getTaskInfo().getTaskStatus().getState(), TaskState.CANCELED);
 
         // buffer will be closed by cancel event.. the event is async so wait a bit for event to propagate
         assertTrue(bufferResult.get(1, SECONDS).isBufferComplete());
@@ -269,9 +269,9 @@ public class TestSqlTask
         CompletableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
-        TaskState taskState = sqlTask.getTaskInfo().getState();
+        TaskState taskState = sqlTask.getTaskInfo().getTaskStatus().getState();
         sqlTask.failed(new Exception("test"));
-        assertEquals(sqlTask.getTaskInfo(taskState).get(1, SECONDS).getState(), TaskState.FAILED);
+        assertEquals(sqlTask.getTaskInfo(taskState).get(1, SECONDS).getTaskStatus().getState(), TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
         try {

@@ -15,6 +15,7 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -104,13 +105,14 @@ public class TaskSystemTable
         Builder table = InMemoryRecordSet.builder(TASK_TABLE);
         for (TaskInfo taskInfo : taskManager.getAllTaskInfo()) {
             TaskStats stats = taskInfo.getStats();
+            TaskStatus taskStatus = taskInfo.getTaskStatus();
             table.addRow(
                     nodeId,
 
-                    taskInfo.getTaskId().toString(),
-                    taskInfo.getTaskId().getStageId().toString(),
-                    taskInfo.getTaskId().getQueryId().toString(),
-                    taskInfo.getState().toString(),
+                    taskStatus.getTaskId().toString(),
+                    taskStatus.getTaskId().getStageId().toString(),
+                    taskStatus.getTaskId().getQueryId().toString(),
+                    taskStatus.getState().toString(),
 
                     (long) stats.getTotalDrivers(),
                     (long) stats.getQueuedDrivers(),

@@ -244,6 +244,12 @@ public class SqlTaskManager
     }
 
     @Override
+    public TaskStatus getTaskStatus(TaskId taskId)
+    {
+        return getTaskInfo(taskId).getTaskStatus();
+    }
+
+    @Override
     public CompletableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState)
     {
         requireNonNull(taskId, "taskId is null");
@@ -260,6 +266,16 @@ public class SqlTaskManager
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
         return sqlTask.getTaskInstanceId();
+    }
+
+    public CompletableFuture<TaskStatus> getTaskStatus(TaskId taskId, TaskState currentState)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(currentState, "currentState is null");
+
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.getTaskStatus(currentState);
     }
 
     @Override
@@ -321,14 +337,15 @@ public class SqlTaskManager
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
         for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
+            TaskId taskId = taskInfo.getTaskStatus().getTaskId();
             try {
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
-                    tasks.asMap().remove(taskInfo.getTaskId());
+                    tasks.asMap().remove(taskId);
                 }
             }
             catch (RuntimeException e) {
-                log.warn(e, "Error while inspecting age of complete task %s", taskInfo.getTaskId());
+                log.warn(e, "Error while inspecting age of complete task %s", taskId);
             }
         }
     }
@@ -340,13 +357,14 @@ public class SqlTaskManager
         for (SqlTask sqlTask : tasks.asMap().values()) {
             try {
                 TaskInfo taskInfo = sqlTask.getTaskInfo();
-                if (taskInfo.getState().isDone()) {
+                TaskStatus taskStatus = taskInfo.getTaskStatus();
+                if (taskStatus.getState().isDone()) {
                     continue;
                 }
                 DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
-                    log.info("Failing abandoned task %s", taskInfo.getTaskId());
-                    sqlTask.failed(new PrestoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskInfo.getTaskId(), lastHeartbeat, now)));
+                    log.info("Failing abandoned task %s", taskStatus.getTaskId());
+                    sqlTask.failed(new PrestoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskStatus.getTaskId(), lastHeartbeat, now)));
                 }
             }
             catch (RuntimeException e) {
@@ -369,7 +387,7 @@ public class SqlTaskManager
         // already merged the final stats, we could miss the stats from this task
         // which would result in an under-count, but we will not get an over-count.
         tasks.asMap().values().stream()
-                .filter(task -> !task.getTaskInfo().getState().isDone())
+                .filter(task -> !task.getTaskInfo().getTaskStatus().getState().isDone())
                 .forEach(task -> tempIoStats.merge(task.getIoStats()));
 
         cachedStats.resetTo(tempIoStats);

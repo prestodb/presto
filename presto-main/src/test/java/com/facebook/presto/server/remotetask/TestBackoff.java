@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.server.remotetask;
 
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;

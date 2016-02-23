@@ -19,6 +19,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
@@ -166,6 +167,36 @@ public class TaskResource
         // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskInfo, responseExecutor)
+                .withTimeout(timeout);
+    }
+
+    @GET
+    @Path("{taskId}/status")
+    @Produces(MediaType.APPLICATION_JSON)
+    public void getTaskStatus(@PathParam("taskId") TaskId taskId,
+            @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
+            @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+            @Context UriInfo uriInfo,
+            @Suspended AsyncResponse asyncResponse)
+    {
+        requireNonNull(taskId, "taskId is null");
+
+        if (currentState == null || maxWait == null) {
+            TaskStatus taskStatus = taskManager.getTaskInfo(taskId).getTaskStatus();
+            asyncResponse.resume(taskStatus);
+            return;
+        }
+
+        Duration waitTime = randomizeWaitTime(maxWait);
+        CompletableFuture<TaskStatus> futureTaskStatus = addTimeout(
+                taskManager.getTaskStatus(taskId, currentState),
+                () -> taskManager.getTaskStatus(taskId),
+                waitTime,
+                timeoutExecutor);
+
+        // For hard timeout, add an additional 5 seconds to max wait for thread scheduling contention and GC
+        Duration timeout = new Duration(waitTime.toMillis() + 5000, MILLISECONDS);
+        bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
     }
 

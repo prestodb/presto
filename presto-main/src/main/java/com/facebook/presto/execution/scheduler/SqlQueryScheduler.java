@@ -467,7 +467,7 @@ public class SqlQueryScheduler
             if (parent.isPresent()) {
                 // Add an exchange location to the parent stage for each new task
                 Set<URI> newExchangeLocations = newTasks.stream()
-                        .map(task -> task.getTaskInfo().getSelf())
+                        .map(task -> task.getTaskStatus().getSelf())
                         .collect(toImmutableSet());
                 parent.get().addExchangeLocations(currentStageFragmentId, newExchangeLocations, noMoreTasks);
             }

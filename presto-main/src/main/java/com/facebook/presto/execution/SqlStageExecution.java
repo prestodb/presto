@@ -184,7 +184,7 @@ public final class SqlStageExecution
     public synchronized long getMemoryReservation()
     {
         return getAllTasks().stream()
-                .mapToLong(task -> task.getTaskInfo().getStats().getMemoryReservation().toBytes())
+                .mapToLong(task -> task.getTaskStatus().getMemoryReservation().toBytes())
                 .sum();
     }
 
@@ -218,7 +218,7 @@ public final class SqlStageExecution
         for (RemoteTask task : getAllTasks()) {
             ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
             for (URI exchangeLocation : exchangeLocations) {
-                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskInfo().getTaskId(), exchangeLocation));
+                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskStatus().getTaskId(), exchangeLocation));
             }
             task.addSplits(newSplits.build());
         }
@@ -280,8 +280,8 @@ public final class SqlStageExecution
             return completedFuture(null);
         }
 
-        List<CompletableFuture<TaskInfo>> stateChangeFutures = allTasks.stream()
-                .map(task -> task.getStateChange(task.getTaskInfo()))
+        List<CompletableFuture<TaskStatus>> stateChangeFutures = allTasks.stream()
+                .map(task -> task.getStateChange(task.getTaskStatus()))
                 .collect(toImmutableList());
 
         return firstCompletedFuture(stateChangeFutures, true);
@@ -381,23 +381,23 @@ public final class SqlStageExecution
     }
 
     private class StageTaskListener
-            implements StateChangeListener<TaskInfo>
+            implements StateChangeListener<TaskStatus>
     {
         private long previousMemory;
 
         @Override
-        public void stateChanged(TaskInfo taskInfo)
+        public void stateChanged(TaskStatus taskStatus)
         {
-            updateMemoryUsage(taskInfo);
+            updateMemoryUsage(taskStatus);
 
             StageState stageState = getState();
             if (stageState.isDone()) {
                 return;
             }
 
-            TaskState taskState = taskInfo.getState();
+            TaskState taskState = taskStatus.getState();
             if (taskState == TaskState.FAILED) {
-                RuntimeException failure = taskInfo.getFailures().stream()
+                RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
                         .map(ExecutionFailureInfo::toException)
                         .orElse(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task failed for an unknown reason"));
@@ -408,7 +408,7 @@ public final class SqlStageExecution
                 stateMachine.transitionToFailed(new PrestoException(StandardErrorCode.INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
             }
             else if (taskState == TaskState.FINISHED) {
-                finishedTasks.add(taskInfo.getTaskId());
+                finishedTasks.add(taskStatus.getTaskId());
             }
 
             if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING) {
@@ -421,9 +421,9 @@ public final class SqlStageExecution
             }
         }
 
-        private synchronized void updateMemoryUsage(TaskInfo taskInfo)
+        private synchronized void updateMemoryUsage(TaskStatus taskStatus)
         {
-            long currentMemory = taskInfo.getStats().getMemoryReservation().toBytes();
+            long currentMemory = taskStatus.getMemoryReservation().toBytes();
             long deltaMemoryInBytes = currentMemory - previousMemory;
             previousMemory = currentMemory;
             stateMachine.updateMemoryUsage(deltaMemoryInBytes);

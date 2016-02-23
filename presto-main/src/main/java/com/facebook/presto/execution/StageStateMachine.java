@@ -220,7 +220,8 @@ public class StageStateMachine
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
         for (TaskInfo taskInfo : taskInfos) {
-            if (taskInfo.getState().isDone()) {
+            TaskState taskState = taskInfo.getTaskStatus().getState();
+            if (taskState.isDone()) {
                 completedTasks++;
             }
             else {
@@ -241,7 +242,7 @@ public class StageStateMachine
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalUserTime += taskStats.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
-            if (!taskInfo.getState().isDone()) {
+            if (!taskState.isDone()) {
                 fullyBlocked &= taskStats.isFullyBlocked();
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
