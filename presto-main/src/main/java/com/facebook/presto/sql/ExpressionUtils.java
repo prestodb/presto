@@ -254,7 +254,7 @@ public final class ExpressionUtils
     {
         if (expression instanceof NotExpression) {
             NotExpression not = (NotExpression) expression;
-            if (not.getValue() instanceof ComparisonExpression) {
+            if (not.getValue() instanceof ComparisonExpression && ((ComparisonExpression) not.getValue()).getType() != IS_DISTINCT_FROM) {
                 ComparisonExpression comparison = (ComparisonExpression) not.getValue();
                 return new ComparisonExpression(negate(comparison.getType()), comparison.getLeft(), comparison.getRight());
             }
