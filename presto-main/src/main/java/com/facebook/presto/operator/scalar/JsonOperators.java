@@ -48,7 +48,7 @@ import static java.lang.String.format;
 
 public final class JsonOperators
 {
-    private static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
+    public static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
 
     private JsonOperators()
     {
