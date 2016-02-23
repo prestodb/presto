@@ -61,7 +61,7 @@ public class QueuedExecution
         }
         if (nextQueues.isEmpty()) {
             executor.execute(() -> {
-                try (SetThreadName setThreadName = new SetThreadName("Query-%s", queryExecution.getQueryInfo().getQueryId())) {
+                try (SetThreadName ignored = new SetThreadName("Query-%s", queryExecution.getQueryId())) {
                     stats.queryStarted();
                     listenableFuture.addListener(stats::queryStopped, MoreExecutors.directExecutor());
 

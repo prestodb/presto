@@ -178,13 +178,12 @@ public class SqlQueryManager
     {
         boolean queryCancelled = false;
         for (QueryExecution queryExecution : queries.values()) {
-            QueryInfo queryInfo = queryExecution.getQueryInfo();
-            if (queryInfo.getState().isDone()) {
+            if (queryExecution.getState().isDone()) {
                 continue;
             }
 
-            log.info("Server shutting down. Query %s has been cancelled", queryExecution.getQueryInfo().getQueryId());
-            queryExecution.fail(new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down. Query " + queryInfo.getQueryId() + " has been cancelled"));
+            log.info("Server shutting down. Query %s has been cancelled", queryExecution.getQueryId());
+            queryExecution.fail(new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down. Query " + queryExecution.getQueryId() + " has been cancelled"));
             queryCancelled = true;
         }
         if (queryCancelled) {
@@ -289,15 +288,19 @@ public class SqlQueryManager
             QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, transactionManager, queryExecutor, e);
 
             queries.put(queryId, execution);
-            queryMonitor.createdEvent(execution.getQueryInfo());
-            queryMonitor.completionEvent(execution.getQueryInfo());
-            stats.queryFinished(execution.getQueryInfo());
+
+            QueryInfo queryInfo = execution.getQueryInfo();
+            queryMonitor.createdEvent(queryInfo);
+            queryMonitor.completionEvent(queryInfo);
+            stats.queryFinished(queryInfo);
+
             expirationQueue.add(execution);
 
-            return execution.getQueryInfo();
+            return queryInfo;
         }
 
-        queryMonitor.createdEvent(queryExecution.getQueryInfo());
+        QueryInfo queryInfo = queryExecution.getQueryInfo();
+        queryMonitor.createdEvent(queryInfo);
 
         queryExecution.addStateChangeListener(newValue -> {
             if (newValue.isDone()) {
@@ -316,7 +319,7 @@ public class SqlQueryManager
             queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries!"));
         }
 
-        return queryExecution.getQueryInfo();
+        return queryInfo;
     }
 
     @Override
@@ -372,7 +375,7 @@ public class SqlQueryManager
     public void enforceMemoryLimits()
     {
         memoryManager.process(queries.values().stream()
-                .filter(query -> query.getQueryInfo().getState() == RUNNING)
+                .filter(query -> query.getState() == RUNNING)
                 .collect(toImmutableList()));
     }
 
@@ -382,7 +385,7 @@ public class SqlQueryManager
     public void enforceQueryMaxRunTimeLimits()
     {
         for (QueryExecution query : queries.values()) {
-            if (query.getQueryInfo().getState().isDone()) {
+            if (query.getState().isDone()) {
                 continue;
             }
             Duration queryMaxRunTime = SystemSessionProperties.getQueryMaxRunTime(query.getSession());
@@ -449,7 +452,7 @@ public class SqlQueryManager
             }
 
             if (isAbandoned(queryExecution)) {
-                log.info("Failing abandoned query %s", queryExecution.getQueryInfo().getQueryId());
+                log.info("Failing abandoned query %s", queryExecution.getQueryId());
                 queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now()));
             }
         }
@@ -475,7 +478,7 @@ public class SqlQueryManager
             }
         });
         // Need to do this check in case the state changed before we added the previous state change listener
-        if (queryExecution.getQueryInfo().getState().isDone() && taskExecuted.compareAndSet(false, true)) {
+        if (queryExecution.getState().isDone() && taskExecuted.compareAndSet(false, true)) {
             callback.run();
         }
     }
