@@ -76,7 +76,7 @@ public class MapToJsonCast
     {
         Map<Object, Object> map = new HashMap<>();
         for (int i = 0; i < block.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(session, block, i), valueType.getObjectValue(session, block, i + 1));
+            map.put(JsonFunctions.getJsonObjectValue(keyType, session, block, i), JsonFunctions.getJsonObjectValue(valueType, session, block, i + 1));
         }
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(map));
