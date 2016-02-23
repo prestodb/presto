@@ -33,6 +33,7 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import org.h2.jdbc.JdbcConnection;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -74,9 +75,11 @@ import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.partition;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static java.util.Arrays.asList;
@@ -91,10 +94,12 @@ public class DatabaseShardManager
 
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
 
+    private final long startTime = System.nanoTime();
     private final IDBI dbi;
     private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
     private final NodeSupplier nodeSupplier;
+    private final Duration startupGracePeriod;
 
     private final LoadingCache<String, Integer> nodeIdCache = CacheBuilder.newBuilder()
             .maximumSize(10_000)
@@ -108,12 +113,26 @@ public class DatabaseShardManager
             });
 
     @Inject
-    public DatabaseShardManager(@ForMetadata IDBI dbi, DaoSupplier<ShardDao> shardDaoSupplier, NodeSupplier nodeSupplier)
+    public DatabaseShardManager(
+            @ForMetadata IDBI dbi,
+            DaoSupplier<ShardDao> shardDaoSupplier,
+            NodeSupplier nodeSupplier,
+            MetadataConfig config)
+    {
+        this(dbi, shardDaoSupplier, nodeSupplier, config.getStartupGracePeriod());
+    }
+
+    public DatabaseShardManager(
+            IDBI dbi,
+            DaoSupplier<ShardDao> shardDaoSupplier,
+            NodeSupplier nodeSupplier,
+            Duration startupGracePeriod)
     {
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.shardDaoSupplier = requireNonNull(shardDaoSupplier, "shardDaoSupplier is null");
         this.dao = shardDaoSupplier.onDemand();
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
+        this.startupGracePeriod = requireNonNull(startupGracePeriod, "startupGracePeriod is null");
 
         createTablesWithRetry(dbi);
     }
@@ -383,8 +402,12 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void assignShard(long tableId, UUID shardUuid, String nodeIdentifier)
+    public void assignShard(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod)
     {
+        if (gracePeriod && (nanosSince(startTime).compareTo(startupGracePeriod) < 0)) {
+            throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign shards while server is starting");
+        }
+
         int nodeId = getOrCreateNodeId(nodeIdentifier);
 
         runTransaction(dbi, (handle, status) -> {
@@ -491,7 +514,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Map<Integer, String> getBucketAssignments(long distributionId)
+    public Map<Integer, String> getBucketAssignments(long distributionId, boolean gracePeriod)
     {
         Set<String> nodeIds = getNodeIdentifiers();
         Iterator<String> nodeIterator = cyclingShuffledIterator(nodeIds);
@@ -503,6 +526,9 @@ public class DatabaseShardManager
             String nodeId = bucketNode.getNodeIdentifier();
 
             if (!nodeIds.contains(nodeId)) {
+                if (gracePeriod && (nanosSince(startTime).compareTo(startupGracePeriod) < 0)) {
+                    throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign buckets while server is starting");
+                }
                 String oldNodeId = nodeId;
                 // TODO: use smarter system to choose replacement node
                 nodeId = nodeIterator.next();

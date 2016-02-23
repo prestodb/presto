@@ -64,7 +64,7 @@ public interface ShardManager
     /**
      * Assign a shard to a node.
      */
-    void assignShard(long tableId, UUID shardUuid, String nodeIdentifier);
+    void assignShard(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod);
 
     /**
      * Remove shard assignment from a node.
@@ -96,5 +96,5 @@ public interface ShardManager
     /**
      * Get map of buckets to node identifiers for a table.
      */
-    Map<Integer, String> getBucketAssignments(long distributionId);
+    Map<Integer, String> getBucketAssignments(long distributionId, boolean gracePeriod);
 }

@@ -26,6 +26,7 @@ import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.RaptorTableLayoutHandle;
 import com.facebook.presto.raptor.RaptorTransactionHandle;
+import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -39,6 +40,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -53,7 +55,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
-import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -65,6 +66,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
@@ -96,7 +98,7 @@ public class TestRaptorSplitManager
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         temporary = createTempDir();
-        shardManager = createShardManager(dbi);
+        shardManager = new DatabaseShardManager(dbi, new DaoSupplier<>(dbi, ShardDao.class), ImmutableSet::of, new Duration(0, MINUTES));
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         RaptorNodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, new RaptorConnectorId("raptor"));
 
