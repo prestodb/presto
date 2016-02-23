@@ -86,3 +86,93 @@ NULLIF
 .. function:: nullif(value1, value2)
 
     Returns null if ``value1`` equals ``value2``, otherwise returns ``value1``.
+
+TRY
+---
+
+.. function:: try(expression)
+
+    Evaluate an expression and handle certain types of errors by returning
+    ``NULL``.
+
+In cases where it is preferable that queries produce ``NULL`` or default values
+instead of failing when corrupt or invalid data is encountered, the ``TRY``
+function may be useful. To specify default values, the ``TRY`` function can be
+used in conjunction with the ``COALESCE`` function.
+
+The following errors are handled by ``TRY``:
+
+* Division by zero
+* Invalid cast or function argument
+* Numeric value out of range
+
+Examples
+~~~~~~~~
+
+Source table with some invalid data:
+
+.. code-block:: sql
+
+    SELECT * FROM shipping;
+
+.. code-block:: none
+
+     origin_state | origin_zip | packages | total_cost
+    --------------+------------+----------+------------
+     California   |      94131 |       25 |        100
+     California   |      P332a |        5 |         72
+     California   |      94025 |        0 |        155
+     New Jersey   |      08544 |      225 |        490
+    (4 rows)
+
+Query failure without ``TRY``:
+
+.. code-block:: sql
+
+    SELECT CAST(origin_zip AS BIGINT) FROM shipping;
+
+.. code-block:: none
+
+    Query failed: Can not cast 'P332a' to BIGINT
+
+``NULL`` values with ``TRY``:
+
+.. code-block:: sql
+
+    SELECT TRY(CAST(origin_zip AS BIGINT)) FROM shipping;
+
+.. code-block:: none
+
+     origin_zip
+    ------------
+          94131
+     NULL
+          94025
+          08544
+    (4 rows)
+
+Query failure without ``TRY``:
+
+.. code-block:: sql
+
+    SELECT total_cost / packages AS per_package FROM shipping;
+
+.. code-block:: none
+
+    Query failed: / by zero
+
+Default values with ``TRY`` and ``COALESCE``:
+
+.. code-block:: sql
+
+    SELECT COALESCE(TRY(total_cost / packages), 0) AS per_package FROM shipping;
+
+.. code-block:: none
+
+     per_package
+    -------------
+              4
+             14
+              0
+             19
+    (4 rows)
