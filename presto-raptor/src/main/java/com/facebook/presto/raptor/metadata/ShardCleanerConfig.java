@@ -29,6 +29,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class ShardCleanerConfig
 {
     private Duration maxTransactionAge = new Duration(1, DAYS);
+    private Duration transactionCleanerInterval = new Duration(10, MINUTES);
     private Duration localCleanerInterval = new Duration(1, HOURS);
     private Duration localCleanTime = new Duration(4, HOURS);
     private Duration localPurgeTime = new Duration(3, DAYS);
@@ -50,6 +51,21 @@ public class ShardCleanerConfig
     public ShardCleanerConfig setMaxTransactionAge(Duration maxTransactionAge)
     {
         this.maxTransactionAge = maxTransactionAge;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1m")
+    public Duration getTransactionCleanerInterval()
+    {
+        return transactionCleanerInterval;
+    }
+
+    @Config("raptor.transaction-cleaner-interval")
+    @ConfigDescription("How often to cleanup expired transactions")
+    public ShardCleanerConfig setTransactionCleanerInterval(Duration transactionCleanerInterval)
+    {
+        this.transactionCleanerInterval = transactionCleanerInterval;
         return this;
     }
 
