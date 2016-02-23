@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,32 +26,40 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
 import static com.facebook.presto.type.TypeRegistry.canCoerce;
+import static com.facebook.presto.type.TypeRegistry.getCommonSuperTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.any;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Stream.concat;
 
 public final class Signature
 {
     private final String name;
     private final FunctionKind kind;
-    private final List<TypeParameterRequirement> typeParameterRequirements;
+    private final List<TypeVariableConstraint> typeVariableConstraints;
+    private final List<LongVariableConstraint> longVariableConstraints;
     private final TypeSignature returnType;
     private final List<TypeSignature> argumentTypes;
     private final boolean variableArity;
@@ -59,17 +68,20 @@ public final class Signature
     public Signature(
             @JsonProperty("name") String name,
             @JsonProperty("kind") FunctionKind kind,
-            @JsonProperty("typeParameterRequirements") List<TypeParameterRequirement> typeParameterRequirements,
+            @JsonProperty("typeVariableConstraints") List<TypeVariableConstraint> typeVariableConstraints,
+            @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
             @JsonProperty("returnType") TypeSignature returnType,
             @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
             @JsonProperty("variableArity") boolean variableArity)
     {
         requireNonNull(name, "name is null");
-        requireNonNull(typeParameterRequirements, "typeParameters is null");
+        requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
+        requireNonNull(longVariableConstraints, "longVariableConstraints is null");
 
         this.name = name;
         this.kind = requireNonNull(kind, "type is null");
-        this.typeParameterRequirements = ImmutableList.copyOf(typeParameterRequirements);
+        this.typeVariableConstraints = ImmutableList.copyOf(typeVariableConstraints);
+        this.longVariableConstraints = ImmutableList.copyOf(longVariableConstraints);
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
@@ -78,18 +90,20 @@ public final class Signature
     public Signature(
             String name,
             FunctionKind kind,
-            List<TypeParameterRequirement> typeParameterRequirements,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             String returnType,
             List<String> argumentTypes,
             boolean variableArity)
     {
-        this(name, kind, typeParameterRequirements, returnType, argumentTypes, variableArity, ImmutableSet.of());
+        this(name, kind, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity, ImmutableSet.of());
     }
 
     public Signature(
             String name,
             FunctionKind kind,
-            List<TypeParameterRequirement> typeParameterRequirements,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             String returnType,
             List<String> argumentTypes,
             boolean variableArity,
@@ -97,7 +111,8 @@ public final class Signature
     {
         this(name,
                 kind,
-                typeParameterRequirements,
+                typeVariableConstraints,
+                longVariableConstraints,
                 parseTypeSignature(returnType, literalParameters),
                 argumentTypes.stream().map(argument -> parseTypeSignature(argument, literalParameters)).collect(toImmutableList()),
                 variableArity
@@ -108,7 +123,8 @@ public final class Signature
     {
         this(name,
                 kind,
-                ImmutableList.<TypeParameterRequirement>of(),
+                ImmutableList.<TypeVariableConstraint>of(),
+                ImmutableList.<LongVariableConstraint>of(),
                 parseTypeSignature(returnType),
                 argumentTypes.stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
                 false
@@ -122,7 +138,7 @@ public final class Signature
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        this(name, kind, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false);
+        this(name, kind, ImmutableList.<TypeVariableConstraint>of(), ImmutableList.<LongVariableConstraint>of(), returnType, argumentTypes, false);
     }
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
@@ -130,7 +146,7 @@ public final class Signature
         this(name, kind, returnType, ImmutableList.copyOf(argumentTypes));
     }
 
-    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends  Type> argumentTypes)
+    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends Type> argumentTypes)
     {
         return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
     }
@@ -152,7 +168,7 @@ public final class Signature
 
     public static Signature internalScalarFunction(String name, String returnType, List<String> argumentTypes)
     {
-        return new Signature(name, SCALAR, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false, ImmutableSet.of());
+        return new Signature(name, SCALAR, ImmutableList.<TypeVariableConstraint>of(), ImmutableList.<LongVariableConstraint>of(), returnType, argumentTypes, false, ImmutableSet.of());
     }
 
     public static Signature internalScalarFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)
@@ -162,7 +178,7 @@ public final class Signature
 
     public static Signature internalScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return new Signature(name, SCALAR, ImmutableList.<TypeParameterRequirement>of(), returnType, argumentTypes, false);
+        return new Signature(name, SCALAR, ImmutableList.<TypeVariableConstraint>of(), ImmutableList.<LongVariableConstraint>of(), returnType, argumentTypes, false);
     }
 
     @JsonProperty
@@ -196,42 +212,119 @@ public final class Signature
     }
 
     @JsonProperty
-    public List<TypeParameterRequirement> getTypeParameterRequirements()
+    public List<TypeVariableConstraint> getTypeVariableConstraints()
     {
-        return typeParameterRequirements;
+        return typeVariableConstraints;
+    }
+
+    @JsonProperty
+    public List<LongVariableConstraint> getLongVariableConstraints()
+    {
+        return longVariableConstraints;
     }
 
     public Signature resolveCalculatedTypes(List<TypeSignature> parameterTypes)
     {
-        if (!returnType.isCalculated() && argumentTypes.stream().noneMatch(TypeSignature::isCalculated)) {
+        if (!isReturnTypeOrAnyArgumentTypeCalculated()) {
             return this;
         }
 
-        Map<String, OptionalLong> inputs = new HashMap<>();
-        for (int index = 0; index < argumentTypes.size(); index++) {
-            TypeSignature argument = argumentTypes.get(index);
-            if (argument.isCalculated()) {
-                TypeSignature actualParameter = parameterTypes.get(index);
-                inputs.putAll(TypeUtils.computeParameterBindings(argument, actualParameter));
-            }
-        }
-        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs, true);
+        Map<String, OptionalLong> inputs = bindLongVariables(parameterTypes);
+        TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs);
         return new Signature(
                 name,
                 kind,
                 calculatedReturnType,
-                argumentTypes.stream().map(parameter -> TypeUtils.resolveCalculatedType(parameter, inputs, false)).collect(toImmutableList()));
+                argumentTypes.stream().map(parameter -> TypeUtils.resolveCalculatedType(parameter, inputs)).collect(toImmutableList()));
+    }
+
+    public Map<String, OptionalLong> bindLongVariables(List<TypeSignature> parameterTypes)
+    {
+        if (!isReturnTypeOrAnyArgumentTypeCalculated()) {
+            return ImmutableMap.of();
+        }
+
+        Map<String, OptionalLong> boundVariables = bindLongVariablesFromParameterTypes(parameterTypes);
+        Map<String, OptionalLong> calculatedVariables = calculateVariablesValuesForLongConstraints(boundVariables);
+
+        return ImmutableMap.<String, OptionalLong>builder()
+                .putAll(boundVariables)
+                .putAll(calculatedVariables).build();
+    }
+
+    @NotNull
+    private Map<String, OptionalLong> bindLongVariablesFromParameterTypes(List<TypeSignature> parameterTypes)
+    {
+        parameterTypes = replaceSameArgumentsWithCommonSuperType(parameterTypes);
+
+        Map<String, OptionalLong> boundVariables = new HashMap<>();
+        for (int index = 0; index < argumentTypes.size(); index++) {
+            TypeSignature argument = argumentTypes.get(index);
+            if (argument.isCalculated()) {
+                TypeSignature actualParameter = parameterTypes.get(index);
+
+                Map<String, OptionalLong> matchedLiterals = TypeUtils.computeParameterBindings(argument, actualParameter);
+                for (String literal : matchedLiterals.keySet()) {
+                    OptionalLong value = matchedLiterals.get(literal);
+                    checkArgument(
+                            boundVariables.getOrDefault(literal, value).equals(value),
+                            "Literal [%s] with value [%s] for argument [%s] has been previously matched to different value [%s]",
+                            literal,
+                            value,
+                            argument,
+                            boundVariables.get(literal));
+                }
+                boundVariables.putAll(matchedLiterals);
+            }
+        }
+        return boundVariables;
+    }
+
+    private Map<String, OptionalLong> calculateVariablesValuesForLongConstraints(Map<String, OptionalLong> inputs)
+    {
+        return longVariableConstraints.stream()
+                .collect(Collectors.toMap(
+                        c -> c.getName().toUpperCase(Locale.US),
+                        c -> calculateLiteralValue(c.getCalculation(), inputs, true)
+                ));
+    }
+
+    private List<TypeSignature> replaceSameArgumentsWithCommonSuperType(List<TypeSignature> parameters)
+    {
+        checkArgument(parameters.size() == argumentTypes.size(), "Wrong number of parameters");
+
+        Map<TypeSignature, TypeSignature> commonSupperTypes = new HashMap<>();
+        for (int index = 0; index < argumentTypes.size(); index++) {
+            TypeSignature argument = argumentTypes.get(index);
+            TypeSignature parameter = parameters.get(index);
+
+            if (!commonSupperTypes.containsKey(argument)) {
+                commonSupperTypes.put(argument, parameter);
+            }
+            else {
+                TypeSignature otherParameter = commonSupperTypes.get(argument);
+                Optional<TypeSignature> commonSuperParameter = getCommonSuperTypeSignature(parameter, otherParameter);
+                checkArgument(
+                        commonSuperParameter.isPresent(),
+                        "Parameters [%s] and [%s] must match to same signature [%s] but can not be coerced",
+                        otherParameter,
+                        parameter,
+                        argument);
+                commonSupperTypes.put(argument, commonSuperParameter.get());
+            }
+        }
+        return argumentTypes.stream().map(commonSupperTypes::get).collect(toImmutableList());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, kind, typeParameterRequirements, returnType, argumentTypes, variableArity);
+        return Objects.hash(name, kind, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
     }
 
     Signature withAlias(String name)
     {
-        return new Signature(name, kind, typeParameterRequirements, getReturnType(), getArgumentTypes(), variableArity);
+        return new Signature(name, kind, typeVariableConstraints, longVariableConstraints, getReturnType(), getArgumentTypes(), variableArity);
     }
 
     @Override
@@ -246,7 +339,8 @@ public final class Signature
         Signature other = (Signature) obj;
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.kind, other.kind) &&
-                Objects.equals(this.typeParameterRequirements, other.typeParameterRequirements) &&
+                Objects.equals(this.typeVariableConstraints, other.typeVariableConstraints) &&
+                Objects.equals(this.longVariableConstraints, other.longVariableConstraints) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
                 Objects.equals(this.variableArity, other.variableArity);
@@ -255,58 +349,64 @@ public final class Signature
     @Override
     public String toString()
     {
-        return name + (typeParameterRequirements.isEmpty() ? "" : "<" + Joiner.on(",").join(typeParameterRequirements) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        List<String> allConstraints = concat(
+                typeVariableConstraints.stream().map(TypeVariableConstraint::toString),
+                longVariableConstraints.stream().map(LongVariableConstraint::toString))
+                .collect(Collectors.toList());
+
+        return name + (allConstraints.isEmpty() ? "" : "<" + Joiner.on(",").join(allConstraints) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 
     @Nullable
-    public Map<String, Type> bindTypeParameters(Type returnType, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    public Map<String, Type> bindTypeVariables(Type returnType, List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
-        ImmutableMap.Builder<String, TypeParameterRequirement> builder = ImmutableMap.builder();
-        for (TypeParameterRequirement parameter : typeParameterRequirements) {
-            builder.put(parameter.getName(), parameter);
-        }
-
-        ImmutableMap<String, TypeParameterRequirement> parameters = builder.build();
-        if (!matchAndBind(boundParameters, parameters, this.returnType, returnType, allowCoercion, typeManager)) {
+        Map<String, TypeVariableConstraint> constraints = getTypeVariableConstraintsAsMap();
+        if (!matchAndBind(boundParameters, constraints, this.returnType, returnType, allowCoercion, typeManager)) {
             return null;
         }
 
-        if (!matchArguments(boundParameters, parameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
+        if (!matchArguments(boundParameters, constraints, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
             return null;
         }
 
-        checkState(boundParameters.keySet().equals(parameters.keySet()),
-                "%s matched arguments %s, but type parameters %s are still unbound",
+        checkState(boundParameters.keySet().equals(constraints.keySet()),
+                "%s matched arguments %s, but type constraints %s are still unbound",
                 this,
                 types,
-                Sets.difference(parameters.keySet(), boundParameters.keySet()));
+                Sets.difference(constraints.keySet(), boundParameters.keySet()));
 
         return boundParameters;
     }
 
-    @Nullable
-    public Map<String, Type> bindTypeParameters(List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
+    public Map<String, Type> bindTypeVariables(List<? extends Type> types, boolean allowCoercion, TypeManager typeManager)
     {
         Map<String, Type> boundParameters = new HashMap<>();
-        ImmutableMap.Builder<String, TypeParameterRequirement> builder = ImmutableMap.builder();
-        for (TypeParameterRequirement parameter : typeParameterRequirements) {
-            builder.put(parameter.getName(), parameter);
-        }
-
-        ImmutableMap<String, TypeParameterRequirement> parameters = builder.build();
-        if (!matchArguments(boundParameters, parameters, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
+        Map<String, TypeVariableConstraint> constraints = getTypeVariableConstraintsAsMap();
+        if (!matchArguments(boundParameters, constraints, argumentTypes, types, allowCoercion, variableArity, typeManager)) {
             return null;
         }
-
-        checkState(boundParameters.keySet().equals(parameters.keySet()), "%s matched arguments %s, but type parameters %s are still unbound", this, types, Sets.difference(parameters.keySet(), boundParameters.keySet()));
-
+        checkState(boundParameters.keySet().equals(constraints.keySet()), "%s matched arguments %s, but type constraints %s are still unbound", this, types, Sets.difference(constraints.keySet(), boundParameters.keySet()));
         return boundParameters;
+    }
+
+    private Map<String, TypeVariableConstraint> getTypeVariableConstraintsAsMap()
+    {
+        ImmutableMap.Builder<String, TypeVariableConstraint> builder = ImmutableMap.builder();
+        for (TypeVariableConstraint parameter : typeVariableConstraints) {
+            builder.put(parameter.getName(), parameter);
+        }
+        return builder.build();
+    }
+
+    private boolean isReturnTypeOrAnyArgumentTypeCalculated()
+    {
+        return returnType.isCalculated() || any(argumentTypes, TypeSignature::isCalculated);
     }
 
     private static boolean matchArguments(
             Map<String, Type> boundParameters,
-            Map<String, TypeParameterRequirement> parameters,
+            Map<String, TypeVariableConstraint> typeVaraibleConstraints,
             List<TypeSignature> argumentTypes,
             List<? extends Type> types,
             boolean allowCoercion,
@@ -330,7 +430,7 @@ public final class Signature
             if (!superType.isPresent()) {
                 return false;
             }
-            if (!matchAndBind(boundParameters, parameters, argumentTypes.get(argumentTypes.size() - 1), superType.get(), allowCoercion, typeManager)) {
+            if (!matchAndBind(boundParameters, typeVaraibleConstraints, argumentTypes.get(argumentTypes.size() - 1), superType.get(), allowCoercion, typeManager)) {
                 return false;
             }
         }
@@ -339,7 +439,7 @@ public final class Signature
             // Get the current argument signature, or the last one, if this is a varargs function
             TypeSignature typeSignature = argumentTypes.get(Math.min(i, argumentTypes.size() - 1));
             Type type = types.get(i);
-            if (!matchAndBind(boundParameters, parameters, typeSignature, type, allowCoercion, typeManager)) {
+            if (!matchAndBind(boundParameters, typeVaraibleConstraints, typeSignature, type, allowCoercion, typeManager)) {
                 return false;
             }
         }
@@ -347,20 +447,29 @@ public final class Signature
         return true;
     }
 
-    private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameterRequirement> typeParameters, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
+    private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeVariableConstraint> typeVariableConstraints, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
     {
         List<TypeSignatureParameter> parameters = parameter.getParameters();
+
         // If this parameter is already bound, then match (with coercion)
         if (boundParameters.containsKey(parameter.getBase())) {
-            checkArgument(parameters.isEmpty(), "Unexpected parameteric type");
-            if (allowCoercion) {
+            checkArgument(parameter.getParameters().isEmpty(), "Unexpected parametric type");
+            if (allowCoercion && !parameter.isCalculated()) {
                 if (canCoerce(type, boundParameters.get(parameter.getBase()))) {
                     return true;
                 }
-                else if (canCoerce(boundParameters.get(parameter.getBase()), type) && typeParameters.get(parameter.getBase()).canBind(type)) {
-                    // Broaden the binding
+                else if (canCoerce(boundParameters.get(parameter.getBase()), type) && typeVariableConstraints.get(parameter.getBase()).canBind(type)) {
+                    // Try to coerce current binding to new candidate
                     boundParameters.put(parameter.getBase(), type);
                     return true;
+                }
+                else {
+                    // Try to use common super type of current binding and candidate
+                    Optional<Type> commonSuperType = typeManager.getCommonSuperType(boundParameters.get(parameter.getBase()), type);
+                    if (commonSuperType.isPresent() && typeVariableConstraints.get(parameter.getBase()).canBind(commonSuperType.get())) {
+                        boundParameters.put(parameter.getBase(), commonSuperType.get());
+                        return true;
+                    }
                 }
                 return false;
             }
@@ -376,7 +485,7 @@ public final class Signature
         if (!parameters.isEmpty()) {
             // TODO: add support for types with both literal and type parameters? Now for such types this check will fail
             if (typeSignature.getParameters().size() == parameters.size()) {
-                if (!matchAndBindParameters(boundParameters, typeParameters, parameter, type, allowCoercion, typeManager)) {
+                if (!matchAndBindParameters(boundParameters, typeVariableConstraints, parameter, type, allowCoercion, typeManager)) {
                     parametersMatched = false;
                 }
             }
@@ -386,9 +495,9 @@ public final class Signature
         }
 
         // Bind parameter, if this is a free type parameter
-        if (typeParameters.containsKey(parameter.getBase())) {
-            TypeParameterRequirement typeParameterRequirement = typeParameters.get(parameter.getBase());
-            if (!typeParameterRequirement.canBind(type)) {
+        if (typeVariableConstraints.containsKey(parameter.getBase())) {
+            TypeVariableConstraint typeVariableConstraint = typeVariableConstraints.get(parameter.getBase());
+            if (!typeVariableConstraint.canBind(type)) {
                 return false;
             }
             boundParameters.put(parameter.getBase(), type);
@@ -401,9 +510,9 @@ public final class Signature
             if (allowCoercion && canCoerce(typeSignature, parameter)) {
                 return matchAndBind(
                         boundParameters,
-                        typeParameters,
+                        typeVariableConstraints,
                         parameter,
-                        requireNonNull(typeManager.getType(parseTypeSignature(parameter.getBase()))),
+                        requireNonNull(typeManager.getType(TypeRegistry.getUnmatchedSignature(parameter))),
                         true,
                         typeManager);
             }
@@ -423,7 +532,7 @@ public final class Signature
             return false;
         }
 
-        if (allowCoercion) {
+        if (allowCoercion && !parameter.isCalculated()) {
             return canCoerce(type, parameterType);
         }
         else if (parametersMatched) {
@@ -435,7 +544,7 @@ public final class Signature
 
     private static boolean matchAndBindParameters(
             Map<String, Type> boundParameters,
-            Map<String, TypeParameterRequirement> typeParameters,
+            Map<String, TypeVariableConstraint> typeVariableConstraints,
             TypeSignature parameter,
             Type type,
             boolean allowCoercion,
@@ -448,7 +557,7 @@ public final class Signature
             TypeSignatureParameter typeSignatureParameter = type.getTypeSignature().getParameters().get(i);
             TypeSignatureParameter componentParameter = parameters.get(i);
 
-            if (componentParameter.isLiteralCalculation()) {
+            if (componentParameter.isVariable()) {
                 if (!typeSignatureParameter.isLongLiteral()) {
                     return false;
                 }
@@ -477,7 +586,7 @@ public final class Signature
                 }
 
                 Type componentType = type.getTypeParameters().get(i);
-                if (!matchAndBind(boundParameters, typeParameters, componentSignature, componentType, allowCoercion, typeManager)) {
+                if (!matchAndBind(boundParameters, typeVariableConstraints, componentSignature, componentType, allowCoercion, typeManager)) {
                     return false;
                 }
             }
@@ -488,28 +597,38 @@ public final class Signature
     /*
      * similar to T extends MyClass<?...>, if Java supported varargs wildcards
      */
-    public static TypeParameterRequirement withVariadicBound(String name, String variadicBound)
+    public static TypeVariableConstraint withVariadicBound(String name, String variadicBound)
     {
-        return new TypeParameterRequirement(name, false, false, variadicBound);
+        return new TypeVariableConstraint(name, false, false, variadicBound);
     }
 
-    public static TypeParameterRequirement comparableWithVariadicBound(String name, String variadicBound)
+    public static TypeVariableConstraint comparableWithVariadicBound(String name, String variadicBound)
     {
-        return new TypeParameterRequirement(name, true, false, variadicBound);
+        return new TypeVariableConstraint(name, true, false, variadicBound);
     }
 
-    public static TypeParameterRequirement typeParameter(String name)
+    public static TypeVariableConstraint typeVariable(String name)
     {
-        return new TypeParameterRequirement(name, false, false, null);
+        return new TypeVariableConstraint(name, false, false, null);
     }
 
-    public static TypeParameterRequirement comparableTypeParameter(String name)
+    public static TypeVariableConstraint comparableTypeParameter(String name)
     {
-        return new TypeParameterRequirement(name, true, false, null);
+        return new TypeVariableConstraint(name, true, false, null);
     }
 
-    public static TypeParameterRequirement orderableTypeParameter(String name)
+    public static TypeVariableConstraint orderableTypeParameter(String name)
     {
-        return new TypeParameterRequirement(name, false, true, null);
+        return new TypeVariableConstraint(name, false, true, null);
+    }
+
+    public static LongVariableConstraint longVariableCalculation(String variable, String calculation)
+    {
+        return new LongVariableConstraint(variable, calculation);
+    }
+
+    public static SignatureBuilder builder()
+    {
+        return new SignatureBuilder();
     }
 }

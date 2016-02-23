@@ -63,10 +63,10 @@ public class ListStreamReader
 
     private boolean rowGroupOpen;
 
-    public ListStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public ListStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, Type type)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
+        this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), type.getTypeParameters().get(0), hiveStorageTimeZone);
     }
 
     @Override

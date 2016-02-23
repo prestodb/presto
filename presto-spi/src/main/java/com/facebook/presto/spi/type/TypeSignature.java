@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -35,6 +36,11 @@ public class TypeSignature
     private final String base;
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
+
+    public TypeSignature(String base, TypeSignatureParameter... parameters)
+    {
+        this(base, asList(parameters));
+    }
 
     public TypeSignature(String base, List<TypeSignatureParameter> parameters)
     {
@@ -110,7 +116,7 @@ public class TypeSignature
             return new TypeSignature(signature, new ArrayList<>());
         }
         if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "<")) {
-            return parseRowTypeSignature(signature);
+            return parseRowTypeSignature(signature, literalCalculationParameters);
         }
 
         String baseName = null;
@@ -158,7 +164,7 @@ public class TypeSignature
     }
 
     @Deprecated
-    private static TypeSignature parseRowTypeSignature(String signature)
+    private static TypeSignature parseRowTypeSignature(String signature, Set<String> literalParameters)
     {
         String baseName = null;
         List<TypeSignature> parameters = new ArrayList<>();
@@ -183,7 +189,7 @@ public class TypeSignature
                 checkArgument(bracketCount >= 0, "Bad type signature: '%s'", signature);
                 if (bracketCount == 0) {
                     checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i)));
+                    parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
                     parameterStart = i + 1;
                     verify(i < signature.length() - 1, "Row's signature can not end with angle bracket");
                 }
@@ -192,7 +198,7 @@ public class TypeSignature
                 if (bracketCount == 1) {
                     if (!inLiteralParameters) {
                         checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
-                        parameters.add(parseTypeSignature(signature.substring(parameterStart, i)));
+                        parameters.add(parseTypeSignature(signature.substring(parameterStart, i), literalParameters));
                         parameterStart = i + 1;
                     }
                     else {
@@ -249,12 +255,12 @@ public class TypeSignature
             int end,
             Set<String> literalCalculationParameters)
     {
-        String parameterName = signature.substring(begin, end);
+        String parameterName = signature.substring(begin, end).trim();
         if (Character.isDigit(signature.charAt(begin))) {
             return TypeSignatureParameter.of(Long.parseLong(parameterName));
         }
         else if (literalCalculationParameters.contains(parameterName)) {
-            return TypeSignatureParameter.of(new TypeLiteralCalculation(parameterName));
+            return TypeSignatureParameter.of(parameterName);
         }
         else {
             return TypeSignatureParameter.of(parseTypeSignature(parameterName, literalCalculationParameters));

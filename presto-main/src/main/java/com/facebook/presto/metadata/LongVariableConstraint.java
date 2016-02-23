@@ -11,21 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.type;
+
+package com.facebook.presto.metadata;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.Nullable;
 
 import java.util.Objects;
 
-import static java.util.Objects.requireNonNull;
-
-public class TypeLiteralCalculation
+public class LongVariableConstraint
 {
+    private final String name;
     private final String calculation;
 
-    public TypeLiteralCalculation(String calculation)
+    @JsonCreator
+    public LongVariableConstraint(
+            @JsonProperty("name") String name,
+            @JsonProperty("calculation") @Nullable String calculation)
     {
-        this.calculation = requireNonNull(calculation, "calculation is null");
+        this.name = name;
+        this.calculation = calculation;
     }
 
+    @JsonProperty
+    public String getName()
+    {
+        return name;
+    }
+
+    @JsonProperty
     public String getCalculation()
     {
         return calculation;
@@ -34,7 +50,7 @@ public class TypeLiteralCalculation
     @Override
     public String toString()
     {
-        return calculation;
+        return name + ":" + calculation;
     }
 
     @Override
@@ -46,13 +62,14 @@ public class TypeLiteralCalculation
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        TypeLiteralCalculation that = (TypeLiteralCalculation) o;
-        return Objects.equals(calculation, that.calculation);
+        LongVariableConstraint that = (LongVariableConstraint) o;
+        return Objects.equals(name, that.name) &&
+                Objects.equals(calculation, that.calculation);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(calculation);
+        return Objects.hash(name, calculation);
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -53,7 +54,7 @@ public abstract class AbstractArrayMinMaxFunction
 
     protected AbstractArrayMinMaxFunction(OperatorType operatorType, String functionName, String description)
     {
-        super(functionName, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("array(E)"));
+        super(functionName, ImmutableList.of(orderableTypeParameter("E")), ImmutableList.of(), "E", ImmutableList.of("array(E)"));
         this.operatorType = operatorType;
         this.description = description;
     }
@@ -77,10 +78,10 @@ public abstract class AbstractArrayMinMaxFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(types.size() == 1, "Expected one type, got %s", types);
-        Type elementType = types.get("E");
+        checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected one type, got %s", boundVariables.getTypeVariables());
+        Type elementType = boundVariables.getTypeVariable("E");
         checkArgument(elementType.isOrderable(), "Type must be orderable");
 
         MethodHandle compareMethodHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(operatorType, BOOLEAN, ImmutableList.of(elementType, elementType))).getMethodHandle();

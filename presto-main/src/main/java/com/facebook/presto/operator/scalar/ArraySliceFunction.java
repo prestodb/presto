@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
@@ -22,9 +23,8 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -38,7 +38,7 @@ public final class ArraySliceFunction
 
     public ArraySliceFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array(E)", ImmutableList.of("array(E)", "bigint", "bigint"));
+        super(FUNCTION_NAME, ImmutableList.of(typeVariable("E")), ImmutableList.of(), "array(E)", ImmutableList.of("array(E)", "bigint", "bigint"));
     }
 
     @Override
@@ -60,9 +60,9 @@ public final class ArraySliceFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type type = types.get("E");
+        Type type = boundVariables.getTypeVariable("E");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
         return new ScalarFunctionImplementation(false, ImmutableList.of(false, false, false), methodHandle, isDeterministic());
     }
