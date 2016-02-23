@@ -497,11 +497,11 @@ public class StatementResource
                     }
                     Preconditions.checkState(buffers.size() == 1,
                             "Expected a single output buffer for task %s, but found %s",
-                            taskInfo.getTaskId(),
+                            taskInfo.getTaskStatus().getTaskId(),
                             buffers);
 
                     TaskId bufferId = Iterables.getOnlyElement(buffers).getBufferId();
-                    URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
+                    URI uri = uriBuilderFrom(taskInfo.getTaskStatus().getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
                     exchangeClient.addLocation(uri);
                 }
             }
@@ -593,7 +593,7 @@ public class StatementResource
             Set<String> uniqueNodes = new HashSet<>();
             for (TaskInfo task : stageInfo.getTasks()) {
                 // todo add nodeId to TaskInfo
-                URI uri = task.getSelf();
+                URI uri = task.getTaskStatus().getSelf();
                 uniqueNodes.add(uri.getHost() + ":" + uri.getPort());
             }
 
@@ -623,7 +623,7 @@ public class StatementResource
             ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
             for (TaskInfo task : stageInfo.getTasks()) {
                 // todo add nodeId to TaskInfo
-                URI uri = task.getSelf();
+                URI uri = task.getTaskStatus().getSelf();
                 nodes.add(uri.getHost() + ":" + uri.getPort());
             }
 

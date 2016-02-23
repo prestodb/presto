@@ -91,7 +91,7 @@ public class GracefulShutdownHandler
                 CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
 
                 for (TaskInfo taskInfo : activeTasks) {
-                    sqlTaskManager.addStateChangeListener(taskInfo.getTaskId(), newState -> {
+                    sqlTaskManager.addStateChangeListener(taskInfo.getTaskStatus().getTaskId(), newState -> {
                         if (newState.isDone()) {
                             countDownLatch.countDown();
                         }
@@ -142,7 +142,7 @@ public class GracefulShutdownHandler
     {
         return sqlTaskManager.getAllTaskInfo()
                 .stream()
-                .filter(taskInfo -> !taskInfo.getState().isDone())
+                .filter(taskInfo -> !taskInfo.getTaskStatus().getState().isDone())
                 .collect(ImmutableCollectors.toImmutableList());
     }
 

@@ -28,7 +28,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-@DefunctConfig({"experimental.big-query-max-task-memory", "task.max-memory", "task.http-notification-threads"})
+@DefunctConfig({"experimental.big-query-max-task-memory", "task.max-memory", "task.http-notification-threads", "task.info-refresh-max-wait"})
 public class TaskManagerConfig
 {
     private boolean verboseStats;
@@ -47,7 +47,10 @@ public class TaskManagerConfig
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
-    private Duration infoRefreshMaxWait = new Duration(200, TimeUnit.MILLISECONDS);
+
+    private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
+    private Duration infoUpdateInterval = new Duration(200, TimeUnit.MILLISECONDS);
+
     private int writerCount = 1;
     private int taskDefaultConcurrency = 1;
     private Integer taskJoinConcurrency;
@@ -59,15 +62,31 @@ public class TaskManagerConfig
     @MinDuration("1ms")
     @MaxDuration("10s")
     @NotNull
-    public Duration getInfoRefreshMaxWait()
+    public Duration getStatusRefreshMaxWait()
     {
-        return infoRefreshMaxWait;
+        return statusRefreshMaxWait;
     }
 
-    @Config("task.info-refresh-max-wait")
-    public TaskManagerConfig setInfoRefreshMaxWait(Duration infoRefreshMaxWait)
+    @Config("task.status-refresh-max-wait")
+    public TaskManagerConfig setStatusRefreshMaxWait(Duration statusRefreshMaxWait)
     {
-        this.infoRefreshMaxWait = infoRefreshMaxWait;
+        this.statusRefreshMaxWait = statusRefreshMaxWait;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @MaxDuration("10s")
+    @NotNull
+    public Duration getInfoUpdateInterval()
+    {
+        return infoUpdateInterval;
+    }
+
+    @Config("task.info-update-interval")
+    @ConfigDescription("Interval between updating task data")
+    public TaskManagerConfig setInfoUpdateInterval(Duration infoUpdateInterval)
+    {
+        this.infoUpdateInterval = infoUpdateInterval;
         return this;
     }
 

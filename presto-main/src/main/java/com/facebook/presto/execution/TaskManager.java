@@ -43,6 +43,11 @@ public interface TaskManager
     TaskInfo getTaskInfo(TaskId taskId);
 
     /**
+     * Gets the status for the specified task.
+     */
+    TaskStatus getTaskStatus(TaskId taskId);
+
+    /**
      * Gets future info for the task after the state changes from
      * {@code current state}. If the task has not been created yet, an
      * uninitialized task is created and the future is returned.  If the task
@@ -58,6 +63,17 @@ public interface TaskManager
      * that was destroyed and recreated.
      */
     String getTaskInstanceId(TaskId taskId);
+
+    /**
+     * Gets future status for the task after the state changes from
+     * {@code current state}. If the task has not been created yet, an
+     * uninitialized task is created and the future is returned.  If the task
+     * is already in a final state, the status is returned immediately.
+     *
+     * NOTE: this design assumes that only tasks that will eventually exist are
+     * queried.
+     */
+    CompletableFuture<TaskStatus> getTaskStatus(TaskId taskId, TaskState currentState);
 
     void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 

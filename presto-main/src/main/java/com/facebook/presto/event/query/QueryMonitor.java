@@ -109,8 +109,8 @@ public class QueryMonitor
             }
 
             Optional<TaskInfo> task = findFailedTask(queryInfo.getOutputStage());
-            String failureHost = task.map(x -> x.getSelf().getHost()).orElse(null);
-            String failureTask = task.map(x -> x.getTaskId().toString()).orElse(null);
+            String failureHost = task.map(x -> x.getTaskStatus().getSelf().getHost()).orElse(null);
+            String failureTask = task.map(x -> x.getTaskStatus().getTaskId().toString()).orElse(null);
 
             eventClient.post(
                     new QueryCompletionEvent(
@@ -173,7 +173,7 @@ public class QueryMonitor
             }
         }
         return stageInfo.getTasks().stream()
-                .filter(taskInfo -> taskInfo.getState() == TaskState.FAILED)
+                .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
                 .findFirst();
     }
 
