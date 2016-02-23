@@ -63,7 +63,7 @@ public class SqlTask
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
-    private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
+    private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
@@ -214,17 +214,32 @@ public class SqlTask
         }
 
         return new TaskInfo(
-                taskStateMachine.getTaskId(),
-                taskInstanceId,
-                versionNumber,
-                state,
-                location,
+                new TaskStatus(taskStateMachine.getTaskId(),
+                        taskInstanceId,
+                        versionNumber,
+                        state,
+                        location,
+                        failures,
+                        taskStats.getQueuedPartitionedDrivers(),
+                        taskStats.getRunningPartitionedDrivers(),
+                        taskStats.getMemoryReservation()),
                 lastHeartbeat.get(),
                 sharedBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
-                failures,
                 needsPlan.get());
+    }
+
+    public CompletableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
+    {
+        requireNonNull(callersCurrentState, "callersCurrentState is null");
+
+        if (callersCurrentState.isDone()) {
+            return completedFuture(getTaskInfo().getTaskStatus());
+        }
+
+        CompletableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
+        return futureTaskState.thenApply(input -> getTaskInfo().getTaskStatus());
     }
 
     public CompletableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)

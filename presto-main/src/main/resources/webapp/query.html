@@ -409,9 +409,9 @@ function taskData(d) {
     });
 
     return [
-        {"display": "<a href=" + d.self + "?pretty>" + htmlEscape(d.taskId) + "</a>", "sortableString": taskIdToTinySortCompatibleString(d.taskId)},
-        {"display": htmlEscape(urlHostname(d.self))},
-        {"display": htmlEscape(formatState(d.state, d.stats.fullyBlocked))},
+        {"display": "<a href=" + d.taskStatus.self + "?pretty>" + htmlEscape(d.taskStatus.taskId) + "</a>", "sortableString": taskIdToTinySortCompatibleString(d.taskStatus.taskId)},
+        {"display": htmlEscape(urlHostname(d.taskStatus.self))},
+        {"display": htmlEscape(formatState(d.taskStatus.state, d.stats.fullyBlocked))},
         {"display": htmlEscape(formatCount(rows)), "sortableString": rows},
         {"display": htmlEscape(formatCount(computeRate(rows, elapsed))), "sortableString": computeRate(rows, elapsed)},
         {"display": htmlEscape(formatDataSize(bytes)), "sortableString": bytes},
