@@ -50,7 +50,6 @@ import static java.util.concurrent.Executors.callable;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ShardCleaner
@@ -65,6 +64,7 @@ public class ShardCleaner
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
     private final Duration maxTransactionAge;
+    private final Duration transactionCleanerInterval;
     private final Duration localCleanerInterval;
     private final Duration localCleanTime;
     private final Duration localPurgeTime;
@@ -92,6 +92,7 @@ public class ShardCleaner
                 storageService,
                 backupStore,
                 config.getMaxTransactionAge(),
+                config.getTransactionCleanerInterval(),
                 config.getLocalCleanerInterval(),
                 config.getLocalCleanTime(),
                 config.getLocalPurgeTime(),
@@ -109,6 +110,7 @@ public class ShardCleaner
             StorageService storageService,
             Optional<BackupStore> backupStore,
             Duration maxTransactionAge,
+            Duration transactionCleanerInterval,
             Duration localCleanerInterval,
             Duration localCleanTime,
             Duration localPurgeTime,
@@ -125,6 +127,7 @@ public class ShardCleaner
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
         this.maxTransactionAge = requireNonNull(maxTransactionAge, "maxTransactionAge");
+        this.transactionCleanerInterval = requireNonNull(transactionCleanerInterval, "transactionCleanerInterval is null");
         this.localCleanerInterval = requireNonNull(localCleanerInterval, "localCleanerInterval is null");
         this.localCleanTime = requireNonNull(localCleanTime, "localCleanTime is null");
         this.localPurgeTime = requireNonNull(localPurgeTime, "localPurgeTime is null");
@@ -171,7 +174,7 @@ public class ShardCleaner
             catch (Throwable t) {
                 log.error(t, "Error cleaning transactions");
             }
-        }, 0, 5, MINUTES);
+        }, 0, transactionCleanerInterval.toMillis(), MILLISECONDS);
     }
 
     private void startBackupCleanup()

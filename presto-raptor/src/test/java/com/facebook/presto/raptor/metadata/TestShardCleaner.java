@@ -89,6 +89,7 @@ public class TestShardCleaner
                 storageService,
                 Optional.of(backupStore),
                 config.getMaxTransactionAge(),
+                config.getTransactionCleanerInterval(),
                 config.getLocalCleanerInterval(),
                 config.getLocalCleanTime(),
                 config.getLocalPurgeTime(),
