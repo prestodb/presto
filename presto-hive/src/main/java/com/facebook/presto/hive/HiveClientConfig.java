@@ -40,6 +40,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 @DefunctConfig({
         "hive.file-system-cache-ttl",
         "hive.max-global-split-iterator-threads",
+        "hive.optimized-reader.enabled"
 })
 public class HiveClientConfig
 {
@@ -104,7 +105,6 @@ public class HiveClientConfig
 
     private List<String> resourceConfigFiles;
 
-    private boolean optimizedReaderEnabled = true;
     private boolean parquetOptimizedReaderEnabled;
 
     private boolean parquetPredicatePushdownEnabled;
@@ -754,20 +754,6 @@ public class HiveClientConfig
     public HiveClientConfig setPinS3ClientToCurrentRegion(boolean pinS3ClientToCurrentRegion)
     {
         this.pinS3ClientToCurrentRegion = pinS3ClientToCurrentRegion;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isOptimizedReaderEnabled()
-    {
-        return optimizedReaderEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.optimized-reader.enabled")
-    public HiveClientConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
-    {
-        this.optimizedReaderEnabled = optimizedReaderEnabled;
         return this;
     }
 
