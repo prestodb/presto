@@ -71,7 +71,7 @@ public class ArrayToJsonCast
         Type elementType = arrayType.getTypeParameters().get(0);
         List<Object> objectValues = new ArrayList<>(array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
-            objectValues.add(elementType.getObjectValue(session, array, i));
+            objectValues.add(JsonFunctions.getJsonObjectValue(elementType, session, array, i));
         }
         try {
             return Slices.utf8Slice(OBJECT_MAPPER.get().writeValueAsString(objectValues));

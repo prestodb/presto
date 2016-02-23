@@ -16,13 +16,22 @@ package com.facebook.presto.type;
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.metadata.SqlScalarFunctionBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
+import javax.annotation.Nullable;
+
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -30,6 +39,7 @@ import java.math.RoundingMode;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
+import static com.facebook.presto.operator.scalar.JsonOperators.JSON_FACTORY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
@@ -40,7 +50,9 @@ import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
+import static com.facebook.presto.spi.type.StandardTypes.JSON;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Types.checkType;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
@@ -60,6 +72,8 @@ public final class DecimalCasts
     public static final SqlScalarFunction DOUBLE_TO_DECIMAL_CAST = castFunctionToDecimalFrom(DOUBLE, "doubleToShortDecimal", "doubleToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = castFunctionFromDecimalTo(VARCHAR, "shortDecimalToVarchar", "longDecimalToVarchar");
     public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(VARCHAR, "varcharToShortDecimal", "varcharToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON, "shortDecimalToJson", "longDecimalToJson");
+    public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON, "jsonToShortDecimal", "jsonToLongDecimal").nullableResult(true).build();
 
     private static SqlScalarFunction castFunctionFromDecimalTo(String to, String... methodNames)
     {
@@ -86,6 +100,11 @@ public final class DecimalCasts
 
     private static SqlScalarFunction castFunctionToDecimalFrom(String from, String... methodNames)
     {
+        return castFunctionToDecimalFromBuilder(from, methodNames).build();
+    }
+
+    private static SqlScalarFunctionBuilder castFunctionToDecimalFromBuilder(String from, String... methodNames)
+    {
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(CAST)
@@ -102,8 +121,7 @@ public final class DecimalCasts
                             long tenToScale = longTenToNth(resultType.getScale());
                             return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
                         })
-                )
-                .build();
+                );
     }
 
     private DecimalCasts() {}
@@ -311,5 +329,92 @@ public final class DecimalCasts
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s)", stringValue, precision, scale));
         }
         return encodeUnscaledValue(decimal.unscaledValue());
+    }
+
+    @UsedByGeneratedCode
+    public static Slice shortDecimalToJson(long decimal, long precision, long scale, long tenToScale)
+            throws IOException
+    {
+        return decimalToJson(BigDecimal.valueOf(decimal, (int) scale));
+    }
+
+    @UsedByGeneratedCode
+    public static Slice longDecimalToJson(Slice decimal, long precision, long scale, long tenToScale)
+            throws IOException
+    {
+        return decimalToJson(new BigDecimal(Decimals.decodeUnscaledValue(decimal), Ints.checkedCast(scale)));
+    }
+
+    private static Slice decimalToJson(BigDecimal bigDecimal)
+    {
+        try {
+            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(32);
+            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
+                jsonGenerator.writeNumber(bigDecimal);
+            }
+            return dynamicSliceOutput.slice();
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%f' to %s", bigDecimal, JSON));
+        }
+    }
+
+    @UsedByGeneratedCode
+    public static Slice jsonToLongDecimal(Slice json, long precision, long scale, long tenToScale)
+            throws IOException
+    {
+        BigDecimal bigDecimal = jsonToDecimal(json, precision, scale);
+        if (bigDecimal == null) {
+            return null;
+        }
+        return Decimals.encodeUnscaledValue(bigDecimal.unscaledValue());
+    }
+
+    @UsedByGeneratedCode
+    public static Long jsonToShortDecimal(Slice json, long precision, long scale, long tenToScale)
+            throws IOException
+    {
+        BigDecimal bigDecimal = jsonToDecimal(json, precision, scale);
+        return bigDecimal != null ? bigDecimal.unscaledValue().longValue() : null;
+    }
+
+    @Nullable
+    private static BigDecimal jsonToDecimal(Slice json, long precision, long scale)
+    {
+        try (JsonParser parser = JSON_FACTORY.createParser(json.getInput())) {
+            parser.nextToken();
+            BigDecimal result;
+            switch (parser.getCurrentToken()) {
+                case VALUE_NULL:
+                    result = null;
+                    break;
+                case VALUE_STRING:
+                    result = new BigDecimal(parser.getText());
+                    result = result.setScale((int) scale, ROUND_HALF_UP);
+                    break;
+                case VALUE_NUMBER_FLOAT:
+                case VALUE_NUMBER_INT:
+                    result = parser.getDecimalValue();
+                    result = result.setScale((int) scale, ROUND_HALF_UP);
+                    break;
+                case VALUE_TRUE:
+                    result = BigDecimal.ONE.setScale((int) scale, ROUND_HALF_UP);
+                    break;
+                case VALUE_FALSE:
+                    result = BigDecimal.ZERO.setScale((int) scale, ROUND_HALF_UP);
+                    break;
+                default:
+                    throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale));
+            }
+            checkCondition(
+                    parser.nextToken() == null &&
+                            (result == null || result.precision() <= precision),
+                    INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
+
+            return result;
+        }
+        catch (IOException | NumberFormatException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale));
+        }
     }
 }
