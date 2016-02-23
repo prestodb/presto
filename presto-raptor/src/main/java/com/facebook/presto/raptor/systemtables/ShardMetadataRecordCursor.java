@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.exceptions.DBIException;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -181,7 +182,7 @@ public class ShardMetadataRecordCursor
             completedBytes += resultSetValues.extractValues(resultSet, ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)));
             return true;
         }
-        catch (SQLException e) {
+        catch (SQLException | DBIException e) {
             throw metadataError(e);
         }
     }
@@ -275,7 +276,7 @@ public class ShardMetadataRecordCursor
                     tupleDomain);
             return statement.executeQuery();
         }
-        catch (SQLException e) {
+        catch (SQLException | DBIException e) {
             close();
             throw metadataError(e);
         }
@@ -328,7 +329,7 @@ public class ShardMetadataRecordCursor
                 tableIds.add(resultSet.getLong("table_id"));
             }
         }
-        catch (SQLException e) {
+        catch (SQLException | DBIException e) {
             throw metadataError(e);
         }
         return tableIds.build().iterator();
