@@ -58,6 +58,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.primitives.Doubles.isFinite;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -380,6 +381,7 @@ public class Validator
                 if (explainOnly) {
                     sql = "EXPLAIN " + sql;
                 }
+                long start = System.nanoTime();
                 PrestoStatement prestoStatement = limitedStatement.unwrap(PrestoStatement.class);
                 ProgressMonitor progressMonitor = new ProgressMonitor();
                 prestoStatement.setProgressMonitor(progressMonitor);
@@ -397,9 +399,8 @@ public class Validator
                     if (queryStats == null) {
                         throw new VerifierException("Cannot fetch query stats");
                     }
-                    Duration queryWallTime = new Duration(queryStats.getWallTimeMillis(), TimeUnit.MILLISECONDS);
                     Duration queryCpuTime = new Duration(queryStats.getCpuTimeMillis(), TimeUnit.MILLISECONDS);
-                    return new QueryResult(State.SUCCESS, null, queryWallTime, queryCpuTime, results);
+                    return new QueryResult(State.SUCCESS, null, nanosSince(start), queryCpuTime, results);
                 }
                 catch (AssertionError e) {
                     if (e.getMessage().startsWith("unimplemented type:")) {
