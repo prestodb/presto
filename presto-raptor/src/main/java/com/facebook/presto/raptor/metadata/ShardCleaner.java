@@ -21,8 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -56,8 +54,6 @@ public class ShardCleaner
 {
     private static final Logger log = Logger.get(ShardCleaner.class);
 
-    private final IDBI dbi;
-    private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
     private final String currentNode;
     private final boolean coordinator;
@@ -78,14 +74,13 @@ public class ShardCleaner
 
     @Inject
     public ShardCleaner(
-            @ForMetadata IDBI dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
             ShardCleanerConfig config)
     {
-        this(dbi,
+        this(
                 shardDaoSupplier,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 nodeManager.getCoordinators().contains(nodeManager.getCurrentNode()),
@@ -103,7 +98,6 @@ public class ShardCleaner
     }
 
     public ShardCleaner(
-            IDBI dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             String currentNode,
             boolean coordinator,
@@ -119,8 +113,6 @@ public class ShardCleaner
             Duration backupPurgeTime,
             int backupDeletionThreads)
     {
-        this.dbi = requireNonNull(dbi, "dbi is null");
-        this.shardDaoSupplier = requireNonNull(shardDaoSupplier, "shardDaoSupplier is null");
         this.dao = shardDaoSupplier.onDemand();
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.coordinator = coordinator;
@@ -218,22 +210,18 @@ public class ShardCleaner
     @VisibleForTesting
     void deleteOldShards()
     {
-        try (Handle handle = dbi.open()) {
-            ShardDao dao = shardDaoSupplier.attach(handle);
+        while (!Thread.currentThread().isInterrupted()) {
+            List<UUID> shards = dao.getOldCreatedShardsBatch();
+            dao.insertDeletedShards(shards);
+            dao.deleteCreatedShards(shards);
 
-            dao.dropTableTemporaryCreatedShards();
-            dao.createTableTemporaryCreatedShards();
-            dao.insertTemporaryCreatedShards();
-            dao.insertDeletedShardsFromCreated();
-            dao.deleteOldCreatedShards();
-            dao.dropTableTemporaryCreatedShards();
+            List<ShardNodeId> shardNodes = dao.getOldCreatedShardNodesBatch();
+            dao.insertDeletedShardNodes(shardNodes);
+            dao.deleteCreatedShardNodes(shardNodes);
 
-            dao.dropTableTemporaryCreatedShardNodes();
-            dao.createTableTemporaryCreatedShardNodes();
-            dao.insertTemporaryCreatedShardNodes();
-            dao.insertDeletedShardNodesFromCreated();
-            dao.deleteOldCreatedShardNodes();
-            dao.dropTableTemporaryCreatedShardNodes();
+            if (shards.isEmpty() && shardNodes.isEmpty()) {
+                break;
+            }
         }
     }
 

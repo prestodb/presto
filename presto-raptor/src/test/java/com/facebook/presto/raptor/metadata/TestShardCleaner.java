@@ -82,7 +82,6 @@ public class TestShardCleaner
 
         ShardCleanerConfig config = new ShardCleanerConfig();
         cleaner = new ShardCleaner(
-                dbi,
                 new DaoSupplier<>(dbi, ShardDao.class),
                 "node1",
                 true,
