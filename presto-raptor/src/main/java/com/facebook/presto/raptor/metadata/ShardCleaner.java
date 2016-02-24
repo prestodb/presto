@@ -39,10 +39,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.callable;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -234,10 +234,12 @@ public class ShardCleaner
                 break;
             }
 
+            long start = System.nanoTime();
             for (UUID uuid : uuids) {
                 deleteFile(storageService.getStorageFile(uuid));
             }
             dao.updateCleanedShardNodes(uuids, getCurrentNodeId());
+            log.info("Cleaned %s local shards in %s", uuids.size(), nanosSince(start));
         }
     }
 
@@ -250,10 +252,12 @@ public class ShardCleaner
                 break;
             }
 
+            long start = System.nanoTime();
             for (UUID uuid : uuids) {
                 deleteFile(storageService.getStorageFile(uuid));
             }
             dao.updatePurgedShardNodes(uuids, getCurrentNodeId());
+            log.info("Purged %s local shards in %s", uuids.size(), nanosSince(start));
         }
     }
 
@@ -266,10 +270,10 @@ public class ShardCleaner
                 break;
             }
 
-            executeDeletes(uuids, (uuid) -> {
-                backupStore.get().deleteShard(uuid);
-                dao.updateCleanedShard(uuid);
-            });
+            long start = System.nanoTime();
+            executeDeletes(uuids);
+            dao.updateCleanedShards(uuids);
+            log.info("Cleaned %s backup shards in %s", uuids.size(), nanosSince(start));
         }
     }
 
@@ -282,19 +286,19 @@ public class ShardCleaner
                 break;
             }
 
-            executeDeletes(uuids, (uuid) -> {
-                backupStore.get().deleteShard(uuid);
-                dao.updatePurgedShard(uuid);
-            });
+            long start = System.nanoTime();
+            executeDeletes(uuids);
+            dao.updatePurgedShards(uuids);
+            log.info("Purged %s backup shards in %s", uuids.size(), nanosSince(start));
         }
     }
 
-    private void executeDeletes(List<UUID> uuids, Consumer<UUID> consumer)
+    private void executeDeletes(List<UUID> uuids)
     {
         List<Callable<Object>> tasks = new ArrayList<>();
         for (UUID uuid : uuids) {
             tasks.add(callable(() -> {
-                consumer.accept(uuid);
+                backupStore.get().deleteShard(uuid);
             }));
         }
 
