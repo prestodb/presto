@@ -210,4 +210,29 @@ public interface MetadataDao
             @Bind("distributionName") String distributionName,
             @Bind("columnTypes") String columnTypes,
             @Bind("bucketCount") int bucketCount);
+
+    @SqlQuery("SELECT table_id, schema_name, table_name, temporal_column_id, distribution_name, bucket_count\n" +
+            "FROM tables\n" +
+            "LEFT JOIN distributions\n" +
+            "ON tables.distribution_id = distributions.distribution_id\n" +
+            "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
+            "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
+            "ORDER BY table_id")
+    @Mapper(TableMetadataRow.Mapper.class)
+    List<TableMetadataRow> getTableMetadataRows(
+            @Bind("schemaName") String schemaName,
+            @Bind("tableName") String tableName);
+
+    @SqlQuery("SELECT table_id, column_id, column_name, sort_ordinal_position, bucket_ordinal_position\n" +
+            "FROM columns\n" +
+            "WHERE table_id IN (\n" +
+            "  SELECT table_id\n" +
+            "  FROM tables\n" +
+            "  WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
+            "    AND (table_name = :tableName OR :tableName IS NULL))\n" +
+            "ORDER BY table_id")
+    @Mapper(ColumnMetadataRow.Mapper.class)
+    List<ColumnMetadataRow> getColumnMetadataRows(
+            @Bind("schemaName") String schemaName,
+            @Bind("tableName") String tableName);
 }
