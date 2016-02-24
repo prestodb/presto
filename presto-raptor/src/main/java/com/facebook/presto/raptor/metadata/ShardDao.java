@@ -233,15 +233,15 @@ public interface ShardDao
             @Bind("nodeIdentifier") String nodeIdentifier,
             @Bind("maxDeleteTime") Timestamp maxDeleteTime);
 
-    @SqlUpdate("UPDATE deleted_shards SET clean_time = CURRENT_TIMESTAMP\n" +
+    @SqlBatch("UPDATE deleted_shards SET clean_time = CURRENT_TIMESTAMP\n" +
             "WHERE shard_uuid = :shardUuid\n" +
             "  AND clean_time IS NULL\n")
-    void updateCleanedShard(@Bind("shardUuid") UUID shardUuid);
+    void updateCleanedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
-    @SqlUpdate("UPDATE deleted_shards SET purge_time = CURRENT_TIMESTAMP\n" +
+    @SqlBatch("UPDATE deleted_shards SET purge_time = CURRENT_TIMESTAMP\n" +
             "WHERE shard_uuid = :shardUuid\n" +
             "  AND purge_time IS NULL\n")
-    void updatePurgedShard(@Bind("shardUuid") UUID shardUuid);
+    void updatePurgedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
     @SqlBatch("UPDATE deleted_shard_nodes SET clean_time = CURRENT_TIMESTAMP\n" +
             "WHERE shard_uuid = :shardUuid\n" +
