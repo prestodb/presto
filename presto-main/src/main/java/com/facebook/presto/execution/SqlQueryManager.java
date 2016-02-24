@@ -309,6 +309,10 @@ public class SqlQueryManager
                 stats.queryFinished(info);
                 queryMonitor.completionEvent(info);
                 expirationQueue.add(queryExecution);
+                log.info(String.format("Query complete\t%s\t%s\t%s\t%s\t%s\t%s\t%s",
+                        info.getQueryId(), newValue, info.getErrorType(), info.getErrorCode(),
+                        session.getUser(), info.getQueryStats().getElapsedTime(),
+                        info.getQuery().replace(System.getProperty("line.separator"), " ")));
             }
         });
 
