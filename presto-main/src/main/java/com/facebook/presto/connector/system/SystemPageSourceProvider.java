@@ -15,18 +15,21 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.split.MappedPageSource;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,18 +48,18 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class SystemRecordSetProvider
-        implements ConnectorRecordSetProvider
+public class SystemPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
     private final Map<SchemaTableName, SystemTable> tables;
 
-    public SystemRecordSetProvider(Set<SystemTable> tables)
+    public SystemPageSourceProvider(Set<SystemTable> tables)
     {
         this.tables = uniqueIndex(tables, table -> table.getTableMetadata().getTable());
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = checkType(transactionHandle, SystemTransactionHandle.class, "transaction");
@@ -95,7 +98,12 @@ public class SystemRecordSetProvider
         }
         TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());
 
-        return new MappedRecordSet(toRecordSet(systemTransaction.getTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build());
+        try {
+            return new MappedPageSource(systemTable.pageSource(systemTransaction.getTransactionHandle(), session, newContraint), userToSystemFieldIndex.build());
+        }
+        catch (UnsupportedOperationException e) {
+            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build()));
+        }
     }
 
     private static RecordSet toRecordSet(ConnectorTransactionHandle sourceTransaction, SystemTable table, ConnectorSession session, TupleDomain<Integer> constraint)
