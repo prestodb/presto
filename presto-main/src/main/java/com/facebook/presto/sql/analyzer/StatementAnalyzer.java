@@ -524,10 +524,12 @@ class StatementAnalyzer
             throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
         }
 
-        analysis.setUpdateType("INSERT");
-
         // analyze the query that creates the data
         RelationType queryDescriptor = process(insert.getQuery(), context);
+
+        analysis.setUpdateType("INSERT");
+
+        analysis.setStatement(insert);
 
         // verify the insert destination columns match the query
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -623,10 +625,6 @@ class StatementAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
         }
 
-        analysis.setUpdateType("DELETE");
-
-        analysis.setDelete(node);
-
         // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
         // TODO: we shouldn't need to create a new analyzer. The access control should be carried in the context object
         StatementAnalyzer analyzer = new StatementAnalyzer(
@@ -640,6 +638,10 @@ class StatementAnalyzer
 
         RelationType descriptor = analyzer.process(table, context);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, descriptor, context, where));
+
+        analysis.setUpdateType("DELETE");
+
+        analysis.setStatement(node);
 
         accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
@@ -672,6 +674,8 @@ class StatementAnalyzer
 
         // analyze the query that creates the table
         RelationType descriptor = process(node.getQuery(), context);
+
+        analysis.setStatement(node);
 
         validateColumns(node, descriptor);
 
@@ -788,7 +792,7 @@ class StatementAnalyzer
         // Input fields == Output fields
         analysis.setOutputDescriptor(node, descriptor);
         analysis.setOutputExpressions(node, descriptorToFields(descriptor));
-        analysis.setQuery(node);
+        analysis.setStatement(node);
 
         return descriptor;
     }

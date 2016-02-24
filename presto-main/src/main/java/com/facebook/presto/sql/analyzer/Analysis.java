@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -28,6 +27,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Analysis
 {
-    private Query query;
+    private Statement statement;
     private String updateType;
 
     private final IdentityHashMap<Table, Query> namedQueries = new IdentityHashMap<>();
@@ -90,17 +90,14 @@ public class Analysis
 
     private Optional<Insert> insert = Optional.empty();
 
-    // for delete
-    private Optional<Delete> delete = Optional.empty();
-
-    public Query getQuery()
+    public Statement getStatement()
     {
-        return query;
+        return statement;
     }
 
-    public void setQuery(Query query)
+    public void setStatement(Statement statement)
     {
-        this.query = query;
+        this.statement = statement;
     }
 
     public String getUpdateType()
@@ -374,16 +371,6 @@ public class Analysis
     public Optional<Insert> getInsert()
     {
         return insert;
-    }
-
-    public void setDelete(Delete delete)
-    {
-        this.delete = Optional.of(delete);
-    }
-
-    public Optional<Delete> getDelete()
-    {
-        return delete;
     }
 
     public Query getNamedQuery(Table table)

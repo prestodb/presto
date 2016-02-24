@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
+import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
@@ -384,7 +385,8 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session).process(node, null);
+        Optional<Double> approximationConfidence = node.getApproximate().map(Approximate::getConfidence).map(confidence -> Double.valueOf(confidence) / 100.0);
+        PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, approximationConfidence).process(node, null);
 
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         for (FieldOrExpression fieldOrExpression : analysis.getOutputExpressions(node)) {
@@ -397,7 +399,7 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session).process(node, null);
+        PlanBuilder subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, Optional.empty()).process(node, null);
 
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         for (FieldOrExpression fieldOrExpression : analysis.getOutputExpressions(node)) {
