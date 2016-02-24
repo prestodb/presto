@@ -16,7 +16,7 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -34,7 +34,7 @@ public class SystemConnector
     private final String connectorId;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
-    private final ConnectorRecordSetProvider recordSetProvider;
+    private final ConnectorPageSourceProvider pageSourceProvider;
     private final Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction;
 
     public SystemConnector(
@@ -51,7 +51,7 @@ public class SystemConnector
         this.connectorId = connectorId;
         this.metadata = new SystemTablesMetadata(connectorId, tables);
         this.splitManager = new SystemSplitManager(nodeManager, tables);
-        this.recordSetProvider = new SystemRecordSetProvider(tables);
+        this.pageSourceProvider = new SystemPageSourceProvider(tables);
         this.transactionHandleFunction = transactionHandleFunction;
     }
 
@@ -74,8 +74,8 @@ public class SystemConnector
     }
 
     @Override
-    public ConnectorRecordSetProvider getRecordSetProvider()
+    public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        return recordSetProvider;
+        return pageSourceProvider;
     }
 }
