@@ -635,7 +635,7 @@ class AstBuilder
             return "INSERT";
         }
         else {
-            throw new IllegalArgumentException("Unsupported Privilege: " + context.value.toString());
+            throw new IllegalArgumentException("Unsupported Privilege: " + context.getText());
         }
     }
 
