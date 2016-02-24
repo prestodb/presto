@@ -167,12 +167,6 @@ public interface ShardDao
 
     @SqlBatch("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time)\n" +
             "VALUES (:shardUuid, :nodeId, CURRENT_TIMESTAMP)")
-    void insertDeletedShardNodes(
-            @Bind("shardUuid") List<UUID> shardUuids,
-            @Bind("nodeId") List<Integer> nodeIds);
-
-    @SqlBatch("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time)\n" +
-            "VALUES (:shardUuid, :nodeId, CURRENT_TIMESTAMP)")
     void insertDeletedShardNodes(@BindBean Iterable<ShardNodeId> shardNodes);
 
     @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
