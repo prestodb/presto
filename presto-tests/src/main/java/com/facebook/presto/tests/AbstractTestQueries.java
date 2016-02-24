@@ -158,6 +158,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testNonDeterministicProjection()
+    {
+        MaterializedResult materializedResult = computeActual("select r, r + 1 from (select rand(100) r from orders) limit 10");
+        assertEquals(materializedResult.getRowCount(), 10);
+        for (MaterializedRow materializedRow : materializedResult) {
+            assertEquals(materializedRow.getFieldCount(), 2);
+            assertEquals(((Number) materializedRow.getField(0)).longValue() + 1, materializedRow.getField(1));
+        }
+    }
+
+    @Test
     public void testVarbinary()
             throws Exception
     {

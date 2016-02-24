@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -58,7 +59,9 @@ public class MergeProjections
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            if (source instanceof ProjectNode) {
+            // only merge if the source is completely deterministic
+            // todo perform partial merge, pushing down expressions that have deterministic sources
+            if (source instanceof ProjectNode && ((ProjectNode) source).getAssignments().values().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
                 ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
                 for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
                     Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(((ProjectNode) source).getAssignments()), projection.getValue());
