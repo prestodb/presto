@@ -132,6 +132,7 @@ public final class UuidUtil
     /**
      * @param uuidSlice textual representation of UUID
      * @return byte representation of UUID
+     * @throws IllegalArgumentException if uuidSlice is not a valid string representation of UUID
      */
     public static Slice uuidStringToBytes(Slice uuidSlice)
     {
