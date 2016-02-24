@@ -31,16 +31,4 @@ public interface MySqlShardDao
             "JOIN shards USING (shard_id)\n" +
             "WHERE table_id = :tableId")
     void dropShardNodes(@Bind("tableId") long tableId);
-
-    @Override
-    @SqlUpdate("DELETE x\n" +
-            "FROM created_shards x\n" +
-            "JOIN tmp_created_shards USING (shard_uuid)")
-    void deleteOldCreatedShards();
-
-    @Override
-    @SqlUpdate("DELETE x\n" +
-            "FROM created_shard_nodes x\n" +
-            "JOIN tmp_created_shard_nodes USING (shard_uuid, node_id)")
-    void deleteOldCreatedShardNodes();
 }
