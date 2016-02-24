@@ -107,10 +107,18 @@ class ShardPredicate
             if (handle.isShardUuid()) {
                 // TODO: support multiple shard UUIDs
                 if (domain.isSingleValue()) {
+                    Slice uuidText = checkType(entry.getValue().getSingleValue(), Slice.class, "value");
+                    Slice uuidBytes;
+                    try {
+                        uuidBytes = uuidStringToBytes(uuidText);
+                    }
+                    catch (IllegalArgumentException e) {
+                        predicate.add("false");
+                        continue;
+                    }
                     predicate.add("shard_uuid = ?");
-                    types.add(jdbcType(type));
-                    Slice uuidSlice = checkType(entry.getValue().getSingleValue(), Slice.class, "value");
-                    values.add(uuidStringToBytes(uuidSlice));
+                    types.add(jdbcType);
+                    values.add(uuidBytes);
                 }
                 continue;
             }
