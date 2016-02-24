@@ -277,8 +277,7 @@ public class DatabaseShardManager
         String args = Joiner.on(",").join(nCopies(shardUuids.size(), "?"));
 
         ImmutableSet.Builder<Long> shardIdSet = ImmutableSet.builder();
-        ImmutableList.Builder<UUID> shardUuidList = ImmutableList.builder();
-        ImmutableList.Builder<Integer> nodeIdList = ImmutableList.builder();
+        ImmutableList.Builder<ShardNodeId> shardNodesList = ImmutableList.builder();
 
         String selectShardNodes = format(
                 "SELECT shard_id, shard_uuid, node_ids FROM %s WHERE shard_uuid IN (%s) FOR UPDATE",
@@ -291,8 +290,7 @@ public class DatabaseShardManager
                     shardIdSet.add(rs.getLong("shard_id"));
                     UUID shardUuid = uuidFromBytes(rs.getBytes("shard_uuid"));
                     for (Integer nodeId : intArrayFromBytes(rs.getBytes("node_ids"))) {
-                        shardUuidList.add(shardUuid);
-                        nodeIdList.add(nodeId);
+                        shardNodesList.add(new ShardNodeId(shardUuid, nodeId));
                     }
                 }
             }
@@ -305,7 +303,7 @@ public class DatabaseShardManager
 
         ShardDao dao = shardDaoSupplier.attach(handle);
         dao.insertDeletedShards(shardUuids);
-        dao.insertDeletedShardNodes(shardUuidList.build(), nodeIdList.build());
+        dao.insertDeletedShardNodes(shardNodesList.build());
 
         String where = " WHERE shard_id IN (" + args + ")";
         String deleteFromShardNodes = "DELETE FROM shard_nodes " + where;
@@ -435,7 +433,7 @@ public class DatabaseShardManager
             if (nodes.remove(nodeId)) {
                 updateNodeIds(handle, tableId, shardUuid, nodes);
                 dao.deleteShardNode(shardUuid, nodeId);
-                dao.insertDeletedShardNodes(ImmutableList.of(shardUuid), ImmutableList.of(nodeId));
+                dao.insertDeletedShardNodes(ImmutableList.of(new ShardNodeId(shardUuid, nodeId)));
             }
 
             return null;

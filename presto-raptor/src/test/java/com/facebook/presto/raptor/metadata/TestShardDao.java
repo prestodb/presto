@@ -114,9 +114,11 @@ public class TestShardDao
     public void testInsertDeletedShardNode()
             throws Exception
     {
-        List<UUID> shardUuids = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID());
-        List<Integer> nodeIds = ImmutableList.of(dao.insertNode("node1"), dao.insertNode("node2"));
-        dao.insertDeletedShardNodes(shardUuids, nodeIds);
+        List<ShardNodeId> shardNodes = ImmutableList.<ShardNodeId>builder()
+                .add(new ShardNodeId(UUID.randomUUID(), dao.insertNode("node1")))
+                .add(new ShardNodeId(UUID.randomUUID(), dao.insertNode("node2")))
+                .build();
+        dao.insertDeletedShardNodes(shardNodes);
         dao.insertDeletedShardNodes(0);
     }
 
@@ -291,11 +293,12 @@ public class TestShardDao
         String nodeName2 = UUID.randomUUID().toString();
         int nodeId2 = dao.insertNode(nodeName2);
 
-        ImmutableList<UUID> shards = ImmutableList.of(UUID.randomUUID());
+        UUID shard = UUID.randomUUID();
+        ImmutableList<UUID> shards = ImmutableList.of(shard);
 
         // insert shard on both nodes
-        dao.insertDeletedShardNodes(shards, ImmutableList.of(nodeId1));
-        dao.insertDeletedShardNodes(shards, ImmutableList.of(nodeId2));
+        dao.insertDeletedShardNodes(ImmutableList.of(new ShardNodeId(shard, nodeId1)));
+        dao.insertDeletedShardNodes(ImmutableList.of(new ShardNodeId(shard, nodeId2)));
 
         // verify we should clean from both
         assertEquals(dao.getCleanableShardNodesBatch(nodeName1, future()), shards);
