@@ -74,19 +74,19 @@ public class TestTopNRowNumberOperator
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.91)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.91)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
                 .pageBreak()
-                .row(2, 0.9)
+                .row(2L, 0.9)
                 .build();
 
         TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
@@ -106,14 +106,14 @@ public class TestTopNRowNumberOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
-                .row(0.3, 1, 1)
-                .row(0.4, 1, 2)
-                .row(0.5, 1, 3)
-                .row(0.2, 2, 1)
-                .row(0.7, 2, 2)
-                .row(0.8, 2, 3)
-                .row(0.1, 3, 1)
-                .row(0.91, 3, 2)
+                .row(0.3, 1L, 1L)
+                .row(0.4, 1L, 2L)
+                .row(0.5, 1L, 3L)
+                .row(0.2, 2L, 1L)
+                .row(0.7, 2L, 2L)
+                .row(0.8, 2L, 3L)
+                .row(0.1, 3L, 1L)
+                .row(0.91, 3L, 2L)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -124,19 +124,19 @@ public class TestTopNRowNumberOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.91)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.91)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
                 .pageBreak()
-                .row(2, 0.9)
+                .row(2L, 0.9)
                 .build();
 
         TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
@@ -156,9 +156,9 @@ public class TestTopNRowNumberOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
-                .row(0.1, 3, 1)
-                .row(0.2, 2, 2)
-                .row(0.3, 1, 3)
+                .row(0.1, 3L, 1L)
+                .row(0.2, 2L, 2L)
+                .row(0.3, 1L, 3L)
                 .build();
 
         assertOperatorEquals(operator, input, expected);

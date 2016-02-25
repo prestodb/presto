@@ -49,9 +49,9 @@ public class TestVarbinaryFunctions
     public void testLength()
             throws Exception
     {
-        assertFunction("length(CAST('' AS VARBINARY))", BIGINT, 0);
-        assertFunction("length(CAST('a' AS VARBINARY))", BIGINT, 1);
-        assertFunction("length(CAST('abc' AS VARBINARY))", BIGINT, 3);
+        assertFunction("length(CAST('' AS VARBINARY))", BIGINT, 0L);
+        assertFunction("length(CAST('a' AS VARBINARY))", BIGINT, 1L);
+        assertFunction("length(CAST('abc' AS VARBINARY))", BIGINT, 3L);
     }
 
     @Test

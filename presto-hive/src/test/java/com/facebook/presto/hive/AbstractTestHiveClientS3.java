@@ -319,9 +319,9 @@ public abstract class AbstractTestHiveClientS3
         HiveOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty());
 
         MaterializedResult data = MaterializedResult.resultBuilder(SESSION, BIGINT)
-                .row(1)
-                .row(3)
-                .row(2)
+                .row(1L)
+                .row(3L)
+                .row(2L)
                 .build();
 
         // write the records

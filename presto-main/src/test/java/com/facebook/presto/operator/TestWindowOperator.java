@@ -108,12 +108,12 @@ public class TestWindowOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(2, 0.3)
-                .row(4, 0.2)
-                .row(6, 0.1)
+                .row(2L, 0.3)
+                .row(4L, 0.2)
+                .row(6L, 0.1)
                 .pageBreak()
-                .row(-1, -0.1)
-                .row(5, 0.4)
+                .row(-1L, -0.1)
+                .row(5L, 0.4)
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -127,11 +127,11 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
-                .row(-0.1, -1, 1)
-                .row(0.3, 2, 2)
-                .row(0.2, 4, 3)
-                .row(0.4, 5, 4)
-                .row(0.1, 6, 5)
+                .row(-0.1, -1L, 1L)
+                .row(0.3, 2L, 2L)
+                .row(0.2, 4L, 3L)
+                .row(0.4, 5L, 4L)
+                .row(0.1, 6L, 5L)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -142,12 +142,12 @@ public class TestWindowOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, DOUBLE, BOOLEAN)
-                .row("b", -1, -0.1, true)
-                .row("a", 2, 0.3, false)
-                .row("a", 4, 0.2, true)
+                .row("b", -1L, -0.1, true)
+                .row("a", 2L, 0.3, false)
+                .row("a", 4L, 0.2, true)
                 .pageBreak()
-                .row("b", 5, 0.4, false)
-                .row("a", 6, 0.1, true)
+                .row("b", 5L, 0.4, false)
+                .row("a", 6L, 0.1, true)
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -161,11 +161,11 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT)
-                .row("a", 2, 0.3, false, 1)
-                .row("a", 4, 0.2, true, 2)
-                .row("a", 6, 0.1, true, 3)
-                .row("b", -1, -0.1, true, 1)
-                .row("b", 5, 0.4, false, 2)
+                .row("a", 2L, 0.3, false, 1L)
+                .row("a", 4L, 0.2, true, 2L)
+                .row("a", 6L, 0.1, true, 3L)
+                .row("b", -1L, -0.1, true, 1L)
+                .row("b", 5L, 0.4, false, 2L)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -176,15 +176,15 @@ public class TestWindowOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT)
-                .row(1)
-                .row(3)
-                .row(5)
-                .row(7)
+                .row(1L)
+                .row(3L)
+                .row(5L)
+                .row(7L)
                 .pageBreak()
-                .row(2)
-                .row(4)
-                .row(6)
-                .row(8)
+                .row(2L)
+                .row(4L)
+                .row(6L)
+                .row(8L)
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -198,14 +198,14 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
-                .row(1, 1)
-                .row(3, 2)
-                .row(5, 3)
-                .row(7, 4)
-                .row(2, 5)
-                .row(4, 6)
-                .row(6, 7)
-                .row(8, 8)
+                .row(1L, 1L)
+                .row(3L, 2L)
+                .row(5L, 3L)
+                .row(7L, 4L)
+                .row(2L, 5L)
+                .row(4L, 6L)
+                .row(6L, 7L)
+                .row(8L, 8L)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -216,11 +216,11 @@ public class TestWindowOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1, 0.1)
-                .row(2, 0.2)
+                .row(1L, 0.1)
+                .row(2L, 0.2)
                 .pageBreak()
-                .row(-1, -0.1)
-                .row(4, 0.4)
+                .row(-1L, -0.1)
+                .row(4L, 0.4)
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
@@ -245,13 +245,13 @@ public class TestWindowOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
-                .row("b", "A1", 1, true, "")
-                .row("a", "A2", 1, false, "")
-                .row("a", "B1", 2, true, "")
+                .row("b", "A1", 1L, true, "")
+                .row("a", "A2", 1L, false, "")
+                .row("a", "B1", 2L, true, "")
                 .pageBreak()
-                .row("b", "C1", 2, false, "")
-                .row("a", "C2", 3, true, "")
-                .row("c", "A3", 1, true, "")
+                .row("b", "C1", 2L, false, "")
+                .row("a", "C2", 3L, true, "")
+                .row("c", "A3", 1L, true, "")
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -265,12 +265,12 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
-                .row("a", "A2", 1, false, "A2")
-                .row("a", "B1", 2, true, "A2")
-                .row("a", "C2", 3, true, "A2")
-                .row("b", "A1", 1, true, "A1")
-                .row("b", "C1", 2, false, "A1")
-                .row("c", "A3", 1, true, "A3")
+                .row("a", "A2", 1L, false, "A2")
+                .row("a", "B1", 2L, true, "A2")
+                .row("a", "C2", 3L, true, "A2")
+                .row("b", "A1", 1L, true, "A1")
+                .row("b", "C1", 2L, false, "A1")
+                .row("c", "A3", 1L, true, "A3")
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -281,13 +281,13 @@ public class TestWindowOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
-                .row("b", "A1", 1, true, "")
-                .row("a", "A2", 1, false, "")
-                .row("a", "B1", 2, true, "")
+                .row("b", "A1", 1L, true, "")
+                .row("a", "A2", 1L, false, "")
+                .row("a", "B1", 2L, true, "")
                 .pageBreak()
-                .row("b", "C1", 2, false, "")
-                .row("a", "C2", 3, true, "")
-                .row("c", "A3", 1, true, "")
+                .row("b", "C1", 2L, false, "")
+                .row("a", "C2", 3L, true, "")
+                .row("c", "A3", 1L, true, "")
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -301,12 +301,12 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
-                .row("a", "A2", 1, false, "C2")
-                .row("a", "B1", 2, true, "C2")
-                .row("a", "C2", 3, true, "C2")
-                .row("b", "A1", 1, true, "C1")
-                .row("b", "C1", 2, false, "C1")
-                .row("c", "A3", 1, true, "A3")
+                .row("a", "A2", 1L, false, "C2")
+                .row("a", "B1", 2L, true, "C2")
+                .row("a", "C2", 3L, true, "C2")
+                .row("b", "A1", 1L, true, "C1")
+                .row("b", "C1", 2L, false, "C1")
+                .row("c", "A3", 1L, true, "A3")
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -317,13 +317,13 @@ public class TestWindowOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, BOOLEAN, VARCHAR)
-                .row("b", "A1", 1, 2, true, "")
-                .row("a", "A2", 1, 3, false, "")
-                .row("a", "B1", 2, 2, true, "")
+                .row("b", "A1", 1L, 2L, true, "")
+                .row("a", "A2", 1L, 3L, false, "")
+                .row("a", "B1", 2L, 2L, true, "")
                 .pageBreak()
-                .row("b", "C1", 2, 3, false, "")
-                .row("a", "C2", 3, 1, true, "")
-                .row("c", "A3", 1, null, true, "")
+                .row("b", "C1", 2L, 3L, false, "")
+                .row("a", "C2", 3L, 1L, true, "")
+                .row("c", "A3", 1L, null, true, "")
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -337,12 +337,12 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
-                .row("a", "A2", 1, false, "C2")
-                .row("a", "B1", 2, true, "B1")
-                .row("a", "C2", 3, true, "A2")
-                .row("b", "A1", 1, true, "C1")
-                .row("b", "C1", 2, false, null)
-                .row("c", "A3", 1, true, null)
+                .row("a", "A2", 1L, false, "C2")
+                .row("a", "B1", 2L, true, "B1")
+                .row("a", "C2", 3L, true, "A2")
+                .row("b", "A1", 1L, true, "C1")
+                .row("b", "C1", 2L, false, null)
+                .row("c", "A3", 1L, true, null)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -353,13 +353,13 @@ public class TestWindowOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
-                .row("b", "A1", 1, 1, "D", true, "")
-                .row("a", "A2", 1, 2, "D", false, "")
-                .row("a", "B1", 2, 2, "D", true, "")
+                .row("b", "A1", 1L, 1L, "D", true, "")
+                .row("a", "A2", 1L, 2L, "D", false, "")
+                .row("a", "B1", 2L, 2L, "D", true, "")
                 .pageBreak()
-                .row("b", "C1", 2, 1, "D", false, "")
-                .row("a", "C2", 3, 2, "D", true, "")
-                .row("c", "A3", 1, 1, "D", true, "")
+                .row("b", "C1", 2L, 1L, "D", false, "")
+                .row("a", "C2", 3L, 2L, "D", true, "")
+                .row("c", "A3", 1L, 1L, "D", true, "")
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -373,12 +373,12 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
-                .row("a", "A2", 1, false, "D")
-                .row("a", "B1", 2, true, "D")
-                .row("a", "C2", 3, true, "A2")
-                .row("b", "A1", 1, true, "D")
-                .row("b", "C1", 2, false, "A1")
-                .row("c", "A3", 1, true, "D")
+                .row("a", "A2", 1L, false, "D")
+                .row("a", "B1", 2L, true, "D")
+                .row("a", "C2", 3L, true, "A2")
+                .row("b", "A1", 1L, true, "D")
+                .row("b", "C1", 2L, false, "A1")
+                .row("c", "A3", 1L, true, "D")
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -389,13 +389,13 @@ public class TestWindowOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, VARCHAR, BIGINT, BIGINT, VARCHAR, BOOLEAN, VARCHAR)
-                .row("b", "A1", 1, 1, "D", true, "")
-                .row("a", "A2", 1, 2, "D", false, "")
-                .row("a", "B1", 2, 2, "D", true, "")
+                .row("b", "A1", 1L, 1L, "D", true, "")
+                .row("a", "A2", 1L, 2L, "D", false, "")
+                .row("a", "B1", 2L, 2L, "D", true, "")
                 .pageBreak()
-                .row("b", "C1", 2, 1, "D", false, "")
-                .row("a", "C2", 3, 2, "D", true, "")
-                .row("c", "A3", 1, 1, "D", true, "")
+                .row("b", "C1", 2L, 1L, "D", false, "")
+                .row("a", "C2", 3L, 2L, "D", true, "")
+                .row("c", "A3", 1L, 1L, "D", true, "")
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -409,12 +409,12 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
-                .row("a", "A2", 1, false, "C2")
-                .row("a", "B1", 2, true, "D")
-                .row("a", "C2", 3, true, "D")
-                .row("b", "A1", 1, true, "C1")
-                .row("b", "C1", 2, false, "D")
-                .row("c", "A3", 1, true, "D")
+                .row("a", "A2", 1L, false, "C2")
+                .row("a", "B1", 2L, true, "D")
+                .row("a", "C2", 3L, true, "D")
+                .row("b", "A1", 1L, true, "C1")
+                .row("b", "C1", 2L, false, "D")
+                .row("c", "A3", 1L, true, "D")
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -453,14 +453,14 @@ public class TestWindowOperator
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
-                .row(1, "a", 100, "A")
-                .row(2, "a", 101, "B")
+                .row(1L, "a", 100L, "A")
+                .row(2L, "a", 101L, "B")
                 .pageBreak()
-                .row(3, "b", 102, "E")
-                .row(1, "b", 103, "D")
+                .row(3L, "b", 102L, "E")
+                .row(1L, "b", 103L, "D")
                 .pageBreak()
-                .row(3, "b", 104, "C")
-                .row(1, "c", 105, "F")
+                .row(3L, "b", 104L, "C")
+                .row(1L, "c", 105L, "F")
                 .pageBreak()
                 .build();
 
@@ -477,12 +477,12 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
-                .row(1, "a", 100, "A", 1)
-                .row(2, "a", 101, "B", 1)
-                .row(3, "b", 104, "C", 1)
-                .row(3, "b", 102, "E", 2)
-                .row(1, "b", 103, "D", 1)
-                .row(1, "c", 105, "F", 1)
+                .row(1L, "a", 100L, "A", 1L)
+                .row(2L, "a", 101L, "B", 1L)
+                .row(3L, "b", 104L, "C", 1L)
+                .row(3L, "b", 102L, "E", 2L)
+                .row(1L, "b", 103L, "D", 1L)
+                .row(1L, "c", 105L, "F", 1L)
                 .build();
 
         assertOperatorEqualsIgnoreOrder(operator, input, expected);
@@ -494,16 +494,16 @@ public class TestWindowOperator
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
-                .row(1, "a", 100, "A")
+                .row(1L, "a", 100L, "A")
                 .pageBreak()
-                .row(2, "a", 101, "B")
+                .row(2L, "a", 101L, "B")
                 .pageBreak()
-                .row(2, "b", 102, "D")
-                .row(2, "b", 103, "C")
-                .row(1, "b", 104, "E")
+                .row(2L, "b", 102L, "D")
+                .row(2L, "b", 103L, "C")
+                .row(1L, "b", 104L, "E")
                 .pageBreak()
-                .row(1, "b", 105, "F")
-                .row(3, "c", 106, "G")
+                .row(1L, "b", 105L, "F")
+                .row(3L, "c", 106L, "G")
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -519,13 +519,13 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
-                .row(1, "a", 100, "A", 1)
-                .row(2, "a", 101, "B", 1)
-                .row(2, "b", 103, "C", 1)
-                .row(2, "b", 102, "D", 2)
-                .row(1, "b", 104, "E", 1)
-                .row(1, "b", 105, "F", 2)
-                .row(3, "c", 106, "G", 1)
+                .row(1L, "a", 100L, "A", 1L)
+                .row(2L, "a", 101L, "B", 1L)
+                .row(2L, "b", 103L, "C", 1L)
+                .row(2L, "b", 102L, "D", 2L)
+                .row(1L, "b", 104L, "E", 1L)
+                .row(1L, "b", 105L, "F", 2L)
+                .row(3L, "c", 106L, "G", 1L)
                 .build();
 
         assertOperatorEqualsIgnoreOrder(operator, input, expected);
@@ -537,17 +537,17 @@ public class TestWindowOperator
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
-                .row(1, "a", 100, "A")
+                .row(1L, "a", 100L, "A")
                 .pageBreak()
-                .row(2, "a", 100, "A")
+                .row(2L, "a", 100L, "A")
                 .pageBreak()
-                .row(2, "b", 102, "A")
-                .row(2, "b", 101, "A")
-                .row(2, "b", 100, "B")
-                .row(1, "b", 101, "A")
+                .row(2L, "b", 102L, "A")
+                .row(2L, "b", 101L, "A")
+                .row(2L, "b", 100L, "B")
+                .row(1L, "b", 101L, "A")
                 .pageBreak()
-                .row(1, "b", 100, "A")
-                .row(3, "c", 100, "A")
+                .row(1L, "b", 100L, "A")
+                .row(3L, "c", 100L, "A")
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -563,14 +563,14 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
-                .row(1, "a", 100, "A", 1)
-                .row(2, "a", 100, "A", 1)
-                .row(2, "b", 101, "A", 1)
-                .row(2, "b", 102, "A", 2)
-                .row(2, "b", 100, "B", 3)
-                .row(1, "b", 100, "A", 1)
-                .row(1, "b", 101, "A", 2)
-                .row(3, "c", 100, "A", 1)
+                .row(1L, "a", 100L, "A", 1L)
+                .row(2L, "a", 100L, "A", 1L)
+                .row(2L, "b", 101L, "A", 1L)
+                .row(2L, "b", 102L, "A", 2L)
+                .row(2L, "b", 100L, "B", 3L)
+                .row(1L, "b", 100L, "A", 1L)
+                .row(1L, "b", 101L, "A", 2L)
+                .row(3L, "c", 100L, "A", 1L)
                 .build();
 
         assertOperatorEqualsIgnoreOrder(operator, input, expected);
@@ -582,17 +582,17 @@ public class TestWindowOperator
     {
         List<Page> input = rowPagesBuilder(BIGINT, VARCHAR, BIGINT, VARCHAR)
                 .pageBreak()
-                .row(1, "a", 100, "A")
+                .row(1L, "a", 100L, "A")
                 .pageBreak()
-                .row(2, "a", 101, "A")
+                .row(2L, "a", 101L, "A")
                 .pageBreak()
-                .row(2, "b", 102, "A")
-                .row(2, "b", 103, "A")
-                .row(2, "b", 104, "B")
-                .row(1, "b", 105, "A")
+                .row(2L, "b", 102L, "A")
+                .row(2L, "b", 103L, "A")
+                .row(2L, "b", 104L, "B")
+                .row(1L, "b", 105L, "A")
                 .pageBreak()
-                .row(1, "b", 106, "A")
-                .row(3, "c", 107, "A")
+                .row(1L, "b", 106L, "A")
+                .row(3L, "c", 107L, "A")
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -608,14 +608,14 @@ public class TestWindowOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BIGINT, VARCHAR, BIGINT)
-                .row(1, "a", 100, "A", 1)
-                .row(2, "a", 101, "A", 1)
-                .row(2, "b", 102, "A", 1)
-                .row(2, "b", 103, "A", 2)
-                .row(2, "b", 104, "B", 3)
-                .row(1, "b", 105, "A", 1)
-                .row(1, "b", 106, "A", 2)
-                .row(3, "c", 107, "A", 1)
+                .row(1L, "a", 100L, "A", 1L)
+                .row(2L, "a", 101L, "A", 1L)
+                .row(2L, "b", 102L, "A", 1L)
+                .row(2L, "b", 103L, "A", 2L)
+                .row(2L, "b", 104L, "B", 3L)
+                .row(1L, "b", 105L, "A", 1L)
+                .row(1L, "b", 106L, "A", 2L)
+                .row(3L, "c", 107L, "A", 1L)
                 .build();
 
         // Since fully grouped and sorted already, should respect original input order

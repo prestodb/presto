@@ -283,15 +283,15 @@ public class TestArrayOperators
     public void testCardinality()
             throws Exception
     {
-        assertFunction("CARDINALITY(ARRAY [])", BIGINT, 0);
-        assertFunction("CARDINALITY(ARRAY [NULL])", BIGINT, 1);
-        assertFunction("CARDINALITY(ARRAY [1, 2, 3])", BIGINT, 3);
-        assertFunction("CARDINALITY(ARRAY [1, NULL, 3])", BIGINT, 3);
-        assertFunction("CARDINALITY(ARRAY [1, 2.0, 3])", BIGINT, 3);
-        assertFunction("CARDINALITY(ARRAY [ARRAY[1, 2], ARRAY[3]])", BIGINT, 2);
-        assertFunction("CARDINALITY(ARRAY [1.0, 2.5, 3.0])", BIGINT, 3);
-        assertFunction("CARDINALITY(ARRAY ['puppies', 'kittens'])", BIGINT, 2);
-        assertFunction("CARDINALITY(ARRAY [TRUE, FALSE])", BIGINT, 2);
+        assertFunction("CARDINALITY(ARRAY [])", BIGINT, 0L);
+        assertFunction("CARDINALITY(ARRAY [NULL])", BIGINT, 1L);
+        assertFunction("CARDINALITY(ARRAY [1, 2, 3])", BIGINT, 3L);
+        assertFunction("CARDINALITY(ARRAY [1, NULL, 3])", BIGINT, 3L);
+        assertFunction("CARDINALITY(ARRAY [1, 2.0, 3])", BIGINT, 3L);
+        assertFunction("CARDINALITY(ARRAY [ARRAY[1, 2], ARRAY[3]])", BIGINT, 2L);
+        assertFunction("CARDINALITY(ARRAY [1.0, 2.5, 3.0])", BIGINT, 3L);
+        assertFunction("CARDINALITY(ARRAY ['puppies', 'kittens'])", BIGINT, 2L);
+        assertFunction("CARDINALITY(ARRAY [TRUE, FALSE])", BIGINT, 2L);
     }
 
     @Test
@@ -304,8 +304,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY [NULL, 2, 3])", BIGINT, null);
         assertFunction("ARRAY_MIN(ARRAY [1.0, NULL, 3])", DOUBLE, null);
         assertFunction("ARRAY_MIN(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
-        assertFunction("ARRAY_MIN(ARRAY [3, 2, 1])", BIGINT, 1);
-        assertFunction("ARRAY_MIN(ARRAY [1, 2, 3])", BIGINT, 1);
+        assertFunction("ARRAY_MIN(ARRAY [3, 2, 1])", BIGINT, 1L);
+        assertFunction("ARRAY_MIN(ARRAY [1, 2, 3])", BIGINT, 1L);
         assertFunction("ARRAY_MIN(ARRAY [1, 2.0, 3])", DOUBLE, 1.0);
         assertFunction("ARRAY_MIN(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
         assertFunction("ARRAY_MIN(ARRAY [1.0, 2.5, 3.0])", DOUBLE, 1.0);
@@ -324,8 +324,8 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY [NULL, 2, 3])", BIGINT, null);
         assertFunction("ARRAY_MAX(ARRAY [1.0, NULL, 3])", DOUBLE, null);
         assertFunction("ARRAY_MAX(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
-        assertFunction("ARRAY_MAX(ARRAY [3, 2, 1])", BIGINT, 3);
-        assertFunction("ARRAY_MAX(ARRAY [1, 2, 3])", BIGINT, 3);
+        assertFunction("ARRAY_MAX(ARRAY [3, 2, 1])", BIGINT, 3L);
+        assertFunction("ARRAY_MAX(ARRAY [1, 2, 3])", BIGINT, 3L);
         assertFunction("ARRAY_MAX(ARRAY [1, 2.0, 3])", DOUBLE, 3.0);
         assertFunction("ARRAY_MAX(ARRAY [ARRAY[1, 2], ARRAY[3]])", new ArrayType(BIGINT), ImmutableList.of(3L));
         assertFunction("ARRAY_MAX(ARRAY [1.0, 2.5, 3.0])", DOUBLE, 3.0);
@@ -338,18 +338,18 @@ public class TestArrayOperators
     public void testArrayPosition()
             throws Exception
     {
-        assertFunction("ARRAY_POSITION(ARRAY [10, 20, 30, 40], 30)", BIGINT, 3);
-        assertFunction("ARRAY_POSITION(CAST (JSON '[]' as array(bigint)), 30)", BIGINT, 0);
-        assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint)], 30)", BIGINT, 0);
-        assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint), NULL, NULL], 30)", BIGINT, 0);
-        assertFunction("ARRAY_POSITION(ARRAY [NULL, NULL, 30, NULL], 30)", BIGINT, 3);
+        assertFunction("ARRAY_POSITION(ARRAY [10, 20, 30, 40], 30)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(CAST (JSON '[]' as array(bigint)), 30)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint)], 30)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint), NULL, NULL], 30)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY [NULL, NULL, 30, NULL], 30)", BIGINT, 3L);
 
-        assertFunction("ARRAY_POSITION(ARRAY [1.1, 2.1, 3.1, 4.1], 3.1)", BIGINT, 3);
-        assertFunction("ARRAY_POSITION(ARRAY [false, false, true, true], true)", BIGINT, 3);
-        assertFunction("ARRAY_POSITION(ARRAY ['10', '20', '30', '40'], '30')", BIGINT, 3);
+        assertFunction("ARRAY_POSITION(ARRAY [1.1, 2.1, 3.1, 4.1], 3.1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY [false, false, true, true], true)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY ['10', '20', '30', '40'], '30')", BIGINT, 3L);
 
-        assertFunction("ARRAY_POSITION(ARRAY [DATE '2000-01-01', DATE '2000-01-02', DATE '2000-01-03', DATE '2000-01-04'], DATE '2000-01-03')", BIGINT, 3);
-        assertFunction("ARRAY_POSITION(ARRAY [ARRAY [1, 11], ARRAY [2, 12], ARRAY [3, 13], ARRAY [4, 14]], ARRAY [3, 13])", BIGINT, 3);
+        assertFunction("ARRAY_POSITION(ARRAY [DATE '2000-01-01', DATE '2000-01-02', DATE '2000-01-03', DATE '2000-01-04'], DATE '2000-01-03')", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY [ARRAY [1, 11], ARRAY [2, 12], ARRAY [3, 13], ARRAY [4, 14]], ARRAY [3, 13])", BIGINT, 3L);
     }
 
     @Test
@@ -375,13 +375,13 @@ public class TestArrayOperators
 
         assertFunction("ARRAY[NULL][1]", UNKNOWN, null);
         assertFunction("ARRAY[NULL, NULL, NULL][3]", UNKNOWN, null);
-        assertFunction("1 + ARRAY [2, 1, 3][2]", BIGINT, 2);
-        assertFunction("ARRAY [2, 1, 3][2]", BIGINT, 1);
+        assertFunction("1 + ARRAY [2, 1, 3][2]", BIGINT, 2L);
+        assertFunction("ARRAY [2, 1, 3][2]", BIGINT, 1L);
         assertFunction("ARRAY [2, NULL, 3][2]", BIGINT, null);
         assertFunction("ARRAY [1.0, 2.5, 3.5][3]", DOUBLE, 3.5);
         assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2]", new ArrayType(BIGINT), ImmutableList.of(3L));
         assertFunction("ARRAY [ARRAY[1, 2], NULL, ARRAY[3]][2]", new ArrayType(BIGINT), null);
-        assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2][1]", BIGINT, 3);
+        assertFunction("ARRAY [ARRAY[1, 2], ARRAY[3]][2][1]", BIGINT, 3L);
         assertFunction("ARRAY ['puppies', 'kittens'][2]", createVarcharType(7), "kittens");
         assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", createVarcharType(7), null);
         assertFunction("ARRAY [TRUE, FALSE][2]", BOOLEAN, false);
@@ -407,10 +407,10 @@ public class TestArrayOperators
         assertFunction("ELEMENT_AT(ARRAY [NULL], -1)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL, NULL, NULL], 3)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL, NULL, NULL], -1)", UNKNOWN, null);
-        assertFunction("1 + ELEMENT_AT(ARRAY [2, 1, 3], 2)", BIGINT, 2);
-        assertFunction("1 + ELEMENT_AT(ARRAY [2, 1, 3], -2)", BIGINT, 2);
-        assertFunction("ELEMENT_AT(ARRAY [2, 1, 3], 2)", BIGINT, 1);
-        assertFunction("ELEMENT_AT(ARRAY [2, 1, 3], -2)", BIGINT, 1);
+        assertFunction("1 + ELEMENT_AT(ARRAY [2, 1, 3], 2)", BIGINT, 2L);
+        assertFunction("1 + ELEMENT_AT(ARRAY [2, 1, 3], -2)", BIGINT, 2L);
+        assertFunction("ELEMENT_AT(ARRAY [2, 1, 3], 2)", BIGINT, 1L);
+        assertFunction("ELEMENT_AT(ARRAY [2, 1, 3], -2)", BIGINT, 1L);
         assertFunction("ELEMENT_AT(ARRAY [2, NULL, 3], 2)", BIGINT, null);
         assertFunction("ELEMENT_AT(ARRAY [2, NULL, 3], -2)", BIGINT, null);
         assertFunction("ELEMENT_AT(ARRAY [1.0, 2.5, 3.5], 3)", DOUBLE, 3.5);
@@ -419,10 +419,10 @@ public class TestArrayOperators
         assertFunction("ELEMENT_AT(ARRAY [ARRAY [1, 2], ARRAY [3]], -1)", new ArrayType(BIGINT), ImmutableList.of(3L));
         assertFunction("ELEMENT_AT(ARRAY [ARRAY [1, 2], NULL, ARRAY [3]], 2)", new ArrayType(BIGINT), null);
         assertFunction("ELEMENT_AT(ARRAY [ARRAY [1, 2], NULL, ARRAY [3]], -2)", new ArrayType(BIGINT), null);
-        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], 2) , 1)", BIGINT, 3);
-        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], -1) , 1)", BIGINT, 3);
-        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], 2) , -1)", BIGINT, 3);
-        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], -1) , -1)", BIGINT, 3);
+        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], 2) , 1)", BIGINT, 3L);
+        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], -1) , 1)", BIGINT, 3L);
+        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], 2) , -1)", BIGINT, 3L);
+        assertFunction("ELEMENT_AT(ELEMENT_AT(ARRAY [ARRAY[1, 2], ARRAY [3]], -1) , -1)", BIGINT, 3L);
         assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens'], 2)", createVarcharType(7), "kittens");
         assertFunction("ELEMENT_AT(ARRAY ['crocodiles', 'kittens'], 2)", createVarcharType(10), "kittens");
         assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens'], -1)", createVarcharType(7), "kittens");

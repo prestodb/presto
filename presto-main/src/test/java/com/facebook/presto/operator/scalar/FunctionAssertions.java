@@ -213,10 +213,7 @@ public final class FunctionAssertions
 
     public void assertFunction(String projection, Type expectedType, Object expected)
     {
-        if (expected instanceof Integer) {
-            expected = ((Integer) expected).longValue();
-        }
-        else if (expected instanceof Slice) {
+        if (expected instanceof Slice) {
             expected = ((Slice) expected).toStringUtf8();
         }
 

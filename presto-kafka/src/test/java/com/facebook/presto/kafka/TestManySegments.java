@@ -109,7 +109,7 @@ public class TestManySegments
         MaterializedResult result = queryRunner.execute("SELECT count(_message) from " + topicName);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(100000)
+                .row(100000L)
                 .build();
 
         assertEquals(result, expected);

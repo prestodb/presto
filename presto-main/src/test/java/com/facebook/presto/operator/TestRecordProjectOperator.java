@@ -91,9 +91,9 @@ public class TestRecordProjectOperator
         Operator operator = new RecordProjectOperator(operatorContext, records);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
-                .row("abc", 1)
-                .row("def", 2)
-                .row("g", 0)
+                .row("abc", 1L)
+                .row("def", 2L)
+                .row("g", 0L)
                 .build();
 
         OperatorAssertion.assertOperatorEquals(operator, expected);

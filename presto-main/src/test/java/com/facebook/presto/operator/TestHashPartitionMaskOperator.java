@@ -100,7 +100,7 @@ public class TestHashPartitionMaskOperator
                 rawHash &= Integer.MAX_VALUE;
 
                 boolean active = (rawHash % PARTITION_COUNT == partition);
-                expected.row(i, active);
+                expected.row((long) i, active);
 
                 if (active) {
                     assertEquals(rowPartition[i], -1);
@@ -145,7 +145,7 @@ public class TestHashPartitionMaskOperator
 
                 boolean active = (rawHash % PARTITION_COUNT == partition);
                 boolean maskValue = i % 2 == 0;
-                expected.row(i, active && maskValue, active && !maskValue, active);
+                expected.row((long) i, active && maskValue, active && !maskValue, active);
 
                 if (active) {
                     assertEquals(rowPartition[i], -1);

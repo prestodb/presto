@@ -83,11 +83,11 @@ public class TestOrcFileRewriter
         File file = new File(temporary, randomUUID().toString());
         try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
-                    .row(123, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(VARCHAR, BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
-                    .row(777, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(VARCHAR, BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)))
-                    .row(456, "bye", arrayBlockOf(BIGINT, 5, 6), mapBlockOf(VARCHAR, BOOLEAN, "k3", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7)))
-                    .row(888, "world", arrayBlockOf(BIGINT, 7, 8), mapBlockOf(VARCHAR, BOOLEAN, "k4", true), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null))
-                    .row(999, "done", arrayBlockOf(BIGINT, 9, 10), mapBlockOf(VARCHAR, BOOLEAN, "k5", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10)))
+                    .row(123L, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(VARCHAR, BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
+                    .row(777L, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(VARCHAR, BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)))
+                    .row(456L, "bye", arrayBlockOf(BIGINT, 5, 6), mapBlockOf(VARCHAR, BOOLEAN, "k3", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7)))
+                    .row(888L, "world", arrayBlockOf(BIGINT, 7, 8), mapBlockOf(VARCHAR, BOOLEAN, "k4", true), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null))
+                    .row(999L, "done", arrayBlockOf(BIGINT, 9, 10), mapBlockOf(VARCHAR, BOOLEAN, "k5", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10)))
                     .build();
             writer.appendPages(pages);
         }
@@ -231,7 +231,7 @@ public class TestOrcFileRewriter
 
         File file = new File(temporary, randomUUID().toString());
         try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
-            writer.appendPages(rowPagesBuilder(columnTypes).row(123).row(456).build());
+            writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
         BitSet rowsToDelete = new BitSet();
@@ -255,7 +255,7 @@ public class TestOrcFileRewriter
 
         File file = new File(temporary, randomUUID().toString());
         try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
-            writer.appendPages(rowPagesBuilder(columnTypes).row(123).row(456).build());
+            writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
         BitSet rowsToDelete = new BitSet();
@@ -278,8 +278,8 @@ public class TestOrcFileRewriter
         File file = new File(temporary, randomUUID().toString());
         try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
-                    .row(true, 123, 98.7, "hello", utf8Slice("abc"))
-                    .row(false, 456, 65.4, "world", utf8Slice("xyz"))
+                    .row(true, 123L, 98.7, "hello", utf8Slice("abc"))
+                    .row(false, 456L, 65.4, "world", utf8Slice("xyz"))
                     .row(null, null, null, null, null)
                     .build();
             writer.appendPages(pages);

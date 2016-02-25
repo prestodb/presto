@@ -123,7 +123,7 @@ public class TestMinimalFunctionality
         MaterializedResult result = queryRunner.execute("SELECT count(1) from " + topicName);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(0)
+                .row(0L)
                 .build();
 
         assertEquals(result, expected);
@@ -134,7 +134,7 @@ public class TestMinimalFunctionality
         result = queryRunner.execute("SELECT count(1) from " + topicName);
 
         expected = MaterializedResult.resultBuilder(SESSION, BigintType.BIGINT)
-                .row(count)
+                .row((long) count)
                 .build();
 
         assertEquals(result, expected);

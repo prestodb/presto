@@ -71,8 +71,8 @@ public class TestEvaluateClassifierPredictions
             throws JsonProcessingException
     {
         return RowPageBuilder.rowPageBuilder(BIGINT, BIGINT)
-                .row(1, 1)
-                .row(1, 0)
+                .row(1L, 1L)
+                .row(1L, 0L)
                 .build();
     }
 }

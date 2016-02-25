@@ -68,11 +68,11 @@ public class TestOrderByOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1, 0.1)
-                .row(2, 0.2)
+                .row(1L, 0.1)
+                .row(2L, 0.2)
                 .pageBreak()
-                .row(-1, -0.1)
-                .row(4, 0.4)
+                .row(-1L, -0.1)
+                .row(4L, 0.4)
                 .build();
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
@@ -101,11 +101,11 @@ public class TestOrderByOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
-                .row("a", 1)
-                .row("b", 2)
+                .row("a", 1L)
+                .row("b", 2L)
                 .pageBreak()
-                .row("b", 3)
-                .row("a", 4)
+                .row("b", 3L)
+                .row("a", 4L)
                 .build();
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
@@ -120,10 +120,10 @@ public class TestOrderByOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
-                .row("a", 4)
-                .row("a", 1)
-                .row("b", 3)
-                .row("b", 2)
+                .row("a", 4L)
+                .row("a", 1L)
+                .row("b", 3L)
+                .row("b", 2L)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -134,11 +134,11 @@ public class TestOrderByOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1, 0.1)
-                .row(2, 0.2)
+                .row(1L, 0.1)
+                .row(2L, 0.2)
                 .pageBreak()
-                .row(-1, -0.1)
-                .row(4, 0.4)
+                .row(-1L, -0.1)
+                .row(4L, 0.4)
                 .build();
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
@@ -153,10 +153,10 @@ public class TestOrderByOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
-                .row(4)
-                .row(2)
-                .row(1)
-                .row(-1)
+                .row(4L)
+                .row(2L)
+                .row(1L)
+                .row(-1L)
                 .build();
 
         assertOperatorEquals(operator, input, expected);
@@ -167,11 +167,11 @@ public class TestOrderByOperator
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1, 0.1)
-                .row(2, 0.2)
+                .row(1L, 0.1)
+                .row(2L, 0.2)
                 .pageBreak()
-                .row(-1, -0.1)
-                .row(4, 0.4)
+                .row(-1L, -0.1)
+                .row(4L, 0.4)
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))

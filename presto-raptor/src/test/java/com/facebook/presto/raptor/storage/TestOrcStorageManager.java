@@ -168,8 +168,8 @@ public class TestOrcStorageManager
 
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
-                .row(123, "hello")
-                .row(456, "bye")
+                .row(123L, "hello")
+                .row(456L, "bye")
                 .build();
         sink.appendPages(pages);
 
@@ -244,19 +244,19 @@ public class TestOrcStorageManager
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
 
         Object[][] doubles = {
-                {881, "-inf", null, null, null, Double.NEGATIVE_INFINITY},
-                {882, "+inf", null, null, null, Double.POSITIVE_INFINITY},
-                {883, "nan", null, null, null, Double.NaN},
-                {884, "min", null, null, null, Double.MIN_VALUE},
-                {885, "max", null, null, null, Double.MAX_VALUE},
-                {886, "pzero", null, null, null, 0.0},
-                {887, "nzero", null, null, null, -0.0},
+                {881L, "-inf", null, null, null, Double.NEGATIVE_INFINITY},
+                {882L, "+inf", null, null, null, Double.POSITIVE_INFINITY},
+                {883L, "nan", null, null, null, Double.NaN},
+                {884L, "min", null, null, null, Double.MIN_VALUE},
+                {885L, "max", null, null, null, Double.MAX_VALUE},
+                {886L, "pzero", null, null, null, 0.0},
+                {887L, "nzero", null, null, null, -0.0},
         };
 
         List<Page> pages = rowPagesBuilder(columnTypes)
-                .row(123, "hello", wrappedBuffer(bytes1), sqlDate(2001, 8, 22).getDays(), true, 123.45)
+                .row(123L, "hello", wrappedBuffer(bytes1), sqlDate(2001, 8, 22).getDays(), true, 123.45)
                 .row(null, null, null, null, null, null)
-                .row(456, "bye", wrappedBuffer(bytes3), sqlDate(2005, 4, 22).getDays(), false, 987.65)
+                .row(456L, "bye", wrappedBuffer(bytes3), sqlDate(2005, 4, 22).getDays(), false, 987.65)
                 .rows(doubles)
                 .build();
 
@@ -267,9 +267,9 @@ public class TestOrcStorageManager
         UUID uuid = Iterables.getOnlyElement(shards).getShardUuid();
 
         MaterializedResult expected = resultBuilder(SESSION, columnTypes)
-                .row(123, "hello", sqlBinary(bytes1), sqlDate(2001, 8, 22), true, 123.45)
+                .row(123L, "hello", sqlBinary(bytes1), sqlDate(2001, 8, 22), true, 123.45)
                 .row(null, null, null, null, null, null)
-                .row(456, "bye", sqlBinary(bytes3), sqlDate(2005, 4, 22), false, 987.65)
+                .row(456L, "bye", sqlBinary(bytes3), sqlDate(2005, 4, 22), false, 987.65)
                 .rows(doubles)
                 .build();
 
@@ -316,8 +316,8 @@ public class TestOrcStorageManager
         // create file with 2 rows
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
-                .row(123, "hello")
-                .row(456, "bye")
+                .row(123L, "hello")
+                .row(456L, "bye")
                 .build();
         sink.appendPages(pages);
         List<ShardInfo> shards = sink.commit();
@@ -364,8 +364,8 @@ public class TestOrcStorageManager
 
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
-                .row(123, "hello")
-                .row(456, "bye")
+                .row(123L, "hello")
+                .row(456L, "bye")
                 .build();
         sink.appendPages(pages);
 
@@ -497,8 +497,8 @@ public class TestOrcStorageManager
 
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
-                .row(123, "hello")
-                .row(456, "bye")
+                .row(123L, "hello")
+                .row(456L, "bye")
                 .build();
         sink.appendPages(pages);
         assertTrue(sink.isFull());
@@ -512,8 +512,8 @@ public class TestOrcStorageManager
         List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, VARCHAR);
 
         List<Page> pages = rowPagesBuilder(columnTypes)
-                .row(123, "hello")
-                .row(456, "bye")
+                .row(123L, "hello")
+                .row(456L, "bye")
                 .build();
 
         // Set maxFileSize to 1 byte, so adding any page makes the StoragePageSink full

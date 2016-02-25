@@ -34,15 +34,15 @@ public class TestTeradataFunctions
     @Test
     public void testIndex()
     {
-        assertFunction("INDEX('high', 'ig')", BIGINT, 2);
-        assertFunction("INDEX('high', 'igx')", BIGINT, 0);
-        assertFunction("INDEX('Quadratically', 'a')", BIGINT, 3);
-        assertFunction("INDEX('foobar', 'foobar')", BIGINT, 1);
-        assertFunction("INDEX('foobar', 'foobar_baz')", BIGINT, 0);
-        assertFunction("INDEX('foobar', 'obar')", BIGINT, 3);
-        assertFunction("INDEX('zoo!', '!')", BIGINT, 4);
-        assertFunction("INDEX('x', '')", BIGINT, 1);
-        assertFunction("INDEX('', '')", BIGINT, 1);
+        assertFunction("INDEX('high', 'ig')", BIGINT, 2L);
+        assertFunction("INDEX('high', 'igx')", BIGINT, 0L);
+        assertFunction("INDEX('Quadratically', 'a')", BIGINT, 3L);
+        assertFunction("INDEX('foobar', 'foobar')", BIGINT, 1L);
+        assertFunction("INDEX('foobar', 'foobar_baz')", BIGINT, 0L);
+        assertFunction("INDEX('foobar', 'obar')", BIGINT, 3L);
+        assertFunction("INDEX('zoo!', '!')", BIGINT, 4L);
+        assertFunction("INDEX('x', '')", BIGINT, 1L);
+        assertFunction("INDEX('', '')", BIGINT, 1L);
         assertFunction("INDEX(NULL, '')", BIGINT, null);
         assertFunction("INDEX('', NULL)", BIGINT, null);
         assertFunction("INDEX(NULL, NULL)", BIGINT, null);

@@ -95,7 +95,7 @@ public class TestAggregationOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR)
-                .row(100, 4950, 49.5, "399", 100, 54950, 54950.0, "599")
+                .row(100L, 4950L, 49.5, "399", 100L, 54950L, 54950.0, "599")
                 .build();
 
         assertOperatorEquals(operator, input, expected);

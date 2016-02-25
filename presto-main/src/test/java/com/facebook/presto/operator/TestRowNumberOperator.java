@@ -86,18 +86,18 @@ public class TestRowNumberOperator
     {
         DriverContext driverContext = getDriverContext();
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.19)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
-                .row(2, 0.9)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
                 .build();
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
@@ -114,16 +114,16 @@ public class TestRowNumberOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expectedResult = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.3, 1)
-                .row(0.4, 1)
-                .row(0.5, 1)
-                .row(0.6, 1)
-                .row(0.2, 2)
-                .row(0.7, 2)
-                .row(0.8, 2)
-                .row(0.9, 2)
-                .row(0.1, 3)
-                .row(0.19, 3)
+                .row(0.3, 1L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
+                .row(0.2, 2L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
                 .build();
 
         List<Page> pages = toPages(operator, input);
@@ -142,18 +142,18 @@ public class TestRowNumberOperator
         DriverContext driverContext = getDriverContext();
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.19)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
-                .row(2, 0.9)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
                 .build();
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
@@ -170,22 +170,22 @@ public class TestRowNumberOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.3, 1)
-                .row(0.4, 1)
-                .row(0.5, 1)
-                .row(0.6, 1)
+                .row(0.3, 1L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
                 .build();
 
         MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.2, 2)
-                .row(0.7, 2)
-                .row(0.8, 2)
-                .row(0.9, 2)
+                .row(0.2, 2L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
                 .build();
 
         MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.1, 3)
-                .row(0.19, 3)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
                 .build();
 
         List<Page> pages = toPages(operator, input);
@@ -210,18 +210,18 @@ public class TestRowNumberOperator
         DriverContext driverContext = getDriverContext();
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
         List<Page> input = rowPagesBuilder
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.19)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
-                .row(2, 0.9)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
                 .build();
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
@@ -238,22 +238,22 @@ public class TestRowNumberOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.3, 1)
-                .row(0.4, 1)
-                .row(0.5, 1)
-                .row(0.6, 1)
+                .row(0.3, 1L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
                 .build();
 
         MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.2, 2)
-                .row(0.7, 2)
-                .row(0.8, 2)
-                .row(0.9, 2)
+                .row(0.2, 2L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
                 .build();
 
         MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                .row(0.1, 3)
-                .row(0.19, 3)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
                 .build();
 
         List<Page> pages = toPages(operator, input);
@@ -281,18 +281,18 @@ public class TestRowNumberOperator
     {
         DriverContext driverContext = getDriverContext();
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1, 0.3)
-                .row(2, 0.2)
-                .row(3, 0.1)
-                .row(3, 0.19)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.19)
                 .pageBreak()
-                .row(1, 0.4)
+                .row(1L, 0.4)
                 .pageBreak()
-                .row(1, 0.5)
-                .row(1, 0.6)
-                .row(2, 0.7)
-                .row(2, 0.8)
-                .row(2, 0.9)
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .row(2L, 0.9)
                 .build();
 
         RowNumberOperator.RowNumberOperatorFactory operatorFactory = new RowNumberOperator.RowNumberOperatorFactory(
@@ -309,16 +309,16 @@ public class TestRowNumberOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expectedRows = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
-                .row(0.3, 1)
-                .row(0.2, 2)
-                .row(0.1, 3)
-                .row(0.19, 3)
-                .row(0.4, 1)
-                .row(0.5, 1)
-                .row(0.6, 1)
-                .row(0.7, 2)
-                .row(0.8, 2)
-                .row(0.9, 2)
+                .row(0.3, 1L)
+                .row(0.2, 2L)
+                .row(0.1, 3L)
+                .row(0.19, 3L)
+                .row(0.4, 1L)
+                .row(0.5, 1L)
+                .row(0.6, 1L)
+                .row(0.7, 2L)
+                .row(0.8, 2L)
+                .row(0.9, 2L)
                 .build();
 
         List<Page> pages = toPages(operator, input);

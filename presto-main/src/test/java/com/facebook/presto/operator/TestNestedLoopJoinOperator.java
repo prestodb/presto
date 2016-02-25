@@ -81,12 +81,12 @@ public class TestNestedLoopJoinOperator
 
         // expected
         MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
-                .row("0", 1000, 2000, "20", 30, 40)
-                .row("0", 1000, 2000, "21", 31, 41)
-                .row("0", 1000, 2000, "22", 32, 42)
-                .row("1", 1001, 2001, "20", 30, 40)
-                .row("1", 1001, 2001, "21", 31, 41)
-                .row("1", 1001, 2001, "22", 32, 42)
+                .row("0", 1000L, 2000L, "20", 30L, 40L)
+                .row("0", 1000L, 2000L, "21", 31L, 41L)
+                .row("0", 1000L, 2000L, "22", 32L, 42L)
+                .row("1", 1001L, 2001L, "20", 30L, 40L)
+                .row("1", 1001L, 2001L, "21", 31L, 41L)
+                .row("1", 1001L, 2001L, "22", 32L, 42L)
                 .build();
 
         assertOperatorEquals(joinOperator, probeInput, expected);
@@ -106,12 +106,12 @@ public class TestNestedLoopJoinOperator
 
         // expected
         expected = resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
-                .row("0", 1000, 2000, "20", 30, 40)
-                .row("1", 1001, 2001, "20", 30, 40)
-                .row("2", 1002, 2002, "20", 30, 40)
-                .row("0", 1000, 2000, "21", 31, 41)
-                .row("1", 1001, 2001, "21", 31, 41)
-                .row("2", 1002, 2002, "21", 31, 41)
+                .row("0", 1000L, 2000L, "20", 30L, 40L)
+                .row("1", 1001L, 2001L, "20", 30L, 40L)
+                .row("2", 1002L, 2002L, "20", 30L, 40L)
+                .row("0", 1000L, 2000L, "21", 31L, 41L)
+                .row("1", 1001L, 2001L, "21", 31L, 41L)
+                .row("2", 1002L, 2002L, "21", 31L, 41L)
                 .build();
 
         assertOperatorEquals(joinOperator, probeInput, expected);

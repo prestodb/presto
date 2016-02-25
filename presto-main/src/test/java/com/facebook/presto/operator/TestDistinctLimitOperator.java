@@ -76,11 +76,11 @@ public class TestDistinctLimitOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
-                .row(1)
-                .row(2)
-                .row(3)
-                .row(4)
-                .row(5)
+                .row(1L)
+                .row(2L)
+                .row(3L)
+                .row(4L)
+                .row(5L)
                 .build();
 
         OperatorAssertion.assertOperatorEquals(operator, input, expected);
@@ -100,9 +100,9 @@ public class TestDistinctLimitOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
-                .row(1)
-                .row(2)
-                .row(3)
+                .row(1L)
+                .row(2L)
+                .row(3L)
                 .build();
 
         OperatorAssertion.assertOperatorEquals(operator, input, expected);
@@ -122,10 +122,10 @@ public class TestDistinctLimitOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
-                .row(1)
-                .row(2)
-                .row(3)
-                .row(4)
+                .row(1L)
+                .row(2L)
+                .row(3L)
+                .row(4L)
                 .build();
 
         OperatorAssertion.assertOperatorEquals(operator, input, expected);
