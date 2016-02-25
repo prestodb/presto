@@ -609,9 +609,9 @@ public abstract class AbstractTestQueries
                 "LIMIT 3");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(7, 5)
-                .row(6, 4)
-                .row(5, 3)
+                .row(7L, 5L)
+                .row(6L, 4L)
+                .row(5L, 3L)
                 .build();
 
         assertEquals(actual, expected);
@@ -668,9 +668,9 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 995)
-                .row("F", 993)
-                .row("P", 303)
+                .row("O", 995L)
+                .row("F", 993L)
+                .row("P", 303L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -682,9 +682,9 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey, 0.023) FROM orders GROUP BY orderstatus");
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 995)
-                .row("F", 993)
-                .row("P", 303)
+                .row("O", 995L)
+                .row("F", 993L)
+                .row("P", 303L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -833,7 +833,7 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderdate, custkey " +
                 "ORDER BY rnk " +
                 "LIMIT 1");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT).row(1).build();
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT).row(1L).build();
         assertEquals(actual, expected);
     }
 
@@ -2102,7 +2102,7 @@ public abstract class AbstractTestQueries
                 "ON l.k = r.k GROUP BY a");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2, 1) // (total rows, # of non null values)
+                .row(2L, 1L) // (total rows, # of non null values)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -2713,8 +2713,8 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT orderkey, 1.0 / row_number() OVER (ORDER BY orderkey) FROM orders LIMIT 2");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, DOUBLE)
-                .row(1, 1.0)
-                .row(2, 0.5)
+                .row(1L, 1.0)
+                .row(2L, 0.5)
                 .build();
 
         assertEquals(actual, expected);
@@ -2815,11 +2815,11 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1, "O", (1 * 10) + 100)
-                .row(2, "O", (2 * 9) + 100)
-                .row(3, "F", (3 * 8) + 100)
-                .row(4, "O", (4 * 7) + 100)
-                .row(5, "F", (5 * 6) + 100)
+                .row(1L, "O", (1L * 10) + 100)
+                .row(2L, "O", (2L * 9) + 100)
+                .row(3L, "F", (3L * 8) + 100)
+                .row(4L, "O", (4L * 7) + 100)
+                .row(5L, "F", (5L * 6) + 100)
                 .build();
 
         assertEquals(actual, expected);
@@ -2843,12 +2843,12 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderstatus, rnk");
 
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, DOUBLE, BIGINT)
-                .row("F", "Clerk#000000090", 2784836.61, 1)
-                .row("F", "Clerk#000000084", 2674447.15, 2)
-                .row("O", "Clerk#000000500", 2569878.29, 1)
-                .row("O", "Clerk#000000050", 2500162.92, 2)
-                .row("P", "Clerk#000000071", 841820.99, 1)
-                .row("P", "Clerk#000001000", 643679.49, 2)
+                .row("F", "Clerk#000000090", 2784836.61, 1L)
+                .row("F", "Clerk#000000084", 2674447.15, 2L)
+                .row("O", "Clerk#000000500", 2569878.29, 1L)
+                .row("O", "Clerk#000000050", 2500162.92, 2L)
+                .row("P", "Clerk#000000071", 841820.99, 1L)
+                .row("P", "Clerk#000001000", 643679.49, 2L)
                 .build();
 
         assertEquals(actual, expected);
@@ -2865,11 +2865,11 @@ public abstract class AbstractTestQueries
                 "LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(34, 10)
-                .row(33, 9)
-                .row(32, 8)
-                .row(7, 7)
-                .row(6, 6)
+                .row(34L, 10L)
+                .row(33L, 9L)
+                .row(32L, 8L)
+                .row(7L, 7L)
+                .row(6L, 6L)
                 .build();
 
         assertEquals(actual, expected);
@@ -2937,7 +2937,7 @@ public abstract class AbstractTestQueries
                 "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
                 "WHERE rn < 3 AND rn % 2 = 0 AND a = 2 LIMIT 2");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2, 2)
+                .row(2L, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -2952,8 +2952,8 @@ public abstract class AbstractTestQueries
                 "FROM (VALUES (1), (2), (1), (2)) t (a)) t WHERE rn < 2 LIMIT 2");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1, 1)
-                .row(2, 1)
+                .row(1L, 1L)
+                .row(2L, 1L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -2963,10 +2963,10 @@ public abstract class AbstractTestQueries
                 "FROM (VALUES (1), (2), (1), (2), (1)) t (a)) t WHERE rn < 3 LIMIT 2");
 
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1, 1)
-                .row(1, 2)
-                .row(2, 1)
-                .row(2, 2)
+                .row(1L, 1L)
+                .row(1L, 2L)
+                .row(2L, 1L)
+                .row(2L, 2L)
                 .build();
         assertEquals(actual.getMaterializedRows().size(), 2);
         assertContains(expected, actual);
@@ -3047,7 +3047,7 @@ public abstract class AbstractTestQueries
                 "LIMIT 1");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2, 2)
+                .row(2L, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -3060,8 +3060,8 @@ public abstract class AbstractTestQueries
                 "LIMIT 2");
 
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2, 1)
-                .row(2, 2)
+                .row(2L, 1L)
+                .row(2L, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -3090,16 +3090,16 @@ public abstract class AbstractTestQueries
                 "   )\n" +
                 ")");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1, "O", 21)
-                .row(2, "O", 21)
-                .row(3, "F", 10)
-                .row(4, "O", 21)
-                .row(5, "F", 10)
-                .row(6, "F", 10)
-                .row(7, "O", 21)
-                .row(32, "O", 21)
-                .row(33, "F", 10)
-                .row(34, "O", 21)
+                .row(1L, "O", 21L)
+                .row(2L, "O", 21L)
+                .row(3L, "F", 10L)
+                .row(4L, "O", 21L)
+                .row(5L, "F", 10L)
+                .row(6L, "F", 10L)
+                .row(7L, "O", 21L)
+                .row(32L, "O", 21L)
+                .row(33L, "F", 10L)
+                .row(34L, "O", 21L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -3121,16 +3121,16 @@ public abstract class AbstractTestQueries
                 "   )\n" +
                 ")");
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
-                .row("F", 3, 72, 3, 3, 3)
-                .row("F", 5, 72, 8, 11, 11)
-                .row("F", 6, 72, 14, 25, 25)
-                .row("F", 33, 72, 47, 72, 72)
-                .row("O", 1, 433, 48, 48, 120)
-                .row("O", 2, 433, 50, 98, 170)
-                .row("O", 4, 433, 54, 152, 224)
-                .row("O", 7, 433, 61, 213, 285)
-                .row("O", 32, 433, 93, 306, 378)
-                .row("O", 34, 433, 127, 433, 505)
+                .row("F", 3L, 72L, 3L, 3L, 3L)
+                .row("F", 5L, 72L, 8L, 11L, 11L)
+                .row("F", 6L, 72L, 14L, 25L, 25L)
+                .row("F", 33L, 72L, 47L, 72L, 72L)
+                .row("O", 1L, 433L, 48L, 48L, 120L)
+                .row("O", 2L, 433L, 50L, 98L, 170L)
+                .row("O", 4L, 433L, 54L, 152L, 224L)
+                .row("O", 7L, 433L, 61L, 213L, 285L)
+                .row("O", 32L, 433L, 93L, 306L, 378L)
+                .row("O", 34L, 433L, 127L, 433L, 505L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -3173,12 +3173,12 @@ public abstract class AbstractTestQueries
                 "   FROM orders\n" +
                 ") WHERE rn <= 2");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(1, 1, "O")
-                .row(2, 2, "O")
-                .row(1, 3, "F")
-                .row(2, 5, "F")
-                .row(1, 65, "P")
-                .row(2, 197, "P")
+                .row(1L, 1L, "O")
+                .row(2L, 2L, "O")
+                .row(1L, 3L, "F")
+                .row(2L, 5L, "F")
+                .row(1L, 65L, "P")
+                .row(2L, 197L, "P")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -3189,12 +3189,12 @@ public abstract class AbstractTestQueries
                 "   FROM orders\n" +
                 ") WHERE rn <= 2");
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1, 1)
-                .row(2, 2)
-                .row(1, 3)
-                .row(2, 5)
-                .row(1, 65)
-                .row(2, 197)
+                .row(1L, 1L)
+                .row(2L, 2L)
+                .row(1L, 3L)
+                .row(2L, 5L)
+                .row(1L, 65L)
+                .row(2L, 197L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -3204,12 +3204,12 @@ public abstract class AbstractTestQueries
                 "   FROM orders\n" +
                 ") WHERE rn <= 2");
         expected = resultBuilder(getSession(), BIGINT, VARCHAR)
-                .row(1, "O")
-                .row(2, "O")
-                .row(1, "F")
-                .row(2, "F")
-                .row(1, "P")
-                .row(2, "P")
+                .row(1L, "O")
+                .row(2L, "O")
+                .row(1L, "F")
+                .row(2L, "F")
+                .row(1L, "P")
+                .row(2L, "P")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -3224,7 +3224,7 @@ public abstract class AbstractTestQueries
                 "   FROM orders\n" +
                 ") WHERE rn = 2");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(2, 2, "O")
+                .row(2L, 2L, "O")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -3239,11 +3239,11 @@ public abstract class AbstractTestQueries
                 "   FROM orders\n" +
                 ") WHERE rn = 1 OR rn IN (3, 4) OR rn BETWEEN 6 AND 7");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(1, 1, "O")
-                .row(3, 3, "F")
-                .row(4, 4, "O")
-                .row(6, 6, "F")
-                .row(7, 7, "O")
+                .row(1L, 1L, "O")
+                .row(3L, 3L, "F")
+                .row(4L, 4L, "O")
+                .row(6L, 6L, "F")
+                .row(7L, 7L, "O")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -3258,9 +3258,9 @@ public abstract class AbstractTestQueries
                 "   FROM orders\n" +
                 ") WHERE rn = 2");
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR)
-                .row(2, 2, "O")
-                .row(2, 5, "F")
-                .row(2, 197, "P")
+                .row(2L, 2L, "O")
+                .row(2L, 5L, "F")
+                .row(2L, 197L, "P")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -3271,9 +3271,9 @@ public abstract class AbstractTestQueries
                 "   FROM orders\n" +
                 ") WHERE rn = 2");
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(2, 2)
-                .row(2, 5)
-                .row(2, 197)
+                .row(2L, 2L)
+                .row(2L, 5L)
+                .row(2L, 197L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -3283,9 +3283,9 @@ public abstract class AbstractTestQueries
                 "   FROM orders\n" +
                 ") WHERE rn = 2");
         expected = resultBuilder(getSession(), BIGINT, VARCHAR)
-                .row(2, "O")
-                .row(2, "F")
-                .row(2, "P")
+                .row(2L, "O")
+                .row(2L, "F")
+                .row(2L, "P")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
@@ -3300,7 +3300,7 @@ public abstract class AbstractTestQueries
                 "GROUP BY 1");
 
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, BIGINT)
-                .row("foo", 1)
+                .row("foo", 1L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3316,11 +3316,11 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1, 1)
-                .row(2, 1)
-                .row(3, 1)
-                .row(4, 1)
-                .row(5, 1)
+                .row(1L, 1L)
+                .row(2L, 1L)
+                .row(3L, 1L)
+                .row(4L, 1L)
+                .row(5L, 1L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3336,11 +3336,11 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1, 1)
-                .row(2, 1)
-                .row(3, 1)
-                .row(4, 1)
-                .row(5, 1)
+                .row(1L, 1L)
+                .row(2L, 1L)
+                .row(3L, 1L)
+                .row(4L, 1L)
+                .row(5L, 1L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3356,11 +3356,11 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1, 1)
-                .row(2, 2)
-                .row(3, 3)
-                .row(4, 4)
-                .row(5, 5)
+                .row(1L, 1L)
+                .row(2L, 2L)
+                .row(3L, 3L)
+                .row(4L, 4L)
+                .row(5L, 5L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3376,11 +3376,11 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1, 1)
-                .row(2, 2)
-                .row(3, 3)
-                .row(4, 4)
-                .row(5, 5)
+                .row(1L, 1L)
+                .row(2L, 2L)
+                .row(3L, 3L)
+                .row(4L, 4L)
+                .row(5L, 5L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3396,11 +3396,11 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR, BIGINT)
-                .row(1, 370, "5-LOW", 1)
-                .row(2, 781, "1-URGENT", 1)
-                .row(3, 1234, "5-LOW", 1)
-                .row(4, 1369, "5-LOW", 1)
-                .row(5, 445, "5-LOW", 1)
+                .row(1L, 370L, "5-LOW", 1L)
+                .row(2L, 781L, "1-URGENT", 1L)
+                .row(3L, 1234L, "5-LOW", 1L)
+                .row(4L, 1369L, "5-LOW", 1L)
+                .row(5L, 445L, "5-LOW", 1L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3416,11 +3416,11 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT, VARCHAR, BIGINT)
-                .row(1, 370, 1)
-                .row(2, 781, 1)
-                .row(3, 1234, 1)
-                .row(4, 1369, 1)
-                .row(5, 445, 1)
+                .row(1L, 370L, 1L)
+                .row(2L, 781L, 1L)
+                .row(3L, 1234L, 1L)
+                .row(4L, 1369L, 1L)
+                .row(5L, 445L, 1L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3441,11 +3441,11 @@ public abstract class AbstractTestQueries
                 "LIMIT 5");
 
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(3, 1)
-                .row(1, 2)
-                .row(2, 3)
-                .row(4, 4)
-                .row(5, 5)
+                .row(3L, 1L)
+                .row(1L, 2L)
+                .row(2L, 3L)
+                .row(4L, 4L)
+                .row(5L, 5L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3458,11 +3458,11 @@ public abstract class AbstractTestQueries
                 "LIMIT 5");
 
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(3, 10)
-                .row(34, 9)
-                .row(33, 8)
-                .row(32, 7)
-                .row(7, 6)
+                .row(3L, 10L)
+                .row(34L, 9L)
+                .row(33L, 8L)
+                .row(32L, 7L)
+                .row(7L, 6L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3490,11 +3490,11 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT, BIGINT)
-                .row(1, "O", 1001, 1002)
-                .row(2, "O", 1001, 1002)
-                .row(3, "F", 1003, 1005)
-                .row(4, "O", 1001, 1002)
-                .row(5, "F", 1003, 1005)
+                .row(1L, "O", 1001L, 1002L)
+                .row(2L, "O", 1001L, 1002L)
+                .row(3L, "F", 1003L, 1005L)
+                .row(4L, "O", 1001L, 1002L)
+                .row(5L, "F", 1003L, 1005L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3512,11 +3512,11 @@ public abstract class AbstractTestQueries
                 "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1, "O", 1001)
-                .row(2, "O", 3007)
-                .row(3, "F", 3014)
-                .row(4, "O", 4045)
-                .row(5, "F", 2008)
+                .row(1L, "O", 1001L)
+                .row(2L, "O", 3007L)
+                .row(3L, "F", 3014L)
+                .row(4L, "O", 4045L)
+                .row(5L, "F", 2008L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3530,9 +3530,9 @@ public abstract class AbstractTestQueries
                 "LIMIT 3");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1)
-                .row(1)
-                .row(1)
+                .row(1L)
+                .row(1L)
+                .row(1L)
                 .build();
 
         assertEquals(actual, expected);
@@ -3874,9 +3874,9 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT a, row_number() OVER (ORDER BY a, a) FROM (VALUES 3, 2, 1) t(a)");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
-                .row(1, 1)
-                .row(2, 2)
-                .row(3, 3)
+                .row(1L, 1L)
+                .row(2L, 2L)
+                .row(3L, 3L)
                 .build();
 
         assertEqualsIgnoreOrder(actual, expected);
@@ -5479,7 +5479,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(custkey)) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1002)
+                .row(1002L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5492,7 +5492,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(CAST(custkey AS VARCHAR))) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1024)
+                .row(1024L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5505,7 +5505,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(CAST(custkey AS DOUBLE))) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1014)
+                .row(1014L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5521,9 +5521,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 1001)
-                .row("F", 998)
-                .row("P", 304)
+                .row("O", 1001L)
+                .row("F", 998L)
+                .row("P", 304L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5539,9 +5539,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 1021)
-                .row("F", 1019)
-                .row("P", 304)
+                .row("O", 1021L)
+                .row("F", 1019L)
+                .row("P", 304L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5557,9 +5557,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 1011)
-                .row("F", 1011)
-                .row("P", 304)
+                .row("O", 1011L)
+                .row("F", 1011L)
+                .row("P", 304L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5572,7 +5572,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(IF(orderstatus = 'O', custkey))) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row(1001)
+                .row(1001L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5602,8 +5602,8 @@ public abstract class AbstractTestQueries
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", null)
-                .row("F", 998)
-                .row("P", 304)
+                .row("F", 998L)
+                .row("P", 304L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5619,9 +5619,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 499)
-                .row("F", 496)
-                .row("P", 153)
+                .row("O", 499L)
+                .row("F", 496L)
+                .row("P", 153L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5634,7 +5634,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(merge(create_hll(custkey))) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1002)
+                .row(1002L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5650,9 +5650,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 1001)
-                .row("F", 998)
-                .row("P", 304)
+                .row("O", 1001L)
+                .row("F", 998L)
+                .row("P", 304L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5665,7 +5665,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(merge(create_hll(IF(orderstatus = 'O', custkey)))) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1001)
+                .row(1001L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5682,8 +5682,8 @@ public abstract class AbstractTestQueries
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", null)
-                .row("F", 998)
-                .row("P", 304)
+                .row("F", 998L)
+                .row("P", 304L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5709,7 +5709,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(custkey) AS P4HYPERLOGLOG)) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1002)
+                .row(1002L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5722,7 +5722,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(CAST(custkey AS VARCHAR)) AS P4HYPERLOGLOG)) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1024)
+                .row(1024L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5735,7 +5735,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(CAST(custkey AS DOUBLE)) AS P4HYPERLOGLOG)) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1014)
+                .row(1014L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5751,9 +5751,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 1001)
-                .row("F", 998)
-                .row("P", 308)
+                .row("O", 1001L)
+                .row("F", 998L)
+                .row("P", 308L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5769,9 +5769,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 1021)
-                .row("F", 1019)
-                .row("P", 302)
+                .row("O", 1021L)
+                .row("F", 1019L)
+                .row("P", 302L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5787,9 +5787,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 1011)
-                .row("F", 1011)
-                .row("P", 306)
+                .row("O", 1011L)
+                .row("F", 1011L)
+                .row("P", 306L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5802,7 +5802,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(IF(orderstatus = 'O', custkey)) AS P4HYPERLOGLOG)) FROM orders");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row(1001)
+                .row(1001L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5832,8 +5832,8 @@ public abstract class AbstractTestQueries
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", null)
-                .row("F", 998)
-                .row("P", 308)
+                .row("F", 998L)
+                .row("P", 308L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5849,9 +5849,9 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderstatus");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 495)
-                .row("F", 491)
-                .row("P", 153)
+                .row("O", 495L)
+                .row("F", 491L)
+                .row("P", 153L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -5891,7 +5891,7 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT foo from (values (1, 2)) a(foo, bar)");
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row(1)
+                .row(1L)
                 .build();
 
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());

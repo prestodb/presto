@@ -46,19 +46,19 @@ public class TestPagesIndexPageSorter
         List<SortOrder> sortOrders = ImmutableList.of(ASC_NULLS_FIRST);
 
         List<Page> inputPages = RowPagesBuilder.rowPagesBuilder(types)
-                .row(2, 1.1, "d")
-                .row(1, 2.2, "c")
+                .row(2L, 1.1, "d")
+                .row(1L, 2.2, "c")
                 .pageBreak()
-                .row(-2, 2.2, "b")
-                .row(-12, 2.2, "a")
+                .row(-2L, 2.2, "b")
+                .row(-12L, 2.2, "a")
                 .build();
 
         List<Page> expectedPages = RowPagesBuilder.rowPagesBuilder(types)
-                .row(-12, 2.2, "a")
-                .row(-2, 2.2, "b")
+                .row(-12L, 2.2, "a")
+                .row(-2L, 2.2, "b")
                 .pageBreak()
-                .row(1, 2.2, "c")
-                .row(2, 1.1, "d")
+                .row(1L, 2.2, "c")
+                .row(2L, 1.1, "d")
                 .build();
 
         assertSorted(inputPages, expectedPages, types, sortChannels, sortOrders, 100);
@@ -73,25 +73,25 @@ public class TestPagesIndexPageSorter
         List<SortOrder> sortOrders = Collections.nCopies(sortChannels.size(), ASC_NULLS_FIRST);
 
         List<Page> inputPages = RowPagesBuilder.rowPagesBuilder(types)
-                .row(2, 1.1, "d")
-                .row(1, 2.2, "c")
+                .row(2L, 1.1, "d")
+                .row(1L, 2.2, "c")
                 .pageBreak()
-                .row(1, 2.2, "b")
-                .row(1, 2.2, "a")
+                .row(1L, 2.2, "b")
+                .row(1L, 2.2, "a")
                 .pageBreak()
-                .row(1, 2.2, null)
-                .row(1, null, "z")
-                .row(1, null, null)
+                .row(1L, 2.2, null)
+                .row(1L, null, "z")
+                .row(1L, null, null)
                 .build();
 
         List<Page> expectedPages = RowPagesBuilder.rowPagesBuilder(types)
-                .row(1, null, null)
-                .row(1, null, "z")
-                .row(1, 2.2, null)
-                .row(1, 2.2, "a")
-                .row(1, 2.2, "b")
-                .row(1, 2.2, "c")
-                .row(2, 1.1, "d")
+                .row(1L, null, null)
+                .row(1L, null, "z")
+                .row(1L, 2.2, null)
+                .row(1L, 2.2, "a")
+                .row(1L, 2.2, "b")
+                .row(1L, 2.2, "c")
+                .row(2L, 1.1, "d")
                 .build();
         assertSorted(inputPages, expectedPages, types, sortChannels, sortOrders, 100);
     }
@@ -105,18 +105,18 @@ public class TestPagesIndexPageSorter
         List<SortOrder> sortOrders = ImmutableList.of(ASC_NULLS_FIRST);
 
         List<Page> inputPages = RowPagesBuilder.rowPagesBuilder(types)
-                .row(-12, 2.2, "a")
-                .row(-2, 2.2, "b")
+                .row(-12L, 2.2, "a")
+                .row(-2L, 2.2, "b")
                 .pageBreak()
-                .row(1, 2.2, "d")
-                .row(2, 1.1, "c")
+                .row(1L, 2.2, "d")
+                .row(2L, 1.1, "c")
                 .build();
 
         List<Page> expectedPages = RowPagesBuilder.rowPagesBuilder(types)
-                .row(-12, 2.2, "a")
-                .row(-2, 2.2, "b")
-                .row(1, 2.2, "d")
-                .row(2, 1.1, "c")
+                .row(-12L, 2.2, "a")
+                .row(-2L, 2.2, "b")
+                .row(1L, 2.2, "d")
+                .row(2L, 1.1, "c")
                 .build();
 
         assertSorted(inputPages, expectedPages, types, sortChannels, sortOrders, 100);
@@ -131,19 +131,19 @@ public class TestPagesIndexPageSorter
         List<SortOrder> sortOrders = ImmutableList.of(ASC_NULLS_FIRST);
 
         List<Page> inputPages = RowPagesBuilder.rowPagesBuilder(types)
-                .row(2, 1.1, "c")
-                .row(1, 2.2, "d")
+                .row(2L, 1.1, "c")
+                .row(1L, 2.2, "d")
                 .pageBreak()
-                .row(-2, 2.2, "b")
-                .row(-12, 2.2, "a")
+                .row(-2L, 2.2, "b")
+                .row(-12L, 2.2, "a")
                 .build();
 
         List<Page> expectedPages = RowPagesBuilder.rowPagesBuilder(types)
-                .row(-12, 2.2, "a")
-                .row(-2, 2.2, "b")
+                .row(-12L, 2.2, "a")
+                .row(-2L, 2.2, "b")
                 .pageBreak()
-                .row(1, 2.2, "d")
-                .row(2, 1.1, "c")
+                .row(1L, 2.2, "d")
+                .row(2L, 1.1, "c")
                 .build();
 
         assertSorted(inputPages, expectedPages, types, sortChannels, sortOrders, 2);

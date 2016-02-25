@@ -76,18 +76,18 @@ public class TestGroupIdOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, VARCHAR, BOOLEAN, BIGINT, BIGINT)
-                .row(100, "400", true, null, 0)
-                .row(101, "401", false, null, 0)
-                .row(102, "402", true, null, 0)
-                .row(200, "500", true, null, 0)
-                .row(201, "501", false, null, 0)
-                .row(202, "502", true, null, 0)
-                .row(100, null, null, 1000, 1)
-                .row(101, null, null, 1001, 1)
-                .row(102, null, null, 1002, 1)
-                .row(200, null, null, 1100, 1)
-                .row(201, null, null, 1101, 1)
-                .row(202, null, null, 1102, 1)
+                .row(100L, "400", true, null, 0L)
+                .row(101L, "401", false, null, 0L)
+                .row(102L, "402", true, null, 0L)
+                .row(200L, "500", true, null, 0L)
+                .row(201L, "501", false, null, 0L)
+                .row(202L, "502", true, null, 0L)
+                .row(100L, null, null, 1000L, 1L)
+                .row(101L, null, null, 1001L, 1L)
+                .row(102L, null, null, 1002L, 1L)
+                .row(200L, null, null, 1100L, 1L)
+                .row(201L, null, null, 1101L, 1L)
+                .row(202L, null, null, 1102L, 1L)
                 .build();
 
         List<Page> pages = toPages(operator, input.iterator());

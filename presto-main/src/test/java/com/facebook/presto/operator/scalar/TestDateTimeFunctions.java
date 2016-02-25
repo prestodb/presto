@@ -221,179 +221,179 @@ public class TestDateTimeFunctions
     @Test
     public void testTimeZone()
     {
-        assertFunction("hour(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getHourOfDay());
-        assertFunction("minute(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getMinuteOfHour());
-        assertFunction("hour(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getHourOfDay());
-        assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getMinuteOfHour());
+        assertFunction("hour(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getHourOfDay());
+        assertFunction("minute(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMinuteOfHour());
+        assertFunction("hour(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getHourOfDay());
+        assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getMinuteOfHour());
         assertFunction("current_timezone()", VARCHAR, TIME_ZONE_KEY.getId());
     }
 
     @Test
     public void testPartFunctions()
     {
-        assertFunction("second(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getSecondOfMinute());
-        assertFunction("minute(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getMinuteOfHour());
-        assertFunction("hour(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getHourOfDay());
-        assertFunction("day_of_week(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.dayOfWeek().get());
-        assertFunction("dow(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.dayOfWeek().get());
-        assertFunction("day(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getDayOfMonth());
-        assertFunction("day_of_month(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getDayOfMonth());
-        assertFunction("day_of_year(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.dayOfYear().get());
-        assertFunction("doy(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.dayOfYear().get());
-        assertFunction("week(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.weekOfWeekyear().get());
-        assertFunction("week_of_year(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.weekOfWeekyear().get());
-        assertFunction("month(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getMonthOfYear());
-        assertFunction("quarter(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getMonthOfYear() / 4 + 1);
-        assertFunction("year(" + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getYear());
-        assertFunction("timezone_hour(" + TIMESTAMP_LITERAL + ")", BIGINT, 5);
-        assertFunction("timezone_hour(localtimestamp)", BIGINT, 5);
-        assertFunction("timezone_hour(current_timestamp)", BIGINT, 5);
+        assertFunction("second(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getSecondOfMinute());
+        assertFunction("minute(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMinuteOfHour());
+        assertFunction("hour(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getHourOfDay());
+        assertFunction("day_of_week(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.dayOfWeek().get());
+        assertFunction("dow(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.dayOfWeek().get());
+        assertFunction("day(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfMonth());
+        assertFunction("day_of_month(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfMonth());
+        assertFunction("day_of_year(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.dayOfYear().get());
+        assertFunction("doy(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.dayOfYear().get());
+        assertFunction("week(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.weekOfWeekyear().get());
+        assertFunction("week_of_year(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.weekOfWeekyear().get());
+        assertFunction("month(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMonthOfYear());
+        assertFunction("quarter(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMonthOfYear() / 4 + 1);
+        assertFunction("year(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getYear());
+        assertFunction("timezone_hour(" + TIMESTAMP_LITERAL + ")", BIGINT, 5L);
+        assertFunction("timezone_hour(localtimestamp)", BIGINT, 5L);
+        assertFunction("timezone_hour(current_timestamp)", BIGINT, 5L);
 
-        assertFunction("second(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getSecondOfMinute());
-        assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getMinuteOfHour());
-        assertFunction("hour(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getHourOfDay());
-        assertFunction("day_of_week(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.dayOfWeek().get());
-        assertFunction("dow(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.dayOfWeek().get());
-        assertFunction("day(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getDayOfMonth());
-        assertFunction("day_of_month(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getDayOfMonth());
-        assertFunction("day_of_year(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.dayOfYear().get());
-        assertFunction("doy(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.dayOfYear().get());
-        assertFunction("week(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.weekOfWeekyear().get());
-        assertFunction("week_of_year(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.weekOfWeekyear().get());
-        assertFunction("month(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getMonthOfYear());
-        assertFunction("quarter(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getMonthOfYear() / 4 + 1);
-        assertFunction("year(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getYear());
-        assertFunction("timezone_minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 9);
-        assertFunction("timezone_hour(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 7);
+        assertFunction("second(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getSecondOfMinute());
+        assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getMinuteOfHour());
+        assertFunction("hour(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getHourOfDay());
+        assertFunction("day_of_week(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.dayOfWeek().get());
+        assertFunction("dow(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.dayOfWeek().get());
+        assertFunction("day(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfMonth());
+        assertFunction("day_of_month(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfMonth());
+        assertFunction("day_of_year(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.dayOfYear().get());
+        assertFunction("doy(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.dayOfYear().get());
+        assertFunction("week(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.weekOfWeekyear().get());
+        assertFunction("week_of_year(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.weekOfWeekyear().get());
+        assertFunction("month(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getMonthOfYear());
+        assertFunction("quarter(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getMonthOfYear() / 4 + 1);
+        assertFunction("year(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getYear());
+        assertFunction("timezone_minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 9L);
+        assertFunction("timezone_hour(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 7L);
     }
 
     @Test
     public void testYearOfWeek()
     {
-        assertFunction("year_of_week(DATE '2001-08-22')", BIGINT, 2001);
-        assertFunction("yow(DATE '2001-08-22')", BIGINT, 2001);
-        assertFunction("year_of_week(DATE '2005-01-02')", BIGINT, 2004);
-        assertFunction("year_of_week(DATE '2008-12-28')", BIGINT, 2008);
-        assertFunction("year_of_week(DATE '2008-12-29')", BIGINT, 2009);
-        assertFunction("year_of_week(DATE '2009-12-31')", BIGINT, 2009);
-        assertFunction("year_of_week(DATE '2010-01-03')", BIGINT, 2009);
-        assertFunction("year_of_week(TIMESTAMP '2001-08-22 03:04:05.321 +07:09')", BIGINT, 2001);
-        assertFunction("year_of_week(TIMESTAMP '2010-01-03 03:04:05.321')", BIGINT, 2009);
+        assertFunction("year_of_week(DATE '2001-08-22')", BIGINT, 2001L);
+        assertFunction("yow(DATE '2001-08-22')", BIGINT, 2001L);
+        assertFunction("year_of_week(DATE '2005-01-02')", BIGINT, 2004L);
+        assertFunction("year_of_week(DATE '2008-12-28')", BIGINT, 2008L);
+        assertFunction("year_of_week(DATE '2008-12-29')", BIGINT, 2009L);
+        assertFunction("year_of_week(DATE '2009-12-31')", BIGINT, 2009L);
+        assertFunction("year_of_week(DATE '2010-01-03')", BIGINT, 2009L);
+        assertFunction("year_of_week(TIMESTAMP '2001-08-22 03:04:05.321 +07:09')", BIGINT, 2001L);
+        assertFunction("year_of_week(TIMESTAMP '2010-01-03 03:04:05.321')", BIGINT, 2009L);
     }
 
     @Test
     public void testExtractFromTimestamp()
     {
-        assertFunction("extract(second FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getSecondOfMinute());
-        assertFunction("extract(minute FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getMinuteOfHour());
-        assertFunction("extract(hour FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getHourOfDay());
-        assertFunction("extract(day_of_week FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getDayOfWeek());
-        assertFunction("extract(dow FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getDayOfWeek());
-        assertFunction("extract(day FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getDayOfMonth());
-        assertFunction("extract(day_of_month FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getDayOfMonth());
-        assertFunction("extract(day_of_year FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getDayOfYear());
-        assertFunction("extract(year_of_week FROM " + TIMESTAMP_LITERAL + ")", BIGINT, 2001);
-        assertFunction("extract(doy FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getDayOfYear());
-        assertFunction("extract(week FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getWeekOfWeekyear());
-        assertFunction("extract(month FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getMonthOfYear());
-        assertFunction("extract(quarter FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getMonthOfYear() / 4 + 1);
-        assertFunction("extract(year FROM " + TIMESTAMP_LITERAL + ")", BIGINT, TIMESTAMP.getYear());
+        assertFunction("extract(second FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getSecondOfMinute());
+        assertFunction("extract(minute FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMinuteOfHour());
+        assertFunction("extract(hour FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getHourOfDay());
+        assertFunction("extract(day_of_week FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfWeek());
+        assertFunction("extract(dow FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfWeek());
+        assertFunction("extract(day FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfMonth());
+        assertFunction("extract(day_of_month FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfMonth());
+        assertFunction("extract(day_of_year FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfYear());
+        assertFunction("extract(year_of_week FROM " + TIMESTAMP_LITERAL + ")", BIGINT, 2001L);
+        assertFunction("extract(doy FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getDayOfYear());
+        assertFunction("extract(week FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getWeekOfWeekyear());
+        assertFunction("extract(month FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMonthOfYear());
+        assertFunction("extract(quarter FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMonthOfYear() / 4 + 1);
+        assertFunction("extract(year FROM " + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getYear());
 
-        assertFunction("extract(second FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getSecondOfMinute());
-        assertFunction("extract(minute FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getMinuteOfHour());
-        assertFunction("extract(hour FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getHourOfDay());
-        assertFunction("extract(day_of_week FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getDayOfWeek());
-        assertFunction("extract(dow FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getDayOfWeek());
-        assertFunction("extract(day FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getDayOfMonth());
-        assertFunction("extract(day_of_month FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getDayOfMonth());
-        assertFunction("extract(day_of_year FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getDayOfYear());
-        assertFunction("extract(doy FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getDayOfYear());
-        assertFunction("extract(week FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getWeekOfWeekyear());
-        assertFunction("extract(month FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getMonthOfYear());
-        assertFunction("extract(quarter FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getMonthOfYear() / 4 + 1);
-        assertFunction("extract(year FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getYear());
-        assertFunction("extract(timezone_minute FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 9);
-        assertFunction("extract(timezone_hour FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 7);
+        assertFunction("extract(second FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getSecondOfMinute());
+        assertFunction("extract(minute FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getMinuteOfHour());
+        assertFunction("extract(hour FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getHourOfDay());
+        assertFunction("extract(day_of_week FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfWeek());
+        assertFunction("extract(dow FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfWeek());
+        assertFunction("extract(day FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfMonth());
+        assertFunction("extract(day_of_month FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfMonth());
+        assertFunction("extract(day_of_year FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfYear());
+        assertFunction("extract(doy FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getDayOfYear());
+        assertFunction("extract(week FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getWeekOfWeekyear());
+        assertFunction("extract(month FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getMonthOfYear());
+        assertFunction("extract(quarter FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getMonthOfYear() / 4 + 1);
+        assertFunction("extract(year FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getYear());
+        assertFunction("extract(timezone_minute FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 9L);
+        assertFunction("extract(timezone_hour FROM " + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 7L);
     }
 
     @Test
     public void testExtractFromTime()
     {
-        assertFunction("extract(second FROM " + TIME_LITERAL + ")", BIGINT, 5);
-        assertFunction("extract(minute FROM " + TIME_LITERAL + ")", BIGINT, 4);
-        assertFunction("extract(hour FROM " + TIME_LITERAL + ")", BIGINT, 3);
+        assertFunction("extract(second FROM " + TIME_LITERAL + ")", BIGINT, 5L);
+        assertFunction("extract(minute FROM " + TIME_LITERAL + ")", BIGINT, 4L);
+        assertFunction("extract(hour FROM " + TIME_LITERAL + ")", BIGINT, 3L);
 
-        assertFunction("extract(second FROM " + WEIRD_TIME_LITERAL + ")", BIGINT, 5);
-        assertFunction("extract(minute FROM " + WEIRD_TIME_LITERAL + ")", BIGINT, 4);
-        assertFunction("extract(hour FROM " + WEIRD_TIME_LITERAL + ")", BIGINT, 3);
+        assertFunction("extract(second FROM " + WEIRD_TIME_LITERAL + ")", BIGINT, 5L);
+        assertFunction("extract(minute FROM " + WEIRD_TIME_LITERAL + ")", BIGINT, 4L);
+        assertFunction("extract(hour FROM " + WEIRD_TIME_LITERAL + ")", BIGINT, 3L);
     }
 
     @Test
     public void testExtractFromDate()
     {
-        assertFunction("extract(day_of_week FROM " + DATE_LITERAL + ")", BIGINT, 3);
-        assertFunction("extract(dow FROM " + DATE_LITERAL + ")", BIGINT, 3);
-        assertFunction("extract(day FROM " + DATE_LITERAL + ")", BIGINT, 22);
-        assertFunction("extract(day_of_month FROM " + DATE_LITERAL + ")", BIGINT, 22);
-        assertFunction("extract(day_of_year FROM " + DATE_LITERAL + ")", BIGINT, 234);
-        assertFunction("extract(doy FROM " + DATE_LITERAL + ")", BIGINT, 234);
-        assertFunction("extract(year_of_week FROM " + DATE_LITERAL + ")", BIGINT, 2001);
-        assertFunction("extract(yow FROM " + DATE_LITERAL + ")", BIGINT, 2001);
-        assertFunction("extract(week FROM " + DATE_LITERAL + ")", BIGINT, 34);
-        assertFunction("extract(month FROM " + DATE_LITERAL + ")", BIGINT, 8);
-        assertFunction("extract(quarter FROM " + DATE_LITERAL + ")", BIGINT, 3);
-        assertFunction("extract(year FROM " + DATE_LITERAL + ")", BIGINT, 2001);
+        assertFunction("extract(day_of_week FROM " + DATE_LITERAL + ")", BIGINT, 3L);
+        assertFunction("extract(dow FROM " + DATE_LITERAL + ")", BIGINT, 3L);
+        assertFunction("extract(day FROM " + DATE_LITERAL + ")", BIGINT, 22L);
+        assertFunction("extract(day_of_month FROM " + DATE_LITERAL + ")", BIGINT, 22L);
+        assertFunction("extract(day_of_year FROM " + DATE_LITERAL + ")", BIGINT, 234L);
+        assertFunction("extract(doy FROM " + DATE_LITERAL + ")", BIGINT, 234L);
+        assertFunction("extract(year_of_week FROM " + DATE_LITERAL + ")", BIGINT, 2001L);
+        assertFunction("extract(yow FROM " + DATE_LITERAL + ")", BIGINT, 2001L);
+        assertFunction("extract(week FROM " + DATE_LITERAL + ")", BIGINT, 34L);
+        assertFunction("extract(month FROM " + DATE_LITERAL + ")", BIGINT, 8L);
+        assertFunction("extract(quarter FROM " + DATE_LITERAL + ")", BIGINT, 3L);
+        assertFunction("extract(year FROM " + DATE_LITERAL + ")", BIGINT, 2001L);
 
-        assertFunction("extract(quarter FROM DATE '2001-01-01')", BIGINT, 1);
-        assertFunction("extract(quarter FROM DATE '2001-03-31')", BIGINT, 1);
-        assertFunction("extract(quarter FROM DATE '2001-04-01')", BIGINT, 2);
-        assertFunction("extract(quarter FROM DATE '2001-06-30')", BIGINT, 2);
-        assertFunction("extract(quarter FROM DATE '2001-07-01')", BIGINT, 3);
-        assertFunction("extract(quarter FROM DATE '2001-09-30')", BIGINT, 3);
-        assertFunction("extract(quarter FROM DATE '2001-10-01')", BIGINT, 4);
-        assertFunction("extract(quarter FROM DATE '2001-12-31')", BIGINT, 4);
+        assertFunction("extract(quarter FROM DATE '2001-01-01')", BIGINT, 1L);
+        assertFunction("extract(quarter FROM DATE '2001-03-31')", BIGINT, 1L);
+        assertFunction("extract(quarter FROM DATE '2001-04-01')", BIGINT, 2L);
+        assertFunction("extract(quarter FROM DATE '2001-06-30')", BIGINT, 2L);
+        assertFunction("extract(quarter FROM DATE '2001-07-01')", BIGINT, 3L);
+        assertFunction("extract(quarter FROM DATE '2001-09-30')", BIGINT, 3L);
+        assertFunction("extract(quarter FROM DATE '2001-10-01')", BIGINT, 4L);
+        assertFunction("extract(quarter FROM DATE '2001-12-31')", BIGINT, 4L);
 
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-01-01 00:00:00.000')", BIGINT, 1);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-03-31 23:59:59.999')", BIGINT, 1);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-04-01 00:00:00.000')", BIGINT, 2);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-06-30 23:59:59.999')", BIGINT, 2);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-07-01 00:00:00.000')", BIGINT, 3);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-09-30 23:59:59.999')", BIGINT, 3);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-10-01 00:00:00.000')", BIGINT, 4);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-12-31 23:59:59.999')", BIGINT, 4);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-01-01 00:00:00.000')", BIGINT, 1L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-03-31 23:59:59.999')", BIGINT, 1L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-04-01 00:00:00.000')", BIGINT, 2L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-06-30 23:59:59.999')", BIGINT, 2L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-07-01 00:00:00.000')", BIGINT, 3L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-09-30 23:59:59.999')", BIGINT, 3L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-10-01 00:00:00.000')", BIGINT, 4L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-12-31 23:59:59.999')", BIGINT, 4L);
 
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-01-01 00:00:00.000 +06:00')", BIGINT, 1);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-03-31 23:59:59.999 +06:00')", BIGINT, 1);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-04-01 00:00:00.000 +06:00')", BIGINT, 2);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-06-30 23:59:59.999 +06:00')", BIGINT, 2);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-07-01 00:00:00.000 +06:00')", BIGINT, 3);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-09-30 23:59:59.999 +06:00')", BIGINT, 3);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-10-01 00:00:00.000 +06:00')", BIGINT, 4);
-        assertFunction("extract(quarter FROM TIMESTAMP '2001-12-31 23:59:59.999 +06:00')", BIGINT, 4);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-01-01 00:00:00.000 +06:00')", BIGINT, 1L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-03-31 23:59:59.999 +06:00')", BIGINT, 1L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-04-01 00:00:00.000 +06:00')", BIGINT, 2L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-06-30 23:59:59.999 +06:00')", BIGINT, 2L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-07-01 00:00:00.000 +06:00')", BIGINT, 3L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-09-30 23:59:59.999 +06:00')", BIGINT, 3L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-10-01 00:00:00.000 +06:00')", BIGINT, 4L);
+        assertFunction("extract(quarter FROM TIMESTAMP '2001-12-31 23:59:59.999 +06:00')", BIGINT, 4L);
     }
 
     @Test
     public void testExtractFromInterval()
     {
-        assertFunction("extract(second FROM INTERVAL '5' SECOND)", BIGINT, 5);
-        assertFunction("extract(second FROM INTERVAL '65' SECOND)", BIGINT, 5);
+        assertFunction("extract(second FROM INTERVAL '5' SECOND)", BIGINT, 5L);
+        assertFunction("extract(second FROM INTERVAL '65' SECOND)", BIGINT, 5L);
 
-        assertFunction("extract(minute FROM INTERVAL '4' MINUTE)", BIGINT, 4);
-        assertFunction("extract(minute FROM INTERVAL '64' MINUTE)", BIGINT, 4);
-        assertFunction("extract(minute FROM INTERVAL '247' SECOND)", BIGINT, 4);
+        assertFunction("extract(minute FROM INTERVAL '4' MINUTE)", BIGINT, 4L);
+        assertFunction("extract(minute FROM INTERVAL '64' MINUTE)", BIGINT, 4L);
+        assertFunction("extract(minute FROM INTERVAL '247' SECOND)", BIGINT, 4L);
 
-        assertFunction("extract(hour FROM INTERVAL '3' HOUR)", BIGINT, 3);
-        assertFunction("extract(hour FROM INTERVAL '27' HOUR)", BIGINT, 3);
-        assertFunction("extract(hour FROM INTERVAL '187' MINUTE)", BIGINT, 3);
+        assertFunction("extract(hour FROM INTERVAL '3' HOUR)", BIGINT, 3L);
+        assertFunction("extract(hour FROM INTERVAL '27' HOUR)", BIGINT, 3L);
+        assertFunction("extract(hour FROM INTERVAL '187' MINUTE)", BIGINT, 3L);
 
-        assertFunction("extract(day FROM INTERVAL '2' DAY)", BIGINT, 2);
-        assertFunction("extract(day FROM INTERVAL '55' HOUR)", BIGINT, 2);
+        assertFunction("extract(day FROM INTERVAL '2' DAY)", BIGINT, 2L);
+        assertFunction("extract(day FROM INTERVAL '55' HOUR)", BIGINT, 2L);
 
-        assertFunction("extract(month FROM INTERVAL '3' MONTH)", BIGINT, 3);
-        assertFunction("extract(month FROM INTERVAL '15' MONTH)", BIGINT, 3);
+        assertFunction("extract(month FROM INTERVAL '3' MONTH)", BIGINT, 3L);
+        assertFunction("extract(month FROM INTERVAL '15' MONTH)", BIGINT, 3L);
 
-        assertFunction("extract(year FROM INTERVAL '2' YEAR)", BIGINT, 2);
-        assertFunction("extract(year FROM INTERVAL '29' MONTH)", BIGINT, 2);
+        assertFunction("extract(year FROM INTERVAL '2' YEAR)", BIGINT, 2L);
+        assertFunction("extract(year FROM INTERVAL '29' MONTH)", BIGINT, 2L);
     }
 
     @Test
@@ -548,14 +548,14 @@ public class TestDateTimeFunctions
         String baseDateTimeLiteral = "TIMESTAMP '1960-05-03 07:02:09.678'";
 
         assertFunction("date_diff('millisecond', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, millisBetween(baseDateTime, TIMESTAMP));
-        assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, secondsBetween(baseDateTime, TIMESTAMP).getSeconds());
-        assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, minutesBetween(baseDateTime, TIMESTAMP).getMinutes());
-        assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, hoursBetween(baseDateTime, TIMESTAMP).getHours());
-        assertFunction("date_diff('day', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, daysBetween(baseDateTime, TIMESTAMP).getDays());
-        assertFunction("date_diff('week', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, weeksBetween(baseDateTime, TIMESTAMP).getWeeks());
-        assertFunction("date_diff('month', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, monthsBetween(baseDateTime, TIMESTAMP).getMonths());
-        assertFunction("date_diff('quarter', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, monthsBetween(baseDateTime, TIMESTAMP).getMonths() / 3);
-        assertFunction("date_diff('year', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, yearsBetween(baseDateTime, TIMESTAMP).getYears());
+        assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) secondsBetween(baseDateTime, TIMESTAMP).getSeconds());
+        assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) minutesBetween(baseDateTime, TIMESTAMP).getMinutes());
+        assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) hoursBetween(baseDateTime, TIMESTAMP).getHours());
+        assertFunction("date_diff('day', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) daysBetween(baseDateTime, TIMESTAMP).getDays());
+        assertFunction("date_diff('week', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) weeksBetween(baseDateTime, TIMESTAMP).getWeeks());
+        assertFunction("date_diff('month', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) monthsBetween(baseDateTime, TIMESTAMP).getMonths());
+        assertFunction("date_diff('quarter', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) monthsBetween(baseDateTime, TIMESTAMP).getMonths() / 3);
+        assertFunction("date_diff('year', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, (long) yearsBetween(baseDateTime, TIMESTAMP).getYears());
 
         DateTime weirdBaseDateTime = new DateTime(1960, 5, 3, 7, 2, 9, 678, WEIRD_ZONE);
         String weirdBaseDateTimeLiteral = "TIMESTAMP '1960-05-03 07:02:09.678 +07:09'";
@@ -565,28 +565,28 @@ public class TestDateTimeFunctions
                 millisBetween(weirdBaseDateTime, WEIRD_TIMESTAMP));
         assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
                 BIGINT,
-                secondsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getSeconds());
+                (long) secondsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getSeconds());
         assertFunction("date_diff('minute', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
                 BIGINT,
-                minutesBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getMinutes());
+                (long) minutesBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getMinutes());
         assertFunction("date_diff('hour', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
                 BIGINT,
-                hoursBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getHours());
+                (long) hoursBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getHours());
         assertFunction("date_diff('day', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
                 BIGINT,
-                daysBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getDays());
+                (long) daysBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getDays());
         assertFunction("date_diff('week', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
                 BIGINT,
-                weeksBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getWeeks());
+                (long) weeksBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getWeeks());
         assertFunction("date_diff('month', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
                 BIGINT,
-                monthsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getMonths());
+                (long) monthsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getMonths());
         assertFunction("date_diff('quarter', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
                 BIGINT,
-                monthsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getMonths() / 3);
+                (long) monthsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getMonths() / 3);
         assertFunction("date_diff('year', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIMESTAMP_LITERAL + ")",
                 BIGINT,
-                yearsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getYears());
+                (long) yearsBetween(weirdBaseDateTime, WEIRD_TIMESTAMP).getYears());
     }
 
     @Test
@@ -595,11 +595,11 @@ public class TestDateTimeFunctions
         DateTime baseDateTime = new DateTime(1960, 5, 3, 0, 0, 0, 0, DateTimeZone.UTC);
         String baseDateTimeLiteral = "DATE '1960-05-03'";
 
-        assertFunction("date_diff('day', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, daysBetween(baseDateTime, DATE).getDays());
-        assertFunction("date_diff('week', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, weeksBetween(baseDateTime, DATE).getWeeks());
-        assertFunction("date_diff('month', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, monthsBetween(baseDateTime, DATE).getMonths());
-        assertFunction("date_diff('quarter', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, monthsBetween(baseDateTime, DATE).getMonths() / 3);
-        assertFunction("date_diff('year', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, yearsBetween(baseDateTime, DATE).getYears());
+        assertFunction("date_diff('day', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, (long) daysBetween(baseDateTime, DATE).getDays());
+        assertFunction("date_diff('week', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, (long) weeksBetween(baseDateTime, DATE).getWeeks());
+        assertFunction("date_diff('month', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, (long) monthsBetween(baseDateTime, DATE).getMonths());
+        assertFunction("date_diff('quarter', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, (long) monthsBetween(baseDateTime, DATE).getMonths() / 3);
+        assertFunction("date_diff('year', " + baseDateTimeLiteral + ", " + DATE_LITERAL + ")", BIGINT, (long) yearsBetween(baseDateTime, DATE).getYears());
     }
 
     @Test
@@ -609,17 +609,17 @@ public class TestDateTimeFunctions
         String baseDateTimeLiteral = "TIME '07:02:09.678'";
 
         assertFunction("date_diff('millisecond', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, millisBetween(baseDateTime, TIME));
-        assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, secondsBetween(baseDateTime, TIME).getSeconds());
-        assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, minutesBetween(baseDateTime, TIME).getMinutes());
-        assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, hoursBetween(baseDateTime, TIME).getHours());
+        assertFunction("date_diff('second', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, (long) secondsBetween(baseDateTime, TIME).getSeconds());
+        assertFunction("date_diff('minute', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, (long) minutesBetween(baseDateTime, TIME).getMinutes());
+        assertFunction("date_diff('hour', " + baseDateTimeLiteral + ", " + TIME_LITERAL + ")", BIGINT, (long) hoursBetween(baseDateTime, TIME).getHours());
 
         DateTime weirdBaseDateTime = new DateTime(1970, 1, 1, 7, 2, 9, 678, WEIRD_ZONE);
         String weirdBaseDateTimeLiteral = "TIME '07:02:09.678 +07:09'";
 
         assertFunction("date_diff('millisecond', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, millisBetween(weirdBaseDateTime, WEIRD_TIME));
-        assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, secondsBetween(weirdBaseDateTime, WEIRD_TIME).getSeconds());
-        assertFunction("date_diff('minute', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, minutesBetween(weirdBaseDateTime, WEIRD_TIME).getMinutes());
-        assertFunction("date_diff('hour', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, hoursBetween(weirdBaseDateTime, WEIRD_TIME).getHours());
+        assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, (long) secondsBetween(weirdBaseDateTime, WEIRD_TIME).getSeconds());
+        assertFunction("date_diff('minute', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, (long) minutesBetween(weirdBaseDateTime, WEIRD_TIME).getMinutes());
+        assertFunction("date_diff('hour', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, (long) hoursBetween(weirdBaseDateTime, WEIRD_TIME).getHours());
     }
 
     @Test
