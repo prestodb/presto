@@ -7,6 +7,7 @@ CLI Changes
 
 * Improve performance of output in batch mode.
 * Fix hex rendering in batch mode.
+* Abort running queries when CLI is terminated.
 
 Hive Changes
 ------------
