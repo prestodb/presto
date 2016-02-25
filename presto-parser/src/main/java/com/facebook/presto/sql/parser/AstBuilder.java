@@ -596,18 +596,11 @@ class AstBuilder
     @Override
     public Node visitGrant(SqlBaseParser.GrantContext context)
     {
-        String grantee;
-        if (context.PUBLIC() != null) {
-            grantee = "PUBLIC";
-        }
-        else {
-            grantee = context.grantee.getText();
-        }
+        String grantee = context.grantee.getText();
 
         List<String> privileges;
         if (context.ALL() != null && context.PRIVILEGES() != null) {
-            //List all privileges  declared in 'Privilege' enum in SPI
-            privileges = ImmutableList.of("SELECT", "DELETE", "INSERT");
+            privileges = ImmutableList.of("ALL PRIVILEGES");
         }
         else {
             privileges = context.privilege().stream()
@@ -635,7 +628,7 @@ class AstBuilder
             return "INSERT";
         }
         else {
-            throw new IllegalArgumentException("Unsupported Privilege: " + context.getText());
+            throw new IllegalArgumentException("Unsupported Privilege: " + context.identifier().getText());
         }
     }
 

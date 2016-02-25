@@ -23,12 +23,16 @@ import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PRIVILEGE;
@@ -38,6 +42,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class GrantTask
     implements DataDefinitionTask<Grant>
 {
+    private static final String ALL_PRIVILEGES = "ALL PRIVILEGES";
+
     @Override
     public String getName()
     {
@@ -54,16 +60,24 @@ public class GrantTask
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
 
-        Set<Privilege> privileges = new HashSet<>();
-
-        for (String privilege : statement.getPrivileges()) {
-            if (!Privilege.contains(privilege)) {
-                throw new SemanticException(INVALID_PRIVILEGE, statement, "Unknown privilege: '%s'", privilege);
+        List<String> statementPrivileges = statement.getPrivileges();
+        if (statementPrivileges.equals(ImmutableList.of(ALL_PRIVILEGES))) {
+            //Replace 'ALL PRIVILEGES' with the list of all privileges declared in 'Privilege' enum in SPI
+            statementPrivileges = Arrays.stream(Privilege.values()).map(Enum::name).collect(Collectors.toList());
+        }
+        else {
+            for (String privilege : statementPrivileges) {
+                if (!Privilege.contains(privilege)) {
+                    throw new SemanticException(INVALID_PRIVILEGE, statement, "Unknown privilege: '%s'", privilege);
+                }
             }
+        }
 
+        Set<Privilege> privileges = new HashSet<>();
+        for (String privilege : statementPrivileges) {
             accessControl.checkCanGrantTablePrivilege(session.getIdentity(), Enum.valueOf(Privilege.class, privilege), tableName);
 
-            privileges.add(Enum.valueOf(Privilege.class, privilege));
+            privileges.add(Privilege.valueOf(privilege.toUpperCase()));
         }
 
         Identity identity = new Identity(statement.getGrantee(), Optional.<Principal>empty());
