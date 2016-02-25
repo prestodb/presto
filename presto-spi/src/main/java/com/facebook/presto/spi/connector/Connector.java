@@ -29,7 +29,8 @@ public interface Connector
     ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly);
 
     /**
-     * Guaranteed to be called at most once per transaction.
+     * Guaranteed to be called at most once per transaction. The returned metadata will only be accessed
+     * in a single threaded context.
      */
     ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
 
@@ -124,14 +125,17 @@ public interface Connector
     }
 
     /**
-     * Commit the transaction. Will be called at most once and will not be called if abort is called.
+     * Commit the transaction. Will be called at most once and will not be called if
+     * {@link #rollback(ConnectorTransactionHandle)} is called.
      */
     default void commit(ConnectorTransactionHandle transactionHandle)
     {
     }
 
     /**
-     * Rollback the transaction. Will be called at most once and will not be called if commit is called.
+     * Rollback the transaction. Will be called at most once and will not be called if
+     * {@link #commit(ConnectorTransactionHandle)} is called.
+     * Note: calls to this method may race with calls to the ConnectorMetadata.
      */
     default void rollback(ConnectorTransactionHandle transactionHandle)
     {
