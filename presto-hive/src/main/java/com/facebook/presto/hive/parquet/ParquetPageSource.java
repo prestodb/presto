@@ -47,12 +47,14 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -178,6 +180,12 @@ class ParquetPageSource
                     long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         TIMESTAMP.writeLong(blockBuilder, value);
+                    }
+                }
+                else if (type.equals(DATE)) {
+                    long value = datePartitionKey(partitionKey.getValue(), name);
+                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                        DATE.writeLong(blockBuilder, value);
                     }
                 }
                 else {
