@@ -96,16 +96,16 @@ public class TestMathFunctions
     @Test
     public void testCeil()
     {
-        assertFunction("ceil(123)", BIGINT, 123);
-        assertFunction("ceil(-123)", BIGINT, -123);
+        assertFunction("ceil(123)", BIGINT, 123L);
+        assertFunction("ceil(-123)", BIGINT, -123L);
         assertFunction("ceil(CAST(NULL as BIGINT))", BIGINT, null);
         assertFunction("ceil(123.0)", DOUBLE, 123.0);
         assertFunction("ceil(-123.0)", DOUBLE, -123.0);
         assertFunction("ceil(123.45)", DOUBLE, 124.0);
         assertFunction("ceil(-123.45)", DOUBLE, -123.0);
         assertFunction("ceil(CAST(NULL as DOUBLE))", DOUBLE, null);
-        assertFunction("ceiling(123)", BIGINT, 123);
-        assertFunction("ceiling(-123)", BIGINT, -123);
+        assertFunction("ceiling(123)", BIGINT, 123L);
+        assertFunction("ceiling(-123)", BIGINT, -123L);
         assertFunction("ceiling(CAST(NULL AS BIGINT))", BIGINT, null);
         assertFunction("ceiling(123.0)", DOUBLE, 123.0);
         assertFunction("ceiling(-123.0)", DOUBLE, -123.0);
@@ -159,8 +159,8 @@ public class TestMathFunctions
     @Test
     public void testFloor()
     {
-        assertFunction("floor(123)", BIGINT, 123);
-        assertFunction("floor(-123)", BIGINT, -123);
+        assertFunction("floor(123)", BIGINT, 123L);
+        assertFunction("floor(-123)", BIGINT, -123L);
         assertFunction("floor(CAST(NULL as BIGINT))", BIGINT, null);
         assertFunction("floor(123.0)", DOUBLE, 123.0);
         assertFunction("floor(-123.0)", DOUBLE, -123.0);
@@ -343,8 +343,8 @@ public class TestMathFunctions
     @Test
     public void testRound()
     {
-        assertFunction("round( 3)", BIGINT, 3);
-        assertFunction("round(-3)", BIGINT, -3);
+        assertFunction("round( 3)", BIGINT, 3L);
+        assertFunction("round(-3)", BIGINT, -3L);
         assertFunction("round(CAST(NULL as BIGINT))", BIGINT, null);
         assertFunction("round( 3.0)", DOUBLE, 3.0);
         assertFunction("round(-3.0)", DOUBLE, -3.0);
@@ -356,8 +356,8 @@ public class TestMathFunctions
         assertFunction("round(-3.99)", DOUBLE, -4.0);
         assertFunction("round(CAST(NULL as DOUBLE))", DOUBLE, null);
 
-        assertFunction("round( 3, 0)", BIGINT, 3);
-        assertFunction("round(-3, 0)", BIGINT, -3);
+        assertFunction("round( 3, 0)", BIGINT, 3L);
+        assertFunction("round(-3, 0)", BIGINT, -3L);
         assertFunction("round( 3.0, 0)", DOUBLE, 3.0);
         assertFunction("round(-3.0, 0)", DOUBLE, -3.0);
         assertFunction("round( 3.499, 0)", DOUBLE, 3.0);
@@ -367,8 +367,8 @@ public class TestMathFunctions
         assertFunction("round(-3.5001, 0)", DOUBLE, -4.0);
         assertFunction("round(-3.99, 0)", DOUBLE, -4.0);
 
-        assertFunction("round( 3, 1)", BIGINT, 3);
-        assertFunction("round(-3, 1)", BIGINT, -3);
+        assertFunction("round( 3, 1)", BIGINT, 3L);
+        assertFunction("round(-3, 1)", BIGINT, -3L);
         assertFunction("round(CAST(NULL as BIGINT), CAST(NULL as BIGINT))", BIGINT, null);
         assertFunction("round(-3, CAST(NULL as BIGINT))", BIGINT, null);
         assertFunction("round(CAST(NULL as BIGINT), 1)", BIGINT, null);
@@ -426,10 +426,10 @@ public class TestMathFunctions
             throws Exception
     {
         // bigint
-        assertFunction("greatest(1, 2)", BIGINT, 2);
-        assertFunction("greatest(-1, -2)", BIGINT, -1);
-        assertFunction("greatest(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", BIGINT, 5);
-        assertFunction("greatest(-1)", BIGINT, -1);
+        assertFunction("greatest(1, 2)", BIGINT, 2L);
+        assertFunction("greatest(-1, -2)", BIGINT, -1L);
+        assertFunction("greatest(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", BIGINT, 5L);
+        assertFunction("greatest(-1)", BIGINT, -1L);
         assertFunction("greatest(5, 4, CAST(NULL as BIGINT), 3)", BIGINT, null);
 
         // double
@@ -454,10 +454,10 @@ public class TestMathFunctions
             throws Exception
     {
         // bigint
-        assertFunction("least(1, 2)", BIGINT, 1);
-        assertFunction("least(-1, -2)", BIGINT, -2);
-        assertFunction("least(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", BIGINT, 1);
-        assertFunction("least(-1)", BIGINT, -1);
+        assertFunction("least(1, 2)", BIGINT, 1L);
+        assertFunction("least(-1, -2)", BIGINT, -2L);
+        assertFunction("least(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", BIGINT, 1L);
+        assertFunction("least(-1)", BIGINT, -1L);
         assertFunction("least(5, 4, CAST(NULL as BIGINT), 3)", BIGINT, null);
 
         // double
@@ -503,8 +503,8 @@ public class TestMathFunctions
             throws Exception
     {
         assertFunction("from_base('80000000', 16)", BIGINT, 2147483648L);
-        assertFunction("from_base('11111111', 2)", BIGINT, 255);
-        assertFunction("from_base('-7fffffff', 16)", BIGINT, -2147483647);
+        assertFunction("from_base('11111111', 2)", BIGINT, 255L);
+        assertFunction("from_base('-7fffffff', 16)", BIGINT, -2147483647L);
         assertFunction("from_base('9223372036854775807', 10)", BIGINT, 9223372036854775807L);
         assertFunction("from_base('-9223372036854775808', 10)", BIGINT, -9223372036854775808L);
         assertFunction("from_base(NULL, 10)", BIGINT, null);

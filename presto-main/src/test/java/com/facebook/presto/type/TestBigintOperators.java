@@ -28,24 +28,24 @@ public class TestBigintOperators
     public void testLiteral()
             throws Exception
     {
-        assertFunction("37", BIGINT, 37);
-        assertFunction("17", BIGINT, 17);
+        assertFunction("37", BIGINT, 37L);
+        assertFunction("17", BIGINT, 17L);
     }
 
     @Test
     public void testUnaryPlus()
             throws Exception
     {
-        assertFunction("+37", BIGINT, 37);
-        assertFunction("+17", BIGINT, 17);
+        assertFunction("+37", BIGINT, 37L);
+        assertFunction("+17", BIGINT, 17L);
     }
 
     @Test
     public void testUnaryMinus()
             throws Exception
     {
-        assertFunction("-37", BIGINT, -37);
-        assertFunction("-17", BIGINT, -17);
+        assertFunction("-37", BIGINT, -37L);
+        assertFunction("-17", BIGINT, -17L);
     }
 
     @Test

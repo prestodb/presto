@@ -599,7 +599,7 @@ public class TestExpressionCompiler
         assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP, new SqlTimestamp(new DateTime(2001, 8, 22, 0, 0, 0, 0, UTC).getMillis(), UTC_KEY));
         assertExecute("try_cast(bound_string as bigint)", BIGINT, null);
         assertExecute("try_cast(cast(null as varchar) as bigint)", BIGINT, null);
-        assertExecute("try_cast(bound_long / 13  as bigint)", BIGINT, 94);
+        assertExecute("try_cast(bound_long / 13  as bigint)", BIGINT, 94L);
         assertExecute("coalesce(try_cast('123' as bigint), 456)", BIGINT, 123L);
         assertExecute("coalesce(try_cast('foo' as bigint), 456)", BIGINT, 456L);
         assertExecute("concat('foo', cast('bar' as varchar))", VARCHAR, "foobar");

@@ -79,7 +79,7 @@ public class TestMarkDistinctOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
-        for (int i = 0; i < 100; i++) {
+        for (long i = 0; i < 100; i++) {
             expected.row(i, true);
             expected.row(i, false);
         }

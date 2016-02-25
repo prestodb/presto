@@ -135,16 +135,16 @@ public class TestHashAggregationOperator
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
-                .row("0", 3, 0, 0.0, "300", 3, 3)
-                .row("1", 3, 3, 1.0, "301", 3, 3)
-                .row("2", 3, 6, 2.0, "302", 3, 3)
-                .row("3", 3, 9, 3.0, "303", 3, 3)
-                .row("4", 3, 12, 4.0, "304", 3, 3)
-                .row("5", 3, 15, 5.0, "305", 3, 3)
-                .row("6", 3, 18, 6.0, "306", 3, 3)
-                .row("7", 3, 21, 7.0, "307", 3, 3)
-                .row("8", 3, 24, 8.0, "308", 3, 3)
-                .row("9", 3, 27, 9.0, "309", 3, 3)
+                .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
+                .row("1", 3L, 3L, 1.0, "301", 3L, 3L)
+                .row("2", 3L, 6L, 2.0, "302", 3L, 3L)
+                .row("3", 3L, 9L, 3.0, "303", 3L, 3L)
+                .row("4", 3L, 12L, 4.0, "304", 3L, 3L)
+                .row("5", 3L, 15L, 5.0, "305", 3L, 3L)
+                .row("6", 3L, 18L, 6.0, "306", 3L, 3L)
+                .row("7", 3L, 21L, 7.0, "307", 3L, 3L)
+                .row("8", 3L, 24L, 8.0, "308", 3L, 3L)
+                .row("9", 3L, 27L, 9.0, "309", 3L, 3L)
                 .build();
 
         assertOperatorEqualsIgnoreOrder(operator, input, expected, hashEnabled, Optional.of(hashChannels.size()));

@@ -29,14 +29,14 @@ public class TestJsonFunctions
     @Test
     public void testJsonArrayLength()
     {
-        assertFunction("JSON_ARRAY_LENGTH('[]')", BIGINT, 0);
-        assertFunction("JSON_ARRAY_LENGTH('[1]')", BIGINT, 1);
-        assertFunction("JSON_ARRAY_LENGTH('[1, \"foo\", null]')", BIGINT, 3);
-        assertFunction("JSON_ARRAY_LENGTH('[2, 4, {\"a\": [8, 9]}, [], [5], 4]')", BIGINT, 6);
-        assertFunction("JSON_ARRAY_LENGTH(JSON '[]')", BIGINT, 0);
-        assertFunction("JSON_ARRAY_LENGTH(JSON '[1]')", BIGINT, 1);
-        assertFunction("JSON_ARRAY_LENGTH(JSON '[1, \"foo\", null]')", BIGINT, 3);
-        assertFunction("JSON_ARRAY_LENGTH(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 4]')", BIGINT, 6);
+        assertFunction("JSON_ARRAY_LENGTH('[]')", BIGINT, 0L);
+        assertFunction("JSON_ARRAY_LENGTH('[1]')", BIGINT, 1L);
+        assertFunction("JSON_ARRAY_LENGTH('[1, \"foo\", null]')", BIGINT, 3L);
+        assertFunction("JSON_ARRAY_LENGTH('[2, 4, {\"a\": [8, 9]}, [], [5], 4]')", BIGINT, 6L);
+        assertFunction("JSON_ARRAY_LENGTH(JSON '[]')", BIGINT, 0L);
+        assertFunction("JSON_ARRAY_LENGTH(JSON '[1]')", BIGINT, 1L);
+        assertFunction("JSON_ARRAY_LENGTH(JSON '[1, \"foo\", null]')", BIGINT, 3L);
+        assertFunction("JSON_ARRAY_LENGTH(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 4]')", BIGINT, 6L);
         assertFunction("JSON_ARRAY_LENGTH(null)", BIGINT, null);
     }
 
@@ -270,19 +270,19 @@ public class TestJsonFunctions
     @Test
     public void testJsonSize()
     {
-        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), BIGINT, 1);
-        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), BIGINT, 2);
-        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }", "$.x"), BIGINT, 3);
-        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), BIGINT, 0);
-        assertFunction(format("JSON_SIZE('%s', '%s')", "[1,2,3]", "$"), BIGINT, 3);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), BIGINT, 1L);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), BIGINT, 2L);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }", "$.x"), BIGINT, 3L);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), BIGINT, 0L);
+        assertFunction(format("JSON_SIZE('%s', '%s')", "[1,2,3]", "$"), BIGINT, 3L);
         assertFunction(format("JSON_SIZE(null, '%s')", "$"), BIGINT, null);
         assertFunction(format("JSON_SIZE('%s', '%s')", "INVALID_JSON", "$"), BIGINT, null);
         assertFunction(format("JSON_SIZE('%s', null)", "[1,2,3]"), BIGINT, null);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), BIGINT, 1);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), BIGINT, 2);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }", "$.x"), BIGINT, 3);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), BIGINT, 0);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "[1,2,3]", "$"), BIGINT, 3);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), BIGINT, 1L);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), BIGINT, 2L);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }", "$.x"), BIGINT, 3L);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), BIGINT, 0L);
+        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "[1,2,3]", "$"), BIGINT, 3L);
         assertFunction(format("JSON_SIZE(null, '%s')", "$"), BIGINT, null);
         assertFunction(format("JSON_SIZE(JSON '%s', null)", "[1,2,3]"), BIGINT, null);
         assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", ""), "Invalid JSON path: ''");

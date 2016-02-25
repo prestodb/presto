@@ -77,14 +77,14 @@ public class TestStringFunctions
     @Test
     public void testLength()
     {
-        assertFunction("LENGTH('')", BIGINT, 0);
-        assertFunction("LENGTH('hello')", BIGINT, 5);
-        assertFunction("LENGTH('Quadratically')", BIGINT, 13);
+        assertFunction("LENGTH('')", BIGINT, 0L);
+        assertFunction("LENGTH('hello')", BIGINT, 5L);
+        assertFunction("LENGTH('Quadratically')", BIGINT, 13L);
         //
         // Test length for non-ASCII
-        assertFunction("LENGTH('hello na\u00EFve world')", BIGINT, 17);
-        assertFunction("LENGTH('\uD801\uDC2Dend')", BIGINT, 4);
-        assertFunction("LENGTH('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 7);
+        assertFunction("LENGTH('hello na\u00EFve world')", BIGINT, 17L);
+        assertFunction("LENGTH('\uD801\uDC2Dend')", BIGINT, 4L);
+        assertFunction("LENGTH('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 7L);
     }
 
     @Test
@@ -144,31 +144,31 @@ public class TestStringFunctions
     @Test
     public void testStringPosition()
     {
-        testStrPosAndPosition("high", "ig", 2);
-        testStrPosAndPosition("high", "igx", 0);
-        testStrPosAndPosition("Quadratically", "a", 3);
-        testStrPosAndPosition("foobar", "foobar", 1);
-        testStrPosAndPosition("foobar", "obar", 3);
-        testStrPosAndPosition("zoo!", "!", 4);
-        testStrPosAndPosition("x", "", 1);
-        testStrPosAndPosition("", "", 1);
+        testStrPosAndPosition("high", "ig", 2L);
+        testStrPosAndPosition("high", "igx", 0L);
+        testStrPosAndPosition("Quadratically", "a", 3L);
+        testStrPosAndPosition("foobar", "foobar", 1L);
+        testStrPosAndPosition("foobar", "obar", 3L);
+        testStrPosAndPosition("zoo!", "!", 4L);
+        testStrPosAndPosition("x", "", 1L);
+        testStrPosAndPosition("", "", 1L);
 
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u7231", 4);
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u5E0C\u671B", 6);
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "nice", 0);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u7231", 4L);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u5E0C\u671B", 6L);
+        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "nice", 0L);
 
         testStrPosAndPosition(null, "", null);
         testStrPosAndPosition("", null, null);
         testStrPosAndPosition(null, null, null);
     }
 
-    private void testStrPosAndPosition(String string, String substring, Integer expected)
+    private void testStrPosAndPosition(String string, String substring, Long expected)
     {
         string = (string == null) ? "NULL" : ("'" + string + "'");
         substring = (substring == null) ? "NULL" : ("'" + substring + "'");
 
-        assertFunction(String.format("STRPOS(%s, %s)", string, substring), BIGINT,  expected);
-        assertFunction(String.format("POSITION(%s in %s)", substring, string), BIGINT,  expected);
+        assertFunction(String.format("STRPOS(%s, %s)", string, substring), BIGINT, expected);
+        assertFunction(String.format("POSITION(%s in %s)", substring, string), BIGINT, expected);
     }
 
     @Test

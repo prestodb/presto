@@ -79,13 +79,13 @@ public class TestRowOperators
         assertFunction("test_row(TRUE, CAST(NULL AS BOOLEAN)).col1", BOOLEAN, null);
         assertFunction("test_row(TRUE, CAST(NULL AS ARRAY<BIGINT>)).col1", new ArrayType(BIGINT), null);
         assertFunction("test_row(1.0, CAST(NULL AS VARCHAR)).col1", VARCHAR, null);
-        assertFunction("test_row(1, 2).col0", BIGINT, 1);
+        assertFunction("test_row(1, 2).col0", BIGINT, 1L);
         assertFunction("test_row(1, 'kittens').col1", VARCHAR, "kittens");
-        assertFunction("test_row(1, 2).\"col1\"", BIGINT, 2);
-        assertFunction("array[test_row(1, 2)][1].col1", BIGINT, 2);
+        assertFunction("test_row(1, 2).\"col1\"", BIGINT, 2L);
+        assertFunction("array[test_row(1, 2)][1].col1", BIGINT, 2L);
         assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col1", new ArrayType(BIGINT), ImmutableList.of(1L, 2L));
         assertFunction("test_row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])).col2", new MapType(BIGINT, DOUBLE), ImmutableMap.of(1L, 2.0, 3L, 4.0));
-        assertFunction("test_row(1.0, ARRAY[test_row(31, 4.1), test_row(32, 4.2)], test_row(3, 4.0)).col1[2].col0", BIGINT, 32);
+        assertFunction("test_row(1.0, ARRAY[test_row(31, 4.1), test_row(32, 4.2)], test_row(3, 4.0)).col1[2].col0", BIGINT, 32L);
     }
 
     @Test
