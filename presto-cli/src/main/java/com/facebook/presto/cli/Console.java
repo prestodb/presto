@@ -30,6 +30,7 @@ import io.airlift.airline.HelpOption;
 import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
+import io.airlift.units.Duration;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
@@ -59,9 +60,11 @@ import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static java.lang.Integer.parseInt;
+import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "presto", description = "Presto interactive console")
@@ -69,6 +72,7 @@ public class Console
         implements Runnable
 {
     private static final String PROMPT_NAME = "presto";
+    private static final Duration JOIN_TIMEOUT = new Duration(3, SECONDS);
 
     // create a parser with all identifier options enabled, since this is only used for USE statements
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class)));
@@ -83,6 +87,19 @@ public class Console
 
     @Inject
     public ClientOptions clientOptions = new ClientOptions();
+
+    private static void interruptThreadOnExit(Thread thread)
+    {
+        getRuntime().addShutdownHook(new Thread(() -> {
+            thread.interrupt();
+            try {
+                thread.join(JOIN_TIMEOUT.toMillis());
+            }
+            catch (InterruptedException e) {
+                System.err.println("Interrupted while waiting for " + thread.getName() + " to terminate");
+            }
+        }));
+    }
 
     @Override
     public void run()
@@ -115,6 +132,8 @@ public class Console
                 throw new RuntimeException(format("Error reading from file %s: %s", clientOptions.file, e.getMessage()));
             }
         }
+
+        interruptThreadOnExit(Thread.currentThread());
 
         try (QueryRunner queryRunner = QueryRunner.create(
                 session,
