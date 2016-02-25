@@ -24,7 +24,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +54,11 @@ import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsPa
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
+import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
+import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
+import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -201,14 +205,12 @@ public class ParquetPageSourceFactory
         }
     }
 
-    // TODO: support complex types
+    // TODO: support complex types, timestamp, and date
     private static boolean columnTypeSupported(List<HiveColumnHandle> columns)
     {
-        List<String> fields = columns.stream()
+        return columns.stream()
                 .map(HiveColumnHandle::getTypeSignature)
                 .map(TypeSignature::getBase)
-                .filter(base -> StandardTypes.ARRAY.equals(base) || StandardTypes.MAP.equals(base) || StandardTypes.ROW.equals(base))
-                .collect(toList());
-        return fields.isEmpty();
+                .allMatch(base -> BIGINT.equals(base) || BOOLEAN.equals(base) || DOUBLE.equals(base) || VARCHAR.equals(base) || VARBINARY.equals(base));
     }
 }
