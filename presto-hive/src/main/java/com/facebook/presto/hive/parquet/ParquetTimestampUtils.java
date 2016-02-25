@@ -28,7 +28,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
  * This class is equivalent of @see org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTime,
  * which produces less intermediate objects during decoding.
  */
-final class ParquetTimestampUtils
+public final class ParquetTimestampUtils
 {
     private static final int JULIAN_EPOCH_OFFSET_DAYS = 2_440_588;
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
