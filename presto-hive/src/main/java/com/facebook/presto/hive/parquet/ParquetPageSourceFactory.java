@@ -57,6 +57,7 @@ import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.p
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static java.lang.String.format;
@@ -120,6 +121,7 @@ public class ParquetPageSourceFactory
                 columns,
                 partitionKeys,
                 useParquetColumnNames,
+                hiveStorageTimeZone,
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
                 effectivePredicate));
@@ -134,6 +136,7 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
             boolean useParquetColumnNames,
+            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
@@ -185,6 +188,7 @@ public class ParquetPageSourceFactory
                     columns,
                     partitionKeys,
                     effectivePredicate,
+                    hiveStorageTimeZone,
                     typeManager,
                     useParquetColumnNames);
         }
@@ -205,12 +209,12 @@ public class ParquetPageSourceFactory
         }
     }
 
-    // TODO: support complex types, timestamp, and date
+    // TODO: support complex types, date
     private static boolean columnTypeSupported(List<HiveColumnHandle> columns)
     {
         return columns.stream()
                 .map(HiveColumnHandle::getTypeSignature)
                 .map(TypeSignature::getBase)
-                .allMatch(base -> BIGINT.equals(base) || BOOLEAN.equals(base) || DOUBLE.equals(base) || VARCHAR.equals(base) || VARBINARY.equals(base));
+                .allMatch(base -> BIGINT.equals(base) || BOOLEAN.equals(base) || DOUBLE.equals(base) || TIMESTAMP.equals(base) || VARCHAR.equals(base) || VARBINARY.equals(base));
     }
 }
