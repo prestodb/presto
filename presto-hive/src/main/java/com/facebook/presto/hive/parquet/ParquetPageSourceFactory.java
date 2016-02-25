@@ -56,6 +56,7 @@ import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.b
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
@@ -209,12 +210,12 @@ public class ParquetPageSourceFactory
         }
     }
 
-    // TODO: support complex types, date
+    // TODO: support complex types
     private static boolean columnTypeSupported(List<HiveColumnHandle> columns)
     {
         return columns.stream()
                 .map(HiveColumnHandle::getTypeSignature)
                 .map(TypeSignature::getBase)
-                .allMatch(base -> BIGINT.equals(base) || BOOLEAN.equals(base) || DOUBLE.equals(base) || TIMESTAMP.equals(base) || VARCHAR.equals(base) || VARBINARY.equals(base));
+                .allMatch(base -> BIGINT.equals(base) || BOOLEAN.equals(base) || DOUBLE.equals(base) || TIMESTAMP.equals(base) || VARCHAR.equals(base) || VARBINARY.equals(base) || DATE.equals(base));
     }
 }

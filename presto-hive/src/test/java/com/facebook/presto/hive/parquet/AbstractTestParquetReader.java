@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.collect.AbstractIterator;
@@ -28,18 +29,21 @@ import org.testng.annotations.Test;
 import parquet.hadoop.ParquetOutputFormat;
 import parquet.hadoop.codec.CodecConfig;
 
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.facebook.presto.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -54,6 +58,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
@@ -159,6 +164,11 @@ public abstract class AbstractTestParquetReader
                 transform(writeValues, AbstractTestParquetReader::intToTimestamp),
                 transform(writeValues, AbstractTestParquetReader::intToSqlTimestamp),
                 TIMESTAMP);
+
+        tester.testRoundTrip(javaDateObjectInspector,
+                transform(writeValues, AbstractTestParquetReader::intToDate),
+                transform(writeValues, AbstractTestParquetReader::intToSqlDate),
+                DATE);
     }
 
     @Test
@@ -440,5 +450,23 @@ public abstract class AbstractTestParquetReader
             return null;
         }
         return new SqlTimestamp(input, UTC_KEY);
+    }
+
+    private static Date intToDate(Integer input)
+    {
+        if (input == null) {
+            return null;
+        }
+        Date date = new Date(0);
+        date.setTime(TimeUnit.DAYS.toMillis(input));
+        return date;
+    }
+
+    private static SqlDate intToSqlDate(Integer input)
+    {
+        if (input == null) {
+            return null;
+        }
+        return new SqlDate(input);
     }
 }
