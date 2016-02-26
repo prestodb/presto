@@ -264,13 +264,13 @@ public class TestShardCleaner
         Timestamp time2 = new Timestamp(now - DAYS.toMillis(2));
 
         // shard 1: should be purged
-        dao.insertDeletedShardNode(shard1, node1, time1);
+        dao.insertCleanedDeletedShardNode(shard1, node1, time1);
 
         // shard 2: should be purged
-        dao.insertDeletedShardNode(shard2, node1, time1);
+        dao.insertCleanedDeletedShardNode(shard2, node1, time1);
 
-        // shard 3: deleted too recently
-        dao.insertDeletedShardNode(shard3, node1, time2);
+        // shard 3: cleaned too recently
+        dao.insertCleanedDeletedShardNode(shard3, node1, time2);
 
         // shard 4: on different node
         dao.insertDeletedShardNode(shard4, node2, time1);
@@ -343,13 +343,13 @@ public class TestShardCleaner
         Timestamp time2 = new Timestamp(now - DAYS.toMillis(2));
 
         // shard 1: should be purged
-        dao.insertDeletedShard(shard1, time1);
+        dao.insertCleanedDeletedShard(shard1, time1);
 
         // shard 2: should be purged
-        dao.insertDeletedShard(shard2, time1);
+        dao.insertCleanedDeletedShard(shard2, time1);
 
-        // shard 3: deleted too recently
-        dao.insertDeletedShard(shard3, time2);
+        // shard 3: cleaned too recently
+        dao.insertCleanedDeletedShard(shard3, time2);
 
         createShardBackups(shard1, shard2, shard3);
 
@@ -445,5 +445,18 @@ public class TestShardCleaner
                 @Bind("shardUuid") UUID shardUuid,
                 @Bind("nodeId") int nodeId,
                 @Bind("deleteTime") Timestamp deleteTime);
+
+        @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time, clean_time)\n" +
+                "VALUES (:shardUuid, :cleanTime, :cleanTime)")
+        void insertCleanedDeletedShard(
+                @Bind("shardUuid") UUID shardUuid,
+                @Bind("cleanTime") Timestamp cleanTime);
+
+        @SqlUpdate("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time, clean_time)\n" +
+                "VALUES (:shardUuid, :nodeId, :cleanTime, :cleanTime)")
+        void insertCleanedDeletedShardNode(
+                @Bind("shardUuid") UUID shardUuid,
+                @Bind("nodeId") int nodeId,
+                @Bind("cleanTime") Timestamp cleanTime);
     }
 }
