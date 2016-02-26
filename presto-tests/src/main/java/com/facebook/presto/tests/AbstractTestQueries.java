@@ -3658,6 +3658,21 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDuplicateColumnsInWindowOrderByClause()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT a, row_number() OVER (ORDER BY a, a) FROM (VALUES 3, 2, 1) t(a)");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(1, 1)
+                .row(2, 2)
+                .row(3, 3)
+                .build();
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testWildcardFromSubquery()
             throws Exception
     {
