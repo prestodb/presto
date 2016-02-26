@@ -43,7 +43,7 @@ public final class InMemoryJoinHash
     private final int[] positionLinks;
     private final long size;
     private final boolean filterFunctionPresent;
-    private final long[] positionToHashes;
+    private final byte[] positionToHashes;
 
     public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
     {
@@ -64,19 +64,16 @@ public final class InMemoryJoinHash
         this.positionLinks = new int[addresses.size()];
         Arrays.fill(positionLinks, -1);
 
-        // Native array of hashes for faster access compared to accessing values in blocks
-        positionToHashes = new long[addresses.size()];
-
-        // First extract all hashes from blocks to native array.
-        // Somehow having this as a separate loop is much faster compared
-        // to extracting hashes on the fly in the loop below...
-        for (int position = 0; position < addresses.size(); position++) {
-            positionToHashes[position] = readHashPosition(position);
-        }
+        // Native array of hashes for faster collisions resolution compared
+        // to accessing values in blocks. We use bytes to reduce memory foot print
+        // and there is no performance gain from storing full hashes
+        positionToHashes = new byte[addresses.size()];
 
         // index pages
         for (int position = 0; position < addresses.size(); position++) {
-            int pos = getHashPosition(positionToHashes[position], mask);
+            long hash = readHashPosition(position);
+            positionToHashes[position] = (byte) hash;
+            int pos = getHashPosition(hash, mask);
 
             // look for an empty slot or a slot containing this key
             while (key[pos] != -1) {
@@ -127,7 +124,7 @@ public final class InMemoryJoinHash
         int pos = getHashPosition(rawHash, mask);
 
         while (key[pos] != -1) {
-            if (positionEqualsCurrentRow(key[pos], rawHash, rightPosition, hashChannelsPage)) {
+            if (positionEqualsCurrentRow(key[pos], (byte) rawHash, rightPosition, hashChannelsPage)) {
                 return getNextJoinPositionFrom(key[pos], rightPosition, allChannelsPage);
             }
             // increment position and mask to handler wrap around
@@ -175,7 +172,7 @@ public final class InMemoryJoinHash
         return pagesHashStrategy.hashPosition(blockIndex, blockPosition);
     }
 
-    private boolean positionEqualsCurrentRow(int leftPosition, long rawHash, int rightPosition, Page rightPage)
+    private boolean positionEqualsCurrentRow(int leftPosition, byte rawHash, int rightPosition, Page rightPage)
     {
         if (positionToHashes[leftPosition] != rawHash) {
             return false;
