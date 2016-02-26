@@ -239,7 +239,7 @@ public final class JsonOperators
             return dynamicSliceOutput.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%d' to %s", value, JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
         }
     }
 
