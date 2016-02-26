@@ -24,6 +24,9 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,12 +41,35 @@ public class QueryBuilder
 {
     private final String quote;
 
+    private static class TypeAndValue
+    {
+        public final Type type;
+        public final Object value;
+
+        public TypeAndValue(Type type, Object value)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.value = requireNonNull(value, "value is null");
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public Object getValue()
+        {
+            return value;
+        }
+    }
+
     public QueryBuilder(String quote)
     {
         this.quote = requireNonNull(quote, "quote is null");
     }
 
-    public String buildSql(String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    public PreparedStatement buildSql(Connection connection, String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+            throws SQLException
     {
         StringBuilder sql = new StringBuilder();
 
@@ -62,31 +88,57 @@ public class QueryBuilder
         }
         sql.append(quote(table));
 
-        List<String> clauses = toConjuncts(columns, tupleDomain);
+        List<TypeAndValue> accumulator = new ArrayList<>();
+
+        List<String> clauses = toConjuncts(columns, tupleDomain, accumulator);
         if (!clauses.isEmpty()) {
             sql.append(" WHERE ")
                     .append(Joiner.on(" AND ").join(clauses));
         }
 
-        return sql.toString();
+        PreparedStatement statement = connection.prepareStatement(sql.toString());
+
+        for (int i = 0; i < accumulator.size(); i++) {
+            TypeAndValue typeAndValue = accumulator.get(i);
+            if (typeAndValue.getType().equals(BigintType.BIGINT)) {
+                statement.setLong(i + 1, (Long) typeAndValue.getValue());
+            }
+            else if (typeAndValue.getType().equals(DoubleType.DOUBLE)) {
+                statement.setDouble(i + 1, (Double) typeAndValue.getValue());
+            }
+            else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
+                statement.setBoolean(i + 1, (Boolean) typeAndValue.getValue());
+            }
+            else {
+                throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
+            }
+        }
+
+        return statement;
     }
 
-    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    private static boolean isAcceptedType(Type type)
+    {
+        Type validType = requireNonNull(type, "type is null");
+        return validType.equals(BigintType.BIGINT) || validType.equals(DoubleType.DOUBLE) || validType.equals(BooleanType.BOOLEAN);
+    }
+
+    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (JdbcColumnHandle column : columns) {
             Type type = column.getColumnType();
-            if (type.equals(BigintType.BIGINT) || type.equals(DoubleType.DOUBLE) || type.equals(BooleanType.BOOLEAN)) {
+            if (isAcceptedType(type)) {
                 Domain domain = tupleDomain.getDomains().get().get(column);
                 if (domain != null) {
-                    builder.add(toPredicate(column.getColumnName(), domain));
+                    builder.add(toPredicate(column.getColumnName(), domain, type, accumulator));
                 }
             }
         }
         return builder.build();
     }
 
-    private String toPredicate(String columnName, Domain domain)
+    private String toPredicate(String columnName, Domain domain, Type type, List<TypeAndValue> accumulator)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
@@ -110,10 +162,10 @@ public class QueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeConjuncts.add(toPredicate(columnName, ">", range.getLow().getValue()));
+                            rangeConjuncts.add(toPredicate(columnName, ">", range.getLow().getValue(), type, accumulator));
                             break;
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, ">=", range.getLow().getValue()));
+                            rangeConjuncts.add(toPredicate(columnName, ">=", range.getLow().getValue(), type, accumulator));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low Marker should never use BELOW bound: " + range);
@@ -126,10 +178,10 @@ public class QueryBuilder
                         case ABOVE:
                             throw new IllegalArgumentException("High Marker should never use ABOVE bound: " + range);
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, "<=", range.getHigh().getValue()));
+                            rangeConjuncts.add(toPredicate(columnName, "<=", range.getHigh().getValue(), type, accumulator));
                             break;
                         case BELOW:
-                            rangeConjuncts.add(toPredicate(columnName, "<", range.getHigh().getValue()));
+                            rangeConjuncts.add(toPredicate(columnName, "<", range.getHigh().getValue(), type, accumulator));
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -143,10 +195,10 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues)));
+            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), type, accumulator));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(quote(columnName) + " IN (" + Joiner.on(",").join(transform(singleValues, QueryBuilder::encode)) + ")");
+            disjuncts.add(quote(columnName) + " IN (" + Joiner.on(",").join(transform(singleValues, value -> bindValue(value, type, accumulator))) + ")");
         }
 
         // Add nullability disjuncts
@@ -158,9 +210,9 @@ public class QueryBuilder
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String columnName, String operator, Object value)
+    private String toPredicate(String columnName, String operator, Object value, Type type, List<TypeAndValue> accumulator)
     {
-        return quote(columnName) + " " + operator + " " + encode(value);
+        return quote(columnName) + " " + operator + " " + bindValue(value, type, accumulator);
     }
 
     private String quote(String name)
@@ -169,11 +221,10 @@ public class QueryBuilder
         return quote + name + quote;
     }
 
-    private static String encode(Object value)
+    private static String bindValue(Object value, Type type, List<TypeAndValue> accumulator)
     {
-        if (value instanceof Number || value instanceof Boolean) {
-            return value.toString();
-        }
-        throw new UnsupportedOperationException("Can't handle type: " + value.getClass().getName());
+        checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
+        accumulator.add(new TypeAndValue(type, value));
+        return "?";
     }
 }
