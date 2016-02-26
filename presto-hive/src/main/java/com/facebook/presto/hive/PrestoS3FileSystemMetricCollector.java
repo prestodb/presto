@@ -20,7 +20,11 @@ import com.amazonaws.util.AWSRequestMetrics;
 import com.amazonaws.util.TimingInfo;
 import io.airlift.units.Duration;
 
-import static com.amazonaws.util.AWSRequestMetrics.Field;
+import static com.amazonaws.util.AWSRequestMetrics.Field.ClientExecuteTime;
+import static com.amazonaws.util.AWSRequestMetrics.Field.HttpClientRetryCount;
+import static com.amazonaws.util.AWSRequestMetrics.Field.HttpRequestTime;
+import static com.amazonaws.util.AWSRequestMetrics.Field.RequestCount;
+import static com.amazonaws.util.AWSRequestMetrics.Field.ThrottleException;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -40,10 +44,11 @@ public class PrestoS3FileSystemMetricCollector
         AWSRequestMetrics metrics = request.getAWSRequestMetrics();
 
         TimingInfo timingInfo = metrics.getTimingInfo();
-        Number requestCounts = timingInfo.getCounter(Field.RequestCount.name());
-        Number retryCounts = timingInfo.getCounter(Field.HttpClientRetryCount.name());
-        Number throttleExceptions = timingInfo.getCounter(Field.ThrottleException.name());
-        TimingInfo requestTime = timingInfo.getSubMeasurement(Field.HttpRequestTime.name());
+        Number requestCounts = timingInfo.getCounter(RequestCount.name());
+        Number retryCounts = timingInfo.getCounter(HttpClientRetryCount.name());
+        Number throttleExceptions = timingInfo.getCounter(ThrottleException.name());
+        TimingInfo requestTime = timingInfo.getSubMeasurement(HttpRequestTime.name());
+        TimingInfo clientExecuteTime = timingInfo.getSubMeasurement(ClientExecuteTime.name());
 
         if (requestCounts != null) {
             stats.updateAwsRequestCount(requestCounts.longValue());
@@ -59,6 +64,10 @@ public class PrestoS3FileSystemMetricCollector
 
         if (requestTime != null && requestTime.getTimeTakenMillisIfKnown() != null) {
             stats.addAwsRequestTime(new Duration(requestTime.getTimeTakenMillisIfKnown(), MILLISECONDS));
+        }
+
+        if (clientExecuteTime != null && clientExecuteTime.getTimeTakenMillisIfKnown() != null) {
+            stats.addAwsClientExecuteTime(new Duration(clientExecuteTime.getTimeTakenMillisIfKnown(), MILLISECONDS));
         }
     }
 }
