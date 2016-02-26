@@ -16,8 +16,6 @@ package com.facebook.presto.hive.auth;
 import org.apache.hadoop.security.SubjectPrivilegedAction;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import java.security.PrivilegedAction;
-
 public interface HadoopAuthentication
 {
     void authenticate();
@@ -35,7 +33,7 @@ public interface HadoopAuthentication
     default void doAsVoid(String user, Runnable action)
     {
         getUserGroupInformation(user)
-                .doAs((PrivilegedAction<Object>) () -> {
+                .doAs((SubjectPrivilegedAction<Object>) () -> {
                     action.run();
                     return null;
                 });
