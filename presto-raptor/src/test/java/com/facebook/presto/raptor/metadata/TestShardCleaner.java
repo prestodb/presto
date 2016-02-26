@@ -284,11 +284,9 @@ public class TestShardCleaner
         assertTrue(shardFileExists(shard3));
         assertTrue(shardFileExists(shard4));
 
-        assertQuery("SELECT shard_uuid, node_id, purge_time IS NULL FROM deleted_shard_nodes",
-                row(shard1, node1, false),
-                row(shard2, node1, false),
-                row(shard3, node1, true),
-                row(shard4, node2, true));
+        assertQuery("SELECT shard_uuid, node_id FROM deleted_shard_nodes",
+                row(shard3, node1),
+                row(shard4, node2));
     }
 
     @Test
@@ -359,10 +357,8 @@ public class TestShardCleaner
         assertFalse(shardBackupExists(shard2));
         assertTrue(shardBackupExists(shard3));
 
-        assertQuery("SELECT shard_uuid, purge_time IS NULL FROM deleted_shards",
-                row(shard1, false),
-                row(shard2, false),
-                row(shard3, true));
+        assertQuery("SELECT shard_uuid FROM deleted_shards",
+                row(shard3));
     }
 
     private boolean shardFileExists(UUID uuid)

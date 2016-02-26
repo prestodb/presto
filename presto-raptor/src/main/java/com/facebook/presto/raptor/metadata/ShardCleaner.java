@@ -256,7 +256,7 @@ public class ShardCleaner
             for (UUID uuid : uuids) {
                 deleteFile(storageService.getStorageFile(uuid));
             }
-            dao.updatePurgedShardNodes(uuids, getCurrentNodeId());
+            dao.deletePurgedShardNodes(uuids, getCurrentNodeId());
             log.info("Purged %s local shards in %s", uuids.size(), nanosSince(start));
         }
     }
@@ -288,7 +288,7 @@ public class ShardCleaner
 
             long start = System.nanoTime();
             executeDeletes(uuids);
-            dao.updatePurgedShards(uuids);
+            dao.deletePurgedShards(uuids);
             log.info("Purged %s backup shards in %s", uuids.size(), nanosSince(start));
         }
     }
