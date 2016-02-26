@@ -29,6 +29,7 @@ import io.airlift.slice.Slice;
 import org.joda.time.chrono.ISOChronology;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -55,7 +56,7 @@ public class JdbcRecordCursor
     private final List<JdbcColumnHandle> columnHandles;
 
     private final Connection connection;
-    private final Statement statement;
+    private final PreparedStatement statement;
     private final ResultSet resultSet;
     private boolean closed;
 
@@ -63,13 +64,11 @@ public class JdbcRecordCursor
     {
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
 
-        String sql = jdbcClient.buildSql(split, columnHandles);
         try {
             connection = jdbcClient.getConnection(split);
-            statement = jdbcClient.getStatement(connection);
-
-            log.debug("Executing: %s", sql);
-            resultSet = statement.executeQuery(sql);
+            statement = jdbcClient.buildSql(split, columnHandles);
+            log.debug("Executing: %s", statement.toString());
+            resultSet = statement.executeQuery();
         }
         catch (SQLException e) {
             throw handleSqlException(e);
