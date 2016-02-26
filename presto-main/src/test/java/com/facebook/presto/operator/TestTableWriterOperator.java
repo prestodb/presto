@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -68,6 +69,70 @@ public class TestTableWriterOperator
     public void testBlockedPageSink()
             throws Exception
     {
+        Operator operator = createTableWriterOperator();
+
+        // initial state validation
+        assertEquals(operator.isBlocked().isDone(), true);
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), true);
+
+        // blockingPageSink that will return blocked future
+        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+
+        assertEquals(operator.isBlocked().isDone(), false);
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), false);
+        assertEquals(operator.getOutput(), null);
+
+        // complete previously blocked future
+        blockingPageSink.complete();
+
+        assertEquals(operator.isBlocked().isDone(), true);
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), true);
+
+        // add second page
+        operator.addInput(rowPagesBuilder(BIGINT).row(44).build().get(0));
+
+        assertEquals(operator.isBlocked().isDone(), false);
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), false);
+
+        // finish operator, state hasn't changed
+        operator.finish();
+
+        assertEquals(operator.isBlocked().isDone(), false);
+        assertEquals(operator.isFinished(), false);
+        assertEquals(operator.needsInput(), false);
+
+        // complete previously blocked future
+        blockingPageSink.complete();
+        // and getOutput which actually finishes the operator
+        assertPageEquals(
+                TableWriterOperator.TYPES,
+                operator.getOutput(),
+                rowPagesBuilder(TableWriterOperator.TYPES).row(2, null).build().get(0));
+
+        assertEquals(operator.isBlocked().isDone(), true);
+        assertEquals(operator.isFinished(), true);
+        assertEquals(operator.needsInput(), false);
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class)
+    public void addInputFailsOnBlockedOperator()
+            throws Exception
+    {
+        Operator operator = createTableWriterOperator();
+
+        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+
+        assertEquals(operator.isBlocked().isDone(), false);
+
+        operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
+    }
+
+    private Operator createTableWriterOperator()
+    {
         TableWriterOperator.TableWriterOperatorFactory factory = new TableWriterOperator.TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -80,26 +145,7 @@ public class TestTableWriterOperator
                 Optional.empty(),
                 TEST_SESSION);
 
-        Operator operator = factory.createOperator(driverContext);
-
-        // initial state validation
-        assertEquals(operator.isBlocked().isDone(), true);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
-
-        // blockingPageSink that will return blocked future
-        operator.addInput(rowPagesBuilder(BIGINT).row(1).build().get(0));
-
-        assertEquals(operator.isBlocked().isDone(), false);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-
-        // complete previously blocked future
-        blockingPageSink.complete();
-
-        assertEquals(operator.isBlocked().isDone(), true);
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), true);
+        return factory.createOperator(driverContext);
     }
 
     private static class ConstantPageSinkProvider
@@ -128,11 +174,12 @@ public class TestTableWriterOperator
     private class BlockingPageSink
             implements ConnectorPageSink
     {
-        private final CompletableFuture<?> future = new CompletableFuture<>();
+        private CompletableFuture<?> future = new CompletableFuture<>();
 
         @Override
         public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
         {
+            future = new CompletableFuture<>();
             return future;
         }
 
