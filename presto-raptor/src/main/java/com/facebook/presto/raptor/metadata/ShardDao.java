@@ -207,7 +207,6 @@ public interface ShardDao
     @SqlQuery("SELECT shard_uuid\n" +
             "FROM deleted_shards\n" +
             "WHERE clean_time < :maxCleanTime\n" +
-            "  AND purge_time IS NULL\n" +
             "LIMIT 1000")
     List<UUID> getPurgableShardsBatch(@Bind("maxCleanTime") Timestamp maxCleanTime);
 
@@ -227,7 +226,6 @@ public interface ShardDao
             "JOIN nodes n ON (d.node_id = n.node_id)\n" +
             "WHERE n.node_identifier = :nodeIdentifier\n" +
             "  AND d.clean_time < :maxCleanTime\n" +
-            "  AND d.purge_time IS NULL\n" +
             "LIMIT 1000")
     List<UUID> getPurgableShardNodesBatch(
             @Bind("nodeIdentifier") String nodeIdentifier,
@@ -238,10 +236,9 @@ public interface ShardDao
             "  AND clean_time IS NULL\n")
     void updateCleanedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
-    @SqlBatch("UPDATE deleted_shards SET purge_time = CURRENT_TIMESTAMP\n" +
-            "WHERE shard_uuid = :shardUuid\n" +
-            "  AND purge_time IS NULL\n")
-    void updatePurgedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
+    @SqlBatch("DELETE FROM deleted_shards\n" +
+            "WHERE shard_uuid = :shardUuid")
+    void deletePurgedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
     @SqlBatch("UPDATE deleted_shard_nodes SET clean_time = CURRENT_TIMESTAMP\n" +
             "WHERE shard_uuid = :shardUuid\n" +
@@ -251,11 +248,10 @@ public interface ShardDao
             @Bind("shardUuid") Iterable<UUID> shardUuids,
             @Bind("nodeId") int nodeId);
 
-    @SqlBatch("UPDATE deleted_shard_nodes SET purge_time = CURRENT_TIMESTAMP\n" +
+    @SqlBatch("DELETE FROM deleted_shard_nodes\n" +
             "WHERE shard_uuid = :shardUuid\n" +
-            "  AND node_id = :nodeId\n" +
-            "  AND purge_time IS NULL\n")
-    void updatePurgedShardNodes(
+            "  AND node_id = :nodeId")
+    void deletePurgedShardNodes(
             @Bind("shardUuid") Iterable<UUID> shardUuids,
             @Bind("nodeId") int nodeId);
 

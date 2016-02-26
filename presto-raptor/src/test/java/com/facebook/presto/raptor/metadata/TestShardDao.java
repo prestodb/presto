@@ -319,12 +319,12 @@ public class TestShardDao
         assertEquals(dao.getPurgableShardNodesBatch(nodeName2, future()), shards);
 
         // purge on first node
-        dao.updatePurgedShardNodes(shards, nodeId1);
+        dao.deletePurgedShardNodes(shards, nodeId1);
         assertEquals(dao.getPurgableShardNodesBatch(nodeName1, future()), ImmutableList.of());
         assertEquals(dao.getPurgableShardNodesBatch(nodeName2, future()), shards);
 
         // purge on second node
-        dao.updatePurgedShardNodes(shards, nodeId2);
+        dao.deletePurgedShardNodes(shards, nodeId2);
         assertEquals(dao.getPurgableShardNodesBatch(nodeName1, future()), ImmutableList.of());
         assertEquals(dao.getPurgableShardNodesBatch(nodeName2, future()), ImmutableList.of());
     }
