@@ -64,6 +64,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -515,11 +516,9 @@ class QueryPlanner
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
-            ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
-            Map<Symbol, SortOrder> orderings = new HashMap<>();
+            Map<Symbol, SortOrder> orderings = new LinkedHashMap<>();
             for (SortItem item : window.getOrderBy()) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
-                orderBySymbols.add(symbol);
                 orderings.put(symbol, toSortOrder(item));
             }
 
@@ -557,6 +556,8 @@ class QueryPlanner
             signatures.put(newSymbol, analysis.getFunctionSignature(windowFunction));
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
+            ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
+            orderBySymbols.addAll(orderings.keySet());
 
             // create window node
             subPlan = new PlanBuilder(outputTranslations,
