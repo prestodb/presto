@@ -1382,7 +1382,7 @@ public class HiveMetadata
         List<FieldSchema> tableColumns = table.getSd().getCols();
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (FieldSchema field : concat(tableColumns, table.getPartitionKeys())) {
-            if (field.getComment() != null) {
+            if ((field.getComment() != null) && !field.getComment().equals("from deserializer")) {
                 builder.put(field.getName(), field.getComment());
             }
         }
