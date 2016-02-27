@@ -7,6 +7,11 @@ General Changes
 
 * Optimize predicate expressions to minimize redundancies.
 
+Hive Changes
+------------
+
+* Remove bogus "from deserializer" column comments.
+
 SPI Changes
 -----------
 
