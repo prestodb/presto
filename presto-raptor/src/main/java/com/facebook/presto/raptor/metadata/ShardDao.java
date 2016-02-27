@@ -127,6 +127,9 @@ public interface ShardDao
             @Bind("transactionId") long transactionId,
             @Bind("successful") boolean successful);
 
+    @SqlQuery("SELECT successful FROM transactions WHERE transaction_id = :transactionId")
+    Boolean transactionSuccessful(@Bind("transactionId") long transactionId);
+
     @SqlUpdate("UPDATE transactions SET\n" +
             "  successful = FALSE\n" +
             ", end_time = CURRENT_TIMESTAMP\n" +
