@@ -78,6 +78,7 @@
             </a>
         </div>
         <div class="col-md-3 text-right" id="version"></div>
+        <div class="col-md-3 text-right" id="environment"></div>
     </div>
 
     <div id="queries"></div>
@@ -86,6 +87,7 @@
 <script type="text/jsx">
 d3.json("/v1/info", function (info) {
     document.getElementById('version').textContent = "Version: " + info.nodeVersion.version;
+    document.getElementById('environment').textContent = info.environment;
 });
 
 var Query = React.createClass({
