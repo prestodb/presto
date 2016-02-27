@@ -27,17 +27,27 @@ import static java.util.Objects.requireNonNull;
 public class ServerInfo
 {
     private final NodeVersion nodeVersion;
+    private final String environment;
 
     @JsonCreator
-    public ServerInfo(@JsonProperty("nodeVersion") NodeVersion nodeVersion)
+    public ServerInfo(
+            @JsonProperty("nodeVersion") NodeVersion nodeVersion,
+            @JsonProperty("environment") String environment)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.environment = requireNonNull(environment, "environment is null");
     }
 
     @JsonProperty
     public NodeVersion getNodeVersion()
     {
         return nodeVersion;
+    }
+
+    @JsonProperty
+    public String getEnvironment()
+    {
+        return environment;
     }
 
     @Override
@@ -51,13 +61,14 @@ public class ServerInfo
         }
 
         ServerInfo that = (ServerInfo) o;
-        return Objects.equals(nodeVersion, that.nodeVersion);
+        return Objects.equals(nodeVersion, that.nodeVersion) &&
+                Objects.equals(environment, that.environment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nodeVersion);
+        return Objects.hash(nodeVersion, environment);
     }
 
     @Override
@@ -65,6 +76,7 @@ public class ServerInfo
     {
         return toStringHelper(this)
                 .add("nodeVersion", nodeVersion)
+                .add("environment", environment)
                 .toString();
     }
 }

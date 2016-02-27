@@ -6,6 +6,7 @@ General Changes
 ---------------
 
 * Optimize predicate expressions to minimize redundancies.
+* Add environment name to UI.
 
 Hive Changes
 ------------
