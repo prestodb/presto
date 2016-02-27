@@ -39,6 +39,7 @@ import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.ResultIterator;
 import org.skife.jdbi.v2.exceptions.DBIException;
+import org.skife.jdbi.v2.tweak.HandleConsumer;
 import org.skife.jdbi.v2.util.ByteArrayMapper;
 
 import javax.inject.Inject;
@@ -78,13 +79,17 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.collect.Iterables.partition;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.Boolean.TRUE;
+import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 
 public class DatabaseShardManager
@@ -242,14 +247,10 @@ public class DatabaseShardManager
 
         Map<String, Integer> nodeIds = toNodeIdMap(shards);
 
-        runTransaction(dbi, (handle, status) -> {
-            ShardDao dao = shardDaoSupplier.attach(handle);
-            commitTransaction(dao, transactionId);
-            externalBatchId.ifPresent(dao::insertExternalBatch);
-
+        runCommit(transactionId, (handle) -> {
+            externalBatchId.ifPresent(shardDaoSupplier.attach(handle)::insertExternalBatch);
             lockTable(handle, tableId);
             insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
-            return null;
         });
     }
 
@@ -258,8 +259,7 @@ public class DatabaseShardManager
     {
         Map<String, Integer> nodeIds = toNodeIdMap(newShards);
 
-        runTransaction(dbi, (handle, status) -> {
-            commitTransaction(shardDaoSupplier.attach(handle), transactionId);
+        runCommit(transactionId, (handle) -> {
             lockTable(handle, tableId);
             for (List<ShardInfo> shards : partition(newShards, 1000)) {
                 insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
@@ -267,8 +267,34 @@ public class DatabaseShardManager
             for (List<UUID> uuids : partition(oldShardUuids, 1000)) {
                 deleteShardsAndIndex(tableId, ImmutableSet.copyOf(uuids), handle);
             }
-            return null;
         });
+    }
+
+    private void runCommit(long transactionId, HandleConsumer callback)
+    {
+        int maxAttempts = 5;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                dbi.useTransaction((handle, status) -> {
+                    if (commitTransaction(shardDaoSupplier.attach(handle), transactionId)) {
+                        callback.useHandle(handle);
+                    }
+                });
+            }
+            catch (DBIException e) {
+                propagateIfInstanceOf(e.getCause(), PrestoException.class);
+                if (attempt == maxAttempts) {
+                    throw metadataError(e);
+                }
+                log.warn(e, "Failed to commit shards on attempt %d, will retry.", attempt);
+                try {
+                    SECONDS.sleep(multiplyExact(attempt, 2));
+                }
+                catch (InterruptedException ie) {
+                    throw metadataError(ie);
+                }
+            }
+        }
     }
 
     private void deleteShardsAndIndex(long tableId, Set<UUID> shardUuids, Handle handle)
@@ -475,13 +501,17 @@ public class DatabaseShardManager
         dao.finalizeTransaction(transactionId, false);
     }
 
-    private static void commitTransaction(ShardDao dao, long transactionId)
+    private static boolean commitTransaction(ShardDao dao, long transactionId)
     {
         if (dao.finalizeTransaction(transactionId, true) != 1) {
+            if (TRUE.equals(dao.transactionSuccessful(transactionId))) {
+                return false;
+            }
             throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
         }
         dao.deleteCreatedShards(transactionId);
         dao.deleteCreatedShardNodes(transactionId);
+        return true;
     }
 
     @Override
