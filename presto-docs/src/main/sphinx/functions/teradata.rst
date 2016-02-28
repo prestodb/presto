@@ -7,13 +7,21 @@ These functions provide compatibility with Teradata SQL.
 String Functions
 ----------------
 
+.. function:: char2hexint(string) -> varchar
+
+    Returns the hexadecimal representation of the UTF-16BE encoding of the string.
+
 .. function:: index(string, substring) -> bigint
 
     Alias for :func:`strpos` function.
 
-.. function:: char2hexint(string) -> varchar
+.. function:: substring(string, start) -> varchar
 
-    Returns the hexadecimal representation of the UTF-16BE encoding of the string.
+    Alias for :func:`substr` function.
+
+.. function:: substring(string, start, length) -> varchar
+
+    Alias for :func:`substr` function.
 
 Date Functions
 --------------
