@@ -39,6 +39,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -100,15 +101,9 @@ public class QueryMonitor
                 }
             }
 
-            TaskInfo task = null;
-            StageInfo stageInfo = queryInfo.getOutputStage();
-            if (stageInfo != null) {
-                task = stageInfo.getTasks().stream()
-                        .filter(taskInfo -> taskInfo.getState() == TaskState.FAILED)
-                        .findFirst().orElse(null);
-            }
-            String failureHost = task == null ? null : task.getSelf().getHost();
-            String failureTask = task == null ? null : task.getTaskId().toString();
+            Optional<TaskInfo> task = findFailedTask(queryInfo.getOutputStage());
+            String failureHost = task.map(x -> x.getSelf().getHost()).orElse(null);
+            String failureTask = task.map(x -> x.getTaskId().toString()).orElse(null);
 
             eventClient.post(
                     new QueryCompletionEvent(
@@ -156,6 +151,19 @@ public class QueryMonitor
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
+    {
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            Optional<TaskInfo> task = findFailedTask(subStage);
+            if (task.isPresent()) {
+                return task;
+            }
+        }
+        return stageInfo.getTasks().stream()
+                .filter(taskInfo -> taskInfo.getState() == TaskState.FAILED)
+                .findFirst();
     }
 
     private void logQueryTimeline(QueryInfo queryInfo)
