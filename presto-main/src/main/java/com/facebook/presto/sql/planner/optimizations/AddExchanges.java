@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -794,8 +795,37 @@ public class AddExchanges
                 right = node.getRight().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(rightSymbols)));
 
                 if (!left.getProperties().isNodePartitionedOn(leftSymbols) || (distributedJoins && left.getProperties().isSingleNode())) {
+                    PartitionFunctionBinding partitionFunction;
+                    // check if we can redistribute the left on the right partitioning
+                    if (right.getProperties().isNodePartitionedOn(rightSymbols) && (!distributedJoins || !right.getProperties().isSingleNode())) {
+                        SetMultimap<Symbol, Symbol> rightToLeft = HashMultimap.create();
+                        for (int i = 0; i < rightSymbols.size(); i++) {
+                            rightToLeft.put(rightSymbols.get(i), leftSymbols.get(i));
+                        }
+
+                        Function<Symbol, Optional<Symbol>> rightToLeftTranslator = rightSymbol -> rightToLeft.get(rightSymbol).stream().findAny();
+                        Optional<List<PartitionFunctionArgumentBinding>> leftPartitionColumns = right.getProperties().translate(rightToLeftTranslator).getNodePartitioningColumns();
+
+                        verify(leftPartitionColumns.isPresent(), "Could not translate JOIN build partitioning to probe symbols");
+
+                        partitionFunction = new PartitionFunctionBinding(
+                                right.getProperties().getNodePartitioningHandle().get(),
+                                node.getLeft().getOutputSymbols(),
+                                leftPartitionColumns.get(),
+                                Optional.empty());
+                    }
+                    else {
+                        partitionFunction = new PartitionFunctionBinding(
+                                FIXED_HASH_DISTRIBUTION,
+                                left.getNode().getOutputSymbols(),
+                                leftSymbols.stream()
+                                        .map(PartitionFunctionArgumentBinding::new)
+                                        .collect(toImmutableList()),
+                                node.getLeftHashSymbol());
+                    }
+
                     left = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), leftSymbols, node.getLeftHashSymbol()),
+                            partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), partitionFunction),
                             left.getProperties());
                 }
 
@@ -814,13 +844,19 @@ public class AddExchanges
                         leftToRight.put(leftSymbols.get(i), rightSymbols.get(i));
                     }
 
-                    if (!left.getProperties().isNodePartitionedWith(right.getProperties(), leftToRight::get)) {
+                    // Currently, a connector provided partitioning can not be co-distributed as
+                    // this would result in plan fragments with multiple table sources, and a
+                    // plan with multiple table sources can not be executed.
+                    boolean customConnectorPartitioning = !(left.getNode() instanceof ExchangeNode) &&
+                            left.getProperties().getNodePartitioningHandle().flatMap(PartitioningHandle::getConnectorId).isPresent();
+
+                    if (customConnectorPartitioning || !left.getProperties().isNodePartitionedWith(right.getProperties(), leftToRight::get)) {
                         Function<Symbol, Optional<Symbol>> leftToRightTranslator = leftSymbol -> leftToRight.get(leftSymbol).stream().findAny();
                         Optional<List<PartitionFunctionArgumentBinding>> rightPartitionColumns = left.getProperties().translate(leftToRightTranslator).getNodePartitioningColumns();
 
                         verify(rightPartitionColumns.isPresent(), "Could not translate JOIN probe partitioning to build symbols");
 
-                        PartitionFunctionBinding partitionFunction =  new PartitionFunctionBinding(
+                        PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
                                 left.getProperties().getNodePartitioningHandle().get(),
                                 node.getRight().getOutputSymbols(),
                                 rightPartitionColumns.get(),
