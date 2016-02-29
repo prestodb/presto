@@ -33,6 +33,15 @@ public class TestDoubleOperators
     }
 
     @Test
+    public void testTypeConstructor()
+            throws Exception
+    {
+        assertFunction("DOUBLE '12.34'", DOUBLE, 12.34);
+        assertFunction("DOUBLE '-17.6'", DOUBLE, -17.6);
+        assertFunction("DOUBLE '+754'", DOUBLE, 754.0);
+    }
+
+    @Test
     public void testAdd()
             throws Exception
     {
