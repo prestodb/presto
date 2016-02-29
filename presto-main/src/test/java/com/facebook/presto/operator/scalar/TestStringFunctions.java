@@ -381,6 +381,68 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testLeftPad()
+    {
+        assertFunction("LPAD('text', 5, 'x')", VARCHAR, "xtext");
+        assertFunction("LPAD('text', 4, 'x')", VARCHAR, "text");
+
+        assertFunction("LPAD('text', 6, 'xy')", VARCHAR, "xytext");
+        assertFunction("LPAD('text', 7, 'xy')", VARCHAR, "xyxtext");
+        assertFunction("LPAD('text', 9, 'xyz')", VARCHAR, "xyzxytext");
+
+        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 10, '\u671B')", VARCHAR, "\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 11, '\u671B')", VARCHAR, "\u671B\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 12, '\u5E0C\u671B')", VARCHAR, "\u5E0C\u671B\u5E0C\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 13, '\u5E0C\u671B')", VARCHAR, "\u5E0C\u671B\u5E0C\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+
+        assertFunction("LPAD('', 3, 'a')", VARCHAR, "aaa");
+        assertFunction("LPAD('abc', 0, 'e')", VARCHAR, "");
+
+        // truncation
+        assertFunction("LPAD('text', 3, 'xy')", VARCHAR, "tex");
+        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 5, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 ");
+
+        // failure modes
+        assertInvalidFunction("LPAD('abc', 3, '')", "Padding string must not be empty");
+
+        // invalid target lengths
+        long maxSize = Integer.MAX_VALUE;
+        assertInvalidFunction("LPAD('abc', -1, 'foo')", "Target length must be in the range [0.." + maxSize + "]");
+        assertInvalidFunction("LPAD('abc', " + (maxSize + 1) + ", '')", "Target length must be in the range [0.." + maxSize + "]");
+    }
+
+    @Test
+    public void testRightPad()
+    {
+        assertFunction("RPAD('text', 5, 'x')", VARCHAR, "textx");
+        assertFunction("RPAD('text', 4, 'x')", VARCHAR, "text");
+
+        assertFunction("RPAD('text', 6, 'xy')", VARCHAR, "textxy");
+        assertFunction("RPAD('text', 7, 'xy')", VARCHAR, "textxyx");
+        assertFunction("RPAD('text', 9, 'xyz')", VARCHAR, "textxyzxy");
+
+        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 10, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B");
+        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 11, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B\u671B");
+        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 12, '\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C");
+        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 13, '\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C\u671B");
+
+        assertFunction("RPAD('', 3, 'a')", VARCHAR, "aaa");
+        assertFunction("RPAD('abc', 0, 'e')", VARCHAR, "");
+
+        // truncation
+        assertFunction("RPAD('text', 3, 'xy')", VARCHAR, "tex");
+        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 5, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 ");
+
+        // failure modes
+        assertInvalidFunction("RPAD('abc', 3, '')", "Padding string must not be empty");
+
+        // invalid target lengths
+        long maxSize = Integer.MAX_VALUE;
+        assertInvalidFunction("RPAD('abc', -1, 'foo')", "Target length must be in the range [0.." + maxSize + "]");
+        assertInvalidFunction("RPAD('abc', " + (maxSize + 1) + ", '')", "Target length must be in the range [0.." + maxSize + "]");
+    }
+
+    @Test
     public void testNormalize()
     {
         assertFunction("normalize('sch\u00f6n', NFD)", VARCHAR, "scho\u0308n");

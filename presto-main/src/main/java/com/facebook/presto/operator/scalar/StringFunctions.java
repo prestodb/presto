@@ -403,6 +403,78 @@ public final class StringFunctions
         return toUpperCase(slice);
     }
 
+    private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)
+    {
+        checkCondition(
+            0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+            INVALID_FUNCTION_ARGUMENT,
+            "Target length must be in the range [0.." + Integer.MAX_VALUE + "]"
+        );
+        checkCondition(padString.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding string must not be empty");
+
+        int textLength = countCodePoints(text);
+        int resultLength = (int) targetLength;
+
+        // if our target length is the same as our string then return our string
+        if (textLength == resultLength) {
+            return text;
+        }
+
+        // if our string is bigger than requested then truncate
+        if (textLength > resultLength) {
+            return SliceUtf8.substring(text, 0, resultLength);
+        }
+
+        // number of bytes in each code point
+        int padStringLength = countCodePoints(padString);
+        int[] padStringCounts = new int[padStringLength];
+        for (int i = 0; i < padStringLength; ++i) {
+            padStringCounts[i] = lengthOfCodePointSafe(padString, offsetOfCodePoint(padString, i));
+        }
+
+        // preallocate the result
+        int bufferSize = text.length();
+        for (int i = 0; i < resultLength - textLength; ++i) {
+            bufferSize += padStringCounts[i % padStringLength];
+        }
+
+        Slice buffer = Slices.allocate(bufferSize);
+
+        // fill in the existing string
+        int countBytes = bufferSize - text.length();
+        int startPointOfExistingText = (paddingOffset + countBytes) % bufferSize;
+        buffer.setBytes(startPointOfExistingText, text);
+
+        // assign the pad string while there's enough space for it
+        int byteIndex = paddingOffset;
+        for (int i = 0; i < countBytes / padString.length(); ++i) {
+            buffer.setBytes(byteIndex, padString);
+            byteIndex += padString.length();
+        }
+
+        // handle the tail: at most we assign padStringLength - 1 code points
+        buffer.setBytes(byteIndex, padString.getBytes(0, paddingOffset + countBytes - byteIndex));
+        return buffer;
+    }
+
+    @Description("pads a string on the left")
+    @ScalarFunction("lpad")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice leftPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
+    {
+        return pad(text, targetLength, padString, 0);
+    }
+
+    @Description("pads a string on the right")
+    @ScalarFunction("rpad")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice rightPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
+    {
+        return pad(text, targetLength, padString, text.length());
+    }
+
     @Description("transforms the string to normalized form")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)

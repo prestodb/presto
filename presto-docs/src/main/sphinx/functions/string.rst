@@ -112,6 +112,20 @@ String Functions
 
     Converts ``string`` to uppercase.
 
+.. function:: lpad(string, size, padstring) -> varchar
+
+    Left pads ``string`` to ``size`` characters with ``padstring``.
+    If ``size`` is less than the length of ``string``, the result is
+    truncated to ``size`` characters. ``size`` must be greater than or equal to
+    zero, and ``padstring`` must be nonempty.
+
+.. function:: rpad(string, size, padstring) -> varchar
+
+    Right pads ``string`` to ``size`` characters with ``padstring``.
+    If ``size`` is less than the length of ``string``, the result is
+    truncated to ``size`` characters. ``size`` must be greater than or equal to
+    zero, and ``padstring`` must be nonempty.
+
 Unicode Functions
 -----------------
 
