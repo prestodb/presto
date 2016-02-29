@@ -1,3 +1,5 @@
+.. _Queue-configuration:
+
 ===================
 Queue Configuration
 ===================
