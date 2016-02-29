@@ -35,6 +35,15 @@ public class TestBigintOperators
     }
 
     @Test
+    public void testTypeConstructor()
+            throws Exception
+    {
+        assertFunction("BIGINT '9223372036854775807'", BIGINT, 9223372036854775807L);
+        assertFunction("BIGINT '-9223372036854775807'", BIGINT, -9223372036854775807L);
+        assertFunction("BIGINT '+754'", BIGINT, 754L);
+    }
+
+    @Test
     public void testUnaryPlus()
             throws Exception
     {

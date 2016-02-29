@@ -31,6 +31,14 @@ public class TestBooleanOperators
     }
 
     @Test
+    public void testTypeConstructor()
+            throws Exception
+    {
+        assertFunction("BOOLEAN 'true'", BOOLEAN, true);
+        assertFunction("BOOLEAN 'false'", BOOLEAN, false);
+    }
+
+    @Test
     public void testEqual()
             throws Exception
     {
