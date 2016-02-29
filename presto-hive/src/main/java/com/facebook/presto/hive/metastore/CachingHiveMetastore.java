@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.Identity;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -39,6 +40,7 @@ import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.HiveObjectType;
 import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
@@ -47,6 +49,8 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
+import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -59,6 +63,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -86,6 +91,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.StreamSupport.stream;
+import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 
@@ -282,6 +288,7 @@ public class CachingHiveMetastore
         tableCache.invalidateAll();
         partitionCache.invalidateAll();
         partitionFilterCache.invalidateAll();
+        userTablePrivileges.invalidateAll();
     }
 
     private static <K, V> V get(LoadingCache<K, V> cache, K key)
@@ -876,6 +883,79 @@ public class CachingHiveMetastore
     public Set<HivePrivilege> getTablePrivileges(String user, String databaseName, String tableName)
     {
         return get(userTablePrivileges, new UserTableKey(user, tableName, databaseName));
+    }
+
+    @Override
+    public void grantTablePrivileges(String databaseName, String tableName, Identity identity, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    {
+        try {
+            retry()
+                    .stopOnIllegalExceptions()
+                    .run("grantTablePrivileges", stats.getGrantTablePrivileges().wrap(() -> {
+                        try (HiveMetastoreClient metastoreClient = clientProvider.createMetastoreClient()) {
+                            PrincipalType principalType;
+
+                            if (metastoreClient.getRoleNames().contains(identity.getUser())) {
+                                principalType = ROLE;
+                            }
+                            else {
+                                principalType = USER;
+                            }
+
+                            ImmutableList.Builder<HiveObjectPrivilege> privilegeBagBuilder = ImmutableList.builder();
+                            for (PrivilegeGrantInfo privilegeGrantInfo : privilegeGrantInfoSet) {
+                                privilegeBagBuilder.add(
+                                        new HiveObjectPrivilege(new HiveObjectRef(HiveObjectType.TABLE, databaseName, tableName, null, null),
+                                        identity.getUser(),
+                                        principalType,
+                                        privilegeGrantInfo));
+                            }
+                            // TODO: Check whether the user/role exists in the hive metastore.
+                            // TODO: Check whether the user already has the given privilege.
+                            metastoreClient.grantPrivileges(new PrivilegeBag(privilegeBagBuilder.build()));
+                        }
+                        return null;
+                    }));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
+        finally {
+            userTablePrivileges.invalidate(new UserTableKey(identity.getUser(), tableName, databaseName));
+        }
+    }
+
+    @Override
+    public boolean hasPrivilegeWithGrantOptionOnTable(String user, String databaseName, String tableName, HivePrivilege hivePrivilege)
+    {
+        try (HiveMetastoreClient metastoreClient = clientProvider.createMetastoreClient()) {
+            PrincipalPrivilegeSet principalPrivilegeSet = metastoreClient.getPrivilegeSet(new HiveObjectRef(HiveObjectType.TABLE, databaseName, tableName, null, null), user, null);
+
+            Iterator<PrivilegeGrantInfo> privilegeGrantInfoIterator = principalPrivilegeSet.getUserPrivileges().get(user).iterator();
+
+            while (privilegeGrantInfoIterator.hasNext()) {
+                PrivilegeGrantInfo privilegeGrantInfo = privilegeGrantInfoIterator.next();
+                if (privilegeGrantInfo.getPrivilege().equalsIgnoreCase(hivePrivilege.name()) && privilegeGrantInfo.isGrantOption()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw Throwables.propagate(e);
+        }
     }
 
     private Set<HivePrivilege> loadTablePrivileges(String user, String databaseName, String tableName)

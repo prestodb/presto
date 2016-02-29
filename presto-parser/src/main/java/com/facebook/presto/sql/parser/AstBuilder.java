@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.IfExpression;
@@ -592,6 +593,45 @@ class AstBuilder
     public Node visitResetSession(SqlBaseParser.ResetSessionContext context)
     {
         return new ResetSession(getLocation(context), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitGrant(SqlBaseParser.GrantContext context)
+    {
+        String grantee = context.grantee.getText();
+
+        List<String> privileges;
+        if (context.ALL() != null && context.PRIVILEGES() != null) {
+            privileges = ImmutableList.of("ALL PRIVILEGES");
+        }
+        else {
+            privileges = context.privilege().stream()
+                    .map(privilegeContext -> getPrivilege(privilegeContext))
+                    .collect(toList());
+        }
+        return new Grant(
+                getLocation(context),
+                privileges,
+                context.TABLE() != null,
+                getQualifiedName(context.qualifiedName()),
+                grantee,
+                context.OPTION() != null);
+    }
+
+    private String getPrivilege(SqlBaseParser.PrivilegeContext context)
+    {
+        if (context.SELECT() != null) {
+            return "SELECT";
+        }
+        else if (context.DELETE() != null) {
+            return "DELETE";
+        }
+        else if (context.INSERT() != null) {
+            return "INSERT";
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported Privilege: " + context.identifier().getText());
+        }
     }
 
     // ***************** boolean expressions ******************
