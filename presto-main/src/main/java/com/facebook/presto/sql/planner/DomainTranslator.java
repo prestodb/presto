@@ -21,6 +21,7 @@ import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.Ranges;
+import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
@@ -128,6 +129,17 @@ public final class DomainTranslator
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
+
+        List<Range> complementedSet = SortedRangeSet.copyOf(type, ranges.getOrderedRanges()).complement().getOrderedRanges();
+        if (complementedSet.stream().allMatch(Range::isSingleValue)) {
+            return ImmutableList.of(new NotExpression(new InPredicate(
+                    reference,
+                    new InListExpression(
+                            complementedSet.stream()
+                                    .map(range -> toExpression(range.getSingleValue(), type))
+                                    .collect(toList())))));
+        }
+
         for (Range range : ranges.getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {

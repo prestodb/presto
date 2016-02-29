@@ -158,6 +158,17 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testInOptimization()
+            throws Exception
+    {
+        TupleDomain<Symbol> tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder()
+                .put(A, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L), Range.range(BIGINT, 1L, false, 2L, false), Range.range(BIGINT, 2L, false, 3L, false), Range.greaterThan(BIGINT, 3L)), false))
+                .build());
+
+        assertEquals(toPredicate(tupleDomain), not(in(A, ImmutableList.of(1L, 2L, 3L))));
+    }
+
+    @Test
     public void testToPredicateNone()
             throws Exception
     {
