@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -103,10 +104,10 @@ public class RaptorPageSink
     }
 
     @Override
-    public void appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
     {
         if (page.getPositionCount() == 0) {
-            return;
+            return NOT_BLOCKED;
         }
 
         if (sampleWeightField >= 0) {
@@ -114,6 +115,7 @@ public class RaptorPageSink
         }
 
         pageWriter.appendPage(page);
+        return NOT_BLOCKED;
     }
 
     @Override

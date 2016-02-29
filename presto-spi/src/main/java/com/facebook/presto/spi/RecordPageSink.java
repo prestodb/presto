@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
@@ -46,7 +47,7 @@ public class RecordPageSink
     }
 
     @Override
-    public void appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
     {
         Block[] blocks = page.getBlocks();
         List<Type> columnTypes = recordSink.getColumnTypes();
@@ -62,6 +63,7 @@ public class RecordPageSink
             }
             recordSink.finishRecord();
         }
+        return NOT_BLOCKED;
     }
 
     private void writeField(int position, Block block, Type type)
