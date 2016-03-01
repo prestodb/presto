@@ -22,6 +22,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
@@ -32,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Order;
@@ -43,12 +46,14 @@ import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
@@ -63,6 +68,7 @@ import org.apache.hadoop.mapred.Reporter;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -92,6 +98,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getProtectMode;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
@@ -150,6 +158,10 @@ public final class HiveWriteUtils
         else if (type.equals(TimestampType.TIMESTAMP)) {
             return javaTimestampObjectInspector;
         }
+        else if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
+        }
         else if (isArrayType(type)) {
             return ObjectInspectorFactory.getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
         }
@@ -197,6 +209,10 @@ public final class HiveWriteUtils
         if (TimestampType.TIMESTAMP.equals(type)) {
             long millisUtc = type.getLong(block, position);
             return new Timestamp(millisUtc);
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return getHiveDecimal(decimalType, block, position);
         }
         if (isArrayType(type)) {
             Type elementType = type.getTypeParameters().get(0);
@@ -440,6 +456,7 @@ public final class HiveWriteUtils
             case DATE:
             case TIMESTAMP:
             case BINARY:
+            case DECIMAL:
                 return true;
         }
         return false;
@@ -482,6 +499,11 @@ public final class HiveWriteUtils
             return writableTimestampObjectInspector;
         }
 
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return getPrimitiveWritableObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
+        }
+
         if (isArrayType(type) || isMapType(type) || isRowType(type)) {
             return getJavaObjectInspector(type);
         }
@@ -517,6 +539,11 @@ public final class HiveWriteUtils
 
         if (type.equals(TimestampType.TIMESTAMP)) {
             return new TimestampFieldSetter(rowInspector, row, field);
+        }
+
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return new DecimalFieldSetter(rowInspector, row, field, decimalType);
         }
 
         if (isArrayType(type)) {
@@ -676,6 +703,38 @@ public final class HiveWriteUtils
             value.setTime(millisUtc);
             rowInspector.setStructFieldData(row, field, value);
         }
+    }
+
+    private static class DecimalFieldSetter
+            extends FieldSetter
+    {
+        private final HiveDecimalWritable value = new HiveDecimalWritable();
+        private final DecimalType decimalType;
+
+        public DecimalFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, DecimalType decimalType)
+        {
+            super(rowInspector, row, field);
+            this.decimalType = decimalType;
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            value.set(getHiveDecimal(decimalType, block, position));
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static HiveDecimal getHiveDecimal(DecimalType decimalType, Block block, int position)
+    {
+        BigInteger unscaledValue;
+        if (decimalType.isShort()) {
+            unscaledValue = BigInteger.valueOf(decimalType.getLong(block, position));
+        }
+        else {
+            unscaledValue = Decimals.decodeUnscaledValue(decimalType.getSlice(block, position));
+        }
+        return HiveDecimal.create(unscaledValue, decimalType.getScale());
     }
 
     private static class ArrayFieldSetter
