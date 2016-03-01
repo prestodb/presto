@@ -82,7 +82,7 @@ public class SqlQueryManager
     private final ClusterMemoryManager memoryManager;
 
     private final int maxQueryHistory;
-    private final Duration maxQueryAge;
+    private final Duration minQueryExpireAge;
 
     private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
     private final Queue<QueryExecution> expirationQueue = new LinkedBlockingQueue<>();
@@ -128,7 +128,7 @@ public class SqlQueryManager
 
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
-        this.maxQueryAge = config.getMaxQueryAge();
+        this.minQueryExpireAge = config.getMinQueryExpireAge();
         this.maxQueryHistory = config.getMaxQueryHistory();
         this.clientTimeout = config.getClientTimeout();
 
@@ -454,7 +454,7 @@ public class SqlQueryManager
      */
     private void removeExpiredQueries()
     {
-        DateTime timeHorizon = DateTime.now().minus(maxQueryAge.toMillis());
+        DateTime timeHorizon = DateTime.now().minus(minQueryExpireAge.toMillis());
 
         // we're willing to keep queries beyond timeHorizon as long as we have fewer than maxQueryHistory
         while (expirationQueue.size() > maxQueryHistory) {
@@ -466,7 +466,7 @@ public class SqlQueryManager
                 return;
             }
 
-            // only expire them if they are older than maxQueryAge. We need to keep them
+            // only expire them if they are older than minQueryExpireAge. We need to keep them
             // around for a while in case clients come back asking for status
             QueryId queryId = queryInfo.getQueryId();
 
