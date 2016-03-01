@@ -49,6 +49,7 @@ import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullClearPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
@@ -318,10 +319,15 @@ public class InCodeGenerator
                     .append(testNode);
 
             if (checkForNulls) {
-                test.condition()
+                IfStatement caseWasNullCheck = new IfStatement("if one of the case arguments was null and not match than return null");
+                caseWasNullCheck.condition(wasNull);
+                caseWasNullCheck.ifTrue(new BytecodeBlock()
                         .append(wasNull)
                         .putVariable(caseWasNull)
-                        .append(ifWasNullPopAndGoto(scope, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
+                );
+                test.condition()
+                        .append(caseWasNullCheck)
+                        .append(ifWasNullClearPopAndGoto(scope, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
             }
             test.condition()
                     .append(invoke(equalsFunction, EQUAL.name()));
