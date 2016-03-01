@@ -66,7 +66,15 @@ DECIMAL
 
     Example type definitions: ``DECIMAL(10,3)``, ``DECIMAL(20)``
 
-    Example literals: ``DECIMAL '10.3'``, ``DECIMAL '1234567890'``
+    Example literals: ``DECIMAL '10.3'``, ``DECIMAL '1234567890'``, ``1.1``
+
+    .. note::
+
+        Decimal literals (e.g. ``1.2``) are treated as the values of the ``DECIMAL`` type by default.
+
+        In order to keep compatibility with the previous versions of Presto set either:
+            - System wide property: ``deprecated.parse-decimal-literals-as-double=true``
+            - Session wide property: ``deprecated_parse_decimal_literals_as_double=true``
 
 
 VARCHAR
