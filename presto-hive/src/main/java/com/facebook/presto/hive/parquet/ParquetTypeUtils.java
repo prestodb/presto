@@ -15,6 +15,7 @@ package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import parquet.schema.MessageType;
+import parquet.schema.Type;
 
 public final class ParquetTypeUtils
 {
@@ -25,15 +26,28 @@ public final class ParquetTypeUtils
     public static parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
     {
         if (useParquetColumnNames) {
-            if (messageType.containsField(column.getName())) {
-                return messageType.getType(column.getName());
-            }
-            return null;
+            return getParquetTypeByName(column.getName(), messageType);
         }
 
         if (column.getHiveColumnIndex() < messageType.getFieldCount()) {
             return messageType.getType(column.getHiveColumnIndex());
         }
+        return null;
+    }
+
+    private static parquet.schema.Type getParquetTypeByName(String columnName, MessageType messageType)
+    {
+        if (messageType.containsField(columnName)) {
+            return messageType.getType(columnName);
+        }
+        // parquet is case-sensitive, but hive is not. all hive columns get converted to lowercase
+        // check for direct match above but if no match found, try case-insensitive match
+        for (Type type : messageType.getFields()) {
+            if (type.getName().equalsIgnoreCase(columnName)) {
+                return type;
+            }
+        }
+
         return null;
     }
 }
