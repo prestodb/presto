@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 
 public class TestNodeSchedulerConfig
 {
@@ -28,7 +28,7 @@ public class TestNodeSchedulerConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeSchedulerConfig.class)
-                .setNetworkTopology(LEGACY_NETWORK_TOPOLOGY)
+                .setNetworkTopology(LEGACY)
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
                 .setMaxPendingSplitsPerNodePerStage(10)
