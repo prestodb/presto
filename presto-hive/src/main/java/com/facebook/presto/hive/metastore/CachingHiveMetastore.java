@@ -544,6 +544,7 @@ public class CachingHiveMetastore
         }
         finally {
             invalidateTable(databaseName, tableName);
+            invalidateTable(table.getDbName(), table.getTableName());
         }
     }
 
