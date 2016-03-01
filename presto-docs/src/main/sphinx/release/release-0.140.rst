@@ -12,11 +12,16 @@ General Changes
 * Fix race which can cause queries to fail with a ``REMOTE_TASK_ERROR``.
 * Optimize :func:`array_distinct` for ``array<bigint>``.
 * Optimize ``>`` operator for :ref:`array_type`.
+* Fix an optimization issue that could result in non-deterministic functions
+  being evaluated more than once producing unexpected results.
+* Improve performance of joins, aggregations, etc. by removing unnecessarily
+  duplicated columns.
 
 Hive Changes
 ------------
 
 * Remove bogus "from deserializer" column comments.
+* Add date and timestamp support to new Parquet Reader
 
 SPI Changes
 -----------
