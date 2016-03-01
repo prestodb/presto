@@ -97,6 +97,7 @@ import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DecimalOperators;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.HyperLogLogOperators;
+import com.facebook.presto.type.IntegerOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.LikeFunctions;
@@ -351,6 +352,7 @@ public class FunctionRegistry
                 .scalar(UnknownOperators.class)
                 .scalar(BooleanOperators.class)
                 .scalar(BigintOperators.class)
+                .scalar(IntegerOperators.class)
                 .scalar(DoubleOperators.class)
                 .scalar(VarcharOperators.class)
                 .scalar(VarbinaryOperators.class)

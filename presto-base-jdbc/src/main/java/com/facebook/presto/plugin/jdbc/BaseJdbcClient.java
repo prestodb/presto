@@ -53,6 +53,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -75,6 +76,7 @@ public class BaseJdbcClient
     private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
             .put(BOOLEAN, "boolean")
             .put(BIGINT, "bigint")
+            .put(INTEGER, "integer")
             .put(DOUBLE, "double precision")
             .put(VARCHAR, "varchar")
             .put(VARBINARY, "varbinary")
@@ -417,6 +419,7 @@ public class BaseJdbcClient
             case Types.TINYINT:
             case Types.SMALLINT:
             case Types.INTEGER:
+                return INTEGER;
             case Types.BIGINT:
                 return BIGINT;
             case Types.FLOAT:
