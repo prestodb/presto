@@ -5,6 +5,8 @@ Release 0.140
 General Changes
 ---------------
 
+* Add the ``TRY`` function to handle specific data exceptions. See
+  :doc:`/functions/conditional`.
 * Optimize predicate expressions to minimize redundancies.
 * Add environment name to UI.
 * Fix logging of ``failure_host`` and ``failure_task`` fields in
@@ -18,11 +20,13 @@ General Changes
   of non-constant expressions that are null and non-null.
 * Improve performance of joins, aggregations, etc. by removing unnecessarily
   duplicated columns.
+* Optimize ``NOT IN`` queries to produce more compact predicates.
 
 Hive Changes
 ------------
 
 * Remove bogus "from deserializer" column comments.
+* Change categorization of Hive writer errors to be more specific.
 * Add date and timestamp support to new Parquet Reader
 
 SPI Changes
