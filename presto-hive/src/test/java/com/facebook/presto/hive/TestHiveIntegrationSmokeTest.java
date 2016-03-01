@@ -34,6 +34,7 @@ import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.List;
@@ -131,10 +132,12 @@ public class TestHiveIntegrationSmokeTest
                 " 'foo' _varchar" +
                 ", cast('bar' as varbinary) _varbinary" +
                 ", 1 _bigint" +
-                ", 3.14 _double" +
+                ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
-                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp";
+                ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
+                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long";
 
         assertUpdate(query, 1);
 
@@ -148,6 +151,8 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(row.getField(4), true);
         assertEquals(row.getField(5), new Date(new DateTime(1980, 5, 7, 0, 0, 0, UTC).getMillis()));
         assertEquals(row.getField(6), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
+        assertEquals(row.getField(7), new BigDecimal("3.14"));
+        assertEquals(row.getField(8), new BigDecimal("12345678901234567890.0123456789"));
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(queryRunner.tableExists(getSession(), "test_types_table"));
@@ -158,7 +163,9 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            createPartitionedTable(storageFormat);
+            if (insertOperationsSupported(storageFormat)) {
+                createPartitionedTable(storageFormat);
+            }
         }
     }
 
@@ -168,16 +175,19 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_partitioned_table (" +
                 "  _varchar VARCHAR" +
-                ", _varbinary VARBINARY" +
                 ", _bigint BIGINT" +
                 ", _double DOUBLE" +
                 ", _boolean BOOLEAN" +
+                ", _decimal_short DECIMAL(3,2)" +
+                ", _decimal_long DECIMAL(30,10)" +
                 ", _partition_varchar VARCHAR" +
                 ", _partition_bigint BIGINT" +
+                ", _partition_decimal_short DECIMAL(3,2)" +
+                ", _partition_decimal_long DECIMAL(30,10)" +
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ '_partition_varchar', '_partition_bigint' ]" +
+                "partitioned_by = ARRAY[ '_partition_varchar', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
                 ") ";
 
         assertUpdate(createTable);
@@ -185,7 +195,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata("test_partitioned_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> partitionedBy = ImmutableList.of("_partition_varchar", "_partition_bigint");
+        List<String> partitionedBy = ImmutableList.of("_partition_varchar", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
@@ -194,6 +204,22 @@ public class TestHiveIntegrationSmokeTest
 
         MaterializedResult result = computeActual("SELECT * from test_partitioned_table");
         assertEquals(result.getRowCount(), 0);
+
+        @Language("SQL") String select = "" +
+                "SELECT" +
+                " 'foo' _varchar" +
+                ", 1 _bigint" +
+                ", CAST('3.14' AS DOUBLE) _double" +
+                ", true _boolean" +
+                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
+                ", 'foo' _varchar" +
+                ", 1 _bigint" +
+                ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long";
+
+        assertUpdate("INSERT INTO test_partitioned_table " + select, 1);
+        assertQuery("SELECT * from test_partitioned_table", select);
 
         assertUpdate("DROP TABLE test_partitioned_table");
 
@@ -205,7 +231,9 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            createTableAs(storageFormat);
+            if (insertOperationsSupported(storageFormat)) {
+                createTableAs(storageFormat);
+            }
         }
     }
 
@@ -215,8 +243,10 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
                 ", 1 _bigint" +
-                ", 3.14 _double" +
-                ", true _boolean";
+                ", CAST('3.14' AS DOUBLE) _double" +
+                ", true _boolean" +
+                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long";
 
         String createTableAs = format("CREATE TABLE test_format_table WITH (format = '%s') AS %s", storageFormat, select);
 
@@ -461,7 +491,9 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            insertTable(storageFormat);
+            if (insertOperationsSupported(storageFormat)) {
+                insertTable(storageFormat);
+            }
         }
     }
 
@@ -474,7 +506,9 @@ public class TestHiveIntegrationSmokeTest
                 "  _varchar VARCHAR," +
                 "  _bigint BIGINT," +
                 "  _double DOUBLE," +
-                "  _boolean BOOLEAN" +
+                "  _boolean BOOLEAN," +
+                "  _decimal_short DECIMAL(3,2)," +
+                "  _decimal_long DECIMAL(30,10)" +
                 ") " +
                 "WITH (format = '" + storageFormat + "') ";
 
@@ -486,8 +520,10 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
                 ", 1 _bigint" +
-                ", 3.14 _double" +
-                ", true _boolean";
+                ", CAST('3.14' AS DOUBLE) _double" +
+                ", true _boolean" +
+                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long";
 
         assertUpdate("INSERT INTO test_insert_format_table " + select, 1);
 
@@ -495,11 +531,15 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("INSERT INTO test_insert_format_table (_bigint, _double) SELECT 2, 14.3", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _bigint = 2", "SELECT null, 2, 14.3, null");
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 2", "SELECT null, 2, 14.3, null, null, null");
 
         assertUpdate("INSERT INTO test_insert_format_table (_double, _bigint) SELECT 2.72, 3", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, 3, 2.72, null");
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, 3, 2.72, null, null, null");
+
+        assertUpdate("INSERT INTO test_insert_format_table (_decimal_short, _decimal_long) SELECT DECIMAL '2.72', DECIMAL '98765432101234567890.0123456789'", 1);
+
+        assertQuery("SELECT * from test_insert_format_table where _decimal_long = DECIMAL '98765432101234567890.0123456789'", "SELECT null, null, null, null, 2.72, 98765432101234567890.0123456789");
 
         assertUpdate("DROP TABLE test_insert_format_table");
 
@@ -717,6 +757,10 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("CREATE TABLE tmp_array6 AS SELECT ARRAY[ARRAY['\"hi\"'], NULL, ARRAY['puppies']] AS col", 1);
         assertQuery("SELECT col[1][1] FROM tmp_array6", "SELECT '\"hi\"'");
         assertQuery("SELECT col[3][1] FROM tmp_array6", "SELECT 'puppies'");
+
+        assertUpdate("CREATE TABLE tmp_array9 AS SELECT ARRAY[ARRAY[DECIMAL '3.14']] AS col1, ARRAY[ARRAY[DECIMAL '12345678901234567890.0123456789']] AS col2", 1);
+        assertQuery("SELECT col1[1][1] FROM tmp_array9", "SELECT 3.14");
+        assertQuery("SELECT col2[1][1] FROM tmp_array9", "SELECT 12345678901234567890.0123456789");
     }
 
     @Test
@@ -753,6 +797,10 @@ public class TestHiveIntegrationSmokeTest
         assertOneNotNullResult("SELECT col[DATE '2014-09-30'] FROM tmp_map6");
         assertUpdate("CREATE TABLE tmp_map7 AS SELECT MAP(ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'], ARRAY[TIMESTAMP '2001-08-22 03:04:05.321']) AS col", 1);
         assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map7");
+
+        assertUpdate("CREATE TABLE tmp_map8 AS SELECT MAP(ARRAY[DECIMAL '3.14', DECIMAL '12345678901234567890.0123456789'], " +
+                "ARRAY[DECIMAL '12345678901234567890.0123456789', DECIMAL '3.0123456789']) AS col", 1);
+        assertQuery("SELECT col[DECIMAL '3.14'], col[DECIMAL '12345678901234567890.0123456789'] FROM tmp_map8", "SELECT 12345678901234567890.0123456789, 3.0123456789");
     }
 
     @Test
@@ -785,5 +833,10 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(results.getRowCount(), 1);
         assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
         assertNotNull(results.getMaterializedRows().get(0).getField(0));
+    }
+
+    private boolean insertOperationsSupported(HiveStorageFormat storageFormat)
+    {
+        return storageFormat != HiveStorageFormat.DWRF;
     }
 }
