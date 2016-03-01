@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DATE;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
@@ -267,6 +268,11 @@ public class QueryResults
                     return Long.parseLong((String) value);
                 }
                 return ((Number) value).longValue();
+            case INTEGER:
+                if (value instanceof String) {
+                    return Integer.parseInt((String) value);
+                }
+                return ((Number) value).intValue();
             case DOUBLE:
                 if (value instanceof String) {
                     return Double.parseDouble((String) value);

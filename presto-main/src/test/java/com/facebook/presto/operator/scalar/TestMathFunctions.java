@@ -21,6 +21,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RAN
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestMathFunctions
@@ -35,6 +36,9 @@ public class TestMathFunctions
     @Test
     public void testAbs()
     {
+        assertFunction("abs(INTEGER'123')", INTEGER, 123);
+        assertFunction("abs(INTEGER'-123')", INTEGER, 123);
+        assertFunction("abs(CAST(NULL AS INTEGER))", INTEGER, null);
         assertFunction("abs(123)", BIGINT, 123L);
         assertFunction("abs(-123)", BIGINT, 123L);
         assertFunction("abs(CAST(NULL AS BIGINT))", BIGINT, null);
@@ -96,6 +100,9 @@ public class TestMathFunctions
     @Test
     public void testCeil()
     {
+        assertFunction("ceil(INTEGER'123')", INTEGER, 123);
+        assertFunction("ceil(INTEGER'-123')", INTEGER, -123);
+        assertFunction("ceil(CAST(NULL AS INTEGER))", INTEGER, null);
         assertFunction("ceil(123)", BIGINT, 123L);
         assertFunction("ceil(-123)", BIGINT, -123L);
         assertFunction("ceil(CAST(NULL as BIGINT))", BIGINT, null);
@@ -174,6 +181,9 @@ public class TestMathFunctions
     @Test
     public void testFloor()
     {
+        assertFunction("floor(INTEGER'123')", INTEGER, 123);
+        assertFunction("floor(INTEGER'-123')", INTEGER, -123);
+        assertFunction("floor(CAST(NULL AS INTEGER))", INTEGER, null);
         assertFunction("floor(123)", BIGINT, 123L);
         assertFunction("floor(-123)", BIGINT, -123L);
         assertFunction("floor(CAST(NULL as BIGINT))", BIGINT, null);
@@ -227,6 +237,12 @@ public class TestMathFunctions
     @Test
     public void testMod()
     {
+        for (long left : longLefts) {
+            for (long right : longRights) {
+                assertFunction("mod( INTEGER'" + left + "' , INTEGER'" + right + "' )", INTEGER, (int) (left % right));
+            }
+        }
+
         for (long left : longLefts) {
             for (long right : longRights) {
                 assertFunction("mod(" + left + ", " + right + ")", BIGINT, left % right);
@@ -360,6 +376,8 @@ public class TestMathFunctions
     @Test
     public void testRound()
     {
+        assertFunction("round(INTEGER'3')", INTEGER, 3);
+        assertFunction("round(INTEGER'-3')", INTEGER, -3);
         assertFunction("round( 3)", BIGINT, 3L);
         assertFunction("round(-3)", BIGINT, -3L);
         assertFunction("round(CAST(NULL as BIGINT))", BIGINT, null);
@@ -373,6 +391,8 @@ public class TestMathFunctions
         assertFunction("round(-3.99)", DOUBLE, -4.0);
         assertFunction("round(CAST(NULL as DOUBLE))", DOUBLE, null);
 
+        assertFunction("round(INTEGER'3', 0)", INTEGER, 3);
+        assertFunction("round(INTEGER'-3', 0)", INTEGER, -3);
         assertFunction("round( 3, 0)", BIGINT, 3L);
         assertFunction("round(-3, 0)", BIGINT, -3L);
         assertFunction("round( 3.0, 0)", DOUBLE, 3.0);
@@ -384,6 +404,8 @@ public class TestMathFunctions
         assertFunction("round(-3.5001, 0)", DOUBLE, -4.0);
         assertFunction("round(-3.99, 0)", DOUBLE, -4.0);
 
+        assertFunction("round(INTEGER'3', 1)", INTEGER, 3);
+        assertFunction("round(INTEGER'-3', 1)", INTEGER, -3);
         assertFunction("round( 3, 1)", BIGINT, 3L);
         assertFunction("round(-3, 1)", BIGINT, -3L);
         assertFunction("round(CAST(NULL as BIGINT), CAST(NULL as BIGINT))", BIGINT, null);
@@ -442,6 +464,13 @@ public class TestMathFunctions
     public void testGreatest()
             throws Exception
     {
+        // integer
+        assertFunction("greatest(INTEGER'1', INTEGER'2')", INTEGER, 2);
+        assertFunction("greatest(INTEGER'-1', INTEGER'-2')", INTEGER, -1);
+        assertFunction("greatest(INTEGER'5', INTEGER'4', INTEGER'3', INTEGER'2', INTEGER'1', INTEGER'2', INTEGER'3', INTEGER'4', INTEGER'1', INTEGER'5')", INTEGER, 5);
+        assertFunction("greatest(INTEGER'-1')", INTEGER, -1);
+        assertFunction("greatest(INTEGER'5', INTEGER'4', CAST(NULL AS INTEGER), INTEGER'3')", INTEGER, null);
+
         // bigint
         assertFunction("greatest(1, 2)", BIGINT, 2L);
         assertFunction("greatest(-1, -2)", BIGINT, -1L);
@@ -457,6 +486,8 @@ public class TestMathFunctions
         assertFunction("greatest(5, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // mixed
+        assertFunction("greatest(INTEGER'1', 2)", BIGINT, 2L);
+        assertFunction("greatest(1.0, INTEGER'2')", DOUBLE, 2.0);
         assertFunction("greatest(1, 2.0)", DOUBLE, 2.0);
         assertFunction("greatest(1.0, 2)", DOUBLE, 2.0);
         assertFunction("greatest(5.0, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
@@ -470,6 +501,13 @@ public class TestMathFunctions
     public void testLeast()
             throws Exception
     {
+        // integer
+        assertFunction("least(INTEGER'1', INTEGER'2')", INTEGER, 1);
+        assertFunction("least(INTEGER'-1', INTEGER'-2')", INTEGER, -2);
+        assertFunction("least(INTEGER'5', INTEGER'4', INTEGER'3', INTEGER'2', INTEGER'1', INTEGER'2', INTEGER'3', INTEGER'4', INTEGER'1', INTEGER'5')", INTEGER, 1);
+        assertFunction("least(INTEGER'-1')", INTEGER, -1);
+        assertFunction("least(INTEGER'5', INTEGER'4', CAST(NULL AS INTEGER), INTEGER'3')", INTEGER, null);
+
         // bigint
         assertFunction("least(1, 2)", BIGINT, 1L);
         assertFunction("least(-1, -2)", BIGINT, -2L);
@@ -485,6 +523,8 @@ public class TestMathFunctions
         assertFunction("least(5, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // mixed
+        assertFunction("greatest(INTEGER'1', 2)", BIGINT, 2L);
+        assertFunction("greatest(1.0, INTEGER'2')", DOUBLE, 2.0);
         assertFunction("least(1, 2.0)", DOUBLE, 1.0);
         assertFunction("least(1.0, 2)", DOUBLE, 1.0);
         assertFunction("least(5.0, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);

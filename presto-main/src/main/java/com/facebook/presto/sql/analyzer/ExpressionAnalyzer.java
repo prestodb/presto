@@ -101,6 +101,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.spi.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -500,7 +501,7 @@ public class ExpressionAnalyzer
                 case PLUS:
                     Type type = process(node.getValue(), context);
 
-                    if (!type.equals(BIGINT) && !type.equals(DOUBLE)) {
+                    if (!type.equals(BIGINT) && !type.equals(DOUBLE) && !type.equals(INTEGER)) {
                         // TODO: figure out a type-agnostic way of dealing with this. Maybe add a special unary operator
                         // that types can chose to implement, or piggyback on the existence of the negation operator
                         throw new SemanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);

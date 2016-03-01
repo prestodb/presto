@@ -46,6 +46,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -163,6 +164,9 @@ public class ColumnJdbcTable
         }
         if (type.equals(BIGINT)) {
             return Types.BIGINT;
+        }
+        if (type.equals(INTEGER)) {
+            return Types.INTEGER;
         }
         if (type.equals(DOUBLE)) {
             return Types.DOUBLE;

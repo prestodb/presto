@@ -162,6 +162,19 @@ public final class VarcharOperators
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long castToInt(@SqlType("varchar(x)") Slice slice)
+    {
+        try {
+            return Integer.parseInt(slice.toStringUtf8());
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to INT", slice.toStringUtf8()));
+        }
+    }
+
+    @LiteralParameters("x")
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinary(@SqlType("varchar(x)") Slice slice)
     {

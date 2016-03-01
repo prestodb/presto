@@ -103,6 +103,12 @@ class ColumnInfo
                 builder.setScale(0);
                 builder.setColumnDisplaySize(20);
                 break;
+            case "integer":
+                builder.setSigned(true);
+                builder.setPrecision(10);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(11);
+                break;
             case "double":
                 builder.setSigned(true);
                 builder.setPrecision(17);
@@ -185,6 +191,8 @@ class ColumnInfo
                 return Types.BOOLEAN;
             case "bigint":
                 return Types.BIGINT;
+            case "integer":
+                return Types.INTEGER;
             case "double":
                 return Types.DOUBLE;
             case "varchar":

@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.metadata.OperatorType.ADD;
@@ -38,39 +36,53 @@ import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.Double.doubleToLongBits;
 import static java.lang.String.valueOf;
 
-public final class DoubleOperators
+public final class IntegerOperators
 {
-    private DoubleOperators()
+    private IntegerOperators()
     {
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.DOUBLE)
-    public static double add(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlType(StandardTypes.INTEGER)
+    public static long add(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
-        return left + right;
+        try {
+            return Math.addExact((int) left, (int) right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.DOUBLE)
-    public static double subtract(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlType(StandardTypes.INTEGER)
+    public static long subtract(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
-        return left - right;
+        try {
+            return Math.subtractExact((int) left, (int) right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(MULTIPLY)
-    @SqlType(StandardTypes.DOUBLE)
-    public static double multiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlType(StandardTypes.INTEGER)
+    public static long multiply(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
-        return left * right;
+        try {
+            return Math.multiplyExact((int) left, (int) right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(DIVIDE)
-    @SqlType(StandardTypes.DOUBLE)
-    public static double divide(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlType(StandardTypes.INTEGER)
+    public static long divide(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         try {
             return left / right;
@@ -81,8 +93,8 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(MODULUS)
-    @SqlType(StandardTypes.DOUBLE)
-    public static double modulus(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlType(StandardTypes.INTEGER)
+    public static long modulus(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         try {
             return left % right;
@@ -93,101 +105,99 @@ public final class DoubleOperators
     }
 
     @ScalarOperator(NEGATION)
-    @SqlType(StandardTypes.DOUBLE)
-    public static double negate(@SqlType(StandardTypes.DOUBLE) double value)
+    @SqlType(StandardTypes.INTEGER)
+    public static long negate(@SqlType(StandardTypes.INTEGER) long value)
     {
-        return -value;
+        try {
+            return Math.negateExact((int) value);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(EQUAL)
-    @SuppressWarnings("FloatingPointEquality")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    public static boolean equal(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SuppressWarnings("FloatingPointEquality")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    public static boolean notEqual(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThan(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    public static boolean lessThan(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThanOrEqual(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    public static boolean lessThanOrEqual(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThan(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    public static boolean greaterThan(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThanOrEqual(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    public static boolean greaterThanOrEqual(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         return left >= right;
     }
 
     @ScalarOperator(BETWEEN)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean between(@SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double min, @SqlType(StandardTypes.DOUBLE) double max)
+    public static boolean between(@SqlType(StandardTypes.INTEGER) long value, @SqlType(StandardTypes.INTEGER) long min, @SqlType(StandardTypes.INTEGER) long max)
     {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
+    @SqlType(StandardTypes.BIGINT)
+    public static long castToBigint(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        return value;
+    }
+
+    @ScalarOperator(CAST)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean castToBoolean(@SqlType(StandardTypes.DOUBLE) double value)
+    public static boolean castToBoolean(@SqlType(StandardTypes.INTEGER) long value)
     {
         return value != 0;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.INTEGER)
-    public static long castToInteger(@SqlType(StandardTypes.DOUBLE) double value)
+    @SqlType(StandardTypes.DOUBLE)
+    public static double castToDouble(@SqlType(StandardTypes.INTEGER) long value)
     {
-        try {
-            return Ints.checkedCast((long) MathFunctions.round(value));
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
-        }
-    }
-
-    @ScalarOperator(CAST)
-    @SqlType(StandardTypes.BIGINT)
-    public static long castToLong(@SqlType(StandardTypes.DOUBLE) double value)
-    {
-        return (long) MathFunctions.round(value);
+        return value;
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice castToVarchar(@SqlType(StandardTypes.DOUBLE) double value)
+    public static Slice castToVarchar(@SqlType(StandardTypes.INTEGER) long value)
     {
+        // todo optimize me
         return utf8Slice(valueOf(value));
     }
 
     @ScalarOperator(HASH_CODE)
     @SqlType(StandardTypes.BIGINT)
-    public static long hashCode(@SqlType(StandardTypes.DOUBLE) double value)
+    public static long hashCode(@SqlType(StandardTypes.INTEGER) long value)
     {
-        long bits = doubleToLongBits(value);
-        return (int) (bits ^ (bits >>> 32));
+        return (int) value;
     }
 }

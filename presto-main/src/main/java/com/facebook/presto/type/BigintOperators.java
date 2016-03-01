@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.metadata.OperatorType.ADD;
@@ -173,6 +174,18 @@ public final class BigintOperators
     public static boolean castToBoolean(@SqlType(StandardTypes.BIGINT) long value)
     {
         return value != 0;
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.INTEGER)
+    public static long castToInteger(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        try {
+            return Ints.checkedCast(value);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e);
+        }
     }
 
     @ScalarOperator(CAST)
