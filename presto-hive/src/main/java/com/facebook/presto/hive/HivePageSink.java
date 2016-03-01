@@ -62,13 +62,14 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_CLOSE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_WRITE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_ERROR;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.createFieldSetter;
@@ -572,7 +573,7 @@ public class HivePageSink
                 recordWriter.write(serializer.serialize(row, tableInspector));
             }
             catch (SerDeException | IOException e) {
-                throw new PrestoException(HIVE_WRITER_ERROR, e);
+                throw new PrestoException(HIVE_FILE_WRITE_ERROR, e);
             }
         }
 
@@ -582,7 +583,7 @@ public class HivePageSink
                 recordWriter.close(false);
             }
             catch (IOException e) {
-                throw new PrestoException(HIVE_WRITER_ERROR, "Error committing write to Hive", e);
+                throw new PrestoException(HIVE_FILE_CLOSE_ERROR, "Error committing write to Hive", e);
             }
         }
 
@@ -592,7 +593,7 @@ public class HivePageSink
                 recordWriter.close(true);
             }
             catch (IOException e) {
-                throw new PrestoException(HIVE_WRITER_ERROR, "Error rolling back write to Hive", e);
+                throw new PrestoException(HIVE_FILE_CLOSE_ERROR, "Error rolling back write to Hive", e);
             }
         }
 
