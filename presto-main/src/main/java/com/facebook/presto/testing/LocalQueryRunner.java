@@ -530,7 +530,6 @@ public class LocalQueryRunner
     public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         Statement statement = statementCreator.createStatement(sql, session);
-
         assertFormattedSql(sqlParser, statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();

@@ -40,7 +40,8 @@ public class TestFeaturesConfig
                 .setIntermediateAggregationsEnabled(false)
                 .setColumnarProcessing(false)
                 .setColumnarProcessingDictionary(false)
-                .setDictionaryAggregation(false));
+                .setDictionaryAggregation(false)
+                .setParseDecimalLiteralsAsDouble(false));
     }
 
     @Test
@@ -59,6 +60,7 @@ public class TestFeaturesConfig
                 .put("optimizer.columnar-processing", "true")
                 .put("optimizer.columnar-processing-dictionary", "true")
                 .put("optimizer.dictionary-aggregation", "true")
+                .put("parse-decimal-literals-as-double", "true")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -73,6 +75,7 @@ public class TestFeaturesConfig
                 .put("optimizer.columnar-processing", "true")
                 .put("optimizer.columnar-processing-dictionary", "true")
                 .put("optimizer.dictionary-aggregation", "true")
+                .put("parse-decimal-literals-as-double", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -87,7 +90,8 @@ public class TestFeaturesConfig
                 .setIntermediateAggregationsEnabled(true)
                 .setColumnarProcessing(true)
                 .setColumnarProcessingDictionary(true)
-                .setDictionaryAggregation(true);
+                .setDictionaryAggregation(true)
+                .setParseDecimalLiteralsAsDouble(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);

@@ -60,17 +60,35 @@ public class SqlParser
         allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());
     }
 
+    /**
+     * Consider using {@link #createStatement(String, ParsingOptions)}
+     */
+    @Deprecated
     public Statement createStatement(String sql)
     {
-        return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement);
+        return createStatement(sql, new ParsingOptions());
     }
 
+    public Statement createStatement(String sql, ParsingOptions parsingOptions)
+    {
+        return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
+    }
+
+    /**
+     * Consider using {@link #createExpression(String, ParsingOptions)}
+     */
+    @Deprecated
     public Expression createExpression(String expression)
     {
-        return (Expression) invokeParser("expression", expression, SqlBaseParser::singleExpression);
+        return createExpression(expression, new ParsingOptions());
     }
 
-    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction)
+    public Expression createExpression(String expression, ParsingOptions parsingOptions)
+    {
+        return (Expression) invokeParser("expression", expression, SqlBaseParser::singleExpression, parsingOptions);
+    }
+
+    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
     {
         try {
             SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(new ANTLRInputStream(sql)));
@@ -100,7 +118,7 @@ public class SqlParser
                 tree = parseFunction.apply(parser);
             }
 
-            return new AstBuilder().visit(tree);
+            return new AstBuilder(parsingOptions).visit(tree);
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)");

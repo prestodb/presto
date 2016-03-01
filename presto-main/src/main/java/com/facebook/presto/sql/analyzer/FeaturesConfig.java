@@ -32,6 +32,8 @@ public class FeaturesConfig
     private boolean columnarProcessingDictionary;
     private boolean dictionaryAggregation;
 
+    private boolean parseDecimalLiteralsAsDouble;
+
     @LegacyConfig("analyzer.experimental-syntax-enabled")
     @Config("experimental-syntax-enabled")
     public FeaturesConfig setExperimentalSyntaxEnabled(boolean enabled)
@@ -174,6 +176,18 @@ public class FeaturesConfig
     public FeaturesConfig setDictionaryAggregation(boolean dictionaryAggregation)
     {
         this.dictionaryAggregation = dictionaryAggregation;
+        return this;
+    }
+
+    public boolean isParseDecimalLiteralsAsDouble()
+    {
+        return parseDecimalLiteralsAsDouble;
+    }
+
+    @Config("parse-decimal-literals-as-double")
+    public FeaturesConfig setParseDecimalLiteralsAsDouble(boolean parseDecimalLiteralsAsDouble)
+    {
+        this.parseDecimalLiteralsAsDouble = parseDecimalLiteralsAsDouble;
         return this;
     }
 }
