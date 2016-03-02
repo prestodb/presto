@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import io.airlift.slice.Slice;
 
@@ -58,4 +59,6 @@ public interface JdbcClient
 
     Statement getStatement(Connection connection)
             throws SQLException;
+
+    Class<? extends RecordCursor> getRecordCursorType();
 }

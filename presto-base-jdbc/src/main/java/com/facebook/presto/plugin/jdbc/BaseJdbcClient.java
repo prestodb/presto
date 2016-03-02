@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.type.Type;
@@ -373,6 +374,12 @@ public class BaseJdbcClient
             throws SQLException
     {
         return connection.createStatement();
+    }
+
+    @Override
+    public Class<? extends RecordCursor> getRecordCursorType()
+    {
+        return JdbcRecordCursor.class;
     }
 
     protected ResultSet getTables(Connection connection, String schemaName, String tableName)
