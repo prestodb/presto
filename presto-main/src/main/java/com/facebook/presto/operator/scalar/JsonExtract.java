@@ -127,7 +127,7 @@ public final class JsonExtract
             try (JsonParser jsonParser = JSON_FACTORY.createParser(jsonInput.getInput())) {
                 // Initialize by advancing to first token and make sure it exists
                 if (jsonParser.nextToken() == null) {
-                    throw new JsonParseException("Missing starting token", jsonParser.getCurrentLocation());
+                    return null;
                 }
 
                 return jsonExtractor.extract(jsonParser);
