@@ -28,20 +28,20 @@ public class JsonFunctionsTests
     public void testJsonArrayContainsExist()
     {
         assertThat(query("SELECT json_array_contains('[1, 2, 3]', 2)")).containsExactly(row(true));
-        assertThat(query("SELECT json_array_contains(CAST('[1, 2, 3]' as JSON), 2)")).containsExactly(row(true));
+        assertThat(query("SELECT json_array_contains(JSON_PARSE('[1, 2, 3]'), 2)")).containsExactly(row(true));
     }
 
     @Test(groups = JSON_FUNCTIONS)
     public void testJsonArrayLengthExist()
     {
         assertThat(query("SELECT json_array_length('[1, 2, 3]')")).containsExactly(row(3L));
-        assertThat(query("SELECT json_array_length(CAST('[1, 2, 3]' as JSON))")).containsExactly(row(3L));
+        assertThat(query("SELECT json_array_length(JSON_PARSE('[1, 2, 3]'))")).containsExactly(row(3L));
     }
 
     @Test(groups = JSON_FUNCTIONS)
     public void testJsonExtractExist()
     {
-        assertThat(query("SELECT CAST(json_extract('{\"book\" : {\"pages\":1}}', '$.book') as VARCHAR)")).containsExactly(row("{\"pages\":1}"));
+        assertThat(query("SELECT JSON_FORMAT(json_extract('{\"book\" : {\"pages\":1}}', '$.book'))")).containsExactly(row("{\"pages\":1}"));
     }
 
     @Test(groups = JSON_FUNCTIONS)
@@ -53,7 +53,7 @@ public class JsonFunctionsTests
     @Test(groups = JSON_FUNCTIONS)
     public void testJsonArrayGetExist()
     {
-        assertThat(query("SELECT CAST (json_array_get('[\"string1\", \"string2\", \"string3\"]', 0) AS VARCHAR)")).containsExactly(row("string1"));
+        assertThat(query("SELECT JSON_FORMAT(json_array_get('[\"string1\", \"string2\", \"string3\"]', 0))")).containsExactly(row("string1"));
     }
 
     @Test(groups = JSON_FUNCTIONS)

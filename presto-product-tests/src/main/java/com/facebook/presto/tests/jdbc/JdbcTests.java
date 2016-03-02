@@ -147,7 +147,7 @@ public class JdbcTests
             throws SQLException
     {
         QueryResult result = QueryResult.forResultSet(metaData().getTables("hive", null, null, null));
-        assertThat(result).contains(row("hive", "default", "nation", "BASE TABLE", "", "", "", "", "", ""));
+        assertThat(result).contains(row("hive", "default", "nation", "TABLE", null, null, null, null, null, null));
     }
 
     @Test(groups = JDBC)
@@ -165,7 +165,7 @@ public class JdbcTests
             throws SQLException
     {
         QueryResult result = QueryResult.forResultSet(metaData().getTableTypes());
-        assertThat(result).contains(row("BASE TABLE"));
+        assertThat(result).contains(row("TABLE"), row("VIEW"));
     }
 
     private QueryResult queryResult(Statement statement, String query)
