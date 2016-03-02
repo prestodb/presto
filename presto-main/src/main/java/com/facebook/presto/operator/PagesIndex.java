@@ -35,6 +35,7 @@ import java.util.Optional;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -343,7 +344,8 @@ public class PagesIndex
                 LookupSource lookupSource = lookupSourceFactory.createLookupSource(
                         valueAddresses,
                         ImmutableList.<List<Block>>copyOf(channels),
-                        hashChannel);
+                        hashChannel,
+                        joinChannels);
 
                 return lookupSource;
             }
@@ -360,7 +362,12 @@ public class PagesIndex
                 hashChannel,
                 filterFunction);
 
-        return new InMemoryJoinHash(valueAddresses, hashStrategy);
+        if (types.size() == 1 && types.get(0).equals(BIGINT) && !filterFunction.isPresent() && joinChannels.size() == 1) {
+            return new BigintInMemoryJoinHash(valueAddresses, hashStrategy, ImmutableList.copyOf(channels), joinChannels);
+        }
+        else {
+            return new InMemoryJoinHash(valueAddresses, hashStrategy, ImmutableList.copyOf(channels), joinChannels);
+        }
     }
 
     @Override
