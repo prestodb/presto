@@ -368,7 +368,8 @@ public class PagesIndex
                     valueAddresses,
                     ImmutableList.<List<Block>>copyOf(channels),
                     hashChannel,
-                    hashBuildConcurrency);
+                    hashBuildConcurrency,
+                    joinChannels);
 
             return lookupSource;
         }
@@ -383,7 +384,12 @@ public class PagesIndex
                 joinChannels,
                 hashChannel);
 
-        return new InMemoryJoinHash(valueAddresses, hashStrategy, hashBuildConcurrency);
+        if (types.size() == 1 && types.get(0).equals(BIGINT)) {
+            return new BigintInMemoryJoinHash(valueAddresses, hashStrategy, hashBuildConcurrency, ImmutableList.copyOf(channels), joinChannels);
+        }
+        else {
+            return new InMemoryJoinHash(valueAddresses, hashStrategy, hashBuildConcurrency, ImmutableList.copyOf(channels), joinChannels);
+        }
     }
 
     @Override

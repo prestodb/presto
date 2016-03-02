@@ -27,6 +27,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -50,17 +51,24 @@ public class TestHashJoinOperator
     private static final int PARTITION_COUNT = 4;
 
     private ExecutorService executor;
+    private TaskContext taskContext;
 
     @BeforeClass
-    public void setUp()
+    public void setUpClass()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
     }
 
     @AfterClass
-    public void tearDown()
+    public void tearDownClass()
     {
         executor.shutdownNow();
+    }
+
+    @BeforeMethod
+    public void setUp()
+    {
+        taskContext = createTaskContext();
     }
 
     @DataProvider(name = "hashEnabledValues")
@@ -81,29 +89,14 @@ public class TestHashJoinOperator
     public void testInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        List<Integer> hashChannels = Ints.asList(0);
 
-        // build
-        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
-        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages);
 
-        // probe
-        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT));
-        List<Page> probeInput = probePages
-                .addSequencePage(1000, 0, 1000, 2000)
-                .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceSupplier,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel());
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT))
+                .addSequencePage(1000, 0, 1000, 2000);
 
-        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
-
-        // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
                 .row("20", 1020, 2020, "20", 30, 40)
                 .row("21", 1021, 2021, "21", 31, 41)
@@ -117,168 +110,227 @@ public class TestHashJoinOperator
                 .row("29", 1029, 2029, "29", 39, 49)
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertInnerJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testBigintInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(1);
+
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT))
+                .addSequencePage(10, 20, 1030, 40);
+
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT))
+                .addSequencePage(1000, 0, 1000, 2000);
+
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
+                .row("30", 1030, 2030, "20", 1030, 40)
+                .row("31", 1031, 2031, "21", 1031, 41)
+                .row("32", 1032, 2032, "22", 1032, 42)
+                .row("33", 1033, 2033, "23", 1033, 43)
+                .row("34", 1034, 2034, "24", 1034, 44)
+                .row("35", 1035, 2035, "25", 1035, 45)
+                .row("36", 1036, 2036, "26", 1036, 46)
+                .row("37", 1037, 2037, "27", 1037, 47)
+                .row("38", 1038, 2038, "28", 1038, 48)
+                .row("39", 1039, 2039, "29", 1039, 49)
+                .build();
+
+        assertInnerJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        List<Integer> hashChannels = Ints.asList(0);
 
-        // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes)
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, buildTypes)
                 .row("a")
                 .row("b")
                 .row("c");
-        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages);
 
-        // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = probePages
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
-                .row("b")
-                .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceSupplier,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel());
-        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+                .row("b");
 
-        // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertInnerJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testBigintInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(0);
+
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, buildTypes)
+                .row(1)
+                .row(2)
+                .row(3);
+
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
+                .row(1)
+                .row((Long) null)
+                .row((Long) null)
+                .row(1)
+                .row(2);
+
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+                .row(1, 1)
+                .row(1, 1)
+                .row(2, 2)
+                .build();
+
+        assertInnerJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        List<Integer> hashChannels = Ints.asList(0);
 
-        // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes)
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
                 .row("b");
-        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages);
 
-        // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = probePages
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
                 .row("a")
                 .row("b")
-                .row("c")
-                .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceSupplier,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel());
-        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+                .row("c");
 
-        // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertInnerJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testBigintInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(0);
+
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, buildTypes)
+                .row(1)
+                .row((Long) null)
+                .row((Long) null)
+                .row(1)
+                .row(2);
+
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
+                .row(1)
+                .row(2)
+                .row(3);
+
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+                .row(1, 1)
+                .row(1, 1)
+                .row(2, 2)
+                .build();
+
+        assertInnerJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        List<Integer> hashChannels = Ints.asList(0);
 
-        // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes)
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, buildTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
                 .row("b");
-        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages);
 
-        // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = probePages
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
                 .row("a")
                 .row("b")
                 .row((String) null)
-                .row("c")
-                .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceSupplier,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel());
-        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+                .row("c");
 
-        // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertInnerJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testBigintInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(0);
+
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, buildTypes)
+                .row(1)
+                .row((Long) null)
+                .row((Long) null)
+                .row(1)
+                .row(2);
+
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
+                .row(1)
+                .row(2)
+                .row((Long) null)
+                .row(3);
+
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+                .row(1, 1)
+                .row(1, 1)
+                .row(2, 2)
+                .build();
+
+        assertInnerJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testProbeOuterJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        List<Integer> hashChannels = Ints.asList(0);
 
-        // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
-        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages);
 
-        // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
-        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = probePages
-                .addSequencePage(15, 20, 1020, 2020)
-                .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceSupplier,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel());
-        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
+                .addSequencePage(15, 20, 1020, 2020);
 
-        // expected
-        // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("20", 1020, 2020, "20", 30, 40)
                 .row("21", 1021, 2021, "21", 31, 41)
@@ -297,43 +349,63 @@ public class TestHashJoinOperator
                 .row("34", 1034, 2034, null, null, null)
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertProbeOuterJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testBigintProbeOuterJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(1);
+
+        List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT))
+                .addSequencePage(10, 30, 1020, 40);
+
+        List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BIGINT);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
+                .addSequencePage(15, 20, 1020, 2020);
+
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+                .row("20", 1020, 2020, "30", 1020, 40)
+                .row("21", 1021, 2021, "31", 1021, 41)
+                .row("22", 1022, 2022, "32", 1022, 42)
+                .row("23", 1023, 2023, "33", 1023, 43)
+                .row("24", 1024, 2024, "34", 1024, 44)
+                .row("25", 1025, 2025, "35", 1025, 45)
+                .row("26", 1026, 2026, "36", 1026, 46)
+                .row("27", 1027, 2027, "37", 1027, 47)
+                .row("28", 1028, 2028, "38", 1028, 48)
+                .row("29", 1029, 2029, "39", 1029, 49)
+                .row("30", 1030, 2030, null, null, null)
+                .row("31", 1031, 2031, null, null, null)
+                .row("32", 1032, 2032, null, null, null)
+                .row("33", 1033, 2033, null, null, null)
+                .row("34", 1034, 2034, null, null, null)
+                .build();
+
+        assertProbeOuterJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        List<Integer> hashChannels = Ints.asList(0);
 
-        // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes)
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, buildTypes)
                 .row("a")
                 .row("b")
                 .row("c");
-        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages);
 
-        // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = probePages
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
-                .row("b")
-                .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceSupplier,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel());
-        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
-
-        // expected
+                .row("b");
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row(null, null)
@@ -342,43 +414,60 @@ public class TestHashJoinOperator
                 .row("b", "b")
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertProbeOuterJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testBigintOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(0);
+
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, buildTypes)
+                .row(1)
+                .row(2)
+                .row(3);
+
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
+                .row(1)
+                .row((Long) null)
+                .row((Long) null)
+                .row(1)
+                .row(2);
+
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+                .row(1, 1)
+                .row(null, null)
+                .row(null, null)
+                .row(1, 1)
+                .row(2, 2)
+                .build();
+
+        assertProbeOuterJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        List<Integer> hashChannels = Ints.asList(0);
 
-        // build
         List<Type> buildTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR))
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR))
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
                 .row("b");
-        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages);
 
-        // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = probePages
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
                 .row("a")
                 .row("b")
-                .row("c")
-                .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceSupplier,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel());
-        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+                .row("c");
 
-        // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
                 .row("a", "a")
                 .row("a", "a")
@@ -386,43 +475,59 @@ public class TestHashJoinOperator
                 .row("c", null)
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertProbeOuterJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testBigintOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(0);
+
+        List<Type> buildTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(BIGINT))
+                .row(1)
+                .row((Long) null)
+                .row((Long) null)
+                .row(1)
+                .row(2);
+
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
+                .row(1)
+                .row(2)
+                .row(3);
+
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
+                .row(1, 1)
+                .row(1, 1)
+                .row(2, 2)
+                .row(3, null)
+                .build();
+
+        assertProbeOuterJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
     }
 
     @Test(dataProvider = "hashEnabledValues")
     public void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
+        List<Integer> hashChannels = Ints.asList(0);
 
-        // build
-        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR))
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR))
                 .row("a")
                 .row((String) null)
                 .row((String) null)
                 .row("a")
                 .row("b");
-        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages);
 
-        // probe
         List<Type> probeTypes = ImmutableList.<Type>of(VARCHAR);
-        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), probeTypes);
-        List<Page> probeInput = probePages
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
                 .row("a")
                 .row("b")
                 .row((String) null)
-                .row("c")
-                .build();
-        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
-                0,
-                new PlanNodeId("test"),
-                lookupSourceSupplier,
-                probePages.getTypes(),
-                Ints.asList(0),
-                probePages.getHashChannel());
-        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+                .row("c");
 
-        // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
                 .row("a", "a")
                 .row("a", "a")
@@ -431,7 +536,38 @@ public class TestHashJoinOperator
                 .row("c", null)
                 .build();
 
-        assertOperatorEquals(joinOperator, probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertProbeOuterJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testBigintOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(0);
+
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(BIGINT))
+                .row(1)
+                .row((Long) null)
+                .row((Long) null)
+                .row(1)
+                .row(2);
+
+        List<Type> probeTypes = ImmutableList.<Type>of(BIGINT);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, hashChannels, probeTypes)
+                .row(1)
+                .row(2)
+                .row((Long) null)
+                .row(3);
+
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+                .row(1, 1)
+                .row(1, 1)
+                .row(2, 2)
+                .row(null, null)
+                .row(3, null)
+                .build();
+
+        assertProbeOuterJoin(probePages, buildPages, hashChannels, parallelBuild, expected);
     }
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*", dataProvider = "hashEnabledValues")
@@ -460,6 +596,51 @@ public class TestHashJoinOperator
         }
         // especially for parallel build, ensure that buildPages are not accounted more then once
         assertTrue(taskContext.getPeekMemoryReservation() < 2 * buildPagesSize);
+    }
+
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*", dataProvider = "hashEnabledValues")
+    public void testBigintMemoryLimit(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+            throws Exception
+    {
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE));
+
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(1), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
+                .addSequencePage(10, 20, 30, 40);
+        buildHash(parallelBuild, taskContext, Ints.asList(1), buildPages);
+    }
+
+    private void assertInnerJoin(RowPagesBuilder probePages, RowPagesBuilder buildPages, List<Integer> hashChannels, boolean parallelBuild, MaterializedResult expected)
+    {
+        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, hashChannels, buildPages);
+
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
+                0,
+                new PlanNodeId("test"),
+                lookupSourceSupplier,
+                probePages.getTypes(),
+                hashChannels,
+                probePages.getHashChannel());
+
+        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+
+        assertOperatorEquals(joinOperator, probePages.build(), expected, true, getHashChannels(probePages, buildPages));
+    }
+
+    private void assertProbeOuterJoin(RowPagesBuilder probePages, RowPagesBuilder buildPages, List<Integer> hashChannels, boolean parallelBuild, MaterializedResult expected)
+    {
+        LookupSourceSupplier lookupSourceSupplier = buildHash(parallelBuild, taskContext, hashChannels, buildPages);
+
+        OperatorFactory joinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+                0,
+                new PlanNodeId("test"),
+                lookupSourceSupplier,
+                probePages.getTypes(),
+                hashChannels,
+                probePages.getHashChannel());
+
+        Operator joinOperator = joinOperatorFactory.createOperator(taskContext.addPipelineContext(true, true).addDriverContext());
+
+        assertOperatorEquals(joinOperator, probePages.build(), expected, true, getHashChannels(probePages, buildPages));
     }
 
     private TaskContext createTaskContext()
