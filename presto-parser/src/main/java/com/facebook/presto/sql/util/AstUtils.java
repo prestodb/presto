@@ -27,10 +27,14 @@ public class AstUtils
             @Override
             public Boolean process(Node node, AtomicBoolean findResultHolder)
             {
-                if (node.equals(subNode)) {
-                    findResultHolder.set(true);
+                if (!findResultHolder.get()) {
+                    if (node == subNode) {
+                        findResultHolder.set(true);
+                    }
+                    else {
+                        super.process(node, findResultHolder);
+                    }
                 }
-                super.process(node, findResultHolder);
                 return findResultHolder.get();
             }
         }.process(node, new AtomicBoolean(false));

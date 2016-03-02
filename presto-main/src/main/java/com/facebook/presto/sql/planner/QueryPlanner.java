@@ -249,12 +249,12 @@ class QueryPlanner
         }
 
         // rewrite expressions which contain already handled subqueries
-        Expression rewritten = subPlan.rewrite(predicate);
-        subPlan = handleSubqueries(subPlan, rewritten, node);
-        Expression rewritten2 = subPlan.rewrite(predicate);
+        Expression rewrittenBeforeSubqueries = subPlan.rewrite(predicate);
+        subPlan = handleSubqueries(subPlan, rewrittenBeforeSubqueries, node);
+        Expression rewrittenAfterSubqueries = subPlan.rewrite(predicate);
         return new PlanBuilder(
                 subPlan.getTranslations(),
-                new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), rewritten2),
+                new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), rewrittenAfterSubqueries),
                 subPlan.getSampleWeight());
     }
 
@@ -627,19 +627,19 @@ class QueryPlanner
         return subPlan;
     }
 
-    private PlanBuilder handleSubqueries(PlanBuilder builder, Expression predicate, Node node)
+    private PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
     {
         builder = appendSemiJoins(
                 builder,
                 analysis.getInPredicates(node)
                         .stream()
-                        .filter(inPredicate -> nodeContains(predicate, inPredicate.getValueList()))
+                        .filter(inPredicate -> nodeContains(expression, inPredicate.getValueList()))
                         .collect(toImmutableSet()));
         builder = appendScalarSubqueryJoins(
                 builder,
                 analysis.getScalarSubqueries(node)
                         .stream()
-                        .filter(subquery -> nodeContains(predicate, subquery))
+                        .filter(subquery -> nodeContains(expression, subquery))
                         .collect(toImmutableSet()));
         return builder;
     }
