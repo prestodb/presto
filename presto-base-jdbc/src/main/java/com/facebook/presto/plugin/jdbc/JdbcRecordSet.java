@@ -16,8 +16,10 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -53,6 +55,12 @@ public class JdbcRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new JdbcRecordCursor(jdbcClient, split, columnHandles);
+        try {
+            return (RecordCursor) jdbcClient.getRecordCursorType()
+                    .getConstructors()[0].newInstance(jdbcClient, split, columnHandles);
+        }
+        catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+            throw Throwables.propagate(e);
+        }
     }
 }
