@@ -98,6 +98,7 @@ public class TestHiveClientConfig
                 .setHiveMetastorePrestoPrincipal(null)
                 .setHiveMetastorePrestoKeytab(null)
                 .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.SIMPLE)
+                .setHdfsImpersonation(false)
                 .setHdfsPrestoPrincipal(null)
                 .setHdfsPrestoKeytab(null)
                 .setHdfsTemporaryDirectoryTemplate("/tmp"));
@@ -169,6 +170,7 @@ public class TestHiveClientConfig
                 .put("hive.metastore.presto.principal", "metastore@EXAMPLE.COM")
                 .put("hive.metastore.presto.keytab", "/tmp/metastore.keytab")
                 .put("hive.hdfs.authentication.type", "KERBEROS")
+                .put("hive.hdfs.impersonation", "true")
                 .put("hive.hdfs.presto.principal", "hdfs@EXAMPLE.COM")
                 .put("hive.hdfs.presto.keytab", "/tmp/hdfs.keytab")
                 .put("hive.hdfs.temporary.directory", "/example/temporary/dir")
@@ -237,6 +239,7 @@ public class TestHiveClientConfig
                 .setHiveMetastorePrestoPrincipal("metastore@EXAMPLE.COM")
                 .setHiveMetastorePrestoKeytab("/tmp/metastore.keytab")
                 .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.KERBEROS)
+                .setHdfsImpersonation(true)
                 .setHdfsPrestoPrincipal("hdfs@EXAMPLE.COM")
                 .setHdfsPrestoKeytab("/tmp/hdfs.keytab")
                 .setHdfsTemporaryDirectoryTemplate("/example/temporary/dir");

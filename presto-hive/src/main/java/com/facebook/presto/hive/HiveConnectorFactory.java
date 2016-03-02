@@ -125,11 +125,11 @@ public class HiveConnectorFactory
                             new HiveMetastoreAuthenticationKerberos.Module()),
                     installModuleIf(
                             HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() == HiveClientConfig.HdfsAuthenticationType.SIMPLE,
+                            c -> c.getHdfsAuthenticationType() == HiveClientConfig.HdfsAuthenticationType.SIMPLE && !c.getHdfsImpersonation(),
                             new SimpleConnectorModule()),
                     installModuleIf(
                             HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() != HiveClientConfig.HdfsAuthenticationType.SIMPLE,
+                            c -> c.getHdfsAuthenticationType() != HiveClientConfig.HdfsAuthenticationType.SIMPLE || c.getHdfsImpersonation(),
                             new HdfsAuthenticatingConnectorModule()),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();

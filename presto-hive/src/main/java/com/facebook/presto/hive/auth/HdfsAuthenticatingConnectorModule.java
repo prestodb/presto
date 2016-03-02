@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.google.common.base.Preconditions;
 import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
@@ -61,12 +62,14 @@ public class HdfsAuthenticatingConnectorModule extends AbstractModule
         String hdfsPrestoKeytab = hiveClientConfig.getHdfsPrestoKeytab();
         Configuration configuration = hdfsConfiguration.getDefaultConfiguration();
         HdfsAuthenticationType authenticationType = hiveClientConfig.getHdfsAuthenticationType();
+        boolean impersonation = hiveClientConfig.getHdfsImpersonation();
 
         HadoopAuthentication authentication = createAuthentication(
                 hdfsPrestoPrincipal,
                 hdfsPrestoKeytab,
                 configuration,
-                authenticationType
+                authenticationType,
+                impersonation
         );
 
         authentication.authenticate();
@@ -74,14 +77,18 @@ public class HdfsAuthenticatingConnectorModule extends AbstractModule
     }
 
     private HadoopAuthentication createAuthentication(String principal,
-            String keytab, Configuration configuration, HdfsAuthenticationType authenticationType)
+            String keytab, Configuration configuration, HdfsAuthenticationType authenticationType, boolean impersonation)
     {
         switch (authenticationType) {
             case KERBEROS:
-                return new HadoopKerberosAuthentication(principal, keytab, configuration);
-            case KERBEROS_IMPERSONATION:
-                return new HadoopKerberosImpersonatingAuthentication(principal, keytab, configuration);
-            case SIMPLE_IMPERSONATION:
+                if (impersonation) {
+                    return new HadoopKerberosAuthentication(principal, keytab, configuration);
+                }
+                else {
+                    return new HadoopKerberosImpersonatingAuthentication(principal, keytab, configuration);
+                }
+            case SIMPLE:
+                Preconditions.checkArgument(impersonation, "expected impersonation to be true");
                 return new HadoopSimpleImpersonatingAuthentication();
             default:
                 throw new IllegalArgumentException("Authentication type is not supported: " + authenticationType);
