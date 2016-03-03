@@ -42,6 +42,7 @@ import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestHashJoinOperator
@@ -442,6 +443,23 @@ public class TestHashJoinOperator
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
         buildHash(parallelBuild, taskContext, Ints.asList(0), buildPages);
+    }
+
+    @Test(dataProvider = "hashEnabledValues")
+    public void testMemoryReservation(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    {
+        TaskContext taskContext = createTaskContext();
+
+        RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(1), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
+                .addSequencePage(10000, 2000, 30, 40);
+        buildHash(parallelBuild, taskContext, Ints.asList(1), buildPages);
+
+        long buildPagesSize = 0;
+        for (Page page : buildPages.build()) {
+            buildPagesSize += page.getSizeInBytes();
+        }
+        // especially for parallel build, ensure that buildPages are not accounted more then once
+        assertTrue(taskContext.getPeekMemoryReservation() < 2 * buildPagesSize);
     }
 
     private TaskContext createTaskContext()

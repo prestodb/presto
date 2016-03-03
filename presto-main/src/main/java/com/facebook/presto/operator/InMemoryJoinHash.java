@@ -49,7 +49,7 @@ public final class InMemoryJoinHash
     // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
 
-    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
+    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, int hashBuildConcurrency)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
@@ -112,7 +112,7 @@ public final class InMemoryJoinHash
             }
         }
 
-        size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
+        size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() / hashBuildConcurrency +
                 sizeOf(key) + sizeOf(positionLinks) + sizeOf(positionToHashes);
     }
 

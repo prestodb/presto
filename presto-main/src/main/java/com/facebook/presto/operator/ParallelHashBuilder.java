@@ -206,7 +206,7 @@ public class ParallelHashBuilder
             parallelStreamMask = partitionFutures.size() - 1;
             partitions = new PagesIndex[partitionFutures.size()];
             for (int partition = 0; partition < partitions.length; partition++) {
-                this.partitions[partition] = new PagesIndex(types, expectedPositions);
+                this.partitions[partition] = new PagesIndex(types, expectedPositions, partitions.length);
             }
         }
 
