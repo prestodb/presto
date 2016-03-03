@@ -15,6 +15,7 @@ package com.facebook.presto.example;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -42,6 +43,12 @@ public class ExampleConnectorFactory
     public String getName()
     {
         return "example-http";
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new ExampleHandleResolver();
     }
 
     @Override

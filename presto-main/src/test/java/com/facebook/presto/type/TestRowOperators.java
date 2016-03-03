@@ -48,7 +48,8 @@ public class TestRowOperators
     {
         functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('a')"));
         Type type = functionAssertions.getMetadata().getType(parseTypeSignature("row<bigint>('b')"));
-        assertEquals(type.getTypeSignature().getLiteralParameters(), ImmutableList.of("b"));
+        assertEquals(type.getTypeSignature().getParameters().size(), 1);
+        assertEquals(type.getTypeSignature().getParameters().get(0).getNamedTypeSignature().getName(), "b");
     }
 
     @Test
@@ -71,9 +72,12 @@ public class TestRowOperators
     {
         // test_row has both (bigint, double) and (bigint, bigint) so this method is non-deterministic
         // assertFunction("test_row(1, NULL).col1", BIGINT,  null);
+        // test_row has both (boolean, boolean) and (boolean, array<bigint>), so this method is non-deterministic
+        // assertFunction("test_row(TRUE, NULL).col1", BOOLEAN, null);
 
         assertFunction("test_row(1, CAST(NULL AS DOUBLE)).col1", DOUBLE, null);
-        assertFunction("test_row(TRUE, NULL).col1", BOOLEAN, null);
+        assertFunction("test_row(TRUE, CAST(NULL AS BOOLEAN)).col1", BOOLEAN, null);
+        assertFunction("test_row(TRUE, CAST(NULL AS ARRAY<BIGINT>)).col1", new ArrayType(BIGINT), null);
         assertFunction("test_row(1.0, CAST(NULL AS VARCHAR)).col1", VARCHAR, null);
         assertFunction("test_row(1, 2).col0", BIGINT, 1);
         assertFunction("test_row(1, 'kittens').col1", VARCHAR, "kittens");
@@ -113,7 +117,7 @@ public class TestRowOperators
             fail("hyperloglog is not comparable");
         }
         catch (SemanticException e) {
-            if (!e.getMessage().matches("line 1:55: Operator EQUAL.* not registered")) {
+            if (!e.getMessage().matches("\\Qline 1:55: '=' cannot be applied to row<HyperLogLog>('col0'), row<HyperLogLog>('col0')\\E")) {
                 throw e;
             }
             //Expected

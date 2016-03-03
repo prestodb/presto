@@ -16,21 +16,43 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import java.util.Objects;
 
-public class VarcharType
+import static java.util.Collections.singletonList;
+
+public final class VarcharType
         extends AbstractVariableWidthType
 {
-    public static final VarcharType VARCHAR = new VarcharType();
+    public static final int MAX_LENGTH = Integer.MAX_VALUE;
+    public static final VarcharType VARCHAR = new VarcharType(MAX_LENGTH);
 
-    @JsonCreator
-    public VarcharType()
+    public static VarcharType createVarcharType(int length)
     {
-        super(parseTypeSignature(StandardTypes.VARCHAR), Slice.class);
+        return new VarcharType(length);
+    }
+
+    private final int length;
+
+    private VarcharType(int length)
+    {
+        super(
+                new TypeSignature(
+                        StandardTypes.VARCHAR,
+                        singletonList(TypeSignatureParameter.of((long) length))),
+                Slice.class);
+
+        if (length < 0) {
+            throw new IllegalArgumentException("Invalid VARCHAR length " + length);
+        }
+        this.length = length;
+    }
+
+    public int getLength()
+    {
+        return length;
     }
 
     @Override
@@ -113,5 +135,42 @@ public class VarcharType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        VarcharType other = (VarcharType) o;
+
+        return Objects.equals(this.length, other.length);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(length);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        if (length == MAX_LENGTH) {
+            return getTypeSignature().getBase();
+        }
+
+        return getTypeSignature().toString();
+    }
+
+    @Override
+    public String toString()
+    {
+        return getDisplayName();
     }
 }

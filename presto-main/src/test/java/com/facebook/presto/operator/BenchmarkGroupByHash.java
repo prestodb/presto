@@ -68,7 +68,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object groupByHashPreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), Optional.empty(), data.getHashChannel(), EXPECTED_SIZE);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), Optional.empty(), data.getHashChannel(), EXPECTED_SIZE, false);
         data.getPages().forEach(groupByHash::getGroupIds);
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -89,7 +89,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object addPagePreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), Optional.empty(), data.getHashChannel(), EXPECTED_SIZE);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), Optional.empty(), data.getHashChannel(), EXPECTED_SIZE, false);
         data.getPages().forEach(groupByHash::addPage);
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();

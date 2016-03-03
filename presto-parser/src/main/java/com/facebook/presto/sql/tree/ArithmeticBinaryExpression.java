@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 public class ArithmeticBinaryExpression
@@ -92,26 +93,14 @@ public class ArithmeticBinaryExpression
         }
 
         ArithmeticBinaryExpression that = (ArithmeticBinaryExpression) o;
-
-        if (!left.equals(that.left)) {
-            return false;
-        }
-        if (!right.equals(that.right)) {
-            return false;
-        }
-        if (type != that.type) {
-            return false;
-        }
-
-        return true;
+        return (type == that.type) &&
+                Objects.equals(left, that.left) &&
+                Objects.equals(right, that.right);
     }
 
     @Override
     public int hashCode()
     {
-        int result = type.hashCode();
-        result = 31 * result + left.hashCode();
-        result = 31 * result + right.hashCode();
-        return result;
+        return Objects.hash(type, left, right);
     }
 }

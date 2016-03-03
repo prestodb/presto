@@ -21,6 +21,7 @@ import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.session.PropertyMetadata;
 
@@ -69,7 +70,7 @@ public class TablePropertiesSystemTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(TABLE_PROPERTIES_TABLE);
         Map<String, Map<String, PropertyMetadata<?>>> tableProperties = new TreeMap<>(metadata.getTablePropertyManager().getAllTableProperties());

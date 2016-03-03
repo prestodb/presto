@@ -23,6 +23,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
+import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +52,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Strings.emptyToNull;
@@ -90,6 +92,12 @@ final class ResourceUtil
                 .setSchema(schema)
                 .setRemoteUserAddress(servletRequest.getRemoteAddr())
                 .setUserAgent(servletRequest.getHeader(USER_AGENT));
+
+        String transactionId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRANSACTION_ID));
+        if (transactionId != null) {
+            sessionBuilder.setClientTransactionSupport();
+            getTransactionId(transactionId).ifPresent(sessionBuilder::setTransactionId);
+        }
 
         String timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
         if (timeZoneId != null) {
@@ -201,6 +209,19 @@ final class ResourceUtil
             return TimeZoneKey.getTimeZoneKey(timeZoneId);
         }
         catch (TimeZoneNotSupportedException e) {
+            throw badRequest(e.getMessage());
+        }
+    }
+
+    private static Optional<TransactionId> getTransactionId(String transactionId)
+    {
+        if (transactionId.toUpperCase().equals("NONE")) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(TransactionId.valueOf(transactionId));
+        }
+        catch (Exception e) {
             throw badRequest(e.getMessage());
         }
     }

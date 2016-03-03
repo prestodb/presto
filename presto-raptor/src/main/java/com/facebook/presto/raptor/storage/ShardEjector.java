@@ -200,8 +200,9 @@ public class ShardEjector
         // only include nodes that are below threshold
         nodes = new HashMap<>(filterValues(nodes, size -> size <= averageSize));
 
-        // get node shards by size, largest to smallest
+        // get non-bucketed node shards by size, largest to smallest
         List<ShardMetadata> shards = shardManager.getNodeShards(currentNode).stream()
+                .filter(shard -> !shard.getBucketNumber().isPresent())
                 .sorted(comparingLong(ShardMetadata::getCompressedSize).reversed())
                 .collect(toList());
 
@@ -234,7 +235,7 @@ public class ShardEjector
             nodeSize -= shardSize;
 
             // move assignment
-            shardManager.assignShard(shard.getTableId(), shardUuid, target);
+            shardManager.assignShard(shard.getTableId(), shardUuid, target, false);
             shardManager.unassignShard(shard.getTableId(), shardUuid, currentNode);
 
             // delete local file

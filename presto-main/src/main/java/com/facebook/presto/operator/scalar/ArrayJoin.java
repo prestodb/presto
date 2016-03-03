@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -61,7 +62,7 @@ public final class ArrayJoin
 
         public ArrayJoinWithNullReplacement()
         {
-            super(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR, StandardTypes.VARCHAR));
+            super(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array(T)", StandardTypes.VARCHAR, StandardTypes.VARCHAR));
         }
 
         @Override
@@ -94,7 +95,7 @@ public final class ArrayJoin
 
     public ArrayJoin()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array<T>", StandardTypes.VARCHAR));
+        super(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array(T)", StandardTypes.VARCHAR));
     }
 
     @Override
@@ -141,6 +142,7 @@ public final class ArrayJoin
         }
     }
 
+    @UsedByGeneratedCode
     public static Slice arrayJoin(MethodHandle castFunction, Type elementType, ConnectorSession session, Block arrayBlock, Slice delimiter)
     {
         return arrayJoin(castFunction, elementType, session, arrayBlock, delimiter, null);

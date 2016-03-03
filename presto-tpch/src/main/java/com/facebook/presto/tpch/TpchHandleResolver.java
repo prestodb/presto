@@ -18,43 +18,12 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-
-import static java.util.Objects.requireNonNull;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public class TpchHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    public TpchHandleResolver(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return tableHandle instanceof TpchTableHandle && ((TpchTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableLayoutHandle handle)
-    {
-        return handle instanceof TpchTableLayoutHandle && ((TpchTableLayoutHandle) handle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle instanceof TpchColumnHandle;
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof TpchSplit && ((TpchSplit) split).getTableHandle().getConnectorId().equals(connectorId);
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
@@ -77,5 +46,17 @@ public class TpchHandleResolver
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         return TpchTableLayoutHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
+    {
+        return TpchTransactionHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass()
+    {
+        return TpchPartitioningHandle.class;
     }
 }

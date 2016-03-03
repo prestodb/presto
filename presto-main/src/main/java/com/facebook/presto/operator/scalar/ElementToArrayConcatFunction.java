@@ -41,7 +41,7 @@ public class ElementToArrayConcatFunction
 
     public ElementToArrayConcatFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array<E>", ImmutableList.of("E", "array<E>"));
+        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array(E)", ImmutableList.of("E", "array(E)"));
     }
 
     @Override

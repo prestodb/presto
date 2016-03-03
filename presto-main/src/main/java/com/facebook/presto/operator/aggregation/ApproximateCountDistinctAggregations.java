@@ -77,6 +77,18 @@ public final class ApproximateCountDistinctAggregations
     @InputFunction
     public static void input(HyperLogLogState state, @SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
+        inputBinary(state, value, maxStandardError);
+    }
+
+    @InputFunction
+    public static void inputBinary(HyperLogLogState state, @SqlType(StandardTypes.VARBINARY) Slice value)
+    {
+        inputBinary(state, value, DEFAULT_STANDARD_ERROR);
+    }
+
+    @InputFunction
+    public static void inputBinary(HyperLogLogState state, @SqlType(StandardTypes.VARBINARY) Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    {
         HyperLogLog hll = getOrCreateHyperLogLog(state, maxStandardError);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
         hll.add(value);

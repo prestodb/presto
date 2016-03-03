@@ -15,16 +15,21 @@ package com.facebook.presto.sql.tree;
 
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public abstract class Node
 {
-    private Optional<NodeLocation> location;
+    private final Optional<NodeLocation> location;
 
-    public Node(Optional<NodeLocation> location)
+    protected Node(Optional<NodeLocation> location)
     {
-        this.location = location;
+        this.location = requireNonNull(location, "location is null");
     }
 
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    /**
+     * Accessible for {@link AstVisitor}, use {@link AstVisitor#process(Node, Object)} instead.
+     */
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitNode(this, context);
     }

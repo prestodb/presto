@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.byteCode.ByteCodeBlock;
-import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.Parameter;
-import com.facebook.presto.byteCode.Scope;
-import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.byteCode.control.IfStatement;
+import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.CompilerUtils;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -29,7 +31,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.CallSiteBinder;
-import com.facebook.presto.sql.gen.CompilerUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -38,19 +39,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.byteCode.Access.FINAL;
-import static com.facebook.presto.byteCode.Access.PRIVATE;
-import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.STATIC;
-import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.Parameter.arg;
-import static com.facebook.presto.byteCode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.STATIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
-import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
+import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -102,6 +103,7 @@ public abstract class AbstractGreatestLeast
         return new ScalarFunctionImplementation(false, nullableParameters, methodHandle, isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static void checkNotNaN(String name, double value)
     {
         if (Double.isNaN(value)) {
@@ -133,7 +135,7 @@ public abstract class AbstractGreatestLeast
                 parameters);
 
         Scope scope = method.getScope();
-        ByteCodeBlock body = method.getBody();
+        BytecodeBlock body = method.getBody();
 
         CallSiteBinder binder = new CallSiteBinder();
 
@@ -150,7 +152,7 @@ public abstract class AbstractGreatestLeast
 
         for (int i = 1; i < javaTypes.size(); i++) {
             body.append(new IfStatement()
-                    .condition(new ByteCodeBlock()
+                    .condition(new BytecodeBlock()
                             .append(parameters.get(i))
                             .append(value)
                             .append(invoke(binder.bind(compareMethod), "compare")))

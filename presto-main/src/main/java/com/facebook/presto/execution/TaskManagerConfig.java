@@ -39,6 +39,8 @@ public class TaskManagerConfig
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 4;
     private Integer minDrivers;
+    private Integer initialSplitsPerNode;
+    private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
 
@@ -47,8 +49,9 @@ public class TaskManagerConfig
     private Duration infoRefreshMaxWait = new Duration(200, TimeUnit.MILLISECONDS);
     private int writerCount = 1;
     private int taskDefaultConcurrency = 1;
+    private Integer taskJoinConcurrency;
     private int httpResponseThreads = 100;
-    private int httpTimeoutThreads = 1;
+    private int httpTimeoutThreads = 3;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -156,6 +159,35 @@ public class TaskManagerConfig
     }
 
     @Min(1)
+    public int getInitialSplitsPerNode()
+    {
+        if (initialSplitsPerNode == null) {
+            return maxWorkerThreads;
+        }
+        return initialSplitsPerNode;
+    }
+
+    @Config("task.initial-splits-per-node")
+    public TaskManagerConfig setInitialSplitsPerNode(int initialSplitsPerNode)
+    {
+        this.initialSplitsPerNode = initialSplitsPerNode;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getSplitConcurrencyAdjustmentInterval()
+    {
+        return splitConcurrencyAdjustmentInterval;
+    }
+
+    @Config("task.split-concurrency-adjustment-interval")
+    public TaskManagerConfig setSplitConcurrencyAdjustmentInterval(Duration splitConcurrencyAdjustmentInterval)
+    {
+        this.splitConcurrencyAdjustmentInterval = splitConcurrencyAdjustmentInterval;
+        return this;
+    }
+
+    @Min(1)
     public int getMinDrivers()
     {
         if (minDrivers == null) {
@@ -222,6 +254,23 @@ public class TaskManagerConfig
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getTaskJoinConcurrency()
+    {
+        if (taskJoinConcurrency == null) {
+            return taskDefaultConcurrency;
+        }
+        return taskJoinConcurrency;
+    }
+
+    @Config("task.join-concurrency")
+    @ConfigDescription("Local concurrency for join operators")
+    public TaskManagerConfig setTaskJoinConcurrency(int taskJoinConcurrency)
+    {
+        this.taskJoinConcurrency = taskJoinConcurrency;
         return this;
     }
 

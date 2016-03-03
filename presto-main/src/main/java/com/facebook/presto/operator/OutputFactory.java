@@ -14,10 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 
 public interface OutputFactory
 {
-    OperatorFactory createOutputOperator(int operatorId, List<Type> sourceTypes);
+    OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> sourceTypes);
 }

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeBlock;
-import com.facebook.presto.byteCode.ByteCodeNode;
-import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.byteCode.control.IfStatement;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -25,27 +25,27 @@ import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantFalse;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 
 public class CoalesceCodeGenerator
-        implements ByteCodeGenerator
+        implements BytecodeGenerator
 {
     @Override
-    public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
-        List<ByteCodeNode> operands = new ArrayList<>();
+        List<BytecodeNode> operands = new ArrayList<>();
         for (RowExpression expression : arguments) {
             operands.add(generatorContext.generate(expression));
         }
 
         Variable wasNull = generatorContext.wasNull();
-        ByteCodeNode nullValue = new ByteCodeBlock()
+        BytecodeNode nullValue = new BytecodeBlock()
                 .append(wasNull.set(constantTrue()))
                 .pushJavaDefault(returnType.getJavaType());
 
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
-        for (ByteCodeNode operand : Lists.reverse(operands)) {
+        for (BytecodeNode operand : Lists.reverse(operands)) {
             IfStatement ifStatement = new IfStatement();
 
             ifStatement.condition()

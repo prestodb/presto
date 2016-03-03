@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -76,6 +77,7 @@ public class TestOrderByOperator
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 ImmutableList.of(1),
                 10,
@@ -108,6 +110,7 @@ public class TestOrderByOperator
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR, BIGINT),
                 ImmutableList.of(0, 1),
                 10,
@@ -140,6 +143,7 @@ public class TestOrderByOperator
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 ImmutableList.of(0),
                 10,
@@ -176,6 +180,7 @@ public class TestOrderByOperator
 
         OrderByOperatorFactory operatorFactory = new OrderByOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 ImmutableList.of(1),
                 10,

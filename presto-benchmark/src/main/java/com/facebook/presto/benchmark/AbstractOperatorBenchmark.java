@@ -25,6 +25,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.CpuTimer;
 import com.facebook.presto.util.CpuTimer.CpuDuration;
@@ -61,22 +62,23 @@ public abstract class AbstractOperatorBenchmark
         this.localQueryRunner = requireNonNull(localQueryRunner, "localQueryRunner is null");
     }
 
-    protected OperatorFactory createTableScanOperator(int operatorId, String tableName, String... columnNames)
+    protected OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
     {
-        return localQueryRunner.createTableScanOperator(operatorId, tableName, columnNames);
+        return localQueryRunner.createTableScanOperator(operatorId, planNodeId, tableName, columnNames);
     }
 
-    public OperatorFactory createTableScanOperator(Session session, int operatorId, String tableName, String... columnNames)
+    public OperatorFactory createTableScanOperator(Session session, int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
     {
         return localQueryRunner.createTableScanOperator(session,
                 operatorId,
+                planNodeId,
                 tableName,
                 columnNames);
     }
 
-    protected OperatorFactory createHashProjectOperator(int operatorId, List<Type> types)
+    protected OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
-        return localQueryRunner.createHashProjectOperator(operatorId, types);
+        return localQueryRunner.createHashProjectOperator(operatorId, planNodeId, types);
     }
 
     protected abstract List<Driver> createDrivers(TaskContext taskContext);

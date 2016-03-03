@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -42,6 +43,7 @@ public class TestMathFunctions
         assertFunction("abs(123.45)", DOUBLE, 123.45);
         assertFunction("abs(-123.45)", DOUBLE, 123.45);
         assertFunction("abs(CAST(NULL AS DOUBLE))", DOUBLE, null);
+        assertInvalidFunction("abs(-9223372036854775807 - if(rand() < 10, 1, 1))", NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     @Test
@@ -334,6 +336,8 @@ public class TestMathFunctions
         // random is non-deterministic
         functionAssertions.tryEvaluateWithAll("rand()", DOUBLE, TEST_SESSION);
         functionAssertions.tryEvaluateWithAll("random()", DOUBLE, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("rand(1000)", BIGINT, TEST_SESSION);
+        functionAssertions.tryEvaluateWithAll("random(2000)", BIGINT, TEST_SESSION);
     }
 
     @Test

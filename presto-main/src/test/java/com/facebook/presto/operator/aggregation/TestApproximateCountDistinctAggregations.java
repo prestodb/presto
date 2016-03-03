@@ -14,11 +14,12 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.PrestoException;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregations.standardErrorToBuckets;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestApproximateCountDistinctAggregations
 {
@@ -26,17 +27,17 @@ public class TestApproximateCountDistinctAggregations
     public void testStandardErrorToBuckets()
             throws Exception
     {
-        Assert.assertEquals(standardErrorToBuckets(0.0326), 1024);
-        Assert.assertEquals(standardErrorToBuckets(0.0325), 1024);
-        Assert.assertEquals(standardErrorToBuckets(0.0324), 2048);
-        Assert.assertEquals(standardErrorToBuckets(0.0231), 2048);
-        Assert.assertEquals(standardErrorToBuckets(0.0230), 2048);
-        Assert.assertEquals(standardErrorToBuckets(0.0229), 4096);
-        Assert.assertEquals(standardErrorToBuckets(0.0164), 4096);
-        Assert.assertEquals(standardErrorToBuckets(0.0163), 4096);
-        Assert.assertEquals(standardErrorToBuckets(0.0162), 8192);
-        Assert.assertEquals(standardErrorToBuckets(0.0116), 8192);
-        Assert.assertEquals(standardErrorToBuckets(0.0115), 8192);
+        assertEquals(standardErrorToBuckets(0.0326), 1024);
+        assertEquals(standardErrorToBuckets(0.0325), 1024);
+        assertEquals(standardErrorToBuckets(0.0324), 2048);
+        assertEquals(standardErrorToBuckets(0.0231), 2048);
+        assertEquals(standardErrorToBuckets(0.0230), 2048);
+        assertEquals(standardErrorToBuckets(0.0229), 4096);
+        assertEquals(standardErrorToBuckets(0.0164), 4096);
+        assertEquals(standardErrorToBuckets(0.0163), 4096);
+        assertEquals(standardErrorToBuckets(0.0162), 8192);
+        assertEquals(standardErrorToBuckets(0.0116), 8192);
+        assertEquals(standardErrorToBuckets(0.0115), 8192);
     }
 
     @Test
@@ -46,19 +47,19 @@ public class TestApproximateCountDistinctAggregations
         try {
             // Lower bound
             standardErrorToBuckets(0.01149);
-            Assert.fail();
+            fail();
         }
         catch (PrestoException e) {
-            Assert.assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
         }
 
         try {
             // Upper bound
             standardErrorToBuckets(0.26001);
-            Assert.fail();
+            fail();
         }
         catch (PrestoException e) {
-            Assert.assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+            assertEquals(e.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
         }
     }
 }

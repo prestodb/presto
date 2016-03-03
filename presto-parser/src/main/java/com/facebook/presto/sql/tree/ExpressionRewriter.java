@@ -164,4 +164,9 @@ public class ExpressionRewriter<C>
     {
         return rewriteExpression(node, context, treeRewriter);
     }
+
+    public Expression rewriteTryExpression(TryExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
 }

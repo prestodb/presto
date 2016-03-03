@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 

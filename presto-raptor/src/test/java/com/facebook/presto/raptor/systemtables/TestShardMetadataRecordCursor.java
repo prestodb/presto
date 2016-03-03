@@ -13,17 +13,16 @@
  */
 package com.facebook.presto.raptor.systemtables;
 
-import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
-import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
+import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
@@ -45,10 +44,13 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
 import static com.facebook.presto.spi.predicate.Range.greaterThan;
 import static com.facebook.presto.spi.predicate.Range.lessThanOrEqual;
@@ -78,7 +80,9 @@ public class TestShardMetadataRecordCursor
     {
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         this.dummyHandle = dbi.open();
-        this.metadata = new RaptorMetadata(new RaptorConnectorId("default"), dbi, new DatabaseShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        createTablesWithRetry(dbi);
+
         // Create table
         metadata.createTable(SESSION, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                 .column("orderkey", BIGINT)
@@ -97,16 +101,17 @@ public class TestShardMetadataRecordCursor
     public void testSimple()
             throws Exception
     {
-        DatabaseShardManager shardManager = new DatabaseShardManager(dbi);
+        ShardManager shardManager = createShardManager(dbi);
 
         // Add shards to the table
         long tableId = 1;
+        OptionalInt bucketNumber = OptionalInt.empty();
         UUID uuid1 = UUID.randomUUID();
         UUID uuid2 = UUID.randomUUID();
         UUID uuid3 = UUID.randomUUID();
-        ShardInfo shardInfo1 = new ShardInfo(uuid1, ImmutableSet.of("node1"), ImmutableList.of(), 1, 10, 100);
-        ShardInfo shardInfo2 = new ShardInfo(uuid2, ImmutableSet.of("node2"), ImmutableList.of(), 2, 20, 200);
-        ShardInfo shardInfo3 = new ShardInfo(uuid3, ImmutableSet.of("node3"), ImmutableList.of(), 3, 30, 300);
+        ShardInfo shardInfo1 = new ShardInfo(uuid1, bucketNumber, ImmutableSet.of("node1"), ImmutableList.of(), 1, 10, 100);
+        ShardInfo shardInfo2 = new ShardInfo(uuid2, bucketNumber, ImmutableSet.of("node2"), ImmutableList.of(), 2, 20, 200);
+        ShardInfo shardInfo3 = new ShardInfo(uuid3, bucketNumber, ImmutableSet.of("node3"), ImmutableList.of(), 3, 30, 300);
         List<ShardInfo> shards = ImmutableList.of(shardInfo1, shardInfo2, shardInfo3);
 
         long transactionId = shardManager.beginTransaction();
@@ -134,15 +139,15 @@ public class TestShardMetadataRecordCursor
                         .build());
 
         List<MaterializedRow> actual;
-        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(SESSION, tupleDomain)) {
+        try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, tupleDomain)) {
             actual = getMaterializedResults(cursor, SHARD_METADATA.getColumns());
         }
         assertEquals(actual.size(), 3);
 
         List<MaterializedRow> expected = ImmutableList.of(
-                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid1.toString()), 100, 10, 1),
-                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid2.toString()), 200, 20, 2),
-                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid3.toString()), 300, 30, 3));
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid1.toString()), null, 100, 10, 1, null, null),
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid2.toString()), null, 200, 20, 2, null, null),
+                new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid3.toString()), null, 300, 30, 3, null, null));
 
         assertEquals(actual, expected);
     }
@@ -211,24 +216,24 @@ public class TestShardMetadataRecordCursor
         }
 
         while (cursor.advanceNextPosition()) {
-            List<Object> values = new ArrayList<>(types.size());
+            List<Object> values = new ArrayList<>();
             for (int i = 0; i < columns.size(); i++) {
                 Type type = columns.get(i).getType();
                 Class<?> javaType = type.getJavaType();
                 if (cursor.isNull(i)) {
-                    continue;
+                    values.add(null);
                 }
-                if (javaType == boolean.class) {
-                    values.add(i, cursor.getBoolean(i));
+                else if (javaType == boolean.class) {
+                    values.add(cursor.getBoolean(i));
                 }
                 else if (javaType == long.class) {
-                    values.add(i, cursor.getLong(i));
+                    values.add(cursor.getLong(i));
                 }
                 else if (javaType == double.class) {
-                    values.add(i, cursor.getDouble(i));
+                    values.add(cursor.getDouble(i));
                 }
                 else if (javaType == Slice.class) {
-                    values.add(i, cursor.getSlice(i));
+                    values.add(cursor.getSlice(i));
                 }
             }
             rowBuilder.add(new MaterializedRow(DEFAULT_PRECISION, values));

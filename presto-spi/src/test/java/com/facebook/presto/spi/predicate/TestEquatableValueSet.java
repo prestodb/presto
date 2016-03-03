@@ -24,12 +24,15 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.json.ObjectMapperProvider;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
 
 import static com.facebook.presto.spi.type.TestingIdType.ID;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestEquatableValueSet
 {
@@ -38,15 +41,15 @@ public class TestEquatableValueSet
             throws Exception
     {
         EquatableValueSet equatables = EquatableValueSet.none(ID);
-        Assert.assertEquals(equatables.getType(), ID);
-        Assert.assertTrue(equatables.isNone());
-        Assert.assertFalse(equatables.isAll());
-        Assert.assertFalse(equatables.isSingleValue());
-        Assert.assertTrue(equatables.isWhiteList());
-        Assert.assertEquals(equatables.getValues().size(), 0);
-        Assert.assertEquals(equatables.complement(), EquatableValueSet.all(ID));
-        Assert.assertFalse(equatables.containsValue(0L));
-        Assert.assertFalse(equatables.containsValue(1L));
+        assertEquals(equatables.getType(), ID);
+        assertTrue(equatables.isNone());
+        assertFalse(equatables.isAll());
+        assertFalse(equatables.isSingleValue());
+        assertTrue(equatables.isWhiteList());
+        assertEquals(equatables.getValues().size(), 0);
+        assertEquals(equatables.complement(), EquatableValueSet.all(ID));
+        assertFalse(equatables.containsValue(0L));
+        assertFalse(equatables.containsValue(1L));
     }
 
     @Test
@@ -54,15 +57,15 @@ public class TestEquatableValueSet
             throws Exception
     {
         EquatableValueSet equatables = EquatableValueSet.all(ID);
-        Assert.assertEquals(equatables.getType(), ID);
-        Assert.assertFalse(equatables.isNone());
-        Assert.assertTrue(equatables.isAll());
-        Assert.assertFalse(equatables.isSingleValue());
-        Assert.assertFalse(equatables.isWhiteList());
-        Assert.assertEquals(equatables.getValues().size(), 0);
-        Assert.assertEquals(equatables.complement(), EquatableValueSet.none(ID));
-        Assert.assertTrue(equatables.containsValue(0L));
-        Assert.assertTrue(equatables.containsValue(1L));
+        assertEquals(equatables.getType(), ID);
+        assertFalse(equatables.isNone());
+        assertTrue(equatables.isAll());
+        assertFalse(equatables.isSingleValue());
+        assertFalse(equatables.isWhiteList());
+        assertEquals(equatables.getValues().size(), 0);
+        assertEquals(equatables.complement(), EquatableValueSet.none(ID));
+        assertTrue(equatables.containsValue(0L));
+        assertTrue(equatables.containsValue(1L));
     }
 
     @Test
@@ -74,28 +77,28 @@ public class TestEquatableValueSet
         EquatableValueSet complement = (EquatableValueSet) EquatableValueSet.all(ID).subtract(equatables);
 
         // Whitelist
-        Assert.assertEquals(equatables.getType(), ID);
-        Assert.assertFalse(equatables.isNone());
-        Assert.assertFalse(equatables.isAll());
-        Assert.assertTrue(equatables.isSingleValue());
-        Assert.assertTrue(equatables.isWhiteList());
-        Assert.assertTrue(Iterables.elementsEqual(equatables.getValues(), ImmutableList.of(10L)));
-        Assert.assertEquals(equatables.complement(), complement);
-        Assert.assertFalse(equatables.containsValue(0L));
-        Assert.assertFalse(equatables.containsValue(1L));
-        Assert.assertTrue(equatables.containsValue(10L));
+        assertEquals(equatables.getType(), ID);
+        assertFalse(equatables.isNone());
+        assertFalse(equatables.isAll());
+        assertTrue(equatables.isSingleValue());
+        assertTrue(equatables.isWhiteList());
+        assertTrue(Iterables.elementsEqual(equatables.getValues(), ImmutableList.of(10L)));
+        assertEquals(equatables.complement(), complement);
+        assertFalse(equatables.containsValue(0L));
+        assertFalse(equatables.containsValue(1L));
+        assertTrue(equatables.containsValue(10L));
 
         // Blacklist
-        Assert.assertEquals(complement.getType(), ID);
-        Assert.assertFalse(complement.isNone());
-        Assert.assertFalse(complement.isAll());
-        Assert.assertFalse(complement.isSingleValue());
-        Assert.assertFalse(complement.isWhiteList());
-        Assert.assertTrue(Iterables.elementsEqual(complement.getValues(), ImmutableList.of(10L)));
-        Assert.assertEquals(complement.complement(), equatables);
-        Assert.assertTrue(complement.containsValue(0L));
-        Assert.assertTrue(complement.containsValue(1L));
-        Assert.assertFalse(complement.containsValue(10L));
+        assertEquals(complement.getType(), ID);
+        assertFalse(complement.isNone());
+        assertFalse(complement.isAll());
+        assertFalse(complement.isSingleValue());
+        assertFalse(complement.isWhiteList());
+        assertTrue(Iterables.elementsEqual(complement.getValues(), ImmutableList.of(10L)));
+        assertEquals(complement.complement(), equatables);
+        assertTrue(complement.containsValue(0L));
+        assertTrue(complement.containsValue(1L));
+        assertFalse(complement.containsValue(10L));
     }
 
     @Test
@@ -107,42 +110,42 @@ public class TestEquatableValueSet
         EquatableValueSet complement = (EquatableValueSet) EquatableValueSet.all(ID).subtract(equatables);
 
         // Whitelist
-        Assert.assertEquals(equatables.getType(), ID);
-        Assert.assertFalse(equatables.isNone());
-        Assert.assertFalse(equatables.isAll());
-        Assert.assertFalse(equatables.isSingleValue());
-        Assert.assertTrue(equatables.isWhiteList());
-        Assert.assertTrue(Iterables.elementsEqual(equatables.getValues(), ImmutableList.of(1L, 2L, 3L)));
-        Assert.assertEquals(equatables.complement(), complement);
-        Assert.assertFalse(equatables.containsValue(0L));
-        Assert.assertTrue(equatables.containsValue(1L));
-        Assert.assertTrue(equatables.containsValue(2L));
-        Assert.assertTrue(equatables.containsValue(3L));
-        Assert.assertFalse(equatables.containsValue(4L));
+        assertEquals(equatables.getType(), ID);
+        assertFalse(equatables.isNone());
+        assertFalse(equatables.isAll());
+        assertFalse(equatables.isSingleValue());
+        assertTrue(equatables.isWhiteList());
+        assertTrue(Iterables.elementsEqual(equatables.getValues(), ImmutableList.of(1L, 2L, 3L)));
+        assertEquals(equatables.complement(), complement);
+        assertFalse(equatables.containsValue(0L));
+        assertTrue(equatables.containsValue(1L));
+        assertTrue(equatables.containsValue(2L));
+        assertTrue(equatables.containsValue(3L));
+        assertFalse(equatables.containsValue(4L));
 
         // Blacklist
-        Assert.assertEquals(complement.getType(), ID);
-        Assert.assertFalse(complement.isNone());
-        Assert.assertFalse(complement.isAll());
-        Assert.assertFalse(complement.isSingleValue());
-        Assert.assertFalse(complement.isWhiteList());
-        Assert.assertTrue(Iterables.elementsEqual(complement.getValues(), ImmutableList.of(1L, 2L, 3L)));
-        Assert.assertEquals(complement.complement(), equatables);
-        Assert.assertTrue(complement.containsValue(0L));
-        Assert.assertFalse(complement.containsValue(1L));
-        Assert.assertFalse(complement.containsValue(2L));
-        Assert.assertFalse(complement.containsValue(3L));
-        Assert.assertTrue(complement.containsValue(4L));
+        assertEquals(complement.getType(), ID);
+        assertFalse(complement.isNone());
+        assertFalse(complement.isAll());
+        assertFalse(complement.isSingleValue());
+        assertFalse(complement.isWhiteList());
+        assertTrue(Iterables.elementsEqual(complement.getValues(), ImmutableList.of(1L, 2L, 3L)));
+        assertEquals(complement.complement(), equatables);
+        assertTrue(complement.containsValue(0L));
+        assertFalse(complement.containsValue(1L));
+        assertFalse(complement.containsValue(2L));
+        assertFalse(complement.containsValue(3L));
+        assertTrue(complement.containsValue(4L));
     }
 
     @Test
     public void testGetSingleValue()
             throws Exception
     {
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).getSingleValue(), 0L);
+        assertEquals(EquatableValueSet.of(ID, 0L).getSingleValue(), 0L);
         try {
             EquatableValueSet.all(ID).getSingleValue();
-            Assert.fail();
+            fail();
         }
         catch (IllegalStateException ignored) {
         }
@@ -152,154 +155,154 @@ public class TestEquatableValueSet
     public void testOverlaps()
             throws Exception
     {
-        Assert.assertTrue(EquatableValueSet.all(ID).overlaps(EquatableValueSet.all(ID)));
-        Assert.assertFalse(EquatableValueSet.all(ID).overlaps(EquatableValueSet.none(ID)));
-        Assert.assertTrue(EquatableValueSet.all(ID).overlaps(EquatableValueSet.of(ID, 0L)));
-        Assert.assertTrue(EquatableValueSet.all(ID).overlaps(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertTrue(EquatableValueSet.all(ID).overlaps(EquatableValueSet.of(ID, 0L, 1L).complement()));
+        assertTrue(EquatableValueSet.all(ID).overlaps(EquatableValueSet.all(ID)));
+        assertFalse(EquatableValueSet.all(ID).overlaps(EquatableValueSet.none(ID)));
+        assertTrue(EquatableValueSet.all(ID).overlaps(EquatableValueSet.of(ID, 0L)));
+        assertTrue(EquatableValueSet.all(ID).overlaps(EquatableValueSet.of(ID, 0L, 1L)));
+        assertTrue(EquatableValueSet.all(ID).overlaps(EquatableValueSet.of(ID, 0L, 1L).complement()));
 
-        Assert.assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.all(ID)));
-        Assert.assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.none(ID)));
-        Assert.assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.of(ID, 0L)));
-        Assert.assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.of(ID, 0L, 1L).complement()));
+        assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.all(ID)));
+        assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.none(ID)));
+        assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.of(ID, 0L)));
+        assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.of(ID, 0L, 1L)));
+        assertFalse(EquatableValueSet.none(ID).overlaps(EquatableValueSet.of(ID, 0L, 1L).complement()));
 
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.all(ID)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.none(ID)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 0L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 1L)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 0L, 1L).complement()));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 0L).complement()));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 1L).complement()));
+        assertTrue(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.all(ID)));
+        assertFalse(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.none(ID)));
+        assertTrue(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 0L)));
+        assertFalse(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 1L)));
+        assertTrue(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 0L, 1L)));
+        assertFalse(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 0L, 1L).complement()));
+        assertFalse(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 0L).complement()));
+        assertTrue(EquatableValueSet.of(ID, 0L).overlaps(EquatableValueSet.of(ID, 1L).complement()));
 
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.all(ID)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.none(ID)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.of(ID, 0L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.of(ID, -1L)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.of(ID, -1L).complement()));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.all(ID)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.none(ID)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.of(ID, 0L)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.of(ID, -1L)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.of(ID, 0L, 1L)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).overlaps(EquatableValueSet.of(ID, -1L).complement()));
 
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.all(ID)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.none(ID)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.of(ID, 0L)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.of(ID, -1L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.of(ID, -1L).complement()));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.all(ID)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.none(ID)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.of(ID, 0L)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.of(ID, -1L)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.of(ID, 0L, 1L)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().overlaps(EquatableValueSet.of(ID, -1L).complement()));
     }
 
     @Test
     public void testContains()
             throws Exception
     {
-        Assert.assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.all(ID)));
-        Assert.assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.none(ID)));
-        Assert.assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.of(ID, 0L)));
-        Assert.assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.of(ID, 0L, 1L).complement()));
+        assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.all(ID)));
+        assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.none(ID)));
+        assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.of(ID, 0L)));
+        assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.of(ID, 0L, 1L)));
+        assertTrue(EquatableValueSet.all(ID).contains(EquatableValueSet.of(ID, 0L, 1L).complement()));
 
-        Assert.assertFalse(EquatableValueSet.none(ID).contains(EquatableValueSet.all(ID)));
-        Assert.assertTrue(EquatableValueSet.none(ID).contains(EquatableValueSet.none(ID)));
-        Assert.assertFalse(EquatableValueSet.none(ID).contains(EquatableValueSet.of(ID, 0L)));
-        Assert.assertFalse(EquatableValueSet.none(ID).contains(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertFalse(EquatableValueSet.none(ID).contains(EquatableValueSet.of(ID, 0L, 1L).complement()));
+        assertFalse(EquatableValueSet.none(ID).contains(EquatableValueSet.all(ID)));
+        assertTrue(EquatableValueSet.none(ID).contains(EquatableValueSet.none(ID)));
+        assertFalse(EquatableValueSet.none(ID).contains(EquatableValueSet.of(ID, 0L)));
+        assertFalse(EquatableValueSet.none(ID).contains(EquatableValueSet.of(ID, 0L, 1L)));
+        assertFalse(EquatableValueSet.none(ID).contains(EquatableValueSet.of(ID, 0L, 1L).complement()));
 
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.all(ID)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.none(ID)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 0L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 0L, 1L).complement()));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 0L).complement()));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 1L).complement()));
+        assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.all(ID)));
+        assertTrue(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.none(ID)));
+        assertTrue(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 0L)));
+        assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 0L, 1L)));
+        assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 0L, 1L).complement()));
+        assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 0L).complement()));
+        assertFalse(EquatableValueSet.of(ID, 0L).contains(EquatableValueSet.of(ID, 1L).complement()));
 
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.all(ID)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.none(ID)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L, 2L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L, 1L).complement()));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L).complement()));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 1L).complement()));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.all(ID)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.none(ID)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L, 1L)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L, 2L)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L, 1L).complement()));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 0L).complement()));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).contains(EquatableValueSet.of(ID, 1L).complement()));
 
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.all(ID)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.none(ID)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.of(ID, 0L)));
-        Assert.assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.of(ID, -1L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.of(ID, 0L, 1L)));
-        Assert.assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.of(ID, -1L).complement()));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.all(ID)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.none(ID)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.of(ID, 0L)));
+        assertTrue(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.of(ID, -1L)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.of(ID, 0L, 1L)));
+        assertFalse(EquatableValueSet.of(ID, 0L, 1L).complement().contains(EquatableValueSet.of(ID, -1L).complement()));
     }
 
     @Test
     public void testIntersect()
             throws Exception
     {
-        Assert.assertEquals(EquatableValueSet.none(ID).intersect(EquatableValueSet.none(ID)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.all(ID).intersect(EquatableValueSet.all(ID)), EquatableValueSet.all(ID));
-        Assert.assertEquals(EquatableValueSet.none(ID).intersect(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.none(ID).intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.all(ID).intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L, 1L).intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().intersect(EquatableValueSet.of(ID, 1L)), EquatableValueSet.of(ID, 1L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).intersect(EquatableValueSet.of(ID, 1L).complement()), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L, 1L).intersect(EquatableValueSet.of(ID, 0L, 2L)), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L, 1L).complement().intersect(EquatableValueSet.of(ID, 0L, 2L)), EquatableValueSet.of(ID, 2L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L, 1L).complement().intersect(EquatableValueSet.of(ID, 0L, 2L).complement()), EquatableValueSet.of(ID, 0L, 1L, 2L).complement());
+        assertEquals(EquatableValueSet.none(ID).intersect(EquatableValueSet.none(ID)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.all(ID).intersect(EquatableValueSet.all(ID)), EquatableValueSet.all(ID));
+        assertEquals(EquatableValueSet.none(ID).intersect(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.none(ID).intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.all(ID).intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L).intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L, 1L).intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().intersect(EquatableValueSet.of(ID, 0L)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().intersect(EquatableValueSet.of(ID, 1L)), EquatableValueSet.of(ID, 1L));
+        assertEquals(EquatableValueSet.of(ID, 0L).intersect(EquatableValueSet.of(ID, 1L).complement()), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L, 1L).intersect(EquatableValueSet.of(ID, 0L, 2L)), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L, 1L).complement().intersect(EquatableValueSet.of(ID, 0L, 2L)), EquatableValueSet.of(ID, 2L));
+        assertEquals(EquatableValueSet.of(ID, 0L, 1L).complement().intersect(EquatableValueSet.of(ID, 0L, 2L).complement()), EquatableValueSet.of(ID, 0L, 1L, 2L).complement());
     }
 
     @Test
     public void testUnion()
             throws Exception
     {
-        Assert.assertEquals(EquatableValueSet.none(ID).union(EquatableValueSet.none(ID)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.all(ID).union(EquatableValueSet.all(ID)), EquatableValueSet.all(ID));
-        Assert.assertEquals(EquatableValueSet.none(ID).union(EquatableValueSet.all(ID)), EquatableValueSet.all(ID));
-        Assert.assertEquals(EquatableValueSet.none(ID).union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.all(ID).union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.all(ID));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L, 1L).union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L, 1L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.all(ID));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().union(EquatableValueSet.of(ID, 1L)), EquatableValueSet.of(ID, 0L).complement());
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).union(EquatableValueSet.of(ID, 1L).complement()), EquatableValueSet.of(ID, 1L).complement());
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L, 1L).union(EquatableValueSet.of(ID, 0L, 2L)), EquatableValueSet.of(ID, 0L, 1L, 2L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L, 1L).complement().union(EquatableValueSet.of(ID, 0L, 2L)), EquatableValueSet.of(ID, 1L).complement());
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L, 1L).complement().union(EquatableValueSet.of(ID, 0L, 2L).complement()), EquatableValueSet.of(ID, 0L).complement());
+        assertEquals(EquatableValueSet.none(ID).union(EquatableValueSet.none(ID)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.all(ID).union(EquatableValueSet.all(ID)), EquatableValueSet.all(ID));
+        assertEquals(EquatableValueSet.none(ID).union(EquatableValueSet.all(ID)), EquatableValueSet.all(ID));
+        assertEquals(EquatableValueSet.none(ID).union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.all(ID).union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.all(ID));
+        assertEquals(EquatableValueSet.of(ID, 0L).union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L, 1L).union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L, 1L));
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().union(EquatableValueSet.of(ID, 0L)), EquatableValueSet.all(ID));
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().union(EquatableValueSet.of(ID, 1L)), EquatableValueSet.of(ID, 0L).complement());
+        assertEquals(EquatableValueSet.of(ID, 0L).union(EquatableValueSet.of(ID, 1L).complement()), EquatableValueSet.of(ID, 1L).complement());
+        assertEquals(EquatableValueSet.of(ID, 0L, 1L).union(EquatableValueSet.of(ID, 0L, 2L)), EquatableValueSet.of(ID, 0L, 1L, 2L));
+        assertEquals(EquatableValueSet.of(ID, 0L, 1L).complement().union(EquatableValueSet.of(ID, 0L, 2L)), EquatableValueSet.of(ID, 1L).complement());
+        assertEquals(EquatableValueSet.of(ID, 0L, 1L).complement().union(EquatableValueSet.of(ID, 0L, 2L).complement()), EquatableValueSet.of(ID, 0L).complement());
     }
 
     @Test
     public void testSubtract()
             throws Exception
     {
-        Assert.assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.none(ID)), EquatableValueSet.all(ID));
-        Assert.assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L).complement());
-        Assert.assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.of(ID, 0L, 1L)), EquatableValueSet.of(ID, 0L, 1L).complement());
-        Assert.assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.of(ID, 0L, 1L));
+        assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.none(ID)), EquatableValueSet.all(ID));
+        assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L).complement());
+        assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.of(ID, 0L, 1L)), EquatableValueSet.of(ID, 0L, 1L).complement());
+        assertEquals(EquatableValueSet.all(ID).subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.of(ID, 0L, 1L));
 
-        Assert.assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.none(ID)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.of(ID, 0L)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.of(ID, 0L, 1L)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.none(ID)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.of(ID, 0L)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.of(ID, 0L, 1L)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.none(ID).subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.none(ID));
 
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.none(ID)), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 0L)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 0L).complement()), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 1L)), EquatableValueSet.of(ID, 0L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 1L).complement()), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 0L, 1L)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.none(ID)), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 0L)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 0L).complement()), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 1L)), EquatableValueSet.of(ID, 0L));
+        assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 1L).complement()), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 0L, 1L)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.of(ID, 0L).subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.of(ID, 0L));
 
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.none(ID)), EquatableValueSet.of(ID, 0L).complement());
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L).complement());
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L).complement()), EquatableValueSet.none(ID));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 1L)), EquatableValueSet.of(ID, 0L, 1L).complement());
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 1L).complement()), EquatableValueSet.of(ID, 1L));
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L, 1L)), EquatableValueSet.of(ID, 0L, 1L).complement());
-        Assert.assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.of(ID, 1L));
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.all(ID)), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.none(ID)), EquatableValueSet.of(ID, 0L).complement());
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L)), EquatableValueSet.of(ID, 0L).complement());
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L).complement()), EquatableValueSet.none(ID));
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 1L)), EquatableValueSet.of(ID, 0L, 1L).complement());
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 1L).complement()), EquatableValueSet.of(ID, 1L));
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L, 1L)), EquatableValueSet.of(ID, 0L, 1L).complement());
+        assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.of(ID, 1L));
     }
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
@@ -348,18 +351,18 @@ public class TestEquatableValueSet
                         .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
 
         EquatableValueSet set = EquatableValueSet.all(ID);
-        Assert.assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
+        assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
 
         set = EquatableValueSet.none(ID);
-        Assert.assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
+        assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
 
         set = EquatableValueSet.of(ID, 1L);
-        Assert.assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
+        assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
 
         set = EquatableValueSet.of(ID, 1L, 2L);
-        Assert.assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
+        assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
 
         set = EquatableValueSet.of(ID, 1L, 2L).complement();
-        Assert.assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
+        assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));
     }
 }

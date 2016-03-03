@@ -64,8 +64,10 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedResult
@@ -178,6 +180,14 @@ public class MaterializedResult
                 .add("updateCount", updateCount.isPresent() ? updateCount.getAsLong() : null)
                 .omitNullValues()
                 .toString();
+    }
+
+    public Set<String> getOnlyColumnAsSet()
+    {
+        checkState(types.size() == 1, "result set must have exactly one column");
+        return rows.stream()
+                .map(row -> (String) row.getField(0))
+                .collect(toImmutableSet());
     }
 
     public Page toPage()

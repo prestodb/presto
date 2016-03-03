@@ -21,56 +21,9 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
-import javax.inject.Inject;
-
-import static java.util.Objects.requireNonNull;
-
 public class HiveHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    @Inject
-    public HiveHandleResolver(HiveConnectorId connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-    }
-
-    @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
-    {
-        return (tableHandle instanceof HiveTableHandle) && ((HiveTableHandle) tableHandle).getClientId().equals(connectorId);
-    }
-
-    public boolean canHandle(ConnectorTableLayoutHandle handle)
-    {
-        return handle instanceof HiveTableLayoutHandle && ((HiveTableLayoutHandle) handle).getClientId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return (columnHandle instanceof HiveColumnHandle) && ((HiveColumnHandle) columnHandle).getClientId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return (split instanceof HiveSplit) && ((HiveSplit) split).getClientId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorOutputTableHandle handle)
-    {
-        return (handle instanceof HiveOutputTableHandle) && ((HiveOutputTableHandle) handle).getClientId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorInsertTableHandle tableHandle)
-    {
-        return (tableHandle instanceof HiveInsertTableHandle) && ((HiveInsertTableHandle) tableHandle).getClientId().equals(connectorId);
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {

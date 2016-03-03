@@ -15,6 +15,8 @@ package com.facebook.presto.raptor.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.skife.jdbi.v2.DBI;
+import org.skife.jdbi.v2.util.BooleanMapper;
 
 import java.sql.Connection;
 import java.sql.JDBCType;
@@ -22,6 +24,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
@@ -35,11 +38,13 @@ import static com.facebook.presto.raptor.metadata.ShardPredicate.bindValue;
 import static com.facebook.presto.raptor.metadata.ShardPredicate.jdbcType;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 
 class IndexInserter
         implements AutoCloseable
 {
+    private final boolean bucketed;
     private final List<ColumnInfo> columns;
     private final Map<Long, Integer> indexes;
     private final Map<Long, JDBCType> types;
@@ -48,6 +53,12 @@ class IndexInserter
     public IndexInserter(Connection connection, long tableId, List<ColumnInfo> columns)
             throws SQLException
     {
+        this.bucketed = DBI.open(connection)
+                .createQuery("SELECT distribution_id IS NOT NULL FROM tables WHERE table_id = ?")
+                .bind(0, tableId)
+                .map(BooleanMapper.FIRST)
+                .first();
+
         ImmutableList.Builder<ColumnInfo> columnBuilder = ImmutableList.builder();
         ImmutableMap.Builder<Long, Integer> indexBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Long, JDBCType> typeBuilder = ImmutableMap.builder();
@@ -58,6 +69,12 @@ class IndexInserter
         nameJoiner.add("shard_id").add("shard_uuid").add("node_ids");
         valueJoiner.add("?").add("?").add("?");
         index += 3;
+
+        if (bucketed) {
+            nameJoiner.add("bucket_number");
+            valueJoiner.add("?");
+            index++;
+        }
 
         for (ColumnInfo column : columns) {
             JDBCType jdbcType = jdbcType(column.getType());
@@ -100,12 +117,20 @@ class IndexInserter
         statement.close();
     }
 
-    public void insert(long shardId, UUID shardUuid, Set<Integer> nodeIds, List<ColumnStats> stats)
+    public void insert(long shardId, UUID shardUuid, OptionalInt bucketNumber, Set<Integer> nodeIds, List<ColumnStats> stats)
             throws SQLException
     {
         statement.setLong(1, shardId);
         statement.setBytes(2, uuidToBytes(shardUuid));
         statement.setBytes(3, intArrayToBytes(nodeIds));
+
+        if (bucketed) {
+            checkArgument(bucketNumber.isPresent(), "shard bucket missing for bucketed table");
+            statement.setInt(4, bucketNumber.getAsInt());
+        }
+        else {
+            checkArgument(!bucketNumber.isPresent(), "shard bucket present for non-bucketed table");
+        }
 
         for (ColumnInfo column : columns) {
             int index = indexes.get(column.getColumnId());

@@ -23,6 +23,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
@@ -38,6 +39,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -65,6 +67,7 @@ public class QueryMonitor
         eventClient.post(
                 new QueryCreatedEvent(
                         queryInfo.getQueryId(),
+                        queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(null),
                         queryInfo.getSession().getUser(),
                         queryInfo.getSession().getPrincipal().orElse(null),
                         queryInfo.getSession().getSource().orElse(null),
@@ -98,19 +101,14 @@ public class QueryMonitor
                 }
             }
 
-            TaskInfo task = null;
-            StageInfo stageInfo = queryInfo.getOutputStage();
-            if (stageInfo != null) {
-                task = stageInfo.getTasks().stream()
-                        .filter(taskInfo -> taskInfo.getState() == TaskState.FAILED)
-                        .findFirst().orElse(null);
-            }
-            String failureHost = task == null ? null : task.getSelf().getHost();
-            String failureTask = task == null ? null : task.getTaskId().toString();
+            Optional<TaskInfo> task = findFailedTask(queryInfo.getOutputStage());
+            String failureHost = task.map(x -> x.getSelf().getHost()).orElse(null);
+            String failureTask = task.map(x -> x.getTaskId().toString()).orElse(null);
 
             eventClient.post(
                     new QueryCompletionEvent(
                             queryInfo.getQueryId(),
+                            queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(null),
                             queryInfo.getSession().getUser(),
                             queryInfo.getSession().getPrincipal().orElse(null),
                             queryInfo.getSession().getSource().orElse(null),
@@ -153,6 +151,23 @@ public class QueryMonitor
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
         }
+    }
+
+    private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
+    {
+        if (stageInfo == null) {
+            return Optional.empty();
+        }
+
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            Optional<TaskInfo> task = findFailedTask(subStage);
+            if (task.isPresent()) {
+                return task;
+            }
+        }
+        return stageInfo.getTasks().stream()
+                .filter(taskInfo -> taskInfo.getState() == TaskState.FAILED)
+                .findFirst();
     }
 
     private void logQueryTimeline(QueryInfo queryInfo)
@@ -212,8 +227,9 @@ public class QueryMonitor
 
             Duration finishing = millis(queryEndTime.getMillis() - lastTaskEndTime);
 
-            log.info("TIMELINE: Query %s :: elapsed %s :: planning %s :: scheduling %s :: running %s :: finishing %s :: begin %s :: end %s",
+            log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %s :: planning %s :: scheduling %s :: running %s :: finishing %s :: begin %s :: end %s",
                     queryInfo.getQueryId(),
+                     queryInfo.getSession().getTransactionId().map(TransactionId::toString).orElse(""),
                     elapsed,
                     planning,
                     scheduling,

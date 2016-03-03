@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.collect.Multimap;
 
 import java.util.List;
@@ -39,4 +40,13 @@ public interface NodeSelector
      * If we cannot find an assignment for a split, it is not included in the map.
      */
     Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks);
+
+    /**
+     * Identifies the nodes for running the specified splits based on a precomputed fixed partitioning.
+     *
+     * @param splits the splits that need to be assigned to nodes
+     * @return a multimap from node to splits only for splits for which we could identify a node with free space.
+     * If we cannot find an assignment for a split, it is not included in the map.
+     */
+    Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning);
 }

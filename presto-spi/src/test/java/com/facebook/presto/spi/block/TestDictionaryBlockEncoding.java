@@ -105,6 +105,7 @@ public class TestDictionaryBlockEncoding
         DictionaryBlock actualDictionaryBlock = (DictionaryBlock) actualBlock;
         assertBlockEquals(VARCHAR, actualDictionaryBlock.getDictionary(), dictionary);
         assertEquals(actualDictionaryBlock.getIds(), idsSlice);
+        assertEquals(actualDictionaryBlock.getDictionarySourceId(), dictionaryBlock.getDictionarySourceId());
     }
 
     private static void assertBlockEquals(Type type, Block actual, Block expected)

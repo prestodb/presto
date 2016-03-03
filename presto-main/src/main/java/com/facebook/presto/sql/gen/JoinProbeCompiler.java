@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeBlock;
-import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.byteCode.FieldDefinition;
-import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.Parameter;
-import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.byteCode.control.IfStatement;
-import com.facebook.presto.byteCode.expression.ByteCodeExpression;
-import com.facebook.presto.byteCode.instruction.JumpInstruction;
-import com.facebook.presto.byteCode.instruction.LabelNode;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.instruction.JumpInstruction;
+import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
 import com.facebook.presto.operator.LookupJoinOperator;
@@ -38,6 +38,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
@@ -54,18 +55,18 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
-import static com.facebook.presto.byteCode.Access.FINAL;
-import static com.facebook.presto.byteCode.Access.PRIVATE;
-import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.Parameter.arg;
-import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantLong;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.newInstance;
-import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
-import static com.facebook.presto.sql.gen.CompilerUtils.makeClassName;
-import static com.facebook.presto.sql.gen.SqlTypeByteCodeExpression.constantType;
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
+import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
+import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 
 public class JoinProbeCompiler
 {
@@ -81,6 +82,7 @@ public class JoinProbeCompiler
             });
 
     public OperatorFactory compileJoinOperatorFactory(int operatorId,
+            PlanNodeId planNodeId,
             LookupSourceSupplier lookupSourceSupplier,
             List<? extends Type> probeTypes,
             List<Integer> probeJoinChannel,
@@ -89,7 +91,7 @@ public class JoinProbeCompiler
     {
         try {
             HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, probeHashChannel, joinType));
-            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, lookupSourceSupplier, probeTypes, probeJoinChannel, joinType);
+            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, planNodeId, lookupSourceSupplier, probeTypes, probeJoinChannel, joinType);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
@@ -201,7 +203,7 @@ public class JoinProbeCompiler
 
         Variable thisVariable = constructorDefinition.getThis();
 
-        ByteCodeBlock constructor = constructorDefinition
+        BytecodeBlock constructor = constructorDefinition
                 .getBody()
                 .comment("super();")
                 .append(thisVariable)
@@ -346,14 +348,14 @@ public class JoinProbeCompiler
                 type(long.class));
 
         Variable thisVariable = method.getThis();
-        ByteCodeBlock body = method.getBody()
+        BytecodeBlock body = method.getBody()
                 .append(new IfStatement()
                         .condition(thisVariable.invoke("currentRowContainsNull", boolean.class))
                         .ifTrue(constantLong(-1).ret()));
 
-        ByteCodeExpression position = thisVariable.getField(positionField);
-        ByteCodeExpression page = thisVariable.getField(probePageField);
-        ByteCodeExpression probeHashBlock = thisVariable.getField(probeHashBlockField);
+        BytecodeExpression position = thisVariable.getField(positionField);
+        BytecodeExpression page = thisVariable.getField(probePageField);
+        BytecodeExpression probeHashBlock = thisVariable.getField(probeHashBlockField);
         if (probeHashChannel.isPresent()) {
             body.append(thisVariable.getField(lookupSourceField).invoke("getJoinPosition", long.class,
                     position,
@@ -486,7 +488,7 @@ public class JoinProbeCompiler
             this.joinProbeFactory = joinProbeFactory;
 
             try {
-                constructor = operatorFactoryClass.getConstructor(int.class, LookupSourceSupplier.class, List.class, JoinType.class, JoinProbeFactory.class);
+                constructor = operatorFactoryClass.getConstructor(int.class, PlanNodeId.class, LookupSourceSupplier.class, List.class, JoinType.class, JoinProbeFactory.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -495,13 +497,14 @@ public class JoinProbeCompiler
 
         public OperatorFactory createHashJoinOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 LookupSourceSupplier lookupSourceSupplier,
                 List<? extends Type> probeTypes,
                 List<Integer> probeJoinChannel,
                 JoinType joinType)
         {
             try {
-                return constructor.newInstance(operatorId, lookupSourceSupplier, probeTypes, joinType, joinProbeFactory);
+                return constructor.newInstance(operatorId, planNodeId, lookupSourceSupplier, probeTypes, joinType, joinProbeFactory);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);

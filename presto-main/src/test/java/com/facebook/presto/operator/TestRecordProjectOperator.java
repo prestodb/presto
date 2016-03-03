@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.util.InfiniteRecordSet;
 import com.google.common.collect.ImmutableList;
@@ -65,7 +66,7 @@ public class TestRecordProjectOperator
         InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARCHAR), ImmutableList.copyOf(new List<?>[] {ImmutableList.of("abc"), ImmutableList.of("def"),
                                                                                                                         ImmutableList.of("g")}));
 
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR)
@@ -86,7 +87,7 @@ public class TestRecordProjectOperator
                 ImmutableList.of("def", 2L),
                 ImmutableList.of("g", 0L)));
 
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
@@ -104,7 +105,7 @@ public class TestRecordProjectOperator
     {
         InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.<Type>of(VARCHAR, BIGINT), ImmutableList.of("abc", 1L));
 
-        OperatorContext operatorContext = driverContext.addOperatorContext(0, RecordProjectOperator.class.getSimpleName());
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), RecordProjectOperator.class.getSimpleName());
         Operator operator = new RecordProjectOperator(operatorContext, records);
 
         // verify initial state

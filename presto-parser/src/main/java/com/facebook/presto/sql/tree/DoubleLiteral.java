@@ -69,6 +69,7 @@ public class DoubleLiteral
         return true;
     }
 
+    @SuppressWarnings("UnaryPlus")
     @Override
     public int hashCode()
     {

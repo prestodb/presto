@@ -36,13 +36,16 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -51,7 +54,7 @@ public class SqlTask
     private static final Logger log = Logger.get(SqlTask.class);
 
     private final TaskId taskId;
-    private final String nodeInstanceId;
+    private final String taskInstanceId;
     private final URI location;
     private final TaskStateMachine taskStateMachine;
     private final SharedBuffer sharedBuffer;
@@ -63,10 +66,10 @@ public class SqlTask
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
+    private final AtomicBoolean needsPlan = new AtomicBoolean(true);
 
     public SqlTask(
             TaskId taskId,
-            String nodeInstanceId,
             URI location,
             QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
@@ -75,7 +78,7 @@ public class SqlTask
             DataSize maxBufferSize)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
-        this.nodeInstanceId = requireNonNull(nodeInstanceId, "nodeInstanceId is null");
+        this.taskInstanceId = UUID.randomUUID().toString();
         this.location = requireNonNull(location, "location is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
@@ -83,7 +86,7 @@ public class SqlTask
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
-        sharedBuffer = new SharedBuffer(taskId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
+        sharedBuffer = new SharedBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
@@ -207,7 +210,7 @@ public class SqlTask
 
         return new TaskInfo(
                 taskStateMachine.getTaskId(),
-                Optional.of(nodeInstanceId),
+                taskInstanceId,
                 versionNumber,
                 state,
                 location,
@@ -215,7 +218,8 @@ public class SqlTask
                 sharedBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
-                failures);
+                failures,
+                needsPlan.get());
     }
 
     public CompletableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)
@@ -234,7 +238,7 @@ public class SqlTask
         return futureTaskState.thenApply(input -> getTaskInfo());
     }
 
-    public TaskInfo updateTask(Session session, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
+    public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         try {
             // assure the task execution is only created once
@@ -247,8 +251,10 @@ public class SqlTask
                 }
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
-                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, sharedBuffer, fragment, sources);
+                    checkState(fragment.isPresent(), "fragment must be present");
+                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, sharedBuffer, fragment.get(), sources);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
+                    needsPlan.set(false);
                 }
             }
 

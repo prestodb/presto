@@ -14,13 +14,11 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.predicate.TupleDomain;
 
 import java.nio.ByteBuffer;
 
 public class CassandraPartition
-        implements ConnectorPartition
 {
     static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
     public static final CassandraPartition UNPARTITIONED = new CassandraPartition();
@@ -56,13 +54,11 @@ public class CassandraPartition
         return indexedColumnPredicatePushdown;
     }
 
-    @Override
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return tupleDomain;
     }
 
-    @Override
     public String getPartitionId()
     {
         return partitionId;

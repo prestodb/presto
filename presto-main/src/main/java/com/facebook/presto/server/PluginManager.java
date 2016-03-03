@@ -18,10 +18,10 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.FunctionFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ParametricType;
@@ -205,6 +205,11 @@ public class PluginManager
         for (ParametricType parametricType : plugin.getServices(ParametricType.class)) {
             log.info("Registering parametric type %s", parametricType.getName());
             typeRegistry.addParametricType(parametricType);
+        }
+
+        for (com.facebook.presto.spi.ConnectorFactory connectorFactory : plugin.getServices(com.facebook.presto.spi.ConnectorFactory.class)) {
+            log.info("Registering legacy connector %s", connectorFactory.getName());
+            connectorManager.addConnectorFactory(connectorFactory);
         }
 
         for (ConnectorFactory connectorFactory : plugin.getServices(ConnectorFactory.class)) {

@@ -78,7 +78,12 @@ public class BackupModule
             return Optional.empty();
         }
 
-        BackupStore proxy = new TimeoutBackupStore(store, connectorId.toString(), config.getTimeout());
+        BackupStore proxy = new TimeoutBackupStore(
+                store,
+                connectorId.toString(),
+                config.getTimeout(),
+                config.getTimeoutThreads());
+
         lifeCycleManager.addInstance(proxy);
         return Optional.of(proxy);
     }

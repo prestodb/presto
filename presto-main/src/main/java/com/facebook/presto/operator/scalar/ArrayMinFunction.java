@@ -13,15 +13,116 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.OperatorType;
+import com.facebook.presto.operator.Description;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.SqlType;
+import io.airlift.slice.Slice;
 
-public class ArrayMinFunction
-        extends AbstractArrayMinMaxFunction
+import javax.annotation.Nullable;
+
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
+import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.booleanArrayMinMax;
+import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.doubleArrayMinMax;
+import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.longArrayMinMax;
+import static com.facebook.presto.operator.scalar.ArrayMinMaxUtils.sliceArrayMinMax;
+import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
+import static com.google.common.base.Throwables.propagateIfInstanceOf;
+
+@ScalarFunction("array_min")
+@Description("Get minimum value of array")
+public final class ArrayMinFunction
 {
-    public static final ArrayMinFunction ARRAY_MIN = new ArrayMinFunction();
+    private ArrayMinFunction() {}
 
-    private ArrayMinFunction()
+    @TypeParameter("T")
+    @SqlType("T")
+    @Nullable
+    public static Void arrayWithUnknownType(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @SqlType("array(T)") Block block)
     {
-        super(OperatorType.LESS_THAN, "array_min", "Get minimum value of array");
+        return null;
+    }
+
+    @TypeParameter("T")
+    @SqlType("T")
+    @Nullable
+    public static Long longArrayMin(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @TypeParameter("T") Type elementType,
+            @SqlType("array(T)") Block block)
+    {
+        return longArrayMinMax(compareMethodHandle, elementType, block);
+    }
+
+    @TypeParameter("T")
+    @SqlType("T")
+    @Nullable
+    public static Boolean booleanArrayMin(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @TypeParameter("T") Type elementType,
+            @SqlType("array(T)") Block block)
+    {
+        return booleanArrayMinMax(compareMethodHandle, elementType, block);
+    }
+
+    @TypeParameter("T")
+    @SqlType("T")
+    @Nullable
+    public static Double doubleArrayMin(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @TypeParameter("T") Type elementType,
+            @SqlType("array(T)") Block block)
+    {
+        return doubleArrayMinMax(compareMethodHandle, elementType, block);
+    }
+
+    @TypeParameter("T")
+    @SqlType("T")
+    @Nullable
+    public static Slice sliceArrayMin(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @TypeParameter("T") Type elementType,
+            @SqlType("array(T)") Block block)
+    {
+        return sliceArrayMinMax(compareMethodHandle, elementType, block);
+    }
+
+    @TypeParameter("T")
+    @SqlType("T")
+    @Nullable
+    public static Block blockArrayMin(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @TypeParameter("T") Type elementType,
+            @SqlType("array(T)") Block block)
+    {
+        try {
+            if (block.getPositionCount() == 0) {
+                return null;
+            }
+
+            Block selectedValue = (Block) elementType.getObject(block, 0);
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    return null;
+                }
+                Block value = (Block) elementType.getObject(block, i);
+                if ((boolean) compareMethodHandle.invokeExact(value, selectedValue)) {
+                    selectedValue = value;
+                }
+            }
+
+            return selectedValue;
+        }
+        catch (Throwable t) {
+            propagateIfInstanceOf(t, Error.class);
+            propagateIfInstanceOf(t, PrestoException.class);
+            throw new PrestoException(INTERNAL_ERROR, t);
+        }
     }
 }

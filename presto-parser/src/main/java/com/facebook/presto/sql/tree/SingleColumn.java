@@ -73,7 +73,7 @@ public class SingleColumn
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SingleColumn other = (SingleColumn) obj;
+        SingleColumn other = (SingleColumn) obj;
         return Objects.equals(this.alias, other.alias) && Objects.equals(this.expression, other.expression);
     }
 

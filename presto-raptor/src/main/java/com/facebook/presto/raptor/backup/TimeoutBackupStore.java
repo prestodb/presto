@@ -17,6 +17,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -37,13 +39,14 @@ public class TimeoutBackupStore
     private final ExecutorService executor;
     private final BackupStore store;
 
-    public TimeoutBackupStore(BackupStore store, String connectorId, Duration timeout)
+    public TimeoutBackupStore(BackupStore store, String connectorId, Duration timeout, int maxThreads)
     {
         requireNonNull(store, "store is null");
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(timeout, "timeout is null");
+
         this.executor = newCachedThreadPool(daemonThreadsNamed("backup-proxy-" + connectorId + "-%s"));
-        this.store = timeLimited(store, BackupStore.class, timeout, executor);
+        this.store = timeLimited(store, BackupStore.class, timeout, executor, maxThreads);
     }
 
     @PreDestroy
@@ -96,8 +99,9 @@ public class TimeoutBackupStore
         }
     }
 
-    private static <T> T timeLimited(T target, Class<T> clazz, Duration timeout, ExecutorService executor)
+    private static <T> T timeLimited(T target, Class<T> clazz, Duration timeout, ExecutorService executor, int maxThreads)
     {
+        executor = new ExecutorServiceAdapter(new BoundedExecutor(executor, maxThreads));
         TimeLimiter limiter = new SimpleTimeLimiter(executor);
         return limiter.newProxy(target, clazz, timeout.toMillis(), MILLISECONDS);
     }

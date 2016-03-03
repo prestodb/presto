@@ -28,6 +28,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class BackupConfig
 {
     private Duration timeout = new Duration(1, MINUTES);
+    private int timeoutThreads = 1000;
     private String provider;
     private int backupThreads = 5;
 
@@ -40,10 +41,24 @@ public class BackupConfig
     }
 
     @Config("backup.timeout")
-    @ConfigDescription("Timeout for per-shard backup/restore operations")
+    @ConfigDescription("Timeout for per-shard backup operations")
     public BackupConfig setTimeout(Duration timeout)
     {
         this.timeout = timeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getTimeoutThreads()
+    {
+        return timeoutThreads;
+    }
+
+    @Config("backup.timeout-threads")
+    @ConfigDescription("Maximum number of timeout threads for backup operations")
+    public BackupConfig setTimeoutThreads(int timeoutThreads)
+    {
+        this.timeoutThreads = timeoutThreads;
         return this;
     }
 
@@ -68,6 +83,7 @@ public class BackupConfig
     }
 
     @Config("backup.threads")
+    @ConfigDescription("Maximum number of shards to backup at once")
     public BackupConfig setBackupThreads(int backupThreads)
     {
         this.backupThreads = backupThreads;

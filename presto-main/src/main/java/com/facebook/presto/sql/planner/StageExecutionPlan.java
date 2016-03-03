@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -67,9 +66,9 @@ public class StageExecutionPlan
         return subStages;
     }
 
-    public StageExecutionPlan withPartitionCount(OptionalInt partitionCount)
+    public StageExecutionPlan withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new StageExecutionPlan(fragment.withPartitionCount(partitionCount), dataSource, subStages);
+        return new StageExecutionPlan(fragment.withBucketToPartition(bucketToPartition), dataSource, subStages);
     }
 
     @Override

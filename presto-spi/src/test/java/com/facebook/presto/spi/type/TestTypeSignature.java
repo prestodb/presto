@@ -13,90 +13,192 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static java.util.Locale.ENGLISH;
-import static java.util.stream.Collectors.toList;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestTypeSignature
 {
     @Test
-    public void test()
+    public void testBindParameters()
             throws Exception
     {
-        assertSignature("bigint", ImmutableList.<String>of());
-        assertSignature("boolean", ImmutableList.<String>of());
-        assertSignature("varchar", ImmutableList.<String>of());
-        assertSignature("array", ImmutableList.of("bigint"));
-        assertSignature("array", ImmutableList.of("array<bigint>"));
-        assertSignature("map", ImmutableList.of("bigint", "bigint"));
-        assertSignature("map", ImmutableList.of("bigint", "array<bigint>"));
-        assertSignature("map", ImmutableList.of("bigint", "map<bigint,map<varchar,bigint>>"));
-        assertSignature("array", ImmutableList.of("timestamp with time zone"));
-        assertSignature("row", ImmutableList.of("bigint", "varchar"), ImmutableList.<Object>of("a", "b"));
-        assertSignature("row", ImmutableList.of("bigint", "array<bigint>", "row<bigint>('a')"), ImmutableList.<Object>of("a", "b", "c"));
-        assertSignature("row", ImmutableList.of("varchar(10)", "row<bigint>('a')"), ImmutableList.<Object>of("a", "b"));
-        assertSignature("foo", ImmutableList.<String>of(), ImmutableList.<Object>of("a"));
-        assertSignature("varchar", ImmutableList.<String>of(), ImmutableList.<Object>of(10L));
+        Map<String, Type> boundParameters = ImmutableMap.of("T1", DoubleType.DOUBLE, "T2", BigintType.BIGINT);
+
+        assertBindSignature("bigint", boundParameters, "bigint");
+        assertBindSignature("T1", boundParameters, "double");
+        assertBindSignature("T2", boundParameters, "bigint");
+        assertBindSignature("array(T1)", boundParameters, "array(double)");
+        assertBindSignature("array<T1>", boundParameters, "array(double)");
+        assertBindSignature("map(T1,T2)", boundParameters, "map(double,bigint)");
+        assertBindSignature("map<T1,T2>", boundParameters, "map(double,bigint)");
+        assertBindSignature("row<T1,T2>('a','b')", boundParameters, "row<double,bigint>('a','b')");
+        assertBindSignature("bla(T1,42,T2)", boundParameters, "bla(double,42,bigint)");
+
+        assertBindSignatureFails("T1(bigint)", boundParameters, "Unbounded parameters can not have parameters");
+    }
+
+    private void assertBindSignatureFails(String typeName, Map<String, Type> boundParameters, String reason)
+    {
         try {
-            parseTypeSignature("blah<>");
-            fail("Type signatures with zero parameters should fail to parse");
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
-        try {
-            parseTypeSignature("blah()");
-            fail("Type signatures with zero literal parameters should fail to parse");
+            parseTypeSignature(typeName).bindParameters(boundParameters);
+            fail(reason);
         }
         catch (RuntimeException e) {
             // Expected
         }
     }
 
-    private static void assertSignature(String base, List<String> parameters)
+    private void assertBindSignature(String typeName, Map<String, Type> boundParameters, String expectedTypeName)
     {
-        assertSignature(base, parameters, ImmutableList.of());
+        assertEquals(parseTypeSignature(typeName).bindParameters(boundParameters).toString(), expectedTypeName);
     }
 
-    private static void assertSignature(String base, List<String> parameters, List<Object> literalParameters)
+    @Test
+    public void parseSignatureWithLiterals() throws Exception
     {
-        List<String> lowerCaseTypeNames = parameters.stream()
-                .map(value -> value.toLowerCase(ENGLISH))
-                .collect(toList());
+        TypeSignature result = parseTypeSignature("decimal(X,42)", ImmutableSet.of("X"));
+        assertEquals(result.getParameters().size(), 2);
+        assertEquals(result.getParameters().get(0).isLiteralCalculation(), true);
+        assertEquals(result.getParameters().get(1).isLongLiteral(), true);
+    }
 
-        String typeName = base.toLowerCase(ENGLISH);
-        if (!parameters.isEmpty()) {
-            typeName += "<" + Joiner.on(",").join(lowerCaseTypeNames) + ">";
-        }
-        if (!literalParameters.isEmpty()) {
-            List<String> transform = literalParameters.stream()
-                    .map(TestTypeSignature::convertParameter)
-                    .collect(toList());
-            typeName += "(" + Joiner.on(",").join(transform) + ")";
-        }
+    @Test
+    public void parseRowSignature()
+            throws Exception
+    {
+        assertRowSignature(
+                "row<bigint,varchar>('a','b')",
+                "row",
+                ImmutableList.of("a bigint", "b varchar"));
+        assertRowSignature(
+                "ROW<bigint,varchar>('a','b')",
+                "ROW",
+                ImmutableList.of("a bigint", "b varchar"),
+                "row<bigint,varchar>('a','b')");
+        assertRowSignature(
+                "row<bigint,array(bigint),row<bigint>('a')>('a','b','c')",
+                "row",
+                ImmutableList.of("a bigint", "b array(bigint)", "c row<bigint>('a')"));
+        assertRowSignature(
+                "row<varchar(10),row<bigint>('a')>('a','b')",
+                "row",
+                ImmutableList.of("a varchar(10)", "b row<bigint>('a')"));
+        assertRowSignature(
+                "array(row<bigint,double>('col0','col1'))",
+                "array",
+                ImmutableList.of("row<bigint,double>('col0','col1')"));
+        assertRowSignature(
+                "row<array(row<bigint,double>('col0','col1'))>('col0')",
+                "row",
+                ImmutableList.of("col0 array(row<bigint,double>('col0','col1'))"));
+    }
+
+    @Test
+    public void parseSignature()
+            throws Exception
+    {
+        assertSignature("bigint", "bigint", ImmutableList.<String>of());
+        assertSignature("boolean", "boolean", ImmutableList.<String>of());
+        assertSignature("varchar", "varchar", ImmutableList.<String>of());
+
+        assertSignature("array(bigint)", "array", ImmutableList.of("bigint"));
+        assertSignature("array(array(bigint))", "array", ImmutableList.of("array(bigint)"));
+        assertSignature(
+                "array(timestamp with time zone)",
+                "array",
+                ImmutableList.of("timestamp with time zone"));
+
+        assertSignature(
+                "map(bigint,bigint)",
+                "map",
+                ImmutableList.of("bigint", "bigint"));
+        assertSignature(
+                "map(bigint,array(bigint))",
+                "map", ImmutableList.of("bigint", "array(bigint)"));
+        assertSignature(
+                "map(bigint,map(bigint,map(varchar,bigint)))",
+                "map",
+                ImmutableList.of("bigint", "map(bigint,map(varchar,bigint))"));
+
+        assertSignatureFail("blah()");
+        assertSignatureFail("array()");
+        assertSignatureFail("map()");
+
+        // ensure this is not treated as a row type
+        assertSignature("rowxxx<a>", "rowxxx", ImmutableList.of("a"));
+    }
+
+    @Test
+    public void parseWithLiteralParameters()
+    {
+        assertSignature("foo(42)", "foo", ImmutableList.<String>of("42"));
+        assertSignature("varchar(10)", "varchar", ImmutableList.<String>of("10"));
+    }
+
+    @Test
+    public void testVarchar()
+            throws Exception
+    {
+        assertEquals(VARCHAR.getTypeSignature().toString(), "varchar");
+        assertEquals(createVarcharType(42).getTypeSignature().toString(), "varchar(42)");
+    }
+
+    private static void assertRowSignature(
+            String typeName,
+            String base,
+            List<String> parameters)
+    {
+        assertRowSignature(typeName, base, parameters, typeName);
+    }
+
+    private static void assertRowSignature(
+            String typeName,
+            String base,
+            List<String> parameters,
+            String expected)
+    {
+        assertSignature(typeName, base, parameters, expected);
+    }
+
+    private static void assertSignature(String typeName, String base, List<String> parameters)
+    {
+        assertSignature(typeName, base, parameters, typeName.replace("<", "(").replace(">", ")"));
+    }
+
+    private static void assertSignature(
+            String typeName,
+            String base,
+            List<String> parameters,
+            String expectedTypeName)
+    {
         TypeSignature signature = parseTypeSignature(typeName);
         assertEquals(signature.getBase(), base);
         assertEquals(signature.getParameters().size(), parameters.size());
         for (int i = 0; i < signature.getParameters().size(); i++) {
             assertEquals(signature.getParameters().get(i).toString(), parameters.get(i));
         }
-        assertEquals(signature.getLiteralParameters(), literalParameters);
-        assertEquals(typeName, signature.toString());
+        assertEquals(signature.toString(), expectedTypeName);
     }
 
-    private static String convertParameter(Object value)
+    private void assertSignatureFail(String typeName)
     {
-        if (value instanceof String) {
-            return "'" + value + "'";
+        try {
+            parseTypeSignature(typeName);
+            fail("Type signatures with zero parameters should fail to parse");
         }
-        return value.toString();
+        catch (RuntimeException e) {
+            // Expected
+        }
     }
 }

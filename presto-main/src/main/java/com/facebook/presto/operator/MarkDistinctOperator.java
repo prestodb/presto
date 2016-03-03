@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -35,14 +36,16 @@ public class MarkDistinctOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final Optional<Integer> hashChannel;
         private final List<Integer> markDistinctChannels;
         private final List<Type> types;
         private boolean closed;
 
-        public MarkDistinctOperatorFactory(int operatorId, List<? extends Type> sourceTypes, Collection<Integer> markDistinctChannels, Optional<Integer> hashChannel)
+        public MarkDistinctOperatorFactory(int operatorId, PlanNodeId planNodeId, List<? extends Type> sourceTypes, Collection<Integer> markDistinctChannels, Optional<Integer> hashChannel)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.markDistinctChannels = ImmutableList.copyOf(requireNonNull(markDistinctChannels, "markDistinctChannels is null"));
             checkArgument(!markDistinctChannels.isEmpty(), "markDistinctChannels is empty");
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
@@ -62,7 +65,7 @@ public class MarkDistinctOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, MarkDistinctOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MarkDistinctOperator.class.getSimpleName());
             return new MarkDistinctOperator(operatorContext, types, markDistinctChannels, hashChannel);
         }
 
@@ -75,7 +78,7 @@ public class MarkDistinctOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new MarkDistinctOperatorFactory(operatorId, types.subList(0, types.size() - 1), markDistinctChannels, hashChannel);
+            return new MarkDistinctOperatorFactory(operatorId, planNodeId, types.subList(0, types.size() - 1), markDistinctChannels, hashChannel);
         }
     }
 
@@ -98,7 +101,7 @@ public class MarkDistinctOperator
         for (int channel : markDistinctChannels) {
             distinctTypes.add(types.get(channel));
         }
-        this.markDistinctHash = new MarkDistinctHash(distinctTypes.build(), Ints.toArray(markDistinctChannels), hashChannel);
+        this.markDistinctHash = new MarkDistinctHash(operatorContext.getSession(), distinctTypes.build(), Ints.toArray(markDistinctChannels), hashChannel);
     }
 
     @Override

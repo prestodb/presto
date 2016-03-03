@@ -13,31 +13,21 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.byteCode.ByteCodeBlock;
-import com.facebook.presto.byteCode.ByteCodeNode;
+import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
-
 public class CastCodeGenerator
-        implements ByteCodeGenerator
+        implements BytecodeGenerator
 {
     @Override
-    public ByteCodeNode generateExpression(Signature signature, ByteCodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
         RowExpression argument = arguments.get(0);
-
-        if (argument.getType().equals(UnknownType.UNKNOWN)) {
-            return new ByteCodeBlock()
-                    .append(generatorContext.wasNull().set(constantTrue()))
-                    .pushJavaDefault(returnType.getJavaType());
-        }
 
         Signature function = generatorContext
                 .getRegistry()

@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import java.util.List;
 
+@Deprecated
 public interface ConnectorPageSourceProvider
 {
     ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns);

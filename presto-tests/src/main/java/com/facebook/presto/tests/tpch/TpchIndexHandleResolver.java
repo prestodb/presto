@@ -16,25 +16,9 @@ package com.facebook.presto.tests.tpch;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.tpch.TpchHandleResolver;
 
-import static java.util.Objects.requireNonNull;
-
 public class TpchIndexHandleResolver
         extends TpchHandleResolver
 {
-    private final String connectorId;
-
-    public TpchIndexHandleResolver(String connectorId)
-    {
-        super(connectorId);
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
-    @Override
-    public boolean canHandle(ConnectorIndexHandle indexHandle)
-    {
-        return indexHandle instanceof TpchIndexHandle && ((TpchIndexHandle) indexHandle).getConnectorId().equals(connectorId);
-    }
-
     @Override
     public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
     {

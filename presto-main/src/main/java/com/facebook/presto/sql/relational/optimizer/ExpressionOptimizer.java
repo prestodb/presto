@@ -24,7 +24,6 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.Iterables;
 
 import java.lang.invoke.MethodHandle;
@@ -42,6 +41,7 @@ import static com.facebook.presto.sql.relational.Signatures.IN;
 import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
 import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
+import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
@@ -87,9 +87,6 @@ public class ExpressionOptimizer
             Signature signature = call.getSignature();
 
             if (signature.getName().equals(CAST)) {
-                if (call.getArguments().get(0).getType().equals(UnknownType.UNKNOWN)) {
-                    return constantNull(call.getType());
-                }
                 Signature functionSignature = registry.getCoercion(call.getArguments().get(0).getType(), call.getType());
                 function = registry.getScalarFunctionImplementation(functionSignature);
             }
@@ -113,6 +110,7 @@ public class ExpressionOptimizer
                     case NULL_IF:
                     case SWITCH:
                     case "WHEN":
+                    case TRY:
                     case TRY_CAST:
                     case IS_NULL:
                     case "IS_DISTINCT_FROM":

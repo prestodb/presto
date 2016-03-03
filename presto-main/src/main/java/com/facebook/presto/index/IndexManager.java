@@ -15,18 +15,12 @@ package com.facebook.presto.index;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.IndexHandle;
-import com.facebook.presto.metadata.ResolvedIndex;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
-import com.facebook.presto.spi.ConnectorIndexResolver;
-import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -35,49 +29,24 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class IndexManager
 {
-    private final ConcurrentMap<String, ConnectorIndexResolver> resolvers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ConnectorIndexProvider> providers = new ConcurrentHashMap<>();
 
-    public void addIndexResolver(String connectorId, ConnectorIndexResolver resolver)
+    public void addIndexProvider(String connectorId, ConnectorIndexProvider provider)
     {
-        checkState(resolvers.putIfAbsent(connectorId, resolver) == null, "IndexResolver for connector '%s' is already registered", connectorId);
-    }
-
-    public Optional<ResolvedIndex> resolveIndex(
-            Session session,
-            TableHandle tableHandle,
-            Set<ColumnHandle> indexableColumns,
-            Set<ColumnHandle> outputColumns,
-            TupleDomain<ColumnHandle> tupleDomain)
-    {
-        ConnectorIndexResolver resolver = resolvers.get(tableHandle.getConnectorId());
-        if (resolver == null) {
-            return Optional.empty();
-        }
-
-        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        ConnectorResolvedIndex resolved = resolver.resolveIndex(connectorSession, tableHandle.getConnectorHandle(), indexableColumns, outputColumns, tupleDomain);
-
-        if (resolved == null) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new ResolvedIndex(tableHandle.getConnectorId(), resolved));
+        checkState(providers.putIfAbsent(connectorId, provider) == null, "IndexProvider for connector '%s' is already registered", connectorId);
     }
 
     public ConnectorIndex getIndex(Session session, IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
-        // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getConnectorId());
-        return getResolver(indexHandle)
-                .getIndex(connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
+        ConnectorIndexProvider provider = getProvider(indexHandle);
+        return provider.getIndex(indexHandle.getTransactionHandle(), connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
     }
 
-    private ConnectorIndexResolver getResolver(IndexHandle handle)
+    private ConnectorIndexProvider getProvider(IndexHandle handle)
     {
-        ConnectorIndexResolver result = resolvers.get(handle.getConnectorId());
-
-        checkArgument(result != null, "No index resolver for connector '%s'", handle.getConnectorId());
-
+        ConnectorIndexProvider result = providers.get(handle.getConnectorId());
+        checkArgument(result != null, "No index provider for connector '%s'", handle.getConnectorId());
         return result;
     }
 }

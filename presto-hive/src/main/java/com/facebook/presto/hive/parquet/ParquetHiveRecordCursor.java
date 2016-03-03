@@ -57,12 +57,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
@@ -200,7 +203,8 @@ public class ParquetHiveRecordCursor
             }
         }
 
-        this.recordReader = createParquetRecordReader(configuration,
+        this.recordReader = createParquetRecordReader(
+                configuration,
                 path,
                 start,
                 length,
@@ -360,6 +364,7 @@ public class ParquetHiveRecordCursor
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
+        ParquetDataSource dataSource = buildHdfsParquetDataSource(path, configuration, start, length);
         try {
             ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(configuration, path, NO_FILTER);
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
@@ -387,7 +392,7 @@ public class ParquetHiveRecordCursor
             if (predicatePushdownEnabled) {
                 ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
                 splitGroup = splitGroup.stream()
-                        .filter(block -> predicateMatches(parquetPredicate, block, configuration, path, requestedSchema, effectivePredicate))
+                        .filter(block -> predicateMatches(parquetPredicate, block, configuration, dataSource, requestedSchema, effectivePredicate))
                         .collect(toList());
             }
 
@@ -404,12 +409,24 @@ public class ParquetHiveRecordCursor
             realReader.initialize(split, taskContext);
             return realReader;
         }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw Throwables.propagate(e);
+        catch (Exception e) {
+            try {
+                dataSource.close();
+            }
+            catch (IOException ignored) {
+            }
+            if (e instanceof PrestoException) {
+                throw (PrestoException) e;
+            }
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+                throw Throwables.propagate(e);
+            }
+            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
+            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+            }
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
     }
 
@@ -717,7 +734,12 @@ public class ParquetHiveRecordCursor
             checkArgument(ROW.equals(prestoType.getTypeSignature().getBase()));
             List<Type> prestoTypeParameters = prestoType.getTypeParameters();
             List<parquet.schema.Type> fieldTypes = entryType.getFields();
-            checkArgument(prestoTypeParameters.size() == fieldTypes.size());
+            checkArgument(
+                    prestoTypeParameters.size() == fieldTypes.size(),
+                    "Schema mismatch, metastore schema for row column %s has %s fields but parquet schema has %s fields",
+                    columnName,
+                    prestoTypeParameters.size(),
+                    fieldTypes.size());
 
             this.rowType = prestoType;
             this.fieldIndex = fieldIndex;
@@ -809,7 +831,8 @@ public class ParquetHiveRecordCursor
 
         public ParquetListConverter(Type prestoType, String columnName, GroupType listType, int fieldIndex)
         {
-            checkArgument(listType.getFieldCount() == 1,
+            checkArgument(
+                    listType.getFieldCount() == 1,
                     "Expected LIST column '%s' to only have one field, but has %s fields",
                     columnName,
                     listType.getFieldCount());
@@ -930,12 +953,14 @@ public class ParquetHiveRecordCursor
 
         public ParquetListEntryConverter(Type prestoType, String columnName, GroupType elementType)
         {
-            checkArgument(elementType.getOriginalType() == null,
+            checkArgument(
+                    elementType.getOriginalType() == null,
                     "Expected LIST column '%s' field to be type STRUCT, but is %s",
                     columnName,
                     elementType);
 
-            checkArgument(elementType.getFieldCount() == 1,
+            checkArgument(
+                    elementType.getFieldCount() == 1,
                     "Expected LIST column '%s' element to have one field, but has %s fields",
                     columnName,
                     elementType.getFieldCount());
@@ -992,7 +1017,8 @@ public class ParquetHiveRecordCursor
 
         public ParquetMapConverter(Type type, String columnName, GroupType mapType, int fieldIndex)
         {
-            checkArgument(mapType.getFieldCount() == 1,
+            checkArgument(
+                    mapType.getFieldCount() == 1,
                     "Expected MAP column '%s' to only have one field, but has %s fields",
                     mapType.getName(),
                     mapType.getFieldCount());
@@ -1031,7 +1057,7 @@ public class ParquetHiveRecordCursor
             }
             else {
                 while (builder.getPositionCount() < fieldIndex) {
-                  builder.appendNull();
+                    builder.appendNull();
                 }
                 currentEntryBuilder = builder.beginBlockEntry();
             }
@@ -1078,7 +1104,8 @@ public class ParquetHiveRecordCursor
             checkArgument(MAP.equals(prestoType.getTypeSignature().getBase()));
             // original version of parquet used null for entry due to a bug
             if (entryType.getOriginalType() != null) {
-                checkArgument(entryType.getOriginalType() == MAP_KEY_VALUE,
+                checkArgument(
+                        entryType.getOriginalType() == MAP_KEY_VALUE,
                         "Expected MAP column '%s' field to be type %s, but is %s",
                         columnName,
                         MAP_KEY_VALUE,
@@ -1086,19 +1113,23 @@ public class ParquetHiveRecordCursor
             }
 
             GroupType entryGroupType = entryType.asGroupType();
-            checkArgument(entryGroupType.getFieldCount() == 2,
+            checkArgument(
+                    entryGroupType.getFieldCount() == 2,
                     "Expected MAP column '%s' entry to have two fields, but has %s fields",
                     columnName,
                     entryGroupType.getFieldCount());
-            checkArgument(entryGroupType.getFieldName(0).equals("key"),
+            checkArgument(
+                    entryGroupType.getFieldName(0).equals("key"),
                     "Expected MAP column '%s' entry field 0 to be named 'key', but is named %s",
                     columnName,
                     entryGroupType.getFieldName(0));
-            checkArgument(entryGroupType.getFieldName(1).equals("value"),
+            checkArgument(
+                    entryGroupType.getFieldName(1).equals("value"),
                     "Expected MAP column '%s' entry field 1 to be named 'value', but is named %s",
                     columnName,
                     entryGroupType.getFieldName(1));
-            checkArgument(entryGroupType.getType(0).isPrimitive(),
+            checkArgument(
+                    entryGroupType.getType(0).isPrimitive(),
                     "Expected MAP column '%s' entry field 0 to be primitive, but is %s",
                     columnName,
                     entryGroupType.getType(0));
@@ -1137,6 +1168,11 @@ public class ParquetHiveRecordCursor
         {
             keyConverter.afterValue();
             valueConverter.afterValue();
+            // handle the case where we have a key, but the value is null
+            // null keys are not supported anyway, so we can ignore that case here
+            if (builder.getPositionCount() < 2) {
+                builder.appendNull();
+            }
         }
 
         @Override
@@ -1152,7 +1188,6 @@ public class ParquetHiveRecordCursor
         private final Type type;
         private final int fieldIndex;
         private BlockBuilder builder;
-        private boolean wroteValue;
 
         public ParquetPrimitiveConverter(Type type, int fieldIndex)
         {
@@ -1164,7 +1199,6 @@ public class ParquetHiveRecordCursor
         public void beforeValue(BlockBuilder builder)
         {
             this.builder = requireNonNull(builder, "parent builder is null");
-            wroteValue = false;
         }
 
         @Override
@@ -1212,7 +1246,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             BOOLEAN.writeBoolean(builder, value);
-            wroteValue = true;
         }
 
         @Override
@@ -1220,7 +1253,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             DOUBLE.writeDouble(builder, value);
-            wroteValue = true;
         }
 
         @Override
@@ -1228,7 +1260,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             BIGINT.writeLong(builder, value);
-            wroteValue = true;
         }
 
         @Override
@@ -1241,7 +1272,6 @@ public class ParquetHiveRecordCursor
             else {
                 VARBINARY.writeSlice(builder, wrappedBuffer(value.getBytes()));
             }
-            wroteValue = true;
         }
 
         @Override
@@ -1249,7 +1279,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             DOUBLE.writeDouble(builder, value);
-            wroteValue = true;
         }
 
         @Override
@@ -1257,7 +1286,6 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             BIGINT.writeLong(builder, value);
-            wroteValue = true;
         }
     }
 }

@@ -20,7 +20,10 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
@@ -28,10 +31,11 @@ import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
-import static com.facebook.presto.spi.StandardErrorCode.WORKER_RESTARTED;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -43,7 +47,7 @@ public class Verifier
     private static final Logger log = Logger.get(Verifier.class);
 
     private static final Set<ErrorCode> EXPECTED_ERRORS = ImmutableSet.<ErrorCode>builder()
-            .add(WORKER_RESTARTED.toErrorCode())
+            .add(REMOTE_TASK_MISMATCH.toErrorCode())
             .add(TOO_MANY_REQUESTS_FAILED.toErrorCode())
             .add(PAGE_TRANSPORT_TIMEOUT.toErrorCode())
             .build();
@@ -91,8 +95,19 @@ public class Verifier
                         log.debug("Query %s is blacklisted", query.getName());
                         continue;
                     }
-                    Validator validator = new Validator(config, query);
-                    completionService.submit(validateTask(validator), validator);
+                    Validator validator = new Validator(
+                            config.getControlGateway(),
+                            config.getTestGateway(),
+                            config.getControlTimeout(),
+                            config.getTestTimeout(),
+                            config.getMaxRowCount(),
+                            config.isExplainOnly(),
+                            config.getDoublePrecision(),
+                            isCheckCorrectness(query),
+                            true,
+                            config.isVerboseResultsComparison(),
+                            query);
+                    completionService.submit(validator::valid, validator);
                     queriesSubmitted++;
                 }
             }
@@ -143,7 +158,32 @@ public class Verifier
         }
 
         log.info("Results: %s / %s (%s skipped)", valid, failed, skipped);
+        log.info("");
+
+        for (EventClient eventClient : eventClients) {
+            if (eventClient instanceof Closeable) {
+                try {
+                    ((Closeable) eventClient).close();
+                }
+                catch (IOException ignored) { }
+                log.info("");
+            }
+        }
+
         return failed;
+    }
+
+    private boolean isCheckCorrectness(QueryPair query)
+    {
+        // Check if either the control query or the test query matches the regex
+        if (Pattern.matches(config.getSkipCorrectnessRegex(), query.getTest().getQuery()) ||
+                Pattern.matches(config.getSkipCorrectnessRegex(), query.getControl().getQuery())) {
+            // If so disable correctness checking
+            return false;
+        }
+        else {
+            return config.isCheckCorrectnessEnabled();
+        }
     }
 
     private VerifierQueryEvent buildEvent(Validator validator)
@@ -164,7 +204,6 @@ public class Verifier
             }
         }
 
-        // TODO implement cpu time tracking
         return new VerifierQueryEvent(
                 queryPair.getSuite(),
                 config.getRunId(),
@@ -174,19 +213,19 @@ public class Verifier
                 queryPair.getTest().getCatalog(),
                 queryPair.getTest().getSchema(),
                 queryPair.getTest().getQuery(),
-                null,
-                optionalDurationToSeconds(test),
+                optionalDurationToSeconds(test.getCpuTime()),
+                optionalDurationToSeconds(test.getWallTime()),
                 queryPair.getControl().getCatalog(),
                 queryPair.getControl().getSchema(),
                 queryPair.getControl().getQuery(),
-                null,
-                optionalDurationToSeconds(control),
+                optionalDurationToSeconds(control.getCpuTime()),
+                optionalDurationToSeconds(control.getWallTime()),
                 errorMessage);
     }
 
-    private static Double optionalDurationToSeconds(QueryResult test)
+    private static Double optionalDurationToSeconds(Duration duration)
     {
-        return test.getDuration() != null ? test.getDuration().convertTo(SECONDS).getValue() : null;
+        return duration != null ? duration.convertTo(SECONDS).getValue() : null;
     }
 
     private static <T> T takeUnchecked(CompletionService<T> completionService)
@@ -198,18 +237,6 @@ public class Verifier
         catch (ExecutionException e) {
             throw Throwables.propagate(e);
         }
-    }
-
-    private static Runnable validateTask(final Validator validator)
-    {
-        return new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                validator.valid();
-            }
-        };
     }
 
     private static boolean shouldAddStackTrace(Exception e)

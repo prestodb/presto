@@ -49,19 +49,23 @@ will create a catalog named ``sales`` using the configured connector.
 HDFS Configuration
 ^^^^^^^^^^^^^^^^^^
 
-Presto configures the HDFS client automatically for most setups and
-does not require any configuration files. In some rare cases, such
-as when using federated HDFS, it may be necessary to specify additional
-HDFS client options in order to access your HDFS cluster. To do so, add
-the ``hive.config.resources`` property to reference your HDFS config files:
+For basic setups, Presto configures the HDFS client automatically and
+does not require any configuration files. In some cases, such as when using
+federated HDFS or NameNode high availability, it is necessary to specify
+additional HDFS client options in order to access your HDFS cluster. To do so,
+add the ``hive.config.resources`` property to reference your HDFS config files:
 
 .. code-block:: none
 
     hive.config.resources=/etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
 
-Only specify additional configuration files if absolutely necessary.
+Only specify additional configuration files if necessary for your setup.
 We also recommend reducing the configuration files to have the minimum
 set of required properties, as additional properties may cause problems.
+
+The configuration files must exist on all Presto nodes. If you are
+referencing existing Hadoop config files, make sure to copy them to
+any Presto nodes that are not running Hadoop.
 
 Configuration Properties
 ------------------------
@@ -99,6 +103,8 @@ Property Name                                      Description                  
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
+
+``hive.s3.sse.enabled``                            Enable S3 server-side encryption.                            ``false``
 ================================================== ============================================================ ==========
 
 Querying Hive Tables

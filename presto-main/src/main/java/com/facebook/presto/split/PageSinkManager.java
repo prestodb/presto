@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -40,7 +40,7 @@ public class PageSinkManager
     {
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(connectorSession, tableHandle.getConnectorHandle());
+        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
     }
 
     @Override
@@ -48,7 +48,7 @@ public class PageSinkManager
     {
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(connectorSession, tableHandle.getConnectorHandle());
+        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
     }
 
     private ConnectorPageSinkProvider providerFor(String connectorId)

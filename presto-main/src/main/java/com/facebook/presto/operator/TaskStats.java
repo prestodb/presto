@@ -48,6 +48,7 @@ public class TaskStats
     private final int runningPartitionedDrivers;
     private final int completedDrivers;
 
+    private final double cumulativeMemory;
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
 
@@ -83,6 +84,7 @@ public class TaskStats
                 0,
                 0,
                 0,
+                0.0,
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new Duration(0, MILLISECONDS),
@@ -116,6 +118,7 @@ public class TaskStats
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
+            @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
@@ -159,6 +162,7 @@ public class TaskStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
+        this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
@@ -245,6 +249,12 @@ public class TaskStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    @JsonProperty
+    public double getCumulativeMemory()
+    {
+        return cumulativeMemory;
     }
 
     @JsonProperty
@@ -364,6 +374,7 @@ public class TaskStats
                 runningDrivers,
                 runningPartitionedDrivers,
                 completedDrivers,
+                cumulativeMemory,
                 memoryReservation,
                 systemMemoryReservation,
                 totalScheduledTime,

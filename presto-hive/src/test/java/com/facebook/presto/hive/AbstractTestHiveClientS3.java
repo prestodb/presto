@@ -61,10 +61,10 @@ import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.AbstractTestHiveClient.listAllDataPaths;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
-import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FACTORIES;
-import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -149,8 +149,8 @@ public abstract class AbstractTestHiveClientS3
         HivePartitionManager hivePartitionManager = new HivePartitionManager(connectorId, hiveClientConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig);
-        locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
         metastoreClient = new TestingHiveMetastore(hiveCluster, executor, hiveClientConfig, writableBucket, hdfsEnvironment);
+        locationService = new HiveLocationService(metastoreClient, hdfsEnvironment);
         TypeRegistry typeManager = new TypeRegistry();
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadata = new HiveMetadata(
@@ -162,6 +162,7 @@ public abstract class AbstractTestHiveClientS3
                 newDirectExecutorService(),
                 typeManager,
                 locationService,
+                new TableParameterCodec(),
                 partitionUpdateCodec);
         splitManager = new HiveSplitManager(
                 connectorId,
@@ -172,7 +173,7 @@ public abstract class AbstractTestHiveClientS3
                 new HadoopDirectoryLister(),
                 executor);
         pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(), typeManager, new HiveClientConfig(), locationService, partitionUpdateCodec);
-        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES, TYPE_MANAGER);
+        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
 
     @Test
@@ -300,7 +301,7 @@ public abstract class AbstractTestHiveClientS3
     {
         // begin creating the table
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT, false))
+                .add(new ColumnMetadata("id", BIGINT))
                 .build();
 
         Map<String, Object> properties = ImmutableMap.<String, Object>builder()
@@ -319,7 +320,7 @@ public abstract class AbstractTestHiveClientS3
         // write the records
         ConnectorPageSink sink = pageSinkProvider.createPageSink(SESSION, outputHandle);
         sink.appendPage(data.toPage(), null);
-        Collection<Slice> fragments = sink.commit();
+        Collection<Slice> fragments = sink.finish();
 
         // commit the table
         metadata.commitCreateTable(SESSION, outputHandle, fragments);

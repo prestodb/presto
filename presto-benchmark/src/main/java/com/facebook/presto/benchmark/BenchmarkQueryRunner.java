@@ -20,6 +20,7 @@ import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.Session.SessionBuilder;
+import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -49,7 +50,7 @@ public final class BenchmarkQueryRunner
         }
 
         Session session = sessionBuilder.build();
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner localQueryRunner = queryRunnerWithInitialTransaction(session);
 
         // add tpch
         InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();

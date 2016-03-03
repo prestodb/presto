@@ -105,16 +105,16 @@ public class TestJdbcMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", VARCHAR, false),
-                new ColumnMetadata("value", BIGINT, false)));
+                new ColumnMetadata("text", VARCHAR),
+                new ColumnMetadata("value", BIGINT)));
 
         // escaping name patterns
         JdbcTableHandle specialTableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("exa_ple", "num_ers"));
         ConnectorTableMetadata specialTableMetadata = metadata.getTableMetadata(SESSION, specialTableHandle);
         assertEquals(specialTableMetadata.getTable(), new SchemaTableName("exa_ple", "num_ers"));
         assertEquals(specialTableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("te_t", VARCHAR, false),
-                new ColumnMetadata("va%ue", BIGINT, false)));
+                new ColumnMetadata("te_t", VARCHAR),
+                new ColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null
         unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
@@ -138,13 +138,17 @@ public class TestJdbcMetadata
         // all schemas
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, null)), ImmutableSet.of(
                 new SchemaTableName("example", "numbers"),
+                new SchemaTableName("example", "view_source"),
+                new SchemaTableName("example", "view"),
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem"),
                 new SchemaTableName("exa_ple", "num_ers")));
 
         // specific schema
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "example")), ImmutableSet.of(
-                new SchemaTableName("example", "numbers")));
+                new SchemaTableName("example", "numbers"),
+                new SchemaTableName("example", "view_source"),
+                new SchemaTableName("example", "view")));
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, "tpch")), ImmutableSet.of(
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
@@ -160,7 +164,7 @@ public class TestJdbcMetadata
     {
         assertEquals(
                 metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", VARCHAR)),
-                new ColumnMetadata("text", VARCHAR, false));
+                new ColumnMetadata("text", VARCHAR));
     }
 
     @Test(expectedExceptions = PrestoException.class)
@@ -168,7 +172,7 @@ public class TestJdbcMetadata
     {
         metadata.createTable(SESSION, new ConnectorTableMetadata(
                 new SchemaTableName("example", "foo"),
-                ImmutableList.of(new ColumnMetadata("text", VARCHAR, false))));
+                ImmutableList.of(new ColumnMetadata("text", VARCHAR))));
     }
 
     @Test

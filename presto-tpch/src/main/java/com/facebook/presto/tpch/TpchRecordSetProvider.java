@@ -14,10 +14,11 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchColumnType;
@@ -34,7 +35,7 @@ public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         TpchSplit tpchSplit = checkType(split, TpchSplit.class, "split");
 

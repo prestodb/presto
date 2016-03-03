@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 public class QualifiedNameReference
@@ -63,12 +64,7 @@ public class QualifiedNameReference
         }
 
         QualifiedNameReference that = (QualifiedNameReference) o;
-
-        if (!name.equals(that.name)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(name, that.name);
     }
 
     @Override

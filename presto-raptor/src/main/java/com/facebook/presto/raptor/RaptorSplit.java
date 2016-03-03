@@ -19,9 +19,12 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -31,7 +34,8 @@ public class RaptorSplit
         implements ConnectorSplit
 {
     private final String connectorId;
-    private final UUID shardUuid;
+    private final Set<UUID> shardUuids;
+    private final OptionalInt bucketNumber;
     private final List<HostAddress> addresses;
     private final TupleDomain<RaptorColumnHandle> effectivePredicate;
     private final OptionalLong transactionId;
@@ -39,11 +43,12 @@ public class RaptorSplit
     @JsonCreator
     public RaptorSplit(
             @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("shardUuid") UUID shardUuid,
+            @JsonProperty("shardUuids") Set<UUID> shardUuids,
+            @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("effectivePredicate") TupleDomain<RaptorColumnHandle> effectivePredicate,
             @JsonProperty("transactionId") OptionalLong transactionId)
     {
-        this(connectorId, shardUuid, ImmutableList.of(), effectivePredicate, transactionId);
+        this(connectorId, shardUuids, bucketNumber, ImmutableList.of(), effectivePredicate, transactionId);
     }
 
     public RaptorSplit(
@@ -53,8 +58,31 @@ public class RaptorSplit
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             OptionalLong transactionId)
     {
+        this(connectorId, ImmutableSet.of(shardUuid), OptionalInt.empty(), addresses, effectivePredicate, transactionId);
+    }
+
+    public RaptorSplit(
+            String connectorId,
+            Set<UUID> shardUuids,
+            int bucketNumber,
+            HostAddress address,
+            TupleDomain<RaptorColumnHandle> effectivePredicate,
+            OptionalLong transactionId)
+    {
+        this(connectorId, shardUuids, OptionalInt.of(bucketNumber), ImmutableList.of(address), effectivePredicate, transactionId);
+    }
+
+    private RaptorSplit(
+            String connectorId,
+            Set<UUID> shardUuids,
+            OptionalInt bucketNumber,
+            List<HostAddress> addresses,
+            TupleDomain<RaptorColumnHandle> effectivePredicate,
+            OptionalLong transactionId)
+    {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.shardUuids = ImmutableSet.copyOf(requireNonNull(shardUuids, "shardUuid is null"));
+        this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -79,9 +107,15 @@ public class RaptorSplit
     }
 
     @JsonProperty
-    public UUID getShardUuid()
+    public Set<UUID> getShardUuids()
     {
-        return shardUuid;
+        return shardUuids;
+    }
+
+    @JsonProperty
+    public OptionalInt getBucketNumber()
+    {
+        return bucketNumber;
     }
 
     @JsonProperty
@@ -106,8 +140,10 @@ public class RaptorSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("shardUuid", shardUuid)
+                .add("shardUuids", shardUuids)
+                .add("bucketNumber", bucketNumber.isPresent() ? bucketNumber.getAsInt() : null)
                 .add("hosts", addresses)
+                .omitNullValues()
                 .toString();
     }
 }

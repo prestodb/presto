@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
-import com.facebook.presto.hive.parquet.reader.block.ParquetBlockBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import parquet.bytes.BytesInput;
 import parquet.bytes.BytesUtils;
@@ -34,45 +35,94 @@ import parquet.io.ParquetDecodingException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
+import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class ParquetColumnReader
+public abstract class ParquetColumnReader
 {
-    private final ColumnDescriptor columnDescriptor;
-    private final long totalValueCount;
-    private final PageReader pageReader;
-    private final Dictionary dictionary;
+    protected final ColumnDescriptor columnDescriptor;
 
-    private ParquetLevelReader repetitionReader;
-    private ParquetLevelReader definitionReader;
+    protected ParquetLevelReader repetitionReader;
+    protected ParquetLevelReader definitionReader;
+    protected ValuesReader valuesReader;
+    protected int nextBatchSize;
+
+    private long totalValueCount;
+    private PageReader pageReader;
+    private Dictionary dictionary;
     private int repetitionLevel;
     private int definitionLevel;
     private int currentValueCount;
     private int pageValueCount;
     private DataPage page;
-    private ValuesReader valuesReader;
     private int remainingValueCountInPage;
+    private int readOffset;
 
-    public ParquetColumnReader(ColumnDescriptor columnDescriptor, PageReader pageReader)
+    public abstract BlockBuilder createBlockBuilder();
+
+    public abstract void readValues(BlockBuilder blockBuilder, int valueNumber);
+
+    public abstract void skipValues(int offsetNumber);
+
+    public static ParquetColumnReader createReader(ColumnDescriptor descriptor)
+    {
+        switch (descriptor.getType()) {
+            case BOOLEAN:
+                return new ParquetBooleanColumnReader(descriptor);
+            case INT32:
+                return new ParquetIntColumnReader(descriptor);
+            case INT64:
+                return new ParquetLongColumnReader(descriptor);
+            case INT96:
+                return new ParquetTimestampColumnReader(descriptor);
+            case FLOAT:
+                return new ParquetFloatColumnReader(descriptor);
+            case DOUBLE:
+                return new ParquetDoubleColumnReader(descriptor);
+            case BINARY:
+                return new ParquetBinaryColumnReader(descriptor);
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getType());
+        }
+    }
+
+    public ParquetColumnReader(ColumnDescriptor columnDescriptor)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
+        pageReader = null;
+    }
+
+    public PageReader getPageReader()
+    {
+        return pageReader;
+    }
+
+    public void setPageReader(PageReader pageReader)
+    {
         this.pageReader = requireNonNull(pageReader, "pageReader");
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
 
         if (dictionaryPage != null) {
             try {
-                this.dictionary = dictionaryPage.getEncoding().initDictionary(columnDescriptor, dictionaryPage);
+                dictionary = dictionaryPage.getEncoding().initDictionary(columnDescriptor, dictionaryPage);
             }
             catch (IOException e) {
                 throw new ParquetDecodingException("could not decode the dictionary for " + columnDescriptor, e);
             }
         }
         else {
-            this.dictionary = null;
+            dictionary = null;
         }
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
-        this.totalValueCount = pageReader.getTotalValueCount();
+        totalValueCount = pageReader.getTotalValueCount();
+    }
+
+    public void prepareNextRead(int batchSize)
+    {
+        readOffset = readOffset + nextBatchSize;
+        nextBatchSize = batchSize;
     }
 
     public int getCurrentRepetitionLevel()
@@ -95,39 +145,68 @@ public class ParquetColumnReader
         return totalValueCount;
     }
 
-    public Block readBlock(int vectorSize, Type type)
+    public Block readBlock(Type type)
+            throws IOException
     {
-        checkArgument(currentValueCount <= totalValueCount, "Already read all values in this column chunk");
-        int valueCount = 0;
-        ParquetBlockBuilder blockBuilder = ParquetBlockBuilder.createBlockBuilder(vectorSize, columnDescriptor);
-        while (valueCount < vectorSize) {
-            if (this.page == null) {
-                this.page = pageReader.readPage();
-                if (this.page == null) {
-                    break;
+        checkArgument(currentValueCount <= totalValueCount, "Already read all values in column chunk");
+        // Parquet does not have api to skip in datastream, have to skip values
+        // TODO skip in datastream
+        if (readOffset != 0) {
+            int valuePosition = 0;
+            while (valuePosition < readOffset) {
+                if (page == null) {
+                    readNextPage();
                 }
-                remainingValueCountInPage = page.getValueCount();
-
-                if (page instanceof DataPageV1) {
-                    valuesReader = readPageV1((DataPageV1) page);
-                }
-                else {
-                    valuesReader = readPageV2((DataPageV2) page);
-                }
+                int offsetNumber = Math.min(remainingValueCountInPage, readOffset - valuePosition);
+                skipValues(offsetNumber);
+                valuePosition = valuePosition + offsetNumber;
+                updatePosition(offsetNumber);
             }
-
-            int valueNumber = Math.min(this.remainingValueCountInPage, vectorSize - valueCount);
-            blockBuilder.readValues(this.valuesReader, valueNumber, definitionReader);
-            valueCount = valueCount + valueNumber;
-
-            if (valueNumber == remainingValueCountInPage) {
-                page = null;
-                valuesReader = null;
-            }
-            remainingValueCountInPage = remainingValueCountInPage - valueNumber;
-            currentValueCount += valueNumber;
+            checkArgument(valuePosition == readOffset, "valuePosition " + valuePosition + " not equals to readOffset " + readOffset);
         }
-        return blockBuilder.buildBlock();
+
+        BlockBuilder blockBuilder = createBlockBuilder();
+        int valueCount = 0;
+        while (valueCount < nextBatchSize) {
+            if (page == null) {
+                readNextPage();
+            }
+            int valueNumber = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
+            readValues(blockBuilder, valueNumber);
+            valueCount = valueCount + valueNumber;
+            updatePosition(valueNumber);
+        }
+        checkArgument(valueCount == nextBatchSize, "valueCount " + valueCount + " not equals to batchSize " + nextBatchSize);
+
+        readOffset = 0;
+        nextBatchSize = 0;
+        return blockBuilder.build();
+    }
+
+    private void readNextPage()
+            throws IOException
+    {
+        page = pageReader.readPage();
+        validateParquet(page != null, "Not enough values to read in column chunk");
+        pageValueCount = page.getValueCount();
+        remainingValueCountInPage = page.getValueCount();
+
+        if (page instanceof DataPageV1) {
+            valuesReader = readPageV1((DataPageV1) page);
+        }
+        else {
+            valuesReader = readPageV2((DataPageV2) page);
+        }
+    }
+
+    private void updatePosition(int valueNumber)
+    {
+        if (valueNumber == remainingValueCountInPage) {
+            page = null;
+            valuesReader = null;
+        }
+        remainingValueCountInPage = remainingValueCountInPage - valueNumber;
+        currentValueCount += valueNumber;
     }
 
     private ValuesReader readPageV1(DataPageV1 page)
@@ -176,7 +255,6 @@ public class ParquetColumnReader
 
     private ValuesReader initDataReader(Encoding dataEncoding, byte[] bytes, int offset, int valueCount)
     {
-        pageValueCount = valueCount;
         ValuesReader valuesReader;
         if (dataEncoding.usesDictionary()) {
             if (dictionary == null) {

@@ -13,14 +13,37 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.Page;
 
-public interface PartitionFunction
+import java.util.stream.IntStream;
+
+import static java.util.Objects.requireNonNull;
+
+public class PartitionFunction
 {
-    int getPartitionCount();
+    private final BucketFunction bucketFunction;
+    private final int[] bucketToPartition;
+    private final int partitionCount;
+
+    public PartitionFunction(BucketFunction bucketFunction, int[] bucketToPartition)
+    {
+        this.bucketFunction = requireNonNull(bucketFunction, "bucketFunction is null");
+        this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null").clone();
+        partitionCount = IntStream.of(bucketToPartition).max().getAsInt() + 1;
+    }
+
+    public int getPartitionCount()
+    {
+        return partitionCount;
+    }
 
     /**
      * @param functionArguments the arguments to partition function in order (no extra columns)
      */
-    int getPartition(Page functionArguments, int position);
+    public int getPartition(Page functionArguments, int position)
+    {
+        int bucket = bucketFunction.getBucket(functionArguments, position);
+        return bucketToPartition[bucket];
+    }
 }

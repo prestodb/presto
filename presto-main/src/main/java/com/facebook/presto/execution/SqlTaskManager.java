@@ -47,12 +47,14 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -134,7 +136,6 @@ public class SqlTaskManager
             {
                 return new SqlTask(
                         taskId,
-                        nodeInfo.getInstanceId(),
                         locationFactory.createLocalTaskLocation(taskId),
                         queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
@@ -251,13 +252,18 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
+    public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
         requireNonNull(fragment, "fragment is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
+
+        if (resourceOvercommit(session)) {
+            // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.
+            queryContexts.getUnchecked(taskId.getQueryId()).setResourceOvercommit();
+        }
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();

@@ -247,6 +247,11 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
+    protected R visitBinaryLiteral(BinaryLiteral node, C context)
+    {
+        return visitLiteral(node, context);
+    }
+
     protected R visitBooleanLiteral(BooleanLiteral node, C context)
     {
         return visitLiteral(node, context);
@@ -402,6 +407,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitTryExpression(TryExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitCast(Cast node, C context)
     {
         return visitExpression(node, context);
@@ -423,6 +433,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitFrameBound(FrameBound node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitCallArgument(CallArgument node, C context)
     {
         return visitNode(node, context);
     }
@@ -477,7 +492,47 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitCall(Call node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitDelete(Delete node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitStartTransaction(StartTransaction node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitGrant(Grant node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitTransactionMode(TransactionMode node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitIsolationLevel(Isolation node, C context)
+    {
+        return visitTransactionMode(node, context);
+    }
+
+    protected R visitTransactionAccessMode(TransactionAccessMode node, C context)
+    {
+        return visitTransactionMode(node, context);
+    }
+
+    protected R visitCommit(Commit node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRollback(Rollback node, C context)
     {
         return visitStatement(node, context);
     }

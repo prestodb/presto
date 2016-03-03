@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -61,12 +62,7 @@ public class ExistsPredicate
         }
 
         ExistsPredicate that = (ExistsPredicate) o;
-
-        if (!subquery.equals(that.subquery)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(subquery, that.subquery);
     }
 
     @Override

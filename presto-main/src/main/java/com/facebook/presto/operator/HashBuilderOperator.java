@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -34,6 +35,7 @@ public class HashBuilderOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
         private final SettableLookupSourceSupplier lookupSourceSupplier;
         private final List<Integer> hashChannels;
         private final Optional<Integer> hashChannel;
@@ -43,12 +45,14 @@ public class HashBuilderOperator
 
         public HashBuilderOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<Type> types,
                 List<Integer> hashChannels,
                 Optional<Integer> hashChannel,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.lookupSourceSupplier = new SettableLookupSourceSupplier(requireNonNull(types, "types is null"));
 
             Preconditions.checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
@@ -73,7 +77,7 @@ public class HashBuilderOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, HashBuilderOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
             return new HashBuilderOperator(
                     operatorContext,
                     lookupSourceSupplier,
@@ -91,7 +95,7 @@ public class HashBuilderOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new HashBuilderOperatorFactory(operatorId, lookupSourceSupplier.getTypes(), hashChannels, hashChannel, expectedPositions);
+            return new HashBuilderOperatorFactory(operatorId, planNodeId, lookupSourceSupplier.getTypes(), hashChannels, hashChannel, expectedPositions);
         }
     }
 

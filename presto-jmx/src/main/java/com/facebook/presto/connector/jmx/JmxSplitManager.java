@@ -14,15 +14,14 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartition;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
@@ -34,8 +33,6 @@ import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -53,26 +50,11 @@ public class JmxSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        requireNonNull(tupleDomain, "tupleDomain is null");
-        JmxTableHandle jmxTableHandle = checkType(table, JmxTableHandle.class, "table");
-
-        List<ConnectorPartition> partitions = ImmutableList.of(new JmxPartition(jmxTableHandle, tupleDomain));
-        return new ConnectorPartitionResult(partitions, tupleDomain);
-    }
-
-    @Override
-    public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions)
-    {
-        requireNonNull(partitions, "partitions is null");
-        if (partitions.isEmpty()) {
-            return new FixedSplitSource(connectorId, ImmutableList.of());
-        }
-
-        JmxPartition jmxPartition = checkType(getOnlyElement(partitions), JmxPartition.class, "partition");
-        JmxTableHandle tableHandle = jmxPartition.getTableHandle();
-        TupleDomain<ColumnHandle> predicate = jmxPartition.getPredicate();
+        JmxTableLayoutHandle jmxLayout = checkType(layout, JmxTableLayoutHandle.class, "layout");
+        JmxTableHandle tableHandle = jmxLayout.getTable();
+        TupleDomain<ColumnHandle> predicate = jmxLayout.getConstraint();
 
         //TODO is there a better way to get the node column?
         JmxColumnHandle nodeColumnHandle = tableHandle.getColumns().get(0);
@@ -87,49 +69,5 @@ public class JmxSplitManager
                 .collect(toList());
 
         return new FixedSplitSource(connectorId, splits);
-    }
-
-    public static class JmxPartition
-            implements ConnectorPartition
-    {
-        private final JmxTableHandle tableHandle;
-        private final TupleDomain<ColumnHandle> predicate;
-
-        public JmxPartition(JmxTableHandle tableHandle, TupleDomain<ColumnHandle> predicate)
-        {
-            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-            this.predicate = requireNonNull(predicate, "predicate is null");
-        }
-
-        public JmxTableHandle getTableHandle()
-        {
-            return tableHandle;
-        }
-
-        public TupleDomain<ColumnHandle> getPredicate()
-        {
-            return predicate;
-        }
-
-        @Override
-        public String getPartitionId()
-        {
-            return "jmx";
-        }
-
-        @Override
-        public TupleDomain<ColumnHandle> getTupleDomain()
-        {
-            return TupleDomain.all();
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("tableHandle", tableHandle)
-                    .add("predicate", predicate)
-                    .toString();
-        }
     }
 }

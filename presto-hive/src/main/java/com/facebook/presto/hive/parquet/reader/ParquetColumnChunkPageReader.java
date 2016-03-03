@@ -63,8 +63,8 @@ class ParquetColumnChunkPageReader
         try {
             if (compressedPage instanceof DataPageV1) {
                 DataPageV1 dataPageV1 = (DataPageV1) compressedPage;
-                return new DataPageV1(decompressor.decompress(dataPageV1.getBytes(),
-                        dataPageV1.getUncompressedSize()),
+                return new DataPageV1(
+                        decompressor.decompress(dataPageV1.getBytes(), dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
                         dataPageV1.getUncompressedSize(),
                         dataPageV1.getStatistics(),
@@ -78,7 +78,8 @@ class ParquetColumnChunkPageReader
                     return dataPageV2;
                 }
                 int uncompressedSize = Ints.checkedCast(dataPageV2.getUncompressedSize() - dataPageV2.getDefinitionLevels().size() - dataPageV2.getRepetitionLevels().size());
-                return DataPageV2.uncompressed(dataPageV2.getRowCount(),
+                return DataPageV2.uncompressed(
+                        dataPageV2.getRowCount(),
                         dataPageV2.getNullCount(),
                         dataPageV2.getValueCount(),
                         dataPageV2.getRepetitionLevels(),
@@ -100,8 +101,8 @@ class ParquetColumnChunkPageReader
             return null;
         }
         try {
-            return new DictionaryPage(decompressor.decompress(compressedDictionaryPage.getBytes(),
-                    compressedDictionaryPage.getUncompressedSize()),
+            return new DictionaryPage(
+                    decompressor.decompress(compressedDictionaryPage.getBytes(), compressedDictionaryPage.getUncompressedSize()),
                     compressedDictionaryPage.getDictionarySize(),
                     compressedDictionaryPage.getEncoding());
         }

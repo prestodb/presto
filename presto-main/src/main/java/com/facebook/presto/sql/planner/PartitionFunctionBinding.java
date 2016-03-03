@@ -13,71 +13,98 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.predicate.NullableValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionFunctionBinding
 {
-    private final PartitionFunctionHandle functionHandle;
-    private final List<Symbol> partitioningColumns;
+    private final PartitioningHandle partitioningHandle;
+    private final List<Symbol> outputLayout;
+    private final List<PartitionFunctionArgumentBinding> partitionFunctionArguments;
     private final Optional<Symbol> hashColumn;
     private final boolean replicateNulls;
-    private final OptionalInt partitionCount;
+    private final Optional<int[]> bucketToPartition;
 
-    public PartitionFunctionBinding(PartitionFunctionHandle functionHandle, List<Symbol> partitioningColumns)
+    public PartitionFunctionBinding(PartitioningHandle partitioningHandle, List<Symbol> outputLayout, List<PartitionFunctionArgumentBinding> partitionFunctionArguments)
     {
-        this(functionHandle,
-                partitioningColumns,
+        this(
+                partitioningHandle,
+                outputLayout,
+                partitionFunctionArguments,
                 Optional.empty(),
                 false,
-                OptionalInt.empty());
+                Optional.empty());
     }
 
-    public PartitionFunctionBinding(PartitionFunctionHandle functionHandle, List<Symbol> partitioningColumns, Optional<Symbol> hashColumn)
+    public PartitionFunctionBinding(PartitioningHandle partitioningHandle, List<Symbol> outputLayout, List<PartitionFunctionArgumentBinding> partitionFunctionArguments, Optional<Symbol> hashColumn)
     {
-        this(functionHandle,
-                partitioningColumns,
+        this(
+                partitioningHandle,
+                outputLayout,
+                partitionFunctionArguments,
                 hashColumn,
                 false,
-                OptionalInt.empty());
+                Optional.empty());
     }
 
     @JsonCreator
     public PartitionFunctionBinding(
-            @JsonProperty("functionHandle") PartitionFunctionHandle functionHandle,
-            @JsonProperty("partitioningColumns") List<Symbol> partitioningColumns,
+            @JsonProperty("partitioningHandle") PartitioningHandle partitioningHandle,
+            @JsonProperty("outputLayout") List<Symbol> outputLayout,
+            @JsonProperty("partitionFunctionArguments") List<PartitionFunctionArgumentBinding> partitionFunctionArguments,
             @JsonProperty("hashColumn") Optional<Symbol> hashColumn,
             @JsonProperty("replicateNulls") boolean replicateNulls,
-            @JsonProperty("partitionCount") OptionalInt partitionCount)
+            @JsonProperty("bucketToPartition") Optional<int[]> bucketToPartition)
     {
-        this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
-        this.partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
+        this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
+        this.outputLayout = ImmutableList.copyOf(requireNonNull(outputLayout, "outputLayout is null"));
+
+        this.partitionFunctionArguments = ImmutableList.copyOf(requireNonNull(partitionFunctionArguments, "partitionFunctionArguments is null"));
+        List<Symbol> partitionFunctionColumns = partitionFunctionArguments.stream()
+                .filter(PartitionFunctionArgumentBinding::isVariable)
+                .map(PartitionFunctionArgumentBinding::getColumn)
+                .collect(toImmutableList());
+        checkArgument(ImmutableSet.copyOf(outputLayout).containsAll(partitionFunctionColumns),
+                "Output layout (%s) don't include all partition columns (%s)", outputLayout, partitionFunctionColumns);
+
         this.hashColumn = requireNonNull(hashColumn, "hashColumn is null");
-        checkArgument(!replicateNulls || partitioningColumns.size() == 1, "size of partitioningColumns is not 1 when nullPartition is REPLICATE.");
+        hashColumn.ifPresent(column -> checkArgument(outputLayout.contains(column),
+                "Output layout (%s) don't include hash column (%s)", outputLayout, column));
+
+        checkArgument(!replicateNulls || partitionFunctionArguments.size() == 1, "size of partitionFunctionArguments is not 1 when nullPartition is REPLICATE.");
+        checkArgument(!replicateNulls || partitionFunctionArguments.get(0).isVariable(), "partition function argument must be variable when nullPartition is REPLICATE.");
         this.replicateNulls = replicateNulls;
-        this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
+        this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
     }
 
     @JsonProperty
-    public PartitionFunctionHandle getFunctionHandle()
+    public PartitioningHandle getPartitioningHandle()
     {
-        return functionHandle;
+        return partitioningHandle;
     }
 
     @JsonProperty
-    public List<Symbol> getPartitioningColumns()
+    public List<Symbol> getOutputLayout()
     {
-        return partitioningColumns;
+        return outputLayout;
+    }
+
+    @JsonProperty
+    public List<PartitionFunctionArgumentBinding> getPartitionFunctionArguments()
+    {
+        return partitionFunctionArguments;
     }
 
     @JsonProperty
@@ -93,14 +120,40 @@ public class PartitionFunctionBinding
     }
 
     @JsonProperty
-    public OptionalInt getPartitionCount()
+    public Optional<int[]> getBucketToPartition()
     {
-        return partitionCount;
+        return bucketToPartition;
     }
 
-    public PartitionFunctionBinding withPartitionCount(OptionalInt partitionCount)
+    public PartitionFunctionBinding withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PartitionFunctionBinding(functionHandle, partitioningColumns, hashColumn, replicateNulls, partitionCount);
+        return new PartitionFunctionBinding(partitioningHandle, outputLayout, partitionFunctionArguments, hashColumn, replicateNulls, bucketToPartition);
+    }
+
+    public PartitionFunctionBinding translateOutputLayout(List<Symbol> newOutputLayout)
+    {
+        requireNonNull(newOutputLayout, "newOutputLayout is null");
+
+        checkArgument(newOutputLayout.size() == outputLayout.size());
+
+        List<PartitionFunctionArgumentBinding> newPartitioningColumns = partitionFunctionArguments.stream()
+                .map(argument -> translateOutputLayout(argument, newOutputLayout))
+                .collect(toImmutableList());
+
+        Optional<Symbol> newHashSymbol = hashColumn
+                .map(outputLayout::indexOf)
+                .map(newOutputLayout::get);
+
+        return new PartitionFunctionBinding(partitioningHandle, newOutputLayout, newPartitioningColumns, newHashSymbol, replicateNulls, bucketToPartition);
+    }
+
+    private PartitionFunctionArgumentBinding translateOutputLayout(PartitionFunctionArgumentBinding argumentBinding, List<Symbol> newOutputLayout)
+    {
+        if (argumentBinding.isConstant()) {
+            return argumentBinding;
+        }
+        int symbolIndex = outputLayout.indexOf(argumentBinding.getColumn());
+        return new PartitionFunctionArgumentBinding(newOutputLayout.get(symbolIndex));
     }
 
     @Override
@@ -113,28 +166,108 @@ public class PartitionFunctionBinding
             return false;
         }
         PartitionFunctionBinding that = (PartitionFunctionBinding) o;
-        return Objects.equals(functionHandle, that.functionHandle) &&
-                Objects.equals(partitioningColumns, that.partitioningColumns) &&
-                Objects.equals(hashColumn, that.hashColumn) &&
+        return Objects.equals(partitioningHandle, that.partitioningHandle) &&
+                Objects.equals(outputLayout, that.outputLayout) &&
+                Objects.equals(partitionFunctionArguments, that.partitionFunctionArguments) &&
                 replicateNulls == that.replicateNulls &&
-                Objects.equals(partitionCount, that.partitionCount);
+                Objects.equals(bucketToPartition, that.bucketToPartition);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(functionHandle, partitioningColumns, replicateNulls, partitionCount);
+        return Objects.hash(partitioningHandle, outputLayout, partitionFunctionArguments, replicateNulls, bucketToPartition);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("functionHandle", functionHandle)
-                .add("partitioningChannels", partitioningColumns)
+                .add("partitioningHandle", partitioningHandle)
+                .add("outputLayout", outputLayout)
+                .add("partitioningChannels", partitionFunctionArguments)
                 .add("hashChannel", hashColumn)
                 .add("replicateNulls", replicateNulls)
-                .add("partitionCount", partitionCount)
+                .add("bucketToPartition", bucketToPartition)
                 .toString();
+    }
+
+    public static final class PartitionFunctionArgumentBinding
+    {
+        private final Symbol column;
+        private final NullableValue constant;
+
+        public PartitionFunctionArgumentBinding(Symbol column)
+        {
+            this.column = requireNonNull(column, "column is null");
+            this.constant = null;
+        }
+
+        public PartitionFunctionArgumentBinding(NullableValue constant)
+        {
+            this.constant = requireNonNull(constant, "constant is null");
+            this.column = null;
+        }
+
+        @JsonCreator
+        public PartitionFunctionArgumentBinding(
+                @JsonProperty("column") Symbol column,
+                @JsonProperty("constant") NullableValue constant)
+        {
+            this.column = column;
+            this.constant = constant;
+            checkArgument((column == null) != (constant == null), "Column or constant be set");
+        }
+
+        public boolean isConstant()
+        {
+            return constant != null;
+        }
+
+        public boolean isVariable()
+        {
+            return column != null;
+        }
+
+        @JsonProperty
+        public Symbol getColumn()
+        {
+            return column;
+        }
+
+        @JsonProperty
+        public NullableValue getConstant()
+        {
+            return constant;
+        }
+
+        @Override
+        public String toString()
+        {
+            if (constant != null) {
+                return constant.toString();
+            }
+            return "\"" + column + "\"";
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            PartitionFunctionArgumentBinding that = (PartitionFunctionArgumentBinding) o;
+            return Objects.equals(column, that.column) &&
+                    Objects.equals(constant, that.constant);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(column, constant);
+        }
     }
 }

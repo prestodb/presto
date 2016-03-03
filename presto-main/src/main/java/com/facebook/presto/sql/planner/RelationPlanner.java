@@ -79,11 +79,11 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.ExpressionUtils.flipComparison;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
+import static com.facebook.presto.type.TypeRegistry.isTypeOnlyCoercion;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -119,17 +119,23 @@ class RelationPlanner
     protected RelationPlan visitTable(Table node, Void context)
     {
         Query namedQuery = analysis.getNamedQuery(node);
+        RelationType tableType = analysis.getOutputDescriptor(node);
+
         if (namedQuery != null) {
             RelationPlan subPlan = process(namedQuery, null);
-            return new RelationPlan(subPlan.getRoot(), analysis.getOutputDescriptor(node), subPlan.getOutputSymbols(), subPlan.getSampleWeight());
+
+            // Add implicit coercions if view query produces types that don't match the declared output types
+            // of the view (e.g., if the underlying tables referenced by the view changed)
+            Type[] types = tableType.getAllFields().stream().map(Field::getType).toArray(Type[]::new);
+            RelationPlan withCoercions = addCoercions(subPlan, types);
+            return new RelationPlan(withCoercions.getRoot(), tableType, withCoercions.getOutputSymbols(), withCoercions.getSampleWeight());
         }
 
-        RelationType descriptor = analysis.getOutputDescriptor(node);
         TableHandle handle = analysis.getTableHandle(node);
 
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-        for (Field field : descriptor.getAllFields()) {
+        for (Field field : tableType.getAllFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
 
             outputSymbolsBuilder.add(symbol);
@@ -147,7 +153,7 @@ class RelationPlanner
 
         List<Symbol> nodeOutputSymbols = outputSymbolsBuilder.build();
         PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, nodeOutputSymbols, columns.build(), Optional.empty(), TupleDomain.all(), null);
-        return new RelationPlan(root, descriptor, planOutputSymbols, Optional.ofNullable(sampleWeightSymbol));
+        return new RelationPlan(root, tableType, planOutputSymbols, Optional.ofNullable(sampleWeightSymbol));
     }
 
     @Override
@@ -251,7 +257,7 @@ class RelationPlanner
                 else if (firstDependencies.stream().allMatch(right.canResolvePredicate()) && secondDependencies.stream().allMatch(left.canResolvePredicate())) {
                     leftExpression = comparison.getRight();
                     rightExpression = comparison.getLeft();
-                    comparisonType = flipComparison(comparisonType);
+                    comparisonType = comparisonType.flip();
                 }
                 else {
                     // must have a complex expression that involves both tuples on one side of the comparison expression (e.g., coalesce(left.x, right.x) = 1)
@@ -478,24 +484,29 @@ class RelationPlanner
     {
         Type[] coerceToTypes = analysis.getRelationCoercion(node);
 
-        RelationPlan plan = node.accept(this, context);
+        RelationPlan plan = this.process(node, context);
 
         if (coerceToTypes == null) {
             return plan;
         }
 
+        return addCoercions(plan, coerceToTypes);
+    }
+
+    private RelationPlan addCoercions(RelationPlan plan, Type[] targetColumnTypes)
+    {
         List<Symbol> oldSymbols = plan.getOutputSymbols();
         RelationType oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
-        verify(coerceToTypes.length == oldSymbols.size());
+        verify(targetColumnTypes.length == oldSymbols.size());
         ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
-        Field[] newFields = new Field[coerceToTypes.length];
+        Field[] newFields = new Field[targetColumnTypes.length];
         ImmutableMap.Builder<Symbol, Expression> assignments = new ImmutableMap.Builder<>();
-        for (int i = 0; i < coerceToTypes.length; i++) {
+        for (int i = 0; i < targetColumnTypes.length; i++) {
             Symbol inputSymbol = oldSymbols.get(i);
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);
-            Type outputType = coerceToTypes[i];
-            if (outputType != inputType) {
-                Cast cast = new Cast(new QualifiedNameReference(inputSymbol.toQualifiedName()), outputType.getTypeSignature().toString());
+            Type outputType = targetColumnTypes[i];
+            if (outputType != inputType && !isTypeOnlyCoercion(inputType.getTypeSignature(), outputType.getTypeSignature())) {
+                Expression cast = new Cast(new QualifiedNameReference(inputSymbol.toQualifiedName()), outputType.getTypeSignature().toString());
                 Symbol outputSymbol = symbolAllocator.newSymbol(cast, outputType);
                 assignments.put(outputSymbol, cast);
                 newSymbols.add(outputSymbol);
@@ -507,7 +518,7 @@ class RelationPlanner
                 newSymbols.add(outputSymbol);
             }
             Field oldField = oldDescriptor.getFieldByIndex(i);
-            newFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), coerceToTypes[i], oldField.isHidden());
+            newFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), targetColumnTypes[i], oldField.isHidden());
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
         return new RelationPlan(projectNode, new RelationType(newFields), newSymbols.build(), plan.getSampleWeight());
@@ -569,7 +580,7 @@ class RelationPlanner
             sources.add(relationPlan.getRoot());
         }
 
-        PlanNode planNode = new UnionNode(idAllocator.getNextId(), sources.build(), symbolMapping.build());
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), sources.build(), symbolMapping.build(), ImmutableList.copyOf(symbolMapping.build().keySet()));
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }

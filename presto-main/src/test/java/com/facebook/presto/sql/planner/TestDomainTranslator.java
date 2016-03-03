@@ -19,9 +19,11 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -153,6 +155,60 @@ public class TestDomainTranslator
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), tupleDomain);
+    }
+
+    @Test
+    public void testInOptimization()
+            throws Exception
+    {
+        Domain testDomain = Domain.create(
+                ValueSet.all(BIGINT)
+                        .subtract(ValueSet.ofRanges(
+                                Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L))), false);
+
+        TupleDomain<Symbol> tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder().put(A, testDomain).build());
+        assertEquals(toPredicate(tupleDomain), not(in(A, ImmutableList.of(1L, 2L, 3L))));
+
+        testDomain = Domain.create(
+                ValueSet.ofRanges(
+                        Range.lessThan(BIGINT, 4L)).intersect(
+                        ValueSet.all(BIGINT)
+                                .subtract(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L)))), false);
+
+        tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder().put(A, testDomain).build());
+        assertEquals(toPredicate(tupleDomain), and(lessThan(A, longLiteral(4L)), not(in(A, ImmutableList.of(1L, 2L, 3L)))));
+
+        testDomain = Domain.create(ValueSet.ofRanges(
+                Range.range(BIGINT, 1L, true, 3L, true),
+                Range.range(BIGINT, 5L, true, 7L, true),
+                Range.range(BIGINT, 9L, true, 11L, true)),
+                false);
+
+        tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder().put(A, testDomain).build());
+        assertEquals(toPredicate(tupleDomain),
+                or(between(A, longLiteral(1L), longLiteral(3L)), (between(A, longLiteral(5L), longLiteral(7L))), (between(A, longLiteral(9L), longLiteral(11L)))));
+
+        testDomain = Domain.create(
+                ValueSet.ofRanges(
+                        Range.lessThan(BIGINT, 4L))
+                        .intersect(ValueSet.all(BIGINT)
+                                .subtract(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L))))
+                        .union(ValueSet.ofRanges(Range.range(BIGINT, 7L, true, 9L, true))), false);
+
+        tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder().put(A, testDomain).build());
+        assertEquals(toPredicate(tupleDomain), or(and(lessThan(A, longLiteral(4L)), not(in(A, ImmutableList.of(1L, 2L, 3L)))), between(A, longLiteral(7L), longLiteral(9L))));
+
+        testDomain = Domain.create(
+                ValueSet.ofRanges(Range.lessThan(BIGINT, 4L))
+                        .intersect(ValueSet.all(BIGINT)
+                                .subtract(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L))))
+                        .union(ValueSet.ofRanges(Range.range(BIGINT, 7L, false, 9L, false), Range.range(BIGINT, 11L, false, 13L, false))), false);
+
+        tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder().put(A, testDomain).build());
+        assertEquals(toPredicate(tupleDomain), or(
+                and(lessThan(A, longLiteral(4L)), not(in(A, ImmutableList.of(1L, 2L, 3L)))),
+                and(greaterThan(A, longLiteral(7L)), lessThan(A, longLiteral(9L))),
+                and(greaterThan(A, longLiteral(11L)), lessThan(A, longLiteral(13L)))));
     }
 
     @Test
@@ -575,6 +631,11 @@ public class TestDomainTranslator
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertTrue(result.getTupleDomain().isNone());
+
+        originalExpression = greaterThan(C, new Cast(nullLiteral(), StandardTypes.VARCHAR));
+        result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C, Domain.create(ValueSet.none(VARCHAR), false))));
 
         originalExpression = greaterThanOrEqual(A, nullLiteral());
         result = fromPredicate(originalExpression);

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MinMaxPriorityQueue;
 import com.google.common.collect.Ordering;
@@ -43,6 +44,7 @@ public class TopNRowNumberOperator
             implements OperatorFactory
     {
         private final int operatorId;
+        private final PlanNodeId planNodeId;
 
         private final List<Type> sourceTypes;
 
@@ -63,6 +65,7 @@ public class TopNRowNumberOperator
 
         public TopNRowNumberOperatorFactory(
                 int operatorId,
+                PlanNodeId planNodeId,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
                 List<Integer> partitionChannels,
@@ -75,6 +78,7 @@ public class TopNRowNumberOperator
                 int expectedPositions)
         {
             this.operatorId = operatorId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
             this.partitionChannels = ImmutableList.copyOf(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -107,7 +111,7 @@ public class TopNRowNumberOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, TopNRowNumberOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TopNRowNumberOperator.class.getSimpleName());
             return new TopNRowNumberOperator(
                     operatorContext,
                     sourceTypes,
@@ -132,7 +136,7 @@ public class TopNRowNumberOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TopNRowNumberOperatorFactory(operatorId, sourceTypes, outputChannels, partitionChannels, partitionTypes, sortChannels, sortOrder, maxRowCountPerPartition, partial, hashChannel, expectedPositions);
+            return new TopNRowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, sortChannels, sortOrder, maxRowCountPerPartition, partial, hashChannel, expectedPositions);
         }
     }
 
@@ -186,7 +190,7 @@ public class TopNRowNumberOperator
             this.groupByHash = Optional.empty();
         }
         else {
-            this.groupByHash = Optional.of(createGroupByHash(partitionTypes, Ints.toArray(partitionChannels), Optional.<Integer>empty(), hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, Ints.toArray(partitionChannels), Optional.<Integer>empty(), hashChannel, expectedPositions));
         }
         this.flushingPartition = Optional.empty();
         this.pageBuilder = new PageBuilder(types);

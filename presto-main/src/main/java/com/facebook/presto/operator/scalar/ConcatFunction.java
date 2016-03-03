@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.byteCode.ByteCodeBlock;
-import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.byteCode.MethodDefinition;
-import com.facebook.presto.byteCode.Parameter;
-import com.facebook.presto.byteCode.Scope;
-import com.facebook.presto.byteCode.Variable;
-import com.facebook.presto.byteCode.expression.ByteCodeExpression;
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.CompilerUtils;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
+import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.gen.CompilerUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -39,18 +39,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.byteCode.Access.FINAL;
-import static com.facebook.presto.byteCode.Access.PRIVATE;
-import static com.facebook.presto.byteCode.Access.PUBLIC;
-import static com.facebook.presto.byteCode.Access.STATIC;
-import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.Parameter.arg;
-import static com.facebook.presto.byteCode.ParameterizedType.type;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.add;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantInt;
-import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.invokeStatic;
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.STATIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.sql.gen.CompilerUtils.defineClass;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.Math.addExact;
@@ -114,7 +114,7 @@ public final class ConcatFunction
 
         MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "concat", type(Slice.class), parameters);
         Scope scope = method.getScope();
-        ByteCodeBlock body = method.getBody();
+        BytecodeBlock body = method.getBody();
 
         Variable length = scope.declareVariable(int.class, "length");
         body.append(length.set(constantInt(0)));
@@ -140,7 +140,7 @@ public final class ConcatFunction
         return defineClass(definition, Object.class, ImmutableMap.of(), new DynamicClassLoader(ConcatFunction.class.getClassLoader()));
     }
 
-    private static ByteCodeExpression generateCheckedAdd(ByteCodeExpression x, ByteCodeExpression y)
+    private static BytecodeExpression generateCheckedAdd(BytecodeExpression x, BytecodeExpression y)
     {
         return invokeStatic(ConcatFunction.class, "checkedAdd", int.class, x, y);
     }

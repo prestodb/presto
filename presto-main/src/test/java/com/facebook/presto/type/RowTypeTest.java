@@ -33,7 +33,9 @@ public class RowTypeTest
         List<Type> types = asList(BOOLEAN, DOUBLE, new ArrayType(VARCHAR), new MapType(BOOLEAN, DOUBLE));
         Optional<List<String>> names = Optional.of(asList("bool_col", "double_col", "array_col", "map_col"));
         RowType row = new RowType(types, names);
-        assertEquals(row.getDisplayName(), "row(bool_col boolean, double_col double, array_col array<varchar>, map_col map<boolean, double>)");
+        assertEquals(
+                row.getDisplayName(),
+                "row(bool_col boolean, double_col double, array_col array(varchar), map_col map(boolean, double))");
     }
 
     @Test
@@ -41,6 +43,8 @@ public class RowTypeTest
     {
         List<Type> types = asList(BOOLEAN, DOUBLE, new ArrayType(VARCHAR), new MapType(BOOLEAN, DOUBLE));
         RowType row = new RowType(types, Optional.empty());
-        assertEquals(row.getDisplayName(), "row(boolean, double, array<varchar>, map<boolean, double>)");
+        assertEquals(
+                row.getDisplayName(),
+                "row(boolean, double, array(varchar), map(boolean, double))");
     }
 }

@@ -83,7 +83,7 @@ public class HiveClientConfig
     private String s3AwsSecretKey;
     private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
-    private boolean s3SseEnabled = false;
+    private boolean s3SseEnabled;
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
@@ -111,6 +111,7 @@ public class HiveClientConfig
 
     private boolean assumeCanonicalPartitionKeys;
 
+    private boolean useOrcColumnNames;
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
@@ -597,6 +598,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.s3.sse.enabled")
+    @ConfigDescription("Enable S3 server side encryption")
     public HiveClientConfig setS3SseEnabled(boolean s3SseEnabled)
     {
         this.s3SseEnabled = s3SseEnabled;
@@ -797,6 +799,19 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isUseOrcColumnNames()
+    {
+        return useOrcColumnNames;
+    }
+
+    @Config("hive.orc.use-column-names")
+    @ConfigDescription("Access ORC columns using names from the file")
+    public HiveClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
+    {
+        this.useOrcColumnNames = useOrcColumnNames;
+        return this;
+    }
+
     @NotNull
     public DataSize getOrcMaxMergeDistance()
     {
@@ -849,7 +864,7 @@ public class HiveClientConfig
     }
 
     public boolean isUseParquetColumnNames()
-   {
+    {
         return useParquetColumnNames;
     }
 

@@ -51,7 +51,7 @@ public class ArrayToJsonCast
 
     private ArrayToJsonCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(typeParameter("T")), StandardTypes.JSON, ImmutableList.of("array<T>"));
+        super(OperatorType.CAST, ImmutableList.of(typeParameter("T")), StandardTypes.JSON, ImmutableList.of("array(T)"));
     }
 
     @Override

@@ -27,30 +27,39 @@ import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingSplit;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
+import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
+import org.apache.hadoop.hive.ql.io.orc.NullMemoryManager;
+import org.apache.hadoop.hive.ql.io.orc.OrcFile.WriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
+import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
+import org.apache.hadoop.hive.ql.io.orc.Writer;
+import org.apache.hadoop.hive.ql.io.orc.WriterImpl;
 import org.apache.hadoop.hive.serde2.ReaderWriterProfiler;
 import org.apache.hadoop.hive.serde2.SerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.SequenceFile;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
@@ -62,6 +71,10 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
@@ -83,6 +96,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.ZLIB;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
@@ -96,8 +110,12 @@ import static org.testng.Assert.assertTrue;
 
 public class TestOrcPageSourceMemoryTracking
 {
+    private static final String ORC_RECORD_WRITER = OrcOutputFormat.class.getName() + "$OrcRecordWriter";
+    private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
+    private static final Configuration CONFIGURATION = new Configuration();
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
     private static final int NUM_ROWS = 50000;
+    private static final int STRIPE_ROWS = 20000;
 
     private final Random random = new Random();
     private final List<TestColumn> testColumns = ImmutableList.<TestColumn>builder()
@@ -277,25 +295,34 @@ public class TestOrcPageSourceMemoryTracking
         for (int i = 0; i < 52; i++) {
             assertFalse(operator.isFinished());
             operator.getOutput();
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 590000L, 639999L);
+            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 550000L, 639999L);
         }
 
         for (int i = 52; i < 65; i++) {
             assertFalse(operator.isFinished());
             operator.getOutput();
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 490000L, 539999L);
+            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 450000L, 539999L);
         }
 
         // Page source is over, but data still exist in buffer of ScanFilterProjectOperator
         assertFalse(operator.isFinished());
         assertNull(operator.getOutput());
-        assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 170000L, 179999L);
+        assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 110000L, 119999L);
         assertFalse(operator.isFinished());
-        assertNotNull(operator.getOutput());
+        Page lastPage = operator.getOutput();
+        assertNotNull(lastPage);
 
         // No data is left
         assertTrue(operator.isFinished());
-        assertEquals(driverContext.getSystemMemoryUsage(), 131082); // an empty page builder of two variable width block builder
+        // an empty page builder of two variable width block builders is left in ScanFilterAndProjectOperator
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR, VARCHAR));
+        for (int i = 0; i < lastPage.getPositionCount(); i++) {
+            pageBuilder.declarePosition();
+            VARCHAR.appendTo(lastPage.getBlock(0), i, pageBuilder.getBlockBuilder(0));
+            VARCHAR.appendTo(lastPage.getBlock(1), i, pageBuilder.getBlockBuilder(1));
+        }
+        pageBuilder.reset();
+        assertEquals(driverContext.getSystemMemoryUsage(), pageBuilder.getRetainedSizeInBytes());
     }
 
     private class TestPreparer
@@ -350,7 +377,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource()
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER);
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false);
             return orcPageSourceFactory.createPageSource(
                     new Configuration(),
                     SESSION,
@@ -375,7 +402,7 @@ public class TestOrcPageSourceMemoryTracking
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList())
             );
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split("test", TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split("test", TestingTransactionHandle.create("test"), TestingSplit.createLocalSplit()));
             return operator;
         }
 
@@ -389,15 +416,16 @@ public class TestOrcPageSourceMemoryTracking
             ImmutableList<ProjectionFunction> projections = projectionsBuilder.build();
             SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
+                    new PlanNodeId("test"),
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
                     new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, projections),
-                    new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projections),
+                    () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projections),
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     types
             );
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split("test", TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split("test", TestingTransactionHandle.create("test"), TestingSplit.createLocalSplit()));
             return operator;
         }
 
@@ -426,27 +454,17 @@ public class TestOrcPageSourceMemoryTracking
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
         tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
-        tableProperties.setProperty("orc.stripe.size", "1200000");
-        serDe.initialize(new Configuration(), tableProperties);
+        serDe.initialize(CONFIGURATION, tableProperties);
 
         if (compressionCodec != null) {
-            CompressionCodec codec = new CompressionCodecFactory(new Configuration()).getCodecByName(compressionCodec);
+            CompressionCodec codec = new CompressionCodecFactory(CONFIGURATION).getCodecByName(compressionCodec);
             jobConf.set(COMPRESS_CODEC, codec.getClass().getName());
             jobConf.set(COMPRESS_TYPE, SequenceFile.CompressionType.BLOCK.toString());
         }
 
-        FileSinkOperator.RecordWriter recordWriter = outputFormat.getHiveRecordWriter(
-                jobConf,
-                new Path(filePath),
-                Text.class,
-                compressionCodec != null,
-                tableProperties,
-                () -> { }
-        );
+        RecordWriter recordWriter = createRecordWriter(new Path(filePath), CONFIGURATION);
 
         try {
-            serDe.initialize(new Configuration(), tableProperties);
-
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
                     ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
                     ImmutableList.copyOf(transform(testColumns, TestColumn::getObjectInspector)));
@@ -466,6 +484,9 @@ public class TestOrcPageSourceMemoryTracking
 
                 Writable record = serDe.serialize(row, objectInspector);
                 recordWriter.write(record);
+                if (rowNumber % STRIPE_ROWS == STRIPE_ROWS - 1) {
+                    flushStripe(recordWriter);
+                }
             }
         }
         finally {
@@ -473,9 +494,58 @@ public class TestOrcPageSourceMemoryTracking
         }
 
         Path path = new Path(filePath);
-        path.getFileSystem(new Configuration()).setVerifyChecksum(true);
+        path.getFileSystem(CONFIGURATION).setVerifyChecksum(true);
         File file = new File(filePath);
         return new FileSplit(path, 0, file.length(), new String[0]);
+    }
+
+    private static void flushStripe(RecordWriter recordWriter)
+    {
+        try {
+            Field writerField = OrcOutputFormat.class.getClassLoader()
+                    .loadClass(ORC_RECORD_WRITER)
+                    .getDeclaredField("writer");
+            writerField.setAccessible(true);
+            Writer writer = (Writer) writerField.get(recordWriter);
+            Method flushStripe = WriterImpl.class.getDeclaredMethod("flushStripe");
+            flushStripe.setAccessible(true);
+            flushStripe.invoke(writer);
+        }
+        catch (ReflectiveOperationException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private static RecordWriter createRecordWriter(Path target, Configuration conf)
+            throws IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
+            WriterOptions options = new OrcWriterOptions(conf)
+                    .memory(new NullMemoryManager(conf))
+                    .compress(ZLIB);
+
+            try {
+                return WRITER_CONSTRUCTOR.newInstance(target, options);
+            }
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private static Constructor<? extends RecordWriter> getOrcWriterConstructor()
+    {
+        try {
+            Constructor<? extends RecordWriter> constructor = OrcOutputFormat.class.getClassLoader()
+                    .loadClass(ORC_RECORD_WRITER)
+                    .asSubclass(RecordWriter.class)
+                    .getDeclaredConstructor(Path.class, WriterOptions.class);
+            constructor.setAccessible(true);
+            return constructor;
+        }
+        catch (ReflectiveOperationException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public static final class TestColumn

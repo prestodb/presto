@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.exceptions.DBIException;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -67,14 +68,15 @@ public class ShardMetadataRecordCursor
     public static final ConnectorTableMetadata SHARD_METADATA = new ConnectorTableMetadata(
             SHARD_METADATA_TABLE_NAME,
             ImmutableList.of(
-                    new ColumnMetadata(SCHEMA_NAME, VARCHAR, false),
-                    new ColumnMetadata(TABLE_NAME, VARCHAR, false),
-                    new ColumnMetadata(SHARD_UUID, VARCHAR, false),
-                    new ColumnMetadata("uncompressed_size", BIGINT, false),
-                    new ColumnMetadata("compressed_size", BIGINT, false),
-                    new ColumnMetadata("row_count", BIGINT, false),
-                    new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP, false),
-                    new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP, false)));
+                    new ColumnMetadata(SCHEMA_NAME, VARCHAR),
+                    new ColumnMetadata(TABLE_NAME, VARCHAR),
+                    new ColumnMetadata(SHARD_UUID, VARCHAR),
+                    new ColumnMetadata("bucket_number", BIGINT),
+                    new ColumnMetadata("uncompressed_size", BIGINT),
+                    new ColumnMetadata("compressed_size", BIGINT),
+                    new ColumnMetadata("row_count", BIGINT),
+                    new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP),
+                    new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP)));
 
     private static final List<ColumnMetadata> COLUMNS = SHARD_METADATA.getColumns();
     private static final List<Type> TYPES = COLUMNS.stream().map(ColumnMetadata::getType).collect(toList());
@@ -111,7 +113,7 @@ public class ShardMetadataRecordCursor
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT\n");
         sql.append(Joiner.on(",\n").join(columnNames));
-        sql.append("\nFROM " + indexTableName + " x\n");
+        sql.append("\nFROM ").append(indexTableName).append(" x\n");
         sql.append("JOIN shards ON (x.shard_id = shards.shard_id)\n");
         sql.append("JOIN tables ON (shards.table_id = tables.table_id)\n");
 
@@ -127,6 +129,7 @@ public class ShardMetadataRecordCursor
                 .add("shards" + "." + COLUMNS.get(3).getName())
                 .add("shards" + "." + COLUMNS.get(4).getName())
                 .add("shards" + "." + COLUMNS.get(5).getName())
+                .add("shards" + "." + COLUMNS.get(6).getName())
                 .add("min_timestamp")
                 .add("max_timestamp")
                 .build();
@@ -179,7 +182,7 @@ public class ShardMetadataRecordCursor
             completedBytes += resultSetValues.extractValues(resultSet, ImmutableSet.of(getColumnIndex(SHARD_METADATA, SHARD_UUID)));
             return true;
         }
-        catch (SQLException e) {
+        catch (SQLException | DBIException e) {
             throw metadataError(e);
         }
     }
@@ -233,6 +236,7 @@ public class ShardMetadataRecordCursor
         closeCurrentResultSet();
     }
 
+    @SuppressWarnings("unused")
     private void closeCurrentResultSet()
     {
         // use try-with-resources to close everything properly
@@ -272,7 +276,7 @@ public class ShardMetadataRecordCursor
                     tupleDomain);
             return statement.executeQuery();
         }
-        catch (SQLException e) {
+        catch (SQLException | DBIException e) {
             close();
             throw metadataError(e);
         }
@@ -325,7 +329,7 @@ public class ShardMetadataRecordCursor
                 tableIds.add(resultSet.getLong("table_id"));
             }
         }
-        catch (SQLException e) {
+        catch (SQLException | DBIException e) {
             throw metadataError(e);
         }
         return tableIds.build().iterator();

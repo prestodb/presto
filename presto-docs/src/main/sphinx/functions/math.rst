@@ -96,7 +96,11 @@ Mathematical Functions
 
 .. function:: random() -> double
 
-    Returns a pseudo-random value in the range 0.0 <= x < 1.0
+    Returns a pseudo-random value in the range 0.0 <= x < 1.0.
+
+.. function:: random(n) -> [same as input]
+
+    Returns a pseudo-random number between 0 and n (exclusive).
 
 .. function:: round(x) -> [same as input]
 

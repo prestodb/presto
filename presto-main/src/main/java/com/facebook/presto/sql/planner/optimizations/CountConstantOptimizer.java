@@ -71,7 +71,7 @@ public class CountConstantOptimizer
                     FunctionCall functionCall = entry.getValue();
                     Signature signature = node.getFunctions().get(symbol);
                     if (isCountConstant(projectNode, functionCall, signature)) {
-                        aggregations.put(symbol, new FunctionCall(functionCall.getName(), null, functionCall.isDistinct(), ImmutableList.<Expression>of()));
+                        aggregations.put(symbol, new FunctionCall(functionCall.getName(), functionCall.isDistinct(), ImmutableList.<Expression>of()));
                         functions.put(symbol, new Signature("count", AGGREGATE, StandardTypes.BIGINT));
                     }
                 }
@@ -94,12 +94,12 @@ public class CountConstantOptimizer
         {
             if (!"count".equals(signature.getName()) ||
                     signature.getArgumentTypes().size() != 1 ||
-                    !signature.getReturnType().equals(StandardTypes.BIGINT)) {
+                    !signature.getReturnType().getBase().equals(StandardTypes.BIGINT)) {
                 return false;
             }
 
             Expression argument = functionCall.getArguments().get(0);
-            if (argument instanceof Literal) {
+            if (argument instanceof Literal && !(argument instanceof NullLiteral)) {
                 return true;
             }
 

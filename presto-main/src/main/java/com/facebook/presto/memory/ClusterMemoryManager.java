@@ -47,7 +47,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalLimit;
+import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
+import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
@@ -59,6 +61,7 @@ import static com.google.common.collect.Sets.difference;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctDataSize;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ClusterMemoryManager
@@ -122,7 +125,8 @@ public class ClusterMemoryManager
             return;
         }
 
-        if (!isClusterOutOfMemory()) {
+        boolean outOfMemory = isClusterOutOfMemory();
+        if (!outOfMemory) {
             lastTimeNotOutOfMemory = System.nanoTime();
         }
 
@@ -134,15 +138,26 @@ public class ClusterMemoryManager
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
             totalBytes += bytes;
             if (bytes > queryMemoryLimit) {
-                DataSize maxMemory = succinctDataSize(queryMemoryLimit, BYTE);
-                query.fail(exceededGlobalLimit(maxMemory));
-                queryKilled = true;
+                if (resourceOvercommit(query.getSession())) {
+                    // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
+                    if (outOfMemory) {
+                        DataSize memory = succinctDataSize(bytes, BYTE);
+                        query.fail(new PrestoException(CLUSTER_OUT_OF_MEMORY,
+                                format("The cluster is out of memory, you set %s=true, and your query is using %s of memory, so it was killed.", RESOURCE_OVERCOMMIT, memory)));
+                        queryKilled = true;
+                    }
+                }
+                else {
+                    DataSize maxMemory = succinctDataSize(queryMemoryLimit, BYTE);
+                    query.fail(exceededGlobalLimit(maxMemory));
+                    queryKilled = true;
+                }
             }
         }
         clusterMemoryUsageBytes.set(totalBytes);
 
         if (killOnOutOfMemory) {
-            boolean shouldKillQuery = nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0 && isClusterOutOfMemory();
+            boolean shouldKillQuery = nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0 && outOfMemory;
             boolean lastKilledQueryIsGone = (lastKilledQuery == null);
 
             if (!lastKilledQueryIsGone) {
@@ -207,6 +222,11 @@ public class ClusterMemoryManager
                 QueryExecution biggestQuery = null;
                 long maxMemory = -1;
                 for (QueryExecution queryExecution : queries) {
+                    if (resourceOvercommit(queryExecution.getSession())) {
+                        // Don't promote queries that requested resource overcommit to the reserved pool,
+                        // since their memory usage is unbounded.
+                        continue;
+                    }
                     long bytesUsed = queryExecution.getTotalMemoryReservation();
                     if (bytesUsed > maxMemory) {
                         biggestQuery = queryExecution;

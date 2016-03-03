@@ -36,7 +36,7 @@ public class TestMinMaxByNAggregation
     public void testMaxDoubleDouble()
             throws Exception
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array<double>", StandardTypes.DOUBLE, StandardTypes.DOUBLE, StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array(double)", StandardTypes.DOUBLE, StandardTypes.DOUBLE, StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,
@@ -98,7 +98,7 @@ public class TestMinMaxByNAggregation
     public void testMinDoubleDouble()
             throws Exception
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array<double>", StandardTypes.DOUBLE, StandardTypes.DOUBLE, StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array(double)", StandardTypes.DOUBLE, StandardTypes.DOUBLE, StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,
@@ -135,7 +135,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array<varchar>", StandardTypes.VARCHAR, StandardTypes.DOUBLE, StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array(varchar)", StandardTypes.VARCHAR, StandardTypes.DOUBLE, StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,
@@ -164,7 +164,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array<varchar>", StandardTypes.VARCHAR, StandardTypes.DOUBLE, StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array(varchar)", StandardTypes.VARCHAR, StandardTypes.DOUBLE, StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,
@@ -193,7 +193,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array<double>", StandardTypes.DOUBLE, StandardTypes.VARCHAR, StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array(double)", StandardTypes.DOUBLE, StandardTypes.VARCHAR, StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,
@@ -222,7 +222,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array<double>", StandardTypes.DOUBLE, StandardTypes.VARCHAR, StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array(double)", StandardTypes.DOUBLE, StandardTypes.VARCHAR, StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,
@@ -251,7 +251,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharArray()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array<array<bigint>>", "array<bigint>", StandardTypes.VARCHAR, StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array(array(bigint))", "array(bigint)", StandardTypes.VARCHAR, StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,
@@ -264,7 +264,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharArray()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array<array<bigint>>", "array<bigint>", StandardTypes.VARCHAR, StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array(array(bigint))", "array(bigint)", StandardTypes.VARCHAR, StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,
@@ -277,7 +277,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinArrayVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array<varchar>", StandardTypes.VARCHAR, "array<bigint>", StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("min_by", AGGREGATE, "array(varchar)", StandardTypes.VARCHAR, "array(bigint)", StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,
@@ -290,7 +290,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxArrayVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array<varchar>", StandardTypes.VARCHAR, "array<bigint>", StandardTypes.BIGINT));
+        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("max_by", AGGREGATE, "array(varchar)", StandardTypes.VARCHAR, "array(bigint)", StandardTypes.BIGINT));
         assertAggregation(
                 function,
                 1.0,

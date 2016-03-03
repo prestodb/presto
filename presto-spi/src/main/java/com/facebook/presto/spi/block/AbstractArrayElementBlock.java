@@ -151,7 +151,8 @@ public abstract class AbstractArrayElementBlock
     @Override
     public Block getSingleValueBlock(int position)
     {
-        throw new UnsupportedOperationException();
+        checkReadablePosition(position);
+        return getBlock().getSingleValueBlock(position + start);
     }
 
     @Override
@@ -189,11 +190,5 @@ public abstract class AbstractArrayElementBlock
     public Block copyRegion(int position, int length)
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int getRetainedSizeInBytes()
-    {
-        return getBlock().getRetainedSizeInBytes();
     }
 }

@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -110,7 +112,7 @@ public class ProjectionPushDown
                 outputLayout.forEach(symbol -> mappings.put(symbol, projectSymbolMapping.get(symbol)));
             }
 
-            return new UnionNode(node.getId(), outputSources.build(), mappings.build());
+            return new UnionNode(node.getId(), outputSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
         }
 
         private PlanNode pushProjectionThrough(ProjectNode node, ExchangeNode exchange)
@@ -122,20 +124,22 @@ public class ProjectionPushDown
 
                 Map<Symbol, Expression> projections = new LinkedHashMap<>(); // Use LinkedHashMap to make output symbol order deterministic
                 ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
-                if (exchange.getPartitionKeys().isPresent()) {
-                    // Need to retain the partition keys for the exchange
-                    exchange.getPartitionKeys().get().stream()
-                            .map(outputToInputMap::get)
-                            .forEach(nameReference -> {
-                                Symbol symbol = Symbol.fromQualifiedName(nameReference.getName());
-                                projections.put(symbol, nameReference);
-                                inputs.add(symbol);
-                            });
-                }
-                if (exchange.getHashSymbol().isPresent()) {
+
+                // Need to retain the partition keys for the exchange
+                exchange.getPartitionFunction().getPartitionFunctionArguments().stream()
+                        .filter(PartitionFunctionArgumentBinding::isVariable)
+                        .map(PartitionFunctionArgumentBinding::getColumn)
+                        .map(outputToInputMap::get)
+                        .forEach(nameReference -> {
+                            Symbol symbol = Symbol.fromQualifiedName(nameReference.getName());
+                            projections.put(symbol, nameReference);
+                            inputs.add(symbol);
+                        });
+
+                if (exchange.getPartitionFunction().getHashColumn().isPresent()) {
                     // Need to retain the hash symbol for the exchange
-                    projections.put(exchange.getHashSymbol().get(), exchange.getHashSymbol().get().toQualifiedNameReference());
-                    inputs.add(exchange.getHashSymbol().get());
+                    projections.put(exchange.getPartitionFunction().getHashColumn().get(), exchange.getPartitionFunction().getHashColumn().get().toQualifiedNameReference());
+                    inputs.add(exchange.getPartitionFunction().getHashColumn().get());
                 }
                 for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
                     Expression translatedExpression = translateExpression(projection.getValue(), outputToInputMap);
@@ -150,23 +154,31 @@ public class ProjectionPushDown
 
             // Construct the output symbols in the same order as the sources
             ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
-            if (exchange.getPartitionKeys().isPresent()) {
-                exchange.getPartitionKeys().get().stream()
-                        .forEach(outputBuilder::add);
-            }
-            if (exchange.getHashSymbol().isPresent()) {
-                outputBuilder.add(exchange.getHashSymbol().get());
+            exchange.getPartitionFunction().getPartitionFunctionArguments().stream()
+                    .filter(PartitionFunctionArgumentBinding::isVariable)
+                    .map(PartitionFunctionArgumentBinding::getColumn)
+                    .forEach(outputBuilder::add);
+            if (exchange.getPartitionFunction().getHashColumn().isPresent()) {
+                outputBuilder.add(exchange.getPartitionFunction().getHashColumn().get());
             }
             for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
                 outputBuilder.add(projection.getKey());
             }
 
+            // outputBuilder contains all partition and hash symbols so simply swap the output layout
+            PartitionFunctionBinding partitionFunction = new PartitionFunctionBinding(
+                    exchange.getPartitionFunction().getPartitioningHandle(),
+                    outputBuilder.build(),
+                    exchange.getPartitionFunction().getPartitionFunctionArguments(),
+                    exchange.getPartitionFunction().getHashColumn(),
+                    exchange.getPartitionFunction().isReplicateNulls(),
+                    exchange.getPartitionFunction().getBucketToPartition());
+
             return new ExchangeNode(
                     exchange.getId(),
                     exchange.getType(),
-                    exchange.getPartitionFunction(),
+                    partitionFunction,
                     newSourceBuilder.build(),
-                    outputBuilder.build(),
                     inputsBuilder.build());
         }
     }

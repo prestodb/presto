@@ -28,8 +28,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.StandardSystemProperty;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -42,8 +42,22 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
+import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DoubleWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
+import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.io.BooleanWritable;
+import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
@@ -65,14 +79,17 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERRO
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.isRowType;
+import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
@@ -82,8 +99,14 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDateObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableBinaryObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableBooleanObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableDateObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableDoubleObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableLongObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableStringObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableTimestampObjectInspector;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class HiveWriteUtils
@@ -103,20 +126,11 @@ public final class HiveWriteUtils
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, isCompressed, properties, Reporter.NULL);
         }
         catch (IOException | ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
 
-    public static List<ObjectInspector> getJavaObjectInspectors(Iterable<Type> types)
-    {
-        ImmutableList.Builder<ObjectInspector> list = ImmutableList.builder();
-        for (Type type : types) {
-            list.add(getJavaObjectInspector(type));
-        }
-        return list.build();
-    }
-
-    private static ObjectInspector getJavaObjectInspector(Type type)
+    public static ObjectInspector getJavaObjectInspector(Type type)
     {
         if (type.equals(BooleanType.BOOLEAN)) {
             return javaBooleanObjectInspector;
@@ -127,8 +141,8 @@ public final class HiveWriteUtils
         else if (type.equals(DoubleType.DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        else if (type.equals(VarcharType.VARCHAR)) {
-            return javaStringObjectInspector;
+        else if (type instanceof VarcharType) {
+            return writableStringObjectInspector;
         }
         else if (type.equals(VarbinaryType.VARBINARY)) {
             return javaByteArrayObjectInspector;
@@ -149,8 +163,8 @@ public final class HiveWriteUtils
         }
         else if (isRowType(type)) {
             return ObjectInspectorFactory.getStandardStructObjectInspector(
-                    type.getTypeSignature().getLiteralParameters().stream()
-                            .map(String.class::cast)
+                    type.getTypeSignature().getParameters().stream()
+                            .map(parameter -> parameter.getNamedTypeSignature().getName())
                             .collect(toList()),
                     type.getTypeParameters().stream()
                             .map(HiveWriteUtils::getJavaObjectInspector)
@@ -173,8 +187,8 @@ public final class HiveWriteUtils
         if (DoubleType.DOUBLE.equals(type)) {
             return type.getDouble(block, position);
         }
-        if (VarcharType.VARCHAR.equals(type)) {
-            return type.getSlice(block, position).toStringUtf8();
+        if (type instanceof VarcharType) {
+            return new Text(type.getSlice(block, position).getBytes());
         }
         if (VarbinaryType.VARBINARY.equals(type)) {
             return type.getSlice(block, position).getBytes();
@@ -398,6 +412,362 @@ public final class HiveWriteUtils
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
+        }
+    }
+
+    public static boolean isWritableType(HiveType hiveType)
+    {
+        return isWritableType(hiveType.getTypeInfo());
+    }
+
+    private static boolean isWritableType(TypeInfo typeInfo)
+    {
+        switch (typeInfo.getCategory()) {
+            case PRIMITIVE:
+                PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory();
+                return isWritablePrimitiveType(primitiveCategory);
+            case MAP:
+                MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "typeInfo");
+                return isWritableType(mapTypeInfo.getMapKeyTypeInfo()) && isWritableType(mapTypeInfo.getMapValueTypeInfo());
+            case LIST:
+                ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "typeInfo");
+                return isWritableType(listTypeInfo.getListElementTypeInfo());
+            case STRUCT:
+                StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "typeInfo");
+                return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveType::isSupportedType);
+        }
+        return false;
+    }
+
+    private static boolean isWritablePrimitiveType(PrimitiveCategory primitiveCategory)
+    {
+        switch (primitiveCategory) {
+            case BOOLEAN:
+            case LONG:
+            case DOUBLE:
+            case STRING:
+            case DATE:
+            case TIMESTAMP:
+            case BINARY:
+                return true;
+        }
+        return false;
+    }
+
+    public static List<ObjectInspector> getRowColumnInspectors(List<Type> types)
+    {
+        return types.stream()
+                .map(HiveWriteUtils::getRowColumnInspector)
+                .collect(toList());
+    }
+
+    public static ObjectInspector getRowColumnInspector(Type type)
+    {
+        if (type.equals(BooleanType.BOOLEAN)) {
+            return writableBooleanObjectInspector;
+        }
+
+        if (type.equals(BigintType.BIGINT)) {
+            return writableLongObjectInspector;
+        }
+
+        if (type.equals(DoubleType.DOUBLE)) {
+            return writableDoubleObjectInspector;
+        }
+
+        if (type.equals(VarcharType.VARCHAR)) {
+            return writableStringObjectInspector;
+        }
+
+        if (type.equals(VarbinaryType.VARBINARY)) {
+            return writableBinaryObjectInspector;
+        }
+
+        if (type.equals(DateType.DATE)) {
+            return writableDateObjectInspector;
+        }
+
+        if (type.equals(TimestampType.TIMESTAMP)) {
+            return writableTimestampObjectInspector;
+        }
+
+        if (isArrayType(type) || isMapType(type) || isRowType(type)) {
+            return getJavaObjectInspector(type);
+        }
+
+        throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    public static FieldSetter createFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type type)
+    {
+        if (type.equals(BooleanType.BOOLEAN)) {
+            return new BooleanFieldSetter(rowInspector, row, field);
+        }
+
+        if (type.equals(BigintType.BIGINT)) {
+            return new BigintFieldBuilder(rowInspector, row, field);
+        }
+
+        if (type.equals(DoubleType.DOUBLE)) {
+            return new DoubleFieldSetter(rowInspector, row, field);
+        }
+
+        if (type instanceof VarcharType) {
+            return new VarcharFieldSetter(rowInspector, row, field);
+        }
+
+        if (type.equals(VarbinaryType.VARBINARY)) {
+            return new BinaryFieldSetter(rowInspector, row, field);
+        }
+
+        if (type.equals(DateType.DATE)) {
+            return new DateFieldSetter(rowInspector, row, field);
+        }
+
+        if (type.equals(TimestampType.TIMESTAMP)) {
+            return new TimestampFieldSetter(rowInspector, row, field);
+        }
+
+        if (isArrayType(type)) {
+            return new ArrayFieldSetter(rowInspector, row, field, type.getTypeParameters().get(0));
+        }
+
+        if (isMapType(type)) {
+            return new MapFieldSetter(rowInspector, row, field, type.getTypeParameters().get(0), type.getTypeParameters().get(1));
+        }
+
+        if (isRowType(type)) {
+            return new RowFieldSetter(rowInspector, row, field, type.getTypeParameters());
+        }
+
+        throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    public abstract static class FieldSetter
+    {
+        protected final SettableStructObjectInspector rowInspector;
+        protected final Object row;
+        protected final StructField field;
+
+        protected FieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            this.rowInspector = requireNonNull(rowInspector, "rowInspector is null");
+            this.row = requireNonNull(row, "row is null");
+            this.field = requireNonNull(field, "field is null");
+        }
+
+        public abstract void setField(Block block, int position);
+    }
+
+    private static class BooleanFieldSetter
+            extends FieldSetter
+    {
+        private final BooleanWritable value = new BooleanWritable();
+
+        public BooleanFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            value.set(BooleanType.BOOLEAN.getBoolean(block, position));
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class BigintFieldBuilder
+            extends FieldSetter
+    {
+        private final LongWritable value = new LongWritable();
+
+        public BigintFieldBuilder(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            value.set(BigintType.BIGINT.getLong(block, position));
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class DoubleFieldSetter
+            extends FieldSetter
+    {
+        private final DoubleWritable value = new DoubleWritable();
+
+        public DoubleFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            value.set(DoubleType.DOUBLE.getDouble(block, position));
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class VarcharFieldSetter
+            extends FieldSetter
+    {
+        private final Text value = new Text();
+
+        public VarcharFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            value.set(VarcharType.VARCHAR.getSlice(block, position).getBytes());
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class BinaryFieldSetter
+            extends FieldSetter
+    {
+        private final BytesWritable value = new BytesWritable();
+
+        public BinaryFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            byte[] bytes = VarbinaryType.VARBINARY.getSlice(block, position).getBytes();
+            value.set(bytes, 0, bytes.length);
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class DateFieldSetter
+            extends FieldSetter
+    {
+        private final DateWritable value = new DateWritable();
+
+        public DateFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            value.set(Ints.checkedCast(DateType.DATE.getLong(block, position)));
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class TimestampFieldSetter
+            extends FieldSetter
+    {
+        private final TimestampWritable value = new TimestampWritable();
+
+        public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        {
+            super(rowInspector, row, field);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            long millisUtc = TimestampType.TIMESTAMP.getLong(block, position);
+            value.setTime(millisUtc);
+            rowInspector.setStructFieldData(row, field, value);
+        }
+    }
+
+    private static class ArrayFieldSetter
+            extends FieldSetter
+    {
+        private final Type elementType;
+
+        public ArrayFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type elementType)
+        {
+            super(rowInspector, row, field);
+            this.elementType = requireNonNull(elementType, "elementType is null");
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            Block arrayBlock = block.getObject(position, Block.class);
+
+            List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
+            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+                Object element = getField(elementType, arrayBlock, i);
+                list.add(element);
+            }
+
+            rowInspector.setStructFieldData(row, field, list);
+        }
+    }
+
+    private static class MapFieldSetter
+            extends FieldSetter
+    {
+        private final Type keyType;
+        private final Type valueType;
+
+        public MapFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, Type keyType, Type valueType)
+        {
+            super(rowInspector, row, field);
+            this.keyType = requireNonNull(keyType, "keyType is null");
+            this.valueType = requireNonNull(valueType, "valueType is null");
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            Block mapBlock = block.getObject(position, Block.class);
+            Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
+            for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
+                Object key = getField(keyType, mapBlock, i);
+                Object value = getField(valueType, mapBlock, i + 1);
+                map.put(key, value);
+            }
+
+            rowInspector.setStructFieldData(row, field, map);
+        }
+    }
+
+    private static class RowFieldSetter
+            extends FieldSetter
+    {
+        private final List<Type> fieldTypes;
+
+        public RowFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, List<Type> fieldTypes)
+        {
+            super(rowInspector, row, field);
+            this.fieldTypes = ImmutableList.copyOf(fieldTypes);
+        }
+
+        @Override
+        public void setField(Block block, int position)
+        {
+            Block rowBlock = block.getObject(position, Block.class);
+
+            // TODO reuse row object and use FieldSetters, like we do at the top level
+            // Ideally, we'd use the same recursive structure starting from the top, but
+            // this requires modeling row types in the same way we model table rows
+            // (multiple blocks vs all fields packed in a single block)
+            List<Object> value = new ArrayList<>(fieldTypes.size());
+            for (int i = 0; i < fieldTypes.size(); i++) {
+                Object element = getField(fieldTypes.get(i), rowBlock, i);
+                value.add(element);
+            }
+
+            rowInspector.setStructFieldData(row, field, value);
         }
     }
 }

@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>46</version>
+        <version>49</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.129-SNAPSHOT</version>
+    <version>0.141-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -45,9 +45,10 @@
         <air.java.version>1.8.0-40</air.java.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
-        <dep.airlift.version>0.119</dep.airlift.version>
+        <dep.airlift.version>0.124</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.15</dep.slice.version>
+        <dep.slice.version>0.19</dep.slice.version>
+        <dep.aws-sdk.version>1.9.40</dep.aws-sdk.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -82,6 +83,7 @@
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
         <module>presto-postgresql</module>
+        <module>presto-bytecode</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
@@ -154,6 +156,12 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-blackhole</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-base-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -173,6 +181,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cli</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-bytecode</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -253,7 +267,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
-                <version>0.1</version>
+                <version>0.3</version>
             </dependency>
 
             <dependency>
@@ -265,7 +279,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.15</version>
+                <version>0.16</version>
             </dependency>
 
             <dependency>
@@ -583,8 +597,20 @@
 
             <dependency>
                 <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk</artifactId>
-                <version>1.8.9.1</version>
+                <artifactId>aws-java-sdk-core</artifactId>
+                <version>${dep.aws-sdk.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-s3</artifactId>
+                <version>${dep.aws-sdk.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>commons-logging</groupId>
@@ -892,7 +918,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>2.16</version>
+                <version>2.17</version>
                 <executions>
                     <execution>
                         <phase>validate</phase>
@@ -913,7 +939,7 @@
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
                         <artifactId>checkstyle</artifactId>
-                        <version>6.11.1</version>
+                        <version>6.15</version>
                     </dependency>
                 </dependencies>
             </plugin>

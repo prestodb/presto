@@ -22,12 +22,40 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryBlock
         extends AbstractTestBlock
 {
+    @Test
+    public void testSizeInBytes()
+            throws Exception
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+
+        int sizeInBytes = 0;
+        for (Slice expectedValue : expectedValues) {
+            sizeInBytes += expectedValue.length();
+        }
+        assertEquals(dictionaryBlock.getSizeInBytes(), sizeInBytes + (100 * SIZE_OF_INT));
+    }
+
+    @Test
+    public void testCopyRegionCreatesCompactBlock()
+            throws Exception
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+
+        DictionaryBlock copyRegionDictionaryBlock = (DictionaryBlock) dictionaryBlock.copyRegion(1, 3);
+        assertTrue(copyRegionDictionaryBlock.isCompact());
+    }
+
     @Test
     public void testCopyPositionsWithCompaction()
             throws Exception
@@ -97,11 +125,18 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(5);
         DictionaryBlock dictionaryBlock = createDictionaryBlockWithUnreferencedKeys(expectedValues, 10);
+
+        assertEquals(dictionaryBlock.isCompact(), false);
         DictionaryBlock compactBlock = dictionaryBlock.compact();
+        assertNotEquals(dictionaryBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
 
         assertEquals(compactBlock.getDictionary().getPositionCount(), (expectedValues.length / 2) + 1);
         assertBlock(compactBlock.getDictionary(), new Slice[] { expectedValues[0], expectedValues[1], expectedValues[3] });
         assertEquals(compactBlock.getIds(), wrappedIntArray(0, 1, 1, 2, 2, 0, 1, 1, 2, 2));
+        assertEquals(compactBlock.isCompact(), true);
+
+        DictionaryBlock reCompactedBlock = compactBlock.compact();
+        assertEquals(reCompactedBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
     }
 
     @Test
@@ -113,7 +148,9 @@ public class TestDictionaryBlock
         DictionaryBlock compactBlock = dictionaryBlock.compact();
 
         // When there is nothing to compact, we return the same block
-        assertEquals(compactBlock, dictionaryBlock);
+        assertEquals(compactBlock.getDictionary(), dictionaryBlock.getDictionary());
+        assertEquals(compactBlock.getIds(), dictionaryBlock.getIds());
+        assertEquals(compactBlock.isCompact(), true);
     }
 
     private static DictionaryBlock createDictionaryBlockWithUnreferencedKeys(Slice[] expectedValues, int positionCount)

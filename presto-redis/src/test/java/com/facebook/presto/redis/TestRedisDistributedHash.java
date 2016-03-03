@@ -65,11 +65,6 @@ public class TestRedisDistributedHash
     }
 
     @Override
-    public void testCreateTableAsSelectSampled()
-    {
-    }
-
-    @Override
     public void testSymbolAliasing()
     {
     }
@@ -81,6 +76,13 @@ public class TestRedisDistributedHash
     @Override
     public void testView()
     {
+    }
+
+    @Override
+    public void testCompatibleTypeChangeForView()
+            throws Exception
+    {
+        // Redis connector currently does not support views
     }
 
     @Override

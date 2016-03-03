@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -34,8 +33,8 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.ProjectionPushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneIdentityProjections;
-import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
+import com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
@@ -54,12 +53,12 @@ public class PlanOptimizersFactory
     private final List<PlanOptimizer> optimizers;
 
     @Inject
-    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, IndexManager indexManager, FeaturesConfig featuresConfig)
+    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, FeaturesConfig featuresConfig)
     {
-        this(metadata, sqlParser, indexManager, featuresConfig, false);
+        this(metadata, sqlParser, featuresConfig, false);
     }
 
-    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, IndexManager indexManager, FeaturesConfig featuresConfig, boolean forceSingleNode)
+    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, FeaturesConfig featuresConfig, boolean forceSingleNode)
     {
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
@@ -76,7 +75,7 @@ public class PlanOptimizersFactory
                 new ProjectionPushDown(),
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
                 new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
-                new IndexJoinOptimizer(metadata, indexManager), // Run this after projections and filters have been fully simplified and pushed down
+                new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new CountConstantOptimizer(),
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new HashGenerationOptimizer(), // This must run after all other optimizers have run to that all the PlanNodes are created
@@ -94,6 +93,7 @@ public class PlanOptimizersFactory
         }
 
         if (!forceSingleNode) {
+            builder.add(new PushTableWriteThroughUnion()); // Must run before AddExchanges
             builder.add(new AddExchanges(metadata, sqlParser));
             builder.add(new AddIntermediateAggregation(metadata)); // Must run after AddExchanges
         }
@@ -101,7 +101,6 @@ public class PlanOptimizersFactory
         builder.add(new PickLayout(metadata));
 
         builder.add(new PredicatePushDown(metadata, sqlParser)); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
-        builder.add(new PruneRedundantProjections());
         builder.add(new ProjectionPushDown());
         builder.add(new MergeProjections());
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently

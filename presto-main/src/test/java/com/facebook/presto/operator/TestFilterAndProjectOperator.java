@@ -18,13 +18,16 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
@@ -35,6 +38,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.singleton;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @Test(singleThreaded = true)
@@ -82,10 +86,17 @@ public class TestFilterAndProjectOperator
                 long value = cursor.getLong(0);
                 return 10 <= value && value < 20;
             }
+
+            @Override
+            public Set<Integer> getInputChannels()
+            {
+                return singleton(1);
+            }
         };
         OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 0,
-                new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
+                new PlanNodeId("test"),
+                () -> new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
                 ImmutableList.<Type>of(VARCHAR, BIGINT));
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -142,6 +153,18 @@ public class TestFilterAndProjectOperator
             else {
                 BIGINT.writeLong(output, cursor.getLong(channelIndex) + 5);
             }
+        }
+
+        @Override
+        public Set<Integer> getInputChannels()
+        {
+            return ImmutableSet.of(channelIndex);
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return true;
         }
     }
 }

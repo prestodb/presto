@@ -28,14 +28,16 @@ import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.base.Throwables;
@@ -44,8 +46,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -75,16 +75,15 @@ public class InformationSchemaPageSourceProvider
 {
     private final Metadata metadata;
 
-    @Inject
     public InformationSchemaPageSourceProvider(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        InternalTable table = getInternalTable(session, split, columns);
+        InternalTable table = getInternalTable(transactionHandle, session, split, columns);
 
         List<Integer> channels = new ArrayList<>();
         for (ColumnHandle column : columns) {
@@ -104,8 +103,9 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
     {
+        InformationSchemaTransactionHandle transaction = checkType(transactionHandle, InformationSchemaTransactionHandle.class, "transaction");
         InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
 
         requireNonNull(columns, "columns is null");
@@ -114,6 +114,7 @@ public class InformationSchemaPageSourceProvider
         Map<String, NullableValue> filters = split.getFilters();
 
         Session session = Session.builder(metadata.getSessionPropertyManager())
+                .setTransactionId(transaction.getTransactionId())
                 .setQueryId(new QueryId(connectorSession.getQueryId()))
                 .setIdentity(connectorSession.getIdentity())
                 .setSource("information_schema")
@@ -167,7 +168,6 @@ public class InformationSchemaPageSourceProvider
                         null,
                         "YES",
                         column.getType().getDisplayName(),
-                        column.isPartitionKey() ? "YES" : "NO",
                         column.getComment());
                 ordinalPosition++;
             }
@@ -242,7 +242,9 @@ public class InformationSchemaPageSourceProvider
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_PARTITIONS));
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
+        if (!tableHandle.isPresent()) {
+            throw new TableNotFoundException(tableName.asSchemaTableName());
+        }
 
         List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
 
@@ -262,9 +264,9 @@ public class InformationSchemaPageSourceProvider
             }
 
             TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
-            layout.getDiscretePredicates().ifPresent(domains -> {
+            layout.getDiscretePredicates().ifPresent(predicates -> {
                 int partitionNumber = 1;
-                for (TupleDomain<ColumnHandle> domain : domains) {
+                for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
                     for (Entry<ColumnHandle, NullableValue> entry : TupleDomain.extractFixedValues(domain).get().entrySet()) {
                         ColumnHandle columnHandle = entry.getKey();
                         String columnName = columnHandles.get(columnHandle);

@@ -38,7 +38,8 @@ public class GroupByHashPageIndexer
                 IntStream.range(0, hashTypes.size()).toArray(),
                 Optional.empty(),
                 Optional.empty(),
-                20));
+                20,
+                false));
     }
 
     public GroupByHashPageIndexer(GroupByHash hash)

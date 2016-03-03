@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
@@ -71,8 +72,8 @@ public class TestUnnestOperator
             throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
-        Type arrayType = metadata.getType(parseTypeSignature("array<bigint>"));
-        Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
+        Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
+        Type mapType = metadata.getType(parseTypeSignature("map(bigint,bigint)"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1, arrayBlockOf(BIGINT, 2, 3), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
@@ -83,7 +84,7 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
+                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT)
@@ -102,8 +103,8 @@ public class TestUnnestOperator
             throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
-        Type arrayType = metadata.getType(parseTypeSignature("array<array<bigint>>"));
-        Type mapType = metadata.getType(parseTypeSignature("map<array<bigint>,array<bigint>>"));
+        Type arrayType = metadata.getType(parseTypeSignature("array(array(bigint))"));
+        Type mapType = metadata.getType(parseTypeSignature("map(array(bigint),array(bigint))"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(
@@ -120,7 +121,7 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
+                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, new ArrayType(BIGINT), new ArrayType(BIGINT), new ArrayType(BIGINT))
@@ -139,8 +140,8 @@ public class TestUnnestOperator
             throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
-        Type arrayType = metadata.getType(parseTypeSignature("array<bigint>"));
-        Type mapType = metadata.getType(parseTypeSignature("map<bigint,bigint>"));
+        Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
+        Type mapType = metadata.getType(parseTypeSignature("map(bigint,bigint)"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1, arrayBlockOf(BIGINT, 2, 3), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
@@ -151,7 +152,7 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), true);
+                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), true);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, BIGINT, BIGINT, BIGINT)
@@ -170,8 +171,8 @@ public class TestUnnestOperator
             throws Exception
     {
         MetadataManager metadata = createTestMetadataManager();
-        Type arrayType = metadata.getType(parseTypeSignature("array<double>"));
-        Type mapType = metadata.getType(parseTypeSignature("map<bigint,double>"));
+        Type arrayType = metadata.getType(parseTypeSignature("array(double)"));
+        Type mapType = metadata.getType(parseTypeSignature("map(bigint,double)"));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1, arrayBlockOf(DOUBLE, NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN),
@@ -179,7 +180,7 @@ public class TestUnnestOperator
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
-                0, ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
+                0, new PlanNodeId("test"), ImmutableList.of(0), ImmutableList.<Type>of(BIGINT), ImmutableList.of(1, 2), ImmutableList.of(arrayType, mapType), false);
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE, BIGINT, DOUBLE)

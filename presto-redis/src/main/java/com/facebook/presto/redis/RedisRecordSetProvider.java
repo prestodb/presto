@@ -29,6 +29,8 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.redis.RedisHandleResolver.convertColumnHandle;
+import static com.facebook.presto.redis.RedisHandleResolver.convertSplit;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -37,25 +39,20 @@ import static java.util.Objects.requireNonNull;
 public class RedisRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final RedisHandleResolver handleResolver;
     private final RedisJedisManager jedisManager;
     private final DecoderRegistry registry;
 
     @Inject
-    public RedisRecordSetProvider(
-            DecoderRegistry registry,
-            RedisHandleResolver handleResolver,
-            RedisJedisManager jedisManager)
+    public RedisRecordSetProvider(DecoderRegistry registry, RedisJedisManager jedisManager)
     {
         this.registry = requireNonNull(registry, "registry is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.jedisManager = requireNonNull(jedisManager, "jedisManager is null");
     }
 
     @Override
     public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        RedisSplit redisSplit = handleResolver.convertSplit(split);
+        RedisSplit redisSplit = convertSplit(split);
 
         ImmutableList.Builder<DecoderColumnHandle> handleBuilder = ImmutableList.builder();
         ImmutableMap.Builder<DecoderColumnHandle, FieldDecoder<?>> keyFieldDecoderBuilder = ImmutableMap.builder();
@@ -65,7 +62,7 @@ public class RedisRecordSetProvider
         RowDecoder valueDecoder = registry.getRowDecoder(redisSplit.getValueDataFormat());
 
         for (ColumnHandle handle : columns) {
-            RedisColumnHandle columnHandle = handleResolver.convertColumnHandle(handle);
+            RedisColumnHandle columnHandle = convertColumnHandle(handle);
             handleBuilder.add(columnHandle);
 
             if (!columnHandle.isInternal()) {

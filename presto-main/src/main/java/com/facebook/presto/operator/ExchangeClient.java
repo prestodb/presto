@@ -213,6 +213,12 @@ public class ExchangeClient
         return page;
     }
 
+    public boolean isFinished()
+    {
+        throwIfFailed();
+        return isClosed() && completedClients.size() == locations.size();
+    }
+
     public boolean isClosed()
     {
         return closed.get();
@@ -236,7 +242,7 @@ public class ExchangeClient
 
     public synchronized void scheduleRequestIfNecessary()
     {
-        if (isClosed() || isFailed()) {
+        if (isFinished() || isFailed()) {
             return;
         }
 

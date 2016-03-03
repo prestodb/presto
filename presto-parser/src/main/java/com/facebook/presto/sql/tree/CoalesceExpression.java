@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -72,12 +73,7 @@ public class CoalesceExpression
         }
 
         CoalesceExpression that = (CoalesceExpression) o;
-
-        if (!operands.equals(that.operands)) {
-            return false;
-        }
-
-        return true;
+        return Objects.equals(operands, that.operands);
     }
 
     @Override

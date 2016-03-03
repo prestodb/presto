@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.byteCode.DynamicClassLoader;
+import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.MinMaxNState;
@@ -58,7 +58,7 @@ public abstract class AbstractMinMaxNAggregationFunction
 
     protected AbstractMinMaxNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator)
     {
-        super(name, ImmutableList.of(orderableTypeParameter("E")), "array<E>", ImmutableList.of("E", StandardTypes.BIGINT));
+        super(name, ImmutableList.of(orderableTypeParameter("E")), "array(E)", ImmutableList.of("E", StandardTypes.BIGINT));
         requireNonNull(typeToComparator);
         this.typeToComparator = typeToComparator;
     }

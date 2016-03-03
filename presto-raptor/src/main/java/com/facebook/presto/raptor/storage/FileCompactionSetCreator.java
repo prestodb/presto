@@ -15,10 +15,14 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -42,6 +46,16 @@ public final class FileCompactionSetCreator
 
     @Override
     public Set<CompactionSet> createCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
+    {
+        ImmutableSet.Builder<CompactionSet> compactionSets = ImmutableSet.builder();
+        Multimap<OptionalInt, ShardMetadata> map = Multimaps.index(shardMetadata, ShardMetadata::getBucketNumber);
+        for (Collection<ShardMetadata> shards : map.asMap().values()) {
+            compactionSets.addAll(buildCompactionSets(tableId, ImmutableSet.copyOf(shards)));
+        }
+        return compactionSets.build();
+    }
+
+    private Set<CompactionSet> buildCompactionSets(long tableId, Set<ShardMetadata> shardMetadata)
     {
         // Filter out shards larger than allowed size and sort in descending order of data size
         List<ShardMetadata> shards = shardMetadata.stream()

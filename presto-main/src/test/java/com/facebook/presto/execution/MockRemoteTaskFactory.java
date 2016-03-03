@@ -25,6 +25,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
@@ -62,9 +63,11 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -72,6 +75,7 @@ import static java.util.Objects.requireNonNull;
 public class MockRemoteTaskFactory
         implements RemoteTaskFactory
 {
+    private static final String TASK_INSTANCE_ID = "task-instance-id";
     private final Executor executor;
 
     public MockRemoteTaskFactory(Executor executor)
@@ -94,10 +98,9 @@ public class MockRemoteTaskFactory
                         TupleDomain.all(),
                         null),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
-                ImmutableList.of(symbol),
-                SOURCE,
+                SOURCE_DISTRIBUTION,
                 sourceId,
-                Optional.empty());
+                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(symbol), ImmutableList.of()));
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : splits) {
@@ -161,7 +164,7 @@ public class MockRemoteTaskFactory
 
             this.location = URI.create("fake://task/" + taskId);
 
-            this.sharedBuffer = new SharedBuffer(taskId, executor, requireNonNull(new DataSize(1, DataSize.Unit.BYTE), "maxBufferSize is null"));
+            this.sharedBuffer = new SharedBuffer(taskId, TASK_INSTANCE_ID, executor, requireNonNull(new DataSize(1, BYTE), "maxBufferSize is null"));
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
             checkArgument(partition >= 0, "partition is negative");
@@ -200,7 +203,7 @@ public class MockRemoteTaskFactory
 
             return new TaskInfo(
                     taskStateMachine.getTaskId(),
-                    Optional.empty(),
+                    TASK_INSTANCE_ID,
                     nextTaskInfoVersion.getAndIncrement(),
                     state,
                     location,
@@ -208,7 +211,8 @@ public class MockRemoteTaskFactory
                     sharedBuffer.getInfo(),
                     ImmutableSet.<PlanNodeId>of(),
                     taskContext.getTaskStats(),
-                    failures);
+                    failures,
+                    true);
         }
 
         public synchronized void finishSplits(int splits)

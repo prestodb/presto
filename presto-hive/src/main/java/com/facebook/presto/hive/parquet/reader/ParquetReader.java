@@ -13,34 +13,41 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
+import com.facebook.presto.hive.parquet.ParquetCodecFactory;
+import com.facebook.presto.hive.parquet.ParquetCorruptionException;
+import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import parquet.column.ColumnDescriptor;
-import parquet.column.page.PageReadStore;
 import parquet.hadoop.metadata.BlockMetaData;
+import parquet.hadoop.metadata.ColumnChunkMetaData;
+import parquet.hadoop.metadata.ColumnPath;
 import parquet.schema.MessageType;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
+
 public class ParquetReader
+        implements Closeable
 {
     public static final int MAX_VECTOR_LENGTH = 1024;
 
-    private final Path file;
     private final MessageType fileSchema;
     private final Map<String, String> extraMetadata;
     private final MessageType requestedSchema;
-    private final ParquetFileReader fileReader;
     private final List<BlockMetaData> blocks;
-    private final Configuration configuration;
+    private final ParquetDataSource dataSource;
+    private final ParquetCodecFactory codecFactory;
 
-    private PageReadStore readerStore;
+    private int currentBlock;
+    private BlockMetaData currentBlockMetadata;
     private long fileRowCount;
     private long currentPosition;
     private long currentGroupRowCount;
@@ -50,29 +57,29 @@ public class ParquetReader
     public ParquetReader(MessageType fileSchema,
             Map<String, String> extraMetadata,
             MessageType requestedSchema,
-            Path file,
             List<BlockMetaData> blocks,
-            Configuration configuration)
+            Configuration configuration,
+            ParquetDataSource dataSource)
             throws IOException
     {
         this.fileSchema = fileSchema;
         this.extraMetadata = extraMetadata;
         this.requestedSchema = requestedSchema;
-        this.file = file;
         this.blocks = blocks;
-        this.configuration = configuration;
-        this.fileReader = new ParquetFileReader(configuration, file, blocks, requestedSchema.getColumns());
+        this.dataSource = dataSource;
+        codecFactory = new ParquetCodecFactory(configuration);
         for (BlockMetaData block : blocks) {
             fileRowCount += block.getRowCount();
         }
+        initializeColumnReaders();
     }
 
+    @Override
     public void close()
             throws IOException
     {
-        if (fileReader != null) {
-            fileReader.close();
-        }
+        dataSource.close();
+        codecFactory.release();
     }
 
     public float getProgress()
@@ -107,32 +114,63 @@ public class ParquetReader
 
         nextRowInGroup += batchSize;
         currentPosition += batchSize;
+        for (ColumnDescriptor column : requestedSchema.getColumns()) {
+            ParquetColumnReader columnReader = columnReadersMap.get(column);
+            columnReader.prepareNextRead(batchSize);
+        }
         return batchSize;
     }
 
     private boolean advanceToNextRowGroup()
             throws InterruptedException
     {
-        long rowCount = fileReader.readNextRowGroup();
-        if (rowCount == -1) {
+        if (currentBlock == blocks.size()) {
             return false;
         }
-        nextRowInGroup = 0;
+        currentBlockMetadata = blocks.get(currentBlock);
+        currentBlock = currentBlock + 1;
+        long rowCount = currentBlockMetadata.getRowCount();
+
+        nextRowInGroup = 0L;
         currentGroupRowCount = rowCount;
+        columnReadersMap.clear();
+        initializeColumnReaders();
         return true;
     }
 
-    public Block readBlock(ColumnDescriptor columnDescriptor, int vectorSize, Type type)
+    public Block readBlock(ColumnDescriptor columnDescriptor, Type type)
             throws IOException
     {
-        ParquetColumnReader columnReader;
-        if (columnReadersMap.containsKey(columnDescriptor)) {
-            columnReader = columnReadersMap.get(columnDescriptor);
+        ParquetColumnReader columnReader = columnReadersMap.get(columnDescriptor);
+        if (columnReader.getPageReader() == null) {
+            validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group having 0 rows");
+            ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
+            long startingPosition = metadata.getStartingPos();
+            int totalSize = Ints.checkedCast(metadata.getTotalSize());
+            byte[] buffer = new byte[totalSize];
+            dataSource.readFully(startingPosition, buffer);
+            ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, startingPosition, totalSize);
+            ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0, codecFactory);
+            columnReader.setPageReader(columnChunk.readAllPages());
         }
-        else {
-            columnReader = new ParquetColumnReader(columnDescriptor, fileReader.readColumn(columnDescriptor));
-            columnReadersMap.put(columnDescriptor, columnReader);
+        return columnReader.readBlock(type);
+    }
+
+    private ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
+            throws IOException
+    {
+        for (ColumnChunkMetaData metadata : currentBlockMetadata.getColumns()) {
+            if (metadata.getPath().equals(ColumnPath.get(columnDescriptor.getPath()))) {
+                return metadata;
+            }
         }
-        return columnReader.readBlock(vectorSize, type);
+        throw new ParquetCorruptionException("Malformed Parquet file. Could not find column metadata %s", columnDescriptor);
+    }
+
+    private void initializeColumnReaders()
+    {
+        for (ColumnDescriptor column : requestedSchema.getColumns()) {
+            columnReadersMap.put(column, ParquetColumnReader.createReader(column));
+        }
     }
 }

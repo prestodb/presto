@@ -35,14 +35,15 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -83,6 +84,7 @@ import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -94,8 +96,10 @@ public class TestingPrestoServer
     private final PluginManager pluginManager;
     private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
+    private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
+    private final ProcedureTester procedureTester;
     private final SplitManager splitManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
@@ -114,7 +118,7 @@ public class TestingPrestoServer
         private final CountDownLatch shutdownCalled = new CountDownLatch(1);
 
         @GuardedBy("this")
-        private boolean isWorkerShutdown = false;
+        private boolean isWorkerShutdown;
 
         @Override
         public synchronized void onShutdown()
@@ -153,6 +157,12 @@ public class TestingPrestoServer
         this.coordinator = coordinator;
         baseDataDir = Files.createTempDirectory("PrestoTest");
 
+        properties = new HashMap<>(properties);
+        String coordinatorPort = properties.remove("http-server.http.port");
+        if (coordinatorPort == null) {
+            coordinatorPort = "0";
+        }
+
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
@@ -160,6 +170,7 @@ public class TestingPrestoServer
                 .put("http-client.max-threads", "16")
                 .put("task.default-concurrency", "4")
                 .put("task.max-worker-threads", "4")
+                .put("exchange.client-threads", "4")
                 .put("analyzer.experimental-syntax-enabled", "true");
 
         if (!properties.containsKey("query.max-memory-per-node")) {
@@ -173,7 +184,7 @@ public class TestingPrestoServer
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
-                .add(new TestingHttpServerModule())
+                .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
                 .add(new JsonModule())
                 .add(new JaxrsModule(true))
                 .add(new MBeanModule())
@@ -189,23 +200,13 @@ public class TestingPrestoServer
                         NodeSchedulerConfig.class,
                         config -> "flat".equalsIgnoreCase(config.getNetworkTopology()),
                         binder -> binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)))
-                .add(new Module() {
-                    @Override
-                    public void configure(Binder binder)
-                    {
-                        binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                        binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                        binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
-                    }
-                })
-                .add(new Module()
-                {
-                    @Override
-                    public void configure(Binder binder)
-                    {
-                        binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
-                        binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
-                    }
+                .add(binder -> {
+                    binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
+                    binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
+                    binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri != null) {
@@ -244,8 +245,10 @@ public class TestingPrestoServer
         connectorManager = injector.getInstance(ConnectorManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
+        transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
+        procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
@@ -318,6 +321,11 @@ public class TestingPrestoServer
         return HostAndPort.fromParts(getBaseUrl().getHost(), getBaseUrl().getPort());
     }
 
+    public TransactionManager getTransactionManager()
+    {
+        return transactionManager;
+    }
+
     public Metadata getMetadata()
     {
         return metadata;
@@ -326,6 +334,11 @@ public class TestingPrestoServer
     public TestingAccessControlManager getAccessControl()
     {
         return accessControl;
+    }
+
+    public ProcedureTester getProcedureTester()
+    {
+        return procedureTester;
     }
 
     public SplitManager getSplitManager()

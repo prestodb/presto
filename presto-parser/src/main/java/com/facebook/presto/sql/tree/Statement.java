@@ -18,7 +18,7 @@ import java.util.Optional;
 public abstract class Statement
         extends Node
 {
-    public Statement(Optional<NodeLocation> location)
+    protected Statement(Optional<NodeLocation> location)
     {
         super(location);
     }

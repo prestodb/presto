@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -40,46 +39,35 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class PlanFragment
 {
-    public enum PlanDistribution
-    {
-        SINGLE,
-        FIXED,
-        SOURCE,
-        COORDINATOR_ONLY
-    }
-
     private final PlanFragmentId id;
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;
-    private final List<Symbol> outputLayout;
-    private final PlanDistribution distribution;
+    private final PartitioningHandle partitioning;
     private final PlanNodeId partitionedSource;
     private final List<Type> types;
     private final PlanNode partitionedSourceNode;
     private final List<RemoteSourceNode> remoteSourceNodes;
-    private final Optional<PartitionFunctionBinding> partitionFunction;
+    private final PartitionFunctionBinding partitionFunction;
 
     @JsonCreator
     public PlanFragment(
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
-            @JsonProperty("outputLayout") List<Symbol> outputLayout,
-            @JsonProperty("distribution") PlanDistribution distribution,
+            @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
-            @JsonProperty("partitionFunction") Optional<PartitionFunctionBinding> partitionFunction)
+            @JsonProperty("partitionFunction") PartitionFunctionBinding partitionFunction)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
         this.symbols = requireNonNull(symbols, "symbols is null");
-        this.outputLayout = requireNonNull(outputLayout, "outputLayout is null");
-        this.distribution = requireNonNull(distribution, "distribution is null");
+        this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionedSource = partitionedSource;
 
-        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputLayout),
-                "Root node outputs (%s) don't include all fragment outputs (%s)", root.getOutputSymbols(), outputLayout);
+        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitionFunction.getOutputLayout()),
+                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), partitionFunction.getOutputLayout());
 
-        types = outputLayout.stream()
+        types = partitionFunction.getOutputLayout().stream()
                 .map(symbols::get)
                 .collect(toImmutableList());
 
@@ -111,15 +99,9 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public List<Symbol> getOutputLayout()
+    public PartitioningHandle getPartitioning()
     {
-        return outputLayout;
-    }
-
-    @JsonProperty
-    public PlanDistribution getDistribution()
-    {
-        return distribution;
+        return partitioning;
     }
 
     @JsonProperty
@@ -129,7 +111,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Optional<PartitionFunctionBinding> getPartitionFunction()
+    public PartitionFunctionBinding getPartitionFunction()
     {
         return partitionFunction;
     }
@@ -178,9 +160,9 @@ public class PlanFragment
         }
     }
 
-    public PlanFragment withPartitionCount(OptionalInt partitionCount)
+    public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, outputLayout, distribution, partitionedSource, partitionFunction.map(function -> function.withPartitionCount(partitionCount)));
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSource, partitionFunction.withBucketToPartition(bucketToPartition));
     }
 
     @Override
@@ -188,7 +170,7 @@ public class PlanFragment
     {
         return toStringHelper(this)
                 .add("id", id)
-                .add("distribution", distribution)
+                .add("partitioning", partitioning)
                 .add("partitionedSource", partitionedSource)
                 .add("partitionFunction", partitionFunction)
                 .toString();

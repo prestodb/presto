@@ -72,6 +72,16 @@ public class Query
         return client.getResetSessionProperties();
     }
 
+    public String getStartedTransactionId()
+    {
+        return client.getStartedtransactionId();
+    }
+
+    public boolean isClearTransactionId()
+    {
+        return client.isClearTransactionId();
+    }
+
     public void renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();
@@ -193,12 +203,12 @@ public class Query
             throws IOException
     {
         try (Pager pager = Pager.create();
+                ThreadInterruptor clientThread = new ThreadInterruptor();
                 Writer writer = createWriter(pager);
                 OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
             if (!pager.isNullPager()) {
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
-                Thread clientThread = Thread.currentThread();
                 pager.getFinishFuture().thenRun(() -> {
                     userAbortedQuery.set(true);
                     ignoreUserInterrupt.set(false);
@@ -311,6 +321,26 @@ public class Query
             String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
+        }
+    }
+
+    private static class ThreadInterruptor
+            implements Closeable
+    {
+        private final Thread thread = Thread.currentThread();
+        private final AtomicBoolean processing = new AtomicBoolean(true);
+
+        public synchronized void interrupt()
+        {
+            if (processing.get()) {
+                thread.interrupt();
+            }
+        }
+
+        @Override
+        public synchronized void close()
+        {
+            processing.set(false);
         }
     }
 }

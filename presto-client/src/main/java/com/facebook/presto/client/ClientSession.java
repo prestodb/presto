@@ -14,6 +14,7 @@
 package com.facebook.presto.client;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
@@ -37,7 +38,9 @@ public class ClientSession
     private final String timeZoneId;
     private final Locale locale;
     private final Map<String, String> properties;
+    private final String transactionId;
     private final boolean debug;
+    private final Duration clientRequestTimeout;
 
     public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
     {
@@ -50,7 +53,9 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 session.getProperties(),
-                session.isDebug());
+                session.getTransactionId(),
+                session.isDebug(),
+                session.getClientRequestTimeout());
     }
 
     public static ClientSession withSessionProperties(ClientSession session, Map<String, String> sessionProperties)
@@ -67,7 +72,9 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 properties,
-                session.isDebug());
+                session.getTransactionId(),
+                session.isDebug(),
+                session.getClientRequestTimeout());
     }
 
     public static ClientSession withProperties(ClientSession session, Map<String, String> properties)
@@ -81,10 +88,44 @@ public class ClientSession
                 session.getTimeZoneId(),
                 session.getLocale(),
                 properties,
-                session.isDebug());
+                session.getTransactionId(),
+                session.isDebug(),
+                session.getClientRequestTimeout());
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, boolean debug)
+    public static ClientSession withTransactionId(ClientSession session, String transactionId)
+    {
+        return new ClientSession(
+                session.getServer(),
+                session.getUser(),
+                session.getSource(),
+                session.getCatalog(),
+                session.getSchema(),
+                session.getTimeZoneId(),
+                session.getLocale(),
+                session.getProperties(),
+                transactionId,
+                session.isDebug(),
+                session.getClientRequestTimeout());
+    }
+
+    public static ClientSession stripTransactionId(ClientSession session)
+    {
+        return new ClientSession(
+                session.getServer(),
+                session.getUser(),
+                session.getSource(),
+                session.getCatalog(),
+                session.getSchema(),
+                session.getTimeZoneId(),
+                session.getLocale(),
+                session.getProperties(),
+                null,
+                session.isDebug(),
+                session.getClientRequestTimeout());
+    }
+
+    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, String transactionId, boolean debug, Duration clientRequestTimeout)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -93,8 +134,10 @@ public class ClientSession
         this.schema = schema;
         this.locale = locale;
         this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
+        this.transactionId = transactionId;
         this.debug = debug;
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.clientRequestTimeout = clientRequestTimeout;
 
         // verify the properties are valid
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
@@ -146,9 +189,19 @@ public class ClientSession
         return properties;
     }
 
+    public String getTransactionId()
+    {
+        return transactionId;
+    }
+
     public boolean isDebug()
     {
         return debug;
+    }
+
+    public Duration getClientRequestTimeout()
+    {
+        return clientRequestTimeout;
     }
 
     @Override
@@ -162,6 +215,7 @@ public class ClientSession
                 .add("timeZone", timeZoneId)
                 .add("locale", locale)
                 .add("properties", properties)
+                .add("transactionId", transactionId)
                 .add("debug", debug)
                 .toString();
     }

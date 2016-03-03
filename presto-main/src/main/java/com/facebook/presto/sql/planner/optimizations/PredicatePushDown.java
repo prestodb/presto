@@ -111,7 +111,7 @@ public class PredicatePushDown
         requireNonNull(types, "types is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, sqlParser, session), plan, BooleanLiteral.TRUE_LITERAL);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, sqlParser, session, types), plan, BooleanLiteral.TRUE_LITERAL);
     }
 
     private static class Rewriter
@@ -122,19 +122,24 @@ public class PredicatePushDown
         private final Metadata metadata;
         private final SqlParser sqlParser;
         private final Session session;
+        private final Map<Symbol, Type> types;
+        private final ExpressionEquivalence expressionEquivalence;
 
         private Rewriter(
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
                 SqlParser sqlParser,
-                Session session)
+                Session session,
+                Map<Symbol, Type> types)
         {
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
+            this.types = requireNonNull(types, "types is null");
+            this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
         }
 
         @Override
@@ -176,7 +181,6 @@ public class PredicatePushDown
                         node.getType(),
                         node.getPartitionFunction(),
                         builder.build(),
-                        node.getOutputSymbols(),
                         node.getInputs());
             }
 
@@ -237,7 +241,7 @@ public class PredicatePushDown
             }
 
             if (modified) {
-                return new UnionNode(node.getId(), builder.build(), node.getSymbolMapping());
+                return new UnionNode(node.getId(), builder.build(), node.getSymbolMapping(), node.getOutputSymbols());
             }
 
             return node;
@@ -314,7 +318,9 @@ public class PredicatePushDown
             PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
 
             PlanNode output = node;
-            if (leftSource != node.getLeft() || rightSource != node.getRight() || !newJoinPredicate.equals(joinPredicate)) {
+            if (leftSource != node.getLeft() ||
+                    rightSource != node.getRight() ||
+                    !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
                 List<JoinNode.EquiJoinClause> criteria = node.getCriteria();
                 Iterable<Expression> simplifiedJoinConjuncts = null;
 

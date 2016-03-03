@@ -23,6 +23,7 @@ import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
@@ -82,7 +83,7 @@ public class QuerySystemTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {

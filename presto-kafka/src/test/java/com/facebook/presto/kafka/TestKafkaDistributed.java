@@ -68,12 +68,6 @@ public class TestKafkaDistributed
     }
 
     @Override
-    public void testCreateTableAsSelectSampled()
-            throws Exception
-    {
-    }
-
-    @Override
     public void testSymbolAliasing()
             throws Exception
     {
@@ -87,6 +81,13 @@ public class TestKafkaDistributed
     public void testView()
             throws Exception
     {
+    }
+
+    @Override
+    public void testCompatibleTypeChangeForView()
+            throws Exception
+    {
+        // Kafka connector currently does not support views
     }
 
     @Override

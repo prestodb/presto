@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.shaded.com.google.common.collect.Lists;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
-import com.facebook.presto.hive.orc.DwrfRecordCursorProvider;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
-import com.facebook.presto.hive.orc.OrcRecordCursorProvider;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
@@ -197,7 +196,7 @@ public class TestHiveFileFormats
         file.delete();
         try {
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
-            testCursorProvider(new OrcRecordCursorProvider(), split, inputFormat, serde, TEST_COLUMNS, NUM_ROWS);
+            testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER, false), split, inputFormat, serde, TEST_COLUMNS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -206,7 +205,7 @@ public class TestHiveFileFormats
     }
 
     @Test
-    public void testOrcDataStream()
+    public void testOrcUseColumnNames()
             throws Exception
     {
         HiveOutputFormat<?, ?> outputFormat = new org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat();
@@ -217,7 +216,10 @@ public class TestHiveFileFormats
         file.delete();
         try {
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, TEST_COLUMNS, NUM_ROWS);
-            testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER), split, inputFormat, serde, TEST_COLUMNS);
+            // Reverse the order of the columns to test access by name, not by index
+            List<TestColumn> reversedColumns = Lists.reverse(TEST_COLUMNS);
+            TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig()).getSessionProperties());
+            testPageSourceFactory(new OrcPageSourceFactory(TYPE_MANAGER, true), split, inputFormat, serde, reversedColumns, session);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -248,7 +250,7 @@ public class TestHiveFileFormats
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testParquetPageSource()
             throws Exception
     {
@@ -365,31 +367,6 @@ public class TestHiveFileFormats
 
     @Test
     public void testDwrf()
-            throws Exception
-    {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
-            ObjectInspector objectInspector = testColumn.getObjectInspector();
-            return !hasType(objectInspector, PrimitiveCategory.DATE);
-        }));
-
-        HiveOutputFormat<?, ?> outputFormat = new com.facebook.hive.orc.OrcOutputFormat();
-        InputFormat<?, ?> inputFormat = new com.facebook.hive.orc.OrcInputFormat();
-        @SuppressWarnings("deprecation")
-        SerDe serde = new com.facebook.hive.orc.OrcSerde();
-        File file = File.createTempFile("presto_test", "dwrf");
-        file.delete();
-        try {
-            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
-            testCursorProvider(new DwrfRecordCursorProvider(), split, inputFormat, serde, testColumns, NUM_ROWS);
-        }
-        finally {
-            //noinspection ResultOfMethodCallIgnored
-            file.delete();
-        }
-    }
-
-    @Test
-    public void testDwrfDataStream()
             throws Exception
     {
         List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {

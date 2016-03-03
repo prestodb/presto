@@ -90,6 +90,7 @@ public class OrcFileWriter
     private final List<StructField> structFields;
     private final Object orcRow;
 
+    private boolean closed;
     private long rowCount;
     private long uncompressedSize;
 
@@ -153,6 +154,11 @@ public class OrcFileWriter
     @Override
     public void close()
     {
+        if (closed) {
+            return;
+        }
+        closed = true;
+
         try {
             recordWriter.close(false);
         }
@@ -260,7 +266,7 @@ public class OrcFileWriter
             return StorageType.DOUBLE;
         }
         if (javaType == Slice.class) {
-            if (type.equals(VarcharType.VARCHAR)) {
+            if (type instanceof VarcharType) {
                 return StorageType.STRING;
             }
             if (type.equals(VarbinaryType.VARBINARY)) {

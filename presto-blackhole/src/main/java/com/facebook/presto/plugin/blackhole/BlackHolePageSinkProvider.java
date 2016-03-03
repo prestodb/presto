@@ -17,26 +17,28 @@ package com.facebook.presto.plugin.blackhole;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 public class BlackHolePageSinkProvider
         implements ConnectorPageSinkProvider
 {
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         return new NoOpConnectorPageSink();
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
         return new NoOpConnectorPageSink();
     }
@@ -45,18 +47,19 @@ public class BlackHolePageSinkProvider
             implements ConnectorPageSink
     {
         @Override
-        public void appendPage(Page page, Block sampleWeightBlock)
+        public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
         {
+            return NOT_BLOCKED;
         }
 
         @Override
-        public Collection<Slice> commit()
+        public Collection<Slice> finish()
         {
             return ImmutableList.of();
         }
 
         @Override
-        public void rollback()
+        public void abort()
         {
         }
     }

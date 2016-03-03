@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -40,6 +41,48 @@ public class ComparisonExpression
         public String getValue()
         {
             return value;
+        }
+
+        public Type flip()
+        {
+            switch (this) {
+                case EQUAL:
+                    return EQUAL;
+                case NOT_EQUAL:
+                    return NOT_EQUAL;
+                case LESS_THAN:
+                    return GREATER_THAN;
+                case LESS_THAN_OR_EQUAL:
+                    return GREATER_THAN_OR_EQUAL;
+                case GREATER_THAN:
+                    return LESS_THAN;
+                case GREATER_THAN_OR_EQUAL:
+                    return LESS_THAN_OR_EQUAL;
+                case IS_DISTINCT_FROM:
+                    return IS_DISTINCT_FROM;
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison: " + this);
+            }
+        }
+
+        public Type negate()
+        {
+            switch (this) {
+                case EQUAL:
+                    return NOT_EQUAL;
+                case NOT_EQUAL:
+                    return EQUAL;
+                case LESS_THAN:
+                    return GREATER_THAN_OR_EQUAL;
+                case LESS_THAN_OR_EQUAL:
+                    return GREATER_THAN;
+                case GREATER_THAN:
+                    return LESS_THAN_OR_EQUAL;
+                case GREATER_THAN_OR_EQUAL:
+                    return LESS_THAN;
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison: " + this);
+            }
         }
     }
 
@@ -101,26 +144,14 @@ public class ComparisonExpression
         }
 
         ComparisonExpression that = (ComparisonExpression) o;
-
-        if (!left.equals(that.left)) {
-            return false;
-        }
-        if (!right.equals(that.right)) {
-            return false;
-        }
-        if (type != that.type) {
-            return false;
-        }
-
-        return true;
+        return (type == that.type) &&
+                Objects.equals(left, that.left) &&
+                Objects.equals(right, that.right);
     }
 
     @Override
     public int hashCode()
     {
-        int result = type.hashCode();
-        result = 31 * result + left.hashCode();
-        result = 31 * result + right.hashCode();
-        return result;
+        return Objects.hash(type, left, right);
     }
 }

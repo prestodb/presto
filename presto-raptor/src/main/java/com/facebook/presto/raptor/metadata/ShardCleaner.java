@@ -15,13 +15,12 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.storage.StorageService;
+import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -40,30 +39,28 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.callable;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ShardCleaner
 {
     private static final Logger log = Logger.get(ShardCleaner.class);
 
-    private final IDBI dbi;
-    private final ShardManagerDao dao;
+    private final ShardDao dao;
     private final String currentNode;
     private final boolean coordinator;
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
     private final Duration maxTransactionAge;
+    private final Duration transactionCleanerInterval;
     private final Duration localCleanerInterval;
     private final Duration localCleanTime;
     private final Duration localPurgeTime;
@@ -77,18 +74,20 @@ public class ShardCleaner
 
     @Inject
     public ShardCleaner(
-            @ForMetadata IDBI dbi,
+            DaoSupplier<ShardDao> shardDaoSupplier,
             NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
             ShardCleanerConfig config)
     {
-        this(dbi,
+        this(
+                shardDaoSupplier,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 nodeManager.getCoordinators().contains(nodeManager.getCurrentNode()),
                 storageService,
                 backupStore,
                 config.getMaxTransactionAge(),
+                config.getTransactionCleanerInterval(),
                 config.getLocalCleanerInterval(),
                 config.getLocalCleanTime(),
                 config.getLocalPurgeTime(),
@@ -99,12 +98,13 @@ public class ShardCleaner
     }
 
     public ShardCleaner(
-            IDBI dbi,
+            DaoSupplier<ShardDao> shardDaoSupplier,
             String currentNode,
             boolean coordinator,
             StorageService storageService,
             Optional<BackupStore> backupStore,
             Duration maxTransactionAge,
+            Duration transactionCleanerInterval,
             Duration localCleanerInterval,
             Duration localCleanTime,
             Duration localPurgeTime,
@@ -113,13 +113,13 @@ public class ShardCleaner
             Duration backupPurgeTime,
             int backupDeletionThreads)
     {
-        this.dbi = requireNonNull(dbi, "dbi is null");
-        this.dao = onDemandDao(dbi, ShardManagerDao.class);
+        this.dao = shardDaoSupplier.onDemand();
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.coordinator = coordinator;
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
         this.maxTransactionAge = requireNonNull(maxTransactionAge, "maxTransactionAge");
+        this.transactionCleanerInterval = requireNonNull(transactionCleanerInterval, "transactionCleanerInterval is null");
         this.localCleanerInterval = requireNonNull(localCleanerInterval, "localCleanerInterval is null");
         this.localCleanTime = requireNonNull(localCleanTime, "localCleanTime is null");
         this.localPurgeTime = requireNonNull(localPurgeTime, "localPurgeTime is null");
@@ -166,7 +166,7 @@ public class ShardCleaner
             catch (Throwable t) {
                 log.error(t, "Error cleaning transactions");
             }
-        }, 0, 5, MINUTES);
+        }, 0, transactionCleanerInterval.toMillis(), MILLISECONDS);
     }
 
     private void startBackupCleanup()
@@ -210,22 +210,18 @@ public class ShardCleaner
     @VisibleForTesting
     void deleteOldShards()
     {
-        try (Handle handle = dbi.open()) {
-            ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+        while (!Thread.currentThread().isInterrupted()) {
+            List<UUID> shards = dao.getOldCreatedShardsBatch();
+            dao.insertDeletedShards(shards);
+            dao.deleteCreatedShards(shards);
 
-            dao.dropTableTemporaryCreatedShards();
-            dao.createTableTemporaryCreatedShards();
-            dao.insertTemporaryCreatedShards();
-            dao.insertDeletedShardsFromCreated();
-            dao.deleteOldCreatedShards();
-            dao.dropTableTemporaryCreatedShards();
+            List<ShardNodeId> shardNodes = dao.getOldCreatedShardNodesBatch();
+            dao.insertDeletedShardNodes(shardNodes);
+            dao.deleteCreatedShardNodes(shardNodes);
 
-            dao.dropTableTemporaryCreatedShardNodes();
-            dao.createTableTemporaryCreatedShardNodes();
-            dao.insertTemporaryCreatedShardNodes();
-            dao.insertDeletedShardNodesFromCreated();
-            dao.deleteOldCreatedShardNodes();
-            dao.dropTableTemporaryCreatedShardNodes();
+            if (shards.isEmpty() && shardNodes.isEmpty()) {
+                break;
+            }
         }
     }
 
@@ -238,10 +234,12 @@ public class ShardCleaner
                 break;
             }
 
+            long start = System.nanoTime();
             for (UUID uuid : uuids) {
                 deleteFile(storageService.getStorageFile(uuid));
             }
             dao.updateCleanedShardNodes(uuids, getCurrentNodeId());
+            log.info("Cleaned %s local shards in %s", uuids.size(), nanosSince(start));
         }
     }
 
@@ -254,10 +252,12 @@ public class ShardCleaner
                 break;
             }
 
+            long start = System.nanoTime();
             for (UUID uuid : uuids) {
                 deleteFile(storageService.getStorageFile(uuid));
             }
-            dao.updatePurgedShardNodes(uuids, getCurrentNodeId());
+            dao.deletePurgedShardNodes(uuids, getCurrentNodeId());
+            log.info("Purged %s local shards in %s", uuids.size(), nanosSince(start));
         }
     }
 
@@ -270,10 +270,10 @@ public class ShardCleaner
                 break;
             }
 
-            executeDeletes(uuids, (uuid) -> {
-                backupStore.get().deleteShard(uuid);
-                dao.updateCleanedShard(uuid);
-            });
+            long start = System.nanoTime();
+            executeDeletes(uuids);
+            dao.updateCleanedShards(uuids);
+            log.info("Cleaned %s backup shards in %s", uuids.size(), nanosSince(start));
         }
     }
 
@@ -286,19 +286,19 @@ public class ShardCleaner
                 break;
             }
 
-            executeDeletes(uuids, (uuid) -> {
-                backupStore.get().deleteShard(uuid);
-                dao.updatePurgedShard(uuid);
-            });
+            long start = System.nanoTime();
+            executeDeletes(uuids);
+            dao.deletePurgedShards(uuids);
+            log.info("Purged %s backup shards in %s", uuids.size(), nanosSince(start));
         }
     }
 
-    private void executeDeletes(List<UUID> uuids, Consumer<UUID> consumer)
+    private void executeDeletes(List<UUID> uuids)
     {
         List<Callable<Object>> tasks = new ArrayList<>();
         for (UUID uuid : uuids) {
             tasks.add(callable(() -> {
-                consumer.accept(uuid);
+                backupStore.get().deleteShard(uuid);
             }));
         }
 

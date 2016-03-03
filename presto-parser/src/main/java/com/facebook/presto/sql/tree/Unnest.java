@@ -67,7 +67,7 @@ public final class Unnest
     {
         String result = "UNNEST(" + Joiner.on(", ").join(expressions) + ")";
         if (withOrdinality) {
-            result = result + " WITH ORDINALITY";
+            result += " WITH ORDINALITY";
         }
         return result;
     }

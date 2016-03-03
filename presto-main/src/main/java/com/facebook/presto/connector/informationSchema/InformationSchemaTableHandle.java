@@ -66,7 +66,7 @@ public class InformationSchemaTableHandle
     @Override
     public String toString()
     {
-        return "information_schema:" + catalogName + ":" + schemaName + ":" + tableName;
+        return catalogName + ":" + schemaName + ":" + tableName;
     }
 
     @Override

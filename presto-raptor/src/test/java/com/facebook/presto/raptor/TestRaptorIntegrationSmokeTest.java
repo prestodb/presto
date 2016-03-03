@@ -14,10 +14,10 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
-import static io.airlift.tpch.TpchTable.ORDERS;
 
 public class TestRaptorIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -25,6 +25,6 @@ public class TestRaptorIntegrationSmokeTest
     public TestRaptorIntegrationSmokeTest()
             throws Exception
     {
-        super(createRaptorQueryRunner(ORDERS), createSampledSession());
+        super(createRaptorQueryRunner(ImmutableMap.of(), true, false), createSampledSession());
     }
 }

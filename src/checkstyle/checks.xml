@@ -35,6 +35,10 @@
         <property name="format" value="Preconditions\.checkNotNull"/>
         <property name="message" value="Use of checkNotNull"/>
     </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import org.testng.Assert;$"/>
+        <property name="message" value="org.testng.Assert should only be used with static imports"/>
+    </module>
 
     <module name="TreeWalker">
         <module name="EmptyBlock">

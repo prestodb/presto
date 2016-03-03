@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
@@ -33,6 +34,8 @@ public interface QueryRunner
     int getNodeCount();
 
     Session getDefaultSession();
+
+    TransactionManager getTransactionManager();
 
     Metadata getMetadata();
 

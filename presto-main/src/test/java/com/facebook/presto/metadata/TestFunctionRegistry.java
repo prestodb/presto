@@ -17,6 +17,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.SqlType;
 import com.facebook.presto.type.TypeRegistry;
@@ -63,7 +64,10 @@ public class TestFunctionRegistry
             if (operatorType == OperatorType.CAST) {
                 continue;
             }
-            if (!function.getSignature().getTypeParameters().isEmpty()) {
+            if (!function.getSignature().getTypeParameterRequirements().isEmpty()) {
+                continue;
+            }
+            if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
                 continue;
             }
             Signature exactOperator = registry.resolveOperator(operatorType, resolveTypes(function.getSignature().getArgumentTypes(), typeManager));

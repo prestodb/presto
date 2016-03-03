@@ -14,9 +14,9 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
@@ -63,9 +63,9 @@ public class TestJmxSplitManager
         for (Node node : nodes) {
             String nodeIdentifier = node.getNodeIdentifier();
             TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(VARCHAR, utf8Slice(nodeIdentifier))));
+            ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, nodeTupleDomain);
 
-            ConnectorPartitionResult connectorPartitionResult = splitManager.getPartitions(SESSION, tableHandle, nodeTupleDomain);
-            ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, tableHandle, connectorPartitionResult.getPartitions());
+            ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout);
             List<ConnectorSplit> allSplits = getAllSplits(splitSource);
 
             assertEquals(allSplits.size(), 1);
@@ -78,8 +78,8 @@ public class TestJmxSplitManager
     public void testNoPredicate()
             throws Exception
     {
-        ConnectorPartitionResult connectorPartitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.all());
-        ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, tableHandle, connectorPartitionResult.getPartitions());
+        ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, TupleDomain.all());
+        ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout);
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
         assertEquals(allSplits.size(), nodes.size());
 
@@ -101,13 +101,13 @@ public class TestJmxSplitManager
             JmxTableHandle tableHandle = metadata.getTableHandle(SESSION, schemaTableName);
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
-            ConnectorPartitionResult connectorPartitionResult = splitManager.getPartitions(SESSION, tableHandle, TupleDomain.all());
-            ConnectorSplitSource splitSource = splitManager.getPartitionSplits(SESSION, tableHandle, connectorPartitionResult.getPartitions());
+            ConnectorTableLayoutHandle layout = new JmxTableLayoutHandle(tableHandle, TupleDomain.all());
+            ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, layout);
             List<ConnectorSplit> allSplits = getAllSplits(splitSource);
             assertEquals(allSplits.size(), nodes.size());
             ConnectorSplit split = allSplits.get(0);
 
-            RecordSet recordSet = recordSetProvider.getRecordSet(SESSION, split, columnHandles);
+            RecordSet recordSet = recordSetProvider.getRecordSet(JmxTransactionHandle.INSTANCE, SESSION, split, columnHandles);
             try (RecordCursor cursor = recordSet.cursor()) {
                 while (cursor.advanceNextPosition()) {
                     for (int i = 0; i < recordSet.getColumnTypes().size(); i++) {

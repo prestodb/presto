@@ -32,6 +32,8 @@ public class TestTaskManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
+                .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 4)
+                .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
                 .setInfoRefreshMaxWait(new Duration(200, TimeUnit.MILLISECONDS))
                 .setVerboseStats(false)
                 .setTaskCpuTimerEnabled(true)
@@ -46,14 +48,17 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setWriterCount(1)
                 .setTaskDefaultConcurrency(1)
+                .setTaskJoinConcurrency(1)
                 .setHttpResponseThreads(100)
-                .setHttpTimeoutThreads(1));
+                .setHttpTimeoutThreads(3));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("task.initial-splits-per-node", "1")
+                .put("task.split-concurrency-adjustment-interval", "1s")
                 .put("task.info-refresh-max-wait", "1s")
                 .put("task.verbose-stats", "true")
                 .put("task.cpu-timer-enabled", "false")
@@ -68,11 +73,14 @@ public class TestTaskManagerConfig
                 .put("sink.max-buffer-size", "42MB")
                 .put("task.writer-count", "3")
                 .put("task.default-concurrency", "7")
+                .put("task.join-concurrency", "8")
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
+                .setInitialSplitsPerNode(1)
+                .setSplitConcurrencyAdjustmentInterval(new Duration(1, TimeUnit.SECONDS))
                 .setInfoRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
                 .setVerboseStats(true)
                 .setTaskCpuTimerEnabled(false)
@@ -87,6 +95,7 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
                 .setWriterCount(3)
                 .setTaskDefaultConcurrency(7)
+                .setTaskJoinConcurrency(8)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10);
 

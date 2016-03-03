@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -22,7 +23,19 @@ public class LogicalBinaryExpression
 {
     public enum Type
     {
-        AND, OR
+        AND, OR;
+
+        public Type flip()
+        {
+            switch (this) {
+                case AND:
+                    return LogicalBinaryExpression.Type.OR;
+                case OR:
+                    return LogicalBinaryExpression.Type.AND;
+                default:
+                    throw new IllegalArgumentException("Unsupported logical expression type: " + this);
+            }
+        }
     }
 
     private final Type type;
@@ -93,26 +106,14 @@ public class LogicalBinaryExpression
         }
 
         LogicalBinaryExpression that = (LogicalBinaryExpression) o;
-
-        if (!left.equals(that.left)) {
-            return false;
-        }
-        if (!right.equals(that.right)) {
-            return false;
-        }
-        if (type != that.type) {
-            return false;
-        }
-
-        return true;
+        return type == that.type &&
+                Objects.equals(left, that.left) &&
+                Objects.equals(right, that.right);
     }
 
     @Override
     public int hashCode()
     {
-        int result = type.hashCode();
-        result = 31 * result + left.hashCode();
-        result = 31 * result + right.hashCode();
-        return result;
+        return Objects.hash(type, left, right);
     }
 }

@@ -15,8 +15,10 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -35,6 +37,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -78,6 +81,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
@@ -112,6 +116,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR, BIGINT),
                 3,
                 ImmutableList.of(0, 1),
@@ -148,6 +153,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
@@ -172,6 +178,7 @@ public class TestTopNOperator
 
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
+                new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
                 0,
                 ImmutableList.of(0),
@@ -190,5 +197,38 @@ public class TestTopNOperator
         List<Page> pages = OperatorAssertion.toPages(operator, input.iterator());
         MaterializedResult actual = OperatorAssertion.toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testPartialMemoryFull()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT)
+                .row(1)
+                .pageBreak()
+                .row(2)
+                .build();
+
+        DriverContext smallDiverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, BYTE), new DataSize(0, BYTE))
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        TopNOperatorFactory factory = new TopNOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                100,
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST),
+                true);
+
+        Operator operator = factory.createOperator(smallDiverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row(1)
+                .row(2)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
     }
 }

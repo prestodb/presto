@@ -37,6 +37,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.Symbol;
@@ -48,6 +49,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.testing.TestingSplit;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -68,7 +70,8 @@ import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Integer.min;
@@ -292,7 +295,7 @@ public class TestSourcePartitionedScheduler
             SourcePartitionedScheduler scheduler = new SourcePartitionedScheduler(
                     stage,
                     plan.getDataSource().get(),
-                    new SplitPlacementPolicy(nodeScheduler.createNodeSelector("test"), stage::getAllTasks),
+                    new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector("test"), stage::getAllTasks),
                     2);
             scheduler.schedule();
 
@@ -405,7 +408,7 @@ public class TestSourcePartitionedScheduler
         NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
 
         SplitSource splitSource = plan.getDataSource().get();
-        SplitPlacementPolicy placementPolicy = new SplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getDataSourceName()), stage::getAllTasks);
+        SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getDataSourceName()), stage::getAllTasks);
         return new SourcePartitionedScheduler(stage, splitSource, placementPolicy, splitBatchSize);
     }
 
@@ -432,12 +435,11 @@ public class TestSourcePartitionedScheduler
                         Optional.<Symbol>empty(),
                         Optional.<Symbol>empty()),
                 ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
-                ImmutableList.of(symbol),
-                SOURCE,
+                SOURCE_DISTRIBUTION,
                 tableScanNodeId,
-                Optional.empty());
+                new PartitionFunctionBinding(SINGLE_DISTRIBUTION, ImmutableList.of(symbol), ImmutableList.of()));
 
-        return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, splitSource)), ImmutableList.<StageExecutionPlan>of());
+        return new StageExecutionPlan(testFragment, Optional.of(new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(CONNECTOR_ID), splitSource)), ImmutableList.of());
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)

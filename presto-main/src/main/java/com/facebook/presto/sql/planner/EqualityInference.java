@@ -18,17 +18,16 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.util.DisjointSet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 
@@ -74,8 +73,9 @@ public class EqualityInference
 
     private final SetMultimap<Expression, Expression> equalitySets; // Indexed by canonical expression
     private final Map<Expression, Expression> canonicalMap; // Map each known expression to canonical expression
+    private final Set<Expression> derivedExpressions;
 
-    private EqualityInference(Iterable<Set<Expression>> equalityGroups)
+    private EqualityInference(Iterable<Set<Expression>> equalityGroups, Set<Expression> derivedExpressions)
     {
         ImmutableSetMultimap.Builder<Expression, Expression> setBuilder = ImmutableSetMultimap.builder();
         for (Set<Expression> equalityGroup : equalityGroups) {
@@ -92,6 +92,8 @@ public class EqualityInference
             mapBuilder.put(expression, canonical);
         }
         canonicalMap = mapBuilder.build();
+
+        this.derivedExpressions = ImmutableSet.copyOf(derivedExpressions);
     }
 
     /**
@@ -169,8 +171,8 @@ public class EqualityInference
             Set<Expression> scopeComplementExpressions = new HashSet<>();
             Set<Expression> scopeStraddlingExpressions = new HashSet<>();
 
-            // Try to push each expression into one side of the scope
-            for (Expression expression : equalitySet) {
+            // Try to push each non-derived expression into one side of the scope
+            for (Expression expression : filter(equalitySet, not(derivedExpressions::contains))) {
                 Expression scopeRewritten = rewriteExpression(expression, symbolScope, false);
                 if (scopeRewritten != null) {
                     scopeExpressions.add(scopeRewritten);
@@ -183,7 +185,6 @@ public class EqualityInference
                     scopeStraddlingExpressions.add(expression);
                 }
             }
-
             // Compile the equality expressions on each side of the scope
             Expression matchingCanonical = getCanonical(scopeExpressions);
             if (scopeExpressions.size() >= 2) {
@@ -328,8 +329,8 @@ public class EqualityInference
 
     public static class Builder
     {
-        private final Map<Expression, Expression> map = new HashMap<>();
-        private final Multimap<Expression, Expression> reverseMap = HashMultimap.create();
+        private final DisjointSet<Expression> equalities = new DisjointSet<>();
+        private final Set<Expression> derivedExpressions = new HashSet<>();
 
         public Builder extractInferenceCandidates(Expression expression)
         {
@@ -355,55 +356,49 @@ public class EqualityInference
 
         public Builder addEquality(Expression expression1, Expression expression2)
         {
-            checkArgument(!expression1.equals(expression2), "need to provide equality between different expressions");
+            checkArgument(!expression1.equals(expression2), "Need to provide equality between different expressions");
             checkArgument(DeterminismEvaluator.isDeterministic(expression1), "Expression must be deterministic: " + expression1);
             checkArgument(DeterminismEvaluator.isDeterministic(expression2), "Expression must be deterministic: " + expression2);
 
-            Expression canonical1 = canonicalize(expression1);
-            Expression canonical2 = canonicalize(expression2);
-
-            if (!canonical1.equals(canonical2)) {
-                map.put(canonical1, canonical2);
-                reverseMap.put(canonical2, canonical1);
-            }
+            equalities.findAndUnion(expression1, expression2);
             return this;
         }
 
-        private Expression canonicalize(Expression expression)
+        /**
+         * Performs one pass of generating more equivalences by rewriting sub-expressions in terms of known equivalences.
+         */
+        private void generateMoreEquivalences()
         {
-            while (map.containsKey(expression)) {
-                expression = map.get(expression);
-            }
-            return expression;
-        }
+            Collection<Set<Expression>> equivalentClasses = equalities.getEquivalentClasses();
 
-        private void collectEqualities(Expression expression, ImmutableSet.Builder<Expression> builder)
-        {
-            builder.add(expression);
-            for (Expression childExpression : reverseMap.get(expression)) {
-                collectEqualities(childExpression, builder);
+            // Map every expression to the set of equivalent expressions
+            Map<Expression, Set<Expression>> map = new HashMap<>();
+            for (Set<Expression> expressions : equivalentClasses) {
+                expressions.stream().forEach(expression -> map.put(expression, expressions));
             }
-        }
 
-        private Set<Expression> extractEqualExpressions(Expression expression)
-        {
-            ImmutableSet.Builder<Expression> builder = ImmutableSet.builder();
-            collectEqualities(canonicalize(expression), builder);
-            return builder.build();
+            // For every non-derived expression, extract the sub-expressions and see if they can be rewritten as other expressions. If so,
+            // use this new information to update the known equalities.
+            for (Expression expression : map.keySet()) {
+                if (!derivedExpressions.contains(expression)) {
+                    for (Expression subExpression : filter(SubExpressionExtractor.extract(expression), not(equalTo(expression)))) {
+                        Set<Expression> equivalentSubExpressions = map.get(subExpression);
+                        if (equivalentSubExpressions != null) {
+                            for (Expression equivalentSubExpression : filter(equivalentSubExpressions, not(equalTo(subExpression)))) {
+                                Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(ImmutableMap.of(subExpression, equivalentSubExpression)), expression);
+                                equalities.findAndUnion(expression, rewritten);
+                                derivedExpressions.add(rewritten);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         public EqualityInference build()
         {
-            HashSet<Expression> seenCanonicals = new HashSet<>();
-            ImmutableList.Builder<Set<Expression>> builder = ImmutableList.builder();
-            for (Expression expression : map.keySet()) {
-                Expression canonical = canonicalize(expression);
-                if (!seenCanonicals.contains(canonical)) {
-                    builder.add(extractEqualExpressions(canonical));
-                    seenCanonicals.add(canonical);
-                }
-            }
-            return new EqualityInference(builder.build());
+            generateMoreEquivalences();
+            return new EqualityInference(equalities.getEquivalentClasses(), derivedExpressions);
         }
     }
 }
