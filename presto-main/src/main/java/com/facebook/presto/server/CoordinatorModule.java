@@ -31,6 +31,8 @@ import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryQueueManager;
+import com.facebook.presto.execution.QueryQueueRule;
+import com.facebook.presto.execution.QueryQueueRuleFactory;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
@@ -92,6 +94,7 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.units.Duration;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
@@ -127,6 +130,7 @@ public class CoordinatorModule
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(QueryQueueManager.class).to(SqlQueryQueueManager.class).in(Scopes.SINGLETON);
+        binder.bind(new TypeLiteral<List<QueryQueueRule>>() {}).toProvider(QueryQueueRuleFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryManager.class).withGeneratedName();
         configBinder(binder).bindConfig(QueryManagerConfig.class);
 
