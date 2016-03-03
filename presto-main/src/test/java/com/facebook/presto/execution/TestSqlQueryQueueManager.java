@@ -38,7 +38,7 @@ public class TestSqlQueryQueueManager
         String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         QueryManagerConfig config = new QueryManagerConfig();
         config.setQueueConfigFile(path);
-        new SqlQueryQueueManager(config, new ObjectMapperProvider().get(), new MBeanExporter(ManagementFactory.getPlatformMBeanServer()));
+        new SqlQueryQueueManager(new QueryQueueRuleFactory(config, new ObjectMapperProvider().get()).get(), new MBeanExporter(ManagementFactory.getPlatformMBeanServer()));
     }
 
     private void assertFails(String fileName, String expectedPattern)
