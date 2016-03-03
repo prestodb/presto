@@ -399,6 +399,10 @@ public abstract class AbstractTestHiveFileFormats
                     getStandardMapObjectInspector(javaStringObjectInspector, javaStringObjectInspector),
                     asMap(new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"}),
                     mapBlockOf(VARCHAR, VARCHAR, new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"})))
+            .add(new TestColumn("t_array_string_starting_with_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList(null, "test"), arrayBlockOf(VARCHAR, null, "test")))
+            .add(new TestColumn("t_array_string_with_nulls_in_between", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList("test-1", null, "test-2"), arrayBlockOf(VARCHAR, "test-1", null, "test-2")))
+            .add(new TestColumn("t_array_string_ending_with_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList("test", null), arrayBlockOf(VARCHAR, "test", null)))
+            .add(new TestColumn("t_array_string_all_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList(null, null, null), arrayBlockOf(VARCHAR, null, null, null)))
             .build();
 
     private static <K, V> Map<K, V> asMap(K[] keys, V[] values)
