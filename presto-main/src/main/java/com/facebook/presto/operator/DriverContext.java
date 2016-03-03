@@ -223,6 +223,9 @@ public class DriverContext
 
     public void freeMemory(long bytes)
     {
+        if (bytes == 0) {
+            return;
+        }
         checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         pipelineContext.freeMemory(bytes);
@@ -231,6 +234,9 @@ public class DriverContext
 
     public void freeSystemMemory(long bytes)
     {
+        if (bytes == 0) {
+            return;
+        }
         checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more memory than is reserved");
         pipelineContext.freeSystemMemory(bytes);
