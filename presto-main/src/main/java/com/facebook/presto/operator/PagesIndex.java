@@ -66,6 +66,7 @@ public class PagesIndex
     private final List<Type> types;
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<Block>[] channels;
+    private final int hashBuildConcurrency;
 
     private int nextBlockToCompact;
     private int positionCount;
@@ -74,6 +75,12 @@ public class PagesIndex
 
     public PagesIndex(List<Type> types, int expectedPositions)
     {
+        this(types, expectedPositions, 1);
+    }
+
+    public PagesIndex(List<Type> types, int expectedPositions, int hashBuildConcurrency)
+    {
+        this.hashBuildConcurrency = hashBuildConcurrency;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
 
@@ -360,7 +367,8 @@ public class PagesIndex
             LookupSource lookupSource = lookupSourceFactory.createLookupSource(
                     valueAddresses,
                     ImmutableList.<List<Block>>copyOf(channels),
-                    hashChannel);
+                    hashChannel,
+                    hashBuildConcurrency);
 
             return lookupSource;
         }
@@ -375,7 +383,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel);
 
-        return new InMemoryJoinHash(valueAddresses, hashStrategy);
+        return new InMemoryJoinHash(valueAddresses, hashStrategy, hashBuildConcurrency);
     }
 
     @Override

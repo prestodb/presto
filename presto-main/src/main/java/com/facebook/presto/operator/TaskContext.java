@@ -20,6 +20,7 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.util.ImmutableCollectors;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
@@ -53,6 +54,7 @@ public class TaskContext
     private final Session session;
 
     private final DataSize operatorPreAllocatedMemory;
+    private final AtomicLong peekMemoryReservation = new AtomicLong();
     private final AtomicLong memoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
 
@@ -160,7 +162,10 @@ public class TaskContext
         checkArgument(bytes >= 0, "bytes is negative");
 
         ListenableFuture<?> future = queryContext.reserveMemory(bytes);
-        memoryReservation.getAndAdd(bytes);
+        long reservation = memoryReservation.getAndAdd(bytes);
+        if (peekMemoryReservation.get() < reservation) {
+            peekMemoryReservation.set(reservation);
+        }
         return future;
     }
 
@@ -177,7 +182,10 @@ public class TaskContext
         checkArgument(bytes >= 0, "bytes is negative");
 
         if (queryContext.tryReserveMemory(bytes)) {
-            memoryReservation.getAndAdd(bytes);
+            long reservation = memoryReservation.getAndAdd(bytes);
+            if (peekMemoryReservation.get() < reservation) {
+                peekMemoryReservation.set(reservation);
+            }
             return true;
         }
         return false;
@@ -256,6 +264,12 @@ public class TaskContext
             }
         }
         return stat;
+    }
+
+    @VisibleForTesting
+    public long getPeekMemoryReservation()
+    {
+        return peekMemoryReservation.get();
     }
 
     public TaskStats getTaskStats()
