@@ -155,6 +155,10 @@ public class QueryMonitor
 
     private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
     {
+        if (stageInfo == null) {
+            return Optional.empty();
+        }
+
         for (StageInfo subStage : stageInfo.getSubStages()) {
             Optional<TaskInfo> task = findFailedTask(subStage);
             if (task.isPresent()) {
