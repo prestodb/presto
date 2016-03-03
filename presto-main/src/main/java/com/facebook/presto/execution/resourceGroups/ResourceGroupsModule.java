@@ -11,20 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.execution.QueryQueueRuleFactory;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 
-import javax.annotation.concurrent.ThreadSafe;
+import java.util.List;
 
-import java.util.concurrent.Executor;
-
-/**
- * Classes implementing this interface must be thread safe. That is, all the methods listed below
- * may be called concurrently from any thread.
- */
-@ThreadSafe
-public interface QueryQueueManager
+public class ResourceGroupsModule
+        implements Module
 {
-    boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats);
+    @Override
+    public void configure(Binder binder)
+    {
+        binder.bind(new TypeLiteral<List<? extends ResourceGroupSelector>>() {}).toProvider(QueryQueueRuleFactory.class).in(Scopes.SINGLETON);
+    }
 }

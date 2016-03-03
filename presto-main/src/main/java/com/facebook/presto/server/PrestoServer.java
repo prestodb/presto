@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupsModule;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
@@ -23,6 +24,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -56,6 +58,7 @@ import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY
 import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
@@ -108,6 +111,10 @@ public class PrestoServer
                 new AccessControlModule(),
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule(),
+                installModuleIf(
+                        FeaturesConfig.class,
+                        config -> FILE_BASED_RESOURCE_GROUP_MANAGER.equalsIgnoreCase(config.getResourceGroupManager()),
+                        binder -> binder.install(new ResourceGroupsModule())),
                 installModuleIf(
                         NodeSchedulerConfig.class,
                         config -> LEGACY_NETWORK_TOPOLOGY.equalsIgnoreCase(config.getNetworkTopology()),

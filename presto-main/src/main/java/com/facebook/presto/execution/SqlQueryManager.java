@@ -273,8 +273,9 @@ public class SqlQueryManager
         QueryId queryId = session.getQueryId();
 
         QueryExecution queryExecution;
+        Statement statement;
         try {
-            Statement statement = sqlParser.createStatement(query);
+            statement = sqlParser.createStatement(query);
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + statement.getClass().getSimpleName());
@@ -315,7 +316,7 @@ public class SqlQueryManager
         queries.put(queryId, queryExecution);
 
         // start the query in the background
-        if (!queueManager.submit(queryExecution, queryExecutor, stats)) {
+        if (!queueManager.submit(statement, queryExecution, queryExecutor, stats)) {
             queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries!"));
         }
 

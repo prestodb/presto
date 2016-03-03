@@ -11,20 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.execution.resourceGroups;
 
+import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.execution.QueryQueueDefinition;
 import com.facebook.presto.sql.tree.Statement;
 
-import javax.annotation.concurrent.ThreadSafe;
+import java.util.List;
+import java.util.Optional;
 
-import java.util.concurrent.Executor;
-
-/**
- * Classes implementing this interface must be thread safe. That is, all the methods listed below
- * may be called concurrently from any thread.
- */
-@ThreadSafe
-public interface QueryQueueManager
+public interface ResourceGroupSelector
 {
-    boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats);
+    Optional<List<QueryQueueDefinition>> match(Statement statement, SessionRepresentation session);
 }
