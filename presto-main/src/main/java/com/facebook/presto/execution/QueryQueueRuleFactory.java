@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -48,9 +49,9 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class QueryQueueRuleFactory
-        implements Provider<List<QueryQueueRule>>
+        implements Provider<List<? extends ResourceGroupSelector>>
 {
-    private final List<QueryQueueRule> rules;
+    private final List<? extends ResourceGroupSelector> selectors;
 
     @Inject
     public QueryQueueRuleFactory(QueryManagerConfig config, ObjectMapper mapper)
@@ -81,7 +82,7 @@ public class QueryQueueRuleFactory
             }
         }
         checkIsDAG(rules.build());
-        this.rules = rules.build();
+        this.selectors = rules.build();
     }
 
     private static void checkIsDAG(List<QueryQueueRule> rules)
@@ -140,9 +141,9 @@ public class QueryQueueRuleFactory
 
     @Override
     @Provides
-    public List<QueryQueueRule> get()
+    public List<? extends ResourceGroupSelector> get()
     {
-        return rules;
+        return selectors;
     }
 
     public static class ManagerSpec

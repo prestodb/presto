@@ -14,7 +14,9 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
@@ -25,6 +27,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -38,20 +41,20 @@ public class SqlQueryQueueManager
         implements QueryQueueManager
 {
     private final ConcurrentMap<QueueKey, QueryQueue> queryQueues = new ConcurrentHashMap<>();
-    private final List<QueryQueueRule> rules;
+    private final List<ResourceGroupSelector> selectors;
     private final MBeanExporter mbeanExporter;
 
     @Inject
-    public SqlQueryQueueManager(List<QueryQueueRule> rules, MBeanExporter mbeanExporter)
+    public SqlQueryQueueManager(List<? extends ResourceGroupSelector> selectors, MBeanExporter mbeanExporter)
     {
         this.mbeanExporter = requireNonNull(mbeanExporter, "mbeanExporter is null");
-        this.rules = ImmutableList.copyOf(rules);
+        this.selectors = ImmutableList.copyOf(selectors);
     }
 
     @Override
-    public boolean submit(QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats)
+    public boolean submit(Statement statement, QueryExecution queryExecution, Executor executor, SqlQueryManagerStats stats)
     {
-        List<QueryQueue> queues = selectQueues(queryExecution.getSession(), executor);
+        List<QueryQueue> queues = selectQueues(statement, queryExecution.getSession(), executor);
 
         for (QueryQueue queue : queues) {
             if (!queue.reserve(queryExecution)) {
@@ -66,12 +69,12 @@ public class SqlQueryQueueManager
     }
 
     // Queues returned have already been created and added queryQueues
-    private List<QueryQueue> selectQueues(Session session, Executor executor)
+    private List<QueryQueue> selectQueues(Statement statement, Session session, Executor executor)
     {
-        for (QueryQueueRule rule : rules) {
-            List<QueryQueueDefinition> definitions = rule.match(session);
-            if (definitions != null) {
-                return getOrCreateQueues(session, executor, definitions);
+        for (ResourceGroupSelector selector : selectors) {
+            Optional<List<QueryQueueDefinition>> queues = selector.match(statement, session.toSessionRepresentation());
+            if (queues.isPresent()) {
+                return getOrCreateQueues(session, executor, queues.get());
             }
         }
         throw new PrestoException(USER_ERROR, "Query did not match any queuing rule");

@@ -16,6 +16,7 @@ package com.facebook.presto.server.testing;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupsModule;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
@@ -192,6 +193,7 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerMainModule(new SqlParserOptions()))
+                .add(new ResourceGroupsModule())
                 .add(installModuleIf(
                         NodeSchedulerConfig.class,
                         config -> LEGACY_NETWORK_TOPOLOGY.equalsIgnoreCase(config.getNetworkTopology()),

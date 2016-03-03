@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
+import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupSelector;
+import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -21,6 +23,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -28,6 +31,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class QueryQueueRule
+        implements ResourceGroupSelector
 {
     @Nullable
     private final Pattern userRegex;
@@ -60,29 +64,27 @@ public class QueryQueueRule
         return new QueryQueueRule(userRegex, sourceRegex, sessionPropertyRegexes, queues.build());
     }
 
-    /**
-     * Returns list of queues to enter, or null if query does not match rule
-     */
-    public List<QueryQueueDefinition> match(Session session)
+    @Override
+    public Optional<List<QueryQueueDefinition>> match(Statement statement, SessionRepresentation session)
     {
         if (userRegex != null && !userRegex.matcher(session.getUser()).matches()) {
-            return null;
+            return Optional.empty();
         }
         if (sourceRegex != null) {
             String source = session.getSource().orElse("");
             if (!sourceRegex.matcher(source).matches()) {
-                return null;
+                return Optional.empty();
             }
         }
 
         for (Map.Entry<String, Pattern> entry : sessionPropertyRegexes.entrySet()) {
             String value = session.getSystemProperties().getOrDefault(entry.getKey(), "");
             if (!entry.getValue().matcher(value).matches()) {
-                return null;
+                return Optional.empty();
             }
         }
 
-        return queues;
+        return Optional.of(queues);
     }
 
     List<QueryQueueDefinition> getQueues()
