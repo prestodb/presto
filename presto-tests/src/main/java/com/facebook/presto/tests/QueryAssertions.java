@@ -209,17 +209,6 @@ public final class QueryAssertions
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
-    public static void copyAllTables(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, Session session)
-            throws Exception
-    {
-        for (QualifiedObjectName table : queryRunner.listTables(session, sourceCatalog, sourceSchema)) {
-            if (table.getObjectName().equalsIgnoreCase("dual")) {
-                continue;
-            }
-            copyTable(queryRunner, table, session);
-        }
-    }
-
     public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
             throws Exception
     {
