@@ -321,51 +321,45 @@ public class PredicatePushDown
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
                     !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
-                List<JoinNode.EquiJoinClause> criteria = node.getCriteria();
-                Iterable<Expression> simplifiedJoinConjuncts = null;
+                // Create identity projections for all existing symbols
+                ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
 
-                // Rewrite criteria and add projections if there is a new join predicate
-                if (!newJoinPredicate.equals(joinPredicate)) {
-                    // Create identity projections for all existing symbols
-                    ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
+                leftProjections.putAll(node.getLeft()
+                        .getOutputSymbols().stream()
+                        .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
 
-                    leftProjections.putAll(node.getLeft()
-                            .getOutputSymbols().stream()
-                            .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+                ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
+                rightProjections.putAll(node.getRight()
+                        .getOutputSymbols().stream()
+                        .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
 
-                    ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
-                    rightProjections.putAll(node.getRight()
-                            .getOutputSymbols().stream()
-                            .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+                Iterable<Expression> simplifiedJoinConjuncts = transform(extractConjuncts(newJoinPredicate), this::simplifyExpression);
+                simplifiedJoinConjuncts = filter(simplifiedJoinConjuncts, not(Predicates.<Expression>equalTo(BooleanLiteral.TRUE_LITERAL)));
 
-                    simplifiedJoinConjuncts = transform(extractConjuncts(newJoinPredicate), this::simplifyExpression);
-                    simplifiedJoinConjuncts = filter(simplifiedJoinConjuncts, not(Predicates.<Expression>equalTo(BooleanLiteral.TRUE_LITERAL)));
+                // Create new projections for the new join clauses
+                ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
+                for (Expression conjunct : simplifiedJoinConjuncts) {
+                    checkState(joinEqualityExpression(node.getLeft().getOutputSymbols()).apply(conjunct), "Expected join predicate to be a valid join equality");
 
-                    // Create new projections for the new join clauses
-                    ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
-                    for (Expression conjunct : simplifiedJoinConjuncts) {
-                        checkState(joinEqualityExpression(node.getLeft().getOutputSymbols()).apply(conjunct), "Expected join predicate to be a valid join equality");
+                    ComparisonExpression equality = (ComparisonExpression) conjunct;
 
-                        ComparisonExpression equality = (ComparisonExpression) conjunct;
+                    boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
+                    Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
+                    Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
-                        boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
-                        Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
-                        Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
+                    Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
+                    leftProjections.put(leftSymbol, leftExpression);
+                    Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
+                    rightProjections.put(rightSymbol, rightExpression);
 
-                        Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
-                        leftProjections.put(leftSymbol, leftExpression);
-                        Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
-                        rightProjections.put(rightSymbol, rightExpression);
-
-                        builder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
-                    }
-
-                    leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
-                    rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
-                    criteria = builder.build();
+                    builder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
                 }
 
-                if (simplifiedJoinConjuncts != null && Iterables.isEmpty(simplifiedJoinConjuncts)) {
+                leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
+                rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
+                List<JoinNode.EquiJoinClause> criteria = builder.build();
+
+                if (Iterables.isEmpty(simplifiedJoinConjuncts)) {
                     output = new JoinNode(node.getId(), INNER, leftSource, rightSource, criteria, Optional.<Symbol>empty(), Optional.<Symbol>empty());
                 }
                 else {
