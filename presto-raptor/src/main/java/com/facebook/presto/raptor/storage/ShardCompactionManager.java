@@ -84,8 +84,9 @@ import static java.util.stream.Collectors.toSet;
 
 public class ShardCompactionManager
 {
-    private static final double FILL_FACTOR = 0.75;
     private static final Logger log = Logger.get(ShardCompactionManager.class);
+
+    private static final double FILL_FACTOR = 0.75;
     private static final int MAX_PENDING_COMPACTIONS = 500;
 
     private final ScheduledExecutorService compactionDiscoveryService = newScheduledThreadPool(1, daemonThreadsNamed("shard-compaction-discovery"));
