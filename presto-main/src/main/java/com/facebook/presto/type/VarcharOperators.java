@@ -153,10 +153,10 @@ public final class VarcharOperators
     public static long castToBigint(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            return Long.parseLong(slice.toStringUtf8().trim());
+            return Long.parseLong(slice.toStringUtf8());
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to BIGINT", slice.toStringUtf8().trim()));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Can not cast '%s' to BIGINT", slice.toStringUtf8()));
         }
     }
 
