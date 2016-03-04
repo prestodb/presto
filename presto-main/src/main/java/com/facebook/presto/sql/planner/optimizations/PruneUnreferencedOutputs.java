@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -626,6 +627,33 @@ public class PruneUnreferencedOutputs
             }
 
             return new UnionNode(node.getId(), rewrittenSubPlans.build(), rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+        }
+
+        @Override
+        public PlanNode visitValues(ValuesNode node, RewriteContext<Set<Symbol>> context)
+        {
+            ImmutableList.Builder<Symbol> rewrittenOutputSymbolsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ImmutableList.Builder<Expression>> rowBuildersBuilder = ImmutableList.builder();
+            // Initialize builder for each row
+            for (int i = 0; i < node.getRows().size(); i++) {
+                rowBuildersBuilder.add(ImmutableList.builder());
+            }
+            ImmutableList<ImmutableList.Builder<Expression>> rowBuilders = rowBuildersBuilder.build();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol outputSymbol = node.getOutputSymbols().get(i);
+                // If output symbol is used
+                if (context.get().contains(outputSymbol)) {
+                    rewrittenOutputSymbolsBuilder.add(outputSymbol);
+                    // Add the value of the output symbol for each row
+                    for (int j = 0; j < node.getRows().size(); j++) {
+                        rowBuilders.get(j).add(node.getRows().get(j).get(i));
+                    }
+                }
+            }
+            List<List<Expression>> rewrittenRows = rowBuilders.stream()
+                    .map((rowBuilder) -> rowBuilder.build())
+                    .collect(toImmutableList());
+            return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenRows);
         }
     }
 }
