@@ -297,7 +297,11 @@ function formatDateTime(date) {
 }
 
 function formatCumulativeMemory(cumulativeMemory) {
-    return (cumulativeMemory / Math.pow(1000.0, 4)).toLocaleString() + 'GB seconds';
+    var byteSeconds = cumulativeMemory / 1000.0; // Byte miliSeconds to byte seconds
+    if (byteSeconds < 1) return byteSeconds.toLocaleString() + 'Byte seconds';
+    var sizes = ['Byte', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+    var sizeIndex = Math.floor(Math.log(byteSeconds) / Math.log(1000));
+    return (byteSeconds / Math.pow(1000, sizeIndex)).toFixed(3).toLocaleString() + sizes[sizeIndex] + ' seconds';
 }
 
 function formatStackTrace(info) {
