@@ -130,6 +130,18 @@ public abstract class AbstractTestDistributedQueries
     public void testCreateTableAsSelect()
             throws Exception
     {
+        assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
+
+        MaterializedResult materializedRows = computeActual("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT orderkey, discount FROM lineitem");
+        assertEquals(materializedRows.getRowCount(), 0);
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
+
+        assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+
         assertCreateTableAsSelect(
                 "test_select",
                 "SELECT orderdate, orderkey, totalprice FROM orders",

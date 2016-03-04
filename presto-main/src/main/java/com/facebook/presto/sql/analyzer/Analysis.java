@@ -87,6 +87,7 @@ public class Analysis
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
     private boolean createTableAsSelectWithData = true;
+    private boolean createTableAsSelectNoOp = false;
 
     private Optional<Insert> insert = Optional.empty();
 
@@ -118,6 +119,16 @@ public class Analysis
     public void setCreateTableAsSelectWithData(boolean createTableAsSelectWithData)
     {
         this.createTableAsSelectWithData = createTableAsSelectWithData;
+    }
+
+    public boolean isCreateTableAsSelectNoOp()
+    {
+        return createTableAsSelectNoOp;
+    }
+
+    public void setCreateTableAsSelectNoOp(boolean createTableAsSelectNoOp)
+    {
+        this.createTableAsSelectNoOp = createTableAsSelectNoOp;
     }
 
     public void addResolvedNames(Map<Expression, Integer> mappings)

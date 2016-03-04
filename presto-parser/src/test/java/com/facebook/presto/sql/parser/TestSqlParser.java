@@ -931,13 +931,16 @@ public class TestSqlParser
         QualifiedName table = QualifiedName.of("foo");
 
         assertStatement("CREATE TABLE foo AS SELECT * FROM t",
-                new CreateTableAsSelect(table, query, ImmutableMap.of(), true));
+                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), true));
+
+        assertStatement("CREATE TABLE IF NOT EXISTS foo AS SELECT * FROM t",
+                new CreateTableAsSelect(table, query, true, ImmutableMap.of(), true));
 
         assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH DATA",
-                new CreateTableAsSelect(table, query, ImmutableMap.of(), true));
+                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), true));
 
         assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH NO DATA",
-                new CreateTableAsSelect(table, query, ImmutableMap.of(), false));
+                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), false));
 
         ImmutableMap<String, Expression> properties = ImmutableMap.<String, Expression>builder()
                 .put("string", new StringLiteral("bar"))
@@ -952,14 +955,14 @@ public class TestSqlParser
                         "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                         "AS " +
                         "SELECT * FROM t",
-                new CreateTableAsSelect(table, query, properties, true));
+                new CreateTableAsSelect(table, query, false, properties, true));
 
         assertStatement("CREATE TABLE foo " +
                         "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
                         "AS " +
                         "SELECT * FROM t " +
                         "WITH NO DATA",
-                new CreateTableAsSelect(table, query, properties, false));
+                new CreateTableAsSelect(table, query, false, properties, false));
     }
 
     @Test
