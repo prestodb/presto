@@ -138,6 +138,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.QueryUtil.aliasedNullToEmpty;
@@ -191,6 +192,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
+import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
@@ -524,10 +526,12 @@ class StatementAnalyzer
             throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
         }
 
-        analysis.setUpdateType("INSERT");
-
         // analyze the query that creates the data
         RelationType queryDescriptor = process(insert.getQuery(), context);
+
+        analysis.setUpdateType("INSERT");
+
+        analysis.setStatement(insert);
 
         // verify the insert destination columns match the query
         Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -623,10 +627,6 @@ class StatementAnalyzer
             throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
         }
 
-        analysis.setUpdateType("DELETE");
-
-        analysis.setDelete(node);
-
         // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
         // TODO: we shouldn't need to create a new analyzer. The access control should be carried in the context object
         StatementAnalyzer analyzer = new StatementAnalyzer(
@@ -640,6 +640,10 @@ class StatementAnalyzer
 
         RelationType descriptor = analyzer.process(table, context);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, descriptor, context, where));
+
+        analysis.setUpdateType("DELETE");
+
+        analysis.setStatement(node);
 
         accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
@@ -672,6 +676,8 @@ class StatementAnalyzer
 
         // analyze the query that creates the table
         RelationType descriptor = process(node.getQuery(), context);
+
+        analysis.setStatement(node);
 
         validateColumns(node, descriptor);
 
@@ -725,6 +731,17 @@ class StatementAnalyzer
     protected RelationType visitExplain(Explain node, AnalysisContext context)
             throws SemanticException
     {
+        if (node.isAnalyze()) {
+            if (node.getOptions().stream().anyMatch(option -> !option.equals(new ExplainType(DISTRIBUTED)))) {
+                throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
+            }
+            process(node.getStatement(), context);
+            analysis.setStatement(node);
+            analysis.setUpdateType(null);
+            RelationType type = new RelationType(Field.newUnqualified("Query Plan", VARCHAR));
+            analysis.setOutputDescriptor(node, type);
+            return type;
+        }
         checkState(queryExplainer.isPresent(), "query explainer not available");
         ExplainType.Type planType = LOGICAL;
         ExplainFormat.Type planFormat = TEXT;
@@ -788,7 +805,7 @@ class StatementAnalyzer
         // Input fields == Output fields
         analysis.setOutputDescriptor(node, descriptor);
         analysis.setOutputExpressions(node, descriptorToFields(descriptor));
-        analysis.setQuery(node);
+        analysis.setStatement(node);
 
         return descriptor;
     }

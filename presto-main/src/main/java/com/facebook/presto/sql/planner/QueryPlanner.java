@@ -88,20 +88,23 @@ class QueryPlanner
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
     private final Session session;
+    private final Optional<Double> approximationConfidence;
 
-    QueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+    QueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, Optional<Double> approximationConfidence)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
+        requireNonNull(approximationConfidence, "approximationConfidence is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
         this.metadata = metadata;
         this.session = session;
+        this.approximationConfidence = approximationConfidence;
     }
 
     @Override
@@ -435,10 +438,7 @@ class QueryPlanner
             subPlan = new PlanBuilder(subPlan.getTranslations(), markDistinct, subPlan.getSampleWeight());
         }
 
-        double confidence = 1.0;
-        if (analysis.getQuery().getApproximate().isPresent()) {
-            confidence = Double.valueOf(analysis.getQuery().getApproximate().get().getConfidence()) / 100.0;
-        }
+        double confidence = approximationConfidence.orElse(1.0);
 
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
