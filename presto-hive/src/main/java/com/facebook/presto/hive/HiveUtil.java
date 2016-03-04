@@ -96,6 +96,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -401,7 +402,17 @@ public final class HiveUtil
                 return NullableValue.of(BOOLEAN, parseBoolean(value));
             }
 
-            if (HIVE_BYTE.equals(hiveType) || HIVE_SHORT.equals(hiveType) || HIVE_INT.equals(hiveType) || HIVE_LONG.equals(hiveType)) {
+            if (HIVE_BYTE.equals(hiveType) || HIVE_SHORT.equals(hiveType) || HIVE_INT.equals(hiveType)) {
+                if (isNull) {
+                    return NullableValue.asNull(INTEGER);
+                }
+                if (value.isEmpty()) {
+                    return NullableValue.of(INTEGER, 0L);
+                }
+                return NullableValue.of(INTEGER, parseLong(value));
+            }
+
+            if (HIVE_LONG.equals(hiveType)) {
                 if (isNull) {
                     return NullableValue.asNull(BIGINT);
                 }
@@ -531,6 +542,16 @@ public final class HiveUtil
         }
         catch (NumberFormatException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for BIGINT partition key: %s", value, name));
+        }
+    }
+
+    public static long integerPartitionKey(String value, String name)
+    {
+        try {
+            return parseInt(value);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for INTEGER partition key: %s", value, name));
         }
     }
 

@@ -56,6 +56,7 @@ import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
+import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
@@ -70,6 +71,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -199,6 +201,9 @@ class ColumnarBinaryHiveRecordCursor<K>
                 }
                 else if (BOOLEAN.equals(type)) {
                     booleans[columnIndex] = booleanPartitionKey(partitionKey.getValue(), name);
+                }
+                else if (INTEGER.equals(type)) {
+                    longs[columnIndex] = integerPartitionKey(partitionKey.getValue(), name);
                 }
                 else if (BIGINT.equals(type)) {
                     longs[columnIndex] = bigintPartitionKey(partitionKey.getValue(), name);
@@ -338,9 +343,9 @@ class ColumnarBinaryHiveRecordCursor<K>
     {
         checkState(!closed, "Cursor is closed");
 
-        if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(DATE) && !types[fieldId].equals(TIMESTAMP) && !isShortDecimal(types[fieldId])) {
+        if (!types[fieldId].equals(BIGINT) && !types[fieldId].equals(INTEGER) && !types[fieldId].equals(DATE) && !types[fieldId].equals(TIMESTAMP) && !isShortDecimal(types[fieldId])) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(format("Expected field to be %s, %s, %s or %s , actual %s (field %s)", BIGINT, DATE, TIMESTAMP, DECIMAL, types[fieldId], fieldId));
+            throw new IllegalArgumentException(format("Expected field to be %s, %s, %s, %s or %s , actual %s (field %s)", INTEGER, BIGINT, DATE, TIMESTAMP, DECIMAL, types[fieldId], fieldId));
         }
         if (!loaded[fieldId]) {
             parseLongColumn(fieldId);
@@ -699,6 +704,9 @@ class ColumnarBinaryHiveRecordCursor<K>
             parseBooleanColumn(column);
         }
         else if (BIGINT.equals(type)) {
+            parseLongColumn(column);
+        }
+        else if (INTEGER.equals(type)) {
             parseLongColumn(column);
         }
         else if (DOUBLE.equals(type)) {
