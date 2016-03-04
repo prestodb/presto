@@ -617,8 +617,11 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
-            builder.append("CREATE TABLE ")
-                    .append(node.getName());
+            builder.append("CREATE TABLE ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(node.getName());
 
             if (!node.getProperties().isEmpty()) {
                 builder.append(" WITH (");

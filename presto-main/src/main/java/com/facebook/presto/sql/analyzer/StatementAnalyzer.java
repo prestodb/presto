@@ -659,6 +659,16 @@ class StatementAnalyzer
         QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
         analysis.setCreateTableDestination(targetTable);
 
+        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
+        if (targetTableHandle.isPresent()) {
+            if (node.isNotExists()) {
+                analysis.setCreateTableAsSelectNoOp(true);
+                analysis.setStatement(node);
+                return new RelationType(Field.newUnqualified("rows", BIGINT));
+            }
+            throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
+        }
+
         for (Expression expression : node.getProperties().values()) {
             // analyze table property value expressions which must be constant
             createConstantAnalyzer(metadata, session)
@@ -666,10 +676,6 @@ class StatementAnalyzer
         }
         analysis.setCreateTableProperties(node.getProperties());
 
-        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
-        if (targetTableHandle.isPresent()) {
-            throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
-        }
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
         analysis.setCreateTableAsSelectWithData(node.isWithData());

@@ -30,7 +30,7 @@ statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
-    | CREATE TABLE qualifiedName
+    | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         (WITH tableProperties)? AS query
         (WITH (NO)? DATA)?                                             #createTableAsSelect
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
