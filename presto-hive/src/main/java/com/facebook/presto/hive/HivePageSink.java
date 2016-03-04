@@ -123,6 +123,7 @@ public class HivePageSink
     private final Table table;
     private final boolean immutablePartitions;
     private final boolean respectTableFormat;
+    private final boolean compress;
 
     private HiveRecordWriter[] writers = new HiveRecordWriter[0];
 
@@ -142,6 +143,7 @@ public class HivePageSink
             boolean respectTableFormat,
             int maxOpenPartitions,
             boolean immutablePartitions,
+            boolean compress,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -164,6 +166,7 @@ public class HivePageSink
         this.respectTableFormat = respectTableFormat;
         this.maxOpenPartitions = maxOpenPartitions;
         this.immutablePartitions = immutablePartitions;
+        this.compress = compress;
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         // divide input columns into partition and data columns
@@ -393,6 +396,7 @@ public class HivePageSink
                 schemaName,
                 tableName,
                 partitionName.orElse(""),
+                compress,
                 isNew,
                 dataColumns,
                 outputFormat,
@@ -473,6 +477,7 @@ public class HivePageSink
                 String schemaName,
                 String tableName,
                 String partitionName,
+                boolean compress,
                 boolean isNew,
                 List<DataColumn> inputColumns,
                 String outputFormat,
@@ -537,7 +542,7 @@ public class HivePageSink
                 serDe = OptimizedLazyBinaryColumnarSerde.class.getName();
             }
             serializer = initializeSerializer(conf, schema, serDe);
-            recordWriter = HiveWriteUtils.createRecordWriter(new Path(writePath, fileName), conf, schema, outputFormat);
+            recordWriter = HiveWriteUtils.createRecordWriter(new Path(writePath, fileName), conf, compress, schema, outputFormat);
 
             List<Type> fileColumnTypes = fileColumnHiveTypes.stream()
                     .map(hiveType -> hiveType.getType(typeManager))

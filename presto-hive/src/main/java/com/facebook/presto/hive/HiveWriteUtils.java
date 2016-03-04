@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Order;
@@ -92,7 +91,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.getProtectMode;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaByteArrayObjectInspector;
@@ -118,12 +116,11 @@ public final class HiveWriteUtils
     {
     }
 
-    public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName)
+    public static RecordWriter createRecordWriter(Path target, JobConf conf, boolean compress, Properties properties, String outputFormatName)
     {
         try {
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
-            boolean isCompressed = HiveConf.getBoolVar(conf, COMPRESSRESULT);
-            return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, isCompressed, properties, Reporter.NULL);
+            return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
         }
         catch (IOException | ReflectiveOperationException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
