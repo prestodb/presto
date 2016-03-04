@@ -132,6 +132,7 @@ public class TestHiveIntegrationSmokeTest
                 " 'foo' _varchar" +
                 ", cast('bar' as varbinary) _varbinary" +
                 ", 1 _bigint" +
+                ", INTEGER'2' _integer" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
@@ -147,12 +148,13 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(row.getField(0), "foo");
         assertEquals(row.getField(1), "bar".getBytes(UTF_8));
         assertEquals(row.getField(2), 1L);
-        assertEquals(row.getField(3), 3.14);
-        assertEquals(row.getField(4), true);
-        assertEquals(row.getField(5), new Date(new DateTime(1980, 5, 7, 0, 0, 0, UTC).getMillis()));
-        assertEquals(row.getField(6), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
-        assertEquals(row.getField(7), new BigDecimal("3.14"));
-        assertEquals(row.getField(8), new BigDecimal("12345678901234567890.0123456789"));
+        assertEquals(row.getField(3), 2);
+        assertEquals(row.getField(4), 3.14);
+        assertEquals(row.getField(5), true);
+        assertEquals(row.getField(6), new Date(new DateTime(1980, 5, 7, 0, 0, 0, UTC).getMillis()));
+        assertEquals(row.getField(7), new Timestamp(new DateTime(1980, 5, 7, 11, 22, 33, 456, UTC).getMillis()));
+        assertEquals(row.getField(8), new BigDecimal("3.14"));
+        assertEquals(row.getField(9), new BigDecimal("12345678901234567890.0123456789"));
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(queryRunner.tableExists(getSession(), "test_types_table"));
@@ -176,18 +178,20 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE TABLE test_partitioned_table (" +
                 "  _varchar VARCHAR" +
                 ", _bigint BIGINT" +
+                ", _integer INTEGER" +
                 ", _double DOUBLE" +
                 ", _boolean BOOLEAN" +
                 ", _decimal_short DECIMAL(3,2)" +
                 ", _decimal_long DECIMAL(30,10)" +
                 ", _partition_varchar VARCHAR" +
+                ", _partition_integer INTEGER" +
                 ", _partition_bigint BIGINT" +
                 ", _partition_decimal_short DECIMAL(3,2)" +
                 ", _partition_decimal_long DECIMAL(30,10)" +
                 ") " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ '_partition_varchar', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
+                "partitioned_by = ARRAY[ '_partition_varchar', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
                 ") ";
 
         assertUpdate(createTable);
@@ -195,7 +199,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata("test_partitioned_table");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> partitionedBy = ImmutableList.of("_partition_varchar", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
+        List<String> partitionedBy = ImmutableList.of("_partition_varchar", "_partition_integer", "_partition_bigint", "_partition_decimal_short", "_partition_decimal_long");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
@@ -209,12 +213,14 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT" +
                 " 'foo' _varchar" +
                 ", 1 _bigint" +
+                ", CAST(2 AS INTEGER) _integer" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
                 ", 'foo' _varchar" +
-                ", 1 _bigint" +
+                ", CAST(1 AS INTEGER) _partition_integer" +
+                ", 1 _partition_bigint" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long";
 
@@ -243,6 +249,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
                 ", 1 _bigint" +
+                ", 2 _integer" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
@@ -507,6 +514,7 @@ public class TestHiveIntegrationSmokeTest
                 "(" +
                 "  _varchar VARCHAR," +
                 "  _bigint BIGINT," +
+                "  _integer INTEGER," +
                 "  _double DOUBLE," +
                 "  _boolean BOOLEAN," +
                 "  _decimal_short DECIMAL(3,2)," +
@@ -522,6 +530,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
                 ", 1 _bigint" +
+                ", CAST(42 AS INTEGER) _integer" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
@@ -531,17 +540,17 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery("SELECT * from test_insert_format_table", select);
 
-        assertUpdate("INSERT INTO test_insert_format_table (_bigint, _double) SELECT 2, 14.3", 1);
+        assertUpdate("INSERT INTO test_insert_format_table (_integer, _bigint, _double) SELECT CAST(1 AS INTEGER), 2, 14.3", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _bigint = 2", "SELECT null, 2, 14.3, null, null, null");
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 2", "SELECT null, 2, 1, 14.3, null, null, null");
 
         assertUpdate("INSERT INTO test_insert_format_table (_double, _bigint) SELECT 2.72, 3", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, 3, 2.72, null, null, null");
+        assertQuery("SELECT * from test_insert_format_table where _bigint = 3", "SELECT null, 3, null, 2.72, null, null, null");
 
         assertUpdate("INSERT INTO test_insert_format_table (_decimal_short, _decimal_long) SELECT DECIMAL '2.72', DECIMAL '98765432101234567890.0123456789'", 1);
 
-        assertQuery("SELECT * from test_insert_format_table where _decimal_long = DECIMAL '98765432101234567890.0123456789'", "SELECT null, null, null, null, 2.72, 98765432101234567890.0123456789");
+        assertQuery("SELECT * from test_insert_format_table where _decimal_long = DECIMAL '98765432101234567890.0123456789'", "SELECT null, null, null, null, null, 2.72, 98765432101234567890.0123456789");
 
         assertUpdate("DROP TABLE test_insert_format_table");
 
@@ -720,7 +729,7 @@ public class TestHiveIntegrationSmokeTest
     {
         assertUpdate("" +
                 "CREATE TABLE test_show_columns_partition_key\n" +
-                "(grape bigint, orange bigint, pear varchar, apple varchar)\n" +
+                "(grape bigint, orange bigint, pear varchar, mango integer, apple varchar)\n" +
                 "WITH (partitioned_by = ARRAY['apple'])");
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
@@ -728,6 +737,7 @@ public class TestHiveIntegrationSmokeTest
                 .row("grape", "bigint", "")
                 .row("orange", "bigint", "")
                 .row("pear", "varchar", "")
+                .row("mango", "integer", "")
                 .row("apple", "varchar", "Partition Key")
                 .build();
         assertEquals(actual, expected);
@@ -760,19 +770,22 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT col[1][1] FROM tmp_array6", "SELECT '\"hi\"'");
         assertQuery("SELECT col[3][1] FROM tmp_array6", "SELECT 'puppies'");
 
-        assertUpdate("CREATE TABLE tmp_array9 AS SELECT ARRAY[ARRAY[DECIMAL '3.14']] AS col1, ARRAY[ARRAY[DECIMAL '12345678901234567890.0123456789']] AS col2", 1);
-        assertQuery("SELECT col1[1][1] FROM tmp_array9", "SELECT 3.14");
-        assertQuery("SELECT col2[1][1] FROM tmp_array9", "SELECT 12345678901234567890.0123456789");
+        assertUpdate("CREATE TABLE tmp_array7 AS SELECT ARRAY[ARRAY[INTEGER'1', INTEGER'2'], NULL, ARRAY[INTEGER'3', INTEGER'4']] AS col", 1);
+        assertQuery("SELECT col[1][2] FROM tmp_array7", "SELECT 2");
+
+        assertUpdate("CREATE TABLE tmp_array8 AS SELECT ARRAY[ARRAY[DECIMAL '3.14']] AS col1, ARRAY[ARRAY[DECIMAL '12345678901234567890.0123456789']] AS col2", 1);
+        assertQuery("SELECT col1[1][1] FROM tmp_array8", "SELECT 3.14");
+        assertQuery("SELECT col2[1][1] FROM tmp_array8", "SELECT 12345678901234567890.0123456789");
     }
 
     @Test
     public void testTemporalArrays()
             throws Exception
     {
-        assertUpdate("CREATE TABLE tmp_array7 AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
-        assertOneNotNullResult("SELECT col[1] FROM tmp_array7");
-        assertUpdate("CREATE TABLE tmp_array8 AS SELECT ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'] AS col", 1);
-        assertOneNotNullResult("SELECT col[1] FROM tmp_array8");
+        assertUpdate("CREATE TABLE tmp_array9 AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
+        assertOneNotNullResult("SELECT col[1] FROM tmp_array9");
+        assertUpdate("CREATE TABLE tmp_array10 AS SELECT ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'] AS col", 1);
+        assertOneNotNullResult("SELECT col[1] FROM tmp_array10");
     }
 
     @Test
@@ -783,17 +796,17 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
         assertQuery("SELECT col[1] FROM tmp_map1", "SELECT NULL");
 
-        assertUpdate("CREATE TABLE tmp_map2 AS SELECT MAP(ARRAY[1.0], ARRAY[2.5]) AS col", 1);
-        assertQuery("SELECT col[1.0] FROM tmp_map2", "SELECT 2.5");
+        assertUpdate("CREATE TABLE tmp_map2 AS SELECT MAP(ARRAY[INTEGER'1'], ARRAY[INTEGER'2']) AS col", 1);
+        assertQuery("SELECT col[INTEGER'1'] FROM tmp_map2", "SELECT 2");
 
-        assertUpdate("CREATE TABLE tmp_map3 AS SELECT MAP(ARRAY['puppies'], ARRAY['kittens']) AS col", 1);
-        assertQuery("SELECT col['puppies'] FROM tmp_map3", "SELECT 'kittens'");
+        assertUpdate("CREATE TABLE tmp_map3 AS SELECT MAP(ARRAY[1.0], ARRAY[2.5]) AS col", 1);
+        assertQuery("SELECT col[1.0] FROM tmp_map3", "SELECT 2.5");
 
-        assertUpdate("CREATE TABLE tmp_map4 AS SELECT MAP(ARRAY[TRUE], ARRAY[FALSE]) AS col", 1);
-        assertQuery("SELECT col[TRUE] FROM tmp_map4", "SELECT FALSE");
+        assertUpdate("CREATE TABLE tmp_map4 AS SELECT MAP(ARRAY['puppies'], ARRAY['kittens']) AS col", 1);
+        assertQuery("SELECT col['puppies'] FROM tmp_map4", "SELECT 'kittens'");
 
-        assertUpdate("CREATE TABLE tmp_map5 AS SELECT MAP(ARRAY[1.0], ARRAY[ARRAY[1, 2]]) AS col", 1);
-        assertQuery("SELECT col[1.0][2] FROM tmp_map5", "SELECT 2");
+        assertUpdate("CREATE TABLE tmp_map5 AS SELECT MAP(ARRAY[TRUE], ARRAY[FALSE]) AS col", 1);
+        assertQuery("SELECT col[TRUE] FROM tmp_map5", "SELECT FALSE");
 
         assertUpdate("CREATE TABLE tmp_map6 AS SELECT MAP(ARRAY[DATE '2014-09-30'], ARRAY[DATE '2014-09-29']) AS col", 1);
         assertOneNotNullResult("SELECT col[DATE '2014-09-30'] FROM tmp_map6");
