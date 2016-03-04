@@ -30,6 +30,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -261,10 +262,10 @@ public class TestQueryStateMachine
         assertEquals(stateMachine.getSetSessionProperties(), SET_SESSION_PROPERTIES);
         assertEquals(stateMachine.getResetSessionProperties(), RESET_SESSION_PROPERTIES);
 
-        QueryInfo queryInfo = stateMachine.getQueryInfo(null);
+        QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
         assertEquals(queryInfo.getQueryId(), QUERY_ID);
         assertEquals(queryInfo.getSelf(), LOCATION);
-        assertNull(queryInfo.getOutputStage());
+        assertFalse(queryInfo.getOutputStage().isPresent());
         assertEquals(queryInfo.getQuery(), QUERY);
         assertEquals(queryInfo.getInputs(), INPUTS);
         assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
