@@ -55,7 +55,7 @@ public class QueryInfo
     private final Optional<TransactionId> startedTransactionId;
     private final boolean clearTransactionId;
     private final String updateType;
-    private final StageInfo outputStage;
+    private final Optional<StageInfo> outputStage;
     private final FailureInfo failureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
@@ -77,7 +77,7 @@ public class QueryInfo
             @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
             @JsonProperty("clearTransactionId") boolean clearTransactionId,
             @JsonProperty("updateType") String updateType,
-            @JsonProperty("outputStage") StageInfo outputStage,
+            @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") FailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs)
@@ -92,6 +92,7 @@ public class QueryInfo
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
+        requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
 
         this.queryId = queryId;
@@ -201,7 +202,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public StageInfo getOutputStage()
+    public Optional<StageInfo> getOutputStage()
     {
         return outputStage;
     }

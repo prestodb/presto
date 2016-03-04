@@ -192,10 +192,10 @@ public class QueryStateMachine
 
     public QueryInfo getQueryInfoWithoutDetails()
     {
-        return getQueryInfo(null);
+        return getQueryInfo(Optional.empty());
     }
 
-    public QueryInfo getQueryInfo(StageInfo rootStage)
+    public QueryInfo getQueryInfo(Optional<StageInfo> rootStage)
     {
         // Query state must be captured first in order to provide a
         // correct view of the query.  For example, building this
@@ -249,45 +249,45 @@ public class QueryStateMachine
         long outputDataSize = 0;
         long outputPositions = 0;
 
-        boolean fullyBlocked = rootStage != null;
+        boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
-        if (rootStage != null) {
-            for (StageInfo stageInfo : getAllStages(rootStage)) {
-                StageStats stageStats = stageInfo.getStageStats();
-                totalTasks += stageStats.getTotalTasks();
-                runningTasks += stageStats.getRunningTasks();
-                completedTasks += stageStats.getCompletedTasks();
+        for (StageInfo stageInfo : getAllStages(rootStage)) {
+            StageStats stageStats = stageInfo.getStageStats();
+            totalTasks += stageStats.getTotalTasks();
+            runningTasks += stageStats.getRunningTasks();
+            completedTasks += stageStats.getCompletedTasks();
 
-                totalDrivers += stageStats.getTotalDrivers();
-                queuedDrivers += stageStats.getQueuedDrivers();
-                runningDrivers += stageStats.getRunningDrivers();
-                completedDrivers += stageStats.getCompletedDrivers();
+            totalDrivers += stageStats.getTotalDrivers();
+            queuedDrivers += stageStats.getQueuedDrivers();
+            runningDrivers += stageStats.getRunningDrivers();
+            completedDrivers += stageStats.getCompletedDrivers();
 
-                cumulativeMemory += stageStats.getCumulativeMemory();
-                totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
-                peakMemoryReservation = getPeakMemoryInBytes();
+            cumulativeMemory += stageStats.getCumulativeMemory();
+            totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
+            peakMemoryReservation = getPeakMemoryInBytes();
 
-                totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-                totalCpuTime += stageStats.getTotalCpuTime().roundTo(NANOSECONDS);
-                totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
-                totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
-                if (!stageInfo.getState().isDone()) {
-                    fullyBlocked &= stageStats.isFullyBlocked();
-                    blockedReasons.addAll(stageStats.getBlockedReasons());
-                }
-
-                PlanFragment plan = stageInfo.getPlan();
-                if (plan != null && plan.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
-                    rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
-                    rawInputPositions += stageStats.getRawInputPositions();
-
-                    processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
-                    processedInputPositions += stageStats.getProcessedInputPositions();
-                }
+            totalScheduledTime += stageStats.getTotalScheduledTime().roundTo(NANOSECONDS);
+            totalCpuTime += stageStats.getTotalCpuTime().roundTo(NANOSECONDS);
+            totalUserTime += stageStats.getTotalUserTime().roundTo(NANOSECONDS);
+            totalBlockedTime += stageStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+            if (!stageInfo.getState().isDone()) {
+                fullyBlocked &= stageStats.isFullyBlocked();
+                blockedReasons.addAll(stageStats.getBlockedReasons());
             }
 
-            StageStats outputStageStats = rootStage.getStageStats();
+            PlanFragment plan = stageInfo.getPlan();
+            if (plan != null && plan.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
+                rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
+                rawInputPositions += stageStats.getRawInputPositions();
+
+                processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
+                processedInputPositions += stageStats.getProcessedInputPositions();
+            }
+        }
+
+        if (rootStage.isPresent()) {
+            StageStats outputStageStats = rootStage.get().getStageStats();
             outputDataSize += outputStageStats.getOutputDataSize().toBytes();
             outputPositions += outputStageStats.getOutputPositions();
         }
@@ -544,9 +544,9 @@ public class QueryStateMachine
         distributedPlanningTime.compareAndSet(null, nanosSince(distributedPlanningStart).convertToMostSuccinctTimeUnit());
     }
 
-    private static boolean isScheduled(StageInfo rootStage)
+    private static boolean isScheduled(Optional<StageInfo> rootStage)
     {
-        if (rootStage == null) {
+        if (!rootStage.isPresent()) {
             return false;
         }
         return getAllStages(rootStage).stream()

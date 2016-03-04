@@ -137,7 +137,8 @@ public class ExplainAnalyzeOperator
         outputConsumed = true;
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
         // Skip the output stage, since that's the one that has the ExplainAnalyzeOperator itself
-        String plan = textDistributedPlan(queryInfo.getOutputStage().getSubStages(), metadata, operatorContext.getSession());
+        checkState(queryInfo.getOutputStage().isPresent(), "Output stage is missing");
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages(), metadata, operatorContext.getSession());
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         VARCHAR.writeString(builder, plan);
         return new Page(builder.build());

@@ -174,7 +174,7 @@ public class PlanPrinter
     {
         StringBuilder builder = new StringBuilder();
         List<StageInfo> allStages = stages.stream()
-                .flatMap(stage -> getAllStages(stage).stream())
+                .flatMap(stage -> getAllStages(Optional.of(stage)).stream())
                 .collect(toImmutableList());
         for (StageInfo stageInfo : allStages) {
             Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
