@@ -56,12 +56,14 @@ import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
+import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -185,6 +187,12 @@ public class RcFilePageSource
                     boolean value = booleanPartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_PAGE_SIZE; i++) {
                         BOOLEAN.writeBoolean(blockBuilder, value);
+                    }
+                }
+                else if (type.equals(INTEGER)) {
+                    long value = integerPartitionKey(partitionKey.getValue(), name);
+                    for (int i = 0; i < MAX_PAGE_SIZE; i++) {
+                        INTEGER.writeLong(blockBuilder, value);
                     }
                 }
                 else if (type.equals(BIGINT)) {
