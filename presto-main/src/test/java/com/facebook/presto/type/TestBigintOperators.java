@@ -237,7 +237,7 @@ public class TestBigintOperators
     public void testUnderflowSubtract()
             throws Exception
     {
-        final long minValue = Long.MIN_VALUE + 1; // due to https://github.com/facebook/presto/issues/4571 MIN_VALUE solely cannot be used
+        long minValue = Long.MIN_VALUE + 1; // due to https://github.com/facebook/presto/issues/4571 MIN_VALUE solely cannot be used
         assertInvalidFunction(format("%s - 2", minValue), NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
@@ -249,17 +249,17 @@ public class TestBigintOperators
         //assertInvalidFunction(format("%s * -1", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE); TODO: uncomment when https://github.com/facebook/presto/issues/4571 is fixed
     }
 
-    @Test
+    @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
     public void testOverflowDivide()
             throws Exception
     {
-        //assertInvalidFunction(format("%s / -1", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE); TODO: uncomment when https://github.com/facebook/presto/issues/4571 is fixed
+        assertInvalidFunction(format("%s / -1", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
-    @Test
+    @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
     public void testNegateOverflow()
             throws Exception
     {
-        //assertInvalidFunction(format("-(%s)", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE); TODO: uncomment when https://github.com/facebook/presto/issues/4571 is fixed
+        assertInvalidFunction(format("-(%s)", Long.MIN_VALUE), NUMERIC_VALUE_OUT_OF_RANGE);
     }
 }
