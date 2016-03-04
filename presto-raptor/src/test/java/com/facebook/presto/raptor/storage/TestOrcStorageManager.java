@@ -158,25 +158,6 @@ public class TestOrcStorageManager
     }
 
     @Test
-    public void testShardFiles()
-            throws Exception
-    {
-        UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
-
-        assertEquals(
-                new File(temporary, "data/storage/70/1e/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                storageService.getStorageFile(uuid));
-
-        assertEquals(
-                new File(temporary, "data/staging/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                storageService.getStagingFile(uuid));
-
-        assertEquals(
-                new File(temporary, "backup/70/1e/701e1a79-74f7-4f56-b438-b41e8e7d019d.orc"),
-                fileBackupStore.getBackupFile(uuid));
-    }
-
-    @Test
     public void testWriter()
             throws Exception
     {
