@@ -56,7 +56,7 @@ public class PruneIdentityProjections
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            if (node.getOutputSymbols().size() != source.getOutputSymbols().size()) {
+            if (!node.getOutputSymbols().equals(source.getOutputSymbols())) {
                 // Can't get rid of this projection. It constrains the output tuple from the underlying operator
                 return replaceChildren(node, ImmutableList.of(source));
             }
