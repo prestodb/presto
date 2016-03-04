@@ -17,6 +17,7 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.spi.RecordCursor;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import org.postgresql.Driver;
@@ -64,5 +65,11 @@ public class PostgreSqlClient
         Statement statement = connection.createStatement();
         statement.setFetchSize(1000);
         return statement;
+    }
+
+    @Override
+    public Class<? extends RecordCursor> getRecordCursorType()
+    {
+        return PostgreSqlRecordCursor.class;
     }
 }
