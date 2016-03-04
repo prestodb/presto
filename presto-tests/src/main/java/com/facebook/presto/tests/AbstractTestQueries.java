@@ -3658,6 +3658,23 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDuplicateRankOrderFields()
+            throws Exception
+    {
+        @Language("SQL") String sql = "" +
+                "SELECT orderstatus, clerk, sales\n" +
+                ", rank() OVER (PARTITION BY orderstatus ORDER BY clerk, sales, sales) rnk\n" +
+                "FROM (\n" +
+                "  SELECT orderstatus, clerk, sum(totalprice) sales\n" +
+                "  FROM orders\n" +
+                "  GROUP BY orderstatus, clerk\n" +
+                ")\n" +
+                "ORDER BY orderstatus, clerk";
+
+        assertEquals(computeActual(sql), computeActual(sql.replace("sales, sales", "sales")));
+    }
+
+    @Test
     public void testWildcardFromSubquery()
             throws Exception
     {
