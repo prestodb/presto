@@ -46,11 +46,11 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -314,6 +314,12 @@ public class PredicatePushDown
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
 
+            newJoinPredicate = simplifyExpression(newJoinPredicate);
+            // TODO: find a better way to directly optimize FALSE LITERAL in join predicate
+            if (newJoinPredicate.equals(BooleanLiteral.FALSE_LITERAL)) {
+                newJoinPredicate = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
+            }
+
             PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
             PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
 
@@ -321,49 +327,45 @@ public class PredicatePushDown
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
                     !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
-                // Create identity projections for all existing symbols
-                ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
-
-                leftProjections.putAll(node.getLeft()
-                        .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
-
-                ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
-                rightProjections.putAll(node.getRight()
-                        .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
-
-                Iterable<Expression> simplifiedJoinConjuncts = transform(extractConjuncts(newJoinPredicate), this::simplifyExpression);
-                simplifiedJoinConjuncts = filter(simplifiedJoinConjuncts, not(Predicates.<Expression>equalTo(BooleanLiteral.TRUE_LITERAL)));
-
-                // Create new projections for the new join clauses
-                ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
-                for (Expression conjunct : simplifiedJoinConjuncts) {
-                    checkState(joinEqualityExpression(node.getLeft().getOutputSymbols()).apply(conjunct), "Expected join predicate to be a valid join equality");
-
-                    ComparisonExpression equality = (ComparisonExpression) conjunct;
-
-                    boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
-                    Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
-                    Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
-
-                    Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
-                    leftProjections.put(leftSymbol, leftExpression);
-                    Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
-                    rightProjections.put(rightSymbol, rightExpression);
-
-                    builder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
-                }
-
-                leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
-                rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
-                List<JoinNode.EquiJoinClause> criteria = builder.build();
-
-                if (Iterables.isEmpty(simplifiedJoinConjuncts)) {
-                    output = new JoinNode(node.getId(), INNER, leftSource, rightSource, criteria, Optional.<Symbol>empty(), Optional.<Symbol>empty());
+                if (newJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
+                    output = new JoinNode(node.getId(), INNER, leftSource, rightSource, ImmutableList.of(), Optional.<Symbol>empty(), Optional.<Symbol>empty());
                 }
                 else {
-                    output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, criteria, node.getLeftHashSymbol(), node.getRightHashSymbol());
+                    // Create identity projections for all existing symbols
+                    ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
+
+                    leftProjections.putAll(node.getLeft()
+                            .getOutputSymbols().stream()
+                            .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+
+                    ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
+                    rightProjections.putAll(node.getRight()
+                            .getOutputSymbols().stream()
+                            .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
+
+                    // Create new projections for the new join clauses
+                    ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
+                    for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
+                        checkState(joinEqualityExpression(node.getLeft().getOutputSymbols()).apply(conjunct), "Expected join predicate to be a valid join equality");
+
+                        ComparisonExpression equality = (ComparisonExpression) conjunct;
+
+                        boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
+                        Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
+                        Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
+
+                        Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
+                        leftProjections.put(leftSymbol, leftExpression);
+                        Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
+                        rightProjections.put(rightSymbol, rightExpression);
+
+                        builder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                    }
+
+                    leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
+                    rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
+
+                    output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, builder.build(), node.getLeftHashSymbol(), node.getRightHashSymbol());
                 }
             }
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {

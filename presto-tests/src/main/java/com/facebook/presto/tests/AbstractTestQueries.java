@@ -1558,6 +1558,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithInferredFalseJoinClause()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT COUNT(*)\n" +
+                "FROM orders\n" +
+                "JOIN lineitem\n" +
+                "ON CAST(orders.orderkey AS VARCHAR) = CAST(lineitem.orderkey AS VARCHAR)\n" +
+                "WHERE orders.orderkey = 1 AND lineitem.orderkey = 2\n");
+    }
+
+    @Test
     public void testJoinUsing()
             throws Exception
     {
