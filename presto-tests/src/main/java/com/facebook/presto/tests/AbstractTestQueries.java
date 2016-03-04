@@ -5502,6 +5502,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testValuesWithUnusedColumns()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT foo from (values (1, 2)) a(foo, bar)");
+
+        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+                .row(1)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testFilterPushdownWithAggregation()
             throws Exception
     {
