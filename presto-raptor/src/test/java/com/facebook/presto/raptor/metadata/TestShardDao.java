@@ -24,7 +24,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -33,7 +32,6 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -93,33 +91,11 @@ public class TestShardDao
     }
 
     @Test
-    public void testInsertCreatedShardNode()
-            throws Exception
-    {
-        int nodeId = dao.insertNode("node");
-        long transactionId = dao.insertTransaction();
-        dao.insertCreatedShardNode(UUID.randomUUID(), nodeId, transactionId);
-        dao.deleteCreatedShardNodes(transactionId);
-    }
-
-    @Test
     public void testInsertDeletedShards()
             throws Exception
     {
         dao.insertDeletedShards(ImmutableList.of(UUID.randomUUID(), UUID.randomUUID()));
         dao.insertDeletedShards(0);
-    }
-
-    @Test
-    public void testInsertDeletedShardNode()
-            throws Exception
-    {
-        List<ShardNodeId> shardNodes = ImmutableList.<ShardNodeId>builder()
-                .add(new ShardNodeId(UUID.randomUUID(), dao.insertNode("node1")))
-                .add(new ShardNodeId(UUID.randomUUID(), dao.insertNode("node2")))
-                .build();
-        dao.insertDeletedShardNodes(shardNodes);
-        dao.insertDeletedShardNodes(0);
     }
 
     @Test
@@ -284,51 +260,6 @@ public class TestShardDao
         assertContainsShardNode(shardNodes, nodeName2, shardUuid4);
     }
 
-    @Test
-    public void testDeletedShardNodes()
-    {
-        String nodeName1 = UUID.randomUUID().toString();
-        int nodeId1 = dao.insertNode(nodeName1);
-
-        String nodeName2 = UUID.randomUUID().toString();
-        int nodeId2 = dao.insertNode(nodeName2);
-
-        UUID shard = UUID.randomUUID();
-        ImmutableList<UUID> shards = ImmutableList.of(shard);
-
-        // insert shard on both nodes
-        dao.insertDeletedShardNodes(ImmutableList.of(new ShardNodeId(shard, nodeId1)));
-        dao.insertDeletedShardNodes(ImmutableList.of(new ShardNodeId(shard, nodeId2)));
-
-        // verify we should clean from both
-        assertEquals(dao.getCleanableShardNodesBatch(nodeName1, future()), shards);
-        assertEquals(dao.getCleanableShardNodesBatch(nodeName2, future()), shards);
-
-        // clean on first node
-        dao.updateCleanedShardNodes(shards, nodeId1);
-        assertEquals(dao.getCleanableShardNodesBatch(nodeName1, future()), ImmutableList.of());
-        assertEquals(dao.getCleanableShardNodesBatch(nodeName2, future()), shards);
-
-        // clean on second node
-        dao.updateCleanedShardNodes(shards, nodeId2);
-        assertEquals(dao.getCleanableShardNodesBatch(nodeName1, future()), ImmutableList.of());
-        assertEquals(dao.getCleanableShardNodesBatch(nodeName2, future()), ImmutableList.of());
-
-        // verify we should purge from both
-        assertEquals(dao.getPurgableShardNodesBatch(nodeName1, future()), shards);
-        assertEquals(dao.getPurgableShardNodesBatch(nodeName2, future()), shards);
-
-        // purge on first node
-        dao.deletePurgedShardNodes(shards, nodeId1);
-        assertEquals(dao.getPurgableShardNodesBatch(nodeName1, future()), ImmutableList.of());
-        assertEquals(dao.getPurgableShardNodesBatch(nodeName2, future()), shards);
-
-        // purge on second node
-        dao.deletePurgedShardNodes(shards, nodeId2);
-        assertEquals(dao.getPurgableShardNodesBatch(nodeName1, future()), ImmutableList.of());
-        assertEquals(dao.getPurgableShardNodesBatch(nodeName2, future()), ImmutableList.of());
-    }
-
     private long createTable(String name)
     {
         return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, null);
@@ -337,10 +268,5 @@ public class TestShardDao
     private static void assertContainsShardNode(List<ShardNode> nodes, String nodeName, UUID shardUuid)
     {
         assertTrue(nodes.contains(new ShardNode(shardUuid, nodeName)));
-    }
-
-    private static Timestamp future()
-    {
-        return new Timestamp(System.currentTimeMillis() + DAYS.toMillis(1));
     }
 }

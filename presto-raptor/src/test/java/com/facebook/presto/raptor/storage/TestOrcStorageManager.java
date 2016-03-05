@@ -193,7 +193,6 @@ public class TestOrcStorageManager
 
         assertEquals(recordedShards.get(0).getTransactionId(), TRANSACTION_ID);
         assertEquals(recordedShards.get(0).getShardUuid(), shardUuid);
-        assertEquals(recordedShards.get(0).getNodeIdentifier(), CURRENT_NODE);
 
         assertEquals(shardInfo.getRowCount(), 2);
         assertEquals(shardInfo.getCompressedSize(), file.length());
@@ -347,7 +346,6 @@ public class TestOrcStorageManager
         assertEquals(recordedShards.size(), 2);
         assertEquals(recordedShards.get(1).getTransactionId(), TRANSACTION_ID);
         assertEquals(recordedShards.get(1).getShardUuid(), shardInfo.getShardUuid());
-        assertEquals(recordedShards.get(1).getNodeIdentifier(), CURRENT_NODE);
     }
 
     @Test

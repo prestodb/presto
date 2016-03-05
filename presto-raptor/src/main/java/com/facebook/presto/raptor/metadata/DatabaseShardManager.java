@@ -72,7 +72,6 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.bindOptionalInt;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
-import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -195,7 +194,6 @@ public class DatabaseShardManager
             lockTable(handle, tableId);
 
             ShardDao shardDao = shardDaoSupplier.attach(handle);
-            shardDao.insertDeletedShardNodes(tableId);
             shardDao.insertDeletedShards(tableId);
             shardDao.dropShardNodes(tableId);
             shardDao.dropShards(tableId);
@@ -303,10 +301,9 @@ public class DatabaseShardManager
         String args = Joiner.on(",").join(nCopies(shardUuids.size(), "?"));
 
         ImmutableSet.Builder<Long> shardIdSet = ImmutableSet.builder();
-        ImmutableList.Builder<ShardNodeId> shardNodesList = ImmutableList.builder();
 
         String selectShardNodes = format(
-                "SELECT shard_id, shard_uuid, node_ids FROM %s WHERE shard_uuid IN (%s) FOR UPDATE",
+                "SELECT shard_id FROM %s WHERE shard_uuid IN (%s)",
                 shardIndexTable(tableId), args);
 
         try (PreparedStatement statement = handle.getConnection().prepareStatement(selectShardNodes)) {
@@ -314,10 +311,6 @@ public class DatabaseShardManager
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
                     shardIdSet.add(rs.getLong("shard_id"));
-                    UUID shardUuid = uuidFromBytes(rs.getBytes("shard_uuid"));
-                    for (Integer nodeId : intArrayFromBytes(rs.getBytes("node_ids"))) {
-                        shardNodesList.add(new ShardNodeId(shardUuid, nodeId));
-                    }
                 }
             }
         }
@@ -329,7 +322,6 @@ public class DatabaseShardManager
 
         ShardDao dao = shardDaoSupplier.attach(handle);
         dao.insertDeletedShards(shardUuids);
-        dao.insertDeletedShardNodes(shardNodesList.build());
 
         String where = " WHERE shard_id IN (" + args + ")";
         String deleteFromShardNodes = "DELETE FROM shard_nodes " + where;
@@ -459,7 +451,6 @@ public class DatabaseShardManager
             if (nodes.remove(nodeId)) {
                 updateNodeIds(handle, tableId, shardUuid, nodes);
                 dao.deleteShardNode(shardUuid, nodeId);
-                dao.insertDeletedShardNodes(ImmutableList.of(new ShardNodeId(shardUuid, nodeId)));
             }
 
             return null;
@@ -510,20 +501,13 @@ public class DatabaseShardManager
             throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
         }
         dao.deleteCreatedShards(transactionId);
-        dao.deleteCreatedShardNodes(transactionId);
         return true;
     }
 
     @Override
-    public void recordCreatedShard(long transactionId, UUID shardUuid, String nodeIdentifier)
+    public void recordCreatedShard(long transactionId, UUID shardUuid)
     {
-        int nodeId = getOrCreateNodeId(nodeIdentifier);
-        runTransaction(dbi, (handle, status) -> {
-            ShardDao dao = shardDaoSupplier.attach(handle);
-            dao.insertCreatedShard(shardUuid, transactionId);
-            dao.insertCreatedShardNode(shardUuid, nodeId, transactionId);
-            return null;
-        });
+        dao.insertCreatedShard(shardUuid, transactionId);
     }
 
     @Override
