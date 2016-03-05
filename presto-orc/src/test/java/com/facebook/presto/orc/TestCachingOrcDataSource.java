@@ -22,7 +22,6 @@ import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
@@ -40,7 +39,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.stream.Stream;
@@ -245,50 +243,5 @@ public class TestCachingOrcDataSource
                 compression != NONE,
                 tableProperties,
                 () -> { });
-    }
-
-    private static class FakeOrcDataSource
-            implements OrcDataSource
-    {
-        public static final FakeOrcDataSource INSTANCE = new FakeOrcDataSource();
-
-        @Override
-        public long getReadBytes()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long getReadTimeNanos()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long getSize()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer)
-                throws IOException
-        {
-            // do nothing
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-                throws IOException
-        {
-            // do nothing
-        }
-
-        @Override
-        public <K> Map<K, FixedLengthSliceInput> readFully(Map<K, DiskRange> diskRanges)
-                throws IOException
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 }
