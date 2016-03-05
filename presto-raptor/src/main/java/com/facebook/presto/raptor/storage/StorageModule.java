@@ -20,6 +20,7 @@ import com.facebook.presto.raptor.metadata.ShardCleaner;
 import com.facebook.presto.raptor.metadata.ShardCleanerConfig;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
+import com.google.common.base.Ticker;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -45,6 +46,8 @@ public class StorageModule
         configBinder(binder).bindConfig(StorageManagerConfig.class);
         configBinder(binder).bindConfig(ShardCleanerConfig.class);
         configBinder(binder).bindConfig(MetadataConfig.class);
+
+        binder.bind(Ticker.class).toInstance(Ticker.systemTicker());
 
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);

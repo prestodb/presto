@@ -17,5 +17,5 @@ import java.util.UUID;
 
 public interface ShardRecorder
 {
-    void recordCreatedShard(long transactionId, UUID shardUuid, String nodeIdentifier);
+    void recordCreatedShard(long transactionId, UUID shardUuid);
 }

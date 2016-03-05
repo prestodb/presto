@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
@@ -93,5 +95,29 @@ public class TestFileStorageService
         assertFalse(file.exists());
         assertFalse(staging.exists());
         assertDirectory(storage);
+    }
+
+    @Test
+    public void testGetStorageShards()
+            throws Exception
+    {
+        Set<UUID> shards = ImmutableSet.<UUID>builder()
+                .add(UUID.fromString("9e7abb51-56b5-4180-9164-ad08ddfe7c63"))
+                .add(UUID.fromString("bbfc3895-1c3d-4bf4-bca4-7b1198b1759e"))
+                .build();
+
+        for (UUID shard : shards) {
+            File file = store.getStorageFile(shard);
+            store.createParents(file);
+            assertTrue(file.createNewFile());
+        }
+
+        File storage = new File(temporary, "storage");
+        assertTrue(new File(storage, "abc").mkdir());
+        assertTrue(new File(storage, "ab/cd").mkdirs());
+        assertTrue(new File(storage, format("ab/cd/%s.junk", randomUUID())).createNewFile());
+        assertTrue(new File(storage, "ab/cd/junk.orc").createNewFile());
+
+        assertEquals(store.getStorageShards(), shards);
     }
 }

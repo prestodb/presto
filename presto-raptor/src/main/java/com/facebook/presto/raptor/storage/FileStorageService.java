@@ -14,15 +14,22 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static java.util.Locale.ENGLISH;
@@ -31,6 +38,9 @@ import static java.util.Objects.requireNonNull;
 public class FileStorageService
         implements StorageService
 {
+    private static final Pattern HEX_DIRECTORY = Pattern.compile("[0-9a-f]{2}");
+    private static final String FILE_EXTENSION = ".orc";
+
     private final File baseStorageDir;
     private final File baseStagingDir;
 
@@ -78,6 +88,22 @@ public class FileStorageService
     }
 
     @Override
+    public Set<UUID> getStorageShards()
+    {
+        ImmutableSet.Builder<UUID> shards = ImmutableSet.builder();
+        for (File level1 : listFiles(baseStorageDir, FileStorageService::isHexDirectory)) {
+            for (File level2 : listFiles(level1, FileStorageService::isHexDirectory)) {
+                for (File file : listFiles(level2, path -> true)) {
+                    if (file.isFile()) {
+                        uuidFromFileName(file.getName()).ifPresent(shards::add);
+                    }
+                }
+            }
+        }
+        return shards.build();
+    }
+
+    @Override
     public void createParents(File file)
     {
         File dir = file.getParentFile();
@@ -104,7 +130,7 @@ public class FileStorageService
         return base.toPath()
                 .resolve(uuid.substring(0, 2))
                 .resolve(uuid.substring(2, 4))
-                .resolve(uuid + ".orc")
+                .resolve(uuid + FILE_EXTENSION)
                 .toFile();
     }
 
@@ -122,5 +148,38 @@ public class FileStorageService
             Files.deleteIfExists(file.toPath());
         }
         Files.deleteIfExists(dir.toPath());
+    }
+
+    private static List<File> listFiles(File dir, FileFilter filter)
+    {
+        File[] files = dir.listFiles(filter);
+        if (files == null) {
+            return ImmutableList.of();
+        }
+        return ImmutableList.copyOf(files);
+    }
+
+    private static boolean isHexDirectory(File file)
+    {
+        return file.isDirectory() && HEX_DIRECTORY.matcher(file.getName()).matches();
+    }
+
+    private static Optional<UUID> uuidFromFileName(String name)
+    {
+        if (name.endsWith(FILE_EXTENSION)) {
+            name = name.substring(0, name.length() - FILE_EXTENSION.length());
+            return uuidFromString(name);
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<UUID> uuidFromString(String value)
+    {
+        try {
+            return Optional.of(UUID.fromString(value));
+        }
+        catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 }

@@ -361,7 +361,7 @@ public class OrcStorageManager
             return shardDelta(shardUuid, Optional.empty());
         }
 
-        shardRecorder.recordCreatedShard(transactionId, newShardUuid, nodeId);
+        shardRecorder.recordCreatedShard(transactionId, newShardUuid);
 
         // submit for backup and wait until it finishes
         getFutureValue(backupManager.submit(newShardUuid, output));
@@ -523,7 +523,7 @@ public class OrcStorageManager
             if (writer != null) {
                 writer.close();
 
-                shardRecorder.recordCreatedShard(transactionId, shardUuid, nodeId);
+                shardRecorder.recordCreatedShard(transactionId, shardUuid);
 
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 futures.add(backupManager.submit(shardUuid, stagingFile));
