@@ -11,7 +11,6 @@ CREATE TABLE presto_test_types_textfile (
 , t_binary BINARY
 , t_date DATE
 , t_varchar VARCHAR(50)
-, t_char CHAR(25)
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
 , t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
@@ -34,7 +33,6 @@ SELECT
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('test binary' AS BINARY) END
 , CASE WHEN n % 37 = 0 THEN NULL ELSE '2013-08-09' END
 , CASE n % 39 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test varchar' END
-, CASE n % 41 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test char' END
 , CASE WHEN n % 27 = 0 THEN NULL ELSE map('test key', 'test value') END
 , CASE WHEN n % 29 = 0 THEN NULL ELSE array('abc', 'xyz', 'data') END
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
@@ -83,6 +81,7 @@ SELECT * FROM presto_test_types_textfile
 
 
 -- Parquet fails when trying to use complex nested types.
+-- Parquet is missing TIMESTAMP and BINARY.
 CREATE TABLE presto_test_types_parquet (
   t_string STRING
 , t_tinyint TINYINT
@@ -94,6 +93,7 @@ CREATE TABLE presto_test_types_parquet (
 , t_boolean BOOLEAN
 , t_timestamp TIMESTAMP
 , t_binary BINARY
+, t_varchar VARCHAR(50)
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
 , t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
@@ -113,6 +113,7 @@ SELECT
 , t_boolean
 , t_timestamp
 , t_binary
+, t_varchar
 , t_map
 , t_array_string
 , t_array_struct
