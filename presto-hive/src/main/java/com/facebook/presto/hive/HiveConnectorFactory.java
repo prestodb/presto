@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.auth.HdfsAuthenticatingConnectorModule;
+import com.facebook.presto.hive.auth.SimpleConnectorModule;
 import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.HiveMetastoreAuthenticationKerberos;
+import com.facebook.presto.hive.metastore.HiveMetastoreAuthenticationSimple;
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -111,6 +115,22 @@ public class HiveConnectorFactory
                             SecurityConfig.class,
                             security -> "sql-standard".equalsIgnoreCase(security.getSecuritySystem()),
                             new SqlStandardSecurityModule()),
+                    installModuleIf(
+                            HiveClientConfig.class,
+                            hiveClientConfig -> hiveClientConfig.getHiveMetastoreAuthenticationType() == HiveClientConfig.HiveMetastoreAuthenticationType.SIMPLE,
+                            new HiveMetastoreAuthenticationSimple.Module()),
+                    installModuleIf(
+                            HiveClientConfig.class,
+                            hiveClientConfig -> hiveClientConfig.getHiveMetastoreAuthenticationType() == HiveClientConfig.HiveMetastoreAuthenticationType.SASL,
+                            new HiveMetastoreAuthenticationKerberos.Module()),
+                    installModuleIf(
+                            HiveClientConfig.class,
+                            c -> c.getHdfsAuthenticationType() == HiveClientConfig.HdfsAuthenticationType.SIMPLE && !c.getHdfsImpersonation(),
+                            new SimpleConnectorModule()),
+                    installModuleIf(
+                            HiveClientConfig.class,
+                            c -> c.getHdfsAuthenticationType() != HiveClientConfig.HdfsAuthenticationType.SIMPLE || c.getHdfsImpersonation(),
+                            new HdfsAuthenticatingConnectorModule()),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));

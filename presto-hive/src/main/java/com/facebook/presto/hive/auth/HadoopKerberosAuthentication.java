@@ -11,15 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.auth;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
 
-import java.net.URI;
-
-public interface HdfsConfiguration
+public class HadoopKerberosAuthentication
+        extends HadoopKerberosBaseAuthentication
+        implements HadoopAuthentication
 {
-    Configuration getConfiguration(URI uri);
+    public HadoopKerberosAuthentication(String principal, String keytab, Configuration configuration)
+    {
+        super(principal, keytab, configuration);
+    }
 
-    Configuration getDefaultConfiguration();
+    @Override
+    public UserGroupInformation getUserGroupInformation(String user)
+    {
+        return getUserGroupInformation();
+    }
 }

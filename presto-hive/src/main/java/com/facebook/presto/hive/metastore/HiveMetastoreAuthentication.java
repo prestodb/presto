@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.hive.metastore;
 
-package com.facebook.presto.spi;
+import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
-public interface RecordPageSource
-        extends ConnectorPageSource
+public interface HiveMetastoreAuthentication
 {
-    RecordCursor getCursor();
+    TTransport createAuthenticatedTransport(TTransport rawTransport, String hiveMetastoreHost)
+            throws TTransportException;
 }
