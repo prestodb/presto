@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -133,7 +134,15 @@ class TranslationMap
     public void put(Expression expression, Symbol symbol)
     {
         Expression translated = translateNamesToSymbols(expression);
-        expressionMappings.put(translated, symbol);
+        //if expression is a scalar subquery and translated is a cast expression,
+        //put original expression into expressionMappings,otherwise the whole casted
+        //expression will rewrote to symbol(lose cast info) in the next process phase.
+        if (expression instanceof SubqueryExpression && translated instanceof Cast) {
+            expressionMappings.put(expression, symbol);
+        }
+        else {
+            expressionMappings.put(translated, symbol);
+        }
 
         // also update the field mappings if this expression is a field reference
         analysis.getFieldIndex(expression).ifPresent(index -> fieldSymbols[index] = symbol);
