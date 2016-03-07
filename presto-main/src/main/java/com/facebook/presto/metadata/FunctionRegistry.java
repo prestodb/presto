@@ -127,7 +127,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -230,6 +230,7 @@ import static com.facebook.presto.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATO
 import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownOperators.UNKNOWN_OPERATORS;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.facebook.presto.util.Types.checkType;
@@ -548,6 +549,22 @@ public class FunctionRegistry
             return Optional.of(mostSpecificFunction.getBoundSignature());
         }
 
+        // if there is more than one function, look for functions that only cast the unknown arguments
+        List<ApplicableFunction> unknownCastFunctions = mostSpecificFunctions.stream().filter(f -> onlyCastsUnknown(f, actualParameters)).collect(Collectors.toList());
+        if (!unknownCastFunctions.isEmpty()) {
+            if (unknownCastFunctions.size() == 1) {
+                return Optional.of(getOnlyElement(unknownCastFunctions).getBoundSignature());
+            }
+
+            // When casting unknown arguments, prefer functions whose arguments are all of the same type.
+            List<ApplicableFunction> sameArgumentFunctions = unknownCastFunctions.stream()
+                    .filter(function -> new HashSet<>(function.getBoundSignature().getArgumentTypes()).size() == 1)
+                    .collect(Collectors.toList());
+            if (sameArgumentFunctions.size() == 1) {
+                return Optional.of(getOnlyElement(sameArgumentFunctions).getBoundSignature());
+            }
+        }
+
         List<Signature> mostSpecificFunctionDefinitions = mostSpecificFunctions.stream()
                 .map(ApplicableFunction::getDeclaredSignature)
                 .collect(Collectors.toList());
@@ -556,6 +573,18 @@ public class FunctionRegistry
         mostSpecificFunctionDefinitions.sort((o1, o2) -> o1.toString().compareTo(o2.toString()));
 
         throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous call to %s with parameters %s", mostSpecificFunctionDefinitions.toString(), actualParameters.toString()));
+    }
+
+    private boolean onlyCastsUnknown(ApplicableFunction applicableFunction, List<Type> actualParameters)
+    {
+        List<Type> boundTypes = resolveTypes(applicableFunction.getBoundSignature().getArgumentTypes(), typeManager);
+        checkState(actualParameters.size() == boundTypes.size(), "type lists are of different lengths");
+        for (int i = 0; i < actualParameters.size(); i++) {
+            if (!boundTypes.get(i).equals(actualParameters.get(i)) && actualParameters.get(i) != UNKNOWN) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private List<ApplicableFunction> identifyPotentiallyApplicableFunctions(List<SqlFunction> candidates, List<Type> actualParameters)
@@ -575,11 +604,8 @@ public class FunctionRegistry
     private List<ApplicableFunction> filterOutLessSpecificFunctions(List<ApplicableFunction> applicableFunctions)
     {
         final List<ApplicableFunction> mostSpecificFunctions = new ArrayList<>();
-        final Iterator<ApplicableFunction> applicableFunctionIterator = applicableFunctions.iterator();
 
-        while (applicableFunctionIterator.hasNext()) {
-            final ApplicableFunction function = applicableFunctionIterator.next();
-
+        for (ApplicableFunction function : applicableFunctions) {
             Optional<Integer> mostSpecificId = function.getIdOfFunctionFamily(mostSpecificFunctions);
             if (mostSpecificId.isPresent() && function.isMoreSpecificThan(mostSpecificFunctions.get(mostSpecificId.get()))) {
                 mostSpecificFunctions.set(mostSpecificId.get(), function);
