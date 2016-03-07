@@ -69,6 +69,11 @@ import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.metadata.SignatureBinder.bindVariables;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.DATE;
+import static com.facebook.presto.spi.type.StandardTypes.TIME;
+import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
+import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -88,26 +93,28 @@ public final class UnknownOperators
         ImmutableList.Builder<SqlScalarFunction> operators = ImmutableList.builder();
 
         // arithmetic binary
-        operators.addAll(createArithmeticOperators(ADD));
-        operators.addAll(createArithmeticOperators(SUBTRACT));
-        operators.addAll(createArithmeticOperators(MULTIPLY));
-        operators.addAll(createArithmeticOperators(DIVIDE));
-        operators.addAll(createArithmeticOperators(MODULUS));
+        operators.add(createArithmeticOperator(ADD));
+        operators.addAll(createDateTimeArithmeticOperators(ADD));
+        operators.addAll(createDateTimeArithmeticOperators(SUBTRACT));
+        operators.add(createArithmeticOperator(SUBTRACT));
+        operators.add(createArithmeticOperator(MULTIPLY));
+        operators.add(createArithmeticOperator(DIVIDE));
+        operators.add(createArithmeticOperator(MODULUS));
 
         // arithmetic unary
         operators.add(createUnknownOperator(NEGATION, UnknownType.NAME, UnknownType.NAME));
         operators.add(createUnknownOperator(HASH_CODE, BIGINT, UnknownType.NAME));
 
         // inequality binary operators
-        operators.addAll(createEqualityOperators(EQUAL));
-        operators.addAll(createEqualityOperators(NOT_EQUAL));
-        operators.addAll(createEqualityOperators(LESS_THAN));
-        operators.addAll(createEqualityOperators(LESS_THAN_OR_EQUAL));
-        operators.addAll(createEqualityOperators(GREATER_THAN));
-        operators.addAll(createEqualityOperators(GREATER_THAN_OR_EQUAL));
+        operators.add(createEqualityOperator(EQUAL));
+        operators.add(createEqualityOperator(NOT_EQUAL));
+        operators.add(createEqualityOperator(LESS_THAN));
+        operators.add(createEqualityOperator(LESS_THAN_OR_EQUAL));
+        operators.add(createEqualityOperator(GREATER_THAN));
+        operators.add(createEqualityOperator(GREATER_THAN_OR_EQUAL));
 
         // inequality ternary operators
-        operators.addAll(createBetweenOperators());
+        operators.add(createBetweenOperator());
 
         // concat with unknown operator
         operators.addAll(createConcatWithUnknownOperators());
@@ -122,35 +129,33 @@ public final class UnknownOperators
         return list.toArray(new SqlScalarFunction[list.size()]);
     }
 
-    private static List<SqlScalarFunction> createArithmeticOperators(OperatorType operatorType)
+    private static SqlScalarFunction createArithmeticOperator(OperatorType operatorType)
     {
-        return ImmutableList.of(
-                createUnknownOperator(operatorType, UnknownType.NAME, UnknownType.NAME, UnknownType.NAME),
-                createUnknownOperator(operatorType, "T", UnknownType.NAME, "T"),
-                createUnknownOperator(operatorType, "T", "T", UnknownType.NAME)
-        );
+        return createUnknownOperator(operatorType, UnknownType.NAME, UnknownType.NAME, UnknownType.NAME);
     }
 
-    private static List<SqlScalarFunction> createEqualityOperators(OperatorType operatorType)
+    private static List<SqlScalarFunction> createDateTimeArithmeticOperators(OperatorType operatorType)
     {
-        return ImmutableList.of(
-                createUnknownOperator(operatorType, BOOLEAN, UnknownType.NAME, UnknownType.NAME),
-                createUnknownOperator(operatorType, BOOLEAN, UnknownType.NAME, "T"),
-                createUnknownOperator(operatorType, BOOLEAN, "T", UnknownType.NAME)
-        );
+        ImmutableList<String> dateTimeTypes = ImmutableList.of(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
+        ImmutableList.Builder<SqlScalarFunction> functionsBuilder = new ImmutableList.Builder<>();
+        for (String type : dateTimeTypes) {
+            functionsBuilder.add(createUnknownOperator(operatorType, type, UnknownType.NAME, type));
+            functionsBuilder.add(createUnknownOperator(operatorType, type, type, UnknownType.NAME));
+        }
+        return functionsBuilder.build();
     }
 
-    private static List<SqlScalarFunction> createBetweenOperators()
+    private static SqlScalarFunction createEqualityOperator(OperatorType operatorType)
     {
-        return ImmutableList.of(
-                createUnknownOperator(BETWEEN, BOOLEAN, UnknownType.NAME, UnknownType.NAME, UnknownType.NAME),
-                createUnknownOperator(BETWEEN, BOOLEAN, UnknownType.NAME, "T", "T"),
-                createUnknownOperator(BETWEEN, BOOLEAN, "T", UnknownType.NAME, "T"),
-                createUnknownOperator(BETWEEN, BOOLEAN, "T", "T", UnknownType.NAME)
-        );
+        return createUnknownOperator(operatorType, BOOLEAN, UnknownType.NAME, UnknownType.NAME);
     }
 
-    private static List<SqlScalarFunction> createConcatWithUnknownOperators()
+    private static SqlScalarFunction createBetweenOperator()
+    {
+        return createUnknownOperator(BETWEEN, BOOLEAN, UnknownType.NAME, UnknownType.NAME, UnknownType.NAME);
+    }
+
+    private static List<SqlScalarFunction> createJsonUnknownOperators()
     {
         return ImmutableList.of(
                 createUnknownFunction("json_array_length", BIGINT, UnknownType.NAME),
@@ -163,7 +168,7 @@ public final class UnknownOperators
         );
     }
 
-    private static List<SqlScalarFunction> createJsonUnknownOperators()
+    private static List<SqlScalarFunction> createConcatWithUnknownOperators()
     {
         return ImmutableList.of(
                 createUnknownFunction("concat", UnknownType.NAME, UnknownType.NAME, UnknownType.NAME),
