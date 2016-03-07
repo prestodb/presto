@@ -39,10 +39,12 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -226,7 +228,7 @@ public class OrcStorageManager
                 }
                 else {
                     columnIndexes.add(index);
-                    includedColumns.put(index, columnTypes.get(i));
+                    includedColumns.put(index, typeManager.getType(toStorageType(columnTypes.get(i).getTypeSignature())));
                 }
             }
 
@@ -443,6 +445,32 @@ public class OrcStorageManager
                 return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build(), ImmutableList.copyOf(type.getFieldNames()));
         }
         throw new PrestoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
+    }
+
+    private static TypeSignature toStorageType(TypeSignature typeSignature)
+    {
+        List<TypeSignatureParameter> parameters = typeSignature.getParameters();
+        switch (typeSignature.getBase()) {
+            case StandardTypes.TIMESTAMP:
+            case StandardTypes.DATE:
+                return BIGINT.getTypeSignature();
+            case StandardTypes.ARRAY:
+                checkArgument(parameters.size() == 1, "ARRAY type must have one element");
+                return new TypeSignature(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(toStorageType(parameters.get(0).getTypeSignature()))));
+            case StandardTypes.MAP:
+                checkArgument(parameters.size() == 2, "MAP type must have two elements");
+                return new TypeSignature(StandardTypes.MAP, ImmutableList.of(
+                        TypeSignatureParameter.of(toStorageType(parameters.get(0).getTypeSignature())),
+                        TypeSignatureParameter.of(toStorageType(parameters.get(1).getTypeSignature()))));
+            case StandardTypes.ROW:
+                ImmutableList.Builder<TypeSignatureParameter> builder = ImmutableList.builder();
+                for (TypeSignatureParameter parameter : parameters) {
+                    NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
+                    builder.add(TypeSignatureParameter.of(new NamedTypeSignature(namedTypeSignature.getName(), toStorageType(namedTypeSignature.getTypeSignature()))));
+                }
+                return new TypeSignature(StandardTypes.ROW, builder.build());
+        }
+        return typeSignature;
     }
 
     private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
