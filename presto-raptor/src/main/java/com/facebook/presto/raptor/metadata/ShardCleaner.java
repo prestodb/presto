@@ -20,7 +20,10 @@ import com.facebook.presto.spi.NodeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -76,6 +79,14 @@ public class ShardCleaner
     private final ExecutorService backupExecutor;
 
     private final AtomicBoolean started = new AtomicBoolean();
+
+    private final CounterStat transactionJobErrors = new CounterStat();
+    private final CounterStat backupJobErrors = new CounterStat();
+    private final CounterStat localJobErrors = new CounterStat();
+    private final CounterStat backupShardsQueued = new CounterStat();
+    private final CounterStat backupShardsCleaned = new CounterStat();
+    private final CounterStat backupShardsPurged = new CounterStat();
+    private final CounterStat localShardsCleaned = new CounterStat();
 
     @GuardedBy("this")
     private final Map<UUID, Long> shardsToClean = new HashMap<>();
@@ -154,6 +165,55 @@ public class ShardCleaner
         backupExecutor.shutdownNow();
     }
 
+    @Managed
+    @Nested
+    public CounterStat getTransactionJobErrors()
+    {
+        return transactionJobErrors;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getBackupJobErrors()
+    {
+        return backupJobErrors;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getLocalJobErrors()
+    {
+        return localJobErrors;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getBackupShardsQueued()
+    {
+        return backupShardsQueued;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getBackupShardsCleaned()
+    {
+        return backupShardsCleaned;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getBackupShardsPurged()
+    {
+        return backupShardsPurged;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getLocalShardsCleaned()
+    {
+        return localShardsCleaned;
+    }
+
     private void startJobs()
     {
         if (coordinator) {
@@ -180,6 +240,7 @@ public class ShardCleaner
             }
             catch (Throwable t) {
                 log.error(t, "Error cleaning transactions");
+                transactionJobErrors.update(1);
             }
         }, 0, transactionCleanerInterval.toMillis(), MILLISECONDS);
     }
@@ -193,6 +254,7 @@ public class ShardCleaner
             }
             catch (Throwable t) {
                 log.error(t, "Error cleaning backup shards");
+                backupJobErrors.update(1);
             }
         }, 0, backupCleanerInterval.toMillis(), MILLISECONDS);
     }
@@ -211,6 +273,7 @@ public class ShardCleaner
             }
             catch (Throwable t) {
                 log.error(t, "Error cleaning local shards");
+                localJobErrors.update(1);
             }
         }, 0, localCleanerInterval.toMillis(), MILLISECONDS);
     }
@@ -231,6 +294,7 @@ public class ShardCleaner
             }
             dao.insertDeletedShards(shards);
             dao.deleteCreatedShards(shards);
+            backupShardsQueued.update(shards.size());
         }
     }
 
@@ -269,6 +333,7 @@ public class ShardCleaner
             shardsToClean.remove(uuid);
         }
 
+        localShardsCleaned.update(deletions.size());
         log.info("Cleaned %s local shards", deletions.size());
     }
 
@@ -284,6 +349,7 @@ public class ShardCleaner
             long start = System.nanoTime();
             executeDeletes(uuids);
             dao.updateCleanedShards(uuids);
+            backupShardsCleaned.update(uuids.size());
             log.info("Cleaned %s backup shards in %s", uuids.size(), nanosSince(start));
         }
     }
@@ -300,6 +366,7 @@ public class ShardCleaner
             long start = System.nanoTime();
             executeDeletes(uuids);
             dao.deletePurgedShards(uuids);
+            backupShardsPurged.update(uuids.size());
             log.info("Purged %s backup shards in %s", uuids.size(), nanosSince(start));
         }
     }
