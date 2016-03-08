@@ -147,6 +147,8 @@ public class TestShardCleaner
     public void testDeleteOldShards()
             throws Exception
     {
+        assertEquals(cleaner.getBackupShardsQueued().getTotalCount(), 0);
+
         ShardDao dao = dbi.onDemand(ShardDao.class);
 
         UUID shard1 = randomUUID();
@@ -176,6 +178,8 @@ public class TestShardCleaner
         // move shards for failed transaction to deleted
         cleaner.deleteOldShards();
 
+        assertEquals(cleaner.getBackupShardsQueued().getTotalCount(), 2);
+
         // verify database
         assertQuery("SELECT shard_uuid, transaction_id FROM created_shards",
                 row(shard3, txn2));
@@ -189,6 +193,8 @@ public class TestShardCleaner
     public void testCleanLocalShards()
             throws Exception
     {
+        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 0);
+
         ShardDao shardDao = dbi.onDemand(ShardDao.class);
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
@@ -221,6 +227,8 @@ public class TestShardCleaner
         // mark unreferenced shards
         cleaner.cleanLocalShards();
 
+        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 0);
+
         // make sure nothing is deleted
         for (UUID shard : shards) {
             assertTrue(shardFileExists(shard));
@@ -236,6 +244,8 @@ public class TestShardCleaner
         // clean shards
         cleaner.cleanLocalShards();
 
+        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 2);
+
         // shards 2 and 4 should be deleted
         // shards 1 and 3 are referenced by this node
         assertTrue(shardFileExists(shard1));
@@ -248,6 +258,8 @@ public class TestShardCleaner
     public void testCleanBackupShards()
             throws Exception
     {
+        assertEquals(cleaner.getBackupShardsCleaned().getTotalCount(), 0);
+
         TestingDao dao = dbi.onDemand(TestingDao.class);
 
         UUID shard1 = randomUUID();
@@ -271,6 +283,8 @@ public class TestShardCleaner
 
         cleaner.cleanBackupShards();
 
+        assertEquals(cleaner.getBackupShardsCleaned().getTotalCount(), 2);
+
         assertFalse(shardBackupExists(shard1));
         assertFalse(shardBackupExists(shard2));
         assertTrue(shardBackupExists(shard3));
@@ -285,6 +299,8 @@ public class TestShardCleaner
     public void testPurgeBackupShards()
             throws Exception
     {
+        assertEquals(cleaner.getBackupShardsPurged().getTotalCount(), 0);
+
         TestingDao dao = dbi.onDemand(TestingDao.class);
 
         UUID shard1 = randomUUID();
@@ -307,6 +323,8 @@ public class TestShardCleaner
         createShardBackups(shard1, shard2, shard3);
 
         cleaner.purgeBackupShards();
+
+        assertEquals(cleaner.getBackupShardsPurged().getTotalCount(), 2);
 
         assertFalse(shardBackupExists(shard1));
         assertFalse(shardBackupExists(shard2));
