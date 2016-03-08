@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
+import com.facebook.presto.spi.type.LongDecimalType;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -24,15 +26,14 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
-import static java.lang.Long.MAX_VALUE;
-import static java.lang.Long.MIN_VALUE;
 import static java.math.BigInteger.ONE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
-public class TestUnboundedIntegerStream
+public class TestDecimalStream
 {
     @Test
-    public void testShortUnboundedIntegers()
+    public void testShortDecimals()
             throws IOException
     {
         assertReadsShortValue(0L);
@@ -40,27 +41,36 @@ public class TestUnboundedIntegerStream
         assertReadsShortValue(-1L);
         assertReadsShortValue(256L);
         assertReadsShortValue(-256L);
-        assertReadsShortValue(MAX_VALUE);
-        assertReadsShortValue(MIN_VALUE);
-    }
-
-    @Test(expectedExceptions = {IllegalStateException.class})
-    public void testShouldFailWhenValueDoesNotFit()
-            throws IOException
-    {
-        UnboundedIntegerStream stream = new UnboundedIntegerStream(unboundedIntegerInputStream(BigInteger.valueOf(MAX_VALUE).add(ONE)));
-        stream.nextLong();
+        assertReadsShortValue(Long.MAX_VALUE);
+        assertReadsShortValue(Long.MIN_VALUE);
     }
 
     @Test
-    public void testLongUnboundedIntegers()
+    public void testShouldFailWhenShortDecimalDoesNotFit()
+            throws IOException
+    {
+        assertShortValueReadFails(BigInteger.valueOf(Long.MAX_VALUE).add(ONE));
+    }
+
+    @Test
+    public void testShouldFailWhenExceeds128Bits()
+            throws IOException
+    {
+        assertLongValueReadFails(BigInteger.valueOf(1).shiftLeft(127));
+        assertLongValueReadFails(BigInteger.valueOf(-2).shiftLeft(127));
+    }
+
+    @Test
+    public void testLongDecimals()
             throws IOException
     {
         assertReadsLongValue(BigInteger.valueOf(0L));
         assertReadsLongValue(BigInteger.valueOf(1L));
         assertReadsLongValue(BigInteger.valueOf(-1L));
-        assertReadsLongValue(BigInteger.valueOf(MAX_VALUE).pow(123));
-        assertReadsLongValue(BigInteger.valueOf(MIN_VALUE).pow(123));
+        assertReadsLongValue(BigInteger.valueOf(-1).shiftLeft(127));
+        assertReadsLongValue(BigInteger.valueOf(1).shiftLeft(126));
+        assertReadsLongValue(LongDecimalType.MAX_DECIMAL_UNSCALED_VALUE);
+        assertReadsLongValue(LongDecimalType.MIN_DECIMAL_UNSCALED_VALUE);
     }
 
     @Test
@@ -68,30 +78,48 @@ public class TestUnboundedIntegerStream
             throws IOException
     {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        writeBigInteger(baos, BigInteger.valueOf(MAX_VALUE));
-        writeBigInteger(baos, BigInteger.valueOf(MIN_VALUE));
+        writeBigInteger(baos, BigInteger.valueOf(Long.MAX_VALUE));
+        writeBigInteger(baos, BigInteger.valueOf(Long.MIN_VALUE));
 
         OrcInputStream inputStream = orcInputStreamFor("skip test", baos.toByteArray());
-        UnboundedIntegerStream stream = new UnboundedIntegerStream(inputStream);
+        DecimalStream stream = new DecimalStream(inputStream);
         stream.skip(1);
-        assertEquals(stream.nextLong(), MIN_VALUE);
+        assertEquals(stream.nextLong(), Long.MIN_VALUE);
     }
 
     private static void assertReadsShortValue(long value)
             throws IOException
     {
-        UnboundedIntegerStream stream = new UnboundedIntegerStream(unboundedIntegerInputStream(BigInteger.valueOf(value)));
+        DecimalStream stream = new DecimalStream(decimalInputStream(BigInteger.valueOf(value)));
         assertEquals(stream.nextLong(), value);
     }
 
     private static void assertReadsLongValue(BigInteger value)
             throws IOException
     {
-        UnboundedIntegerStream stream = new UnboundedIntegerStream(unboundedIntegerInputStream(value));
+        DecimalStream stream = new DecimalStream(decimalInputStream(value));
         assertEquals(stream.nextBigInteger(), value);
     }
 
-    private static OrcInputStream unboundedIntegerInputStream(BigInteger value)
+    private static void assertShortValueReadFails(BigInteger value)
+            throws IOException
+    {
+        assertThrows(OrcCorruptionException.class, () -> {
+            DecimalStream stream = new DecimalStream(decimalInputStream(value));
+            stream.nextLong();
+        });
+    }
+
+    private static void assertLongValueReadFails(BigInteger value)
+            throws IOException
+    {
+        assertThrows(OrcCorruptionException.class, () -> {
+            DecimalStream stream = new DecimalStream(decimalInputStream(value));
+            stream.nextBigInteger();
+        });
+    }
+
+    private static OrcInputStream decimalInputStream(BigInteger value)
             throws IOException
     {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

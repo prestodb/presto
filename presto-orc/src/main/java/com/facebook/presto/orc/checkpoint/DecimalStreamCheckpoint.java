@@ -20,12 +20,12 @@ import com.google.common.base.MoreObjects;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
 
-public final class UnboundedIntegerStreamCheckpoint
+public final class DecimalStreamCheckpoint
         implements StreamCheckpoint
 {
     private final long inputStreamCheckpoint;
 
-    public UnboundedIntegerStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
+    public DecimalStreamCheckpoint(CompressionKind compressionKind, ColumnPositionsList positionsList)
     {
         inputStreamCheckpoint = createInputStreamCheckpoint(compressionKind, positionsList);
     }

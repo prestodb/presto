@@ -13,33 +13,32 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.orc.checkpoint.UnboundedIntegerStreamCheckpoint;
+import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.math.BigInteger;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Long.MAX_VALUE;
 
-public class UnboundedIntegerStream
-        implements ValueStream<UnboundedIntegerStreamCheckpoint>
+public class DecimalStream
+        implements ValueStream<DecimalStreamCheckpoint>
 {
     private final OrcInputStream input;
 
-    public UnboundedIntegerStream(OrcInputStream input)
+    public DecimalStream(OrcInputStream input)
     {
         this.input = input;
     }
 
     @Override
-    public Class<? extends UnboundedIntegerStreamCheckpoint> getCheckpointType()
+    public Class<? extends DecimalStreamCheckpoint> getCheckpointType()
     {
-        return UnboundedIntegerStreamCheckpoint.class;
+        return DecimalStreamCheckpoint.class;
     }
 
     @Override
-    public void seekToCheckpoint(UnboundedIntegerStreamCheckpoint checkpoint)
+    public void seekToCheckpoint(DecimalStreamCheckpoint checkpoint)
             throws IOException
     {
         input.seekToCheckpoint(checkpoint.getInputStreamCheckpoint());
@@ -56,9 +55,12 @@ public class UnboundedIntegerStream
         do {
             b = input.read();
             if (b == -1) {
-                throw new EOFException("Reading BigInteger past EOF from " + input);
+                throw new OrcCorruptionException("Reading BigInteger past EOF from " + input);
             }
             work |= (0x7f & b) << (offset % 63);
+            if (offset >= 126 && (offset != 126 || work > 3)) {
+                throw new OrcCorruptionException("Decimal exceeds 128 bits");
+            }
             offset += 7;
             // if we've read 63 bits, roll them into the result
             if (offset == 63) {
@@ -111,10 +113,12 @@ public class UnboundedIntegerStream
         do {
             b = input.read();
             if (b == -1) {
-                throw new EOFException("Reading BigInteger past EOF from " + input);
+                throw new OrcCorruptionException("Reading BigInteger past EOF from " + input);
             }
             long work = 0x7f & b;
-            checkState(offset <= 56 || (offset == 63 && work <= 1), "Unbounded integer does not fit long");
+            if (offset >= 63 && (offset != 63 || work > 1)) {
+                throw new OrcCorruptionException("Decimal does not fit long (invalid table schema?)");
+            }
             result |= work << offset;
             offset += 7;
         }
@@ -160,7 +164,7 @@ public class UnboundedIntegerStream
             do {
                 b = input.read();
                 if (b == -1) {
-                    throw new EOFException("Reading BigInteger past EOF from " + input);
+                    throw new OrcCorruptionException("Reading BigInteger past EOF from " + input);
                 }
             }
             while (b >= 0x80);

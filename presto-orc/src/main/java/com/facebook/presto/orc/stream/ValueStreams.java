@@ -78,7 +78,7 @@ public final class ValueStreams
                 case TIMESTAMP:
                     return createLongStream(inputStream, encoding, type, true, usesVInt);
                 case DECIMAL:
-                    return new UnboundedIntegerStream(inputStream);
+                    return new DecimalStream(inputStream);
             }
         }
 
@@ -125,6 +125,7 @@ public final class ValueStreams
         if (type == DECIMAL && streamId.getStreamKind() == SECONDARY) {
             // specification (https://orc.apache.org/docs/encodings.html) says scale stream is unsigned,
             // however Hive writer stores scale as signed integer (org.apache.hadoop.hive.ql.io.orc.WriterImpl.DecimalTreeWriter)
+            // BUG link: https://issues.apache.org/jira/browse/HIVE-13229
             return createLongStream(inputStream, encoding, type, true, usesVInt);
         }
 

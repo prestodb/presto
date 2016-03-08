@@ -389,7 +389,7 @@ public final class Checkpoints
         }
 
         if (availableStreams.contains(DATA)) {
-            checkpoints.put(new StreamId(column, DATA), new UnboundedIntegerStreamCheckpoint(compressionKind, positionsList));
+            checkpoints.put(new StreamId(column, DATA), new DecimalStreamCheckpoint(compressionKind, positionsList));
         }
 
         if (availableStreams.contains(SECONDARY)) {

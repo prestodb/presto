@@ -515,8 +515,7 @@ public class OrcTester
                 Text.class,
                 compressionCodec != NONE,
                 createTableProperties("test", columnObjectInspector.getTypeName()),
-                () -> {
-                }
+                () -> { }
         );
     }
 

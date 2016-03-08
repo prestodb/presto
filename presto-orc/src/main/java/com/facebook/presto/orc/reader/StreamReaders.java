@@ -14,8 +14,6 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 public final class StreamReaders
@@ -24,7 +22,7 @@ public final class StreamReaders
     {
     }
 
-    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, Type type, DateTimeZone hiveStorageTimeZone)
+    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
@@ -46,14 +44,13 @@ public final class StreamReaders
             case TIMESTAMP:
                 return new TimestampStreamReader(streamDescriptor, hiveStorageTimeZone);
             case LIST:
-                return new ListStreamReader(streamDescriptor, hiveStorageTimeZone, type);
+                return new ListStreamReader(streamDescriptor, hiveStorageTimeZone);
             case STRUCT:
-                return new StructStreamReader(streamDescriptor, hiveStorageTimeZone, type);
+                return new StructStreamReader(streamDescriptor, hiveStorageTimeZone);
             case MAP:
-                return new MapStreamReader(streamDescriptor, hiveStorageTimeZone, type);
+                return new MapStreamReader(streamDescriptor, hiveStorageTimeZone);
             case UNION:
             case DECIMAL:
-                DecimalType decimalType = (DecimalType) type;
                 return new DecimalStreamReader(streamDescriptor);
             case VARCHAR:
             case CHAR:

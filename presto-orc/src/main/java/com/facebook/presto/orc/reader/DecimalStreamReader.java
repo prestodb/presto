@@ -17,10 +17,10 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanStream;
+import com.facebook.presto.orc.stream.DecimalStream;
 import com.facebook.presto.orc.stream.LongStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
-import com.facebook.presto.orc.stream.UnboundedIntegerStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -55,8 +55,8 @@ public class DecimalStreamReader
     private int nextBatchSize;
 
     private boolean[] nullVector = new boolean[0];
-    private long[] shortUnboundedIntegerVector = new long[0];
-    private BigInteger[] longUnboundedIntegerVector = new BigInteger[0];
+    private long[] shortDecimalVector = new long[0];
+    private BigInteger[] longDecimalVector = new BigInteger[0];
     private long[] scaleVector = new long[0];
 
     @Nonnull
@@ -65,9 +65,9 @@ public class DecimalStreamReader
     private BooleanStream presentStream;
 
     @Nonnull
-    private StreamSource<UnboundedIntegerStream> unboundedIntegerStreamSource = missingStreamSource(UnboundedIntegerStream.class);
+    private StreamSource<DecimalStream> decimalStreamSource = missingStreamSource(DecimalStream.class);
     @Nullable
-    private UnboundedIntegerStream unboundedIntegerStream;
+    private DecimalStream decimalStream;
 
     @Nonnull
     private StreamSource<LongStream> scaleStreamSource = missingStreamSource(LongStream.class);
@@ -113,7 +113,7 @@ public class DecimalStreamReader
             throws IOException
     {
         presentStream = presentStreamSource.openStream();
-        unboundedIntegerStream = unboundedIntegerStreamSource.openStream();
+        decimalStream = decimalStreamSource.openStream();
         scaleStream = scaleStreamSource.openStream();
         rowGroupOpen = true;
     }
@@ -128,14 +128,14 @@ public class DecimalStreamReader
                 readOffset = presentStream.countBitsSet(readOffset);
             }
             if (readOffset > 0) {
-                if (unboundedIntegerStream == null) {
-                    throw new OrcCorruptionException("Value is not null but unbounded integer stream is not present");
+                if (decimalStream == null) {
+                    throw new OrcCorruptionException("Value is not null but decimal stream is not present");
                 }
                 if (scaleStream == null) {
                     throw new OrcCorruptionException("Value is not null but scale stream is not present");
                 }
 
-                unboundedIntegerStream.skip(readOffset);
+                decimalStream.skip(readOffset);
                 scaleStream.skip(readOffset);
             }
         }
@@ -145,8 +145,8 @@ public class DecimalStreamReader
     {
         if (nullVector.length < nextBatchSize) {
             nullVector = new boolean[nextBatchSize];
-            shortUnboundedIntegerVector = new long[nextBatchSize];
-            longUnboundedIntegerVector = new BigInteger[nextBatchSize];
+            shortDecimalVector = new long[nextBatchSize];
+            longDecimalVector = new BigInteger[nextBatchSize];
             scaleVector = new long[nextBatchSize];
         }
     }
@@ -155,8 +155,8 @@ public class DecimalStreamReader
             throws IOException
     {
         if (presentStream == null) {
-            if (unboundedIntegerStream == null) {
-                throw new OrcCorruptionException("Value is not null but unbounded integer stream is not present");
+            if (decimalStream == null) {
+                throw new OrcCorruptionException("Value is not null but decimal stream is not present");
             }
             if (scaleStream == null) {
                 throw new OrcCorruptionException("Value is not null but scale stream is not present");
@@ -165,10 +165,10 @@ public class DecimalStreamReader
             Arrays.fill(nullVector, false);
 
             if (decimalType.isShort()) {
-                unboundedIntegerStream.nextLongVector(nextBatchSize, shortUnboundedIntegerVector);
+                decimalStream.nextLongVector(nextBatchSize, shortDecimalVector);
             }
             else {
-                unboundedIntegerStream.nextBigIntegerVector(nextBatchSize, longUnboundedIntegerVector);
+                decimalStream.nextBigIntegerVector(nextBatchSize, longDecimalVector);
             }
 
             scaleStream.nextLongVector(nextBatchSize, scaleVector);
@@ -176,18 +176,18 @@ public class DecimalStreamReader
         else {
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
-                if (unboundedIntegerStream == null) {
-                    throw new OrcCorruptionException("Value is not null but unbounded integer stream is not present");
+                if (decimalStream == null) {
+                    throw new OrcCorruptionException("Value is not null but decimal stream is not present");
                 }
                 if (scaleStream == null) {
                     throw new OrcCorruptionException("Value is not null but scale stream is not present");
                 }
 
                 if (decimalType.isShort()) {
-                    unboundedIntegerStream.nextLongVector(nextBatchSize, shortUnboundedIntegerVector, nullVector);
+                    decimalStream.nextLongVector(nextBatchSize, shortDecimalVector, nullVector);
                 }
                 else {
-                    unboundedIntegerStream.nextBigIntegerVector(nextBatchSize, longUnboundedIntegerVector, nullVector);
+                    decimalStream.nextBigIntegerVector(nextBatchSize, longDecimalVector, nullVector);
                 }
 
                 scaleStream.nextLongVector(nextBatchSize, scaleVector, nullVector);
@@ -203,8 +203,8 @@ public class DecimalStreamReader
         if (decimalType.isShort()) {
             for (int i = 0; i < nextBatchSize; i++) {
                 if (!nullVector[i]) {
-                    long rescaledUnboundedInteger = rescale(shortUnboundedIntegerVector[i], (int) scaleVector[i], decimalType.getScale());
-                    decimalType.writeLong(builder, rescaledUnboundedInteger);
+                    long rescaledDecimal = rescale(shortDecimalVector[i], (int) scaleVector[i], decimalType.getScale());
+                    decimalType.writeLong(builder, rescaledDecimal);
                 }
                 else {
                     builder.appendNull();
@@ -214,8 +214,8 @@ public class DecimalStreamReader
         else {
             for (int i = 0; i < nextBatchSize; i++) {
                 if (!nullVector[i]) {
-                    BigInteger rescaledUnboundedInteger = rescale(longUnboundedIntegerVector[i], (int) scaleVector[i], decimalType.getScale());
-                    Slice slice = LongDecimalType.unscaledValueToSlice(rescaledUnboundedInteger);
+                    BigInteger rescaledDecimal = rescale(longDecimalVector[i], (int) scaleVector[i], decimalType.getScale());
+                    Slice slice = LongDecimalType.unscaledValueToSlice(rescaledDecimal);
                     decimalType.writeSlice(builder, slice);
                 }
                 else {
@@ -232,14 +232,14 @@ public class DecimalStreamReader
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanStream.class);
-        unboundedIntegerStreamSource = missingStreamSource(UnboundedIntegerStream.class);
+        decimalStreamSource = missingStreamSource(DecimalStream.class);
         scaleStreamSource = missingStreamSource(LongStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
 
         presentStream = null;
-        unboundedIntegerStream = null;
+        decimalStream = null;
         scaleStream = null;
 
         rowGroupOpen = false;
@@ -250,14 +250,14 @@ public class DecimalStreamReader
             throws IOException
     {
         presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        unboundedIntegerStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, UnboundedIntegerStream.class);
+        decimalStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, DecimalStream.class);
         scaleStreamSource = dataStreamSources.getStreamSource(streamDescriptor, SECONDARY, LongStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
 
         presentStream = null;
-        unboundedIntegerStream = null;
+        decimalStream = null;
         scaleStream = null;
 
         rowGroupOpen = false;

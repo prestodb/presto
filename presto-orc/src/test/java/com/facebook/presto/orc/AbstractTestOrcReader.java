@@ -211,12 +211,12 @@ public abstract class AbstractTestOrcReader
     public void testDecimalSequence()
             throws Exception
     {
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_2, decimalSequqnce("0.0", "0.1", 30, 1), toSqlDecimal(1), DECIMAL_TYPE_PRECISION_2);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_4, decimalSequqnce("00.00", "00.01", 30_00, 2), toSqlDecimal(2), DECIMAL_TYPE_PRECISION_4);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_8, decimalSequqnce("0000.0000", "0000.0100", 30_000, 4), toSqlDecimal(4), DECIMAL_TYPE_PRECISION_8);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_17, decimalSequqnce("000000000.00000000", "000000000.01000000", 30_000, 8), toSqlDecimal(8), DECIMAL_TYPE_PRECISION_17);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_18, decimalSequqnce("0000000000.00000000", "0000000000.01000000", 30_000, 8), toSqlDecimal(8), DECIMAL_TYPE_PRECISION_18);
-        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_38, decimalSequqnce("0.0000000000000000", "0.0100000000000000", 30_000, 16), toSqlDecimal(16), DECIMAL_TYPE_PRECISION_38);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_2, decimalSequence("0.0", "0.1", 30, 1), toSqlDecimal(1), DECIMAL_TYPE_PRECISION_2);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_4, decimalSequence("00.00", "00.01", 30_00, 2), toSqlDecimal(2), DECIMAL_TYPE_PRECISION_4);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_8, decimalSequence("0000.0000", "0000.0100", 30_000, 4), toSqlDecimal(4), DECIMAL_TYPE_PRECISION_8);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_17, decimalSequence("000000000.00000000", "000000000.01000000", 30_000, 8), toSqlDecimal(8), DECIMAL_TYPE_PRECISION_17);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_18, decimalSequence("0000000000.00000000", "0000000000.01000000", 30_000, 8), toSqlDecimal(8), DECIMAL_TYPE_PRECISION_18);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_38, decimalSequence("0.0000000000000000", "0.0100000000000000", 30_000, 16), toSqlDecimal(16), DECIMAL_TYPE_PRECISION_38);
     }
 
     @Test
@@ -403,7 +403,7 @@ public abstract class AbstractTestOrcReader
         };
     }
 
-    private static Iterable<HiveDecimal> decimalSequqnce(String start, String step, int items, int scale)
+    private static Iterable<HiveDecimal> decimalSequence(String start, String step, int items, int scale)
     {
         HiveDecimal hiveStep = HiveDecimal.create(step);
         return () -> new AbstractSequentialIterator<HiveDecimal>(HiveDecimal.create(start))
