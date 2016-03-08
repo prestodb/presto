@@ -49,7 +49,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.jetbrains.annotations.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 import java.util.Arrays;
 import java.util.HashMap;

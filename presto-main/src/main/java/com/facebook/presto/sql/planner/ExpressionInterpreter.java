@@ -85,7 +85,8 @@ import com.google.common.collect.Lists;
 import io.airlift.joni.Regex;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import org.jetbrains.annotations.NotNull;
+
+import javax.validation.constraints.NotNull;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
