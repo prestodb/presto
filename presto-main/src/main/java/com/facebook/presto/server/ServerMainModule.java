@@ -158,6 +158,11 @@ public class ServerMainModule
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+
+        // workaround for CodeCache GC issue
+        configBinder(binder).bindConfig(CodeCacheGcConfig.class);
+        binder.bind(CodeCacheGcTrigger.class).in(Scopes.SINGLETON);
+
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(ReservedSystemMemoryConfig.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();

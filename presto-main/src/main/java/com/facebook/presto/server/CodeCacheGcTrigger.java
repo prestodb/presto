@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.server;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
+
+import javax.annotation.PostConstruct;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 final class CodeCacheGcTrigger
@@ -24,9 +29,21 @@ final class CodeCacheGcTrigger
     private static final Logger log = Logger.get(CodeCacheGcTrigger.class);
     private static final AtomicBoolean installed = new AtomicBoolean();
 
-    private CodeCacheGcTrigger() {}
+    private final Duration interval;
 
-    public static void installCodeCacheGcTrigger()
+    @Inject
+    public CodeCacheGcTrigger(CodeCacheGcConfig config)
+    {
+        this.interval = config.getCodeCacheCheckInterval();
+    }
+
+    @PostConstruct
+    public void start()
+    {
+        installCodeCacheGcTrigger();
+    }
+
+    public void installCodeCacheGcTrigger()
     {
         if (installed.getAndSet(true)) {
             return;
@@ -52,7 +69,7 @@ final class CodeCacheGcTrigger
                 }
 
                 try {
-                    Thread.sleep(1000);
+                    TimeUnit.MILLISECONDS.sleep(interval.toMillis());
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
