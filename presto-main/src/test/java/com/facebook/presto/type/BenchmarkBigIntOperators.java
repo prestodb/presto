@@ -19,7 +19,6 @@ import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
@@ -33,85 +32,117 @@ import java.util.function.LongBinaryOperator;
 import java.util.function.LongUnaryOperator;
 
 @State(Scope.Thread)
-@Fork(1)
-@Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@BenchmarkMode(Mode.AverageTime)
+@Fork(20)
+@Warmup(iterations = 100, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 100, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@BenchmarkMode(Mode.Throughput)
 public class BenchmarkBigIntOperators
 {
-    private static final long NUMBER_OF_REPETITIONS = 100_000;
-
     @Benchmark
-    public Object overflowChecks(BenchmarkData data)
+    public Object overflowChecks_add()
     {
-        switch (data.type) {
-            case "add":
-                return execute(data, (x, y) -> BigintOperators.add(x, y));
-            case "subtract":
-                return execute(data, (x, y) -> BigintOperators.subtract(x, y));
-            case "multiply":
-                return execute(data, (x, y) -> BigintOperators.multiply(x, y));
-            case "divide":
-                return execute(data, (x, y) -> BigintOperators.divide(x, y));
-            case "negate":
-                return executeSingleOperand(data, x -> BigintOperators.negate(x));
-            default:
-                throw new IllegalStateException("Operator not supported");
-        }
+        return execute((x, y) -> BigintOperators.add(x, y));
     }
 
     @Benchmark
-    public Object baseLine(BenchmarkData data)
+    public Object overflowChecks_subtract()
     {
-        switch (data.type) {
-            case "add":
-                return execute(data, (x, y) -> x + y);
-            case "subtract":
-                return execute(data, (x, y) -> x - y);
-            case "multiply":
-                return execute(data, (x, y) -> x * y);
-            case "divide":
-                return execute(data, (x, y) -> x / y);
-            case "negate":
-                return executeSingleOperand(data, x -> -x);
-            default:
-                throw new IllegalStateException("Operator not supported");
-        }
+        return execute((x, y) -> BigintOperators.subtract(x, y));
     }
 
-    private static Object execute(BenchmarkData data, LongBinaryOperator operator)
+    @Benchmark
+    public Object overflowChecks_multiply()
+    {
+        return execute((x, y) -> BigintOperators.multiply(x, y));
+    }
+
+    @Benchmark
+    public Object overflowChecks_divide()
+    {
+        return execute((x, y) -> BigintOperators.divide(x, y));
+    }
+
+    @Benchmark
+    public Object overflowChecks_negate()
+    {
+        return executeSingleOperand(x -> BigintOperators.negate(x));
+    }
+
+    @Benchmark
+    public Object baseLine_add()
+    {
+        return execute((x, y) -> x + y);
+    }
+
+    @Benchmark
+    public Object baseLine_subtract()
+    {
+        return execute((x, y) -> x - y);
+    }
+
+    @Benchmark
+    public Object baseLine_multiply()
+    {
+        return execute((x, y) -> x * y);
+    }
+
+    @Benchmark
+    public Object baseLine_divide()
+    {
+        return execute((x, y) -> x / y);
+    }
+
+    @Benchmark
+    public Object baseLine_negate()
+    {
+        return executeSingleOperand(x -> -x);
+    }
+
+    private static Object execute(LongBinaryOperator operator)
     {
         ImmutableList.Builder<Long> builder = ImmutableList.builder();
-        for (long i = 0; i < NUMBER_OF_REPETITIONS; ++i) {
-            for (long left : data.leftOperands) {
-                for (long right : data.rightOperands) {
-                    builder.add(operator.applyAsLong(left, right));
-                }
-            }
-        }
+        builder.add(operator.applyAsLong(1, 123456));
+        builder.add(operator.applyAsLong(20, 123456));
+        builder.add(operator.applyAsLong(33, 123456));
+        builder.add(operator.applyAsLong(407, 123456));
+        builder.add(operator.applyAsLong(7890, 123456));
+        builder.add(operator.applyAsLong(1, 9003));
+        builder.add(operator.applyAsLong(20, 9003));
+        builder.add(operator.applyAsLong(33, 9003));
+        builder.add(operator.applyAsLong(407, 9003));
+        builder.add(operator.applyAsLong(7890, 9003));
+        builder.add(operator.applyAsLong(1, 809));
+        builder.add(operator.applyAsLong(20, 809));
+        builder.add(operator.applyAsLong(33, 809));
+        builder.add(operator.applyAsLong(407, 809));
+        builder.add(operator.applyAsLong(7890, 809));
+        builder.add(operator.applyAsLong(1, 67));
+        builder.add(operator.applyAsLong(20, 67));
+        builder.add(operator.applyAsLong(33, 67));
+        builder.add(operator.applyAsLong(407, 67));
+        builder.add(operator.applyAsLong(7890, 67));
+        builder.add(operator.applyAsLong(1, 5));
+        builder.add(operator.applyAsLong(20, 5));
+        builder.add(operator.applyAsLong(33, 5));
+        builder.add(operator.applyAsLong(407, 5));
+        builder.add(operator.applyAsLong(7890, 5));
         return builder.build();
     }
 
-    private static Object executeSingleOperand(BenchmarkData data, LongUnaryOperator operator)
+    private static Object executeSingleOperand(LongUnaryOperator operator)
     {
         ImmutableList.Builder<Long> builder = ImmutableList.builder();
-        for (long i = 0; i < NUMBER_OF_REPETITIONS; ++i) {
-            for (long left : data.leftOperands) {
-                    builder.add(operator.applyAsLong(left));
-            }
-        }
+        builder.add(operator.applyAsLong(1));
+        builder.add(operator.applyAsLong(20));
+        builder.add(operator.applyAsLong(33));
+        builder.add(operator.applyAsLong(407));
+        builder.add(operator.applyAsLong(7890));
+        builder.add(operator.applyAsLong(123456));
+        builder.add(operator.applyAsLong(9003));
+        builder.add(operator.applyAsLong(809));
+        builder.add(operator.applyAsLong(67));
+        builder.add(operator.applyAsLong(5));
         return builder.build();
-    }
-
-    @SuppressWarnings("FieldMayBeFinal")
-    @State(Scope.Thread)
-    public static class BenchmarkData
-    {
-        public long[] leftOperands = {1, 20, 33, 407, 7890};
-        public long[] rightOperands = {123456, 9003, 809, 67, 5};
-
-        @Param({"add", "subtract", "multiply", "divide", "negate"})
-        public String type;
     }
 
     public static void main(String[] args)
