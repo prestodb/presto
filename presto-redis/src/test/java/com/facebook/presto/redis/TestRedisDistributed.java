@@ -149,6 +149,16 @@ public class TestRedisDistributed
     {
     }
 
+    @Override
+    public void testGroupingSetMixedExpressionAndColumn()
+    {
+    }
+
+    @Override
+    public void testGroupingSetMixedExpressionAndOrdinal()
+    {
+    }
+
     //
     // Redis connector always return a single split for the test data set
     // TODO fix test to have multiple splits
