@@ -6,6 +6,8 @@ General Changes
 ---------------
 
 * Fix planning bug for ``JOIN`` criteria that optimizes to a ``FALSE`` expression.
+* Add support for :ref:`complex grouping operations<complex_grouping_operations>`
+  - ``CUBE``, ``ROLLUP`` and ``GROUPING SETS``.
 * Improve performance of :func:`json_extract`.
 
 Hive Changes
