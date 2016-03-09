@@ -85,7 +85,6 @@ import com.google.common.collect.Lists;
 import io.airlift.joni.Regex;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import org.jetbrains.annotations.NotNull;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -1102,7 +1101,6 @@ public class ExpressionInterpreter
     }
 
     @VisibleForTesting
-    @NotNull
     public static Expression createFailureFunction(RuntimeException exception, Type type)
     {
         requireNonNull(exception, "Exception is null");

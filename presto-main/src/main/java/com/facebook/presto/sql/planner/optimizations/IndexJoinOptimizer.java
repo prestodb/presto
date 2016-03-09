@@ -44,7 +44,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;
@@ -237,7 +236,6 @@ public class IndexJoinOptimizer
             return planTableScan(node, BooleanLiteral.TRUE_LITERAL, context.get());
         }
 
-        @NotNull
         private PlanNode planTableScan(TableScanNode node, Expression predicate, Context context)
         {
             DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
