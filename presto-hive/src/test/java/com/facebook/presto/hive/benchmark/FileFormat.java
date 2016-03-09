@@ -44,7 +44,6 @@ import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.jetbrains.annotations.NotNull;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -428,7 +427,6 @@ public enum FileFormat
         }
     }
 
-    @NotNull
     private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
     {
         Properties schema = new Properties();
