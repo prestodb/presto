@@ -24,8 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.jetbrains.annotations.NotNull;
 import org.joda.time.DateTimeZone;
+
+import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.Map;

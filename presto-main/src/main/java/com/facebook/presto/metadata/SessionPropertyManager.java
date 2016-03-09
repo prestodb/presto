@@ -32,10 +32,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import javax.validation.constraints.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collections;

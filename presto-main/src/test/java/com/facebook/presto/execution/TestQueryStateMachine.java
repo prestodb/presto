@@ -21,9 +21,10 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import org.jetbrains.annotations.NotNull;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
+
+import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
 import java.net.URI;
