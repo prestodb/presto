@@ -17,7 +17,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import org.jetbrains.annotations.NotNull;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -67,7 +66,6 @@ public class TestGenericPageProcessor
         assertPageEquals(types, outputPage, page);
     }
 
-    @NotNull
     private static Page createPage(List<? extends Type> types, boolean dictionary)
     {
         return dictionary ? createSequencePageWithDictionaryBlocks(types, POSITIONS) : createSequencePage(types, POSITIONS);

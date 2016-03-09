@@ -84,7 +84,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -315,7 +314,6 @@ public class AddExchanges
             }
         }
 
-        @NotNull
         private PlanWithProperties splitAggregation(AggregationNode node, PlanWithProperties newChild, Function<PlanNode, PlanNode> exchanger)
         {
             // otherwise, add a partial and final with an exchange in between
