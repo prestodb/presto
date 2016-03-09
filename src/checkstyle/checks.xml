@@ -39,6 +39,14 @@
         <property name="format" value="^[ \t]*import org.testng.Assert;$"/>
         <property name="message" value="org.testng.Assert should only be used with static imports"/>
     </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import org.jetbrains.annotations.NotNull;$"/>
+        <property name="message" value="Not null is the default for the codebase and should not be annotated"/>
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import org.jetbrains.annotations.Nullable;$"/>
+        <property name="message" value="Use javax.annotation.Nullable instead of org.jetbrains.annotations.Nullable"/>
+    </module>
 
     <module name="TreeWalker">
         <module name="EmptyBlock">
