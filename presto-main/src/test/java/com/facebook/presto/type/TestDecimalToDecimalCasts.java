@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 
 public class TestDecimalToDecimalCasts
-        extends AbstractTestDecimalFunctions
+        extends AbstractTestFunctions
 {
     @Test
     public void testShortDecimalToShortDecimalCasts()
