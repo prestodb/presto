@@ -66,6 +66,8 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardInde
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.partition;
@@ -242,6 +244,10 @@ public class ShardCompactionManager
             }
             else {
                 Type type = metadataDao.getTableColumn(tableId, temporalColumnId).getDataType();
+                if (!type.equals(DATE) && !type.equals(TIMESTAMP)) {
+                    log.warn("Temporal column type of table ID %s set incorrectly to %s", tableId, type);
+                    continue;
+                }
                 compactionSetCreator = new TemporalCompactionSetCreator(maxShardSize, maxShardRows, type);
                 shards = filterShardsWithTemporalMetadata(shardMetadata, tableId, temporalColumnId);
             }
