@@ -51,7 +51,7 @@ import static com.facebook.presto.orc.OrcTester.Compression.NONE;
 import static com.facebook.presto.orc.OrcTester.Compression.ZLIB;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
-import static com.facebook.presto.orc.OrcTester.writeOrcColumn;
+import static com.facebook.presto.orc.OrcTester.writeOrcFileColumnOld;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -70,10 +70,10 @@ public class TestCachingOrcDataSource
     public void setUp()
             throws Exception
     {
-        tempFile = new TempFile("presto_test_cods", "orc");
+        tempFile = new TempFile();
         Random random = new Random();
         Iterator<String> iterator = Stream.generate(() -> Long.toHexString(random.nextLong())).limit(POSITION_COUNT).iterator();
-        writeOrcColumn(tempFile.getFile(), ORC_12, createOrcRecordWriter(tempFile.getFile(), ORC_12, ZLIB, javaStringObjectInspector), javaStringObjectInspector, iterator);
+        writeOrcFileColumnOld(tempFile.getFile(), ORC_12, createOrcRecordWriter(tempFile.getFile(), ORC_12, ZLIB, javaStringObjectInspector), javaStringObjectInspector, iterator);
     }
 
     @AfterClass
