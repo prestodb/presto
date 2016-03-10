@@ -46,7 +46,7 @@ public class TestOrcReaderPositions
     public void testEntireFile()
             throws Exception
     {
-        try (TempFile tempFile = new TempFile("test", "orc")) {
+        try (TempFile tempFile = new TempFile()) {
             createMultiStripeFile(tempFile.getFile());
 
             OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), OrcPredicate.TRUE, BIGINT);
@@ -73,7 +73,7 @@ public class TestOrcReaderPositions
     public void testStripeSkipping()
             throws Exception
     {
-        try (TempFile tempFile = new TempFile("test", "orc")) {
+        try (TempFile tempFile = new TempFile()) {
             createMultiStripeFile(tempFile.getFile());
 
             // test reading second and fourth stripes
@@ -115,7 +115,7 @@ public class TestOrcReaderPositions
     public void testRowGroupSkipping()
             throws Exception
     {
-        try (TempFile tempFile = new TempFile("test", "orc")) {
+        try (TempFile tempFile = new TempFile()) {
             // create single strip file with multiple row groups
             int rowCount = 142_000;
             createSequentialFile(tempFile.getFile(), rowCount);
