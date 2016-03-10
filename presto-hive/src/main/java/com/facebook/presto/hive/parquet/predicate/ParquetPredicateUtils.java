@@ -21,8 +21,11 @@ import com.facebook.presto.hive.parquet.predicate.TupleDomainParquetPredicate.Co
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.conf.Configuration;
 import parquet.bytes.BytesInput;
@@ -46,11 +49,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static parquet.column.Encoding.BIT_PACKED;
+import static parquet.column.Encoding.PLAIN_DICTIONARY;
+import static parquet.column.Encoding.RLE;
+
 public final class ParquetPredicateUtils
 {
-    // definition level, repetition level, value
-    private static final int PARQUET_DATA_TRIPLE = 3;
-
     private ParquetPredicateUtils()
     {
     }
@@ -188,14 +192,22 @@ public final class ParquetPredicateUtils
                 .anyMatch(columnName::equals);
     }
 
-    private static boolean isOnlyDictionaryEncodingPages(Set<Encoding> encodings)
+    @VisibleForTesting
+    @SuppressWarnings("deprecation")
+    static boolean isOnlyDictionaryEncodingPages(Set<Encoding> encodings)
     {
-        // more than 1 encodings for values
-        if (encodings.size() > PARQUET_DATA_TRIPLE) {
-            return false;
+        // TODO: update to use EncodingStats in ColumnChunkMetaData when available
+        if (encodings.contains(PLAIN_DICTIONARY)) {
+            // PLAIN_DICTIONARY was present, which means at least one page was
+            // dictionary-encoded and 1.0 encodings are used
+            // The only other allowed encodings are RLE and BIT_PACKED which are used for repetition or definition levels
+            return Sets.difference(encodings, ImmutableSet.of(PLAIN_DICTIONARY, RLE, BIT_PACKED)).isEmpty();
         }
-        // definition level, repetition level never have dictionary encoding
-        // TODO: add PageEncodingStats in ColumnChunkMetaData
-        return encodings.stream().anyMatch(Encoding::usesDictionary);
+
+        // if PLAIN_DICTIONARY wasn't present, then either the column is not
+        // dictionary-encoded, or the 2.0 encoding, RLE_DICTIONARY, was used.
+        // for 2.0, this cannot determine whether a page fell back without
+        // page encoding stats
+        return false;
     }
 }
