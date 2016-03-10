@@ -71,6 +71,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -1149,6 +1150,17 @@ public class TestExpressionCompiler
         assertExecute("coalesce(cast(null as varchar), 'foo', cast(null as varchar))", VARCHAR, "foo");
 
         assertExecute("coalesce(cast(null as bigint), null, cast(null as bigint))", BIGINT, null);
+
+        Futures.allAsList(futures).get();
+    }
+
+    @Test
+    public void testNullifForUnknown()
+            throws Exception
+    {
+        assertExecute("nullif(NULL, NULL)", UNKNOWN, null);
+        assertExecute("nullif(NULL, 2)", UNKNOWN, null);
+        assertExecute("nullif(2, NULL)", BIGINT, 2);
 
         Futures.allAsList(futures).get();
     }
