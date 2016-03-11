@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public final class PrestoCliProcess
         extends LocalCliProcess
 {
-    private static final String PRESTO_PROMPT = "presto:default>";
+    private static final String PRESTO_PROMPT = "presto>";
     private static final Pattern PRESTO_PROMPT_PATTERN = Pattern.compile(quote(PRESTO_PROMPT));
 
     public PrestoCliProcess(Process process)

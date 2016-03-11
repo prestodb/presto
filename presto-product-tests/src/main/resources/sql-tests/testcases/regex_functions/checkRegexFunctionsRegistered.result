@@ -1,8 +1,9 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
- regexp_like        | varchar, RegExp          | boolean        | scalar        | true
- regexp_replace     | varchar, RegExp, varchar | varchar        | scalar        | true
- regexp_replace     | varchar, RegExp          | varchar        | scalar        | true
- regexp_extract_all | varchar, RegExp, bigint  | array<varchar> | scalar        | true
- regexp_extract_all | varchar, RegExp          | array<varchar> | scalar        | true
- regexp_extract     | varchar, RegExp, bigint  | varchar        | scalar        | true
- regexp_extract     | varchar, RegExp          | varchar        | scalar        | true
+ regexp_extract | varchar | varchar, RegExp | scalar | true | string extracted using the given pattern |
+ regexp_extract | varchar | varchar, RegExp, bigint | scalar | true | returns regex group of extracted string with a pattern |
+ regexp_extract_all | array(varchar) | varchar, RegExp | scalar | true | string(s) extracted using the given pattern |
+ regexp_extract_all | array(varchar) | varchar, RegExp, bigint | scalar | true | group(s) extracted using the given pattern |
+ regexp_like | boolean | varchar, RegExp | scalar | true | returns substrings matching a regular expression |
+ regexp_replace | varchar | varchar, RegExp | scalar | true | removes substrings matching a regular expression |
+ regexp_replace | varchar | varchar, RegExp, varchar | scalar | true | replaces substrings matching a regular expression by given string |
+ regexp_split | array(varchar) | varchar, RegExp | scalar | true | returns array of strings split by pattern |

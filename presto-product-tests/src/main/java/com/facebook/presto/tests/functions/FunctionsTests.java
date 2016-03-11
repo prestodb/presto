@@ -11,35 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.tests.functions;
 
 import com.teradata.tempto.ProductTest;
-import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.ARRAY_FUNCTIONS;
-import static com.google.common.collect.Lists.newArrayList;
+import static com.facebook.presto.tests.TestGroups.JSON_FUNCTIONS;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.query;
 
-public class TestArrayFunctions
+public class FunctionsTests
         extends ProductTest
 {
-    @Test(groups = ARRAY_FUNCTIONS)
-    public void testArrayCreationOperatorAvailable()
+    @Test(groups = JSON_FUNCTIONS)
+    public void testScalarFunction()
     {
-        QueryResult queryResult = query("select ARRAY [1,2,3]");
-        assertThat(queryResult).containsExactly(row(newArrayList(1, 2, 3)));
+        assertThat(query("SELECT upper('value')")).containsExactly(row("VALUE"));
     }
 
-    @Test(groups = ARRAY_FUNCTIONS)
-    public void testArrayConcatenationOperatorAvailable()
+    @Test(groups = JSON_FUNCTIONS)
+    public void testAggregate()
     {
-        QueryResult queryResult = query("select ARRAY [1,2] || ARRAY [3]");
-        assertThat(queryResult).containsExactly(row(newArrayList(1, 2, 3)));
-        queryResult = query("select 1 || ARRAY [2,3]");
-        assertThat(queryResult).containsExactly(row(newArrayList(1, 2, 3)));
+        assertThat(query("SELECT min(x) FROM (VALUES 1,2,3,4) t(x)")).containsExactly(row(1L));
     }
 }

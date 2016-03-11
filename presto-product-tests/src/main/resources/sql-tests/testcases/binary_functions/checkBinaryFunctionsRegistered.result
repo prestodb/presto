@@ -1,8 +1,9 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
- length         | varbinary      | bigint      | scalar        | true
- to_base64      | varbinary      | varchar     | scalar        | true
- to_hex         | varbinary      | varchar     | scalar        | true
- from_base64    | varbinary      | varbinary   | scalar        | true
- to_base64url   | varbinary      | varchar     | scalar        | true
- from_base64url | varbinary      | varbinary   | scalar        | true
- from_hex       | varbinary      | varbinary   | scalar        | true
+ length | bigint | varbinary | scalar | true | length of the given binary |
+ to_base64 | varchar | varbinary | scalar | true | encode binary data as base64 |
+ to_base64url | varchar | varbinary | scalar | true | encode binary data as base64 using the URL safe alphabet |
+ to_hex | varchar | varbinary | scalar | true | encode binary data as hex |
+ from_base64 | varbinary | varbinary | scalar | true | decode base64 encoded binary data |
+ from_base64 | varbinary | varchar | scalar | true | decode base64 encoded binary data |
+ from_base64url | varbinary | varbinary | scalar | true | decode URL safe base64 encoded binary data |
+ from_base64url | varbinary | varchar | scalar | true | decode URL safe base64 encoded binary data |

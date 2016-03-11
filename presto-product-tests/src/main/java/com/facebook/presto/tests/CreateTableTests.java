@@ -14,13 +14,11 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.tests.ImmutableTpchTablesRequirements.ImmutableNationTable;
-import com.facebook.presto.tests.utils.PrestoDDLUtils.Table;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requires;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.CREATE_TABLE;
-import static com.facebook.presto.tests.utils.PrestoDDLUtils.createPrestoTable;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
@@ -34,9 +32,9 @@ public class CreateTableTests
             throws Exception
     {
         String tableName = "create_table_as_select";
-        try (Table table = createPrestoTable(tableName, "CREATE TABLE %s AS SELECT * FROM nation")) {
-            assertThat(query(format("SELECT * FROM %s", table.getNameInDatabase()))).hasRowsCount(25);
-        }
+        query(format("DROP TABLE IF EXISTS %s", tableName));
+        query(format("CREATE TABLE %s AS SELECT * FROM nation", tableName));
+        assertThat(query(format("SELECT * FROM %s", tableName))).hasRowsCount(25);
     }
 
     @Test(groups = CREATE_TABLE)
@@ -44,8 +42,8 @@ public class CreateTableTests
             throws Exception
     {
         String tableName = "create_table_as_empty_select";
-        try (Table table = createPrestoTable(tableName, "CREATE TABLE %s AS SELECT * FROM nation WHERE 0 is NULL")) {
-            assertThat(query(format("SELECT * FROM %s", table.getNameInDatabase()))).hasRowsCount(0);
-        }
+        query(format("DROP TABLE IF EXISTS %s", tableName));
+        query(format("CREATE TABLE %s AS SELECT * FROM nation WHERE 0 is NULL", tableName));
+        assertThat(query(format("SELECT * FROM %s", tableName))).hasRowsCount(0);
     }
 }

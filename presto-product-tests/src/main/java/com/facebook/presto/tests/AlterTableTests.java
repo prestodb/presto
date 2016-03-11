@@ -14,16 +14,12 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.tests.ImmutableTpchTablesRequirements.ImmutableNationTable;
-import com.facebook.presto.tests.utils.PrestoDDLUtils.Table;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requires;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static com.facebook.presto.tests.TestGroups.ALTER_TABLE;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
-import static com.facebook.presto.tests.utils.PrestoDDLUtils.createPrestoTable;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static com.teradata.tempto.query.QueryType.UPDATE;
@@ -35,18 +31,21 @@ public class AlterTableTests
 {
     @Test(groups = {ALTER_TABLE, SMOKE})
     public void renameTable()
-            throws IOException
     {
         String tableName = "to_be_renamed_table_name";
         String renamedTableName = "renamed_table_name";
-        try (Table table = createPrestoTable(tableName, "CREATE TABLE %s AS SELECT * FROM nation")) {
-            assertThat(query(format("ALTER TABLE %s RENAME TO %s", table.getNameInDatabase(), renamedTableName), UPDATE))
-                    .hasRowsCount(1);
-            assertThat(query(format("SELECT * FROM %s", renamedTableName)))
-                    .hasRowsCount(25);
-            // rename back to original name
-            assertThat(query(format("ALTER TABLE %s RENAME TO %s", renamedTableName, table.getNameInDatabase()), UPDATE))
-                    .hasRowsCount(1);
-        }
+        query(format("DROP TABLE IF EXISTS %s", tableName));
+        query(format("DROP TABLE IF EXISTS %s", renamedTableName));
+
+        query(format("CREATE TABLE %s AS SELECT * FROM nation", tableName));
+        assertThat(query(format("ALTER TABLE %s RENAME TO %s", tableName, renamedTableName), UPDATE))
+                .hasRowsCount(1);
+
+        assertThat(query(format("SELECT * FROM %s", renamedTableName)))
+                .hasRowsCount(25);
+
+        // rename back to original name
+        assertThat(query(format("ALTER TABLE %s RENAME TO %s", renamedTableName, tableName), UPDATE))
+                .hasRowsCount(1);
     }
 }

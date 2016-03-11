@@ -1,8 +1,8 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
- url_extract_protocol  | varchar          | varchar     | scalar        | true
- url_extract_host      | varchar          | varchar     | scalar        | true
- url_extract_query     | varchar          | varchar     | scalar        | true
- url_extract_fragment  | varchar          | varchar     | scalar        | true
- url_extract_parameter | varchar, varchar | varchar     | scalar        | true
- url_extract_port      | varchar          | bigint      | scalar        | true
- url_extract_path      | varchar          | varchar     | scalar        | true
+ url_extract_fragment | varchar | varchar | scalar | true | extract fragment from url |
+ url_extract_host | varchar | varchar | scalar | true | extract host from url |
+ url_extract_parameter | varchar | varchar, varchar | scalar | true | extract query parameter from url |
+ url_extract_path | varchar | varchar | scalar | true | extract part from url |
+ url_extract_port | bigint | varchar | scalar | true | extract port from url |
+ url_extract_protocol | varchar | varchar | scalar | true | extract protocol from url |
+ url_extract_query | varchar | varchar | scalar | true | extract query from url |

@@ -22,7 +22,6 @@ import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
 import com.teradata.tempto.Requires;
 import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.internal.convention.SqlResultDescriptor;
 import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
@@ -30,6 +29,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static com.facebook.presto.tests.TestGroups.JDBC;
+import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.facebook.presto.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
@@ -49,7 +49,6 @@ public class JdbcTests
         extends ProductTest
 {
     private static final String TABLE_NAME = "nation_table_name";
-    private static final SqlResultDescriptor GET_COLUMNS_RESULT = sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns.result");
 
     private static class ImmutableAndMutableNationTable
             implements RequirementsProvider
@@ -80,7 +79,7 @@ public class JdbcTests
         }
     }
 
-    @Test(groups = JDBC)
+    @Test(groups = {JDBC, QUARANTINE})
     @Requires(ImmutableAndMutableNationTable.class)
     public void shouldInsertSelectQuery()
             throws SQLException
@@ -147,7 +146,7 @@ public class JdbcTests
             throws SQLException
     {
         QueryResult result = QueryResult.forResultSet(metaData().getTables("hive", null, null, null));
-        assertThat(result).contains(row("hive", "default", "nation", "BASE TABLE", "", "", "", "", "", ""));
+        assertThat(result).contains(row("hive", "default", "nation", "TABLE", null, null, null, null, null, null));
     }
 
     @Test(groups = JDBC)
@@ -156,7 +155,7 @@ public class JdbcTests
             throws SQLException
     {
         QueryResult result = QueryResult.forResultSet(metaData().getColumns("hive", "default", "nation", null));
-        assertThat(result).matches(GET_COLUMNS_RESULT);
+        assertThat(result).matches(sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns.result"));
     }
 
     @Test(groups = JDBC)
@@ -165,7 +164,7 @@ public class JdbcTests
             throws SQLException
     {
         QueryResult result = QueryResult.forResultSet(metaData().getTableTypes());
-        assertThat(result).contains(row("BASE TABLE"));
+        assertThat(result).contains(row("TABLE"), row("VIEW"));
     }
 
     private QueryResult queryResult(Statement statement, String query)

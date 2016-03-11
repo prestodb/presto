@@ -20,7 +20,6 @@ import static com.facebook.presto.tests.TestGroups.SYSTEM_CONNECTOR;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static java.sql.JDBCType.BIGINT;
-import static java.sql.JDBCType.BOOLEAN;
 import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.TIMESTAMP;
 
@@ -30,8 +29,8 @@ public class SystemConnectorTests
     @Test(groups = SYSTEM_CONNECTOR)
     public void selectRuntimeNodes()
     {
-        assertThat(query("SELECT node_id, http_uri, node_version, active FROM system.runtime.nodes"))
-                .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, BOOLEAN)
+        assertThat(query("SELECT node_id, http_uri, node_version, state FROM system.runtime.nodes"))
+                .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR)
                 .hasAnyRows();
     }
 
