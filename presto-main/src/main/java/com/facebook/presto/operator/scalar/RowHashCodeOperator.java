@@ -40,7 +40,7 @@ public class RowHashCodeOperator
 
     private RowHashCodeOperator()
     {
-        super(HASH_CODE, ImmutableList.of(comparableWithVariadicBound("T", "row")), StandardTypes.BIGINT, ImmutableList.of("T"));
+        super(HASH_CODE, ImmutableList.of(comparableWithVariadicBound("T", "row")), ImmutableList.of(), StandardTypes.BIGINT, ImmutableList.of("T"));
     }
 
     @Override

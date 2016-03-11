@@ -26,7 +26,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class ArrayToElementConcatFunction
@@ -43,7 +43,7 @@ public class ArrayToElementConcatFunction
 
     public ArrayToElementConcatFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("E")), "array(E)", ImmutableList.of("array(E)", "E"));
+        super(FUNCTION_NAME, ImmutableList.of(typeVariable("E")), ImmutableList.of(), "array(E)", ImmutableList.of("array(E)", "E"));
     }
 
     @Override

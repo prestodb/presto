@@ -44,7 +44,7 @@ public class ArrayHashCodeOperator
 
     private ArrayHashCodeOperator()
     {
-        super(HASH_CODE, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BIGINT, ImmutableList.of("array(T)"));
+        super(HASH_CODE, ImmutableList.of(comparableTypeParameter("T")), ImmutableList.of(), StandardTypes.BIGINT, ImmutableList.of("array(T)"));
     }
 
     @Override

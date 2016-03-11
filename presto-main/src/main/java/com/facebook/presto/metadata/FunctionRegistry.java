@@ -417,17 +417,17 @@ public class FunctionRegistry
         addFunctions(builder.getFunctions());
     }
 
-    public static Signature bindSignature(Signature signature, Map<String, Type> boundParameters, int arity)
+    public static Signature bindSignature(Signature signature, Map<String, Type> boundTypeVariables, int arity)
     {
         checkArgument((signature.isVariableArity() && arity >= signature.getArgumentTypes().size() - 1) || arity == signature.getArgumentTypes().size(),
                 "Illegal arity %d for function %s", arity, signature);
         List<TypeSignature> argumentTypes = signature.getArgumentTypes();
         ImmutableList.Builder<TypeSignature> boundArguments = ImmutableList.builder();
         for (int i = 0; i < argumentTypes.size() - 1; i++) {
-            boundArguments.add(argumentTypes.get(i).bindParameters(boundParameters));
+            boundArguments.add(argumentTypes.get(i).bindParameters(boundTypeVariables));
         }
         if (!argumentTypes.isEmpty()) {
-            TypeSignature lastArgument = argumentTypes.get(argumentTypes.size() - 1).bindParameters(boundParameters);
+            TypeSignature lastArgument = argumentTypes.get(argumentTypes.size() - 1).bindParameters(boundTypeVariables);
             if (signature.isVariableArity()) {
                 for (int i = 0; i < arity - (argumentTypes.size() - 1); i++) {
                     boundArguments.add(lastArgument);
@@ -437,7 +437,14 @@ public class FunctionRegistry
                 boundArguments.add(lastArgument);
             }
         }
-        return new Signature(signature.getName(), signature.getKind(), signature.getReturnType().bindParameters(boundParameters), boundArguments.build());
+        return new Signature(
+                signature.getName(),
+                signature.getKind(),
+                ImmutableList.of(),
+                signature.getLongVariableConstraints(), // these are not bound by this method; refactored in future patch which is in flight.
+                signature.getReturnType().bindParameters(boundTypeVariables),
+                boundArguments.build(),
+                false);
     }
 
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
@@ -472,7 +479,7 @@ public class FunctionRegistry
         // search for exact match
         Signature match = null;
         for (SqlFunction function : candidates) {
-            Map<String, Type> boundParameters = function.getSignature().bindTypeParameters(resolvedTypes, false, typeManager);
+            Map<String, Type> boundParameters = function.getSignature().bindTypeVariables(resolvedTypes, false, typeManager);
             if (boundParameters == null) {
                 continue;
             }
@@ -489,11 +496,11 @@ public class FunctionRegistry
 
         // search for coerced match
         for (SqlFunction function : candidates) {
-            Map<String, Type> boundParameters = function.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
-            if (boundParameters == null) {
+            Map<String, Type> boundTypeVariables = function.getSignature().bindTypeVariables(resolvedTypes, true, typeManager);
+            if (boundTypeVariables == null) {
                 continue;
             }
-            Signature signature = bindSignature(function.getSignature(), boundParameters, resolvedTypes.size());
+            Signature signature = bindSignature(function.getSignature(), boundTypeVariables, resolvedTypes.size());
             if (signature != null) {
                 // TODO: This should also check for ambiguities
                 match = signature;
@@ -510,7 +517,7 @@ public class FunctionRegistry
             expectedParameters.add(format("%s(%s) %s",
                                     name,
                                     Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                                    Joiner.on(", ").join(function.getSignature().getTypeParameterRequirements())));
+                                    Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
         String message = format("Function %s not registered", name);
@@ -539,7 +546,7 @@ public class FunctionRegistry
         if (parameterTypes.size() == 1 && parameterTypes.get(0).getBase().equals(StandardTypes.ROW)) {
             SqlFunction fieldReference = getRowFieldReference(name.getSuffix(), parameterTypes.get(0));
             if (fieldReference != null) {
-                Map<String, Type> boundParameters = fieldReference.getSignature().bindTypeParameters(resolvedTypes, true, typeManager);
+                Map<String, Type> boundParameters = fieldReference.getSignature().bindTypeVariables(resolvedTypes, true, typeManager);
                 if (boundParameters != null) {
                     return bindSignature(fieldReference.getSignature(), boundParameters, resolvedTypes.size());
                 }
@@ -569,13 +576,13 @@ public class FunctionRegistry
     public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
     {
         checkArgument(signature.getKind() == WINDOW || signature.getKind() == AGGREGATE, "%s is not a window function", signature);
-        checkArgument(signature.getTypeParameterRequirements().isEmpty(), "%s has unbound type parameters", signature);
+        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         for (SqlFunction operator : candidates) {
             Type returnType = typeManager.getType(signature.getReturnType());
             List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
-            Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
+            Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeVariables(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 try {
                     return specializedWindowCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes()));
@@ -591,13 +598,13 @@ public class FunctionRegistry
     public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
     {
         checkArgument(signature.getKind() == AGGREGATE || signature.getKind() == APPROXIMATE_AGGREGATE, "%s is not an aggregate function", signature);
-        checkArgument(signature.getTypeParameterRequirements().isEmpty(), "%s has unbound type parameters", signature);
+        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         for (SqlFunction operator : candidates) {
             Type returnType = typeManager.getType(signature.getReturnType());
             List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
-            Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
+            Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeVariables(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 try {
                     return specializedAggregationCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes()));
@@ -613,13 +620,13 @@ public class FunctionRegistry
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
     {
         checkArgument(signature.getKind() == SCALAR, "%s is not a scalar function", signature);
-        checkArgument(signature.getTypeParameterRequirements().isEmpty(), "%s has unbound type parameters", signature);
+        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());
         List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
         for (SqlFunction operator : candidates) {
-            Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
+            Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeVariables(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 try {
                     return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes()));
@@ -669,7 +676,7 @@ public class FunctionRegistry
         if (!signature.getArgumentTypes().isEmpty() && signature.getArgumentTypes().get(0).getBase().equals(StandardTypes.ROW)) {
             SqlFunction fieldReference = getRowFieldReference(signature.getName(), signature.getArgumentTypes().get(0));
             if (fieldReference != null) {
-                Map<String, Type> boundTypeParameters = fieldReference.getSignature().bindTypeParameters(returnType, argumentTypes, false, typeManager);
+                Map<String, Type> boundTypeParameters = fieldReference.getSignature().bindTypeVariables(returnType, argumentTypes, false, typeManager);
                 return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(fieldReference, boundTypeParameters, signature.getArgumentTypes()));
             }
         }
