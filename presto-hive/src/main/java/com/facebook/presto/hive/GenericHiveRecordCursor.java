@@ -15,11 +15,14 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -31,6 +34,7 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Arrays;
@@ -47,12 +51,17 @@ import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
+import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -193,6 +202,12 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 }
                 else if (TIMESTAMP.equals(type)) {
                     longs[columnIndex] = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
+                }
+                else if (isShortDecimal(type)) {
+                    longs[columnIndex] = shortDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, name);
+                }
+                else if (isLongDecimal(type)) {
+                    slices[columnIndex] = longDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, name);
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), name));
@@ -420,6 +435,36 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
     }
 
+    private void parseDecimalColumn(int column)
+    {
+        // don't include column number in message because it causes boxing which is expensive here
+        checkArgument(!isPartitionColumn[column], "Column is a partition key");
+
+        loaded[column] = true;
+
+        Object fieldData = rowInspector.getStructFieldData(rowData, structFields[column]);
+
+        if (fieldData == null) {
+            nulls[column] = true;
+        }
+        else {
+            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
+            checkState(fieldValue != null, "fieldValue should not be null");
+
+            HiveDecimal decimal = (HiveDecimal) fieldValue;
+            DecimalType columnType = (DecimalType) types[column];
+            BigInteger unscaledDecimal = rescale(decimal.unscaledValue(), decimal.scale(), columnType.getScale());
+
+            if (columnType.isShort()) {
+                longs[column] = unscaledDecimal.longValue();
+            }
+            else {
+                slices[column] = Decimals.encodeUnscaledValue(unscaledDecimal);
+            }
+            nulls[column] = false;
+        }
+    }
+
     @Override
     public Object getObject(int fieldId)
     {
@@ -484,6 +529,9 @@ class GenericHiveRecordCursor<K, V extends Writable>
         }
         else if (TIMESTAMP.equals(type)) {
             parseLongColumn(column);
+        }
+        else if (type instanceof DecimalType) {
+            parseDecimalColumn(column);
         }
         else {
             throw new UnsupportedOperationException("Unsupported column type: " + type);

@@ -18,11 +18,14 @@ import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.hive.parquet.predicate.ParquetPredicate;
+import com.facebook.presto.hive.util.DecimalUtils;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -47,14 +50,18 @@ import parquet.io.api.Converter;
 import parquet.io.api.GroupConverter;
 import parquet.io.api.PrimitiveConverter;
 import parquet.io.api.RecordMaterializer;
+import parquet.schema.DecimalMetadata;
 import parquet.schema.GroupType;
 import parquet.schema.MessageType;
+import parquet.schema.PrimitiveType;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -64,6 +71,9 @@ import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.getDecimalType;
+import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
@@ -73,6 +83,9 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
@@ -91,6 +104,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
+import static parquet.schema.OriginalType.DECIMAL;
 import static parquet.schema.OriginalType.MAP_KEY_VALUE;
 
 public class ParquetHiveRecordCursor
@@ -196,6 +210,12 @@ public class ParquetHiveRecordCursor
                 }
                 else if (type.equals(DATE)) {
                     longs[columnIndex] = datePartitionKey(partitionKey.getValue(), columnName);
+                }
+                else if (isShortDecimal(type)) {
+                    longs[columnIndex] = shortDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, columnName);
+                }
+                else if (isLongDecimal(type)) {
+                    slices[columnIndex] = longDecimalPartitionKey(partitionKey.getValue(), (DecimalType) type, columnName);
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for partition key: %s", type.getDisplayName(), columnName));
@@ -454,7 +474,13 @@ public class ParquetHiveRecordCursor
                         continue;
                     }
                     if (parquetType.isPrimitive()) {
-                        converters.add(new ParquetPrimitiveColumnConverter(i));
+                        Optional<DecimalType> decimalType = getDecimalType(column.getHiveType());
+                        if (decimalType.isPresent()) {
+                            converters.add(new ParquetDecimalColumnConverter(i, decimalType.get()));
+                        }
+                        else {
+                            converters.add(new ParquetPrimitiveColumnConverter(i));
+                        }
                     }
                     else {
                         converters.add(new ParquetColumnConverter(createGroupConverter(types[i], parquetType.getName(), parquetType, i), i));
@@ -634,6 +660,31 @@ public class ParquetHiveRecordCursor
         }
     }
 
+    // todo: support for other types of decimal storage (see https://github.com/Parquet/parquet-format/blob/master/LogicalTypes.md)
+    private class ParquetDecimalColumnConverter
+            extends PrimitiveConverter
+    {
+        private final int fieldIndex;
+        private final DecimalType decimalType;
+
+        private ParquetDecimalColumnConverter(int fieldIndex, DecimalType decimalType)
+        {
+            this.fieldIndex = fieldIndex;
+            this.decimalType = requireNonNull(decimalType, "decimalType is null");
+        }
+
+        public void addBinary(Binary value)
+        {
+            nulls[fieldIndex] = false;
+            if (decimalType.isShort()) {
+                longs[fieldIndex] = DecimalUtils.getShortDecimalValue(value.getBytes());
+            }
+            else {
+                slices[fieldIndex] = Decimals.encodeUnscaledValue(new BigInteger(value.getBytes()));
+            }
+        }
+    }
+
     public class ParquetColumnConverter
             extends GroupConverter
     {
@@ -688,7 +739,13 @@ public class ParquetHiveRecordCursor
     private static BlockConverter createConverter(Type prestoType, String columnName, parquet.schema.Type parquetType, int fieldIndex)
     {
         if (parquetType.isPrimitive()) {
-            return new ParquetPrimitiveConverter(prestoType, fieldIndex);
+            if (parquetType.getOriginalType() == DECIMAL) {
+                DecimalMetadata decimalMetadata = ((PrimitiveType) parquetType).getDecimalMetadata();
+                return new ParquetDecimalConverter(createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale()));
+            }
+            else {
+                return new ParquetPrimitiveConverter(prestoType, fieldIndex);
+            }
         }
 
         return createGroupConverter(prestoType, columnName, parquetType, fieldIndex);
@@ -1280,6 +1337,68 @@ public class ParquetHiveRecordCursor
         {
             addMissingValues();
             BIGINT.writeLong(builder, value);
+        }
+    }
+
+    private static class ParquetDecimalConverter
+            extends PrimitiveConverter
+            implements BlockConverter
+    {
+        private final DecimalType decimalType;
+        private BlockBuilder builder;
+        private boolean wroteValue;
+
+        public ParquetDecimalConverter(DecimalType decimalType)
+        {
+            this.decimalType = requireNonNull(decimalType, "decimalType is null");
+        }
+
+        @Override
+        public void beforeValue(BlockBuilder builder)
+        {
+            this.builder = requireNonNull(builder, "parent builder is null");
+            wroteValue = false;
+        }
+
+        @Override
+        public void afterValue()
+        {
+            if (wroteValue) {
+                return;
+            }
+
+            builder.appendNull();
+        }
+
+        @Override
+        public boolean isPrimitive()
+        {
+            return true;
+        }
+
+        @Override
+        public PrimitiveConverter asPrimitiveConverter()
+        {
+            return this;
+        }
+
+        @Override
+        public boolean hasDictionarySupport()
+        {
+            return false;
+        }
+
+        @Override
+        public void addBinary(Binary value)
+        {
+            if (decimalType.isShort()) {
+                decimalType.writeLong(builder, DecimalUtils.getShortDecimalValue(value.getBytes()));
+            }
+            else {
+                BigInteger unboundedDecimal = new BigInteger(value.getBytes());
+                decimalType.writeSlice(builder, Decimals.encodeUnscaledValue(unboundedDecimal));
+            }
+            wroteValue = true;
         }
     }
 }
