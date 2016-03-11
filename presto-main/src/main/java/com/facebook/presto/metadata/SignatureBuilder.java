@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -87,6 +88,11 @@ public final class SignatureBuilder
     {
         this.variableArity = variableArity;
         return this;
+    }
+
+    public SignatureBuilder literalParameters(String... literalParameters)
+    {
+        return literalParameters(new HashSet<>(asList(literalParameters)));
     }
 
     public SignatureBuilder literalParameters(Set<String> literalParameters)
