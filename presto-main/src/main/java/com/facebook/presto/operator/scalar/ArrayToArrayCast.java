@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.gen.ArrayGeneratorUtils;
 import com.facebook.presto.sql.gen.ArrayMapBytecodeExpression;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
@@ -35,6 +36,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -62,9 +64,9 @@ public class ArrayToArrayCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
+        checkArgument(parameterTypes.size() == 1, "Expected arity to be 1");
         Type fromType = types.get("F");
         Type toType = types.get("T");
 
