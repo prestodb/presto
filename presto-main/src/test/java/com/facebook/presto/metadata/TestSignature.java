@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeLiteralCalculation;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.TypeDeserializer;
@@ -33,6 +34,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
@@ -44,6 +46,7 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.type.DecimalParametricType.DECIMAL;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -53,6 +56,38 @@ public class TestSignature
 {
     private final TypeSignature varcharX = new TypeSignature(StandardTypes.VARCHAR, ImmutableList.of(TypeSignatureParameter.of(new TypeLiteralCalculation("x"))));
     private final TypeSignature varcharY = new TypeSignature(StandardTypes.VARCHAR, ImmutableList.of(TypeSignatureParameter.of(new TypeLiteralCalculation("y"))));
+
+    @Test
+    public void testBindLiteralForDecimal()
+    {
+        // given a function with signature (decimal(p,s), decimal(p,s))->boolean,
+        // and invocation with (decimal(2,1), decimal(1,0))
+        // verify that p is bound to 2 an s is bound to 1
+
+        TypeSignature booleanSignature = BooleanType.BOOLEAN.getTypeSignature();
+        TypeSignature decimal = new TypeSignature(
+                StandardTypes.DECIMAL,
+                ImmutableList.of(TypeSignatureParameter.of(new TypeLiteralCalculation("p")), TypeSignatureParameter.of(new TypeLiteralCalculation("s"))));
+
+        TypeSignature decimal21 = DECIMAL.createType(ImmutableList.of(TypeParameter.of(2), TypeParameter.of(1))).getTypeSignature();
+        TypeSignature decimal10 = DECIMAL.createType(ImmutableList.of(TypeParameter.of(1), TypeParameter.of(0))).getTypeSignature();
+
+        Signature function = new Signature(
+                "function",
+                SCALAR,
+                ImmutableList.of(),
+                booleanSignature,
+                ImmutableList.of(decimal, decimal),
+                false);
+
+        assertEquals(
+                function.bindLiteralParameters(ImmutableList.of(decimal21, decimal10)),
+                ImmutableMap.of("P", OptionalLong.of(2), "S", OptionalLong.of(1)));
+
+        assertEquals(
+                function.bindLiteralParameters(ImmutableList.of(decimal10, decimal21)),
+                ImmutableMap.of("P", OptionalLong.of(2), "S", OptionalLong.of(1)));
+    }
 
     @Test
     public void testResolveCalculatedTypes()
