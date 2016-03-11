@@ -31,6 +31,7 @@ import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
 import static com.facebook.presto.type.TypeRegistry.canCoerce;
 import static com.facebook.presto.type.TypeRegistry.getCommonSuperTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -231,7 +233,7 @@ public final class Signature
             return this;
         }
 
-        Map<String, OptionalLong> inputs = bindLiteralParameters(parameterTypes);
+        Map<String, OptionalLong> inputs = bindLongVariables(parameterTypes);
         TypeSignature calculatedReturnType = TypeUtils.resolveCalculatedType(returnType, inputs, true);
         return new Signature(
                 name,
@@ -240,11 +242,21 @@ public final class Signature
                 argumentTypes.stream().map(parameter -> TypeUtils.resolveCalculatedType(parameter, inputs, false)).collect(toImmutableList()));
     }
 
-    public Map<String, OptionalLong> bindLiteralParameters(List<TypeSignature> parameterTypes)
+    public Map<String, OptionalLong> bindLongVariables(List<TypeSignature> parameterTypes)
+    {
+        Map<String, OptionalLong> boundVariables = bindLongVariablesFromParameterTypes(parameterTypes);
+        Map<String, OptionalLong> calculatedVariables = calculateVariablesValuesForLongConstraints(boundVariables);
+
+        return ImmutableMap.<String, OptionalLong>builder()
+                .putAll(boundVariables)
+                .putAll(calculatedVariables).build();
+    }
+
+    private Map<String, OptionalLong> bindLongVariablesFromParameterTypes(List<TypeSignature> parameterTypes)
     {
         parameterTypes = replaceSameArgumentsWithCommonSuperType(parameterTypes);
 
-        Map<String, OptionalLong> boundParameters = new HashMap<>();
+        Map<String, OptionalLong> boundVariables = new HashMap<>();
         for (int index = 0; index < argumentTypes.size(); index++) {
             TypeSignature argument = argumentTypes.get(index);
             if (argument.isCalculated()) {
@@ -254,17 +266,26 @@ public final class Signature
                 for (String literal : matchedLiterals.keySet()) {
                     OptionalLong value = matchedLiterals.get(literal);
                     checkArgument(
-                            boundParameters.getOrDefault(literal, value).equals(value),
+                            boundVariables.getOrDefault(literal, value).equals(value),
                             "Literal [%s] with value [%s] for argument [%s] has been previously matched to different value [%s]",
                             literal,
                             value,
                             argument,
-                            boundParameters.get(literal));
+                            boundVariables.get(literal));
                 }
-                boundParameters.putAll(matchedLiterals);
+                boundVariables.putAll(matchedLiterals);
             }
         }
-        return boundParameters;
+        return boundVariables;
+    }
+
+    private Map<String, OptionalLong> calculateVariablesValuesForLongConstraints(Map<String, OptionalLong> inputs)
+    {
+        return longVariableConstraints.stream()
+                .collect(Collectors.toMap(
+                        c -> c.getName().toUpperCase(Locale.US),
+                        c -> calculateLiteralValue(c.getExpression(), inputs, true)
+                ));
     }
 
     private List<TypeSignature> replaceSameArgumentsWithCommonSuperType(List<TypeSignature> parameters)
@@ -374,7 +395,6 @@ public final class Signature
         for (TypeVariableConstraint parameter : typeVariableConstraints) {
             builder.put(parameter.getName(), parameter);
         }
-
         return builder.build();
     }
 
