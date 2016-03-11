@@ -30,6 +30,7 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_NOT_FOUND;
 import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
+import static java.nio.file.Files.deleteIfExists;
 import static java.util.Objects.requireNonNull;
 
 public class FileBackupStore
@@ -82,11 +83,15 @@ public class FileBackupStore
         }
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Override
     public void deleteShard(UUID uuid)
     {
-        getBackupFile(uuid).delete();
+        try {
+            deleteIfExists(getBackupFile(uuid).toPath());
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to delete backup shard: " + uuid, e);
+        }
     }
 
     @Override
