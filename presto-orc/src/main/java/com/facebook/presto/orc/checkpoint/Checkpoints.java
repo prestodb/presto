@@ -115,6 +115,8 @@ public final class Checkpoints
                     checkpoints.putAll(getStructColumnCheckpoints(column, compressionKind, availableStreams, columnPositionsList));
                     break;
                 case DECIMAL:
+                    checkpoints.putAll(getDecimalColumnCheckpoints(column, columnEncoding, compressionKind, availableStreams, columnPositionsList));
+                    break;
                 case CHAR:
                 case VARCHAR:
                 case UNION:
@@ -368,6 +370,30 @@ public final class Checkpoints
 
         if (availableStreams.contains(PRESENT)) {
             checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+        }
+
+        return checkpoints.build();
+    }
+
+    private static Map<StreamId, StreamCheckpoint> getDecimalColumnCheckpoints(
+            int column,
+            ColumnEncodingKind encoding,
+            CompressionKind compressionKind,
+            Set<StreamKind> availableStreams,
+            ColumnPositionsList positionsList)
+    {
+        ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
+
+        if (availableStreams.contains(PRESENT)) {
+            checkpoints.put(new StreamId(column, PRESENT), new BooleanStreamCheckpoint(compressionKind, positionsList));
+        }
+
+        if (availableStreams.contains(DATA)) {
+            checkpoints.put(new StreamId(column, DATA), new DecimalStreamCheckpoint(compressionKind, positionsList));
+        }
+
+        if (availableStreams.contains(SECONDARY)) {
+            checkpoints.put(new StreamId(column, SECONDARY), createLongStreamCheckpoint(encoding, compressionKind, positionsList));
         }
 
         return checkpoints.build();
