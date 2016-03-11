@@ -60,6 +60,7 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -1633,7 +1634,8 @@ public class TestExpressionCompiler
 
     private String formatDoubleToScientificNotation(Double value)
     {
-        NumberFormat formatter = new DecimalFormat("0.##############E0");
+        DecimalFormat formatter = ((DecimalFormat) NumberFormat.getNumberInstance(Locale.US));
+        formatter.applyPattern("0.##############E0");
         return formatter.format(value);
     }
 
