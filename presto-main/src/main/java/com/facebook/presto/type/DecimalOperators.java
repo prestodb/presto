@@ -35,12 +35,12 @@ import static com.facebook.presto.metadata.OperatorType.MODULUS;
 import static com.facebook.presto.metadata.OperatorType.MULTIPLY;
 import static com.facebook.presto.metadata.OperatorType.NEGATION;
 import static com.facebook.presto.metadata.OperatorType.SUBTRACT;
+import static com.facebook.presto.metadata.Signature.longVariableExpression;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.checkOverflow;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static java.lang.Integer.max;
-import static java.lang.String.format;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.TEN;
 import static java.math.BigInteger.ZERO;
@@ -61,16 +61,18 @@ public final class DecimalOperators
         public Add() {}
 
         @UsedByGeneratedCode
-        @LiteralParameters({"p", "s"})
-        @SqlType("decimal(min(38, p + 1), s)")
+        @LiteralParameters({"p", "s", "p2"})
+        @Constraint(variable = "p2", expression = "min(38, p + 1)")
+        @SqlType("decimal(p2, s)")
         public long addShortShortShort(@SqlType("decimal(p, s)") long a, @SqlType("decimal(p, s)") long b)
         {
             return a + b;
         }
 
         @UsedByGeneratedCode
-        @LiteralParameters({"p", "s"})
-        @SqlType("decimal(min(38, p + 1), s)")
+        @LiteralParameters({"p", "s", "p2"})
+        @Constraint(variable = "p2", expression = "min(38, p + 1)")
+        @SqlType("decimal(p2, s)")
         public Slice addShortShortLong(@SqlType("decimal(p, s)") long a, @SqlType("decimal(p, s)") long b)
         {
             BigInteger result = BigInteger.valueOf(a).add(BigInteger.valueOf(b));
@@ -78,8 +80,9 @@ public final class DecimalOperators
         }
 
         @UsedByGeneratedCode
-        @LiteralParameters({"p", "s"})
-        @SqlType("decimal(min(38, p + 1), s)")
+        @LiteralParameters({"p", "s", "p2"})
+        @Constraint(variable = "p2", expression = "min(38, p + 1)")
+        @SqlType("decimal(p2, s)")
         public Slice addLongLongLong(@SqlType("decimal(p, s)") Slice a, @SqlType("decimal(p, s)") Slice b)
         {
             BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
@@ -94,16 +97,18 @@ public final class DecimalOperators
     public static final class Subtract
     {
         @UsedByGeneratedCode
-        @LiteralParameters({"p", "s"})
-        @SqlType("decimal(min(38, p + 1), s)")
+        @LiteralParameters({"p", "s", "p2"})
+        @Constraint(variable = "p2", expression = "min(38, p + 1)")
+        @SqlType("decimal(p2, s)")
         public static long subtractShortShortShort(@SqlType("decimal(p, s)") long a, @SqlType("decimal(p, s)") long b)
         {
             return a - b;
         }
 
         @UsedByGeneratedCode
-        @LiteralParameters({"p", "s"})
-        @SqlType("decimal(min(38, p + 1), s)")
+        @LiteralParameters({"p", "s", "p2"})
+        @Constraint(variable = "p2", expression = "min(38, p + 1)")
+        @SqlType("decimal(p2, s)")
         public static Slice subtractShortShortLong(@SqlType("decimal(p, s)") long a, @SqlType("decimal(p, s)") long b)
         {
             BigInteger result = BigInteger.valueOf(a).subtract(BigInteger.valueOf(b));
@@ -111,8 +116,9 @@ public final class DecimalOperators
         }
 
         @UsedByGeneratedCode
-        @LiteralParameters({"p", "s"})
-        @SqlType("decimal(min(38, p + 1), s)")
+        @LiteralParameters({"p", "s", "p2"})
+        @Constraint(variable = "p2", expression = "min(38, p + 1)")
+        @SqlType("decimal(p2, s)")
         public static Slice subtractLongLongLong(@SqlType("decimal(p, s)") Slice a, @SqlType("decimal(p, s)") Slice b)
         {
             BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
@@ -128,9 +134,13 @@ public final class DecimalOperators
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(MULTIPLY)
-                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale")
+                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
+                .longVariableConstraints(
+                        longVariableExpression("r_precision", "min(38, a_precision + b_precision)"),
+                        longVariableExpression("r_scale", "a_scale + b_scale")
+                )
                 .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
-                .returnType("decimal(min(38, a_precision + b_precision), a_scale + b_scale)")
+                .returnType("decimal(r_precision, r_scale)")
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
@@ -189,15 +199,16 @@ public final class DecimalOperators
         // pessimistic case is a / 0.0000001
         // if scale of divisor is greater than scale of dividend we extend scale further as we
         // want result scale to be maximum of scales of divisor and dividend.
-        String resultPrecision = "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))";
-        String resultScale = "max(a_scale, b_scale)";
-        String resultType = format("decimal(%s,%s)", resultPrecision, resultScale);
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(DIVIDE)
-                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale")
+                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
+                .longVariableConstraints(
+                        longVariableExpression("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))"),
+                        longVariableExpression("r_scale", "max(a_scale, b_scale)")
+                )
                 .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
-                .returnType(resultType)
+                .returnType("decimal(r_precision, r_scale)")
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
@@ -324,9 +335,13 @@ public final class DecimalOperators
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(MODULUS)
-                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale")
+                .literalParameters("a_precision", "a_scale", "b_precision", "b_scale", "r_precision", "r_scale")
+                .longVariableConstraints(
+                        longVariableExpression("r_precision", "min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)"),
+                        longVariableExpression("r_scale", "max(a_scale, b_scale)")
+                )
                 .argumentTypes("decimal(a_precision, a_scale)", "decimal(b_precision, b_scale)")
-                .returnType("decimal(min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale), max(a_scale, b_scale))")
+                .returnType("decimal(r_precision, r_scale)")
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)

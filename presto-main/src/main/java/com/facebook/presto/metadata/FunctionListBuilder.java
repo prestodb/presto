@@ -30,6 +30,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Throwables;
@@ -54,6 +55,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
+import static com.facebook.presto.metadata.Signature.longVariableExpression;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -158,6 +160,8 @@ public class FunctionListBuilder
 
     private FunctionListBuilder operator(
             OperatorType operatorType,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             TypeSignature returnType,
             List<TypeSignature> argumentTypes,
             MethodHandle function,
@@ -169,6 +173,8 @@ public class FunctionListBuilder
         operatorType.validateSignature(returnType, argumentTypes);
         functions.add(SqlOperator.create(
                 operatorType,
+                typeVariableConstraints,
+                longVariableConstraints,
                 argumentTypes,
                 returnType,
                 function,
@@ -238,11 +244,16 @@ public class FunctionListBuilder
             literalParameters = ImmutableSet.copyOf(literalParametersAnnotation.value());
         }
 
+        List<LongVariableConstraint> longVariableConstraints = getLongVariableConstraints(method);
+
         Signature signature = new Signature(
                 name.toLowerCase(ENGLISH),
                 SCALAR,
+                ImmutableList.of(),
+                longVariableConstraints,
                 parseTypeSignature(returnTypeAnnotation.value(), literalParameters),
-                parameterTypeSignatures(method, literalParameters));
+                parameterTypeSignatures(method, literalParameters),
+                false);
 
         verifyMethodSignature(method, signature.getReturnType(), signature.getArgumentTypes(), typeManager);
 
@@ -405,6 +416,8 @@ public class FunctionListBuilder
             literalParameters = ImmutableSet.copyOf(literalParametersAnnotation.value());
         }
 
+        List<LongVariableConstraint> longVariableConstraints = getLongVariableConstraints(method);
+
         List<TypeSignature> argumentTypes = parameterTypeSignatures(method, literalParameters);
         TypeSignature returnTypeSignature;
 
@@ -423,6 +436,8 @@ public class FunctionListBuilder
 
         operator(
                 operatorType,
+                ImmutableList.of(),
+                longVariableConstraints,
                 returnTypeSignature,
                 argumentTypes,
                 methodHandle,
@@ -431,6 +446,16 @@ public class FunctionListBuilder
                 nullableArguments,
                 literalParameters);
         return true;
+    }
+
+    private List<LongVariableConstraint> getLongVariableConstraints(Method method)
+    {
+        List<Constraint> annotations = Arrays.asList(method.getAnnotationsByType(Constraint.class));
+        ImmutableList.Builder<LongVariableConstraint> constraints = ImmutableList.builder();
+        for (Constraint longVariableConstraint : annotations) {
+            constraints.add(longVariableExpression(longVariableConstraint.variable(), longVariableConstraint.expression()));
+        }
+        return constraints.build();
     }
 
     private static String getDescription(AnnotatedElement annotatedElement)

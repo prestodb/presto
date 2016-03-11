@@ -621,6 +621,11 @@ public final class Signature
         return new TypeVariableConstraint(name, false, true, null);
     }
 
+    public static LongVariableConstraint longVariableExpression(String variable, String expression)
+    {
+        return new LongVariableConstraint(variable, expression);
+    }
+
     public static SignatureBuilder builder()
     {
         return new SignatureBuilder();
