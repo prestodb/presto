@@ -28,7 +28,11 @@ public class TestDecimalCasts
     {
         assertDecimalFunction("CAST(true AS DECIMAL(2, 0))", decimal("01"));
         assertDecimalFunction("CAST(true AS DECIMAL(3, 1))", decimal("01.0"));
+        assertDecimalFunction("CAST(true AS DECIMAL)", maxPrecisionDecimal(1));
+        assertDecimalFunction("CAST(true AS DECIMAL(2))", decimal("01"));
         assertDecimalFunction("CAST(false AS DECIMAL(2, 0))", decimal("00"));
+        assertDecimalFunction("CAST(false AS DECIMAL(2))", decimal("00"));
+        assertDecimalFunction("CAST(false AS DECIMAL)", maxPrecisionDecimal(0));
 
         assertDecimalFunction("CAST(true AS DECIMAL(20, 10))", decimal("0000000001.0000000000"));
         assertDecimalFunction("CAST(false AS DECIMAL(20, 10))", decimal("0000000000.0000000000"));
