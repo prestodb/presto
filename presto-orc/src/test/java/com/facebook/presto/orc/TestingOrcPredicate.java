@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -75,6 +76,8 @@ public final class TestingOrcPredicate
                 return new BasicOrcPredicate<>(expectedValues, Object.class);
             case STRING:
                 return new StringOrcPredicate(expectedValues);
+            case DECIMAL:
+                return new DecimalOrcPredicate(expectedValues);
             default:
                 throw new IllegalArgumentException("Unsupported types " + primitiveCategory);
         }
@@ -210,6 +213,15 @@ public final class TestingOrcPredicate
                 }
             }
             return true;
+        }
+    }
+
+    private static class DecimalOrcPredicate
+            extends BasicOrcPredicate<SqlDecimal>
+    {
+        public DecimalOrcPredicate(Iterable<?> expectedValues)
+        {
+            super(expectedValues, SqlDecimal.class);
         }
     }
 
