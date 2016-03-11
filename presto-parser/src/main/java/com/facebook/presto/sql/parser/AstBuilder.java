@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -1206,6 +1207,9 @@ class AstBuilder
         }
         if (type.equalsIgnoreCase("timestamp")) {
             return new TimestampLiteral(getLocation(context), value);
+        }
+        if (type.equalsIgnoreCase("decimal")) {
+            return new DecimalLiteral(getLocation(context), value);
         }
 
         return new GenericLiteral(getLocation(context), type, value);

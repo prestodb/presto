@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -196,6 +197,12 @@ public final class ExpressionFormatter
         protected String visitDoubleLiteral(DoubleLiteral node, Boolean unmangleNames)
         {
             return Double.toString(node.getValue());
+        }
+
+        @Override
+        protected String visitDecimalLiteral(DecimalLiteral node, Boolean unmangleNames)
+        {
+            return "DECIMAL '" + node.getValue() + "'";
         }
 
         @Override

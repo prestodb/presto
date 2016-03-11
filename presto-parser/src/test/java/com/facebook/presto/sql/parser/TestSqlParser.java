@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -639,6 +640,22 @@ public class TestSqlParser
         assertExpression("INTERVAL '23:59' HOUR TO MINUTE", new IntervalLiteral("23:59", Sign.POSITIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)));
         assertExpression("INTERVAL '123' MINUTE", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.MINUTE));
         assertExpression("INTERVAL '123' SECOND", new IntervalLiteral("123", Sign.POSITIVE, IntervalField.SECOND));
+    }
+
+    @Test
+    public void testDecimal()
+            throws Exception
+    {
+        assertExpression("DECIMAL '12.34'", new DecimalLiteral("12.34"));
+        assertExpression("DECIMAL '12.'", new DecimalLiteral("12."));
+        assertExpression("DECIMAL '12'", new DecimalLiteral("12"));
+        assertExpression("DECIMAL '.34'", new DecimalLiteral(".34"));
+        assertExpression("DECIMAL '+12.34'", new DecimalLiteral("+12.34"));
+        assertExpression("DECIMAL '+12'", new DecimalLiteral("+12"));
+        assertExpression("DECIMAL '-12.34'", new DecimalLiteral("-12.34"));
+        assertExpression("DECIMAL '-12'", new DecimalLiteral("-12"));
+        assertExpression("DECIMAL '+.34'", new DecimalLiteral("+.34"));
+        assertExpression("DECIMAL '-.34'", new DecimalLiteral("-.34"));
     }
 
     @Test

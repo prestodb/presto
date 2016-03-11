@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.DecimalParseResult;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -32,6 +34,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -181,6 +184,13 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitDoubleLiteral(DoubleLiteral node, Void context)
         {
             return constant(node.getValue(), DOUBLE);
+        }
+
+        @Override
+        protected RowExpression visitDecimalLiteral(DecimalLiteral node, Void context)
+        {
+            DecimalParseResult parseResult = Decimals.parse(node.getValue());
+            return constant(parseResult.getObject(), parseResult.getType());
         }
 
         @Override
