@@ -529,4 +529,9 @@ public final class Signature
     {
         return new TypeParameterRequirement(name, false, true, null);
     }
+
+    public static SignatureBuilder builder()
+    {
+        return new SignatureBuilder();
+    }
 }

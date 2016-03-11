@@ -32,7 +32,7 @@ public class SpecializedFunctionKey
     {
         this.function = requireNonNull(function, "function is null");
         this.boundTypeParameters = requireNonNull(boundTypeParameters, "boundTypeParameters is null");
-        this.parameterTypes = parameterTypes;
+        this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
     }
 
     public SqlFunction getFunction()
