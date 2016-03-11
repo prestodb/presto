@@ -367,17 +367,26 @@ public final class Signature
     private static boolean matchAndBind(Map<String, Type> boundParameters, Map<String, TypeParameterRequirement> typeParameters, TypeSignature parameter, Type type, boolean allowCoercion, TypeManager typeManager)
     {
         List<TypeSignatureParameter> parameters = parameter.getParameters();
+
         // If this parameter is already bound, then match (with coercion)
         if (boundParameters.containsKey(parameter.getBase())) {
-            checkArgument(parameters.isEmpty(), "Unexpected parameteric type");
-            if (allowCoercion) {
+            checkArgument(parameter.getParameters().isEmpty(), "Unexpected parametric type");
+            if (allowCoercion && !parameter.isCalculated()) {
                 if (canCoerce(type, boundParameters.get(parameter.getBase()))) {
                     return true;
                 }
                 else if (canCoerce(boundParameters.get(parameter.getBase()), type) && typeParameters.get(parameter.getBase()).canBind(type)) {
-                    // Broaden the binding
+                    // Try to coerce current binding to new candidate
                     boundParameters.put(parameter.getBase(), type);
                     return true;
+                }
+                else {
+                    // Try to use common super type of current binding and candidate
+                    Optional<Type> commonSuperType = typeManager.getCommonSuperType(boundParameters.get(parameter.getBase()), type);
+                    if (commonSuperType.isPresent() && typeParameters.get(parameter.getBase()).canBind(commonSuperType.get())) {
+                        boundParameters.put(parameter.getBase(), commonSuperType.get());
+                        return true;
+                    }
                 }
                 return false;
             }
@@ -440,7 +449,7 @@ public final class Signature
             return false;
         }
 
-        if (allowCoercion) {
+        if (allowCoercion && !parameter.isCalculated()) {
             return canCoerce(type, parameterType);
         }
         else if (parametersMatched) {
