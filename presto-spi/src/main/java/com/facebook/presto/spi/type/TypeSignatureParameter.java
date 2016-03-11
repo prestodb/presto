@@ -125,10 +125,14 @@ public class TypeSignatureParameter
         switch (kind) {
             case TYPE:
                 return getTypeSignature().isCalculated();
+            case NAMED_TYPE:
+                return getNamedTypeSignature().getTypeSignature().isCalculated();
+            case LONG:
+                return false;
             case VARIABLE:
                 return true;
             default:
-                return false;
+                throw new IllegalArgumentException("Unexpected parameter kind: " + kind);
         }
     }
 
