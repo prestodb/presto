@@ -152,7 +152,7 @@ public class TestPolymorphicScalarFunction
         Signature signature = Signature.builder()
                 .name("foo")
                 .kind(SCALAR)
-                .typeParameters(comparableWithVariadicBound("V", VARCHAR))
+                .typeVariableConstraints(comparableWithVariadicBound("V", VARCHAR))
                 .returnType("V")
                 .argumentTypes("V")
                 .build();

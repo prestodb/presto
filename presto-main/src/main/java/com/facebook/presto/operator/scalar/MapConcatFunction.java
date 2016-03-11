@@ -29,7 +29,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MapConcatFunction
@@ -40,7 +40,7 @@ public class MapConcatFunction
 
     public MapConcatFunction()
     {
-        super("map_concat", ImmutableList.of(typeParameter("K"), typeParameter("V")), "map(K,V)", ImmutableList.of("map(K,V)", "map(K,V)"));
+        super("map_concat", ImmutableList.of(typeVariable("K"), typeVariable("V")), ImmutableList.of(), "map(K,V)", ImmutableList.of("map(K,V)", "map(K,V)"));
     }
 
     @Override
