@@ -35,7 +35,6 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
 import static java.util.Objects.requireNonNull;
@@ -63,10 +62,6 @@ public class DwrfPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isOptimizedReaderEnabled(session)) {
-            return Optional.empty();
-        }
-
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
         }

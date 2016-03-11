@@ -204,8 +204,8 @@ public final class SqlFormatter
                         .append('\n');
             }
 
-            if (!node.getGroupBy().isEmpty()) {
-                append(indent, "GROUP BY " + formatGroupBy(node.getGroupBy())).append('\n');
+            if (node.getGroupBy().isPresent()) {
+                append(indent, "GROUP BY " + (node.getGroupBy().get().isDistinct() ? " DISTINCT " : "") + formatGroupBy(node.getGroupBy().get().getGroupingElements())).append('\n');
             }
 
             if (node.getHaving().isPresent()) {
@@ -617,8 +617,11 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
-            builder.append("CREATE TABLE ")
-                    .append(node.getName());
+            builder.append("CREATE TABLE ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(node.getName());
 
             if (!node.getProperties().isEmpty()) {
                 builder.append(" WITH (");

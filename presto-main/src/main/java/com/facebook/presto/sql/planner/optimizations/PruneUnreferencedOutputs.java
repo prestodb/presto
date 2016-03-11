@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -47,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -68,6 +70,7 @@ import java.util.Set;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
@@ -392,6 +395,19 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
+        public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Set<Symbol>> context)
+        {
+            checkState(node.getDistinctGroupingColumns().stream().allMatch(column -> context.get().contains(column)));
+
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(context.get()));
+            List<Symbol> requiredSymbols = context.get().stream()
+                    .filter(symbol -> !symbol.equals(node.getGroupIdSymbol()))
+                    .collect(toImmutableList());
+
+            return new GroupIdNode(node.getId(), source, requiredSymbols, node.getGroupingSets(), node.getGroupIdSymbol());
+        }
+
+        @Override
         public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Set<Symbol>> context)
         {
             if (!context.get().contains(node.getMarkerSymbol())) {
@@ -611,6 +627,33 @@ public class PruneUnreferencedOutputs
             }
 
             return new UnionNode(node.getId(), rewrittenSubPlans.build(), rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+        }
+
+        @Override
+        public PlanNode visitValues(ValuesNode node, RewriteContext<Set<Symbol>> context)
+        {
+            ImmutableList.Builder<Symbol> rewrittenOutputSymbolsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ImmutableList.Builder<Expression>> rowBuildersBuilder = ImmutableList.builder();
+            // Initialize builder for each row
+            for (int i = 0; i < node.getRows().size(); i++) {
+                rowBuildersBuilder.add(ImmutableList.builder());
+            }
+            ImmutableList<ImmutableList.Builder<Expression>> rowBuilders = rowBuildersBuilder.build();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol outputSymbol = node.getOutputSymbols().get(i);
+                // If output symbol is used
+                if (context.get().contains(outputSymbol)) {
+                    rewrittenOutputSymbolsBuilder.add(outputSymbol);
+                    // Add the value of the output symbol for each row
+                    for (int j = 0; j < node.getRows().size(); j++) {
+                        rowBuilders.get(j).add(node.getRows().get(j).get(i));
+                    }
+                }
+            }
+            List<List<Expression>> rewrittenRows = rowBuilders.stream()
+                    .map((rowBuilder) -> rowBuilder.build())
+                    .collect(toImmutableList());
+            return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenRows);
         }
     }
 }

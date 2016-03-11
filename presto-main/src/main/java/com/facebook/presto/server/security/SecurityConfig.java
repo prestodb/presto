@@ -22,6 +22,7 @@ public class SecurityConfig
     private boolean authenticationEnabled;
     private File kerberosConfig;
     private String serviceName;
+    private File keytab;
 
     public File getKerberosConfig()
     {
@@ -56,6 +57,18 @@ public class SecurityConfig
     public SecurityConfig setServiceName(String serviceName)
     {
         this.serviceName = serviceName;
+        return this;
+    }
+
+    public File getKeytab()
+    {
+        return keytab;
+    }
+
+    @Config("http.server.authentication.krb5.keytab")
+    public SecurityConfig setKeytab(File keytab)
+    {
+        this.keytab = keytab;
         return this;
     }
 }

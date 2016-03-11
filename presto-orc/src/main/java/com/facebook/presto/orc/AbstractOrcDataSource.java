@@ -43,6 +43,7 @@ public abstract class AbstractOrcDataSource
     private final DataSize maxBufferSize;
     private final DataSize streamBufferSize;
     private long readTimeNanos;
+    private long readBytes;
 
     public AbstractOrcDataSource(String name, long size, DataSize maxMergeDistance, DataSize maxBufferSize, DataSize streamBufferSize)
     {
@@ -58,6 +59,12 @@ public abstract class AbstractOrcDataSource
 
     protected abstract void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException;
+
+    @Override
+    public final long getReadBytes()
+    {
+        return readBytes;
+    }
 
     @Override
     public final long getReadTimeNanos()
@@ -87,6 +94,7 @@ public abstract class AbstractOrcDataSource
         readInternal(position, buffer, bufferOffset, bufferLength);
 
         readTimeNanos += System.nanoTime() - start;
+        readBytes += bufferLength;
     }
 
     @Override

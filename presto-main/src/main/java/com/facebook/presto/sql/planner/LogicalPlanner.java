@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Explain;
@@ -89,21 +90,28 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis)
     {
-        RelationPlan plan;
+        PlanNode root;
         Statement statement = analysis.getStatement();
         if (statement instanceof CreateTableAsSelect) {
             checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
-            plan = createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
+            if (analysis.isCreateTableAsSelectNoOp()) {
+                List<Expression> emptyRow = ImmutableList.of();
+                PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow));
+                root = new OutputNode(idAllocator.getNextId(), source, ImmutableList.of(), ImmutableList.of());
+            }
+            else {
+                root = createOutputPlan(createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery()), analysis);
+            }
         }
         else if (statement instanceof Insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
-            plan = createInsertPlan(analysis, (Insert) statement);
+            root = createOutputPlan(createInsertPlan(analysis, (Insert) statement), analysis);
         }
         else if (statement instanceof Delete) {
-            plan = createDeletePlan(analysis, (Delete) statement);
+            root = createOutputPlan(createDeletePlan(analysis, (Delete) statement), analysis);
         }
         else if (statement instanceof Query) {
-            plan = createRelationPlan(analysis, (Query) statement);
+            root = createOutputPlan(createRelationPlan(analysis, (Query) statement), analysis);
         }
         else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
             throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE not yet implemented");
@@ -111,8 +119,6 @@ public class LogicalPlanner
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
         }
-
-        PlanNode root = createOutputPlan(plan, analysis);
 
         // make sure we produce a valid plan. This is mainly to catch programming errors
         PlanSanityChecker.validate(root);

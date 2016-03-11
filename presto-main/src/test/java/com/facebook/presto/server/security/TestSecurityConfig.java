@@ -28,7 +28,8 @@ public class TestSecurityConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SecurityConfig.class)
                 .setKerberosConfig(null)
                 .setAuthenticationEnabled(false)
-                .setServiceName(null));
+                .setServiceName(null)
+                .setKeytab(null));
     }
 
     @Test
@@ -38,12 +39,14 @@ public class TestSecurityConfig
                 .put("http.authentication.krb5.config", "/etc/krb5.conf")
                 .put("http.server.authentication.enabled", "true")
                 .put("http.server.authentication.krb5.service-name", "airlift")
+                .put("http.server.authentication.krb5.keytab", "/tmp/presto.keytab")
                 .build();
 
         SecurityConfig expected = new SecurityConfig()
                 .setKerberosConfig(new File("/etc/krb5.conf"))
                 .setAuthenticationEnabled(true)
-                .setServiceName("airlift");
+                .setServiceName("airlift")
+                .setKeytab(new File("/tmp/presto.keytab"));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

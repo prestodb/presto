@@ -19,6 +19,9 @@ import com.facebook.presto.raptor.storage.FileStorageService;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.testing.TestingTicker;
+import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -38,6 +41,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -49,6 +53,7 @@ import static java.util.Arrays.asList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -61,6 +66,7 @@ public class TestShardCleaner
     private File temporary;
     private StorageService storageService;
     private BackupStore backupStore;
+    private TestingTicker ticker;
     private ShardCleaner cleaner;
 
     @BeforeMethod
@@ -80,18 +86,20 @@ public class TestShardCleaner
         backupStore = new FileBackupStore(backupDirectory);
         ((FileBackupStore) backupStore).start();
 
+        ticker = new TestingTicker();
+
         ShardCleanerConfig config = new ShardCleanerConfig();
         cleaner = new ShardCleaner(
                 new DaoSupplier<>(dbi, ShardDao.class),
                 "node1",
                 true,
+                ticker,
                 storageService,
                 Optional.of(backupStore),
                 config.getMaxTransactionAge(),
                 config.getTransactionCleanerInterval(),
                 config.getLocalCleanerInterval(),
                 config.getLocalCleanTime(),
-                config.getLocalPurgeTime(),
                 config.getBackupCleanerInterval(),
                 config.getBackupCleanTime(),
                 config.getBackupPurgeTime(),
@@ -139,30 +147,25 @@ public class TestShardCleaner
     public void testDeleteOldShards()
             throws Exception
     {
+        assertEquals(cleaner.getBackupShardsQueued().getTotalCount(), 0);
+
         ShardDao dao = dbi.onDemand(ShardDao.class);
 
         UUID shard1 = randomUUID();
         UUID shard2 = randomUUID();
         UUID shard3 = randomUUID();
 
-        int node1 = dao.insertNode("node1");
-        int node2 = dao.insertNode("node2");
-
         // shards for failed transaction
         long txn1 = dao.insertTransaction();
         assertEquals(dao.finalizeTransaction(txn1, false), 1);
 
         dao.insertCreatedShard(shard1, txn1);
-        dao.insertCreatedShardNode(shard1, node1, txn1);
-
         dao.insertCreatedShard(shard2, txn1);
-        dao.insertCreatedShardNode(shard2, node2, txn1);
 
         // shards for running transaction
         long txn2 = dao.insertTransaction();
 
         dao.insertCreatedShard(shard3, txn2);
-        dao.insertCreatedShardNode(shard3, node1, txn2);
 
         // verify database
         assertQuery("SELECT shard_uuid, transaction_id FROM created_shards",
@@ -170,129 +173,93 @@ public class TestShardCleaner
                 row(shard2, txn1),
                 row(shard3, txn2));
 
-        assertQuery("SELECT shard_uuid, node_id, transaction_id FROM created_shard_nodes",
-                row(shard1, node1, txn1),
-                row(shard2, node2, txn1),
-                row(shard3, node1, txn2));
-
         assertQuery("SELECT shard_uuid FROM deleted_shards");
-        assertQuery("SELECT shard_uuid, node_id FROM deleted_shard_nodes");
 
         // move shards for failed transaction to deleted
         cleaner.deleteOldShards();
+
+        assertEquals(cleaner.getBackupShardsQueued().getTotalCount(), 2);
 
         // verify database
         assertQuery("SELECT shard_uuid, transaction_id FROM created_shards",
                 row(shard3, txn2));
 
-        assertQuery("SELECT shard_uuid, node_id, transaction_id FROM created_shard_nodes",
-                row(shard3, node1, txn2));
-
         assertQuery("SELECT shard_uuid FROM deleted_shards",
                 row(shard1),
                 row(shard2));
-
-        assertQuery("SELECT shard_uuid, node_id FROM deleted_shard_nodes",
-                row(shard1, node1),
-                row(shard2, node2));
     }
 
     @Test
     public void testCleanLocalShards()
             throws Exception
     {
-        TestingDao dao = dbi.onDemand(TestingDao.class);
+        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 0);
+
         ShardDao shardDao = dbi.onDemand(ShardDao.class);
+        MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
+
+        long tableId = metadataDao.insertTable("test", "test", false, null);
 
         UUID shard1 = randomUUID();
         UUID shard2 = randomUUID();
         UUID shard3 = randomUUID();
         UUID shard4 = randomUUID();
 
+        Set<UUID> shards = ImmutableSet.of(shard1, shard2, shard3, shard4);
+
+        for (UUID shard : shards) {
+            shardDao.insertShard(shard, tableId, null, 0, 0, 0);
+            createShardFile(shard);
+            assertTrue(shardFileExists(shard));
+        }
+
         int node1 = shardDao.insertNode("node1");
         int node2 = shardDao.insertNode("node2");
 
-        long now = System.currentTimeMillis();
-        Timestamp time1 = new Timestamp(now - HOURS.toMillis(5));
-        Timestamp time2 = new Timestamp(now - HOURS.toMillis(3));
+        // shard 1: referenced by this node
+        // shard 2: not referenced
+        // shard 3: not referenced
+        // shard 4: referenced by other node
 
-        // shard 1: should be cleaned
-        dao.insertDeletedShardNode(shard1, node1, time1);
+        shardDao.insertShardNode(shard1, node1);
+        shardDao.insertShardNode(shard4, node2);
 
-        // shard 2: should be cleaned
-        dao.insertDeletedShardNode(shard2, node1, time1);
-
-        // shard 3: deleted too recently
-        dao.insertDeletedShardNode(shard3, node1, time2);
-
-        // shard 4: on different node
-        dao.insertDeletedShardNode(shard4, node2, time1);
-
-        createShardFiles(shard1, shard2, shard3, shard4);
-
+        // mark unreferenced shards
         cleaner.cleanLocalShards();
 
-        assertFalse(shardFileExists(shard1));
+        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 0);
+
+        // make sure nothing is deleted
+        for (UUID shard : shards) {
+            assertTrue(shardFileExists(shard));
+        }
+
+        // add reference for shard 3
+        shardDao.insertShardNode(shard3, node1);
+
+        // advance time beyond clean time
+        Duration cleanTime = new ShardCleanerConfig().getLocalCleanTime();
+        ticker.increment(cleanTime.toMillis() + 1, MILLISECONDS);
+
+        // clean shards
+        cleaner.cleanLocalShards();
+
+        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 2);
+
+        // shards 2 and 4 should be deleted
+        // shards 1 and 3 are referenced by this node
+        assertTrue(shardFileExists(shard1));
         assertFalse(shardFileExists(shard2));
         assertTrue(shardFileExists(shard3));
-        assertTrue(shardFileExists(shard4));
-
-        assertQuery("SELECT shard_uuid, node_id, clean_time IS NULL FROM deleted_shard_nodes",
-                row(shard1, node1, false),
-                row(shard2, node1, false),
-                row(shard3, node1, true),
-                row(shard4, node2, true));
-    }
-
-    @Test
-    public void testPurgeLocalShards()
-            throws Exception
-    {
-        TestingDao dao = dbi.onDemand(TestingDao.class);
-        ShardDao shardDao = dbi.onDemand(ShardDao.class);
-
-        UUID shard1 = randomUUID();
-        UUID shard2 = randomUUID();
-        UUID shard3 = randomUUID();
-        UUID shard4 = randomUUID();
-
-        int node1 = shardDao.insertNode("node1");
-        int node2 = shardDao.insertNode("node2");
-
-        long now = System.currentTimeMillis();
-        Timestamp time1 = new Timestamp(now - DAYS.toMillis(4));
-        Timestamp time2 = new Timestamp(now - DAYS.toMillis(2));
-
-        // shard 1: should be purged
-        dao.insertCleanedDeletedShardNode(shard1, node1, time1);
-
-        // shard 2: should be purged
-        dao.insertCleanedDeletedShardNode(shard2, node1, time1);
-
-        // shard 3: cleaned too recently
-        dao.insertCleanedDeletedShardNode(shard3, node1, time2);
-
-        // shard 4: on different node
-        dao.insertDeletedShardNode(shard4, node2, time1);
-
-        createShardFiles(shard1, shard2, shard3, shard4);
-
-        cleaner.purgeLocalShards();
-
-        assertFalse(shardFileExists(shard1));
-        assertFalse(shardFileExists(shard2));
-        assertTrue(shardFileExists(shard3));
-        assertTrue(shardFileExists(shard4));
-
-        assertQuery("SELECT shard_uuid, node_id FROM deleted_shard_nodes",
-                row(shard3, node1),
-                row(shard4, node2));
+        assertFalse(shardFileExists(shard4));
     }
 
     @Test
     public void testCleanBackupShards()
             throws Exception
     {
+        assertEquals(cleaner.getBackupShardsCleaned().getTotalCount(), 0);
+
         TestingDao dao = dbi.onDemand(TestingDao.class);
 
         UUID shard1 = randomUUID();
@@ -316,6 +283,8 @@ public class TestShardCleaner
 
         cleaner.cleanBackupShards();
 
+        assertEquals(cleaner.getBackupShardsCleaned().getTotalCount(), 2);
+
         assertFalse(shardBackupExists(shard1));
         assertFalse(shardBackupExists(shard2));
         assertTrue(shardBackupExists(shard3));
@@ -330,6 +299,8 @@ public class TestShardCleaner
     public void testPurgeBackupShards()
             throws Exception
     {
+        assertEquals(cleaner.getBackupShardsPurged().getTotalCount(), 0);
+
         TestingDao dao = dbi.onDemand(TestingDao.class);
 
         UUID shard1 = randomUUID();
@@ -353,6 +324,8 @@ public class TestShardCleaner
 
         cleaner.purgeBackupShards();
 
+        assertEquals(cleaner.getBackupShardsPurged().getTotalCount(), 2);
+
         assertFalse(shardBackupExists(shard1));
         assertFalse(shardBackupExists(shard2));
         assertTrue(shardBackupExists(shard3));
@@ -366,14 +339,12 @@ public class TestShardCleaner
         return storageService.getStorageFile(uuid).exists();
     }
 
-    private void createShardFiles(UUID... uuids)
+    private void createShardFile(UUID uuid)
             throws IOException
     {
-        for (UUID uuid : uuids) {
-            File file = storageService.getStorageFile(uuid);
-            storageService.createParents(file);
-            assertTrue(file.createNewFile());
-        }
+        File file = storageService.getStorageFile(uuid);
+        storageService.createParents(file);
+        assertTrue(file.createNewFile());
     }
 
     private boolean shardBackupExists(UUID uuid)
@@ -435,24 +406,10 @@ public class TestShardCleaner
                 @Bind("shardUuid") UUID shardUuid,
                 @Bind("deleteTime") Timestamp deleteTime);
 
-        @SqlUpdate("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time)\n" +
-                "VALUES (:shardUuid, :nodeId, :deleteTime)")
-        void insertDeletedShardNode(
-                @Bind("shardUuid") UUID shardUuid,
-                @Bind("nodeId") int nodeId,
-                @Bind("deleteTime") Timestamp deleteTime);
-
         @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time, clean_time)\n" +
                 "VALUES (:shardUuid, :cleanTime, :cleanTime)")
         void insertCleanedDeletedShard(
                 @Bind("shardUuid") UUID shardUuid,
-                @Bind("cleanTime") Timestamp cleanTime);
-
-        @SqlUpdate("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time, clean_time)\n" +
-                "VALUES (:shardUuid, :nodeId, :cleanTime, :cleanTime)")
-        void insertCleanedDeletedShardNode(
-                @Bind("shardUuid") UUID shardUuid,
-                @Bind("nodeId") int nodeId,
                 @Bind("cleanTime") Timestamp cleanTime);
     }
 }

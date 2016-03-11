@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hadoop.shaded.com.google.common.collect.Lists;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -28,6 +27,7 @@ import com.facebook.presto.type.RowType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
@@ -71,6 +71,7 @@ import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -243,6 +244,31 @@ public class TestHiveFileFormats
             FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, testColumns, NUM_ROWS);
             HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false);
             testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns, NUM_ROWS);
+        }
+        finally {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    @Test
+    public void testParquetCaseInsensitiveColumnLookup()
+            throws Exception
+    {
+        List<TestColumn> writeColumns = ImmutableList.of(new TestColumn("column_name", javaStringObjectInspector, "test", utf8Slice("test"), false));
+        List<TestColumn> readColumns = ImmutableList.of(new TestColumn("Column_Name", javaStringObjectInspector, "test", utf8Slice("test"), false));
+
+        HiveOutputFormat<?, ?> outputFormat = new MapredParquetOutputFormat();
+        InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
+        @SuppressWarnings("deprecation")
+        SerDe serde = new ParquetHiveSerDe();
+        File file = File.createTempFile("presto_test", "parquet");
+        file.delete();
+        try {
+            FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, null, writeColumns, NUM_ROWS);
+            //use parquet name-based access
+            HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(true);
+            testCursorProvider(cursorProvider, split, inputFormat, serde, readColumns, NUM_ROWS);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored

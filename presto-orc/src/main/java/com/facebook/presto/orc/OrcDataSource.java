@@ -22,6 +22,8 @@ import java.util.Map;
 public interface OrcDataSource
         extends Closeable
 {
+    long getReadBytes();
+
     long getReadTimeNanos();
 
     long getSize();

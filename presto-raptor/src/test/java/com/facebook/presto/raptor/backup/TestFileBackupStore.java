@@ -23,6 +23,7 @@ import java.util.UUID;
 
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
@@ -30,7 +31,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
 public class TestFileBackupStore
 {
     private File temporary;
@@ -50,6 +50,14 @@ public class TestFileBackupStore
             throws Exception
     {
         deleteRecursively(temporary);
+    }
+
+    @Test
+    public void testFilePaths()
+    {
+        UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
+        File expected = new File(temporary, format("backup/70/1e/%s.orc", uuid));
+        assertEquals(store.getBackupFile(uuid), expected);
     }
 
     @Test

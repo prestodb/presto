@@ -128,6 +128,7 @@ public class TestStatementBuilder
         printStatement("select * from foo approximate at 90 confidence");
 
         printStatement("create table foo as (select * from abc)");
+        printStatement("create table if not exists foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
         printStatement("create table foo as select * from abc WITH NO DATA");
         printStatement("drop table foo");

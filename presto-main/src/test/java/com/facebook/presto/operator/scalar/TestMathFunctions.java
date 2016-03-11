@@ -338,6 +338,8 @@ public class TestMathFunctions
         functionAssertions.tryEvaluateWithAll("random()", DOUBLE, TEST_SESSION);
         functionAssertions.tryEvaluateWithAll("rand(1000)", BIGINT, TEST_SESSION);
         functionAssertions.tryEvaluateWithAll("random(2000)", BIGINT, TEST_SESSION);
+
+        assertInvalidFunction("rand(-1)", "bound must be positive");
     }
 
     @Test

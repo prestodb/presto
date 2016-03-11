@@ -23,6 +23,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class Rollup
@@ -53,16 +54,16 @@ public class Rollup
     }
 
     @Override
-    public Set<Set<Expression>> enumerateGroupingSets()
+    public List<Set<Expression>> enumerateGroupingSets()
     {
         int numColumns = columns.size();
-        Set<Set<Expression>> enumeratedGroupingSets = IntStream.range(0, numColumns)
+        List<Set<Expression>> enumeratedGroupingSets = IntStream.range(0, numColumns)
                 .mapToObj(i -> columns.subList(0, numColumns - i)
                         .stream()
                         .map(QualifiedNameReference::new)
                         .map(Expression.class::cast)
                         .collect(toSet()))
-                .collect(toSet());
+                .collect(toList());
         enumeratedGroupingSets.add(ImmutableSet.of());
         return enumeratedGroupingSets;
     }

@@ -46,11 +46,6 @@ public final class HiveSessionProperties
                         "Only schedule splits on workers colocated with data node",
                         config.isForceLocalScheduling(),
                         false),
-                booleanSessionProperty(
-                        OPTIMIZED_READER_ENABLED,
-                        "Enable optimized readers",
-                        config.isOptimizedReaderEnabled(),
-                        true),
                 dataSizeSessionProperty(
                         ORC_MAX_MERGE_DISTANCE,
                         "ORC: Maximum size of gap between two reads to merge into a single read",
@@ -86,11 +81,6 @@ public final class HiveSessionProperties
     public static boolean isForceLocalScheduling(ConnectorSession session)
     {
         return session.getProperty(FORCE_LOCAL_SCHEDULING, Boolean.class);
-    }
-
-    public static boolean isOptimizedReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
     public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)

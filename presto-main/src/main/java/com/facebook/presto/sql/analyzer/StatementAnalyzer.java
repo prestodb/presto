@@ -61,7 +61,9 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -110,6 +112,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -402,7 +405,7 @@ class StatementAnalyzer
                 Optional.of(logicalAnd(
                         equal(nameReference("table_schema"), new StringLiteral(table.getSchemaName())),
                         equal(nameReference("table_name"), new StringLiteral(table.getObjectName())))),
-                ImmutableList.of(new SimpleGroupBy(ImmutableList.of(nameReference("partition_number")))),
+                Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(nameReference("partition_number")))))),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
@@ -411,7 +414,7 @@ class StatementAnalyzer
                 selectAll(wrappedList.build()),
                 subquery(query),
                 showPartitions.getWhere(),
-                ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.<SortItem>builder()
                         .addAll(showPartitions.getOrderBy())
@@ -659,6 +662,16 @@ class StatementAnalyzer
         QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
         analysis.setCreateTableDestination(targetTable);
 
+        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
+        if (targetTableHandle.isPresent()) {
+            if (node.isNotExists()) {
+                analysis.setCreateTableAsSelectNoOp(true);
+                analysis.setStatement(node);
+                return new RelationType(Field.newUnqualified("rows", BIGINT));
+            }
+            throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
+        }
+
         for (Expression expression : node.getProperties().values()) {
             // analyze table property value expressions which must be constant
             createConstantAnalyzer(metadata, session)
@@ -666,10 +679,6 @@ class StatementAnalyzer
         }
         analysis.setCreateTableProperties(node.getProperties());
 
-        Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
-        if (targetTableHandle.isPresent()) {
-            throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
-        }
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
         analysis.setCreateTableAsSelectWithData(node.isWithData());
@@ -898,12 +907,6 @@ class StatementAnalyzer
             if (!metadata.listSchemaNames(session, name.getCatalogName()).contains(name.getSchemaName())) {
                 throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
             }
-
-            if (table.getName().getSuffix().equalsIgnoreCase("DUAL")) {
-                // TODO: remove this in a few releases
-                throw new SemanticException(MISSING_TABLE, table, "DUAL table is no longer supported. Please use VALUES or FROM-less queries instead");
-            }
-
             throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
         }
         accessControl.checkCanSelectFromTable(session.getRequiredTransactionId(), session.getIdentity(), name);
@@ -1178,38 +1181,53 @@ class StatementAnalyzer
             analyzer.analyze((Expression) optimizedExpression, output, context);
             analysis.addCoercions(analyzer.getExpressionCoercions());
 
+            Set<Expression> postJoinConjuncts = new HashSet<>();
+            final Set<InPredicate> leftJoinInPredicates = new HashSet<>();
+            final Set<InPredicate> rightJoinInPredicates = new HashSet<>();
+
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 conjunct = ExpressionUtils.normalize(conjunct);
-                if (!(conjunct instanceof ComparisonExpression)) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
-                }
+                if (conjunct instanceof ComparisonExpression) {
+                    Expression conjunctFirst = ((ComparisonExpression) conjunct).getLeft();
+                    Expression conjunctSecond = ((ComparisonExpression) conjunct).getRight();
+                    Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(conjunctFirst, analyzer.getColumnReferences());
+                    Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(conjunctSecond, analyzer.getColumnReferences());
 
-                ComparisonExpression comparison = (ComparisonExpression) conjunct;
-                Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(comparison.getLeft(), analyzer.getColumnReferences());
-                Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(comparison.getRight(), analyzer.getColumnReferences());
+                    Expression leftExpression = null;
+                    Expression rightExpression = null;
+                    if (firstDependencies.stream().allMatch(left.canResolvePredicate()) && secondDependencies.stream().allMatch(right.canResolvePredicate())) {
+                        leftExpression = conjunctFirst;
+                        rightExpression = conjunctSecond;
+                    }
+                    else if (firstDependencies.stream().allMatch(right.canResolvePredicate()) && secondDependencies.stream().allMatch(left.canResolvePredicate())) {
+                        leftExpression = conjunctSecond;
+                        rightExpression = conjunctFirst;
+                    }
 
-                Expression leftExpression;
-                Expression rightExpression;
-                if (firstDependencies.stream().allMatch(left.canResolvePredicate()) && secondDependencies.stream().allMatch(right.canResolvePredicate())) {
-                    leftExpression = comparison.getLeft();
-                    rightExpression = comparison.getRight();
-                }
-                else if (firstDependencies.stream().allMatch(right.canResolvePredicate()) && secondDependencies.stream().allMatch(left.canResolvePredicate())) {
-                    leftExpression = comparison.getRight();
-                    rightExpression = comparison.getLeft();
+                    // expression on each side of comparison operator references only symbols from one side of join.
+                    // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
+                    if (rightExpression != null) {
+                        ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
+                        ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
+                        leftJoinInPredicates.addAll(leftExpressionAnalysis.getSubqueryInPredicates());
+                        rightJoinInPredicates.addAll(rightExpressionAnalysis.getSubqueryInPredicates());
+                        addCoercionForJoinCriteria(node, leftExpression, rightExpression);
+                    }
+                    else {
+                        // mixed references to both left and right join relation on one side of comparison operator.
+                        // expression will be put in post-join condition; analyze in context of output table.
+                        postJoinConjuncts.add(conjunct);
+                    }
                 }
                 else {
-                    // must have a complex expression that involves both tuples on one side of the comparison expression (e.g., coalesce(left.x, right.x) = 1)
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins not supported: %s", conjunct);
+                    // non-comparison expression.
+                    // expression will be put in post-join condition; analyze in context of output table.
+                    postJoinConjuncts.add(conjunct);
                 }
-
-                // analyze the clauses to record the types of all subexpressions and resolve names against the left/right underlying tuples
-                ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left, context);
-                ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right, context);
-                addCoercionForJoinCriteria(node, leftExpression, rightExpression);
-                analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftExpressionAnalysis.getSubqueryInPredicates(), rightExpressionAnalysis.getSubqueryInPredicates()));
             }
-
+            ExpressionAnalysis postJoinPredicatesConjunctsAnalysis = analyzeExpression(ExpressionUtils.combineConjuncts(postJoinConjuncts), output, context);
+            analysis.recordSubqueries(node, postJoinPredicatesConjunctsAnalysis);
+            analysis.addJoinInPredicates(node, new Analysis.JoinInPredicates(leftJoinInPredicates, rightJoinInPredicates));
             analysis.setJoinCriteria(node, (Expression) optimizedExpression);
         }
         else {
@@ -1493,30 +1511,20 @@ class StatementAnalyzer
 
     private List<List<FieldOrExpression>> analyzeGroupBy(QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
-        List<Set<Set<Expression>>> enumeratedGroupingSets = node.getGroupBy().stream()
-                .map(GroupingElement::enumerateGroupingSets)
-                .distinct()
-                .collect(toImmutableList());
+        List<Set<Expression>> computedGroupingSets = ImmutableList.of(); // empty list = no aggregations
 
-        // compute cross product of enumerated grouping sets, if there are any
-        List<List<Expression>> computedGroupingSets = ImmutableList.of();
-        if (!enumeratedGroupingSets.isEmpty()) {
-            computedGroupingSets = Sets.cartesianProduct(enumeratedGroupingSets).stream()
-                    .map(groupingSetList -> groupingSetList.stream()
-                            .flatMap(Collection::stream)
-                            .distinct()
-                            .collect(toImmutableList()))
-                    .distinct()
+        if (node.getGroupBy().isPresent()) {
+            List<List<Set<Expression>>> enumeratedGroupingSets = node.getGroupBy().get().getGroupingElements().stream()
+                    .map(GroupingElement::enumerateGroupingSets)
                     .collect(toImmutableList());
-        }
 
-        // if there are aggregates, but no grouping columns, create a grand total grouping set
-        if (computedGroupingSets.isEmpty() && !extractAggregates(node).isEmpty()) {
-            computedGroupingSets = ImmutableList.of(ImmutableList.of());
+            // compute cross product of enumerated grouping sets, if there are any
+            computedGroupingSets = computeGroupingSetsCrossProduct(enumeratedGroupingSets, node.getGroupBy().get().isDistinct());
+            checkState(!computedGroupingSets.isEmpty(), "computed grouping sets cannot be empty");
         }
-
-        if (computedGroupingSets.size() > 1) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Grouping by multiple sets of columns is not yet supported");
+        else if (!extractAggregates(node).isEmpty()) {
+            // if there are aggregates, but no group by, create a grand total grouping set (global aggregation)
+            computedGroupingSets = ImmutableList.of(ImmutableSet.of());
         }
 
         List<List<FieldOrExpression>> analyzedGroupingSets = computedGroupingSets.stream()
@@ -1527,7 +1535,39 @@ class StatementAnalyzer
         return analyzedGroupingSets;
     }
 
-    private List<FieldOrExpression> analyzeGroupingColumns(List<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
+    private List<Set<Expression>> computeGroupingSetsCrossProduct(List<List<Set<Expression>>> enumeratedGroupingSets, boolean isDistinct)
+    {
+        checkState(!enumeratedGroupingSets.isEmpty(), "enumeratedGroupingSets cannot be empty");
+
+        List<Set<Expression>> groupingSetsCrossProduct = new ArrayList<>();
+        enumeratedGroupingSets.get(0)
+                .stream()
+                .map(ImmutableSet::copyOf)
+                .forEach(groupingSetsCrossProduct::add);
+
+        for (int i = 1; i < enumeratedGroupingSets.size(); i++) {
+            List<Set<Expression>> groupingSets = enumeratedGroupingSets.get(i);
+            List<Set<Expression>> oldGroupingSetsCrossProduct = ImmutableList.copyOf(groupingSetsCrossProduct);
+            groupingSetsCrossProduct.clear();
+            for (Set<Expression> existingSet : oldGroupingSetsCrossProduct) {
+                for (Set<Expression> groupingSet : groupingSets) {
+                    Set<Expression> concatenatedSet = ImmutableSet.<Expression>builder()
+                            .addAll(existingSet)
+                            .addAll(groupingSet)
+                            .build();
+                    groupingSetsCrossProduct.add(concatenatedSet);
+                }
+            }
+        }
+
+        if (isDistinct) {
+            return ImmutableList.copyOf(ImmutableSet.copyOf(groupingSetsCrossProduct));
+        }
+
+        return groupingSetsCrossProduct;
+    }
+
+    private List<FieldOrExpression> analyzeGroupingColumns(Set<Expression> groupingColumns, QuerySpecification node, RelationType tupleDescriptor, AnalysisContext context, List<FieldOrExpression> outputExpressions)
     {
         ImmutableList.Builder<FieldOrExpression> groupingColumnsBuilder = ImmutableList.builder();
         for (Expression groupingColumn : groupingColumns) {
@@ -1700,11 +1740,6 @@ class StatementAnalyzer
             }
         }
 
-        ImmutableList<FieldOrExpression> allGroupingColumns = groupingSets.stream()
-                .flatMap(Collection::stream)
-                .distinct()
-                .collect(toImmutableList());
-
         // is this an aggregation query?
         if (!groupingSets.isEmpty()) {
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group
@@ -1712,13 +1747,17 @@ class StatementAnalyzer
             //     SELECT f(a) GROUP BY a
             //     SELECT f(a + 1) GROUP BY a + 1
             //     SELECT a + sum(b) GROUP BY a
+            ImmutableList<FieldOrExpression> distinctGroupingColumns = groupingSets.stream()
+                    .flatMap(Collection::stream)
+                    .distinct()
+                    .collect(toImmutableList());
 
             for (FieldOrExpression fieldOrExpression : Iterables.concat(outputExpressions, orderByExpressions)) {
-                verifyAggregations(node, allGroupingColumns, tupleDescriptor, fieldOrExpression, columnReferences);
+                verifyAggregations(node, distinctGroupingColumns, tupleDescriptor, fieldOrExpression, columnReferences);
             }
 
             if (node.getHaving().isPresent()) {
-                verifyAggregations(node, allGroupingColumns, tupleDescriptor, new FieldOrExpression(node.getHaving().get()), columnReferences);
+                verifyAggregations(node, distinctGroupingColumns, tupleDescriptor, new FieldOrExpression(node.getHaving().get()), columnReferences);
             }
         }
     }

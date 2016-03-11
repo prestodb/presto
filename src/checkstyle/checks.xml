@@ -39,6 +39,14 @@
         <property name="format" value="^[ \t]*import org.testng.Assert;$"/>
         <property name="message" value="org.testng.Assert should only be used with static imports"/>
     </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import org.jetbrains.annotations.NotNull;$"/>
+        <property name="message" value="Not null is the default for the codebase and should not be annotated"/>
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import org.jetbrains.annotations.Nullable;$"/>
+        <property name="message" value="Use javax.annotation.Nullable instead of org.jetbrains.annotations.Nullable"/>
+    </module>
 
     <module name="TreeWalker">
         <module name="EmptyBlock">
@@ -126,6 +134,17 @@
                 LOR, LT, MINUS, MINUS_ASSIGN, MOD, MOD_ASSIGN, NOT_EQUAL,
                 PLUS, PLUS_ASSIGN, QUESTION, SL, SLIST, SL_ASSIGN, SR, SR_ASSIGN,
                 STAR, STAR_ASSIGN, TYPE_EXTENSION_AND"/>
+        </module>
+
+        <module name="IllegalImport">
+            <property name="illegalPkgs" value="
+                com.facebook.presto.hadoop.shaded,
+                com.facebook.presto.hadoop.$internal,
+                com.facebook.presto.hive.$internal,
+                org.weakref.jmx.internal,
+                jersey.repackaged,
+                jdk.nashorn.internal,
+                jdk.internal"/>
         </module>
     </module>
 </module>

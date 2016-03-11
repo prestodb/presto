@@ -130,6 +130,18 @@ public abstract class AbstractTestDistributedQueries
     public void testCreateTableAsSelect()
             throws Exception
     {
+        assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
+
+        MaterializedResult materializedRows = computeActual("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT orderkey, discount FROM lineitem");
+        assertEquals(materializedRows.getRowCount(), 0);
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
+
+        assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
+
         assertCreateTableAsSelect(
                 "test_select",
                 "SELECT orderdate, orderkey, totalprice FROM orders",
@@ -322,6 +334,15 @@ public abstract class AbstractTestDistributedQueries
                 + " UNION ALL SELECT DATE '2001-01-01', null"
                 + " UNION ALL SELECT DATE '2001-01-02', -2"
                 + " UNION ALL SELECT DATE '2001-01-03', -3");
+
+        // UNION query produces columns in the opposite order
+        // of how they are declared in the table schema
+        assertUpdate(
+                "INSERT INTO test_insert (orderkey, orderdate) " +
+                "SELECT orderkey, orderdate FROM orders " +
+                "UNION ALL " +
+                "SELECT orderkey, orderdate FROM orders",
+                "SELECT 2 * count(*) FROM orders");
 
         assertUpdate("DROP TABLE test_insert");
     }

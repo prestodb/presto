@@ -31,10 +31,10 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.SetMultimap;
+import com.google.common.collect.ListMultimap;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -68,8 +68,8 @@ public class Analysis
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> windowFunctions = new IdentityHashMap<>();
 
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
-    private final SetMultimap<Node, InPredicate> inPredicates = HashMultimap.create();
-    private final SetMultimap<Node, SubqueryExpression> scalarSubqueries = HashMultimap.create();
+    private final ListMultimap<Node, InPredicate> inPredicates = ArrayListMultimap.create();
+    private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
     private final IdentityHashMap<Join, JoinInPredicates> joinInPredicates = new IdentityHashMap<>();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
@@ -87,6 +87,7 @@ public class Analysis
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
     private boolean createTableAsSelectWithData = true;
+    private boolean createTableAsSelectNoOp = false;
 
     private Optional<Insert> insert = Optional.empty();
 
@@ -118,6 +119,16 @@ public class Analysis
     public void setCreateTableAsSelectWithData(boolean createTableAsSelectWithData)
     {
         this.createTableAsSelectWithData = createTableAsSelectWithData;
+    }
+
+    public boolean isCreateTableAsSelectNoOp()
+    {
+        return createTableAsSelectNoOp;
+    }
+
+    public void setCreateTableAsSelectNoOp(boolean createTableAsSelectNoOp)
+    {
+        this.createTableAsSelectNoOp = createTableAsSelectNoOp;
     }
 
     public void addResolvedNames(Map<Expression, Integer> mappings)
@@ -232,12 +243,12 @@ public class Analysis
         this.scalarSubqueries.putAll(node, expressionAnalysis.getScalarSubqueries());
     }
 
-    public Set<InPredicate> getInPredicates(Node node)
+    public List<InPredicate> getInPredicates(Node node)
     {
         return inPredicates.get(node);
     }
 
-    public Set<SubqueryExpression> getScalarSubqueries(Node node)
+    public List<SubqueryExpression> getScalarSubqueries(Node node)
     {
         return scalarSubqueries.get(node);
     }

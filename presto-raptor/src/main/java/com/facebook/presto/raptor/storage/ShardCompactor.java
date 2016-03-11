@@ -23,7 +23,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.airlift.log.Logger;
 import io.airlift.stats.DistributionStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -47,8 +46,6 @@ import static java.util.stream.Collectors.toList;
 
 public final class ShardCompactor
 {
-    private static final Logger log = Logger.get(ShardCompactor.class);
-
     private final StorageManager storageManager;
 
     private final DistributionStat inputShardsPerCompaction = new DistributionStat();

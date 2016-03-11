@@ -158,7 +158,7 @@ public class TestAnalyzer
     public void testScalarSubQuery()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES 1) GROUP BY 1");
+        analyze("SELECT 'a', (VALUES 1) GROUP BY 1");
         analyze("SELECT 'a', (SELECT (1))");
         analyze("SELECT * FROM t1 WHERE (VALUES 1) = 2");
         analyze("SELECT * FROM t1 WHERE (VALUES 1) IN (VALUES 1)");
@@ -383,11 +383,12 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testNonEquiJoin()
+    public void testNonEquiOuterJoin()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON t1.a + t2.a = 1");
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a OR t1.b = t2.b");
+        analyze("SELECT * FROM t1 LEFT JOIN t2 ON t1.a + t2.a = 1");
+        analyze("SELECT * FROM t1 RIGHT JOIN t2 ON t1.a + t2.a = 1");
+        analyze("SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a OR t1.b = t2.b");
     }
 
     @Test
@@ -736,7 +737,20 @@ public class TestAnalyzer
         analyze("SELECT SUM(b) FROM t1 GROUP BY ()");
         analyze("SELECT SUM(b) FROM t1 GROUP BY GROUPING SETS (())");
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b))");
+    }
+
+    @Test
+    public void testMultipleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        // TODO: validate output
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b), (c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY a, b, GROUPING SETS ((c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a), (c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b)), ROLLUP (c, d)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b)), CUBE (c, d)");
     }
 
     @Test
@@ -861,14 +875,14 @@ public class TestAnalyzer
     public void testNotNullInJoinClause()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
+        analyze("SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
     }
 
     @Test
     public void testIfInJoinClause()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
+        analyze("SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
     }
 
     @Test

@@ -14,7 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.security.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 
@@ -33,79 +34,79 @@ public class ReadOnlyAccessControl
         implements ConnectorAccessControl
 {
     @Override
-    public void checkCanAddColumn(Identity identity, SchemaTableName tableName)
+    public void checkCanAddColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         denyAddColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanCreateTable(Identity identity, SchemaTableName tableName)
+    public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         denyCreateTable(tableName.toString());
     }
 
     @Override
-    public void checkCanDropTable(Identity identity, SchemaTableName tableName)
+    public void checkCanDropTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         denyDropTable(tableName.toString());
     }
 
     @Override
-    public void checkCanRenameTable(Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanRenameTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
     }
 
     @Override
-    public void checkCanRenameColumn(Identity identity, SchemaTableName tableName)
+    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         denyRenameColumn(tableName.toString());
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, SchemaTableName tableName)
+    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         // allow
     }
 
     @Override
-    public void checkCanInsertIntoTable(Identity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         denyInsertTable(tableName.toString());
     }
 
     @Override
-    public void checkCanDeleteFromTable(Identity identity, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         denyDeleteTable(tableName.toString());
     }
 
     @Override
-    public void checkCanCreateView(Identity identity, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
         denyCreateView(viewName.toString());
     }
 
     @Override
-    public void checkCanDropView(Identity identity, SchemaTableName viewName)
+    public void checkCanDropView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
         denyDropView(viewName.toString());
     }
 
     @Override
-    public void checkCanSelectFromView(Identity identity, SchemaTableName viewName)
+    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
         // allow
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, SchemaTableName tableName)
+    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
         // allow
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
         // allow
     }

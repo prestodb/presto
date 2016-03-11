@@ -58,6 +58,8 @@ public final class ApproximateLongPercentileAggregations
     @InputFunction
     public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
+        checkWeight(weight);
+
         QuantileDigest digest = state.getDigest();
 
         if (digest == null) {
@@ -77,6 +79,8 @@ public final class ApproximateLongPercentileAggregations
     @InputFunction
     public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
+        checkWeight(weight);
+
         QuantileDigest digest = state.getDigest();
 
         if (digest == null) {
@@ -129,5 +133,10 @@ public final class ApproximateLongPercentileAggregations
             checkCondition(0 <= percentile && percentile <= 1, INVALID_FUNCTION_ARGUMENT, "Percentile must be between 0 and 1");
             BIGINT.writeLong(out, digest.getQuantile(percentile));
         }
+    }
+
+    private static void checkWeight(long weight)
+    {
+        checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, "percentile weight must be > 0");
     }
 }

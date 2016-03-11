@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -46,11 +47,11 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -213,6 +214,13 @@ public class PredicatePushDown
         }
 
         @Override
+        public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Expression> context)
+        {
+            checkState(!DependencyExtractor.extractUnique(context.get()).contains(node.getGroupIdSymbol()), "groupId symbol cannot be referenced in predicate");
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
         public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Expression> context)
         {
             checkState(!DependencyExtractor.extractUnique(context.get()).contains(node.getMarkerSymbol()), "predicate depends on marker symbol");
@@ -314,6 +322,12 @@ public class PredicatePushDown
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
 
+            newJoinPredicate = simplifyExpression(newJoinPredicate);
+            // TODO: find a better way to directly optimize FALSE LITERAL in join predicate
+            if (newJoinPredicate.equals(BooleanLiteral.FALSE_LITERAL)) {
+                newJoinPredicate = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
+            }
+
             PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
             PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
 
@@ -321,11 +335,10 @@ public class PredicatePushDown
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
                     !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
-                List<JoinNode.EquiJoinClause> criteria = node.getCriteria();
-                Iterable<Expression> simplifiedJoinConjuncts = null;
-
-                // Rewrite criteria and add projections if there is a new join predicate
-                if (!newJoinPredicate.equals(joinPredicate)) {
+                if (newJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
+                    output = new JoinNode(node.getId(), INNER, leftSource, rightSource, ImmutableList.of(), Optional.<Symbol>empty(), Optional.<Symbol>empty());
+                }
+                else {
                     // Create identity projections for all existing symbols
                     ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
 
@@ -338,12 +351,9 @@ public class PredicatePushDown
                             .getOutputSymbols().stream()
                             .collect(Collectors.toMap(key -> key, Symbol::toQualifiedNameReference)));
 
-                    simplifiedJoinConjuncts = transform(extractConjuncts(newJoinPredicate), this::simplifyExpression);
-                    simplifiedJoinConjuncts = filter(simplifiedJoinConjuncts, not(Predicates.<Expression>equalTo(BooleanLiteral.TRUE_LITERAL)));
-
                     // Create new projections for the new join clauses
                     ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
-                    for (Expression conjunct : simplifiedJoinConjuncts) {
+                    for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
                         checkState(joinEqualityExpression(node.getLeft().getOutputSymbols()).apply(conjunct), "Expected join predicate to be a valid join equality");
 
                         ComparisonExpression equality = (ComparisonExpression) conjunct;
@@ -362,14 +372,8 @@ public class PredicatePushDown
 
                     leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                     rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
-                    criteria = builder.build();
-                }
 
-                if (simplifiedJoinConjuncts != null && Iterables.isEmpty(simplifiedJoinConjuncts)) {
-                    output = new JoinNode(node.getId(), INNER, leftSource, rightSource, criteria, Optional.<Symbol>empty(), Optional.<Symbol>empty());
-                }
-                else {
-                    output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, criteria, node.getLeftHashSymbol(), node.getRightHashSymbol());
+                    output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, builder.build(), node.getLeftHashSymbol(), node.getRightHashSymbol());
                 }
             }
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
@@ -763,7 +767,7 @@ public class PredicatePushDown
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Expression> context)
         {
             if (node.getGroupBy().isEmpty()) {
-                // cannot push down through non-grouped aggregation
+                // cannot push predicates down through aggregations without any grouping columns
                 return visitPlan(node, context);
             }
 
