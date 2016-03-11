@@ -56,7 +56,9 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -94,6 +96,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -345,6 +348,7 @@ public abstract class AbstractTestHiveClient
         insertTablePartitionedDestination = new SchemaTableName(database, "presto_insert_destination_partitioned");
 
         List<ColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
+
         List<HivePartition> partitions = ImmutableList.<HivePartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
@@ -2171,6 +2175,45 @@ public abstract class AbstractTestHiveClient
                 assertEquals((Double) row.getField(columnIndex.get("t_float")), 5.1 + rowNumber, 0.001);
                 assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
 
+                // DECIMAL
+                BigDecimal rowNumberBig = new BigDecimal(rowNumber);
+                index = columnIndex.get("t_decimal_precision_8");
+                if (index != null) {
+                    if ((rowNumber % 43) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        assertEquals(row.getField(index), sqlDecimal(new BigDecimal("1000.0001").add(rowNumberBig)));
+                    }
+                }
+                index = columnIndex.get("t_decimal_precision_17");
+                if (index != null) {
+                    if ((rowNumber % 47) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        assertEquals(row.getField(index), sqlDecimal(new BigDecimal("100000000.00000001").add(rowNumberBig)));
+                    }
+                }
+                index = columnIndex.get("t_decimal_precision_18");
+                if (index != null) {
+                    if ((rowNumber % 49) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        assertEquals(row.getField(index), sqlDecimal(new BigDecimal("1000000000.00000001").add(rowNumberBig)));
+                    }
+                }
+                index = columnIndex.get("t_decimal_precision_38");
+                if (index != null) {
+                    if ((rowNumber % 51) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        assertEquals(row.getField(index), sqlDecimal(new BigDecimal("1000000000000000000000.0000000000000001").add(rowNumberBig)));
+                    }
+                }
+
                 // BOOLEAN
                 index = columnIndex.get("t_boolean");
                 if ((rowNumber % 3) == 2) {
@@ -2491,6 +2534,9 @@ public abstract class AbstractTestHiveClient
                 else if (column.getType() instanceof MapType) {
                     assertInstanceOf(value, Map.class);
                 }
+                else if (column.getType() instanceof DecimalType) {
+                    assertInstanceOf(value, SqlDecimal.class);
+                }
                 else {
                     fail("Unknown primitive type " + columnIndex);
                 }
@@ -2504,6 +2550,11 @@ public abstract class AbstractTestHiveClient
         ColumnMetadata column = map.get(name);
         assertEquals(column.getType(), type, name);
         assertEquals(column.getComment(), annotateColumnComment(null, partitionKey));
+    }
+
+    private static SqlDecimal sqlDecimal(BigDecimal value)
+    {
+        return new SqlDecimal(value.unscaledValue(), value.precision(), value.scale());
     }
 
     protected static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
