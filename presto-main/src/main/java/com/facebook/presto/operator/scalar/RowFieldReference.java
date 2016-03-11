@@ -53,7 +53,7 @@ public class RowFieldReference
 
     public RowFieldReference(RowType type, Type returnType, int index, String fieldName)
     {
-        super(mangleFieldReference(fieldName), ImmutableList.of(), returnType.getTypeSignature().toString(), ImmutableList.of(type.getTypeSignature().toString()));
+        super(mangleFieldReference(fieldName), ImmutableList.of(), ImmutableList.of(), returnType.getTypeSignature().toString(), ImmutableList.of(type.getTypeSignature().toString()));
 
         String stackType = returnType.getJavaType().getSimpleName().toLowerCase();
         MethodHandle methodHandle;

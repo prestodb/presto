@@ -40,7 +40,7 @@ public class RowEqualOperator
 
     private RowEqualOperator()
     {
-        super(EQUAL, ImmutableList.of(comparableWithVariadicBound("T", "row")), StandardTypes.BOOLEAN, ImmutableList.of("T", "T"));
+        super(EQUAL, ImmutableList.of(comparableWithVariadicBound("T", "row")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("T", "T"));
     }
 
     @Override

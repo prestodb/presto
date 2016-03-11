@@ -63,7 +63,7 @@ public final class ConcatFunction
 
     public ConcatFunction()
     {
-        super("concat", ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of(StandardTypes.VARCHAR), true);
+        super("concat", ImmutableList.of(), ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of(StandardTypes.VARCHAR), true);
     }
 
     @Override

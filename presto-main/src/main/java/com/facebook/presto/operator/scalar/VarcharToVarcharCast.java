@@ -46,7 +46,7 @@ public class VarcharToVarcharCast
 
     private VarcharToVarcharCast()
     {
-        super(CAST, ImmutableList.of(comparableWithVariadicBound("F", VARCHAR), comparableWithVariadicBound("T", VARCHAR)), "T", ImmutableList.of("F"));
+        super(CAST, ImmutableList.of(comparableWithVariadicBound("F", VARCHAR), comparableWithVariadicBound("T", VARCHAR)), ImmutableList.of(), "T", ImmutableList.of("F"));
     }
 
     @Override
