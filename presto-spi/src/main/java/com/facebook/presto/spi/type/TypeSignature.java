@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -35,6 +36,11 @@ public class TypeSignature
     private final String base;
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
+
+    public TypeSignature(String base, TypeSignatureParameter... parameters)
+    {
+        this(base, asList(parameters));
+    }
 
     public TypeSignature(String base, List<TypeSignatureParameter> parameters)
     {
@@ -253,7 +259,10 @@ public class TypeSignature
         if (Character.isDigit(signature.charAt(begin))) {
             return TypeSignatureParameter.of(Long.parseLong(parameterName));
         }
-        else if (literalCalculationParameters.contains(parameterName)) {
+        else if (literalCalculationParameters.contains(parameterName) ||
+                parameterName.matches(".*[/\\+\\-\\*].*") ||
+                parameterName.contains("min") ||
+                parameterName.contains("max")) {
             return TypeSignatureParameter.of(new TypeLiteralCalculation(parameterName));
         }
         else {
