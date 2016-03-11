@@ -82,7 +82,7 @@ public class TestAllDatatypesFromHiveConnector
         extends ProductTest
 {
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, SMOKE})
+    @Test(groups = {HIVE_CONNECTOR, SMOKE, QUARANTINE})
     public void testSelectAllDatatypesTextFile()
             throws SQLException
     {
@@ -106,7 +106,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = HIVE_CONNECTOR)
+    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
     public void testSelectAllDatatypesOrc()
             throws SQLException
     {
@@ -131,7 +131,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(RcfileRequirements.class)
-    @Test(groups = HIVE_CONNECTOR)
+    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
     public void testSelectAllDatatypesRcfile()
             throws SQLException
     {

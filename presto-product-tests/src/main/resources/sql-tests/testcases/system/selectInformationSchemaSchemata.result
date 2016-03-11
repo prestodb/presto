@@ -2,3 +2,4 @@
  system       | information_schema |
  system       | runtime            |
  system       | metadata           |
+ system       | jdbc               |

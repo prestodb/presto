@@ -1,45 +1,93 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
- infinity      |                 | double      | scalar        | true
- ceiling       | bigint          | bigint      | scalar        | true
- ceiling       | double          | double      | scalar        | true
- ceil          | bigint          | bigint      | scalar        | true
- ceil          | double          | double      | scalar        | true
- abs           | double          | double      | scalar        | true
- abs           | bigint          | bigint      | scalar        | true
- sin           | double          | double      | scalar        | true
- cos           | double          | double      | scalar        | true
- tan           | double          | double      | scalar        | true
- atan2         | double, double  | double      | scalar        | true
- sqrt          | double          | double      | scalar        | true
- log           | double, double  | double      | scalar        | true
- log10         | double          | double      | scalar        | true
- pow           | double, double  | double      | scalar        | true
- exp           | double          | double      | scalar        | true
- is_nan        | double          | boolean     | scalar        | true
- nan           |                 | double      | scalar        | true
- is_finite     | double          | boolean     | scalar        | true
- is_infinite   | double          | boolean     | scalar        | true
- acos          | double          | double      | scalar        | true
- asin          | double          | double      | scalar        | true
- atan          | double          | double      | scalar        | true
- cbrt          | double          | double      | scalar        | true
- cosh          | double          | double      | scalar        | true
- floor         | double          | double      | scalar        | true
- floor         | bigint          | bigint      | scalar        | true
- random        |                 | double      | scalar        | false
- rand          |                 | double      | scalar        | false
- round         | double          | double      | scalar        | true
- round         | double, bigint  | double      | scalar        | true
- round         | bigint, bigint  | bigint      | scalar        | true
- round         | bigint          | bigint      | scalar        | true
- tanh          | double          | double      | scalar        | true
- mod           | double, double  | double      | scalar        | true
- mod           | bigint, bigint  | bigint      | scalar        | true
- e             |                 | double      | scalar        | true
- degrees       | double          | double      | scalar        | true
- radians       | double          | double      | scalar        | true
- ln            | double          | double      | scalar        | true
- log2          | double          | double      | scalar        | true
- pi            |                 | double      | scalar        | true
- to_base       | bigint, bigint  | varchar     | scalar        | true
- from_base     | varchar, bigint | bigint      | scalar        | true
+ abs | bigint | bigint | scalar | true | absolute value |
+ abs | double | double | scalar | true | absolute value |
+ acos | double | double | scalar | true | arc cosine |
+ approx_distinct | bigint | bigint | aggregate | true | |
+ approx_distinct | bigint | bigint, double | aggregate | true | |
+ approx_distinct | bigint | double | aggregate | true | |
+ approx_distinct | bigint | double, double | aggregate | true | |
+ approx_percentile | bigint | bigint, bigint, double | aggregate | true | |
+ approx_percentile | bigint | bigint, double | aggregate | true | |
+ approx_percentile | double | double, bigint, double | aggregate | true | |
+ approx_percentile | double | double, double | aggregate | true | |
+ approx_set | HyperLogLog | bigint | aggregate | true | |
+ approx_set | HyperLogLog | double | aggregate | true | |
+ arbitrary | T | T | aggregate | true | return an arbitrary non-null input value |
+ asin | double | double | scalar | true | arc sine |
+ atan | double | double | scalar | true | arc tangent |
+ atan2 | double | double, double | scalar | true | arc tangent of given fraction |
+ avg | double | bigint | aggregate | true | |
+ avg | double | double | aggregate | true | |
+ bool_and | boolean | boolean | aggregate | true | |
+ bool_or | boolean | boolean | aggregate | true | |
+ cbrt | double | double | scalar | true | cube root |
+ ceil | bigint | bigint | scalar | true | round up to nearest integer |
+ ceil | double | double | scalar | true | round up to nearest integer |
+ ceiling | bigint | bigint | scalar | true | round up to nearest integer |
+ ceiling | double | double | scalar | true | round up to nearest integer |
+ corr | double | double, double | aggregate | true | |
+ cos | double | double | scalar | true | cosine |
+ cosh | double | double | scalar | true | hyperbolic cosine |
+ count | bigint | | aggregate | true | |
+ count | bigint | T | aggregate | true | Counts the non-null values |
+ count_if | bigint | boolean | aggregate | true | |
+ covar_pop | double | double, double | aggregate | true | |
+ covar_samp | double | double, double | aggregate | true | |
+ cume_dist | double | | window | true | |
+ degrees | double | double | scalar | true | converts an angle in radians to degrees |
+ dense_rank | bigint | | window | true | |
+ e | double | | scalar | true | Euler's number |
+ every | boolean | boolean | aggregate | true | |
+ exp | double | double | scalar | true | Euler's number raised to the given power |
+ floor | bigint | bigint | scalar | true | round down to nearest integer |
+ floor | double | double | scalar | true | round down to nearest integer |
+ geometric_mean | double | bigint | aggregate | true | |
+ geometric_mean | double | double | aggregate | true | |
+ greatest | E | E | scalar | true | get the largest of the given values |
+ infinity | double | | scalar | true | Infinity |
+ ln | double | double | scalar | true | natural logarithm |
+ log | double | double, double | scalar | true | logarithm to given base |
+ log10 | double | double | scalar | true | logarithm to base 10 |
+ log2 | double | double | scalar | true | logarithm to base 2 |
+ max | E | E | aggregate | true | Returns the maximum value of the argument |
+ max_by | V | V, K | aggregate | true | Returns the value of the first argument, associated with the maximum value of the second argument |
+ min | E | E | aggregate | true | Returns the minimum value of the argument |
+ min_by | V | V, K | aggregate | true | Returns the value of the first argument, associated with the minimum value of the second argument |
+ mod | bigint | bigint, bigint | scalar | true | remainder of given quotient |
+ mod | double | double, double | scalar | true | remainder of given quotient |
+ nan | double | | scalar | true | constant representing not-a-number |
+ nth_value | T | T, bigint | window | true | |
+ ntile | bigint | bigint | window | true | |
+ percent_rank | double | | window | true | |
+ pi | double | | scalar | true | the constant Pi |
+ pow | double | double, double | scalar | true | value raised to the power of exponent |
+ power | double | double, double | scalar | true | value raised to the power of exponent |
+ radians | double | double | scalar | true | converts an angle in degrees to radians |
+ rand | double | | scalar | false | a pseudo-random value |
+ random | double | | scalar | false | a pseudo-random value |
+ rank | bigint | | window | true | |
+ regr_intercept | double | double, double | aggregate | true | |
+ regr_slope | double | double, double | aggregate | true | |
+ round | bigint | bigint | scalar | true | round to nearest integer |
+ round | bigint | bigint, bigint | scalar | true | round to nearest integer |
+ round | double | double | scalar | true | round to nearest integer |
+ round | double | double, bigint | scalar | true | round to given number of decimal places |
+ row_number | bigint | | window | true | |
+ sin | double | double | scalar | true | sine |
+ sqrt | double | double | scalar | true | square root |
+ stddev | double | bigint | aggregate | true | |
+ stddev | double | double | aggregate | true | |
+ stddev_pop | double | bigint | aggregate | true | |
+ stddev_pop | double | double | aggregate | true | |
+ stddev_samp | double | bigint | aggregate | true | |
+ stddev_samp | double | double | aggregate | true | |
+ sum | bigint | bigint | aggregate | true | |
+ sum | double | double | aggregate | true | |
+ tan | double | double | scalar | true | tangent |
+ tanh | double | double | scalar | true | hyperbolic tangent |
+ var_pop | double | bigint | aggregate | true | |
+ var_pop | double | double | aggregate | true | |
+ var_samp | double | bigint | aggregate | true | |
+ var_samp | double | double | aggregate | true | |
+ variance | double | bigint | aggregate | true | |
+ variance | double | double | aggregate | true | |

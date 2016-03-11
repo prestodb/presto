@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
+import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.teradata.tempto.Requirements.allOf;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
@@ -86,7 +87,7 @@ public class TestTablePartitioningSelect
         );
     }
 
-    @Test(groups = HIVE_CONNECTOR)
+    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
     public void testSelectPartitionedHiveTableDifferentFormats()
             throws SQLException
     {
