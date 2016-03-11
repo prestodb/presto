@@ -306,7 +306,7 @@ class QueryPlanner
                         rewritten,
                         coercion.getTypeSignature().toString(),
                         false,
-                        isTypeOnlyCoercion(type.getTypeSignature(), coercion.getTypeSignature()));
+                        isTypeOnlyCoercion(type, coercion));
             }
             projections.put(symbol, rewritten);
             translations.put(expression, symbol);
