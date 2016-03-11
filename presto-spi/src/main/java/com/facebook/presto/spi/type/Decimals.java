@@ -263,4 +263,14 @@ public class Decimals
         }
         return value.multiply(bigIntegerTenToNth(toScale - fromScale));
     }
+
+    public static boolean isShortDecimal(Type type)
+    {
+        return type instanceof ShortDecimalType;
+    }
+
+    public static boolean isLongDecimal(Type type)
+    {
+        return type instanceof LongDecimalType;
+    }
 }
