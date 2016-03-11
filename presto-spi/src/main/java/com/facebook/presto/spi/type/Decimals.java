@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -21,10 +22,13 @@ import java.math.BigInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.lang.Math.abs;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;
+import static java.lang.String.format;
 import static java.math.BigInteger.TEN;
 
 public class Decimals
@@ -35,8 +39,11 @@ public class Decimals
 
     public static final int MAX_PRECISION = 38;
     public static final int MAX_SHORT_PRECISION = 17;
-    public static final BigInteger MAX_DECIMAL_UNSCALED_VALUE = new BigInteger(new String(new char[MAX_PRECISION]).replace("\0", "9"));  // repeat digit '9' MAX_PRECISION times
-    public static final BigInteger MIN_DECIMAL_UNSCALED_VALUE = MAX_DECIMAL_UNSCALED_VALUE.negate();
+
+    private static final BigInteger MAX_DECIMAL_UNSCALED_VALUE = new BigInteger(
+            // repeat digit '9' MAX_PRECISION times
+            new String(new char[MAX_PRECISION]).replace("\0", "9"));
+    private static final BigInteger MIN_DECIMAL_UNSCALED_VALUE = MAX_DECIMAL_UNSCALED_VALUE.negate();
 
     private static final Pattern DECIMAL_PATTERN = Pattern.compile("(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?");
 
@@ -203,5 +210,35 @@ public class Decimals
             }
         }
         return resultBuilder.toString();
+    }
+
+    public static boolean overflows(long value, int precision)
+    {
+        if (precision > MAX_SHORT_PRECISION) {
+            throw new IllegalArgumentException("expected precision to be less than " + MAX_SHORT_PRECISION);
+        }
+        return abs(value) >= longTenToNth(precision);
+    }
+
+    public static boolean overflows(BigInteger value, int precision)
+    {
+        return value.abs().compareTo(bigIntegerTenToNth(precision)) >= 0;
+    }
+
+    public static boolean overflows(BigInteger value)
+    {
+        return value.compareTo(MAX_DECIMAL_UNSCALED_VALUE) > 0 || value.compareTo(MIN_DECIMAL_UNSCALED_VALUE) < 0;
+    }
+
+    public static boolean overflows(BigDecimal value, long precision)
+    {
+        return value.precision() > precision;
+    }
+
+    public static void checkOverflow(BigInteger value)
+    {
+        if (overflows(value)) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Value is out of range: %s", value.toString()));
+        }
     }
 }
