@@ -52,7 +52,7 @@ public class RowToJsonCast
 
     private RowToJsonCast()
     {
-        super(OperatorType.CAST, ImmutableList.of(withVariadicBound("T", "row")), StandardTypes.JSON, ImmutableList.of("T"));
+        super(OperatorType.CAST, ImmutableList.of(withVariadicBound("T", "row")), ImmutableList.of(), StandardTypes.JSON, ImmutableList.of("T"));
     }
 
     @Override

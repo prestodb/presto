@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SignatureBuilder;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.metadata.TypeParameterRequirement;
+import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -66,7 +66,7 @@ import static com.facebook.presto.metadata.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
@@ -228,7 +228,7 @@ public class ReflectionParametricScalar
 
         for (Method method : findPublicMethodsWithAnnotation(clazz, SqlType.class)) {
             Implementation implementation = new ImplementationParser(name, method, constructors).get();
-            if (implementation.getSignature().getTypeParameterRequirements().isEmpty()
+            if (implementation.getSignature().getTypeVariableConstraints().isEmpty()
                     && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)) {
                 exactImplementations.put(implementation.getSignature(), implementation);
                 continue;
@@ -451,7 +451,7 @@ public class ReflectionParametricScalar
             return methodHandle;
         }
 
-        private static List<TypeParameterRequirement> createTypeParameters(Iterable<TypeParameter> typeParameters, List<ImplementationDependency> dependencies)
+        private static List<TypeVariableConstraint> createTypeVariableConstraints(Iterable<TypeParameter> typeParameters, List<ImplementationDependency> dependencies)
         {
             Set<String> orderableRequired = new HashSet<>();
             Set<String> comparableRequired = new HashSet<>();
@@ -474,7 +474,7 @@ public class ReflectionParametricScalar
                     }
                 }
             }
-            ImmutableList.Builder<TypeParameterRequirement> typeParameterRequirements = ImmutableList.builder();
+            ImmutableList.Builder<TypeVariableConstraint> typeParameterRequirements = ImmutableList.builder();
             for (TypeParameter typeParameter : typeParameters) {
                 String name = typeParameter.value();
                 if (orderableRequired.contains(name)) {
@@ -484,7 +484,7 @@ public class ReflectionParametricScalar
                     typeParameterRequirements.add(comparableTypeParameter(name));
                 }
                 else {
-                    typeParameterRequirements.add(typeParameter(name));
+                    typeParameterRequirements.add(typeVariable(name));
                 }
             }
             return typeParameterRequirements.build();
@@ -517,7 +517,7 @@ public class ReflectionParametricScalar
 
         public Implementation get()
         {
-            Signature signature = new Signature(functionName, SCALAR, createTypeParameters(typeParameters, dependencies), returnType, argumentTypes, false, literalParameters);
+            Signature signature = new Signature(functionName, SCALAR, createTypeVariableConstraints(typeParameters, dependencies), ImmutableList.of(), returnType, argumentTypes, false, literalParameters);
             return new Implementation(
                     signature,
                     nullable,

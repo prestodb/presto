@@ -55,7 +55,7 @@ public class ChecksumAggregationFunction
 
     public ChecksumAggregationFunction()
     {
-        super(NAME, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.VARBINARY, ImmutableList.of("T"));
+        super(NAME, ImmutableList.of(comparableTypeParameter("T")), ImmutableList.of(), StandardTypes.VARBINARY, ImmutableList.of("T"));
     }
 
     @Override

@@ -86,7 +86,7 @@ public final class DecimalCasts
         Signature signature = Signature.builder()
                 .kind(SCALAR)
                 .operatorType(CAST)
-                .typeParameters(withVariadicBound("X", DECIMAL))
+                .typeVariableConstraints(withVariadicBound("X", DECIMAL))
                 .argumentTypes(from)
                 .returnType("X")
                 .build();

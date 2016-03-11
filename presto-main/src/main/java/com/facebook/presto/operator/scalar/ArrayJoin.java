@@ -36,7 +36,7 @@ import java.util.Map;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -62,7 +62,7 @@ public final class ArrayJoin
 
         public ArrayJoinWithNullReplacement()
         {
-            super(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array(T)", StandardTypes.VARCHAR, StandardTypes.VARCHAR));
+            super(FUNCTION_NAME, ImmutableList.of(typeVariable("T")), ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of("array(T)", StandardTypes.VARCHAR, StandardTypes.VARCHAR));
         }
 
         @Override
@@ -95,7 +95,7 @@ public final class ArrayJoin
 
     public ArrayJoin()
     {
-        super(FUNCTION_NAME, ImmutableList.of(typeParameter("T")), StandardTypes.VARCHAR, ImmutableList.of("array(T)", StandardTypes.VARCHAR));
+        super(FUNCTION_NAME, ImmutableList.of(typeVariable("T")), ImmutableList.of(), StandardTypes.VARCHAR, ImmutableList.of("array(T)", StandardTypes.VARCHAR));
     }
 
     @Override

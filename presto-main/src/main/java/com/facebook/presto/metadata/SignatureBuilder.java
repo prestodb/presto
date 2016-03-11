@@ -29,7 +29,8 @@ public final class SignatureBuilder
 {
     private String name;
     private FunctionKind kind;
-    private List<TypeParameterRequirement> typeParameters = emptyList();
+    private List<TypeVariableConstraint> typeVariableConstraints = emptyList();
+    private List<LongVariableConstraint> longVariableConstraints = emptyList();
     private String returnType;
     private List<String> argumentTypes;
     private boolean variableArity;
@@ -56,14 +57,25 @@ public final class SignatureBuilder
         return this;
     }
 
-    public SignatureBuilder typeParameters(TypeParameterRequirement... typeParameters)
+    public SignatureBuilder typeVariableConstraints(TypeVariableConstraint... typeVariableConstraints)
     {
-        return typeParameters(asList(requireNonNull(typeParameters, "typeParameters is null")));
+        return typeVariableConstraints(asList(requireNonNull(typeVariableConstraints, "typeVariableConstraints is null")));
     }
 
-    public SignatureBuilder typeParameters(List<TypeParameterRequirement> typeParameters)
+    public SignatureBuilder typeVariableConstraints(List<TypeVariableConstraint> typeVariableConstraints)
     {
-        this.typeParameters = copyOf(requireNonNull(typeParameters, "typeParameters is null"));
+        this.typeVariableConstraints = copyOf(requireNonNull(typeVariableConstraints, "typeVariableConstraints is null"));
+        return this;
+    }
+
+    public SignatureBuilder longVariableConstraints(LongVariableConstraint... longVariableConstraints)
+    {
+        return longVariableConstraints(asList(requireNonNull(longVariableConstraints, "longVariableConstraints is null")));
+    }
+
+    public SignatureBuilder longVariableConstraints(List<LongVariableConstraint> longVariableConstraints)
+    {
+        this.longVariableConstraints = copyOf(requireNonNull(longVariableConstraints, "longVariableConstraints is null"));
         return this;
     }
 
@@ -103,6 +115,6 @@ public final class SignatureBuilder
 
     public Signature build()
     {
-        return new Signature(name, kind, typeParameters, returnType, argumentTypes, variableArity, literalParameters);
+        return new Signature(name, kind, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity, literalParameters);
     }
 }

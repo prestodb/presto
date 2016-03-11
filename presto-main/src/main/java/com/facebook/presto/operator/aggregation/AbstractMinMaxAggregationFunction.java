@@ -73,7 +73,7 @@ public abstract class AbstractMinMaxAggregationFunction
 
     protected AbstractMinMaxAggregationFunction(String name, OperatorType operatorType)
     {
-        super(name, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"));
+        super(name, ImmutableList.of(orderableTypeParameter("E")), ImmutableList.of(), "E", ImmutableList.of("E"));
         requireNonNull(operatorType);
         this.operatorType = operatorType;
     }

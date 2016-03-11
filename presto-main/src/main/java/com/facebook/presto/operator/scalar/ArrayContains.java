@@ -45,7 +45,7 @@ public final class ArrayContains
 
     public ArrayContains()
     {
-        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "T"));
+        super(FUNCTION_NAME, ImmutableList.of(comparableTypeParameter("T")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "T"));
     }
 
     @Override

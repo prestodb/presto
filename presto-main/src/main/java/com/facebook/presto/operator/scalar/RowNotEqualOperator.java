@@ -38,7 +38,7 @@ public class RowNotEqualOperator
 
     private RowNotEqualOperator()
     {
-        super(NOT_EQUAL, ImmutableList.of(comparableWithVariadicBound("T", "row")), StandardTypes.BOOLEAN, ImmutableList.of("T", "T"));
+        super(NOT_EQUAL, ImmutableList.of(comparableWithVariadicBound("T", "row")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("T", "T"));
     }
 
     @Override

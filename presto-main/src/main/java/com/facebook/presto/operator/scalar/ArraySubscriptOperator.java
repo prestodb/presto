@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,7 +50,7 @@ public class ArraySubscriptOperator
 
     protected ArraySubscriptOperator()
     {
-        super(SUBSCRIPT, ImmutableList.of(typeParameter("E")), "E", ImmutableList.of("array(E)", "bigint"));
+        super(SUBSCRIPT, ImmutableList.of(typeVariable("E")), ImmutableList.of(), "E", ImmutableList.of("array(E)", "bigint"));
     }
 
     @Override

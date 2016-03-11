@@ -69,7 +69,7 @@ public abstract class AbstractGreatestLeast
 
     protected AbstractGreatestLeast(String name, OperatorType operatorType)
     {
-        super(name, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"), true);
+        super(name, ImmutableList.of(orderableTypeParameter("E")), ImmutableList.of(), "E", ImmutableList.of("E"), true);
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
     }
 

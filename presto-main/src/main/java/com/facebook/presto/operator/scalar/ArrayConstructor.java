@@ -55,7 +55,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.equal;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -68,7 +68,7 @@ public final class ArrayConstructor
 
     public ArrayConstructor()
     {
-        super("array_constructor", ImmutableList.of(typeParameter("E")), "array(E)", ImmutableList.of("E", "E"), true);
+        super("array_constructor", ImmutableList.of(typeVariable("E")), ImmutableList.of(), "array(E)", ImmutableList.of("E", "E"), true);
     }
 
     @Override

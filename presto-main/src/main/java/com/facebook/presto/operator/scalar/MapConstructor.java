@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -47,7 +47,7 @@ public final class MapConstructor
 
     public MapConstructor()
     {
-        super("map", ImmutableList.of(comparableTypeParameter("K"), typeParameter("V")), "map(K,V)", ImmutableList.of("array(K)", "array(V)"));
+        super("map", ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")), ImmutableList.of(), "map(K,V)", ImmutableList.of("array(K)", "array(V)"));
     }
 
     @Override

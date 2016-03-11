@@ -34,7 +34,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -52,7 +52,7 @@ public class MapSubscriptOperator
 
     protected MapSubscriptOperator()
     {
-        super(SUBSCRIPT, ImmutableList.of(typeParameter("K"), typeParameter("V")), "V", ImmutableList.of("map(K,V)", "K"));
+        super(SUBSCRIPT, ImmutableList.of(typeVariable("K"), typeVariable("V")), ImmutableList.of(), "V", ImmutableList.of("map(K,V)", "K"));
     }
 
     @Override

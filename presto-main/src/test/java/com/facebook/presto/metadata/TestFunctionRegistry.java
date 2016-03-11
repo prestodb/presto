@@ -64,7 +64,7 @@ public class TestFunctionRegistry
             if (operatorType == OperatorType.CAST) {
                 continue;
             }
-            if (!function.getSignature().getTypeParameterRequirements().isEmpty()) {
+            if (!function.getSignature().getTypeVariableConstraints().isEmpty()) {
                 continue;
             }
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {

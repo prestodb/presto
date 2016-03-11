@@ -42,23 +42,26 @@ public abstract class SqlAggregationFunction
 
     protected SqlAggregationFunction(
             String name,
-            List<TypeParameterRequirement> typeParameterRequirements,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             String returnType,
             List<String> argumentTypes)
     {
-        this(name, typeParameterRequirements, returnType, argumentTypes, AGGREGATE, ImmutableSet.of());
+        this(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, AGGREGATE, ImmutableSet.of());
     }
 
     protected SqlAggregationFunction(
             String name,
-            List<TypeParameterRequirement> typeParameterRequirements,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
             String returnType,
             List<String> argumentTypes,
             FunctionKind kind,
             Set<String> literalParameters)
     {
         requireNonNull(name, "name is null");
-        requireNonNull(typeParameterRequirements, "typeParameters is null");
+        requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
+        requireNonNull(longVariableConstraints, "longVariableConstraints is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
         requireNonNull(literalParameters, "argumentTypes is null");
@@ -66,7 +69,8 @@ public abstract class SqlAggregationFunction
         this.signature = new Signature(
                 name,
                 kind,
-                ImmutableList.copyOf(typeParameterRequirements),
+                ImmutableList.copyOf(typeVariableConstraints),
+                ImmutableList.copyOf(longVariableConstraints),
                 returnType,
                 ImmutableList.copyOf(argumentTypes),
                 false,
@@ -105,7 +109,8 @@ public abstract class SqlAggregationFunction
                 InternalAggregationFunction function)
         {
             super(name,
-                    ImmutableList.<TypeParameterRequirement>of(),
+                    ImmutableList.<TypeVariableConstraint>of(),
+                    ImmutableList.<LongVariableConstraint>of(),
                     function.getFinalType().getTypeSignature().toString(),
                     function.getParameterTypes().stream()
                             .map(Type::getTypeSignature)

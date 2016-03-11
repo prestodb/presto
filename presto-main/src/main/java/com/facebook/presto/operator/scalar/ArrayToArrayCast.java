@@ -49,7 +49,7 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -60,7 +60,7 @@ public class ArrayToArrayCast
 
     private ArrayToArrayCast()
     {
-        super(CAST, ImmutableList.of(typeParameter("F"), typeParameter("T")), "array(T)", ImmutableList.of("array(F)"));
+        super(CAST, ImmutableList.of(typeVariable("F"), typeVariable("T")), ImmutableList.of(), "array(T)", ImmutableList.of("array(F)"));
     }
 
     @Override

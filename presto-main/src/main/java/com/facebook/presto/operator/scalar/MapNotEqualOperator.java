@@ -43,7 +43,7 @@ public class MapNotEqualOperator
 
     private MapNotEqualOperator()
     {
-        super(NOT_EQUAL, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), StandardTypes.BOOLEAN, ImmutableList.of("map(K,V)", "map(K,V)"));
+        super(NOT_EQUAL, ImmutableList.of(comparableTypeParameter("K"), comparableTypeParameter("V")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("map(K,V)", "map(K,V)"));
     }
 
     @Override

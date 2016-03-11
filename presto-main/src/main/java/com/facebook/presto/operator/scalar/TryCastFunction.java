@@ -26,7 +26,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.invoke.MethodHandles.catchException;
 import static java.lang.invoke.MethodHandles.constant;
@@ -40,7 +40,7 @@ public class TryCastFunction
 
     public TryCastFunction()
     {
-        super("TRY_CAST", ImmutableList.of(typeParameter("F"), typeParameter("T")), "T", ImmutableList.of("F"));
+        super("TRY_CAST", ImmutableList.of(typeVariable("F"), typeVariable("T")), ImmutableList.of(), "T", ImmutableList.of("F"));
     }
 
     @Override

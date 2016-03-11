@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
@@ -51,7 +51,7 @@ public abstract class AbstractMinMaxBy
 
     protected AbstractMinMaxBy(boolean min)
     {
-        super((min ? "min" : "max") + "_by", ImmutableList.of(orderableTypeParameter("K"), typeParameter("V")), "V", ImmutableList.of("V", "K"));
+        super((min ? "min" : "max") + "_by", ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")), ImmutableList.of(), "V", ImmutableList.of("V", "K"));
         this.min = min;
     }
 

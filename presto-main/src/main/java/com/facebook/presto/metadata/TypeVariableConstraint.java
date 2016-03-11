@@ -21,9 +21,7 @@ import javax.annotation.Nullable;
 
 import java.util.Objects;
 
-import static java.util.Objects.requireNonNull;
-
-public final class TypeParameterRequirement
+public class TypeVariableConstraint
 {
     private final String name;
     private final boolean comparableRequired;
@@ -31,13 +29,13 @@ public final class TypeParameterRequirement
     private final String variadicBound;
 
     @JsonCreator
-    public TypeParameterRequirement(
+    public TypeVariableConstraint(
             @JsonProperty("name") String name,
             @JsonProperty("comparableRequired") boolean comparableRequired,
             @JsonProperty("orderableRequired") boolean orderableRequired,
             @JsonProperty("variadicBound") @Nullable String variadicBound)
     {
-        this.name = requireNonNull(name, "name is null");
+        this.name = name;
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
         this.variadicBound = variadicBound;
@@ -106,13 +104,11 @@ public final class TypeParameterRequirement
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        TypeParameterRequirement other = (TypeParameterRequirement) o;
-
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.comparableRequired, other.comparableRequired) &&
-                Objects.equals(this.orderableRequired, other.orderableRequired) &&
-                Objects.equals(this.variadicBound, other.variadicBound);
+        TypeVariableConstraint that = (TypeVariableConstraint) o;
+        return comparableRequired == that.comparableRequired &&
+                orderableRequired == that.orderableRequired &&
+                Objects.equals(name, that.name) &&
+                Objects.equals(variadicBound, that.variadicBound);
     }
 
     @Override
