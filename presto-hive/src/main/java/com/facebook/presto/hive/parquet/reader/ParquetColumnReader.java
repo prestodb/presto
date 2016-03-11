@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet.reader;
 
+import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -31,6 +32,8 @@ import parquet.column.page.PageReader;
 import parquet.column.values.ValuesReader;
 import parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import parquet.io.ParquetDecodingException;
+import parquet.schema.DecimalMetadata;
+import parquet.schema.OriginalType;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -66,7 +69,7 @@ public abstract class ParquetColumnReader
 
     public abstract void skipValues(int offsetNumber);
 
-    public static ParquetColumnReader createReader(ColumnDescriptor descriptor)
+    public static ParquetColumnReader createReader(RichColumnDescriptor descriptor)
     {
         switch (descriptor.getType()) {
             case BOOLEAN:
@@ -83,6 +86,14 @@ public abstract class ParquetColumnReader
                 return new ParquetDoubleColumnReader(descriptor);
             case BINARY:
                 return new ParquetBinaryColumnReader(descriptor);
+            case FIXED_LEN_BYTE_ARRAY:
+                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.DECIMAL) {
+                    DecimalMetadata decimalMetadata = descriptor.getPrimitiveType().getDecimalMetadata();
+                    return ParquetDecimalColumnReaderFactory.createReader(descriptor, decimalMetadata.getPrecision(), decimalMetadata.getScale());
+                }
+                else {
+                    throw new PrestoException(NOT_SUPPORTED, "Parquet type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType());
+                }
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getType());
         }
