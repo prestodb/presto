@@ -255,7 +255,7 @@ public class TypeSignature
             int end,
             Set<String> literalCalculationParameters)
     {
-        String parameterName = signature.substring(begin, end);
+        String parameterName = signature.substring(begin, end).trim();
         if (Character.isDigit(signature.charAt(begin))) {
             return TypeSignatureParameter.of(Long.parseLong(parameterName));
         }
