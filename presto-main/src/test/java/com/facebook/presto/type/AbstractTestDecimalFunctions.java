@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import java.math.BigInteger;
 
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
 
 public abstract class AbstractTestDecimalFunctions
         extends AbstractTestFunctions
@@ -44,5 +45,11 @@ public abstract class AbstractTestDecimalFunctions
             unscaledValue = Decimals.decodeUnscaledValue((Slice) parseResult.getObject());
         }
         return new SqlDecimal(unscaledValue, parseResult.getType().getPrecision(), parseResult.getType().getScale());
+    }
+
+    protected SqlDecimal maxPrecisionDecimal(long value)
+    {
+        final String maxPrecisionFormat = "%0" + (MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
+        return decimal(String.format(maxPrecisionFormat, value));
     }
 }

@@ -27,6 +27,9 @@ import static java.util.Collections.unmodifiableList;
 public abstract class DecimalType
         extends AbstractFixedWidthType
 {
+    public static final int DEFAULT_SCALE = 0;
+    public static final int DEFAULT_PRECISION = MAX_PRECISION;
+
     public static DecimalType createDecimalType(int precision, int scale)
     {
         if (precision <= MAX_SHORT_PRECISION) {
@@ -35,6 +38,16 @@ public abstract class DecimalType
         else {
             return new LongDecimalType(precision, scale);
         }
+    }
+
+    public static DecimalType createDecimalType(int precision)
+    {
+        return createDecimalType(precision, DEFAULT_SCALE);
+    }
+
+    public static DecimalType createDecimalType()
+    {
+        return createDecimalType(DEFAULT_PRECISION, DEFAULT_SCALE);
     }
 
     private final int precision;
