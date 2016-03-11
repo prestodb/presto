@@ -1,18 +1,18 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
-chr        | bigint                    | varchar        | scalar  | true
-concat     | varchar                   | varchar        | scalar  | true
-length     | varchar                   | bigint         | scalar  | true
-lower      | varchar                   | varchar        | scalar  | true
-ltrim      | varchar                   | varchar        | scalar  | true
-replace    | varchar, varchar          | varchar        | scalar  | true
-replace    | varchar, varchar, varchar | varchar        | scalar  | true
-reverse    | varchar                   | varchar        | scalar  | true
-rtrim      | varchar                   | varchar        | scalar  | true
-split      | varchar, varchar          | array<varchar> | scalar  | true
-split      | varchar, varchar, bigint  | array<varchar> | scalar  | true
-split_part | varchar, varchar, bigint  | varchar        | scalar  | true
-strpos     | varchar, varchar          | bigint         | scalar  | true
-substr     | varchar, bigint           | varchar        | scalar  | true
-substr     | varchar, bigint, bigint   | varchar        | scalar  | true
-trim       | varchar                   | varchar        | scalar  | true
-upper      | varchar                   | varchar        | scalar  | true
+ chr | varchar(1) | bigint | scalar | true | convert Unicode code point to a string |
+ concat | varchar | varchar | scalar | true | concatenates given strings |
+ length | bigint | varchar(x) | scalar | true | count of code points of the given string |
+ lower | varchar(x)| varchar(x)| scalar | true | converts the string to lower case |
+ ltrim | varchar(x)| varchar(x)| scalar | true | removes whitespace from the beginning of a string |
+ replace | varchar | varchar(x), varchar(y) | scalar | true | greedily removes occurrences of a pattern in a string |
+ replace | varchar | varchar(x), varchar(y), varchar | scalar | true | greedily replaces occurrences of a pattern with a string |
+ reverse | varchar(x) | varchar(x) | scalar | true | reverse all code points in a given string |
+ rtrim | varchar(x) | varchar(x) | scalar | true | removes whitespace from the end of a string |
+ split | array(varchar(x)) | varchar(x), varchar | scalar | true | |
+ split | array(varchar(x)) | varchar(x), varchar, bigint | scalar | true | |
+ split_part | varchar(x) | varchar(x), varchar, bigint | scalar | true | splits a string by a delimiter and returns the specified field (counting from one) |
+ strpos | bigint | varchar, varchar | scalar | true | returns index of first occurrence of a substring (or 0 if not found) |
+ substr | varchar(x) | varchar(x), bigint | scalar | true | suffix starting at given index |
+ substr | varchar(x) | varchar(x), bigint, bigint | scalar | true | substring of given length starting at an index |
+ trim | varchar(x) | varchar(x) | scalar | true | removes whitespace from the beginning and end of a string |
+ upper | varchar(x) | varchar(x) | scalar | true | converts the string to upper case |

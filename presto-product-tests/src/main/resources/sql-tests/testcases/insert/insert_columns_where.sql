@@ -1,7 +1,7 @@
 -- database: presto; groups: insert; mutable_tables: datatype|created; tables: datatype
 -- delimiter: |; ignoreOrder: true; 
 --!
-insert into ${mutableTables.hive.datatype} select c_bigint, c_double, c_varchar, c_date, c_timestamp, c_boolean from datatype where c_double < 20;
+insert into ${mutableTables.hive.datatype} select c_bigint, c_double, c_string, c_date, c_timestamp, c_boolean from datatype where c_double < 20;
 select * from ${mutableTables.hive.datatype}
 --!
 12|12.25|String1|1999-01-08|1999-01-08 02:05:06|true|

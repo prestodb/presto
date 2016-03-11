@@ -13,37 +13,16 @@
  */
 package com.facebook.presto.tests.utils;
 
-import com.facebook.presto.jdbc.PrestoConnection;
 import com.teradata.tempto.query.QueryExecutor;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Map;
 
 import static com.teradata.tempto.context.ThreadLocalTestContextHolder.testContext;
 
 public class QueryExecutors
 {
-    private QueryExecutors() {}
-
     public static QueryExecutor onPresto()
     {
         return testContext().getDependency(QueryExecutor.class, "presto");
     }
 
-    public static void onPrestoWith(Map<String, String> sessionProperties, ConnectionConsumer connectionConsumer)
-            throws SQLException
-    {
-        try (PrestoConnection connection = (PrestoConnection) onPresto().getConnection()) {
-            sessionProperties.entrySet().stream()
-                    .forEach(entry -> connection.setSessionProperty(entry.getKey(), entry.getValue()));
-            connectionConsumer.accept(connection);
-        }
-    }
-
-    public interface ConnectionConsumer
-    {
-        void accept(Connection connection)
-                throws SQLException;
-    }
+    private QueryExecutors() {}
 }

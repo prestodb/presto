@@ -1,80 +1,74 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|BIGINT|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR
-system| runtime| queries| node_id| 1| null| YES| varchar| NO| null|
-system| runtime| queries| query_id| 2| null| YES| varchar| NO| null|
-system| runtime| queries| state| 3| null| YES| varchar| NO| null|
-system| runtime| queries| user| 4| null| YES| varchar| NO| null|
-system| runtime| queries| source| 5| null| YES| varchar| NO| null|
-system| runtime| queries| query| 6| null| YES| varchar| NO| null|
-system| runtime| queries| queued_time_ms| 7| null| YES| bigint| NO| null|
-system| runtime| queries| analysis_time_ms| 8| null| YES| bigint| NO| null|
-system| runtime| queries| distributed_planning_time_ms| 9| null| YES| bigint| NO| null|
-system| runtime| queries| created| 10| null| YES| timestamp| NO| null|
-system| runtime| queries| started| 11| null| YES| timestamp| NO| null|
-system| runtime| queries| last_heartbeat| 12| null| YES| timestamp| NO| null|
-system| runtime| queries| end| 13| null| YES| timestamp| NO| null|
-system| information_schema| __internal_functions__| function_name| 1| null| YES| varchar| NO| null|
-system| information_schema| __internal_functions__| argument_types| 2| null| YES| varchar| NO| null|
-system| information_schema| __internal_functions__| return_type| 3| null| YES| varchar| NO| null|
-system| information_schema| __internal_functions__| function_type| 4| null| YES| varchar| NO| null|
-system| information_schema| __internal_functions__| deterministic| 5| null| YES| boolean| NO| null|
-system| information_schema| __internal_functions__| description| 6| null| YES| varchar| NO| null|
-system| runtime| nodes| node_id| 1| null| YES| varchar| NO| null|
-system| runtime| nodes| http_uri| 2| null| YES| varchar| NO| null|
-system| runtime| nodes| node_version| 3| null| YES| varchar| NO| null|
-system| runtime| nodes| coordinator| 4| null| YES| boolean| NO| null|
-system| runtime| nodes| active| 5| null| YES| boolean| NO| null|
-system| information_schema| tables| table_catalog| 1| null| YES| varchar| NO| null|
-system| information_schema| tables| table_schema| 2| null| YES| varchar| NO| null|
-system| information_schema| tables| table_name| 3| null| YES| varchar| NO| null|
-system| information_schema| tables| table_type| 4| null| YES| varchar| NO| null|
-system| information_schema| schemata| catalog_name| 1| null| YES| varchar| NO| null|
-system| information_schema| schemata| schema_name| 2| null| YES| varchar| NO| null|
-system| metadata| table_properties| catalog_name| 1| null| YES| varchar| NO| null|
-system| metadata| table_properties| property_name| 2| null| YES| varchar| NO| null|
-system| metadata| table_properties| default_value| 3| null| YES| varchar| NO| null|
-system| metadata| table_properties| type| 4| null| YES| varchar| NO| null|
-system| metadata| table_properties| description| 5| null| YES| varchar| NO| null|
-system| runtime| tasks| node_id| 1| null| YES| varchar| NO| null|
-system| runtime| tasks| task_id| 2| null| YES| varchar| NO| null|
-system| runtime| tasks| stage_id| 3| null| YES| varchar| NO| null|
-system| runtime| tasks| query_id| 4| null| YES| varchar| NO| null|
-system| runtime| tasks| state| 5| null| YES| varchar| NO| null|
-system| runtime| tasks| splits| 6| null| YES| bigint| NO| null|
-system| runtime| tasks| queued_splits| 7| null| YES| bigint| NO| null|
-system| runtime| tasks| running_splits| 8| null| YES| bigint| NO| null|
-system| runtime| tasks| completed_splits| 9| null| YES| bigint| NO| null|
-system| runtime| tasks| split_scheduled_time_ms| 10| null| YES| bigint| NO| null|
-system| runtime| tasks| split_cpu_time_ms| 11| null| YES| bigint| NO| null|
-system| runtime| tasks| split_user_time_ms| 12| null| YES| bigint| NO| null|
-system| runtime| tasks| split_blocked_time_ms| 13| null| YES| bigint| NO| null|
-system| runtime| tasks| raw_input_bytes| 14| null| YES| bigint| NO| null|
-system| runtime| tasks| raw_input_rows| 15| null| YES| bigint| NO| null|
-system| runtime| tasks| processed_input_bytes| 16| null| YES| bigint| NO| null|
-system| runtime| tasks| processed_input_rows| 17| null| YES| bigint| NO| null|
-system| runtime| tasks| output_bytes| 18| null| YES| bigint| NO| null|
-system| runtime| tasks| output_rows| 19| null| YES| bigint| NO| null|
-system| runtime| tasks| created| 20| null| YES| timestamp| NO| null|
-system| runtime| tasks| start| 21| null| YES| timestamp| NO| null|
-system| runtime| tasks| last_heartbeat| 22| null| YES| timestamp| NO| null|
-system| runtime| tasks| end| 23| null| YES| timestamp| NO| null|
-system| information_schema| columns| table_catalog| 1| null| YES| varchar| NO| null|
-system| information_schema| columns| table_schema| 2| null| YES| varchar| NO| null|
-system| information_schema| columns| table_name| 3| null| YES| varchar| NO| null|
-system| information_schema| columns| column_name| 4| null| YES| varchar| NO| null|
-system| information_schema| columns| ordinal_position| 5| null| YES| bigint| NO| null|
-system| information_schema| columns| column_default| 6| null| YES| varchar| NO| null|
-system| information_schema| columns| is_nullable| 7| null| YES| varchar| NO| null|
-system| information_schema| columns| data_type| 8| null| YES| varchar| NO| null|
-system| information_schema| columns| comment| 9| null| YES| varchar| NO| null|
-system| information_schema| views| table_catalog| 1| null| YES| varchar| NO| null|
-system| information_schema| views| table_schema| 2| null| YES| varchar| NO| null|
-system| information_schema| views| table_name| 3| null| YES| varchar| NO| null|
-system| information_schema| views| view_definition| 4| null| YES| varchar| NO| null|
-system| information_schema| __internal_partitions__| table_catalog| 1| null| YES| varchar| NO| null|
-system| information_schema| __internal_partitions__| table_schema| 2| null| YES| varchar| NO| null|
-system| information_schema| __internal_partitions__| table_name| 3| null| YES| varchar| NO| null|
-system| information_schema| __internal_partitions__| partition_number| 4| null| YES| bigint| NO| null|
-system| information_schema| __internal_partitions__| partition_key| 5| null| YES| varchar| NO| null|
-system| information_schema| __internal_partitions__| partition_value| 6| null| YES| varchar| NO| null|
-system| metadata| catalogs| catalog_name| 1| null| YES| varchar| NO| null|
-system| metadata| catalogs| connector_id| 2| null| YES| varchar| NO| null|
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|BIGINT|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR
+system| runtime| queries| node_id| 1| null| YES| varchar| null|
+system| runtime| queries| query_id| 2| null| YES| varchar| null|
+system| runtime| queries| state| 3| null| YES| varchar| null|
+system| runtime| queries| user| 4| null| YES| varchar| null|
+system| runtime| queries| source| 5| null| YES| varchar| null|
+system| runtime| queries| query| 6| null| YES| varchar| null|
+system| runtime| queries| queued_time_ms| 7| null| YES| bigint| null|
+system| runtime| queries| analysis_time_ms| 8| null| YES| bigint| null|
+system| runtime| queries| distributed_planning_time_ms| 9| null| YES| bigint| null|
+system| runtime| queries| created| 10| null| YES| timestamp| null|
+system| runtime| queries| started| 11| null| YES| timestamp| null|
+system| runtime| queries| last_heartbeat| 12| null| YES| timestamp| null|
+system| runtime| queries| end| 13| null| YES| timestamp| null|
+system| runtime| nodes| node_id| 1| null| YES| varchar| null|
+system| runtime| nodes| http_uri| 2| null| YES| varchar| null|
+system| runtime| nodes| node_version| 3| null| YES| varchar| null|
+system| runtime| nodes| coordinator| 4| null| YES| boolean| null|
+system| runtime| nodes| state | 5| null| YES| varchar| null|
+system| information_schema| tables| table_catalog| 1| null| YES| varchar| null|
+system| information_schema| tables| table_schema| 2| null| YES| varchar| null|
+system| information_schema| tables| table_name| 3| null| YES| varchar| null|
+system| information_schema| tables| table_type| 4| null| YES| varchar| null|
+system| information_schema| schemata| catalog_name| 1| null| YES| varchar| null|
+system| information_schema| schemata| schema_name| 2| null| YES| varchar| null|
+system| metadata| table_properties| catalog_name| 1| null| YES| varchar| null|
+system| metadata| table_properties| property_name| 2| null| YES| varchar| null|
+system| metadata| table_properties| default_value| 3| null| YES| varchar| null|
+system| metadata| table_properties| type| 4| null| YES| varchar| null|
+system| metadata| table_properties| description| 5| null| YES| varchar| null|
+system| runtime| tasks| node_id| 1| null| YES| varchar| null|
+system| runtime| tasks| task_id| 2| null| YES| varchar| null|
+system| runtime| tasks| stage_id| 3| null| YES| varchar| null|
+system| runtime| tasks| query_id| 4| null| YES| varchar| null|
+system| runtime| tasks| state| 5| null| YES| varchar| null|
+system| runtime| tasks| splits| 6| null| YES| bigint| null|
+system| runtime| tasks| queued_splits| 7| null| YES| bigint| null|
+system| runtime| tasks| running_splits| 8| null| YES| bigint| null|
+system| runtime| tasks| completed_splits| 9| null| YES| bigint| null|
+system| runtime| tasks| split_scheduled_time_ms| 10| null| YES| bigint| null|
+system| runtime| tasks| split_cpu_time_ms| 11| null| YES| bigint| null|
+system| runtime| tasks| split_user_time_ms| 12| null| YES| bigint| null|
+system| runtime| tasks| split_blocked_time_ms| 13| null| YES| bigint| null|
+system| runtime| tasks| raw_input_bytes| 14| null| YES| bigint| null|
+system| runtime| tasks| raw_input_rows| 15| null| YES| bigint| null|
+system| runtime| tasks| processed_input_bytes| 16| null| YES| bigint| null|
+system| runtime| tasks| processed_input_rows| 17| null| YES| bigint| null|
+system| runtime| tasks| output_bytes| 18| null| YES| bigint| null|
+system| runtime| tasks| output_rows| 19| null| YES| bigint| null|
+system| runtime| tasks| created| 20| null| YES| timestamp| null|
+system| runtime| tasks| start| 21| null| YES| timestamp| null|
+system| runtime| tasks| last_heartbeat| 22| null| YES| timestamp| null|
+system| runtime| tasks| end| 23| null| YES| timestamp| null|
+system| information_schema| columns| table_catalog| 1| null| YES| varchar| null|
+system| information_schema| columns| table_schema| 2| null| YES| varchar| null|
+system| information_schema| columns| table_name| 3| null| YES| varchar| null|
+system| information_schema| columns| column_name| 4| null| YES| varchar| null|
+system| information_schema| columns| ordinal_position| 5| null| YES| bigint| null|
+system| information_schema| columns| column_default| 6| null| YES| varchar| null|
+system| information_schema| columns| is_nullable| 7| null| YES| varchar| null|
+system| information_schema| columns| data_type| 8| null| YES| varchar| null|
+system| information_schema| columns| comment| 9| null| YES| varchar| null|
+system| information_schema| views| table_catalog| 1| null| YES| varchar| null|
+system| information_schema| views| table_schema| 2| null| YES| varchar| null|
+system| information_schema| views| table_name| 3| null| YES| varchar| null|
+system| information_schema| views| view_definition| 4| null| YES| varchar| null|
+system| information_schema| __internal_partitions__| table_catalog| 1| null| YES| varchar| null|
+system| information_schema| __internal_partitions__| table_schema| 2| null| YES| varchar| null|
+system| information_schema| __internal_partitions__| table_name| 3| null| YES| varchar| null|
+system| information_schema| __internal_partitions__| partition_number| 4| null| YES| bigint| null|
+system| information_schema| __internal_partitions__| partition_key| 5| null| YES| varchar| null|
+system| information_schema| __internal_partitions__| partition_value| 6| null| YES| varchar| null|
+system| metadata| catalogs| catalog_name| 1| null| YES| varchar| null|
+system| metadata| catalogs| connector_id| 2| null| YES| varchar| null|
