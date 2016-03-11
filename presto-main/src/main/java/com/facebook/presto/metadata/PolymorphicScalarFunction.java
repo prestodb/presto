@@ -90,7 +90,7 @@ class PolymorphicScalarFunction
     {
         Signature signature = getSignature();
         Map<String, OptionalLong> literalParameters = signature.bindLongVariables(parameterTypes);
-        TypeSignature calculatedReturnType = resolveCalculatedType(signature.getReturnType(), literalParameters, true);
+        TypeSignature calculatedReturnType = resolveCalculatedType(signature.getReturnType(), literalParameters);
 
         List<Type> resolvedParameterTypes = resolveTypes(parameterTypes, typeManager);
         Type resolvedReturnType = resolveReturnType(types, typeManager, calculatedReturnType);

@@ -181,14 +181,14 @@ public class ReflectionParametricScalar
         // There is patch in flight which refactors function resolution.
         // Temporarily we hack literal arguments handling here.
         Map<String, OptionalLong> literalParameters = preBoundSignature.bindLongVariables(parameterTypes);
-        TypeSignature calculatedReturnType = resolveCalculatedType(preBoundSignature.getReturnType(), literalParameters, true);
+        TypeSignature calculatedReturnType = resolveCalculatedType(preBoundSignature.getReturnType(), literalParameters);
 
         SignatureBuilder signatureBuilder = new SignatureBuilder();
         signatureBuilder.kind(preBoundSignature.getKind());
         signatureBuilder.returnType(calculatedReturnType.toString());
         signatureBuilder.argumentTypes(preBoundSignature.getArgumentTypes()
                 .stream()
-                .map(argumentType -> resolveCalculatedType(argumentType, literalParameters, false))
+                .map(argumentType -> resolveCalculatedType(argumentType, literalParameters))
                 .map(TypeSignature::toString)
                 .collect(toImmutableList()));
         signatureBuilder.name(preBoundSignature.getName());

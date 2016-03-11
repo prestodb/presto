@@ -71,7 +71,7 @@ public class TestTypeSignature
     {
         TypeSignature result = parseTypeSignature("decimal(X,42)", ImmutableSet.of("X"));
         assertEquals(result.getParameters().size(), 2);
-        assertEquals(result.getParameters().get(0).isLiteralCalculation(), true);
+        assertEquals(result.getParameters().get(0).isVariable(), true);
         assertEquals(result.getParameters().get(1).isLongLiteral(), true);
     }
 
