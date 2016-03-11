@@ -24,6 +24,8 @@ import java.util.Map;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.google.common.collect.Lists.transform;
+import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -79,8 +81,7 @@ public class TestTypeSignature
     {
         assertRowSignature(
                 "row<bigint,varchar>('a','b')",
-                "row",
-                ImmutableList.of("a bigint", "b varchar"));
+                rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
         assertRowSignature(
                 "ROW<bigint,varchar>('a','b')",
                 "ROW",
@@ -88,20 +89,52 @@ public class TestTypeSignature
                 "row<bigint,varchar>('a','b')");
         assertRowSignature(
                 "row<bigint,array(bigint),row<bigint>('a')>('a','b','c')",
-                "row",
-                ImmutableList.of("a bigint", "b array(bigint)", "c row<bigint>('a')"));
+                rowSignature(
+                        namedParameter("a", signature("bigint")),
+                        namedParameter("b", array(signature("bigint"))),
+                        namedParameter("c", rowSignature(namedParameter("a", signature("bigint"))))));
         assertRowSignature(
                 "row<varchar(10),row<bigint>('a')>('a','b')",
-                "row",
-                ImmutableList.of("a varchar(10)", "b row<bigint>('a')"));
+                rowSignature(
+                        namedParameter("a", varchar(10)),
+                        namedParameter("b", rowSignature(namedParameter("a", signature("bigint"))))));
         assertRowSignature(
                 "array(row<bigint,double>('col0','col1'))",
-                "array",
-                ImmutableList.of("row<bigint,double>('col0','col1')"));
+                array(rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))));
         assertRowSignature(
                 "row<array(row<bigint,double>('col0','col1'))>('col0')",
-                "row",
-                ImmutableList.of("col0 array(row<bigint,double>('col0','col1'))"));
+                rowSignature(namedParameter("col0", array(
+                        rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))))));
+    }
+
+    private TypeSignature varchar()
+    {
+        return new TypeSignature(StandardTypes.VARCHAR);
+    }
+
+    private TypeSignature varchar(long length)
+    {
+        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(length));
+    }
+
+    private static TypeSignature rowSignature(NamedTypeSignature... columns)
+    {
+        return new TypeSignature("row", transform(asList(columns), TypeSignatureParameter::of));
+    }
+
+    private static NamedTypeSignature namedParameter(String name, TypeSignature value)
+    {
+        return new NamedTypeSignature(name, value);
+    }
+
+    private static TypeSignature array(TypeSignature type)
+    {
+        return new TypeSignature(StandardTypes.ARRAY, TypeSignatureParameter.of(type));
+    }
+
+    private TypeSignature signature(String name)
+    {
+        return new TypeSignature(name);
     }
 
     @Test
@@ -156,10 +189,16 @@ public class TestTypeSignature
 
     private static void assertRowSignature(
             String typeName,
-            String base,
-            List<String> parameters)
+            TypeSignature expectedSignature)
     {
-        assertRowSignature(typeName, base, parameters, typeName);
+        TypeSignature signature = parseTypeSignature(typeName);
+        assertEquals(signature, expectedSignature);
+        assertEquals(signature.toString(), typeName);
+    }
+
+    private static void assertSignature(String typeName, String base, List<String> parameters)
+    {
+        assertSignature(typeName, base, parameters, typeName.replace("<", "(").replace(">", ")"));
     }
 
     private static void assertRowSignature(
@@ -169,11 +208,6 @@ public class TestTypeSignature
             String expected)
     {
         assertSignature(typeName, base, parameters, expected);
-    }
-
-    private static void assertSignature(String typeName, String base, List<String> parameters)
-    {
-        assertSignature(typeName, base, parameters, typeName.replace("<", "(").replace(">", ")"));
     }
 
     private static void assertSignature(
