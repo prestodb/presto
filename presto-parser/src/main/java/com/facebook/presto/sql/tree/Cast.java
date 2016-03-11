@@ -32,14 +32,9 @@ public final class Cast
         this(Optional.empty(), expression, type, false, false);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type)
-    {
-        this(Optional.of(location), expression, type, false, false);
-    }
-
     public Cast(Expression expression, String type, boolean safe)
     {
-        this(Optional.empty(), expression, type, safe, false);
+        this(Optional.empty(), expression, type, false, false);
     }
 
     public Cast(Expression expression, String type, boolean safe, boolean typeOnly)
@@ -47,9 +42,19 @@ public final class Cast
         this(Optional.empty(), expression, type, safe, typeOnly);
     }
 
+    public Cast(NodeLocation location, Expression expression, String type)
+    {
+        this(Optional.of(location), expression, type, false, false);
+    }
+
     public Cast(NodeLocation location, Expression expression, String type, boolean safe)
     {
         this(Optional.of(location), expression, type, safe, false);
+    }
+
+    public Cast(NodeLocation location, Expression expression, String type, boolean safe, boolean typeOnly)
+    {
+        this(Optional.of(location), expression, type, safe, typeOnly);
     }
 
     private Cast(Optional<NodeLocation> location, Expression expression, String type, boolean safe, boolean typeOnly)
@@ -63,7 +68,6 @@ public final class Cast
         this.safe = safe;
         this.typeOnly = typeOnly;
     }
-
     public Expression getExpression()
     {
         return expression;
