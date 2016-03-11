@@ -118,7 +118,7 @@ public abstract class SqlScalarFunction
         return signature;
     }
 
-    public abstract ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
+    public abstract ScalarFunctionImplementation specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry);
 
     private static class SimpleSqlScalarFunction
             extends SqlScalarFunction
@@ -179,7 +179,7 @@ public abstract class SqlScalarFunction
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public ScalarFunctionImplementation specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
             return new ScalarFunctionImplementation(nullable, nullableArguments, methodHandle, instanceFactory, isDeterministic());
         }

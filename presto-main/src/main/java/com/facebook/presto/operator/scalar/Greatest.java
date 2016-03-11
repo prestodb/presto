@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.OperatorType;
-
 public final class Greatest
         extends AbstractGreatestLeast
 {
