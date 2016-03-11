@@ -58,6 +58,8 @@ import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
+import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
@@ -110,14 +112,12 @@ public class BackgroundHiveSplitLoader
             Iterable<HivePartitionMetadata> partitions,
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucket> bucket,
-            DataSize maxSplitSize,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
             NamenodeStats namenodeStats,
             DirectoryLister directoryLister,
             Executor executor,
             int maxPartitionBatchSize,
-            DataSize maxInitialSplitSize,
             int maxInitialSplits,
             boolean recursiveDirWalkerEnabled)
     {
@@ -125,13 +125,13 @@ public class BackgroundHiveSplitLoader
         this.table = table;
         this.bucketHandle = bucketHandle;
         this.bucket = bucket;
-        this.maxSplitSize = maxSplitSize;
+        this.maxSplitSize = getMaxSplitSize(session);
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.session = session;
         this.hdfsEnvironment = hdfsEnvironment;
         this.namenodeStats = namenodeStats;
         this.directoryLister = directoryLister;
-        this.maxInitialSplitSize = maxInitialSplitSize;
+        this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.executor = executor;
