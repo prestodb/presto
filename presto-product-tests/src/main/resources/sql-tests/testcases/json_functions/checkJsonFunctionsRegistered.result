@@ -1,19 +1,21 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
- json_array_get      | varchar, bigint   | json        | scalar        | true
- json_array_get      | json, bigint      | json        | scalar        | true
- json_extract_scalar | varchar, JsonPath | varchar     | scalar        | true
- json_extract_scalar | json, JsonPath    | varchar     | scalar        | true
- json_array_contains | json, boolean     | boolean     | scalar        | true
- json_array_contains | json, bigint      | boolean     | scalar        | true
- json_array_contains | json, varchar     | boolean     | scalar        | true
- json_array_contains | json, double      | boolean     | scalar        | true
- json_array_contains | varchar, varchar  | boolean     | scalar        | true
- json_array_contains | varchar, double   | boolean     | scalar        | true
- json_array_contains | varchar, bigint   | boolean     | scalar        | true
- json_array_contains | varchar, boolean  | boolean     | scalar        | true
- json_extract        | varchar, JsonPath | json        | scalar        | true
- json_extract        | json, JsonPath    | json        | scalar        | true
- json_size           | varchar, JsonPath | bigint      | scalar        | true
- json_size           | json, JsonPath    | bigint      | scalar        | true
- json_array_length   | varchar           | bigint      | scalar        | true
- json_array_length   | json              | bigint      | scalar        | true
+ json_array_contains | boolean | json, bigint | scalar | true | |
+ json_array_contains | boolean | json, boolean | scalar | true | |
+ json_array_contains | boolean | json, double | scalar | true | |
+ json_array_contains | boolean | json, varchar | scalar | true | |
+ json_array_contains | boolean | varchar, bigint | scalar | true | |
+ json_array_contains | boolean | varchar, boolean | scalar | true | |
+ json_array_contains | boolean | varchar, double | scalar | true | |
+ json_array_contains | boolean | varchar, varchar | scalar | true | |
+ json_array_get | json | json, bigint | scalar | true | |
+ json_array_get | json | varchar, bigint | scalar | true | |
+ json_array_length | bigint | json | scalar | true | |
+ json_array_length | bigint | varchar | scalar | true | |
+ json_extract | json | json, JsonPath | scalar | true | |
+ json_extract | json | varchar, JsonPath | scalar | true | |
+ json_extract_scalar | varchar | json, JsonPath | scalar | true | |
+ json_extract_scalar | varchar | varchar, JsonPath | scalar | true | |
+ json_format | varchar | json | scalar | true | |
+ json_parse | json | varchar | scalar | true | |
+ json_size | bigint | json, JsonPath | scalar | true | |
+ json_size | bigint | varchar, JsonPath | scalar | true | |

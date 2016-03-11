@@ -1,9 +1,9 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
- concat          | array<E>, array<E> | array<E>    | scalar        | true
- concat          | array<E>, E        | array<E>    | scalar        | true
- concat          | E, array<E>        | array<E>    | scalar        | true
- cardinality     | array<E>           | bigint      | scalar        | true
- contains        | array<T>, T        | boolean     | scalar        | true
- array_sort      | array<E>           | array<E>    | scalar        | true
- array_intersect | array<E>, array<E> | array<E>    | scalar        | true
- array_distinct  | array<E>           | array<E>    | scalar        | true
+ concat | array(E) | E, array(E) | scalar | true | Concatenates an element to an array |
+ concat | array(E) | array(E), E | scalar | true | Concatenates an array to an element |
+ concat | array(E) | array(E), array(E) | scalar | true | Concatenates given arrays |
+ cardinality | bigint | map(K,V) | scalar | true | |
+ contains | boolean | array(T), T | scalar | true | Determines whether given value exists in the array |
+ array_sort | array(E) | array(E) | scalar | true | Sorts the given array in ascending order according to the natural ordering of its elements. |
+ array_intersect | array(E) | array(E), array(E) | scalar | true | Intersects elements of the two given arrays |
+ array_distinct | array(E) | array(E) | scalar | true | Remove duplicate values from the given array |
