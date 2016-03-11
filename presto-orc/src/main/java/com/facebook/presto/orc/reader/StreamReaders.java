@@ -51,6 +51,7 @@ public final class StreamReaders
                 return new MapStreamReader(streamDescriptor, hiveStorageTimeZone);
             case UNION:
             case DECIMAL:
+                return new DecimalStreamReader(streamDescriptor);
             case VARCHAR:
             case CHAR:
             default:

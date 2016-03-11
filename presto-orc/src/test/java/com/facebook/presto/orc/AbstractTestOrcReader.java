@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
+import com.google.common.base.Function;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
@@ -23,6 +26,9 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -66,6 +72,26 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestOrcReader
 {
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_2 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(2, 1));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_4 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(4, 2));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_8 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(8, 4));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_17 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(17, 8));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_18 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(18, 8));
+    private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_38 =
+            new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 16));
+
+    private static final DecimalType DECIMAL_TYPE_PRECISION_2 = DecimalType.createDecimalType(2, 1);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_4 = DecimalType.createDecimalType(4, 2);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_8 = DecimalType.createDecimalType(8, 4);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_17 = DecimalType.createDecimalType(17, 8);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_18 = DecimalType.createDecimalType(18, 8);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_38 = DecimalType.createDecimalType(38, 16);
+
     private final OrcTester tester;
 
     public AbstractTestOrcReader(OrcTester tester)
@@ -179,6 +205,18 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(javaDoubleObjectInspector, doubleSequence(0, 0.1, 30_000), DOUBLE);
+    }
+
+    @Test
+    public void testDecimalSequence()
+            throws Exception
+    {
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_2, decimalSequence("0.0", "0.1", 30, 1), toSqlDecimal(1), DECIMAL_TYPE_PRECISION_2);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_4, decimalSequence("00.00", "00.01", 30_00, 2), toSqlDecimal(2), DECIMAL_TYPE_PRECISION_4);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_8, decimalSequence("0000.0000", "0000.0100", 30_000, 4), toSqlDecimal(4), DECIMAL_TYPE_PRECISION_8);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_17, decimalSequence("000000000.00000000", "000000000.01000000", 30_000, 8), toSqlDecimal(8), DECIMAL_TYPE_PRECISION_17);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_18, decimalSequence("0000000000.00000000", "0000000000.01000000", 30_000, 8), toSqlDecimal(8), DECIMAL_TYPE_PRECISION_18);
+        tester.testRoundTrip(DECIMAL_INSPECTOR_PRECISION_38, decimalSequence("0.0000000000000000", "0.0100000000000000", 30_000, 16), toSqlDecimal(16), DECIMAL_TYPE_PRECISION_38);
     }
 
     @Test
@@ -363,6 +401,30 @@ public abstract class AbstractTestOrcReader
                 return previous + step;
             }
         };
+    }
+
+    private static Iterable<HiveDecimal> decimalSequence(String start, String step, int items, int scale)
+    {
+        HiveDecimal hiveStep = HiveDecimal.create(step);
+        return () -> new AbstractSequentialIterator<HiveDecimal>(HiveDecimal.create(start))
+        {
+            private int item;
+
+            @Override
+            protected HiveDecimal computeNext(HiveDecimal previous)
+            {
+                if (item >= items) {
+                    return null;
+                }
+                item++;
+                return previous.add(hiveStep).setScale(scale);
+            }
+        };
+    }
+
+    private static Function<HiveDecimal, SqlDecimal> toSqlDecimal(int scale)
+    {
+        return hiveDecimal -> new SqlDecimal(hiveDecimal.unscaledValue(), hiveDecimal.precision(), scale);
     }
 
     private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
