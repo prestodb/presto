@@ -25,7 +25,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class CreateTable
-        extends Statement
+        extends DataDefinitionStatement
 {
     private final QualifiedName name;
     private final List<TableElement> elements;
