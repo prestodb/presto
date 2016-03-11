@@ -28,6 +28,7 @@ import java.math.BigInteger;
 
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
+import static com.facebook.presto.spi.type.Decimals.writeBigDecimal;
 import static org.testng.Assert.assertEquals;
 
 public class TestLongDecimalType
@@ -80,11 +81,6 @@ public class TestLongDecimalType
         BigDecimal decimal = toBigDecimal(slice, 10);
         BigDecimal greaterDecimal = decimal.add(BigDecimal.ONE);
         return encodeScaledValue(greaterDecimal);
-    }
-
-    private static void writeBigDecimal(DecimalType decimalType, BlockBuilder blockBuilder, BigDecimal value)
-    {
-        decimalType.writeSlice(blockBuilder, encodeScaledValue(value));
     }
 
     private static BigDecimal toBigDecimal(Slice valueSlice, int scale)

@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -240,5 +241,10 @@ public class Decimals
         if (overflows(value)) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Value is out of range: %s", value.toString()));
         }
+    }
+
+    public static void writeBigDecimal(DecimalType decimalType, BlockBuilder blockBuilder, BigDecimal value)
+    {
+        decimalType.writeSlice(blockBuilder, encodeScaledValue(value));
     }
 }
