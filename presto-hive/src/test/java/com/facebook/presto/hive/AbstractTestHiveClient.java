@@ -475,8 +475,6 @@ public abstract class AbstractTestHiveClient
                 maxOutstandingSplits,
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxSplitSize(),
-                hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 false
         );
