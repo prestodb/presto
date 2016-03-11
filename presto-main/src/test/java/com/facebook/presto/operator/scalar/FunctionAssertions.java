@@ -431,7 +431,7 @@ public final class FunctionAssertions
                             rewrittenExpression,
                             coercion.getTypeSignature().toString(),
                             false,
-                            isTypeOnlyCoercion(type.getTypeSignature(), coercion.getTypeSignature()));
+                            isTypeOnlyCoercion(type, coercion));
                 }
 
                 return rewrittenExpression;

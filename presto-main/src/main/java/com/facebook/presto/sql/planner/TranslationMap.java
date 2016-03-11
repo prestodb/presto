@@ -188,7 +188,7 @@ class TranslationMap
                             rewrittenExpression,
                             coercion.getTypeSignature().toString(),
                             false,
-                            isTypeOnlyCoercion(type.getTypeSignature(), coercion.getTypeSignature()));
+                            isTypeOnlyCoercion(type, coercion));
                 }
 
                 return rewrittenExpression;
@@ -242,7 +242,7 @@ class TranslationMap
                             rewrittenExpression,
                             coercion.getTypeSignature().toString(),
                             false,
-                            isTypeOnlyCoercion(type.getTypeSignature(), coercion.getTypeSignature()));
+                            isTypeOnlyCoercion(type, coercion));
                 }
                 return rewrittenExpression;
             }
