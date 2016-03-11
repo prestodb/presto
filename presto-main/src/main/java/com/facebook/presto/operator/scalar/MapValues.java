@@ -27,7 +27,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -39,7 +39,7 @@ public class MapValues
 
     public MapValues()
     {
-        super("map_values", ImmutableList.of(typeParameter("K"), typeParameter("V")), "array(V)", ImmutableList.of("map(K,V)"));
+        super("map_values", ImmutableList.of(typeVariable("K"), typeVariable("V")), ImmutableList.of(), "array(V)", ImmutableList.of("map(K,V)"));
     }
 
     @Override

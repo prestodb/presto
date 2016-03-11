@@ -49,9 +49,9 @@ public abstract class SqlOperator
         super(mangleOperatorName(operatorType), returnType, argumentTypes, literalParameters);
     }
 
-    protected SqlOperator(OperatorType operatorType, List<TypeParameterRequirement> typeParameterRequirements, String returnType, List<String> argumentTypes)
+    protected SqlOperator(OperatorType operatorType, List<TypeVariableConstraint> typeVariableConstraints, List<LongVariableConstraint> longVariableConstraints,  String returnType, List<String> argumentTypes)
     {
-        super(mangleOperatorName(operatorType), typeParameterRequirements, returnType, argumentTypes);
+        super(mangleOperatorName(operatorType), typeVariableConstraints, longVariableConstraints, returnType, argumentTypes);
     }
 
     @Override
