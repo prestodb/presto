@@ -41,10 +41,10 @@ public class Decimals
     public static final int MAX_PRECISION = 38;
     public static final int MAX_SHORT_PRECISION = 17;
 
-    private static final BigInteger MAX_DECIMAL_UNSCALED_VALUE = new BigInteger(
+    public static final BigInteger MAX_DECIMAL_UNSCALED_VALUE = new BigInteger(
             // repeat digit '9' MAX_PRECISION times
             new String(new char[MAX_PRECISION]).replace("\0", "9"));
-    private static final BigInteger MIN_DECIMAL_UNSCALED_VALUE = MAX_DECIMAL_UNSCALED_VALUE.negate();
+    public static final BigInteger MIN_DECIMAL_UNSCALED_VALUE = MAX_DECIMAL_UNSCALED_VALUE.negate();
 
     private static final Pattern DECIMAL_PATTERN = Pattern.compile("(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?");
 
@@ -246,5 +246,21 @@ public class Decimals
     public static void writeBigDecimal(DecimalType decimalType, BlockBuilder blockBuilder, BigDecimal value)
     {
         decimalType.writeSlice(blockBuilder, encodeScaledValue(value));
+    }
+
+    public static long rescale(long value, int fromScale, int toScale)
+    {
+        if (toScale < fromScale) {
+            throw new IllegalArgumentException("target scale must be larger than source scale");
+        }
+        return value * longTenToNth(toScale - fromScale);
+    }
+
+    public static BigInteger rescale(BigInteger value, int fromScale, int toScale)
+    {
+        if (toScale < fromScale) {
+            throw new IllegalArgumentException("target scale must be larger than source scale");
+        }
+        return value.multiply(bigIntegerTenToNth(toScale - fromScale));
     }
 }
