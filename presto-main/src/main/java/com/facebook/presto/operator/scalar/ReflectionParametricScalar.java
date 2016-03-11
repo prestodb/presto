@@ -140,9 +140,9 @@ public class ReflectionParametricScalar
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Signature boundSignature = bindSignature(getSignature(), types, arity);
+        Signature boundSignature = bindSignature(getSignature(), types, parameterTypes.size());
         if (exactImplementations.containsKey(boundSignature)) {
             Implementation implementation = exactImplementations.get(boundSignature);
             return new ScalarFunctionImplementation(implementation.isNullable(), implementation.getNullableArguments(), implementation.getMethodHandle(), isDeterministic());
