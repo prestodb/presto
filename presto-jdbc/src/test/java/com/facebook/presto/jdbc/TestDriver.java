@@ -26,6 +26,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
@@ -104,10 +105,12 @@ public class TestDriver
                         ", 0.1 _double" +
                         ", true _boolean" +
                         ", cast('hello' as varbinary) _varbinary" +
+                        ", DECIMAL '1234567890.1234567' _decimal_short" +
+                        ", DECIMAL '.12345678901234567890123456789012345678' _decimal_long" +
                         ", approx_set(42) _hll")) {
                     ResultSetMetaData metadata = rs.getMetaData();
 
-                    assertEquals(metadata.getColumnCount(), 6);
+                    assertEquals(metadata.getColumnCount(), 8);
 
                     assertEquals(metadata.getColumnLabel(1), "_bigint");
                     assertEquals(metadata.getColumnType(1), Types.BIGINT);
@@ -124,8 +127,14 @@ public class TestDriver
                     assertEquals(metadata.getColumnLabel(5), "_varbinary");
                     assertEquals(metadata.getColumnType(5), Types.LONGVARBINARY);
 
-                    assertEquals(metadata.getColumnLabel(6), "_hll");
-                    assertEquals(metadata.getColumnType(6), Types.JAVA_OBJECT);
+                    assertEquals(metadata.getColumnLabel(6), "_decimal_short");
+                    assertEquals(metadata.getColumnType(6), Types.DECIMAL);
+
+                    assertEquals(metadata.getColumnLabel(7), "_decimal_long");
+                    assertEquals(metadata.getColumnType(7), Types.DECIMAL);
+
+                    assertEquals(metadata.getColumnLabel(8), "_hll");
+                    assertEquals(metadata.getColumnType(8), Types.JAVA_OBJECT);
 
                     assertTrue(rs.next());
 
@@ -160,9 +169,23 @@ public class TestDriver
                     assertEquals(rs.getBytes(5), "hello".getBytes(UTF_8));
                     assertEquals(rs.getBytes("_varbinary"), "hello".getBytes(UTF_8));
 
-                    assertInstanceOf(rs.getObject(6), byte[].class);
+                    assertEquals(rs.getObject(6), new BigDecimal("1234567890.1234567"));
+                    assertEquals(rs.getObject("_decimal_short"), new BigDecimal("1234567890.1234567"));
+                    assertEquals(rs.getBigDecimal(6), new BigDecimal("1234567890.1234567"));
+                    assertEquals(rs.getBigDecimal("_decimal_short"), new BigDecimal("1234567890.1234567"));
+                    assertEquals(rs.getBigDecimal(6, 1), new BigDecimal("1234567890.1"));
+                    assertEquals(rs.getBigDecimal("_decimal_short", 1), new BigDecimal("1234567890.1"));
+
+                    assertEquals(rs.getObject(7), new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertEquals(rs.getObject("_decimal_long"), new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertEquals(rs.getBigDecimal(7), new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertEquals(rs.getBigDecimal("_decimal_long"), new BigDecimal(".12345678901234567890123456789012345678"));
+                    assertEquals(rs.getBigDecimal(7, 6), new BigDecimal(".123457"));
+                    assertEquals(rs.getBigDecimal("_decimal_long", 6), new BigDecimal(".123457"));
+
+                    assertInstanceOf(rs.getObject(8), byte[].class);
                     assertInstanceOf(rs.getObject("_hll"), byte[].class);
-                    assertInstanceOf(rs.getBytes(6), byte[].class);
+                    assertInstanceOf(rs.getBytes(8), byte[].class);
                     assertInstanceOf(rs.getBytes("_hll"), byte[].class);
 
                     assertFalse(rs.next());
