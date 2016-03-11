@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SignatureBuilder;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
@@ -300,6 +302,7 @@ public class ReflectionParametricScalar
         private final Map<String, Class<?>> specializedTypeParameters;
         private final Optional<MethodHandle> constructorMethodHandle;
         private final List<ImplementationDependency> constructorDependencies = new ArrayList<>();
+        private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
 
         public ImplementationParser(String functionName, Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
         {
@@ -322,6 +325,11 @@ public class ReflectionParametricScalar
             if (literalParametersAnnotation != null) {
                 literalParameters.addAll(asList(literalParametersAnnotation.value()));
             }
+
+            Stream.of(method.getAnnotationsByType(Constraint.class))
+                    .forEach(
+                            annotation -> longVariableConstraints.add(new LongVariableConstraint(annotation.variable(), annotation.expression()))
+                    );
 
             this.specializedTypeParameters = getDeclaredSpecializedTypeParameters(method);
 
@@ -517,7 +525,7 @@ public class ReflectionParametricScalar
 
         public Implementation get()
         {
-            Signature signature = new Signature(functionName, SCALAR, createTypeVariableConstraints(typeParameters, dependencies), ImmutableList.of(), returnType, argumentTypes, false, literalParameters);
+            Signature signature = new Signature(functionName, SCALAR, createTypeVariableConstraints(typeParameters, dependencies), longVariableConstraints, returnType, argumentTypes, false, literalParameters);
             return new Implementation(
                     signature,
                     nullable,
