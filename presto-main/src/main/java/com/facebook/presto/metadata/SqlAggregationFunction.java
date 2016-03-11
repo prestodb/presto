@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
@@ -95,7 +94,7 @@ public abstract class SqlAggregationFunction
         return true;
     }
 
-    public abstract InternalAggregationFunction specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry);
+    public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
 
     public static class SimpleSqlAggregationFunction
             extends SqlAggregationFunction
@@ -129,7 +128,7 @@ public abstract class SqlAggregationFunction
         }
 
         @Override
-        public InternalAggregationFunction specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
             return function;
         }
