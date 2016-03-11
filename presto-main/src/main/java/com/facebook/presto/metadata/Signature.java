@@ -40,6 +40,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeRegistry.canCoerce;
+import static com.facebook.presto.type.TypeRegistry.getCommonSuperTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -224,15 +225,56 @@ public final class Signature
 
     public Map<String, OptionalLong> bindLiteralParameters(List<TypeSignature> parameterTypes)
     {
+        parameterTypes = replaceSameArgumentsWithCommonSuperType(parameterTypes);
+
         Map<String, OptionalLong> boundParameters = new HashMap<>();
         for (int index = 0; index < argumentTypes.size(); index++) {
             TypeSignature argument = argumentTypes.get(index);
             if (argument.isCalculated()) {
                 TypeSignature actualParameter = parameterTypes.get(index);
-                boundParameters.putAll(TypeUtils.computeParameterBindings(argument, actualParameter));
+
+                Map<String, OptionalLong> matchedLiterals = TypeUtils.computeParameterBindings(argument, actualParameter);
+                for (String literal : matchedLiterals.keySet()) {
+                    OptionalLong value = matchedLiterals.get(literal);
+                    checkArgument(
+                            boundParameters.getOrDefault(literal, value).equals(value),
+                            "Literal [%s] with value [%s] for argument [%s] has been previously matched to different value [%s]",
+                            literal,
+                            value,
+                            argument,
+                            boundParameters.get(literal));
+                }
+                boundParameters.putAll(matchedLiterals);
             }
         }
         return boundParameters;
+    }
+
+    private List<TypeSignature> replaceSameArgumentsWithCommonSuperType(List<TypeSignature> parameters)
+    {
+        checkArgument(parameters.size() == argumentTypes.size(), "Wrong number of parameters");
+
+        Map<TypeSignature, TypeSignature> commonSuperTypes = new HashMap<>();
+        for (int index = 0; index < argumentTypes.size(); index++) {
+            TypeSignature argument = argumentTypes.get(index);
+            TypeSignature parameter = parameters.get(index);
+
+            if (!commonSuperTypes.containsKey(argument)) {
+                commonSuperTypes.put(argument, parameter);
+            }
+            else {
+                TypeSignature otherParameter = commonSuperTypes.get(argument);
+                Optional<TypeSignature> commonSuperParameter = getCommonSuperTypeSignature(parameter, otherParameter);
+                checkArgument(
+                        commonSuperParameter.isPresent(),
+                        "Parameters [%s] and [%s] must match to same signature [%s] but can not be coerced",
+                        otherParameter,
+                        parameter,
+                        argument);
+                commonSuperTypes.put(argument, commonSuperParameter.get());
+            }
+        }
+        return argumentTypes.stream().map(commonSuperTypes::get).collect(toImmutableList());
     }
 
     @Override
