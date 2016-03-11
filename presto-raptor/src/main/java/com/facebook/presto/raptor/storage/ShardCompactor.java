@@ -23,8 +23,8 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
-import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -41,6 +41,7 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.storage.Row.extractRow;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -48,6 +49,8 @@ public final class ShardCompactor
 {
     private final StorageManager storageManager;
 
+    private final CounterStat inputShards = new CounterStat();
+    private final CounterStat outputShards = new CounterStat();
     private final DistributionStat inputShardsPerCompaction = new DistributionStat();
     private final DistributionStat outputShardsPerCompaction = new DistributionStat();
     private final DistributionStat compactionLatencyMillis = new DistributionStat();
@@ -79,10 +82,7 @@ public final class ShardCompactor
             throw e;
         }
 
-        inputShardsPerCompaction.add(uuids.size());
-        outputShardsPerCompaction.add(shardInfos.size());
-        compactionLatencyMillis.add(Duration.nanosSince(start).toMillis());
-
+        updateStats(uuids.size(), shardInfos.size(), nanosSince(start).toMillis());
         return shardInfos;
     }
 
@@ -149,9 +149,7 @@ public final class ShardCompactor
             outputPageSink.flush();
             List<ShardInfo> shardInfos = outputPageSink.commit();
 
-            inputShardsPerCompaction.add(uuids.size());
-            outputShardsPerCompaction.add(shardInfos.size());
-            sortedCompactionLatencyMillis.add(Duration.nanosSince(start).toMillis());
+            updateStats(uuids.size(), shardInfos.size(), nanosSince(start).toMillis());
 
             return shardInfos;
         }
@@ -281,6 +279,31 @@ public final class ShardCompactor
     private static boolean isNullOrEmptyPage(Page nextPage)
     {
         return nextPage == null || nextPage.getPositionCount() == 0;
+    }
+
+    private void updateStats(int inputShardsCount, int outputShardsCount, long latency)
+    {
+        inputShards.update(inputShardsCount);
+        outputShards.update(outputShardsCount);
+
+        inputShardsPerCompaction.add(inputShardsCount);
+        outputShardsPerCompaction.add(outputShardsCount);
+
+        compactionLatencyMillis.add(latency);
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getInputShards()
+    {
+        return inputShards;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getOutputShards()
+    {
+        return outputShards;
     }
 
     @Managed
