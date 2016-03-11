@@ -28,6 +28,8 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.collect.Lists.transform;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestTypeSignature
@@ -196,6 +198,21 @@ public class TestTypeSignature
     {
         assertEquals(VARCHAR.getTypeSignature().toString(), "varchar");
         assertEquals(createVarcharType(42).getTypeSignature().toString(), "varchar(42)");
+    }
+
+    @Test
+    public void testIsCalculated()
+            throws Exception
+    {
+        assertFalse(parseTypeSignature("bigint").isCalculated());
+        assertTrue(parseTypeSignature("decimal(p, s)", ImmutableSet.of("p", "s")).isCalculated());
+        assertFalse(parseTypeSignature("decimal(2, 1)").isCalculated());
+        assertTrue(parseTypeSignature("array(decimal(p, s))", ImmutableSet.of("p", "s")).isCalculated());
+        assertFalse(parseTypeSignature("array(decimal(2, 1))").isCalculated());
+        assertTrue(parseTypeSignature("map(decimal(p1, s1),decimal(p2, s2))", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
+        assertFalse(parseTypeSignature("map(decimal(2, 1),decimal(3, 1))").isCalculated());
+        assertTrue(parseTypeSignature("row<decimal(p1,s1),decimal(p2,s2)>('a','b')", ImmutableSet.of("p1", "s1", "p2", "s2")).isCalculated());
+        assertFalse(parseTypeSignature("row<decimal(2,1),decimal(3,2)>('a','b')").isCalculated());
     }
 
     private static void assertRowSignature(
