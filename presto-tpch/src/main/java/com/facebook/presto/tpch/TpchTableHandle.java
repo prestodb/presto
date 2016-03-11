@@ -14,6 +14,7 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -28,14 +29,18 @@ public class TpchTableHandle
     private final String connectorId;
     private final String tableName;
     private final double scaleFactor;
+    private final String schemaName;
+    private final TypeSignature numericTypeSignature;
 
     @JsonCreator
-    public TpchTableHandle(@JsonProperty("connectorId") String connectorId, @JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
+    public TpchTableHandle(@JsonProperty("connectorId") String connectorId, @JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor, @JsonProperty("schemaName") String schemaName, @JsonProperty("numericTypeSignature") TypeSignature numericTypeSignature)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         checkArgument(scaleFactor > 0, "Scale factor must be larger than 0");
         this.scaleFactor = scaleFactor;
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.numericTypeSignature = requireNonNull(numericTypeSignature, "numeric type signature is null");
     }
 
     @JsonProperty
@@ -54,6 +59,18 @@ public class TpchTableHandle
     public double getScaleFactor()
     {
         return scaleFactor;
+    }
+
+    @JsonProperty
+    public String getSchemaName()
+    {
+        return schemaName;
+    }
+
+    @JsonProperty
+    public TypeSignature getNumericTypeSignature()
+    {
+        return numericTypeSignature;
     }
 
     @Override
