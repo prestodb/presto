@@ -18,7 +18,9 @@ import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -40,9 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -380,30 +380,12 @@ public class ShardCleaner
             }));
         }
 
-        List<Future<Object>> futures;
         try {
-            futures = backupExecutor.invokeAll(tasks);
+            backupExecutor.invokeAll(tasks).forEach(MoreFutures::getFutureValue);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return;
-        }
-
-        boolean logged = false;
-        for (Future<?> future : futures) {
-            try {
-                future.get();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-            catch (ExecutionException e) {
-                if (!logged) {
-                    logged = true;
-                    log.error(e.getCause(), "Error deleting backup shard");
-                }
-            }
+            throw Throwables.propagate(e);
         }
     }
 
