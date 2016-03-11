@@ -119,6 +119,23 @@ public final class SqlScalarFunctionBuilder
         return new PolymorphicScalarFunction(signature, description, hidden.orElse(false), deterministic, nullableResult, nullableArguments, methodsGroups);
     }
 
+    @SafeVarargs
+    public static Function<SpecializeContext, List<Object>> concat(Function<SpecializeContext, List<Object>>... extraParametersFunctions)
+    {
+        return context -> {
+            ImmutableList.Builder<Object> extraParametersBuilder = ImmutableList.builder();
+            for (Function<SpecializeContext, List<Object>> extraParametersFunction : extraParametersFunctions) {
+                extraParametersBuilder.addAll(extraParametersFunction.apply(context));
+            }
+            return extraParametersBuilder.build();
+        };
+    }
+
+    public static <T> Function<SpecializeContext, List<Object>> constant(T value)
+    {
+        return context -> ImmutableList.of(value);
+    }
+
     private static boolean isOperator(Signature signature)
     {
         for (OperatorType operator : OperatorType.values()) {

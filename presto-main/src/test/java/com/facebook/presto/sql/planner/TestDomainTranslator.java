@@ -459,6 +459,16 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromDecimalComparison()
+            throws Exception
+    {
+        Expression predicate = greaterThan(M, decimalLiteral("12.345"));
+        ExtractionResult result = fromPredicate(predicate);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(M, Domain.create(ValueSet.ofRanges(Range.greaterThan(DecimalType.createDecimalType(10, 5), 1234500L)), false))));
+    }
+
+    @Test
     public void testFromBasicComparisons()
             throws Exception
     {
