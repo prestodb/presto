@@ -178,7 +178,7 @@ public class ReflectionParametricScalar
         // TODO FunctionRegistry.bindSignature currently does not handle literal arguments.
         // There is patch in flight which refactors function resolution.
         // Temporarily we hack literal arguments handling here.
-        Map<String, OptionalLong> literalParameters = preBoundSignature.bindLiteralParameters(parameterTypes);
+        Map<String, OptionalLong> literalParameters = preBoundSignature.bindLongVariables(parameterTypes);
         TypeSignature calculatedReturnType = resolveCalculatedType(preBoundSignature.getReturnType(), literalParameters, true);
 
         SignatureBuilder signatureBuilder = new SignatureBuilder();

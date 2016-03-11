@@ -89,7 +89,7 @@ class PolymorphicScalarFunction
     public ScalarFunctionImplementation specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Signature signature = getSignature();
-        Map<String, OptionalLong> literalParameters = signature.bindLiteralParameters(parameterTypes);
+        Map<String, OptionalLong> literalParameters = signature.bindLongVariables(parameterTypes);
         TypeSignature calculatedReturnType = resolveCalculatedType(signature.getReturnType(), literalParameters, true);
 
         List<Type> resolvedParameterTypes = resolveTypes(parameterTypes, typeManager);
