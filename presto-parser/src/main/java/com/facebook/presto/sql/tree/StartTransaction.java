@@ -24,7 +24,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class StartTransaction
-        extends Statement
+        extends DataDefinitionStatement
 {
     private final List<TransactionMode> transactionModes;
 
