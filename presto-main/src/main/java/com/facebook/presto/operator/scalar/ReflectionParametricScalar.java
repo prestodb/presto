@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SignatureBuilder;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.metadata.TypeParameterRequirement;
 import com.facebook.presto.operator.Description;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.LiteralParameters;
 import com.facebook.presto.type.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,18 +42,17 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.FunctionRegistry.bindSignature;
 import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
 import static com.facebook.presto.metadata.OperatorType.CAST;
@@ -70,6 +71,7 @@ import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLE
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.type.TypeUtils.resolveCalculatedType;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -78,6 +80,7 @@ import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.reflect.Modifier.isStatic;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class ReflectionParametricScalar
@@ -107,12 +110,7 @@ public class ReflectionParametricScalar
             List<Implementation> implementations,
             boolean deterministic)
     {
-        super(signature.getName(),
-                signature.getTypeParameterRequirements(),
-                signature.getReturnType().toString(),
-                signature.getArgumentTypes().stream()
-                        .map(TypeSignature::toString)
-                        .collect(toImmutableList()));
+        super(signature);
         this.description = description;
         this.hidden = hidden;
         this.exactImplementations = ImmutableMap.copyOf(requireNonNull(exactImplementations, "exactImplementations is null"));
@@ -142,7 +140,7 @@ public class ReflectionParametricScalar
     @Override
     public ScalarFunctionImplementation specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Signature boundSignature = bindSignature(getSignature(), types, parameterTypes.size());
+        Signature boundSignature = bindSignature(types, parameterTypes);
         if (exactImplementations.containsKey(boundSignature)) {
             Implementation implementation = exactImplementations.get(boundSignature);
             return new ScalarFunctionImplementation(implementation.isNullable(), implementation.getNullableArguments(), implementation.getMethodHandle(), isDeterministic());
@@ -172,6 +170,27 @@ public class ReflectionParametricScalar
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", types, getSignature()));
+    }
+
+    private Signature bindSignature(Map<String, Type> types, List<TypeSignature> parameterTypes)
+    {
+        Signature preBoundSignature = FunctionRegistry.bindSignature(getSignature(), types, parameterTypes.size());
+        // TODO FunctionRegistry.bindSignature currently does not handle literal arguments.
+        // There is patch in flight which refactors function resolution.
+        // Temporarily we hack literal arguments handling here.
+        Map<String, OptionalLong> literalParameters = preBoundSignature.bindLiteralParameters(parameterTypes);
+        TypeSignature calculatedReturnType = resolveCalculatedType(preBoundSignature.getReturnType(), literalParameters, true);
+
+        SignatureBuilder signatureBuilder = new SignatureBuilder();
+        signatureBuilder.kind(preBoundSignature.getKind());
+        signatureBuilder.returnType(calculatedReturnType.toString());
+        signatureBuilder.argumentTypes(preBoundSignature.getArgumentTypes()
+                .stream()
+                .map(argumentType -> resolveCalculatedType(argumentType, literalParameters, false))
+                .map(TypeSignature::toString)
+                .collect(toImmutableList()));
+        signatureBuilder.name(preBoundSignature.getName());
+        return signatureBuilder.build();
     }
 
     public static SqlScalarFunction parseDefinition(Class<?> clazz)
@@ -209,7 +228,8 @@ public class ReflectionParametricScalar
 
         for (Method method : findPublicMethodsWithAnnotation(clazz, SqlType.class)) {
             Implementation implementation = new ImplementationParser(name, method, constructors).get();
-            if (implementation.getSignature().getTypeParameterRequirements().isEmpty()) {
+            if (implementation.getSignature().getTypeParameterRequirements().isEmpty()
+                    && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)) {
                 exactImplementations.put(implementation.getSignature(), implementation);
                 continue;
             }
@@ -276,6 +296,7 @@ public class ReflectionParametricScalar
         private final MethodHandle methodHandle;
         private final List<ImplementationDependency> dependencies = new ArrayList<>();
         private final LinkedHashSet<TypeParameter> typeParameters = new LinkedHashSet<>();
+        private final Set<String> literalParameters = new HashSet<>();
         private final Map<String, Class<?>> specializedTypeParameters;
         private final Optional<MethodHandle> constructorMethodHandle;
         private final List<ImplementationDependency> constructorDependencies = new ArrayList<>();
@@ -296,6 +317,11 @@ public class ReflectionParametricScalar
 
             Stream.of(method.getAnnotationsByType(TypeParameter.class))
                     .forEach(typeParameters::add);
+
+            LiteralParameters literalParametersAnnotation = method.getAnnotation(LiteralParameters.class);
+            if (literalParametersAnnotation != null) {
+                literalParameters.addAll(asList(literalParametersAnnotation.value()));
+            }
 
             this.specializedTypeParameters = getDeclaredSpecializedTypeParameters(method);
 
@@ -471,7 +497,7 @@ public class ReflectionParametricScalar
             }
             if (annotation instanceof OperatorDependency) {
                 OperatorDependency operator = (OperatorDependency) annotation;
-                return new OperatorImplementationDependency(operator.operator(), operator.returnType(), Arrays.asList(operator.argumentTypes()));
+                return new OperatorImplementationDependency(operator.operator(), operator.returnType(), asList(operator.argumentTypes()));
             }
             throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());
         }
@@ -491,8 +517,9 @@ public class ReflectionParametricScalar
 
         public Implementation get()
         {
-            Signature signature = new Signature(functionName, SCALAR, createTypeParameters(typeParameters, dependencies), returnType, argumentTypes, false);
-            return new Implementation(signature,
+            Signature signature = new Signature(functionName, SCALAR, createTypeParameters(typeParameters, dependencies), returnType, argumentTypes, false, literalParameters);
+            return new Implementation(
+                    signature,
                     nullable,
                     nullableArguments,
                     methodHandle,
@@ -663,7 +690,7 @@ public class ReflectionParametricScalar
         @Override
         public MethodHandle resolve(Map<String, Type> types, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
-            Signature signature = bindSignature(this.signature, types, this.signature.getArgumentTypes().size());
+            Signature signature = FunctionRegistry.bindSignature(this.signature, types, this.signature.getArgumentTypes().size());
             return functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
         }
     }
