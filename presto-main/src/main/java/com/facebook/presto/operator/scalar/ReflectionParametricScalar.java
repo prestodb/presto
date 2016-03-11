@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.OperatorType;
@@ -50,7 +51,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -140,9 +140,9 @@ public class ReflectionParametricScalar
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, List<TypeSignature> parameterTypes, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Signature boundSignature = bindSignature(types, parameterTypes);
+        Signature boundSignature = bindSignature(boundVariables, arity);
         if (exactImplementations.containsKey(boundSignature)) {
             Implementation implementation = exactImplementations.get(boundSignature);
             return new ScalarFunctionImplementation(implementation.isNullable(), implementation.getNullableArguments(), implementation.getMethodHandle(), isDeterministic());
@@ -150,9 +150,9 @@ public class ReflectionParametricScalar
 
         ScalarFunctionImplementation selectedImplementation = null;
         for (Implementation implementation : specializedImplementations) {
-            MethodHandleAndConstructor methodHandle = implementation.specialize(boundSignature, types, typeManager, functionRegistry);
+            MethodHandleAndConstructor methodHandle = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry);
             if (methodHandle != null) {
-                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), types);
+                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
                 selectedImplementation = new ScalarFunctionImplementation(implementation.isNullable(), implementation.getNullableArguments(), methodHandle.getMethodHandle(), methodHandle.getConstructor(), isDeterministic());
             }
         }
@@ -161,9 +161,9 @@ public class ReflectionParametricScalar
         }
 
         for (Implementation implementation : implementations) {
-            MethodHandleAndConstructor methodHandle = implementation.specialize(boundSignature, types, typeManager, functionRegistry);
+            MethodHandleAndConstructor methodHandle = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry);
             if (methodHandle != null) {
-                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), types);
+                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
                 selectedImplementation = new ScalarFunctionImplementation(implementation.isNullable(), implementation.getNullableArguments(), methodHandle.getMethodHandle(), methodHandle.getConstructor(), isDeterministic());
             }
         }
@@ -171,24 +171,23 @@ public class ReflectionParametricScalar
             return selectedImplementation;
         }
 
-        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", types, getSignature()));
+        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundVariables, getSignature()));
     }
 
-    private Signature bindSignature(Map<String, Type> types, List<TypeSignature> parameterTypes)
+    private Signature bindSignature(BoundVariables boundVariables, int arity)
     {
-        Signature preBoundSignature = FunctionRegistry.bindSignature(getSignature(), types, parameterTypes.size());
+        Signature preBoundSignature = FunctionRegistry.bindSignature(getSignature(), boundVariables.getTypeVariables(), arity);
         // TODO FunctionRegistry.bindSignature currently does not handle literal arguments.
         // There is patch in flight which refactors function resolution.
         // Temporarily we hack literal arguments handling here.
-        Map<String, OptionalLong> literalParameters = preBoundSignature.bindLongVariables(parameterTypes);
-        TypeSignature calculatedReturnType = resolveCalculatedType(preBoundSignature.getReturnType(), literalParameters);
 
+        TypeSignature calculatedReturnType = resolveCalculatedType(preBoundSignature.getReturnType(), boundVariables.getLongVariables());
         SignatureBuilder signatureBuilder = new SignatureBuilder();
         signatureBuilder.kind(preBoundSignature.getKind());
         signatureBuilder.returnType(calculatedReturnType.toString());
         signatureBuilder.argumentTypes(preBoundSignature.getArgumentTypes()
                 .stream()
-                .map(argumentType -> resolveCalculatedType(argumentType, literalParameters))
+                .map(argumentType -> resolveCalculatedType(argumentType, boundVariables.getLongVariables()))
                 .map(TypeSignature::toString)
                 .collect(toImmutableList()));
         signatureBuilder.name(preBoundSignature.getName());
@@ -482,20 +481,20 @@ public class ReflectionParametricScalar
                     }
                 }
             }
-            ImmutableList.Builder<TypeVariableConstraint> typeParameterRequirements = ImmutableList.builder();
+            ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraints = ImmutableList.builder();
             for (TypeParameter typeParameter : typeParameters) {
                 String name = typeParameter.value();
                 if (orderableRequired.contains(name)) {
-                    typeParameterRequirements.add(orderableTypeParameter(name));
+                    typeVariableConstraints.add(orderableTypeParameter(name));
                 }
                 else if (comparableRequired.contains(name)) {
-                    typeParameterRequirements.add(comparableTypeParameter(name));
+                    typeVariableConstraints.add(comparableTypeParameter(name));
                 }
                 else {
-                    typeParameterRequirements.add(typeVariable(name));
+                    typeVariableConstraints.add(typeVariable(name));
                 }
             }
-            return typeParameterRequirements.build();
+            return typeVariableConstraints.build();
         }
 
         private static ImplementationDependency parseDependency(Annotation annotation)
@@ -573,10 +572,10 @@ public class ReflectionParametricScalar
             this.specializedTypeParameters = ImmutableMap.copyOf(requireNonNull(specializedTypeParameters, "specializedTypeParameters is null"));
         }
 
-        public MethodHandleAndConstructor specialize(Signature boundSignature, Map<String, Type> boundTypeParameters, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public MethodHandleAndConstructor specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
             for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-                if (!entry.getValue().isAssignableFrom(boundTypeParameters.get(entry.getKey()).getJavaType())) {
+                if (!entry.getValue().isAssignableFrom(boundVariables.getTypeVariable(entry.getKey()).getJavaType())) {
                     return null;
                 }
             }
@@ -592,13 +591,13 @@ public class ReflectionParametricScalar
             }
             MethodHandle methodHandle = this.methodHandle;
             for (ImplementationDependency dependency : dependencies) {
-                methodHandle = methodHandle.bindTo(dependency.resolve(boundTypeParameters, typeManager, functionRegistry));
+                methodHandle = methodHandle.bindTo(dependency.resolve(boundVariables.getTypeVariables(), typeManager, functionRegistry));
             }
             MethodHandle constructor = null;
             if (this.constructor.isPresent()) {
                 constructor = this.constructor.get();
                 for (ImplementationDependency dependency : constructorDependencies) {
-                    constructor = constructor.bindTo(dependency.resolve(boundTypeParameters, typeManager, functionRegistry));
+                    constructor = constructor.bindTo(dependency.resolve(boundVariables.getTypeVariables(), typeManager, functionRegistry));
                 }
             }
             return new MethodHandleAndConstructor(methodHandle, Optional.ofNullable(constructor));

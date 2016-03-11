@@ -15,12 +15,12 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +30,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorType.BETWEEN;
@@ -244,18 +245,30 @@ public class DecimalInequalityOperators
         long highScale = context.getLiteral("high_scale");
 
         MethodHandle lowerBoundTestMethodHandle = DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR.specialize(
-                ImmutableMap.of(),
-                ImmutableList.of(
-                        DecimalType.createDecimalType((int) lowPrecision, (int) lowScale).getTypeSignature(),
-                        DecimalType.createDecimalType((int) valuePrecision, (int) valueScale).getTypeSignature()),
+                new BoundVariables(
+                        ImmutableMap.of(),
+                        ImmutableMap.of(
+                                "A_PRECISION", OptionalLong.of(lowPrecision),
+                                "A_SCALE", OptionalLong.of(lowScale),
+                                "B_PRECISION", OptionalLong.of(valuePrecision),
+                                "B_SCALE", OptionalLong.of(valueScale)
+                        )
+                ),
+                2,
                 context.getTypeManager(),
                 context.getFunctionRegistry()
         ).getMethodHandle();
         MethodHandle upperBoundTestMethodHandle = DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR.specialize(
-                ImmutableMap.of(),
-                ImmutableList.of(
-                        DecimalType.createDecimalType((int) highPrecision, (int) highScale).getTypeSignature(),
-                        DecimalType.createDecimalType((int) valuePrecision, (int) valueScale).getTypeSignature()),
+                new BoundVariables(
+                        ImmutableMap.of(),
+                        ImmutableMap.of(
+                                "A_PRECISION", OptionalLong.of(highPrecision),
+                                "A_SCALE", OptionalLong.of(highScale),
+                                "B_PRECISION", OptionalLong.of(valuePrecision),
+                                "B_SCALE", OptionalLong.of(valueScale)
+                        )
+                ),
+                2,
                 context.getTypeManager(),
                 context.getFunctionRegistry()
         ).getMethodHandle();

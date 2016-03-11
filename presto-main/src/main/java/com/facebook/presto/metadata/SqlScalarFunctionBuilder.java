@@ -21,7 +21,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -149,41 +149,29 @@ public final class SqlScalarFunctionBuilder
 
     public static class SpecializeContext
     {
-        private final Map<String, Type> types;
-        private final Map<String, Long> literals;
+        private final BoundVariables boundVariables;
         private final List<Type> parameterTypes;
         private final Type returnType;
         private final TypeManager typeManager;
         private final FunctionRegistry functionRegistry;
 
-        SpecializeContext(Map<String, Type> types, Map<String, Long> literals, List<Type> parameterTypes, Type returnType, TypeManager typeManager, FunctionRegistry functionRegistry)
+        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType, TypeManager typeManager, FunctionRegistry functionRegistry)
         {
-            this.types = requireNonNull(types, "types is null");
-            this.literals = requireNonNull(literals, "literals is null");
+            this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
             this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
             this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
         }
 
-        public Map<String, Type> getTypes()
-        {
-            return types;
-        }
-
         public Type getType(String name)
         {
-            return types.get(name);
-        }
-
-        public Map<String, Long> getLiterals()
-        {
-            return literals;
+            return boundVariables.getTypeVariable(name);
         }
 
         public Long getLiteral(String name)
         {
-            return literals.get(name);
+            return boundVariables.getLongVariable(name.toUpperCase(Locale.ENGLISH)).getAsLong();
         }
 
         public List<Type> getParameterTypes()

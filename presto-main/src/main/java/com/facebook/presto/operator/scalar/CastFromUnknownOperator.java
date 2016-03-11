@@ -14,17 +14,15 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.CAST;
 import static com.facebook.presto.metadata.Signature.typeVariable;
@@ -47,12 +45,10 @@ public final class CastFromUnknownOperator
 
     @Override
     public ScalarFunctionImplementation specialize(
-            Map<String, Type> types,
-            List<TypeSignature> parameterTypes,
-            TypeManager typeManager,
+            BoundVariables boundVariables, int arity, TypeManager typeManager,
             FunctionRegistry functionRegistry)
     {
-        Type toType = types.get("E");
+        Type toType = boundVariables.getTypeVariable("E");
         MethodHandle methodHandle;
         if (toType.getJavaType() == long.class) {
             methodHandle = METHOD_HANDLE_LONG;

@@ -244,6 +244,10 @@ public final class Signature
 
     public Map<String, OptionalLong> bindLongVariables(List<TypeSignature> parameterTypes)
     {
+        if (!isReturnTypeOrAnyArgumentTypeCalculated()) {
+            return ImmutableMap.of();
+        }
+
         Map<String, OptionalLong> boundVariables = bindLongVariablesFromParameterTypes(parameterTypes);
         Map<String, OptionalLong> calculatedVariables = calculateVariablesValuesForLongConstraints(boundVariables);
 

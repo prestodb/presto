@@ -134,6 +134,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
@@ -261,7 +262,7 @@ public class FunctionRegistry
                     {
                         // TODO the function map should be updated, so that this cast can be removed
                         SqlScalarFunction scalarFunction = checkType(key.getFunction(), SqlScalarFunction.class, "function");
-                        return scalarFunction.specialize(key.getBoundTypeParameters(), key.getParameterTypes(), typeManager, FunctionRegistry.this);
+                        return scalarFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                     }
                 });
 
@@ -274,7 +275,7 @@ public class FunctionRegistry
                             throws Exception
                     {
                         SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
-                        return aggregationFunction.specialize(key.getBoundTypeParameters(), key.getParameterTypes(), typeManager, FunctionRegistry.this);
+                        return aggregationFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                     }
                 });
 
@@ -292,7 +293,7 @@ public class FunctionRegistry
                         }
                         else {
                             SqlWindowFunction windowFunction = checkType(key.getFunction(), SqlWindowFunction.class, "function");
-                            return windowFunction.specialize(key.getBoundTypeParameters(), key.getParameterTypes(), typeManager, FunctionRegistry.this);
+                            return windowFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                         }
                     }
                 });
@@ -516,9 +517,9 @@ public class FunctionRegistry
         List<String> expectedParameters = new ArrayList<>();
         for (SqlFunction function : candidates) {
             expectedParameters.add(format("%s(%s) %s",
-                                    name,
-                                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                                    Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
+                    name,
+                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
+                    Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
         }
         String parameters = Joiner.on(", ").join(parameterTypes);
         String message = format("Function %s not registered", name);
@@ -586,7 +587,9 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeVariables(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 try {
-                    return specializedWindowCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes()));
+                    Map<String, OptionalLong> boundLiteralParameters = operator.getSignature().bindLongVariables(signature.getArgumentTypes());
+                    BoundVariables boundVariables = new BoundVariables(boundTypeParameters, boundLiteralParameters);
+                    return specializedWindowCache.getUnchecked(new SpecializedFunctionKey(operator, boundVariables, argumentTypes.size()));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -608,7 +611,9 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeVariables(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 try {
-                    return specializedAggregationCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes()));
+                    Map<String, OptionalLong> boundLiteralParameters = operator.getSignature().bindLongVariables(signature.getArgumentTypes());
+                    BoundVariables boundVariables = new BoundVariables(boundTypeParameters, boundLiteralParameters);
+                    return specializedAggregationCache.getUnchecked(new SpecializedFunctionKey(operator, boundVariables, signature.getArgumentTypes().size()));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -630,7 +635,9 @@ public class FunctionRegistry
             Map<String, Type> boundTypeParameters = operator.getSignature().bindTypeVariables(returnType, argumentTypes, false, typeManager);
             if (boundTypeParameters != null) {
                 try {
-                    return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(operator, boundTypeParameters, signature.getArgumentTypes()));
+                    Map<String, OptionalLong> boundLiteralParameters = operator.getSignature().bindLongVariables(signature.getArgumentTypes());
+                    BoundVariables boundVariables = new BoundVariables(boundTypeParameters, boundLiteralParameters);
+                    return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(operator, boundVariables, argumentTypes.size()));
                 }
                 catch (UncheckedExecutionException e) {
                     throw Throwables.propagate(e.getCause());
@@ -678,7 +685,9 @@ public class FunctionRegistry
             SqlFunction fieldReference = getRowFieldReference(signature.getName(), signature.getArgumentTypes().get(0));
             if (fieldReference != null) {
                 Map<String, Type> boundTypeParameters = fieldReference.getSignature().bindTypeVariables(returnType, argumentTypes, false, typeManager);
-                return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(fieldReference, boundTypeParameters, signature.getArgumentTypes()));
+                Map<String, OptionalLong> boundLiteralParameters = fieldReference.getSignature().bindLongVariables(signature.getArgumentTypes());
+                BoundVariables boundVariables = new BoundVariables(boundTypeParameters, boundLiteralParameters);
+                return specializedScalarCache.getUnchecked(new SpecializedFunctionKey(fieldReference, boundVariables, argumentTypes.size()));
             }
         }
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
@@ -696,7 +705,7 @@ public class FunctionRegistry
                 .collect(toImmutableList());
     }
 
-    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends  Type> argumentTypes)
+    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
     {
         Signature signature = internalOperator(operatorType, returnType, argumentTypes);
         return isRegistered(signature);
