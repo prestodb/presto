@@ -36,7 +36,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
@@ -54,7 +54,7 @@ public class ArrayAggregationFunction
 
     public ArrayAggregationFunction()
     {
-        super(NAME, ImmutableList.of(typeParameter("T")), "array(T)", ImmutableList.of("T"));
+        super(NAME, ImmutableList.of(typeVariable("T")), ImmutableList.of(), "array(T)", ImmutableList.of("T"));
     }
 
     @Override

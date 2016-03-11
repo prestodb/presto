@@ -25,7 +25,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class ArrayCardinalityFunction
@@ -36,7 +36,7 @@ public final class ArrayCardinalityFunction
 
     public ArrayCardinalityFunction()
     {
-        super("cardinality", ImmutableList.of(typeParameter("E")), "bigint", ImmutableList.of("array(E)"));
+        super("cardinality", ImmutableList.of(typeVariable("E")), ImmutableList.of(), "bigint", ImmutableList.of("array(E)"));
     }
 
     @Override

@@ -162,7 +162,8 @@ public class ExpressionEquivalence
                         new Signature(
                                 callName.equals(mangleOperatorName(GREATER_THAN)) ? mangleOperatorName(LESS_THAN) : mangleOperatorName(LESS_THAN_OR_EQUAL),
                                 SCALAR,
-                                call.getSignature().getTypeParameterRequirements(),
+                                call.getSignature().getTypeVariableConstraints(),
+                                call.getSignature().getLongVariableConstraints(),
                                 call.getSignature().getReturnType(),
                                 swapPair(call.getSignature().getArgumentTypes()),
                                 false),

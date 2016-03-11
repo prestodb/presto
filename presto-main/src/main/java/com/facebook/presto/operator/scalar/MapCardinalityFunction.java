@@ -25,7 +25,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeParameter;
+import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -37,7 +37,7 @@ public final class MapCardinalityFunction
 
     public MapCardinalityFunction()
     {
-        super("cardinality", ImmutableList.of(typeParameter("K"), typeParameter("V")), "bigint", ImmutableList.of("map(K,V)"));
+        super("cardinality", ImmutableList.of(typeVariable("K"), typeVariable("V")), ImmutableList.of(), "bigint", ImmutableList.of("map(K,V)"));
     }
 
     @Override
