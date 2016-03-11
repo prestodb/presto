@@ -38,7 +38,7 @@ public class TestParameterKind
         assertEquals(PARAMETER_KIND_CODEC.toJson(ParameterKind.TYPE), "\"TYPE_SIGNATURE\"");
         assertEquals(PARAMETER_KIND_CODEC.toJson(ParameterKind.NAMED_TYPE), "\"NAMED_TYPE_SIGNATURE\"");
         assertEquals(PARAMETER_KIND_CODEC.toJson(ParameterKind.LONG), "\"LONG_LITERAL\"");
-        assertEquals(PARAMETER_KIND_CODEC.toJson(ParameterKind.LITERAL_CALCULATION), "\"LITERAL_CALCULATION\"");
+        assertEquals(PARAMETER_KIND_CODEC.toJson(ParameterKind.VARIABLE), "\"VARIABLE\"");
     }
 
     @Test
@@ -48,7 +48,7 @@ public class TestParameterKind
         assertEquals(PARAMETER_KIND_CODEC.fromJson("\"TYPE_SIGNATURE\""), ParameterKind.TYPE);
         assertEquals(PARAMETER_KIND_CODEC.fromJson("\"NAMED_TYPE_SIGNATURE\""), ParameterKind.NAMED_TYPE);
         assertEquals(PARAMETER_KIND_CODEC.fromJson("\"LONG_LITERAL\""), ParameterKind.LONG);
-        assertEquals(PARAMETER_KIND_CODEC.fromJson("\"LITERAL_CALCULATION\""), ParameterKind.LITERAL_CALCULATION);
+        assertEquals(PARAMETER_KIND_CODEC.fromJson("\"VARIABLE\""), ParameterKind.VARIABLE);
     }
 
     @Test
@@ -58,6 +58,6 @@ public class TestParameterKind
         assertEquals(PARAMETER_KIND_CODEC.fromJson("\"TYPE\""), ParameterKind.TYPE);
         assertEquals(PARAMETER_KIND_CODEC.fromJson("\"NAMED_TYPE\""), ParameterKind.NAMED_TYPE);
         assertEquals(PARAMETER_KIND_CODEC.fromJson("\"LONG\""), ParameterKind.LONG);
-        assertEquals(PARAMETER_KIND_CODEC.fromJson("\"LITERAL_CALCULATION\""), ParameterKind.LITERAL_CALCULATION);
+        assertEquals(PARAMETER_KIND_CODEC.fromJson("\"VARIABLE\""), ParameterKind.VARIABLE);
     }
 }

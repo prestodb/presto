@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeLiteralCalculation;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -54,8 +53,8 @@ import static org.testng.Assert.assertNull;
 
 public class TestSignature
 {
-    private final TypeSignature varcharX = new TypeSignature(StandardTypes.VARCHAR, ImmutableList.of(TypeSignatureParameter.of(new TypeLiteralCalculation("x"))));
-    private final TypeSignature varcharY = new TypeSignature(StandardTypes.VARCHAR, ImmutableList.of(TypeSignatureParameter.of(new TypeLiteralCalculation("y"))));
+    private final TypeSignature varcharX = new TypeSignature(StandardTypes.VARCHAR, ImmutableList.of(TypeSignatureParameter.of("x")));
+    private final TypeSignature varcharY = new TypeSignature(StandardTypes.VARCHAR, ImmutableList.of(TypeSignatureParameter.of("y")));
 
     @Test
     public void testBindLiteralForDecimal()
@@ -67,7 +66,7 @@ public class TestSignature
         TypeSignature booleanSignature = BooleanType.BOOLEAN.getTypeSignature();
         TypeSignature decimal = new TypeSignature(
                 StandardTypes.DECIMAL,
-                ImmutableList.of(TypeSignatureParameter.of(new TypeLiteralCalculation("p")), TypeSignatureParameter.of(new TypeLiteralCalculation("s"))));
+                ImmutableList.of(TypeSignatureParameter.of("p"), TypeSignatureParameter.of("s")));
 
         TypeSignature decimal21 = DECIMAL.createType(ImmutableList.of(TypeParameter.of(2), TypeParameter.of(1))).getTypeSignature();
         TypeSignature decimal10 = DECIMAL.createType(ImmutableList.of(TypeParameter.of(1), TypeParameter.of(0))).getTypeSignature();
