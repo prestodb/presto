@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.PlanPrinter.textDistributedPlan;
 import static com.google.common.base.Preconditions.checkState;
@@ -80,7 +82,7 @@ public class ExplainAnalyzeOperator
     private final OperatorContext operatorContext;
     private final QueryManager queryManager;
     private final Metadata metadata;
-    private boolean finished;
+    private boolean flushing;
     private boolean outputConsumed;
 
     public ExplainAnalyzeOperator(OperatorContext operatorContext, QueryManager queryManager, Metadata metadata)
@@ -105,19 +107,19 @@ public class ExplainAnalyzeOperator
     @Override
     public void finish()
     {
-        finished = true;
+        flushing = true;
     }
 
     @Override
     public boolean isFinished()
     {
-        return finished && outputConsumed;
+        return flushing && outputConsumed;
     }
 
     @Override
     public boolean needsInput()
     {
-        return !finished;
+        return !flushing;
     }
 
     @Override
@@ -131,15 +133,32 @@ public class ExplainAnalyzeOperator
     @Override
     public Page getOutput()
     {
-        if (!finished) {
+        if (!flushing) {
             return null;
         }
-        outputConsumed = true;
+
         QueryInfo queryInfo = queryManager.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
+        if (!haveUpstreamOperatorsFinished(queryInfo)) {
+            return null;
+        }
+
+        outputConsumed = true;
         // Skip the output stage, since that's the one that has the ExplainAnalyzeOperator itself
         String plan = textDistributedPlan(queryInfo.getOutputStage().getSubStages(), metadata, operatorContext.getSession());
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
         VARCHAR.writeString(builder, plan);
         return new Page(builder.build());
+    }
+
+    private boolean haveUpstreamOperatorsFinished(QueryInfo queryInfo)
+    {
+        List<StageInfo> stages = getAllStages(queryInfo.getOutputStage());
+        // all but first stage containing explain analyze should be done
+        for (StageInfo stageInfo : stages.subList(1, stages.size())) {
+            if (!stageInfo.getTasks().stream().allMatch(task -> task.getState().isDone())) {
+                return false;
+            }
+        }
+        return true;
     }
 }

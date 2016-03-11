@@ -114,18 +114,17 @@ public class LogicalPlanner
         else if (statement instanceof Query) {
             root = createOutputPlan(createRelationPlan(analysis, (Query) statement), analysis);
         }
-        else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
-            throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE not yet implemented");
-        }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
         }
 
         if (analysis.getExplainAnalyze().isPresent()) {
+            checkState(root instanceof OutputNode);
+            PlanNode source = ((OutputNode) root).getSource();
             Explain explainAnalyze = analysis.getExplainAnalyze().get();
             RelationType descriptor = analysis.getOutputDescriptor(explainAnalyze);
             Symbol outputSymbol = symbolAllocator.newSymbol(descriptor.getFieldByIndex(0));
-            ExplainAnalyzeNode explainNode = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol);
+            ExplainAnalyzeNode explainNode = new ExplainAnalyzeNode(idAllocator.getNextId(), source, outputSymbol);
             root = createOutputPlan(new RelationPlan(explainNode, descriptor, ImmutableList.of(outputSymbol), Optional.empty()), analysis);
         }
 
