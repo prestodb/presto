@@ -82,11 +82,11 @@ public class TestSignature
                 false);
 
         assertEquals(
-                function.bindLiteralParameters(ImmutableList.of(decimal21, decimal10)),
+                function.bindLongVariables(ImmutableList.of(decimal21, decimal10)),
                 ImmutableMap.of("P", OptionalLong.of(2), "S", OptionalLong.of(1)));
 
         assertEquals(
-                function.bindLiteralParameters(ImmutableList.of(decimal10, decimal21)),
+                function.bindLongVariables(ImmutableList.of(decimal10, decimal21)),
                 ImmutableMap.of("P", OptionalLong.of(2), "S", OptionalLong.of(1)));
     }
 
