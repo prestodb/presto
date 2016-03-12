@@ -416,7 +416,9 @@ public class PruneUnreferencedOutputs
 
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getDistinctSymbols())
-                    .addAll(context.get());
+                    .addAll(context.get().stream()
+                            .filter(symbol -> !symbol.equals(node.getMarkerSymbol()))
+                            .collect(toImmutableList()));
 
             if (node.getHashSymbol().isPresent()) {
                 expectedInputs.add(node.getHashSymbol().get());
