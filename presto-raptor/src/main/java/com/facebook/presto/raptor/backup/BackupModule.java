@@ -22,6 +22,7 @@ import com.google.inject.Scopes;
 import com.google.inject.util.Providers;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.ConfigurationAwareModule;
 
 import javax.annotation.Nullable;
 import javax.inject.Singleton;
@@ -57,6 +58,9 @@ public class BackupModule
             Module module = providers.get(provider);
             if (module == null) {
                 binder.addError("Unknown backup provider: %s", provider);
+            }
+            else if (module instanceof ConfigurationAwareModule) {
+                install((ConfigurationAwareModule) module);
             }
             else {
                 binder.install(module);
