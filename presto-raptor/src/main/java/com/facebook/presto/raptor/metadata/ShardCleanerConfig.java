@@ -34,7 +34,6 @@ public class ShardCleanerConfig
     private Duration localCleanTime = new Duration(4, HOURS);
     private Duration backupCleanerInterval = new Duration(5, MINUTES);
     private Duration backupCleanTime = new Duration(1, DAYS);
-    private Duration backupPurgeTime = new Duration(3, DAYS);
     private int backupDeletionThreads = 50;
 
     @NotNull
@@ -123,20 +122,6 @@ public class ShardCleanerConfig
     public ShardCleanerConfig setBackupCleanTime(Duration backupCleanTime)
     {
         this.backupCleanTime = backupCleanTime;
-        return this;
-    }
-
-    @NotNull
-    public Duration getBackupPurgeTime()
-    {
-        return backupPurgeTime;
-    }
-
-    @Config("raptor.backup-purge-time")
-    @ConfigDescription("How long to wait after cleaning before purging backup shards")
-    public ShardCleanerConfig setBackupPurgeTime(Duration backupPurgeTime)
-    {
-        this.backupPurgeTime = backupPurgeTime;
         return this;
     }
 
