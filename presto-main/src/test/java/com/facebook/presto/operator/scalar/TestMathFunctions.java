@@ -519,4 +519,15 @@ public class TestMathFunctions
         assertInvalidFunction("from_base('Z', 35)", BIGINT, "Not a valid base-35 number: Z");
         assertInvalidFunction("from_base('9223372036854775808', 10)", BIGINT, "Not a valid base-10 number: 9223372036854775808");
     }
+
+    @Test
+    public void testWidthBucket()
+    {
+        assertFunction("width_bucket(3.14, 0, 4, 3)", BIGINT, 3);
+        assertFunction("width_bucket(infinity(), 0, 4, 3)", BIGINT, 4);
+        assertInvalidFunction("width_bucket(3.14, 0, 4, 0)", "bucketCount must be greater than 0");
+        assertInvalidFunction("width_bucket(3.14, 0, 4, -1)", "bucketCount must be greater than 0");
+        assertInvalidFunction("width_bucket(nan(), 0, 4, 3)", "operand must not be NaN");
+        assertInvalidFunction("width_bucket(3.14, -1, -1, 3)", "lower bound cannot equal upper bound");
+    }
 }
