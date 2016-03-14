@@ -148,9 +148,7 @@ public interface ShardDao
     @SqlBatch("DELETE FROM created_shards WHERE shard_uuid = :shardUuid")
     void deleteCreatedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
-    @SqlBatch("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
-            "VALUES (:shardUuid, CURRENT_TIMESTAMP)")
-    void insertDeletedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
+    void insertDeletedShards(Iterable<UUID> shardUuids);
 
     @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
             "SELECT shard_uuid, CURRENT_TIMESTAMP\n" +

@@ -17,7 +17,6 @@ import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
 import com.facebook.presto.raptor.util.UuidUtil.UuidMapperFactory;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.SqlBatch;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.RegisterArgumentFactory;
 import org.skife.jdbi.v2.sqlobject.customizers.RegisterMapperFactory;
 
@@ -25,18 +24,11 @@ import java.util.UUID;
 
 @RegisterArgumentFactory(UuidArgumentFactory.class)
 @RegisterMapperFactory(UuidMapperFactory.class)
-public interface MySqlShardDao
+public interface H2ShardDao
         extends ShardDao
 {
     @Override
-    @SqlUpdate("DELETE x\n" +
-            "FROM shard_nodes x\n" +
-            "JOIN shards USING (shard_id)\n" +
-            "WHERE table_id = :tableId")
-    void dropShardNodes(@Bind("tableId") long tableId);
-
-    @Override
-    @SqlBatch("INSERT IGNORE INTO deleted_shards (shard_uuid, delete_time)\n" +
+    @SqlBatch("MERGE INTO deleted_shards (shard_uuid, delete_time)\n" +
             "VALUES (:shardUuid, CURRENT_TIMESTAMP)")
     void insertDeletedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 }
