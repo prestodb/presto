@@ -182,3 +182,8 @@ Floating Point Functions
 .. function:: nan() -> double
 
     Returns the constant representing not-a-number.
+
+.. function:: width_bucket(x, bound1, bound2, n) -> bigint
+
+    Returns the bin number of ``x`` in an equi-width histogram with the
+    specified ``bound1`` and ``bound2`` bounds and ``n`` number of buckets.
