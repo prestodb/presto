@@ -4910,6 +4910,8 @@ public abstract class AbstractTestQueries
 
         // cast scalar sub-query
         assertQuery("SELECT 1.0/(SELECT 1)");
+        assertQuery("SELECT 1.0 IN (SELECT 1)");
+        assertQuery("SELECT 1.0 = (SELECT 1), 2.0 = (SELECT 1) WHERE 1.0 = (SELECT 1)");
     }
 
     @Test
