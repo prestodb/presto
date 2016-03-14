@@ -32,6 +32,10 @@
             background-color: #E3E9FC;
             border-color: #B0C3FC;
         }
+        .vis.timeline .orange {
+            background-color: #FFA500;
+            border-color: #B0C3FC;
+        }
         #legend {
             padding: 10px 40px
         }
@@ -54,6 +58,10 @@
         }
         #legend .blue {
             background-color: #E3E9FC;
+            border-color: #B0C3FC;
+        }
+        #legend .orange {
+            background-color: #FFA500;
             border-color: #B0C3FC;
         }
         #legend .empty {
@@ -86,6 +94,9 @@
             <div class="blue bar"></div>
             <div class="text">Last split started</div>
         </div><div>
+            <div class="orange bar"></div>
+            <div class="text">Last split ended</div>
+        </div><div>
             <div class="bar empty"></div>
             <div class="text">Ended</div>
         </div>
@@ -115,6 +126,7 @@ function renderTimeline(data) {
                 create: task.stats.createTime,
                 firstStart: task.stats.firstStartTime,
                 lastStart: task.stats.lastStartTime,
+                lastEnd: task.stats.lastEndTime,
                 end: task.stats.endTime,
             },
         };
@@ -153,8 +165,16 @@ function renderTimeline(data) {
         items.add({
             group: stageId,
             start: task.time.lastStart,
-            end: task.time.end,
+            end: task.time.lastEnd,
             className: 'blue',
+            subgroup: taskNumber,
+            sort: -taskNumber,
+        });
+        items.add({
+            group: stageId,
+            start: task.time.lastEnd,
+            end: task.time.end,
+            className: 'orange',
             subgroup: taskNumber,
             sort: -taskNumber,
         });

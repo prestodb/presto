@@ -20,7 +20,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
@@ -32,6 +34,10 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class PipelineStats
 {
+    private final DateTime firstStartTime;
+    private final DateTime lastStartTime;
+    private final DateTime lastEndTime;
+
     private final boolean inputPipeline;
     private final boolean outputPipeline;
 
@@ -69,6 +75,10 @@ public class PipelineStats
 
     @JsonCreator
     public PipelineStats(
+            @JsonProperty("firstStartTime") DateTime firstStartTime,
+            @JsonProperty("lastStartTime") DateTime lastStartTime,
+            @JsonProperty("lastEndTime") DateTime lastEndTime,
+
             @JsonProperty("inputPipeline") boolean inputPipeline,
             @JsonProperty("outputPipeline") boolean outputPipeline,
 
@@ -104,6 +114,10 @@ public class PipelineStats
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
             @JsonProperty("drivers") List<DriverStats> drivers)
     {
+        this.firstStartTime = firstStartTime;
+        this.lastStartTime = lastStartTime;
+        this.lastEndTime = lastEndTime;
+
         this.inputPipeline = inputPipeline;
         this.outputPipeline = outputPipeline;
 
@@ -147,6 +161,27 @@ public class PipelineStats
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
         this.drivers = ImmutableList.copyOf(requireNonNull(drivers, "drivers is null"));
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getFirstStartTime()
+    {
+        return firstStartTime;
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getLastStartTime()
+    {
+        return lastStartTime;
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getLastEndTime()
+    {
+        return lastEndTime;
     }
 
     @JsonProperty
@@ -308,6 +343,9 @@ public class PipelineStats
     public PipelineStats summarize()
     {
         return new PipelineStats(
+                firstStartTime,
+                lastStartTime,
+                lastEndTime,
                 inputPipeline,
                 outputPipeline,
                 totalDrivers,
