@@ -392,4 +392,42 @@ public final class MathFunctions
         checkCondition(radix >= MIN_RADIX && radix <= MAX_RADIX,
                 INVALID_FUNCTION_ARGUMENT, "Radix must be between %d and %d", MIN_RADIX, MAX_RADIX);
     }
+
+    @Description("The bucket number of a value given a lower and upper bound and the number of buckets")
+    @ScalarFunction("width_bucket")
+    @SqlType(StandardTypes.BIGINT)
+    public static long widthBucket(@SqlType(StandardTypes.DOUBLE) double operand, @SqlType(StandardTypes.DOUBLE) double bound1, @SqlType(StandardTypes.DOUBLE) double bound2, @SqlType(StandardTypes.BIGINT) long bucketCount)
+    {
+        checkCondition(bucketCount > 0, INVALID_FUNCTION_ARGUMENT, "bucketCount must be greater than 0");
+        checkCondition(!isNaN(operand), INVALID_FUNCTION_ARGUMENT, "operand must not be NaN");
+        checkCondition(isFinite(bound1), INVALID_FUNCTION_ARGUMENT, "first bound must be finite");
+        checkCondition(isFinite(bound2), INVALID_FUNCTION_ARGUMENT, "second bound must be finite");
+        checkCondition(bound1 != bound2, INVALID_FUNCTION_ARGUMENT, "bounds cannot equal each other");
+
+        long result = 0;
+
+        double lower = Math.min(bound1, bound2);
+        double upper = Math.max(bound1, bound2);
+
+        if (operand < lower) {
+            result = 0;
+        }
+        else if (operand >= upper) {
+            try {
+                result = Math.addExact(bucketCount, 1);
+            }
+            catch (ArithmeticException e) {
+                throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Bucket for value %s is out of range", operand));
+            }
+        }
+        else {
+            result = (long) ((double) bucketCount * (operand - lower) / (upper - lower) + 1);
+        }
+
+        if (bound1 > bound2) {
+            result = (bucketCount - result) + 1;
+        }
+
+        return result;
+    }
 }
