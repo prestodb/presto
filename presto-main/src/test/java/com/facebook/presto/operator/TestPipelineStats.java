@@ -20,17 +20,23 @@ import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.TestDriverStats.assertExpectedDriverStats;
 import static com.facebook.presto.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 public class TestPipelineStats
 {
     public static final PipelineStats EXPECTED = new PipelineStats(
+            new DateTime(100),
+            new DateTime(101),
+            new DateTime(102),
+
             true,
             false,
 
@@ -79,6 +85,9 @@ public class TestPipelineStats
 
     public static void assertExpectedPipelineStats(PipelineStats actual)
     {
+        assertEquals(actual.getFirstStartTime(), new DateTime(100, UTC));
+        assertEquals(actual.getLastStartTime(), new DateTime(101, UTC));
+        assertEquals(actual.getLastEndTime(), new DateTime(102, UTC));
         assertEquals(actual.isInputPipeline(), true);
         assertEquals(actual.isOutputPipeline(), false);
 
