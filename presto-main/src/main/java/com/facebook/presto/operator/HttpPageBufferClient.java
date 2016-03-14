@@ -528,9 +528,12 @@ public final class HttpPageBufferClient
                 throw new PageTransportErrorException(format("Expected response code to be 200, but was %s %s: %s", response.getStatusCode(), response.getStatusMessage(), request.getUri()));
             }
 
+            // invalid content type can happen when an error page is returned, but is unlikely given the above 200
             String contentType = response.getHeader(CONTENT_TYPE);
-            if ((contentType == null) || !mediaTypeMatches(contentType, PRESTO_PAGES_TYPE)) {
-                // this can happen when an error page is returned, but is unlikely given the above 200
+            if (contentType == null) {
+                throw new PageTransportErrorException(format("%s header is not set: %s %s", CONTENT_TYPE, request.getUri(), response));
+            }
+            if (!mediaTypeMatches(contentType, PRESTO_PAGES_TYPE)) {
                 throw new PageTransportErrorException(format("Expected %s response from server but got %s: %s", PRESTO_PAGES_TYPE, contentType, request.getUri()));
             }
 
