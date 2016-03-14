@@ -570,6 +570,16 @@ public class OrcStorageManager
                 for (File file : stagingFiles) {
                     file.delete();
                 }
+
+                // cancel incomplete backup jobs
+                futures.forEach(future -> future.cancel(true));
+
+                // delete completed backup shards
+                backupStore.ifPresent(backupStore -> {
+                    for (ShardInfo shard : shards) {
+                        backupStore.deleteShard(shard.getShardUuid());
+                    }
+                });
             }
         }
 
