@@ -13,17 +13,13 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.operator.Description;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.type.SqlType;
 import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
@@ -31,59 +27,20 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.Reflection.methodHandle;
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
+import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 
+@ScalarFunction("array_sort")
+@Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
 public final class ArraySortFunction
-        extends SqlScalarFunction
 {
-    public static final ArraySortFunction ARRAY_SORT_FUNCTION = new ArraySortFunction();
-    private static final String FUNCTION_NAME = "array_sort";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArraySortFunction.class, "sort", Type.class, Block.class);
+    private ArraySortFunction() {}
 
-    public ArraySortFunction()
-    {
-        super(new Signature(
-                FUNCTION_NAME,
-                FunctionKind.SCALAR,
-                ImmutableList.of(orderableTypeParameter("E")),
-                ImmutableList.of(),
-                parseTypeSignature("array(E)"),
-                ImmutableList.of(parseTypeSignature("array(E)")),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Sorts the given array in ascending order according to the natural ordering of its elements.";
-    }
-
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        checkArgument(boundVariables.getTypeVariables().size() == 1, format("%s expects only one argument", FUNCTION_NAME));
-        Type type = boundVariables.getTypeVariable("E");
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, isDeterministic());
-    }
-
-    public static Block sort(Type type, Block block)
+    @TypeParameter("E")
+    @SqlType("array(E)")
+    public static Block sort(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block block)
     {
         List<Integer> positions = Ints.asList(new int[block.getPositionCount()]);
         for (int i = 0; i < block.getPositionCount(); i++) {
