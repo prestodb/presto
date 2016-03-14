@@ -630,7 +630,8 @@ public class TestDatabaseShardManager
 
     public static ShardManager createShardManager(IDBI dbi, NodeSupplier nodeSupplier)
     {
-        return new DatabaseShardManager(dbi, new DaoSupplier<>(dbi, ShardDao.class), nodeSupplier, new Duration(1, DAYS));
+        DaoSupplier<ShardDao> shardDaoSupplier = new DaoSupplier<>(dbi, H2ShardDao.class);
+        return new DatabaseShardManager(dbi, shardDaoSupplier, nodeSupplier, new Duration(1, DAYS));
     }
 
     private static Domain createDomain(Range first, Range... ranges)

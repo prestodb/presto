@@ -68,7 +68,7 @@ public class DatabaseMetadataModule
 
         install(installIfPropertyEquals(property, "h2", binder -> {
             binder.install(new H2EmbeddedDataSourceModule(type, annotation));
-            bindDaoSupplier(binder, ShardDao.class, ShardDao.class);
+            bindDaoSupplier(binder, ShardDao.class, H2ShardDao.class);
         }));
     }
 
