@@ -1,4 +1,4 @@
--- delimiter: |; joinAllRowsToOne: true; types: LONGNVARCHAR;
+-- delimiter: |; joinAllRowsToOne: true;
 - Output[n_regionkey, _col1] => [n_regionkey:bigint, count:bigint]
         _col1 := count
     - Sort[n_regionkey ASC_NULLS_LAST] => [n_regionkey:bigint, count:bigint]

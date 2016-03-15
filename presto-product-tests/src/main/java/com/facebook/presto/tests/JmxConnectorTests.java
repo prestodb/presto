@@ -17,10 +17,13 @@ import com.teradata.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.JMX_CONNECTOR;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingFacebookJdbcDriver;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.LONGNVARCHAR;
+import static java.sql.JDBCType.VARCHAR;
 
 public class JmxConnectorTests
         extends ProductTest
@@ -28,9 +31,20 @@ public class JmxConnectorTests
     @Test(groups = JMX_CONNECTOR)
     public void selectFromJavaRuntimeJmxMBean()
     {
-        assertThat(query("SELECT node, vmname, vmversion FROM jmx.jmx.\"java.lang:type=runtime\""))
-                .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR)
-                .hasAnyRows();
+        String sql = "SELECT node, vmname, vmversion FROM jmx.jmx.\"java.lang:type=runtime\"";
+        if (usingFacebookJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR)
+                    .hasAnyRows();
+        }
+        else if (usingSimbaJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(VARCHAR, VARCHAR, VARCHAR)
+                    .hasAnyRows();
+        }
+        else {
+            throw new IllegalStateException();
+        }
     }
 
     @Test(groups = JMX_CONNECTOR)

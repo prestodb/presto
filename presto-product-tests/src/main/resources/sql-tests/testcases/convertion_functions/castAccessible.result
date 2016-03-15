@@ -1,2 +1,2 @@
--- delimiter: |; ignoreOrder: true; trimValues:true; types: LONGNVARCHAR
+-- delimiter: |; ignoreOrder: true; trimValues:true;
 10

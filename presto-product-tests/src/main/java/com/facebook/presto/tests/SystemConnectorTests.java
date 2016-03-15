@@ -17,11 +17,14 @@ import com.teradata.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.SYSTEM_CONNECTOR;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingFacebookJdbcDriver;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.TIMESTAMP;
+import static java.sql.JDBCType.VARCHAR;
 
 public class SystemConnectorTests
         extends ProductTest
@@ -29,15 +32,26 @@ public class SystemConnectorTests
     @Test(groups = SYSTEM_CONNECTOR)
     public void selectRuntimeNodes()
     {
-        assertThat(query("SELECT node_id, http_uri, node_version, state FROM system.runtime.nodes"))
-                .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR)
-                .hasAnyRows();
+        String sql = "SELECT node_id, http_uri, node_version, state FROM system.runtime.nodes";
+        if (usingFacebookJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR)
+                    .hasAnyRows();
+        }
+        else if (usingSimbaJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .hasAnyRows();
+        }
+        else {
+            throw new IllegalStateException();
+        }
     }
 
     @Test(groups = SYSTEM_CONNECTOR)
     public void selectRuntimeQueries()
     {
-        assertThat(query("SELECT" +
+        String sql = "SELECT" +
                 "  node_id," +
                 "  query_id," +
                 "  state," +
@@ -50,16 +64,28 @@ public class SystemConnectorTests
                 "  started," +
                 "  last_heartbeat," +
                 "  'end' " +
-                "FROM system.runtime.queries"))
-                .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR,
-                        BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, LONGNVARCHAR)
-                .hasAnyRows();
+                "FROM system.runtime.queries";
+        if (usingFacebookJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR,
+                            BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, LONGNVARCHAR)
+                    .hasAnyRows();
+        }
+        else if (usingSimbaJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
+                            BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
+                    .hasAnyRows();
+        }
+        else {
+            throw new IllegalStateException();
+        }
     }
 
     @Test(groups = SYSTEM_CONNECTOR)
     public void selectRuntimeTasks()
     {
-        assertThat(query("SELECT" +
+        String sql = "SELECT" +
                 "  node_id," +
                 "  task_id," +
                 "  stage_id," +
@@ -83,18 +109,42 @@ public class SystemConnectorTests
                 "  start," +
                 "  last_heartbeat," +
                 "  'end' " +
-                "FROM SYSTEM.runtime.tasks"))
-                .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR,
-                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
-                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, LONGNVARCHAR)
-                .hasAnyRows();
+                "FROM SYSTEM.runtime.tasks";
+        if (usingFacebookJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR, LONGNVARCHAR,
+                            BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
+                            BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, LONGNVARCHAR)
+                    .hasAnyRows();
+        }
+        else if (usingSimbaJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
+                            BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
+                            BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
+                    .hasAnyRows();
+        }
+        else {
+            throw new IllegalStateException();
+        }
     }
 
     @Test(groups = SYSTEM_CONNECTOR)
     public void selectMetadataCatalogs()
     {
-        assertThat(query("select catalog_name, connector_id from system.metadata.catalogs"))
-                .hasColumns(LONGNVARCHAR, LONGNVARCHAR)
-                .hasAnyRows();
+        String sql = "select catalog_name, connector_id from system.metadata.catalogs";
+        if (usingFacebookJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(LONGNVARCHAR, LONGNVARCHAR)
+                    .hasAnyRows();
+        }
+        else if (usingSimbaJdbcDriver()) {
+            assertThat(query(sql))
+                    .hasColumns(VARCHAR, VARCHAR)
+                    .hasAnyRows();
+        }
+        else {
+            throw new IllegalStateException();
+        }
     }
 }

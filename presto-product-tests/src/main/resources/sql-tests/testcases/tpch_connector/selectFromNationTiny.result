@@ -1,4 +1,4 @@
--- delimiter: |; trimValues:true; ignoreOrder: true; types: BIGINT|LONGNVARCHAR|BIGINT
+-- delimiter: |; trimValues:true; ignoreOrder: true;
  0 | ALGERIA        | 0
  1 | ARGENTINA      | 1
  2 | BRAZIL         | 1

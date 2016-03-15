@@ -34,6 +34,8 @@ import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingFacebookJdbcDriver;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
@@ -47,6 +49,8 @@ import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.LONGVARBINARY;
 import static java.sql.JDBCType.TIMESTAMP;
+import static java.sql.JDBCType.VARBINARY;
+import static java.sql.JDBCType.VARCHAR;
 
 public class TestAllDatatypesFromHiveConnector
         extends ProductTest
@@ -212,23 +216,47 @@ public class TestAllDatatypesFromHiveConnector
 
     private void assertColumnTypes(QueryResult queryResult)
     {
-        assertThat(queryResult).hasColumns(
-                BIGINT,
-                BIGINT,
-                BIGINT,
-                BIGINT,
-                DOUBLE,
-                DOUBLE,
-                DECIMAL,
-                DECIMAL,
-                TIMESTAMP,
-                DATE,
-                LONGNVARCHAR,
-                LONGNVARCHAR,
-                LONGNVARCHAR,
-                BOOLEAN,
-                LONGVARBINARY
-        );
+        if (usingFacebookJdbcDriver()) {
+            assertThat(queryResult).hasColumns(
+                    BIGINT,
+                    BIGINT,
+                    BIGINT,
+                    BIGINT,
+                    DOUBLE,
+                    DOUBLE,
+                    DECIMAL,
+                    DECIMAL,
+                    TIMESTAMP,
+                    DATE,
+                    LONGNVARCHAR,
+                    LONGNVARCHAR,
+                    LONGNVARCHAR,
+                    BOOLEAN,
+                    LONGVARBINARY
+            );
+        }
+        else if (usingSimbaJdbcDriver()) {
+            assertThat(queryResult).hasColumns(
+                    BIGINT,
+                    BIGINT,
+                    BIGINT,
+                    BIGINT,
+                    DOUBLE,
+                    DOUBLE,
+                    DECIMAL,
+                    DECIMAL,
+                    TIMESTAMP,
+                    DATE,
+                    VARCHAR,
+                    VARCHAR,
+                    VARCHAR,
+                    BOOLEAN,
+                    VARBINARY
+            );
+        }
+        else {
+            throw new IllegalStateException();
+        }
     }
 
     /**

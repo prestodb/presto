@@ -14,7 +14,6 @@
 package com.facebook.presto.tests.jdbc;
 
 import com.facebook.presto.jdbc.PrestoConnection;
-import com.facebook.presto.jdbc.PrestoDatabaseMetaData;
 import com.facebook.presto.tests.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import com.teradata.tempto.BeforeTestWithContext;
 import com.teradata.tempto.ProductTest;
@@ -25,12 +24,17 @@ import com.teradata.tempto.configuration.Configuration;
 import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 
 import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.facebook.presto.tests.TpchTableResults.PRESTO_NATION_RESULT;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingFacebookJdbcDriver;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingSimbaJdbc4Driver;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
@@ -59,13 +63,13 @@ public class JdbcTests
         }
     }
 
-    private PrestoConnection connection;
+    private Connection connection;
 
     @BeforeTestWithContext
     public void setup()
             throws SQLException
     {
-        connection = (PrestoConnection) defaultQueryExecutor().getConnection();
+        connection = defaultQueryExecutor().getConnection();
     }
 
     @Test(groups = JDBC)
@@ -113,11 +117,13 @@ public class JdbcTests
     public void shouldSetTimezone()
             throws SQLException
     {
-        String timeZoneId = "Indian/Kerguelen";
-        connection.setTimeZoneId(timeZoneId);
-        try (Statement statement = connection.createStatement()) {
-            QueryResult result = queryResult(statement, "select current_timezone()");
-            assertThat(result).contains(row(timeZoneId));
+        if (usingFacebookJdbcDriver()) {
+            String timeZoneId = "Indian/Kerguelen";
+            ((PrestoConnection) connection).setTimeZoneId(timeZoneId);
+            try (Statement statement = connection.createStatement()) {
+                QueryResult result = queryResult(statement, "select current_timezone()");
+                assertThat(result).contains(row(timeZoneId));
+            }
         }
     }
 
@@ -125,10 +131,12 @@ public class JdbcTests
     public void shouldSetLocale()
             throws SQLException
     {
-        connection.setLocale(CHINESE);
-        try (Statement statement = connection.createStatement()) {
-            QueryResult result = queryResult(statement, "SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M')");
-            assertThat(result).contains(row("一月"));
+        if (usingFacebookJdbcDriver()) {
+            ((PrestoConnection) connection).setLocale(CHINESE);
+            try (Statement statement = connection.createStatement()) {
+                QueryResult result = queryResult(statement, "SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M')");
+                assertThat(result).contains(row("一月"));
+            }
         }
     }
 
@@ -154,8 +162,20 @@ public class JdbcTests
     public void shouldGetColumns()
             throws SQLException
     {
+        // The JDBC spec is vague on what values getColumns() should return, so accept the values that Facebook or Simba return.
         QueryResult result = QueryResult.forResultSet(metaData().getColumns("hive", "default", "nation", null));
-        assertThat(result).matches(sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns.result"));
+        if (usingFacebookJdbcDriver()) {
+            assertThat(result).matches(sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns.result"));
+        }
+        else if (usingSimbaJdbc4Driver()) {
+            assertThat(result).matches(sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns_simba4.result"));
+        }
+        else if (usingSimbaJdbcDriver()) {
+            assertThat(result).matches(sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns_simba.result"));
+        }
+        else {
+            throw new IllegalStateException();
+        }
     }
 
     @Test(groups = JDBC)
@@ -173,9 +193,9 @@ public class JdbcTests
         return QueryResult.forResultSet(statement.executeQuery(query));
     }
 
-    private PrestoDatabaseMetaData metaData()
+    private DatabaseMetaData metaData()
             throws SQLException
     {
-        return (PrestoDatabaseMetaData) connection.getMetaData();
+        return connection.getMetaData();
     }
 }

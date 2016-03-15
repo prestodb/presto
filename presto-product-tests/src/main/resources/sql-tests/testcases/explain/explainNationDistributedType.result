@@ -1,4 +1,4 @@
--- delimiter: |; joinAllRowsToOne: true; types: LONGNVARCHAR
+-- delimiter: |; joinAllRowsToOne: true;
 Fragment 0 [SINGLE]
     Output layout: [n_regionkey, count]
     Output partitioning: SINGLE []
