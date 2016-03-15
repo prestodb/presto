@@ -148,6 +148,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot select from view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyGrantTablePrivilege(String privilege, String tableName)
+    {
+        denyGrantTablePrivilege(privilege, tableName, null);
+    }
+
+    public static void denyGrantTablePrivilege(String privilege, String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot grant privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denySetSystemSessionProperty(String propertyName)
     {
         denySetSystemSessionProperty(propertyName, null);

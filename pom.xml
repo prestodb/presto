@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>48</version>
+        <version>49</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.140-SNAPSHOT</version>
+    <version>0.142-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>

@@ -66,6 +66,8 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardInde
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.partition;
@@ -84,8 +86,9 @@ import static java.util.stream.Collectors.toSet;
 
 public class ShardCompactionManager
 {
-    private static final double FILL_FACTOR = 0.75;
     private static final Logger log = Logger.get(ShardCompactionManager.class);
+
+    private static final double FILL_FACTOR = 0.75;
     private static final int MAX_PENDING_COMPACTIONS = 500;
 
     private final ScheduledExecutorService compactionDiscoveryService = newScheduledThreadPool(1, daemonThreadsNamed("shard-compaction-discovery"));
@@ -241,6 +244,10 @@ public class ShardCompactionManager
             }
             else {
                 Type type = metadataDao.getTableColumn(tableId, temporalColumnId).getDataType();
+                if (!type.equals(DATE) && !type.equals(TIMESTAMP)) {
+                    log.warn("Temporal column type of table ID %s set incorrectly to %s", tableId, type);
+                    continue;
+                }
                 compactionSetCreator = new TemporalCompactionSetCreator(maxShardSize, maxShardRows, type);
                 shards = filterShardsWithTemporalMetadata(shardMetadata, tableId, temporalColumnId);
             }
@@ -407,8 +414,8 @@ public class ShardCompactionManager
         {
             TableMetadata metadata = getTableMetadata(tableId);
             List<ShardInfo> newShards = performCompaction(transactionId, bucketNumber, shardUuids, metadata);
-            shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
             log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
+            shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards);
         }
 
         private List<ShardInfo> performCompaction(long transactionId, OptionalInt bucketNumber, Set<UUID> shardUuids, TableMetadata tableMetadata)

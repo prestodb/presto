@@ -14,12 +14,14 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -74,6 +76,9 @@ public class MetadataQueryOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
+        if (!SystemSessionProperties.isOptimizeMetadataQueries(session)) {
+            return plan;
+        }
         return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
     }
 
@@ -117,12 +122,6 @@ public class MetadataQueryOptimizer
                 ColumnHandle column = tableScan.getAssignments().get(symbol);
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableScan.getTable(), column);
 
-                if (!columnMetadata.isPartitionKey()) {
-                    // the optimization is only valid if the aggregation node only
-                    // relies on partition keys
-                    return context.defaultRewrite(node);
-                }
-
                 typesBuilder.put(symbol, columnMetadata.getType());
                 columnBuilder.put(symbol, column);
             }
@@ -146,9 +145,15 @@ public class MetadataQueryOptimizer
             if (layout == null || !layout.getDiscretePredicates().isPresent()) {
                 return context.defaultRewrite(node);
             }
+            DiscretePredicates predicates = layout.getDiscretePredicates().get();
+
+            // the optimization is only valid if the aggregation node only relies on partition keys
+            if (!predicates.getColumns().containsAll(columns.values())) {
+                return context.defaultRewrite(node);
+            }
 
             ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
-            for (TupleDomain<ColumnHandle> domain : layout.getDiscretePredicates().get()) {
+            for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
                 if (!domain.isNone()) {
                     Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
 

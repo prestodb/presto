@@ -76,4 +76,6 @@ public enum SemanticErrorCode
 
     INVALID_SESSION_PROPERTY,
     INVALID_TRANSACTION_MODE,
+
+    INVALID_PRIVILEGE,
 }

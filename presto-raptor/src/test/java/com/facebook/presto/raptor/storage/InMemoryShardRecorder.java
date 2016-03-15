@@ -33,22 +33,20 @@ public class InMemoryShardRecorder
     }
 
     @Override
-    public void recordCreatedShard(long transactionId, UUID shardUuid, String nodeIdentifier)
+    public void recordCreatedShard(long transactionId, UUID shardUuid)
     {
-        shards.add(new RecordedShard(transactionId, shardUuid, nodeIdentifier));
+        shards.add(new RecordedShard(transactionId, shardUuid));
     }
 
     public static class RecordedShard
     {
         private final long transactionId;
         private final UUID shardUuid;
-        private final String nodeIdentifier;
 
-        public RecordedShard(long transactionId, UUID shardUuid, String nodeIdentifier)
+        public RecordedShard(long transactionId, UUID shardUuid)
         {
             this.transactionId = transactionId;
             this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
-            this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null");
         }
 
         public long getTransactionId()
@@ -59,11 +57,6 @@ public class InMemoryShardRecorder
         public UUID getShardUuid()
         {
             return shardUuid;
-        }
-
-        public String getNodeIdentifier()
-        {
-            return nodeIdentifier;
         }
     }
 }

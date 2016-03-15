@@ -15,6 +15,7 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
@@ -89,6 +90,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    {
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName)
     {
     }
 

@@ -30,7 +30,7 @@ public class ConnectorTableLayout
     private final TupleDomain<ColumnHandle> predicate;
     private final Optional<ConnectorNodePartitioning> nodePartitioning;
     private final Optional<Set<ColumnHandle>> streamPartitioningColumns;
-    private final Optional<List<TupleDomain<ColumnHandle>>> discretePredicates;
+    private final Optional<DiscretePredicates> discretePredicates;
     private final List<LocalProperty<ColumnHandle>> localProperties;
 
     public ConnectorTableLayout(ConnectorTableLayoutHandle handle)
@@ -50,7 +50,7 @@ public class ConnectorTableLayout
             TupleDomain<ColumnHandle> predicate,
             Optional<ConnectorNodePartitioning> nodePartitioning,
             Optional<Set<ColumnHandle>> streamPartitioningColumns,
-            Optional<List<TupleDomain<ColumnHandle>>> discretePredicates,
+            Optional<DiscretePredicates> discretePredicates,
             List<LocalProperty<ColumnHandle>> localProperties)
     {
         requireNonNull(handle, "handle is null");
@@ -122,7 +122,7 @@ public class ConnectorTableLayout
      * these predicates is expected to be equivalent to the overall predicate returned
      * by {@link #getPredicate()}. They may be used by the engine for further optimizations.
      */
-    public Optional<List<TupleDomain<ColumnHandle>>> getDiscretePredicates()
+    public Optional<DiscretePredicates> getDiscretePredicates()
     {
         return discretePredicates;
     }

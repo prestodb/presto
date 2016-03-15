@@ -176,9 +176,9 @@ public class TpchMetadata
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType()), false));
+            columns.add(new ColumnMetadata(column.getColumnName(), getPrestoType(column.getType())));
         }
-        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, false, null, true));
+        columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, null, true));
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());

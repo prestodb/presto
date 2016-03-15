@@ -30,7 +30,10 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries
@@ -74,12 +77,20 @@ public class TestRaptorDistributedQueries
         MaterializedResult actualResults = computeActual("SELECT *, \"$shard_uuid\" FROM test_shard_uuid");
         assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, VARCHAR));
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
+        String arbitraryUuid = null;
         for (MaterializedRow row : actualRows) {
             Object uuid = row.getField(2);
             assertInstanceOf(uuid, String.class);
             // check that the string can be parsed into a UUID
             UUID.fromString((String) uuid);
+            arbitraryUuid = (String) uuid;
         }
+        assertNotNull(arbitraryUuid);
+
+        actualResults = computeActual(format("SELECT * FROM test_shard_uuid where \"$shard_uuid\" = '%s'", arbitraryUuid));
+        assertNotEquals(actualResults.getMaterializedRows().size(), 0);
+        actualResults = computeActual("SELECT * FROM test_shard_uuid where \"$shard_uuid\" = 'foo'");
+        assertEquals(actualResults.getMaterializedRows().size(), 0);
     }
 
     @Test

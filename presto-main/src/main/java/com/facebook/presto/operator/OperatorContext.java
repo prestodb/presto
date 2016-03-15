@@ -444,14 +444,12 @@ public class OperatorContext
         @Override
         public synchronized void run()
         {
-            synchronized (this) {
-                if (finished) {
-                    return;
-                }
-                finished = true;
-                blockedMonitor.compareAndSet(this, null);
-                blockedWallNanos.getAndAdd(getBlockedTime());
+            if (finished) {
+                return;
             }
+            finished = true;
+            blockedMonitor.compareAndSet(this, null);
+            blockedWallNanos.getAndAdd(getBlockedTime());
         }
 
         public long getBlockedTime()

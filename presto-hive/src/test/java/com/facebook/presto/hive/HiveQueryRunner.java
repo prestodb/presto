@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.jetbrains.annotations.NotNull;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -94,7 +93,6 @@ public final class HiveQueryRunner
         }
     }
 
-    @NotNull
     private static Database createDatabaseMetastoreObject(File baseDir, String name)
     {
         Database database = new Database(name, null, new File(baseDir, name).toURI().toString(), null);

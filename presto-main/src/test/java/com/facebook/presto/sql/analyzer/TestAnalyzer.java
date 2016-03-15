@@ -158,7 +158,7 @@ public class TestAnalyzer
     public void testScalarSubQuery()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES 1) GROUP BY 1");
+        analyze("SELECT 'a', (VALUES 1) GROUP BY 1");
         analyze("SELECT 'a', (SELECT (1))");
         analyze("SELECT * FROM t1 WHERE (VALUES 1) = 2");
         analyze("SELECT * FROM t1 WHERE (VALUES 1) IN (VALUES 1)");
@@ -383,11 +383,12 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testNonEquiJoin()
+    public void testNonEquiOuterJoin()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON t1.a + t2.a = 1");
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a OR t1.b = t2.b");
+        analyze("SELECT * FROM t1 LEFT JOIN t2 ON t1.a + t2.a = 1");
+        analyze("SELECT * FROM t1 RIGHT JOIN t2 ON t1.a + t2.a = 1");
+        analyze("SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a OR t1.b = t2.b");
     }
 
     @Test
@@ -550,6 +551,13 @@ public class TestAnalyzer
     {
         analyze("ROLLBACK");
         analyze("ROLLBACK WORK");
+    }
+
+    @Test
+    public void testExplainAnalyze()
+            throws Exception
+    {
+        analyze("EXPLAIN ANALYZE SELECT * FROM t1");
     }
 
     @Test
@@ -729,7 +737,20 @@ public class TestAnalyzer
         analyze("SELECT SUM(b) FROM t1 GROUP BY ()");
         analyze("SELECT SUM(b) FROM t1 GROUP BY GROUPING SETS (())");
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b))");
+    }
+
+    @Test
+    public void testMultipleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        // TODO: validate output
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b), (c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY a, b, GROUPING SETS ((c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a), (c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b)), ROLLUP (c, d)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b)), CUBE (c, d)");
     }
 
     @Test
@@ -854,14 +875,14 @@ public class TestAnalyzer
     public void testNotNullInJoinClause()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
+        analyze("SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
     }
 
     @Test
     public void testIfInJoinClause()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
+        analyze("SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
     }
 
     @Test
@@ -945,45 +966,45 @@ public class TestAnalyzer
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false),
-                        new ColumnMetadata("c", BIGINT, false),
-                        new ColumnMetadata("d", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT),
+                        new ColumnMetadata("c", BIGINT),
+                        new ColumnMetadata("d", BIGINT))))));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT))))));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false),
-                        new ColumnMetadata("x", BIGINT, false, null, true))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT),
+                        new ColumnMetadata("x", BIGINT, null, true))))));
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
         inSetupTransaction(session -> metadata.createTable(session, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT))))));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table5,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false, null, true))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT, null, true))))));
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
         inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table6,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", VARCHAR, false),
-                        new ColumnMetadata("c", BIGINT, false),
-                        new ColumnMetadata("d", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", VARCHAR),
+                        new ColumnMetadata("c", BIGINT),
+                        new ColumnMetadata("d", BIGINT))))));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(

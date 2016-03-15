@@ -119,7 +119,7 @@ public class Query
         if ((!client.isFailed()) && (!client.isGone()) && (!client.isClosed())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
             if (results.getUpdateType() != null) {
-                renderUpdate(out, results);
+                renderUpdate(errorChannel, results);
             }
             else if (results.getColumns() == null) {
                 errorChannel.printf("Query %s has no columns\n", results.getId());

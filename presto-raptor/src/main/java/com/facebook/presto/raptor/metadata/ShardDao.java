@@ -17,7 +17,6 @@ import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
 import com.facebook.presto.raptor.util.UuidUtil.UuidMapperFactory;
 import com.google.common.annotations.VisibleForTesting;
 import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.BindBean;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
 import org.skife.jdbi.v2.sqlobject.SqlBatch;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
@@ -127,6 +126,9 @@ public interface ShardDao
             @Bind("transactionId") long transactionId,
             @Bind("successful") boolean successful);
 
+    @SqlQuery("SELECT successful FROM transactions WHERE transaction_id = :transactionId")
+    Boolean transactionSuccessful(@Bind("transactionId") long transactionId);
+
     @SqlUpdate("UPDATE transactions SET\n" +
             "  successful = FALSE\n" +
             ", end_time = CURRENT_TIMESTAMP\n" +
@@ -140,47 +142,19 @@ public interface ShardDao
             @Bind("shardUuid") UUID shardUuid,
             @Bind("transactionId") long transactionId);
 
-    @SqlUpdate("INSERT INTO created_shard_nodes (shard_uuid, node_id, transaction_id)\n" +
-            "VALUES (:shardUuid, :nodeId, :transactionId)")
-    void insertCreatedShardNode(
-            @Bind("shardUuid") UUID shardUuid,
-            @Bind("nodeId") int nodeId,
-            @Bind("transactionId") long transactionId);
-
     @SqlUpdate("DELETE FROM created_shards WHERE transaction_id = :transactionId")
     void deleteCreatedShards(@Bind("transactionId") long transactionId);
 
     @SqlBatch("DELETE FROM created_shards WHERE shard_uuid = :shardUuid")
     void deleteCreatedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
-    @SqlUpdate("DELETE FROM created_shard_nodes WHERE transaction_id = :transactionId")
-    void deleteCreatedShardNodes(@Bind("transactionId") long transactionId);
-
-    @SqlBatch("DELETE FROM created_shard_nodes\n" +
-            "WHERE shard_uuid = :shardUuid\n" +
-            "  AND node_id = :nodeId")
-    void deleteCreatedShardNodes(@BindBean Iterable<ShardNodeId> shardNodes);
-
-    @SqlBatch("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
-            "VALUES (:shardUuid, CURRENT_TIMESTAMP)")
-    void insertDeletedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
-
-    @SqlBatch("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time)\n" +
-            "VALUES (:shardUuid, :nodeId, CURRENT_TIMESTAMP)")
-    void insertDeletedShardNodes(@BindBean Iterable<ShardNodeId> shardNodes);
+    void insertDeletedShards(Iterable<UUID> shardUuids);
 
     @SqlUpdate("INSERT INTO deleted_shards (shard_uuid, delete_time)\n" +
             "SELECT shard_uuid, CURRENT_TIMESTAMP\n" +
             "FROM shards\n" +
             "WHERE table_id = :tableId")
     void insertDeletedShards(@Bind("tableId") long tableId);
-
-    @SqlUpdate("INSERT INTO deleted_shard_nodes (shard_uuid, node_id, delete_time)\n" +
-            "SELECT s.shard_uuid, sn.node_id, CURRENT_TIMESTAMP\n" +
-            "FROM shards s\n" +
-            "JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
-            "WHERE s.table_id = :tableId")
-    void insertDeletedShardNodes(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT s.shard_uuid\n" +
             "FROM created_shards s\n" +
@@ -189,75 +163,14 @@ public interface ShardDao
             "LIMIT 10000")
     List<UUID> getOldCreatedShardsBatch();
 
-    @SqlQuery("SELECT s.shard_uuid, s.node_id\n" +
-            "FROM created_shard_nodes s\n" +
-            "JOIN transactions t ON (s.transaction_id = t.transaction_id)\n" +
-            "WHERE NOT t.successful\n" +
-            "LIMIT 10000")
-    @Mapper(ShardNodeId.Mapper.class)
-    List<ShardNodeId> getOldCreatedShardNodesBatch();
-
     @SqlQuery("SELECT shard_uuid\n" +
             "FROM deleted_shards\n" +
             "WHERE delete_time < :maxDeleteTime\n" +
-            "  AND clean_time IS NULL\n" +
             "LIMIT 1000")
     List<UUID> getCleanableShardsBatch(@Bind("maxDeleteTime") Timestamp maxDeleteTime);
 
-    @SqlQuery("SELECT shard_uuid\n" +
-            "FROM deleted_shards\n" +
-            "WHERE delete_time < :maxDeleteTime\n" +
-            "  AND purge_time IS NULL\n" +
-            "LIMIT 1000")
-    List<UUID> getPurgableShardsBatch(@Bind("maxDeleteTime") Timestamp maxDeleteTime);
-
-    @SqlQuery("SELECT shard_uuid\n" +
-            "FROM deleted_shard_nodes d\n" +
-            "JOIN nodes n ON (d.node_id = n.node_id)\n" +
-            "WHERE n.node_identifier = :nodeIdentifier\n" +
-            "  AND d.delete_time < :maxDeleteTime\n" +
-            "  AND d.clean_time IS NULL\n" +
-            "LIMIT 1000")
-    List<UUID> getCleanableShardNodesBatch(
-            @Bind("nodeIdentifier") String nodeIdentifier,
-            @Bind("maxDeleteTime") Timestamp maxDeleteTime);
-
-    @SqlQuery("SELECT shard_uuid\n" +
-            "FROM deleted_shard_nodes d\n" +
-            "JOIN nodes n ON (d.node_id = n.node_id)\n" +
-            "WHERE n.node_identifier = :nodeIdentifier\n" +
-            "  AND d.delete_time < :maxDeleteTime\n" +
-            "  AND d.purge_time IS NULL\n" +
-            "LIMIT 1000")
-    List<UUID> getPurgableShardNodesBatch(
-            @Bind("nodeIdentifier") String nodeIdentifier,
-            @Bind("maxDeleteTime") Timestamp maxDeleteTime);
-
-    @SqlBatch("UPDATE deleted_shards SET clean_time = CURRENT_TIMESTAMP\n" +
-            "WHERE shard_uuid = :shardUuid\n" +
-            "  AND clean_time IS NULL\n")
-    void updateCleanedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
-
-    @SqlBatch("UPDATE deleted_shards SET purge_time = CURRENT_TIMESTAMP\n" +
-            "WHERE shard_uuid = :shardUuid\n" +
-            "  AND purge_time IS NULL\n")
-    void updatePurgedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
-
-    @SqlBatch("UPDATE deleted_shard_nodes SET clean_time = CURRENT_TIMESTAMP\n" +
-            "WHERE shard_uuid = :shardUuid\n" +
-            "  AND node_id = :nodeId\n" +
-            "  AND clean_time IS NULL\n")
-    void updateCleanedShardNodes(
-            @Bind("shardUuid") Iterable<UUID> shardUuids,
-            @Bind("nodeId") int nodeId);
-
-    @SqlBatch("UPDATE deleted_shard_nodes SET purge_time = CURRENT_TIMESTAMP\n" +
-            "WHERE shard_uuid = :shardUuid\n" +
-            "  AND node_id = :nodeId\n" +
-            "  AND purge_time IS NULL\n")
-    void updatePurgedShardNodes(
-            @Bind("shardUuid") Iterable<UUID> shardUuids,
-            @Bind("nodeId") int nodeId);
+    @SqlBatch("DELETE FROM deleted_shards WHERE shard_uuid = :shardUuid")
+    void deleteCleanedShards(@Bind("shardUuid") Iterable<UUID> shardUuids);
 
     @SqlBatch("INSERT INTO buckets (distribution_id, bucket_number, node_id)\n" +
             "VALUES (:distributionId, :bucketNumber, :nodeId)\n")

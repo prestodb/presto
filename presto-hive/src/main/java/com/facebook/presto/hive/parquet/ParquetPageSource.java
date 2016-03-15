@@ -26,19 +26,16 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
+import org.joda.time.DateTimeZone;
 import parquet.column.ColumnDescriptor;
 import parquet.schema.MessageType;
 
@@ -50,9 +47,17 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -93,6 +98,7 @@ class ParquetPageSource
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
+            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean useParquetColumnNames)
     {
@@ -146,28 +152,40 @@ class ParquetPageSource
                         blockBuilder.appendNull();
                     }
                 }
-                else if (type.equals(BooleanType.BOOLEAN)) {
+                else if (type.equals(BOOLEAN)) {
                     boolean value = booleanPartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        BooleanType.BOOLEAN.writeBoolean(blockBuilder, value);
+                        BOOLEAN.writeBoolean(blockBuilder, value);
                     }
                 }
-                else if (type.equals(BigintType.BIGINT)) {
+                else if (type.equals(BIGINT)) {
                     long value = bigintPartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        BigintType.BIGINT.writeLong(blockBuilder, value);
+                        BIGINT.writeLong(blockBuilder, value);
                     }
                 }
-                else if (type.equals(DoubleType.DOUBLE)) {
+                else if (type.equals(DOUBLE)) {
                     double value = doublePartitionKey(partitionKey.getValue(), name);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        DoubleType.DOUBLE.writeDouble(blockBuilder, value);
+                        DOUBLE.writeDouble(blockBuilder, value);
                     }
                 }
-                else if (type.equals(VarcharType.VARCHAR)) {
+                else if (type.equals(VARCHAR)) {
                     Slice value = Slices.wrappedBuffer(bytes);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        VarcharType.VARCHAR.writeSlice(blockBuilder, value);
+                        VARCHAR.writeSlice(blockBuilder, value);
+                    }
+                }
+                else if (type.equals(TIMESTAMP)) {
+                    long value = timestampPartitionKey(partitionKey.getValue(), hiveStorageTimeZone, name);
+                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                        TIMESTAMP.writeLong(blockBuilder, value);
+                    }
+                }
+                else if (type.equals(DATE)) {
+                    long value = datePartitionKey(partitionKey.getValue(), name);
+                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
+                        DATE.writeLong(blockBuilder, value);
                     }
                 }
                 else {
@@ -241,7 +259,8 @@ class ParquetPageSource
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
-                    ColumnDescriptor columnDescriptor = requestedSchema.getColumns().get(fieldId);
+                    int fieldIndex = requestedSchema.getFieldIndex(columnNames.get(fieldId));
+                    ColumnDescriptor columnDescriptor = requestedSchema.getColumns().get(fieldIndex);
                     blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(columnDescriptor, type));
                 }
             }

@@ -97,6 +97,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 
@@ -157,6 +158,11 @@ public class ServerMainModule
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+
+        // workaround for CodeCache GC issue
+        configBinder(binder).bindConfig(CodeCacheGcConfig.class);
+        binder.bind(CodeCacheGcTrigger.class).in(Scopes.SINGLETON);
+
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(ReservedSystemMemoryConfig.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
@@ -301,7 +307,6 @@ public class ServerMainModule
                 });
 
         // server info resource
-        binder.bind(ServerInfo.class).toInstance(new ServerInfo(nodeVersion));
         jaxrsBinder(binder).bind(ServerInfoResource.class);
 
         // plugin manager
@@ -332,6 +337,13 @@ public class ServerMainModule
 
         // Finalizer
         binder.bind(FinalizerService.class).in(Scopes.SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    public ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo)
+    {
+        return new ServerInfo(nodeVersion, nodeInfo.getEnvironment());
     }
 
     @Provides

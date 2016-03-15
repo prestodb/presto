@@ -16,13 +16,14 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -141,7 +142,7 @@ public class HiveSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
         HiveTableLayoutHandle layout = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
 

@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.hive.HiveUtil.setReadColumns;
 import static com.google.common.base.Predicates.not;
@@ -69,7 +68,7 @@ public class RcFilePageSourceFactory
             DateTimeZone hiveStorageTimeZone)
     {
         // todo remove this when GC issues are resolved
-        if (true || !isOptimizedReaderEnabled(session)) {
+        if (true) {
             return Optional.empty();
         }
 

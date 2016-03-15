@@ -100,7 +100,7 @@ public class TestingMetadata
         for (SchemaTableName tableName : listTables(session, prefix.getSchemaName())) {
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName).getColumns()) {
-                columns.add(new ColumnMetadata(column.getName(), column.getType(), false));
+                columns.add(new ColumnMetadata(column.getName(), column.getType()));
             }
             tableColumns.put(tableName, columns.build());
         }

@@ -238,6 +238,9 @@ public final class ExpressionUtils
                 ComparisonExpression comparison = (ComparisonExpression) not.getValue();
                 return new ComparisonExpression(comparison.getType().negate(), comparison.getLeft(), comparison.getRight());
             }
+            if (not.getValue() instanceof NotExpression) {
+                return normalize(((NotExpression) not.getValue()).getValue());
+            }
         }
         return expression;
     }

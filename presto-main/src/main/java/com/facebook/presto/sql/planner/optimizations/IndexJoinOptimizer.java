@@ -33,9 +33,12 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Functions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
@@ -44,7 +47,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;
@@ -237,7 +239,6 @@ public class IndexJoinOptimizer
             return planTableScan(node, BooleanLiteral.TRUE_LITERAL, context.get());
         }
 
-        @NotNull
         private PlanNode planTableScan(TableScanNode node, Expression predicate, Context context)
         {
             DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
@@ -313,6 +314,39 @@ public class IndexJoinOptimizer
             }
 
             return context.defaultRewrite(node, new Context(context.get().getLookupSymbols(), context.get().getSuccess()));
+        }
+
+        @Override
+        public PlanNode visitWindow(WindowNode node, RewriteContext<Context> context)
+        {
+            if (!node.getWindowFunctions().values().stream()
+                    .map(FunctionCall::getName)
+                    .allMatch(metadata.getFunctionRegistry()::isAggregationFunction)) {
+                return node;
+            }
+
+            // Don't need this restriction if we can prove that all order by symbols are deterministically produced
+            if (!node.getOrderBy().isEmpty()) {
+                return node;
+            }
+
+            // Only RANGE frame type currently supported for aggregation functions because it guarantees the
+            // same value for each peer group.
+            // ROWS frame type requires the ordering to be fully deterministic (e.g. deterministically sorted on all columns)
+            if (node.getFrame().getType() != WindowFrame.Type.RANGE) {
+                return node;
+            }
+
+            // Lookup symbols can only be passed through if they are part of the partitioning
+            Set<Symbol> partitionByLookupSymbols = context.get().getLookupSymbols().stream()
+                    .filter(node.getPartitionBy()::contains)
+                    .collect(toImmutableSet());
+
+            if (partitionByLookupSymbols.isEmpty()) {
+                return node;
+            }
+
+            return context.defaultRewrite(node, new Context(partitionByLookupSymbols, context.get().getSuccess()));
         }
 
         @Override
@@ -438,6 +472,16 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitFilter(FilterNode node, Set<Symbol> lookupSymbols)
             {
                 return node.getSource().accept(this, lookupSymbols);
+            }
+
+            @Override
+            public Map<Symbol, Symbol> visitWindow(WindowNode node, Set<Symbol> lookupSymbols)
+            {
+                Set<Symbol> partitionByLookupSymbols = lookupSymbols.stream()
+                        .filter(node.getPartitionBy()::contains)
+                        .collect(toImmutableSet());
+                checkState(!partitionByLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the aggregation group by");
+                return node.getSource().accept(this, partitionByLookupSymbols);
             }
 
             @Override

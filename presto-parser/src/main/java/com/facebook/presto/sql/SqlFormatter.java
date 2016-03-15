@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Isolation;
@@ -76,6 +77,7 @@ import com.google.common.base.Strings;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
@@ -202,8 +204,8 @@ public final class SqlFormatter
                         .append('\n');
             }
 
-            if (!node.getGroupBy().isEmpty()) {
-                append(indent, "GROUP BY " + formatGroupBy(node.getGroupBy())).append('\n');
+            if (node.getGroupBy().isPresent()) {
+                append(indent, "GROUP BY " + (node.getGroupBy().get().isDistinct() ? " DISTINCT " : "") + formatGroupBy(node.getGroupBy().get().getGroupingElements())).append('\n');
             }
 
             if (node.getHaving().isPresent()) {
@@ -481,6 +483,9 @@ public final class SqlFormatter
         protected Void visitExplain(Explain node, Integer indent)
         {
             builder.append("EXPLAIN ");
+            if (node.isAnalyze()) {
+                builder.append("ANALYZE ");
+            }
 
             List<String> options = new ArrayList<>();
 
@@ -612,8 +617,11 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
-            builder.append("CREATE TABLE ")
-                    .append(node.getName());
+            builder.append("CREATE TABLE ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(node.getName());
 
             if (!node.getProperties().isEmpty()) {
                 builder.append(" WITH (");
@@ -817,6 +825,33 @@ public final class SqlFormatter
         protected Void visitRollback(Rollback node, Integer context)
         {
             builder.append("ROLLBACK");
+            return null;
+        }
+
+        @Override
+        public Void visitGrant(Grant node, Integer indent)
+        {
+            builder.append("GRANT ");
+
+            if (node.getPrivileges().isPresent()) {
+                builder.append(node.getPrivileges().get().stream()
+                        .collect(Collectors.joining(", ")));
+            }
+            else {
+                builder.append("ALL PRIVILEGES");
+            }
+
+            builder.append(" ON ");
+            if (node.isTable()) {
+                builder.append("TABLE ");
+            }
+            builder.append(node.getTableName())
+                    .append(" TO ")
+                    .append(node.getGrantee());
+            if (node.isWithGrantOption()) {
+                builder.append(" WITH GRANT OPTION");
+            }
+
             return null;
         }
 

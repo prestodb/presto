@@ -32,6 +32,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.Privilege;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -257,6 +258,12 @@ public class LegacyConnectorMetadata
     public Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         return indexResolver.flatMap(indexResolver -> Optional.ofNullable(indexResolver.resolveIndex(session, tableHandle, indexableColumns, outputColumns, tupleDomain)));
+    }
+
+    @Override
+    public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        metadata.grantTablePrivileges(session, tableName, privileges, grantee, grantOption);
     }
 
     private void setRollback(Runnable action)

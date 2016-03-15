@@ -75,6 +75,8 @@ public abstract class ParquetColumnReader
                 return new ParquetIntColumnReader(descriptor);
             case INT64:
                 return new ParquetLongColumnReader(descriptor);
+            case INT96:
+                return new ParquetTimestampColumnReader(descriptor);
             case FLOAT:
                 return new ParquetFloatColumnReader(descriptor);
             case DOUBLE:

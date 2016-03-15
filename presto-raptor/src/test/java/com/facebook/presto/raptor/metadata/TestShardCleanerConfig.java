@@ -36,10 +36,8 @@ public class TestShardCleanerConfig
                 .setTransactionCleanerInterval(new Duration(10, MINUTES))
                 .setLocalCleanerInterval(new Duration(1, HOURS))
                 .setLocalCleanTime(new Duration(4, HOURS))
-                .setLocalPurgeTime(new Duration(3, DAYS))
                 .setBackupCleanerInterval(new Duration(5, MINUTES))
                 .setBackupCleanTime(new Duration(1, DAYS))
-                .setBackupPurgeTime(new Duration(3, DAYS))
                 .setBackupDeletionThreads(50));
     }
 
@@ -51,10 +49,8 @@ public class TestShardCleanerConfig
                 .put("raptor.transaction-cleaner-interval", "43m")
                 .put("raptor.local-cleaner-interval", "31m")
                 .put("raptor.local-clean-time", "32m")
-                .put("raptor.local-purge-time", "33m")
                 .put("raptor.backup-cleaner-interval", "34m")
                 .put("raptor.backup-clean-time", "35m")
-                .put("raptor.backup-purge-time", "36m")
                 .put("raptor.backup-deletion-threads", "37")
                 .build();
 
@@ -63,10 +59,8 @@ public class TestShardCleanerConfig
                 .setTransactionCleanerInterval(new Duration(43, MINUTES))
                 .setLocalCleanerInterval(new Duration(31, MINUTES))
                 .setLocalCleanTime(new Duration(32, MINUTES))
-                .setLocalPurgeTime(new Duration(33, MINUTES))
                 .setBackupCleanerInterval(new Duration(34, MINUTES))
                 .setBackupCleanTime(new Duration(35, MINUTES))
-                .setBackupPurgeTime(new Duration(36, MINUTES))
                 .setBackupDeletionThreads(37);
 
         assertFullMapping(properties, expected);

@@ -128,6 +128,7 @@ public class TestStatementBuilder
         printStatement("select * from foo approximate at 90 confidence");
 
         printStatement("create table foo as (select * from abc)");
+        printStatement("create table if not exists foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");
         printStatement("create table foo as select * from abc WITH NO DATA");
         printStatement("drop table foo");
@@ -198,6 +199,10 @@ public class TestStatementBuilder
 
         printStatement("call foo()");
         printStatement("call foo(123, a => 1, b => 'go', 456)");
+
+        printStatement("grant select on foo to testUser with grant option");
+        printStatement("grant all privileges on foo to testAdmin");
+        printStatement("grant delete, select on foo to public");
     }
 
     @Test

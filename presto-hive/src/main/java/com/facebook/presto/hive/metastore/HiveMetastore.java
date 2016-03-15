@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore;
 
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.weakref.jmx.Managed;
 
@@ -73,6 +74,10 @@ public interface HiveMetastore
     Set<HivePrivilege> getDatabasePrivileges(String user, String databaseName);
 
     Set<HivePrivilege> getTablePrivileges(String user, String databaseName, String tableName);
+
+    void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet);
+
+    boolean hasPrivilegeWithGrantOptionOnTable(String user, String databaseName, String tableName, HivePrivilege hivePrivilege);
 
     default boolean isDatabaseOwner(String user, String databaseName)
     {

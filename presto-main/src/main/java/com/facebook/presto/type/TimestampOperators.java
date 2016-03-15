@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -95,6 +96,7 @@ public final class TimestampOperators
         return min <= value && value <= max;
     }
 
+    @ScalarFunction("date")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DATE)
     public static long castToDate(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long value)

@@ -34,8 +34,15 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +59,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -82,21 +90,35 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis)
     {
-        RelationPlan plan;
-        if (analysis.getCreateTableDestination().isPresent()) {
-            plan = createTableCreationPlan(analysis);
+        PlanNode root;
+        Statement statement = analysis.getStatement();
+        if (statement instanceof CreateTableAsSelect) {
+            checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
+            if (analysis.isCreateTableAsSelectNoOp()) {
+                List<Expression> emptyRow = ImmutableList.of();
+                PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow));
+                root = new OutputNode(idAllocator.getNextId(), source, ImmutableList.of(), ImmutableList.of());
+            }
+            else {
+                root = createOutputPlan(createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery()), analysis);
+            }
         }
-        else if (analysis.getInsert().isPresent()) {
-            plan = createInsertPlan(analysis);
+        else if (statement instanceof Insert) {
+            checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
+            root = createOutputPlan(createInsertPlan(analysis, (Insert) statement), analysis);
         }
-        else if (analysis.getDelete().isPresent()) {
-            plan = createDeletePlan(analysis);
+        else if (statement instanceof Delete) {
+            root = createOutputPlan(createDeletePlan(analysis, (Delete) statement), analysis);
+        }
+        else if (statement instanceof Query) {
+            root = createOutputPlan(createRelationPlan(analysis, (Query) statement), analysis);
+        }
+        else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
+            throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE not yet implemented");
         }
         else {
-            plan = createRelationPlan(analysis);
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
         }
-
-        PlanNode root = createOutputPlan(plan, analysis);
 
         // make sure we produce a valid plan. This is mainly to catch programming errors
         PlanSanityChecker.validate(root);
@@ -112,11 +134,11 @@ public class LogicalPlanner
         return new Plan(root, symbolAllocator);
     }
 
-    private RelationPlan createTableCreationPlan(Analysis analysis)
+    private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
     {
         QualifiedObjectName destination = analysis.getCreateTableDestination().get();
 
-        RelationPlan plan = createRelationPlan(analysis);
+        RelationPlan plan = createRelationPlan(analysis, query);
 
         TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), analysis.getCreateTableProperties(), plan.getSampleWeight().isPresent());
         if (plan.getSampleWeight().isPresent() && !metadata.canCreateSampledTables(session, destination.getCatalogName())) {
@@ -133,7 +155,7 @@ public class LogicalPlanner
                 newTableLayout);
     }
 
-    private RelationPlan createInsertPlan(Analysis analysis)
+    private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
     {
         Analysis.Insert insert = analysis.getInsert().get();
 
@@ -142,7 +164,7 @@ public class LogicalPlanner
         List<String> visibleTableColumnNames = tableMetadata.getVisibleColumnNames();
         List<ColumnMetadata> visibleTableColumns = tableMetadata.getVisibleColumns();
 
-        RelationPlan plan = createRelationPlan(analysis);
+        RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
         ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
@@ -246,10 +268,10 @@ public class LogicalPlanner
         return new RelationPlan(commitNode, analysis.getOutputDescriptor(), outputs, Optional.empty());
     }
 
-    private RelationPlan createDeletePlan(Analysis analysis)
+    private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        QueryPlanner planner = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
-        DeleteNode deleteNode = planner.planDelete(analysis.getDelete().get());
+        QueryPlanner planner = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, Optional.empty());
+        DeleteNode deleteNode = planner.planDelete(node);
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
         TableFinishNode commitNode = new TableFinishNode(idAllocator.getNextId(), deleteNode, deleteNode.getTarget(), outputs);
@@ -278,10 +300,10 @@ public class LogicalPlanner
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }
 
-    private RelationPlan createRelationPlan(Analysis analysis)
+    private RelationPlan createRelationPlan(Analysis analysis, Query query)
     {
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
-                .process(analysis.getQuery(), null);
+                .process(query, null);
     }
 
     private TableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, boolean sampled)
@@ -303,7 +325,7 @@ public class LogicalPlanner
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (Field field : plan.getDescriptor().getVisibleFields()) {
-            columns.add(new ColumnMetadata(field.getName().get(), field.getType(), false));
+            columns.add(new ColumnMetadata(field.getName().get(), field.getType()));
         }
         return columns.build();
     }
