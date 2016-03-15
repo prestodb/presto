@@ -226,9 +226,8 @@ public class ShardCompactionManager
             if (!metadataDao.isCompactionEnabled(tableId)) {
                 continue;
             }
-            List<ShardMetadata> shardMetadata = entry.getValue();
 
-            Set<ShardMetadata> shards = shardMetadata.stream()
+            Set<ShardMetadata> shards = entry.getValue().stream()
                     .filter(this::needsCompaction)
                     .filter(shard -> !shardsInProgress.contains(shard.getShardUuid()))
                     .collect(toSet());
@@ -249,7 +248,7 @@ public class ShardCompactionManager
                     continue;
                 }
                 compactionSetCreator = new TemporalCompactionSetCreator(maxShardSize, maxShardRows, type);
-                shards = filterShardsWithTemporalMetadata(shardMetadata, tableId, temporalColumnId);
+                shards = filterShardsWithTemporalMetadata(shards, tableId, temporalColumnId);
             }
             addToCompactionQueue(compactionSetCreator, tableId, shards);
         }
