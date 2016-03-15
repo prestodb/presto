@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -739,6 +740,19 @@ public class ExpressionAnalyzer
             expressionTypes.put(node, type);
 
             return type;
+        }
+
+        @Override
+        protected Type visitAtTimeZone(AtTimeZone node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            Type valueType = process(node.getValue(), context);
+            process(node.getTimeZone(), context);
+            if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be TIME_WITH_TIME_ZONE or TIMESTAMP_WITH_TIME_ZONE (actual %s)", valueType);
+            }
+            expressionTypes.put(node, valueType); // the return type of AtTimeZone is always the same as its input value
+
+            return valueType;
         }
 
         @Override
