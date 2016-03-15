@@ -398,37 +398,37 @@ public final class MathFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long widthBucket(@SqlType(StandardTypes.DOUBLE) double operand, @SqlType(StandardTypes.DOUBLE) double lowerBound, @SqlType(StandardTypes.DOUBLE) double upperBound, @SqlType(StandardTypes.BIGINT) long bucketCount)
     {
-      checkCondition(bucketCount > 0, INVALID_FUNCTION_ARGUMENT, "bucketCount must be greater than 0");
-      checkCondition(!isNaN(operand), INVALID_FUNCTION_ARGUMENT, "operand must not be NaN");
-      checkCondition(isFinite(lowerBound), INVALID_FUNCTION_ARGUMENT, "lowerBound must be finite");
-      checkCondition(isFinite(upperBound), INVALID_FUNCTION_ARGUMENT, "upperBound must be finite");
-      checkCondition(lowerBound != upperBound, INVALID_FUNCTION_ARGUMENT, "lower bound cannot equal upper bound");
+        checkCondition(bucketCount > 0, INVALID_FUNCTION_ARGUMENT, "bucketCount must be greater than 0");
+        checkCondition(!isNaN(operand), INVALID_FUNCTION_ARGUMENT, "operand must not be NaN");
+        checkCondition(isFinite(lowerBound), INVALID_FUNCTION_ARGUMENT, "lowerBound must be finite");
+        checkCondition(isFinite(upperBound), INVALID_FUNCTION_ARGUMENT, "upperBound must be finite");
+        checkCondition(lowerBound != upperBound, INVALID_FUNCTION_ARGUMENT, "lower bound cannot equal upper bound");
 
-      long result = 0;
+        long result = 0;
 
-      if (lowerBound < upperBound) {
-        if (operand < lowerBound) {
-          result = 0;
+        if (lowerBound < upperBound) {
+            if (operand < lowerBound) {
+                result = 0;
+            }
+            else if (operand >= upperBound) {
+                result = Math.addExact(bucketCount, 1);
+            }
+            else {
+                result = (long) ((double) bucketCount * (operand - lowerBound) / (upperBound - lowerBound) + 1);
+            }
         }
-        else if (operand >= upperBound) {
-          result = Math.addExact(bucketCount, 1);
+        else if (lowerBound > upperBound) {
+            if (operand > lowerBound) {
+                result = 0;
+            }
+            else if (operand <= upperBound) {
+                result = Math.addExact(bucketCount, 1);
+            }
+            else {
+                result = (long) ((double) bucketCount * (lowerBound - operand) / (lowerBound - upperBound) + 1);
+            }
         }
-        else {
-          result = (long) ((double) bucketCount * (operand - lowerBound) / (upperBound - lowerBound) + 1);
-        }
-      }
-      else if (lowerBound > upperBound) {
-        if (operand > lowerBound) {
-          result = 0;
-        }
-        else if (operand <= upperBound) {
-          result = Math.addExact(bucketCount, 1);
-        }
-        else {
-          result = (long) ((double) bucketCount * (lowerBound - operand) / (lowerBound - upperBound) + 1);
-        }
-      }
 
-      return result;
+        return result;
     }
 }
