@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.optimizations.AddIntermediateAggregation;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.optimizations.CountConstantOptimizer;
+import com.facebook.presto.sql.planner.optimizations.DesugaringOptimizer;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
@@ -62,7 +63,8 @@ public class PlanOptimizersFactory
     {
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
-        builder.add(new ImplementSampleAsFilter(),
+        builder.add(new DesugaringOptimizer(), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
+                new ImplementSampleAsFilter(),
                 new CanonicalizeExpressions(),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),
