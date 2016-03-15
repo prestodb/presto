@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; 
 system | information_schema | columns  | BASE TABLE |
 system | information_schema | tables   | BASE TABLE |
 system | information_schema | views    | BASE TABLE |

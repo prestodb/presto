@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: false; types: LONGNVARCHAR|LONGNVARCHAR|INTEGER|BIGINT
+-- delimiter: |; ignoreOrder: false;
 Brand#41|MEDIUM BRUSHED TIN|3|28|
 Brand#54|STANDARD BRUSHED COPPER|14|27|
 Brand#11|STANDARD BRUSHED TIN|23|24|
