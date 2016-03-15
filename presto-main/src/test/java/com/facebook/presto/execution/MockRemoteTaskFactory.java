@@ -251,13 +251,10 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public void addSplits(PlanNodeId sourceId, Iterable<Split> splits)
+        public void addSplits(Multimap<PlanNodeId, Split> splits)
         {
-            requireNonNull(splits, "splits is null");
             synchronized (this) {
-                for (Split split : splits) {
-                    this.splits.put(sourceId, split);
-                }
+                this.splits.putAll(splits);
             }
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
         }

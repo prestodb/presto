@@ -32,6 +32,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
@@ -182,7 +183,9 @@ public class TestNodeScheduler
         assignments = nodeSelector.computeAssignments(nonRackLocalSplits, ImmutableList.copyOf(taskMap.values()));
         for (Node node : assignments.keySet()) {
             RemoteTask remoteTask = taskMap.get(node);
-            remoteTask.addSplits(new PlanNodeId("sourceId"), assignments.get(node));
+            remoteTask.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
+                    .putAll(new PlanNodeId("sourceId"), assignments.get(node))
+                    .build());
         }
         nonRackLocalSplits = Sets.difference(nonRackLocalSplits, new HashSet<>(assignments.values()));
         // Check that 3 of the splits were rejected, since they're non-local
@@ -201,7 +204,9 @@ public class TestNodeScheduler
         assignments = nodeSelector.computeAssignments(rackLocalSplits.build(), ImmutableList.copyOf(taskMap.values()));
         for (Node node : assignments.keySet()) {
             RemoteTask remoteTask = taskMap.get(node);
-            remoteTask.addSplits(new PlanNodeId("sourceId"), assignments.get(node));
+            remoteTask.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
+                    .putAll(new PlanNodeId("sourceId"), assignments.get(node))
+                    .build());
         }
         Set<Split> unassigned = Sets.difference(rackLocalSplits.build(), new HashSet<>(assignments.values()));
         // Compute the assignments a second time to account for the fact that some splits may not have been assigned due to asynchronous
@@ -220,7 +225,9 @@ public class TestNodeScheduler
         assignments = nodeSelector.computeAssignments(unassigned, ImmutableList.copyOf(taskMap.values()));
         for (Node node : assignments.keySet()) {
             RemoteTask remoteTask = taskMap.get(node);
-            remoteTask.addSplits(new PlanNodeId("sourceId"), assignments.get(node));
+            remoteTask.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
+                    .putAll(new PlanNodeId("sourceId"), assignments.get(node))
+                    .build());
         }
         unassigned = Sets.difference(unassigned, new HashSet<>(assignments.values()));
         assertEquals(unassigned.size(), 3);
