@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; types: LONGNVARCHAR
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true;
 columns|
 schemata|
 tables|

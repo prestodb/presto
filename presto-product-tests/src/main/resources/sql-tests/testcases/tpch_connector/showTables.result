@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: true; types: LONGNVARCHAR
+-- delimiter: |; ignoreOrder: true;
 customer|
 lineitem|
 nation|
