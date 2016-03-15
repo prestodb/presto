@@ -416,7 +416,12 @@ public final class HttpRemoteTask
         partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
     }
 
-    private synchronized void scheduleUpdate()
+    private void scheduleUpdate()
+    {
+        executor.execute(this::sendUpdate);
+    }
+
+    private synchronized void sendUpdate()
     {
         // don't update if the task hasn't been started yet or if it is already finished
         if (!needsUpdate.get() || taskInfo.get().getState().isDone()) {
@@ -439,7 +444,7 @@ public final class HttpRemoteTask
         // if throttled due to error, asynchronously wait for timeout and try again
         ListenableFuture<?> errorRateLimit = updateErrorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
-            errorRateLimit.addListener(this::scheduleUpdate, executor);
+            errorRateLimit.addListener(this::sendUpdate, executor);
             return;
         }
 
@@ -645,7 +650,7 @@ public final class HttpRemoteTask
                     updateErrorTracker.requestSucceeded();
                 }
                 finally {
-                    scheduleUpdate();
+                    sendUpdate();
                 }
             }
         }
@@ -678,7 +683,7 @@ public final class HttpRemoteTask
                     abort();
                 }
                 finally {
-                    scheduleUpdate();
+                    sendUpdate();
                 }
             }
         }
