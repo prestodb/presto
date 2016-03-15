@@ -107,6 +107,14 @@ public final class MathFunctions
         return Math.ceil(num);
     }
 
+    @Description("round to integer by dropping digits after decimal point")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double truncate(@SqlType(StandardTypes.DOUBLE) double num)
+    {
+        return Math.signum(num) * Math.floor(Math.abs(num));
+    }
+
     @Description("cosine")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)

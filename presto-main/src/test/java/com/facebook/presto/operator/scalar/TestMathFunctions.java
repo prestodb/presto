@@ -115,6 +115,21 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testTruncate()
+    {
+        final String maxDouble = Double.toString(Double.MAX_VALUE);
+        final String minDouble = Double.toString(-Double.MAX_VALUE);
+        assertFunction("truncate(17.18)", DOUBLE, 17.0);
+        assertFunction("truncate(-17.18)", DOUBLE, -17.0);
+        assertFunction("truncate(17.88)", DOUBLE, 17.0);
+        assertFunction("truncate(-17.88)", DOUBLE, -17.0);
+        assertFunction("truncate(NULL)", DOUBLE, null);
+        assertFunction("truncate(CAST(NULL AS DOUBLE))", DOUBLE, null);
+        assertFunction("truncate(" + maxDouble + ")", DOUBLE, Double.MAX_VALUE);
+        assertFunction("truncate(" + minDouble + ")", DOUBLE, -Double.MAX_VALUE);
+    }
+
+    @Test
     public void testCos()
     {
         for (double doubleValue : DOUBLE_VALUES) {
