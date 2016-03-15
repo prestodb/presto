@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -914,11 +915,10 @@ class AstBuilder
     @Override
     public Node visitAtTimeZone(SqlBaseParser.AtTimeZoneContext context)
     {
-        return new FunctionCall(
+        return new AtTimeZone(
                 getLocation(context.AT()),
-                QualifiedName.of("at_timezone"), ImmutableList.of(
                 (Expression) visit(context.valueExpression()),
-                (Expression) visit(context.timeZoneSpecifier())));
+                (Expression) visit(context.timeZoneSpecifier()));
     }
 
     @Override
