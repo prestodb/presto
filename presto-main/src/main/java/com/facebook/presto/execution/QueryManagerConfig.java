@@ -47,6 +47,7 @@ public class QueryManagerConfig
 
     private String queryExecutionPolicy = "all-at-once";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
+    private Boolean isQueryLogEnabled = false;
 
     public String getQueueConfigFile()
     {
@@ -126,6 +127,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryAge(Duration maxQueryAge)
     {
         this.maxQueryAge = maxQueryAge;
+        return this;
+    }
+
+    @NotNull
+    public Boolean getIsQueryLogEnabled()
+    {
+        return isQueryLogEnabled;
+    }
+
+    @Config("query.log.enabled")
+    public QueryManagerConfig setIsQueryLogEnabled(Boolean isQueryLogEnabled)
+    {
+        this.isQueryLogEnabled = isQueryLogEnabled;
         return this;
     }
 

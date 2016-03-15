@@ -69,6 +69,7 @@ public class SqlQueryManager
         implements QueryManager
 {
     private static final Logger log = Logger.get(SqlQueryManager.class);
+    private static final String DASH = "-";
 
     private final SqlParser sqlParser;
 
@@ -77,6 +78,7 @@ public class SqlQueryManager
     private final QueryQueueManager queueManager;
     private final ClusterMemoryManager memoryManager;
 
+    private final Boolean isQueryLogEnabled;
     private final int maxQueryHistory;
     private final Duration maxQueryAge;
 
@@ -124,6 +126,7 @@ public class SqlQueryManager
 
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
+        this.isQueryLogEnabled = config.getIsQueryLogEnabled();
         this.maxQueryAge = config.getMaxQueryAge();
         this.maxQueryHistory = config.getMaxQueryHistory();
         this.clientTimeout = config.getClientTimeout();
@@ -309,10 +312,13 @@ public class SqlQueryManager
                 stats.queryFinished(info);
                 queryMonitor.completionEvent(info);
                 expirationQueue.add(queryExecution);
-                log.info(String.format("Query complete\t%s\t%s\t%s\t%s\t%s\t%s\t%s",
-                        info.getQueryId(), newValue, info.getErrorType(), info.getErrorCode(),
-                        session.getUser(), info.getQueryStats().getElapsedTime(),
-                        info.getQuery().replace(System.getProperty("line.separator"), " ")));
+                if (isQueryLogEnabled) {
+                    log.info(String.format("Query complete\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s",
+                            info.getQueryId(), session.getRemoteUserAddress().orElse(DASH),
+                            newValue, toLogValue(info.getErrorType()), toLogValue(info.getErrorCode()),
+                            session.getUser(), info.getQueryStats().getElapsedTime(),
+                            info.getQuery().replace(System.getProperty("line.separator"), " ")));
+                }
             }
         });
 
@@ -484,6 +490,16 @@ public class SqlQueryManager
         // Need to do this check in case the state changed before we added the previous state change listener
         if (queryExecution.getState().isDone() && taskExecuted.compareAndSet(false, true)) {
             callback.run();
+        }
+    }
+
+    private static String toLogValue(Object object)
+    {
+        if (object == null) {
+            return DASH;
+        }
+        else {
+            return object.toString();
         }
     }
 }
