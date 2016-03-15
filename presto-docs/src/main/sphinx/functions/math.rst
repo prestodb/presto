@@ -118,6 +118,10 @@ Mathematical Functions
 
     Returns the base-``radix`` representation of ``x``.
 
+.. function:: truncate(x) -> double
+
+    Returns ``x`` rounded to integer by dropping digits after decimal point.
+
 Trigonometric Functions
 -----------------------
 
