@@ -115,6 +115,16 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testTruncate()
+    {
+        assertFunction("truncate(17.18)", DOUBLE, 17.0);
+        assertFunction("truncate(-17.18)", DOUBLE, -17.0);
+        assertFunction("truncate(17.88)", DOUBLE, 17.0);
+        assertFunction("truncate(-17.88)", DOUBLE, -17.0);
+        assertFunction("truncate(CAST(NULL AS DOUBLE))", DOUBLE, null);
+    }
+
+    @Test
     public void testCos()
     {
         for (double doubleValue : DOUBLE_VALUES) {
