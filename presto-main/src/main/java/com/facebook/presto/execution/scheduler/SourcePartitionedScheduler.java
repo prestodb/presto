@@ -79,8 +79,8 @@ public class SourcePartitionedScheduler
                     return new ScheduleResult(true, ImmutableSet.of(), CompletableFuture.completedFuture(null));
                 }
 
-                batchFuture = splitSource.getNextBatch(splitBatchSize);
                 long start = System.nanoTime();
+                batchFuture = splitSource.getNextBatch(splitBatchSize);
                 batchFuture.thenRun(() -> stage.recordGetSplitTime(start));
             }
 
