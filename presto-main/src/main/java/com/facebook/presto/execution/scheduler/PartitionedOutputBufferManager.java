@@ -20,11 +20,11 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -43,24 +43,21 @@ public class PartitionedOutputBufferManager
     }
 
     @Override
-    public synchronized void addOutputBuffer(TaskId bufferId, int partition)
-    {
-        if (noMoreBufferIds) {
-            // a stage can move to a final state (e.g., failed) while scheduling, so ignore
-            // the new buffers
-            return;
-        }
-
-        checkArgument(partition >= 0, "partition is negative");
-        partitions.put(bufferId, partition);
-    }
-
-    @Override
-    public void noMoreOutputBuffers()
+    public void addOutputBuffers(List<OutputBuffer> newBuffers, boolean noMoreBuffers)
     {
         synchronized (this) {
             if (noMoreBufferIds) {
-                // already created the buffers
+                // a stage can move to a final state (e.g., failed) while scheduling, so ignore
+                // the new buffers
+                return;
+            }
+
+            for (OutputBuffer newBuffer : newBuffers) {
+                partitions.put(newBuffer.getBufferId(), newBuffer.getPartition());
+            }
+
+            // only update target when all buffers have been created
+            if (!noMoreBuffers) {
                 return;
             }
             noMoreBufferIds = true;

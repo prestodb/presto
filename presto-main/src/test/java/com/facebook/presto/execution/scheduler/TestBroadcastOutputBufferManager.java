@@ -16,10 +16,13 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.scheduler.OutputBufferManager.OutputBuffer;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -36,31 +39,34 @@ public class TestBroadcastOutputBufferManager
         BroadcastOutputBufferManager hashOutputBufferManager = new BroadcastOutputBufferManager(outputBufferTarget::set);
         assertNull(outputBufferTarget.get());
 
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "0"), 0);
-        OutputBuffers expectedOutputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(new TaskId(STAGE_ID, "0"), 0);
+        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, "0"), 100)), false);
+        OutputBuffers expectedOutputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS.withBuffer(new TaskId(STAGE_ID, "0"), BROADCAST_PARTITION_ID);
         assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
 
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "1"), 0);
-        expectedOutputBuffers = expectedOutputBuffers.withBuffer(new TaskId(STAGE_ID, "1"), 0);
+        hashOutputBufferManager.addOutputBuffers(
+                ImmutableList.of(
+                        new OutputBuffer(new TaskId(STAGE_ID, "1"), 101),
+                        new OutputBuffer(new TaskId(STAGE_ID, "2"), 102)),
+                false);
+
+        expectedOutputBuffers = expectedOutputBuffers.withBuffer(new TaskId(STAGE_ID, "1"), BROADCAST_PARTITION_ID);
+        expectedOutputBuffers = expectedOutputBuffers.withBuffer(new TaskId(STAGE_ID, "2"), BROADCAST_PARTITION_ID);
         assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
 
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "2"), 0);
-        expectedOutputBuffers = expectedOutputBuffers.withBuffer(new TaskId(STAGE_ID, "2"), 0);
-        assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
-
-        // set no more buffers, which causes buffers to be created
-        hashOutputBufferManager.noMoreOutputBuffers();
+        // set no more buffers
+        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, "3"), 103)), true);
+        expectedOutputBuffers = expectedOutputBuffers.withBuffer(new TaskId(STAGE_ID, "3"), BROADCAST_PARTITION_ID);
         expectedOutputBuffers = expectedOutputBuffers.withNoMoreBufferIds();
         assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
 
         // try to add another buffer, which should not result in an error
         // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffer(new TaskId(STAGE_ID, "4"), 0);
+        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, "5"), 105)), false);
         assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
 
         // try to set no more buffers again, which should not result in an error
         // and output buffers should not change
-        hashOutputBufferManager.noMoreOutputBuffers();
+        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBuffer(new TaskId(STAGE_ID, "6"), 106)), true);
         assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
     }
 }
