@@ -68,7 +68,7 @@ public class TestPostgreSqlDistributedQueries
         assertFalse(queryRunner.tableExists(getSession(), "test_drop"));
     }
 
-	@Test
+    @Test
     public void testViews()
             throws Exception
     {
@@ -78,10 +78,10 @@ public class TestPostgreSqlDistributedQueries
 
         execute("DROP VIEW IF EXISTS tpch.test_view");
     }
-    
+
     @Test
     public void testSelectNativeDataTypeColumn()
-        throws Exception
+            throws Exception
     {
         execute("CREATE TABLE tpch.test_other_data_type (_foo UUID)");
         assertTrue(queryRunner.tableExists(getSession(), "test_other_data_type"));
