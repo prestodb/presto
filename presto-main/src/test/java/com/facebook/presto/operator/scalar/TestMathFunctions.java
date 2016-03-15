@@ -525,9 +525,15 @@ public class TestMathFunctions
     {
         assertFunction("width_bucket(3.14, 0, 4, 3)", BIGINT, 3);
         assertFunction("width_bucket(infinity(), 0, 4, 3)", BIGINT, 4);
+
+        // failure modes
         assertInvalidFunction("width_bucket(3.14, 0, 4, 0)", "bucketCount must be greater than 0");
         assertInvalidFunction("width_bucket(3.14, 0, 4, -1)", "bucketCount must be greater than 0");
         assertInvalidFunction("width_bucket(nan(), 0, 4, 3)", "operand must not be NaN");
         assertInvalidFunction("width_bucket(3.14, -1, -1, 3)", "lower bound cannot equal upper bound");
+        assertInvalidFunction("width_bucket(3.14, nan(), -1, 3)", "lowerBound must be finite");
+        assertInvalidFunction("width_bucket(3.14, -1, nan(), 3)", "upperBound must be finite");
+        assertInvalidFunction("width_bucket(3.14, infinity(), -1, 3)", "lowerBound must be finite");
+        assertInvalidFunction("width_bucket(3.14, -1, infinity(), 3)", "upperBound must be finite");
     }
 }
