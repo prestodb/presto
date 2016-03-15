@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: false; types: LONGNVARCHAR|BIGINT|DOUBLE
+-- delimiter: |; ignoreOrder: false;
 ALGERIA|1998|27136900.1803|
 ALGERIA|1997|48611833.4962|
 ALGERIA|1996|48285482.6782|

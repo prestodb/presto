@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|BOOLEAN|LONGNVARCHAR
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true;
  abs        | bigint   | bigint     | scalar        | true          | absolute value     |
  abs        | double   | double     | scalar        | true          | absolute value     |
  acos       | double   | double     | scalar        | true          | arc cosine         |

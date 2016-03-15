@@ -1,4 +1,4 @@
--- delimiter: |; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR
+-- delimiter: |; trimValues:true;
 n_nationkey | bigint  | |
 n_name      | varchar(25) | |
 n_regionkey | bigint  | |

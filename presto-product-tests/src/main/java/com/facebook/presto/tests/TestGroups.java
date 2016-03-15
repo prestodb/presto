@@ -28,6 +28,7 @@ public final class TestGroups
     public static final String BLACKHOLE_CONNECTOR = "blackhole";
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
+    public static final String SIMBA_JDBC = "simba_jdbc";
     public static final String QUERY_ENGINE = "qe";
     public static final String COMPARISON = "comparison";
     public static final String LOGICAL = "logical";

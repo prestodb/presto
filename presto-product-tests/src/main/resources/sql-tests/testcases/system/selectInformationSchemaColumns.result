@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; types: LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|BIGINT|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR|LONGNVARCHAR
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; 
 system| runtime| queries| node_id| 1| null| YES| varchar| null|
 system| runtime| queries| query_id| 2| null| YES| varchar| null|
 system| runtime| queries| state| 3| null| YES| varchar| null|
