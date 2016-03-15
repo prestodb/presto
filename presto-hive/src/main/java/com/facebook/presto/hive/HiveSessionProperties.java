@@ -59,7 +59,7 @@ public final class HiveSessionProperties
                 dataSizeSessionProperty(
                         ORC_STREAM_BUFFER_SIZE,
                         "ORC: Size of buffer for streaming reads",
-                        config.getOrcMaxBufferSize(),
+                        config.getOrcStreamBufferSize(),
                         false),
                 booleanSessionProperty(
                         PARQUET_OPTIMIZED_READER_ENABLED,
