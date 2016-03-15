@@ -12,3 +12,4 @@ Hive Changes
 
 * Change ORC input format to report actual bytes read as opposed to estimated bytes.
 * Fix cache invalidation when renaming tables.
+* Fix Parquet reader to handle uppercase column names.
