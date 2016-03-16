@@ -289,6 +289,11 @@ public class ReflectionParametricScalar
             requireNonNull(returnType, format("%s is missing @SqlType annotation", method));
             this.returnType = returnType.value();
 
+            Class<?> actualReturnType = method.getReturnType();
+            if (Primitives.isWrapperType(actualReturnType)) {
+                checkArgument(nullable, "Method %s has return value with type %s that is missing @Nullable", method, actualReturnType);
+            }
+
             Stream.of(method.getAnnotationsByType(TypeParameter.class))
                     .forEach(typeParameters::add);
 
@@ -334,6 +339,9 @@ public class ReflectionParametricScalar
                         }
                     }
                     requireNonNull(type, format("@SqlType annotation missing for argument to %s", method));
+                    if (Primitives.isWrapperType(parameterType)) {
+                        checkArgument(nullableArgument, "Method %s has parameter with type %s that is missing @Nullable", method, parameterType);
+                    }
                     if (typeParameterNames.contains(type.value()) && !(parameterType == Object.class && nullableArgument)) {
                         // Infer specialization on this type parameter. We don't do this for @Nullable Object because it could match a type like BIGINT
                         Class<?> specialization = specializedTypeParameters.get(type.value());
