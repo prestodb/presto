@@ -748,7 +748,7 @@ public class ExpressionAnalyzer
             Type valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
             if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be TIME_WITH_TIME_ZONE or TIMESTAMP_WITH_TIME_ZONE (actual %s)", valueType);
+                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with time zone (actual %s)", valueType);
             }
             expressionTypes.put(node, valueType); // the return type of AtTimeZone is always the same as its input value
 
