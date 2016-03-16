@@ -530,10 +530,10 @@ public class TestMathFunctions
         assertInvalidFunction("width_bucket(3.14, 0, 4, 0)", "bucketCount must be greater than 0");
         assertInvalidFunction("width_bucket(3.14, 0, 4, -1)", "bucketCount must be greater than 0");
         assertInvalidFunction("width_bucket(nan(), 0, 4, 3)", "operand must not be NaN");
-        assertInvalidFunction("width_bucket(3.14, -1, -1, 3)", "lower bound cannot equal upper bound");
-        assertInvalidFunction("width_bucket(3.14, nan(), -1, 3)", "lowerBound must be finite");
-        assertInvalidFunction("width_bucket(3.14, -1, nan(), 3)", "upperBound must be finite");
-        assertInvalidFunction("width_bucket(3.14, infinity(), -1, 3)", "lowerBound must be finite");
-        assertInvalidFunction("width_bucket(3.14, -1, infinity(), 3)", "upperBound must be finite");
+        assertInvalidFunction("width_bucket(3.14, -1, -1, 3)", "bounds cannot equal each other");
+        assertInvalidFunction("width_bucket(3.14, nan(), -1, 3)", "first bound must be finite");
+        assertInvalidFunction("width_bucket(3.14, -1, nan(), 3)", "second bound must be finite");
+        assertInvalidFunction("width_bucket(3.14, infinity(), -1, 3)", "first bound must be finite");
+        assertInvalidFunction("width_bucket(3.14, -1, infinity(), 3)", "second bound must be finite");
     }
 }
