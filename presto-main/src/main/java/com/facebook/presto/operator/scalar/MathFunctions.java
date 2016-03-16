@@ -425,7 +425,7 @@ public final class MathFunctions
         }
 
         if (bound1 > bound2) {
-            result = bucketCount - result;
+            result = (bucketCount - result) + 1;
         }
 
         return result;
