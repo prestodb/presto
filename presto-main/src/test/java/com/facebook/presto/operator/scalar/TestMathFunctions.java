@@ -543,14 +543,14 @@ public class TestMathFunctions
         assertInvalidFunction("width_bucket(3.14, -1, infinity(), 3)", "second bound must be finite");
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "bucketCount overflow")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Bucket for value Infinity is out of range")
     public void testWidthBucketOverflowAscending()
             throws Exception
     {
         functionAssertions.tryEvaluate("width_bucket(infinity(), 0, 4, " + Long.MAX_VALUE + ")", DOUBLE);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "bucketCount overflow")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Bucket for value Infinity is out of range")
     public void testWidthBucketOverflowDescending()
             throws Exception
     {

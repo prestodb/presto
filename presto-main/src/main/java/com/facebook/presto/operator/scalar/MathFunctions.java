@@ -417,7 +417,7 @@ public final class MathFunctions
                 result = Math.addExact(bucketCount, 1);
             }
             catch (ArithmeticException e) {
-                throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "bucketCount overflow");
+                throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Bucket for value %s is out of range", operand));
             }
         }
         else {
