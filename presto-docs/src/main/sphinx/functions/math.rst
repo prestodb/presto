@@ -183,7 +183,7 @@ Floating Point Functions
 
     Returns the constant representing not-a-number.
 
-.. function:: width_bucket(x, lower, upper, n) -> bigint
+.. function:: width_bucket(x, bound1, bound2, n) -> bigint
 
-    Returns the bin number of ``x`` in an evenly spaced histogram with the
-    specified ``lower`` and ``upper`` bounds and ``n`` number of buckets.
+    Returns the bin number of ``x`` in an equidepth histogram with the
+    specified ``bound1`` and ``bound2`` bounds and ``n`` number of buckets.
