@@ -225,6 +225,9 @@ public final class OrcInputStream
 
         boolean isUncompressed = (b0 & 0x01) == 1;
         int chunkLength = (b2 << 15) | (b1 << 7) | (b0 >>> 1);
+        if (chunkLength < 0 || chunkLength > compressedSliceInput.remaining()) {
+            throw new OrcCorruptionException(String.format("The chunkLength (%s) must not be negative or greater than remaining size (%s)", chunkLength, compressedSliceInput.remaining()));
+        }
 
         Slice chunk = compressedSliceInput.readSlice(chunkLength);
 
