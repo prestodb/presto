@@ -1927,18 +1927,62 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND NULL");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Non-equi.*")
-    public void testNonEqualityLeftJoin()
+    @Test
+    public void testSupportedNonEqualityLeftJoin()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 2");
+        assertQuery("SELECT COUNT(*) FROM " +
+                "      (SELECT * FROM lineitem ORDER BY orderkey,linenumber LIMIT 5) l " +
+                "         LEFT OUTER JOIN " +
+                "      (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o " +
+                "         ON " +
+                "      o.custkey != 1000");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000.0");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > orders.shippriority");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Non-equi.*")
-    public void testNonEqualityRightJoin()
+    @Test
+    public void testUnsupportedNonEqualityLeftJoin()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 2");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.quantity > 5", ".*Non-equi.*");
+    }
+
+    @Test
+    public void testUnsupportedNonEqualityFullJoin()
+            throws Exception
+    {
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.quantity > 5", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON orders.custkey > 1000", ".*Non-equi.*");
+    }
+
+    @Test
+    public void testSupportedNonEqualityRightJoin()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM " +
+                "      (SELECT * FROM lineitem ORDER BY orderkey,linenumber LIMIT 5) l " +
+                "         RIGHT OUTER JOIN " +
+                "      (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o " +
+                "         ON " +
+                "      l.quantity != 5");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5.0");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > lineitem.suppkey");
+    }
+
+    @Test
+    public void testUnsupportedNonEqualityRightJoin()
+            throws Exception
+    {
+        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > orders.shippriority", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.shippriority > 5", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON orders.shippriority > 5", ".*Non-equi.*");
     }
 
     @Test
