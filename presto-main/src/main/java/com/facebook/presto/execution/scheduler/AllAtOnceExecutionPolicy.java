@@ -23,6 +23,6 @@ public class AllAtOnceExecutionPolicy
     @Override
     public ExecutionSchedule createExecutionSchedule(Collection<SqlStageExecution> stages)
     {
-        return new LegacyExecutionSchedule(stages);
+        return new AllAtOnceExecutionSchedule(stages);
     }
 }
