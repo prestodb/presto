@@ -396,36 +396,36 @@ public final class MathFunctions
     @Description("The bucket number of a value given a lower and upper bound and the number of buckets")
     @ScalarFunction("width_bucket")
     @SqlType(StandardTypes.BIGINT)
-    public static long widthBucket(@SqlType(StandardTypes.DOUBLE) double operand, @SqlType(StandardTypes.DOUBLE) double lowerBound, @SqlType(StandardTypes.DOUBLE) double upperBound, @SqlType(StandardTypes.BIGINT) long bucketCount)
+    public static long widthBucket(@SqlType(StandardTypes.DOUBLE) double operand, @SqlType(StandardTypes.DOUBLE) double bound1, @SqlType(StandardTypes.DOUBLE) double bound2, @SqlType(StandardTypes.BIGINT) long bucketCount)
     {
         checkCondition(bucketCount > 0, INVALID_FUNCTION_ARGUMENT, "bucketCount must be greater than 0");
         checkCondition(!isNaN(operand), INVALID_FUNCTION_ARGUMENT, "operand must not be NaN");
-        checkCondition(isFinite(lowerBound), INVALID_FUNCTION_ARGUMENT, "lowerBound must be finite");
-        checkCondition(isFinite(upperBound), INVALID_FUNCTION_ARGUMENT, "upperBound must be finite");
-        checkCondition(lowerBound != upperBound, INVALID_FUNCTION_ARGUMENT, "lower bound cannot equal upper bound");
+        checkCondition(isFinite(bound1), INVALID_FUNCTION_ARGUMENT, "first bound must be finite");
+        checkCondition(isFinite(bound2), INVALID_FUNCTION_ARGUMENT, "second bound must be finite");
+        checkCondition(bound1 != bound2, INVALID_FUNCTION_ARGUMENT, "bounds cannot equal each other");
 
         long result = 0;
 
-        if (lowerBound < upperBound) {
-            if (operand < lowerBound) {
+        if (bound1 < bound2) {
+            if (operand < bound1) {
                 result = 0;
             }
-            else if (operand >= upperBound) {
+            else if (operand >= bound2) {
                 result = Math.addExact(bucketCount, 1);
             }
             else {
-                result = (long) ((double) bucketCount * (operand - lowerBound) / (upperBound - lowerBound) + 1);
+                result = (long) ((double) bucketCount * (operand - bound1) / (bound2 - bound1) + 1);
             }
         }
-        else if (lowerBound > upperBound) {
-            if (operand > lowerBound) {
+        else if (bound1 > bound2) {
+            if (operand > bound1) {
                 result = 0;
             }
-            else if (operand <= upperBound) {
+            else if (operand <= bound2) {
                 result = Math.addExact(bucketCount, 1);
             }
             else {
-                result = (long) ((double) bucketCount * (lowerBound - operand) / (lowerBound - upperBound) + 1);
+                result = (long) ((double) bucketCount * (bound1 - operand) / (bound1 - bound2) + 1);
             }
         }
 
