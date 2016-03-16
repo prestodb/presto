@@ -92,6 +92,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.decimalArrayBlockOf;
@@ -533,7 +534,7 @@ public abstract class AbstractTestHiveFileFormats
                 else if (DOUBLE.equals(type)) {
                     fieldFromCursor = cursor.getDouble(i);
                 }
-                else if (VARCHAR.equals(type)) {
+                else if (isVarcharType(type)) {
                     fieldFromCursor = cursor.getSlice(i);
                 }
                 else if (VARBINARY.equals(type)) {
