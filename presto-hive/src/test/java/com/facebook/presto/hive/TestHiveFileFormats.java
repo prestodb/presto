@@ -20,6 +20,7 @@ import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.ArrayType;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
@@ -42,6 +44,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.joda.time.DateTimeZone;
@@ -60,6 +63,8 @@ import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
 import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
+import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
+import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
@@ -77,11 +82,13 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
@@ -302,6 +309,100 @@ public class TestHiveFileFormats
                 .isReadableByPageSource(new DwrfPageSourceFactory(TYPE_MANAGER));
     }
 
+    @Test
+    public void testTruncateVarcharColumn()
+            throws Exception
+    {
+        TestColumn writeColumn = new TestColumn("varchar_column", getPrimitiveJavaObjectInspector(new VarcharTypeInfo(4)), new HiveVarchar("test", 4), utf8Slice("test"));
+        TestColumn readColumn = new TestColumn("varchar_column", getPrimitiveJavaObjectInspector(new VarcharTypeInfo(3)), new HiveVarchar("tes", 3), utf8Slice("tes"));
+
+        assertThatFileFormat(RCTEXT)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .isReadableByRecordCursor(new ColumnarTextHiveRecordCursorProvider())
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+
+        assertThatFileFormat(RCBINARY)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .isReadableByRecordCursor(new ColumnarBinaryHiveRecordCursorProvider())
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+
+        assertThatFileFormat(ORC)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false));
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .isReadableByRecordCursor(new ParquetRecordCursorProvider(false));
+
+        TestingConnectorSession session = new TestingConnectorSession(
+                new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true)).getSessionProperties());
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .withSession(session)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false));
+
+        assertThatFileFormat(SEQUENCEFILE)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+
+        assertThatFileFormat(TEXTFILE)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider());
+    }
+
+    @Test
+    public void testFailForLongVarcharPartitionColumn()
+            throws Exception
+    {
+        TestColumn partitionColumn = new TestColumn("partition_column", getPrimitiveJavaObjectInspector(new VarcharTypeInfo(3)), "test", utf8Slice("tes"), true);
+        TestColumn varcharColumn = new TestColumn("varchar_column", getPrimitiveJavaObjectInspector(new VarcharTypeInfo(3)), new HiveVarchar("tes", 3), utf8Slice("tes"));
+
+        List<TestColumn> columns = ImmutableList.of(partitionColumn, varcharColumn);
+
+        HiveErrorCode expectedErrorCode = HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+        String expectedMessage = "Invalid partition value 'test' for varchar(3) partition key: partition_column";
+
+        assertThatFileFormat(RCTEXT)
+                .withColumns(columns)
+                .isFailingForRecordCursor(new ColumnarTextHiveRecordCursorProvider(), expectedErrorCode, expectedMessage)
+                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(), expectedErrorCode, expectedMessage);
+
+        assertThatFileFormat(RCBINARY)
+                .withColumns(columns)
+                .isFailingForRecordCursor(new ColumnarBinaryHiveRecordCursorProvider(), expectedErrorCode, expectedMessage)
+                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(), expectedErrorCode, expectedMessage);
+
+        assertThatFileFormat(ORC)
+                .withColumns(columns)
+                .isFailingForPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false), expectedErrorCode, expectedMessage);
+
+        assertThatFileFormat(PARQUET)
+                .withColumns(columns)
+                .isFailingForRecordCursor(new ParquetRecordCursorProvider(false), expectedErrorCode, expectedMessage);
+
+        TestingConnectorSession session = new TestingConnectorSession(
+                new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true)).getSessionProperties());
+        assertThatFileFormat(PARQUET)
+                .withColumns(columns)
+                .withSession(session)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false), expectedErrorCode, expectedMessage);
+
+        assertThatFileFormat(SEQUENCEFILE)
+                .withColumns(columns)
+                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(), expectedErrorCode, expectedMessage);
+
+        assertThatFileFormat(TEXTFILE)
+                .withColumns(columns)
+                .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(), expectedErrorCode, expectedMessage);
+    }
+
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
             FileSplit split,
             InputFormat<?, ?> inputFormat,
@@ -492,18 +593,32 @@ public class TestHiveFileFormats
         public FileFormatAssertion isReadableByPageSource(HivePageSourceFactory pageSourceFactory)
                 throws Exception
         {
-            testReadValues(ImmutableList.of(pageSourceFactory), ImmutableList.of());
+            assertRead(ImmutableList.of(pageSourceFactory), ImmutableList.of());
             return this;
         }
 
         public FileFormatAssertion isReadableByRecordCursor(HiveRecordCursorProvider cursorProvider)
                 throws Exception
         {
-            testReadValues(ImmutableList.of(), ImmutableList.of(cursorProvider));
+            assertRead(ImmutableList.of(), ImmutableList.of(cursorProvider));
             return this;
         }
 
-        private void testReadValues(List<HivePageSourceFactory> pageSourceFactories, List<HiveRecordCursorProvider> cursorProviders)
+        public FileFormatAssertion isFailingForPageSource(HivePageSourceFactory pageSourceFactory, HiveErrorCode expectedErrorCode, String expectedMessage)
+                throws Exception
+        {
+            assertFailure(ImmutableList.of(pageSourceFactory), ImmutableList.of(), expectedErrorCode, expectedMessage);
+            return this;
+        }
+
+        public FileFormatAssertion isFailingForRecordCursor(HiveRecordCursorProvider cursorProvider, HiveErrorCode expectedErrorCode, String expectedMessage)
+                throws Exception
+        {
+            assertFailure(ImmutableList.of(), ImmutableList.of(cursorProvider), expectedErrorCode, expectedMessage);
+            return this;
+        }
+
+        private void assertRead(List<HivePageSourceFactory> pageSourceFactories, List<HiveRecordCursorProvider> cursorProviders)
                 throws Exception
         {
             assertNotNull(outputFormat, "outputFormat must be specified");
@@ -528,6 +643,23 @@ public class TestHiveFileFormats
             finally {
                 //noinspection ResultOfMethodCallIgnored
                 file.delete();
+            }
+        }
+
+        private void assertFailure(
+                List<HivePageSourceFactory> pageSourceFactories,
+                List<HiveRecordCursorProvider> cursorProviders,
+                HiveErrorCode expectedErrorCode,
+                String expectedMessage)
+                throws Exception
+        {
+            try {
+                assertRead(pageSourceFactories, cursorProviders);
+                fail("failure is expected");
+            }
+            catch (PrestoException prestoException) {
+                assertEquals(prestoException.getErrorCode(), expectedErrorCode.toErrorCode());
+                assertEquals(prestoException.getMessage(), expectedMessage);
             }
         }
     }
