@@ -524,11 +524,13 @@ public class TestMathFunctions
     public void testWidthBucket()
     {
         assertFunction("width_bucket(3.14, 0, 4, 3)", BIGINT, 3);
+        assertFunction("width_bucket(2, 0, 4, 3)", BIGINT, 2);
         assertFunction("width_bucket(infinity(), 0, 4, 3)", BIGINT, 4);
         assertFunction("width_bucket(-1, 0, 3.2, 4)", BIGINT, 0);
 
         // bound1 > bound2 is not symmetric with bound2 > bound1
         assertFunction("width_bucket(3.14, 4, 0, 3)", BIGINT, 1);
+        assertFunction("width_bucket(2, 4, 0, 3)", BIGINT, 2);
         assertFunction("width_bucket(infinity(), 4, 0, 3)", BIGINT, 0);
         assertFunction("width_bucket(-1, 3.2, 0, 4)", BIGINT, 5);
 
