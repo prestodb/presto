@@ -406,27 +406,26 @@ public final class MathFunctions
 
         long result = 0;
 
-        if (bound1 < bound2) {
-            if (operand < bound1) {
-                result = 0;
-            }
-            else if (operand >= bound2) {
+        double lower = Math.min(bound1, bound2);
+        double upper = Math.max(bound1, bound2);
+
+        if (operand < lower) {
+            result = 0;
+        }
+        else if (operand >= upper) {
+            try {
                 result = Math.addExact(bucketCount, 1);
             }
-            else {
-                result = (long) ((double) bucketCount * (operand - bound1) / (bound2 - bound1) + 1);
+            catch (ArithmeticException e) {
+                throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "bucketCount overflow");
             }
         }
-        else if (bound1 > bound2) {
-            if (operand > bound1) {
-                result = 0;
-            }
-            else if (operand <= bound2) {
-                result = Math.addExact(bucketCount, 1);
-            }
-            else {
-                result = (long) ((double) bucketCount * (bound1 - operand) / (bound1 - bound2) + 1);
-            }
+        else {
+            result = (long) ((double) bucketCount * (operand - lower) / (upper - lower) + 1);
+        }
+
+        if (bound1 > bound2) {
+            result = bucketCount - result;
         }
 
         return result;
