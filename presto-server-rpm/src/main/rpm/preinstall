@@ -80,4 +80,4 @@ EOF
 fi
 
 getent group presto >/dev/null || /usr/sbin/groupadd -r presto
-getent passwd presto >/dev/null || /usr/sbin/useradd --comment "Presto" -s /sbin/nologin -g presto -r -d /var/lib/presto presto 2> /dev/null || :
+getent passwd presto >/dev/null || /usr/sbin/useradd --comment "Presto" -s /sbin/nologin -g presto -r -d /var/lib/presto presto
