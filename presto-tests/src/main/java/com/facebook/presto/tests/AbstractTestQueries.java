@@ -1946,19 +1946,19 @@ public abstract class AbstractTestQueries
     public void testUnsupportedNonEqualityLeftJoin()
             throws Exception
     {
-        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity", ".*Non-equi.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5", ".*Non-equi.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.quantity > 5", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.quantity > 5", ".*Unsupported conjunct.*");
     }
 
     @Test
     public void testUnsupportedNonEqualityFullJoin()
             throws Exception
     {
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5", ".*Non-equi.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000", ".*Non-equi.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.quantity > 5", ".*Non-equi.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON orders.custkey > 1000", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.quantity > 5", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON orders.custkey > 1000", ".*Unsupported conjunct.*");
     }
 
     @Test
@@ -1980,9 +1980,9 @@ public abstract class AbstractTestQueries
     public void testUnsupportedNonEqualityRightJoin()
             throws Exception
     {
-        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > orders.shippriority", ".*Non-equi.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.shippriority > 5", ".*Non-equi.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON orders.shippriority > 5", ".*Non-equi.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > orders.shippriority", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.shippriority > 5", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON orders.shippriority > 5", ".*Unsupported conjunct.*");
     }
 
     @Test
