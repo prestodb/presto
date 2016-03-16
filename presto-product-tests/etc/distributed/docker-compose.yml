@@ -32,3 +32,5 @@ services:
     command: /presto-launcher-wrapper.sh worker run
     volumes_from: 
       - presto-master
+    env_file:
+        - ../../target/classes/presto.env
