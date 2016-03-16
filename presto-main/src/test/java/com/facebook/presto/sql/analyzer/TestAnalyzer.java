@@ -929,6 +929,13 @@ public class TestAnalyzer
         assertMissingInformationSchema(session, "SHOW TABLES FROM s2");
     }
 
+    @Test
+    public void testInvalidAtTimeZone()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT 'abc' AT TIME ZONE 'America/Los_Angeles'");
+    }
+
     private void assertMissingInformationSchema(Session session, @Language("SQL") String query)
     {
         try {
