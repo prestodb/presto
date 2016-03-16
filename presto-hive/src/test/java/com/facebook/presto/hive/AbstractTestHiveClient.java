@@ -350,11 +350,12 @@ public abstract class AbstractTestHiveClient
         insertTableDestination = new SchemaTableName(database, "presto_insert_destination");
         insertTablePartitionedDestination = new SchemaTableName(database, "presto_insert_destination_partitioned");
 
-        List<ColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
         Type shortDecimalColumnType = createDecimalType(17, 10);
         Type longDecimalColumnType = createDecimalType(38, 20);
         dummyShortDecimalColumn = new HiveColumnHandle(connectorId, "dummy_decimal_short", toHiveType(shortDecimalColumnType), shortDecimalColumnType.getTypeSignature(), -1, true);
         dummyLongDecimalColumn = new HiveColumnHandle(connectorId, "dummy_decimal_long", toHiveType(longDecimalColumnType), longDecimalColumnType.getTypeSignature(), -1, true);
+
+        List<ColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn, dummyShortDecimalColumn, dummyLongDecimalColumn);
 
         List<HivePartition> partitions = ImmutableList.<HivePartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
