@@ -25,12 +25,12 @@ import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static java.util.Objects.requireNonNull;
 
-public class LegacyExecutionSchedule
+public class AllAtOnceExecutionSchedule
         implements ExecutionSchedule
 {
     private final Set<SqlStageExecution> schedulingStages;
 
-    public LegacyExecutionSchedule(Collection<SqlStageExecution> stages)
+    public AllAtOnceExecutionSchedule(Collection<SqlStageExecution> stages)
     {
         this.schedulingStages = new HashSet<>(requireNonNull(stages, "stages is null"));
     }
