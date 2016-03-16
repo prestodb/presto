@@ -526,6 +526,10 @@ public class TestMathFunctions
         assertFunction("width_bucket(3.14, 0, 4, 3)", BIGINT, 3);
         assertFunction("width_bucket(infinity(), 0, 4, 3)", BIGINT, 4);
 
+        // bound1 > bound2 is not symmetric with bound2 > bound1
+        assertFunction("width_bucket(3.14, 4, 0, 3)", BIGINT, 1);
+        assertFunction("width_bucket(infinity(), 4, 0, 3)", BIGINT, 0);
+
         // failure modes
         assertInvalidFunction("width_bucket(3.14, 0, 4, 0)", "bucketCount must be greater than 0");
         assertInvalidFunction("width_bucket(3.14, 0, 4, -1)", "bucketCount must be greater than 0");
