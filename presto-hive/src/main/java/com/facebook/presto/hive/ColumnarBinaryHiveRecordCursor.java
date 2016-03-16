@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.Varchars;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.ByteArrays;
@@ -62,6 +63,7 @@ import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.util.DecimalUtils.getLongDecimalValue;
 import static com.facebook.presto.hive.util.DecimalUtils.getShortDecimalValue;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
@@ -75,7 +77,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -208,8 +210,8 @@ class ColumnarBinaryHiveRecordCursor<K>
                 else if (DOUBLE.equals(type)) {
                     doubles[columnIndex] = doublePartitionKey(partitionKey.getValue(), name);
                 }
-                else if (VARCHAR.equals(type)) {
-                    slices[columnIndex] = Slices.wrappedBuffer(bytes);
+                else if (isVarcharType(type)) {
+                    slices[columnIndex] = varcharPartitionKey(partitionKey.getValue(), name, type);
                 }
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = datePartitionKey(partitionKey.getValue(), name);
@@ -513,7 +515,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         checkState(!closed, "Cursor is closed");
 
         Type type = types[fieldId];
-        if (!type.equals(VARCHAR) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId]) && !isLongDecimal(type)) {
+        if (!isVarcharType(type) && !type.equals(VARBINARY) && !isStructuralType(hiveTypes[fieldId]) && !isLongDecimal(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
             throw new IllegalArgumentException(format("Expected field to be VARCHAR, VARBINARY or DECIMAL, actual %s (field %s)", type, fieldId));
         }
@@ -567,7 +569,14 @@ class ColumnarBinaryHiveRecordCursor<K>
                 slices[column] = Slices.EMPTY_SLICE;
             }
             else {
-                slices[column] = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
+                Slice value = Slices.wrappedBuffer(Arrays.copyOfRange(bytes, start, start + length));
+                Type type = types[column];
+                if (isVarcharType(type)) {
+                    slices[column] = Varchars.truncateToLength(value, type);
+                }
+                else {
+                    slices[column] = value;
+                }
             }
         }
     }
@@ -712,7 +721,7 @@ class ColumnarBinaryHiveRecordCursor<K>
         else if (DOUBLE.equals(type)) {
             parseDoubleColumn(column);
         }
-        else if (VARCHAR.equals(type) || VARBINARY.equals(type)) {
+        else if (isVarcharType(type) || VARBINARY.equals(type)) {
             parseStringColumn(column);
         }
         else if (isStructuralType(hiveTypes[column])) {
