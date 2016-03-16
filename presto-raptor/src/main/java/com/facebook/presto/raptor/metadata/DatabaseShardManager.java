@@ -276,6 +276,7 @@ public class DatabaseShardManager
                 dbi.useTransaction((handle, status) -> {
                     if (commitTransaction(shardDaoSupplier.attach(handle), transactionId)) {
                         callback.useHandle(handle);
+                        dao.deleteCreatedShards(transactionId);
                     }
                 });
             }
@@ -500,7 +501,6 @@ public class DatabaseShardManager
             }
             throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
         }
-        dao.deleteCreatedShards(transactionId);
         return true;
     }
 
