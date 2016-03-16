@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -591,6 +592,15 @@ public final class HiveUtil
         catch (NumberFormatException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, type.toString(), name));
         }
+    }
+
+    public static Slice varcharPartitionKey(String value, String name, Type columnType)
+    {
+        VarcharType varcharType = checkType(columnType, VarcharType.class, "columnType");
+        if (value.length() > varcharType.getLength()) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
+        }
+        return Slices.utf8Slice(value);
     }
 
     public static SchemaTableName schemaTableName(ConnectorTableHandle tableHandle)

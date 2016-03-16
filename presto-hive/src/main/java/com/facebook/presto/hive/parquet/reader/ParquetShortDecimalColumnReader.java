@@ -18,6 +18,7 @@ import com.facebook.presto.hive.util.DecimalUtils;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
 import parquet.io.api.Binary;
 
@@ -32,13 +33,13 @@ public class ParquetShortDecimalColumnReader
         this.decimalType = decimalType;
     }
 
-    public BlockBuilder createBlockBuilder()
+    public BlockBuilder createBlockBuilder(Type type)
     {
         return decimalType.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
     }
 
     @Override
-    public void readValues(BlockBuilder blockBuilder, int valueNumber)
+    public void readValues(BlockBuilder blockBuilder, int valueNumber, Type type)
     {
         for (int i = 0; i < valueNumber; i++) {
             if (definitionReader.readLevel() == columnDescriptor.getMaxDefinitionLevel()) {
