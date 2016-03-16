@@ -262,7 +262,7 @@ class RelationPlanner
                 }
 
                 if (!isEqualComparisonExpression(conjunct) && node.getType() != INNER) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Non-equi joins only supported for inner join or must relate to inner side of outer join: %s", conjunct);
+                    throw new SemanticException(NOT_SUPPORTED, node, "Unsupported conjunct in join condition: %s", conjunct);
                 }
 
                 if (conjunct instanceof ComparisonExpression) {
