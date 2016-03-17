@@ -749,6 +749,7 @@ class QueryPlanner
                             enforceSingleRowNode,
                             ImmutableList.of(),
                             Optional.empty(),
+                            Optional.empty(),
                             Optional.empty()),
                     builder.getSampleWeight());
         }

@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -248,6 +250,12 @@ public class LookupOuterOperator
         }
 
         @Override
+        public Map<Symbol, Integer> getLayout()
+        {
+            return lookupSourceSupplier.getLayout();
+        }
+
+        @Override
         public ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext)
         {
             // wrapper lookup source to track used positions
@@ -346,9 +354,9 @@ public class LookupOuterOperator
         }
 
         @Override
-        public long getJoinPosition(int position, Page page)
+        public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
         {
-            return lookupSource.getJoinPosition(position, page);
+            return lookupSource.getJoinPosition(position, hashChannelsPage, allChannelsPage);
         }
 
         @Override
@@ -358,15 +366,15 @@ public class LookupOuterOperator
         }
 
         @Override
-        public long getNextJoinPosition(long currentPosition)
+        public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
         {
-            return lookupSource.getNextJoinPosition(currentPosition);
+            return lookupSource.getNextJoinPosition(currentJoinPosition, probePosition, allProbeChannelsPage);
         }
 
         @Override
-        public long getJoinPosition(int position, Page page, int rawHash)
+        public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, int rawHash)
         {
-            return lookupSource.getJoinPosition(position, page, rawHash);
+            return lookupSource.getJoinPosition(position, hashChannelsPage, allChannelsPage, rawHash);
         }
 
         @Override

@@ -42,17 +42,19 @@ public final class InMemoryJoinHash
     private final int[] key;
     private final int[] positionLinks;
     private final long size;
+    private final boolean filterFunctionPresent;
 
     public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
         this.channelCount = pagesHashStrategy.getChannelCount();
+        this.filterFunctionPresent = pagesHashStrategy.getFilterFunction().isPresent();
 
         // reserve memory for the arrays
         int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
         size = sizeOfIntArray(hashSize) + sizeOfBooleanArray(hashSize) + sizeOfIntArray(addresses.size())
-                +  sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes();
+                + sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes();
 
         mask = hashSize - 1;
         key = new int[hashSize];
@@ -103,19 +105,28 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public long getJoinPosition(int position, Page page)
+    public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        return getJoinPosition(position, page, pagesHashStrategy.hashRow(position, page.getBlocks()));
+        return getJoinPosition(position, hashChannelsPage, allChannelsPage, pagesHashStrategy.hashRow(position, hashChannelsPage.getBlocks()));
     }
 
     @Override
-    public long getJoinPosition(int position, Page page, int rawHash)
+    public long getJoinPosition(int rightPosition, Page hashChannelsPage, Page allChannelsPage, int rawHash)
     {
         int pos = getHashPosition(rawHash, mask);
 
         while (key[pos] != -1) {
-            if (positionEqualsCurrentRow(key[pos], position, page.getBlocks())) {
-                return key[pos];
+            if (positionEqualsCurrentRow(key[pos], rightPosition, hashChannelsPage.getBlocks(), allChannelsPage.getBlocks())) {
+                long candidate = key[pos];
+                if (filterFunctionPresent) {
+                    while (candidate != -1 && !checkFilterFunctionCurrentRow(Ints.checkedCast(candidate), rightPosition, allChannelsPage.getBlocks())) {
+                        candidate = getNextJoinPosition(candidate, rightPosition, allChannelsPage);
+                    }
+                    return candidate;
+                }
+                else {
+                    return key[pos];
+                }
             }
             // increment position and mask to handler wrap around
             pos = (pos + 1) & mask;
@@ -124,9 +135,19 @@ public final class InMemoryJoinHash
     }
 
     @Override
-    public final long getNextJoinPosition(long currentPosition)
+    public final long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        return positionLinks[Ints.checkedCast(currentPosition)];
+        if (filterFunctionPresent) {
+            while (true) {
+                currentJoinPosition = positionLinks[Ints.checkedCast(currentJoinPosition)];
+                if (currentJoinPosition == -1 || checkFilterFunctionCurrentRow(Ints.checkedCast(currentJoinPosition), probePosition, allProbeChannelsPage.getBlocks())) {
+                    return currentJoinPosition;
+                }
+            }
+        }
+        else {
+            return positionLinks[Ints.checkedCast(currentJoinPosition)];
+        }
     }
 
     @Override
@@ -153,13 +174,22 @@ public final class InMemoryJoinHash
         return pagesHashStrategy.hashPosition(blockIndex, blockPosition);
     }
 
-    private boolean positionEqualsCurrentRow(int leftPosition, int rightPosition, Block... rightBlocks)
+    private boolean positionEqualsCurrentRow(int leftPosition, int rightPosition, Block[] rightHashBlocks, Block[] rightBlocks)
     {
         long pageAddress = addresses.getLong(leftPosition);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
-        return pagesHashStrategy.positionEqualsRow(blockIndex, blockPosition, rightPosition, rightBlocks);
+        return pagesHashStrategy.positionEqualsRow(blockIndex, blockPosition, rightPosition, rightHashBlocks);
+    }
+
+    private boolean checkFilterFunctionCurrentRow(int leftPosition, int rightPosition, Block[] rightBlocks)
+    {
+        long pageAddress = addresses.getLong(leftPosition);
+        int blockIndex = decodeSliceIndex(pageAddress);
+        int blockPosition = decodePosition(pageAddress);
+
+        return pagesHashStrategy.checkFilterFunction(blockIndex, blockPosition, rightPosition, rightBlocks);
     }
 
     private boolean positionEqualsPosition(int leftPosition, int rightPosition)

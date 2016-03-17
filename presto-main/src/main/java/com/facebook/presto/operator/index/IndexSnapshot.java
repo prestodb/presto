@@ -37,9 +37,9 @@ public class IndexSnapshot
     @Override
     public long getJoinPosition(int position, Page page)
     {
-        long joinPosition = values.getJoinPosition(position, page);
+        long joinPosition = values.getJoinPosition(position, page, page);
         if (joinPosition < 0) {
-            if (missingKeys.getJoinPosition(position, page) < 0) {
+            if (missingKeys.getJoinPosition(position, page, page) < 0) {
                 return UNLOADED_INDEX_KEY;
             }
             else {
@@ -52,7 +52,7 @@ public class IndexSnapshot
     @Override
     public long getNextJoinPosition(long currentPosition)
     {
-        return values.getNextJoinPosition(currentPosition);
+        return values.getNextJoinPosition(currentPosition, -1, null);
     }
 
     @Override

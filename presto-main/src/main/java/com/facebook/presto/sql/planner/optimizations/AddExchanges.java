@@ -873,6 +873,7 @@ public class AddExchanges
                     left.getNode(),
                     right.getNode(),
                     node.getCriteria(),
+                    node.getFilter(),
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol());
 

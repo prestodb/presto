@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -28,6 +29,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -41,6 +43,7 @@ public class ParallelHashBuilder
 {
     private final List<Integer> hashChannels;
     private final Optional<Integer> hashChannel;
+    private final Optional<JoinFilterFunction> filterFunction;
     private final int expectedPositions;
     private final List<SettableFuture<PagesIndex>> pagesIndexFutures;
     private final List<SettableFuture<SharedLookupSource>> lookupSourceFutures;
@@ -49,14 +52,17 @@ public class ParallelHashBuilder
 
     public ParallelHashBuilder(
             List<Type> types,
+            Map<Symbol, Integer> layout,
             List<Integer> hashChannels,
             Optional<Integer> hashChannel,
+            Optional<JoinFilterFunction> filterFunction,
             int expectedPositions,
             int partitionCount)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
+        this.filterFunction = requireNonNull(filterFunction, "filterFunction is null");
         checkArgument(expectedPositions >= 0, "expectedPositions is negative");
         this.expectedPositions = expectedPositions;
 
@@ -70,7 +76,7 @@ public class ParallelHashBuilder
         this.pagesIndexFutures = pagesIndexFutures.build();
         this.lookupSourceFutures = lookupSourceFutures.build();
 
-        lookupSourceSupplier = new ParallelLookupSourceSupplier(types, hashChannels, this.lookupSourceFutures);
+        lookupSourceSupplier = new ParallelLookupSourceSupplier(types, layout, hashChannels, this.lookupSourceFutures);
     }
 
     public OperatorFactory getCollectOperatorFactory(int operatorId, PlanNodeId planNodeId)
@@ -94,7 +100,8 @@ public class ParallelHashBuilder
                 pagesIndexFutures,
                 lookupSourceFutures,
                 hashChannels,
-                hashChannel);
+                hashChannel,
+                filterFunction);
     }
 
     public LookupSourceSupplier getLookupSourceSupplier()
@@ -291,6 +298,7 @@ public class ParallelHashBuilder
         private final List<SettableFuture<SharedLookupSource>> lookupSourceFutures;
         private final List<Integer> hashChannels;
         private final Optional<Integer> hashChannel;
+        private final Optional<JoinFilterFunction> filterFunction;
 
         private int partition;
         private boolean closed;
@@ -302,7 +310,8 @@ public class ParallelHashBuilder
                 List<? extends ListenableFuture<PagesIndex>> partitionFutures,
                 List<SettableFuture<SharedLookupSource>> lookupSourceFutures,
                 List<Integer> hashChannels,
-                Optional<Integer> hashChannel)
+                Optional<Integer> hashChannel,
+                Optional<JoinFilterFunction> filterFunction)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -312,6 +321,7 @@ public class ParallelHashBuilder
 
             this.hashChannels = hashChannels;
             this.hashChannel = hashChannel;
+            this.filterFunction = filterFunction;
         }
 
         @Override
@@ -333,7 +343,8 @@ public class ParallelHashBuilder
                     partitionFutures.get(partition),
                     lookupSourceFutures.get(partition),
                     hashChannels,
-                    hashChannel);
+                    hashChannel,
+                    filterFunction);
 
             partition++;
 
@@ -362,6 +373,7 @@ public class ParallelHashBuilder
         private final SettableFuture<SharedLookupSource> lookupSourceFuture;
         private final List<Integer> hashChannels;
         private final Optional<Integer> hashChannel;
+        private final Optional<JoinFilterFunction> filterFunction;
 
         private boolean finished;
 
@@ -371,7 +383,8 @@ public class ParallelHashBuilder
                 ListenableFuture<PagesIndex> pagesIndexFuture,
                 SettableFuture<SharedLookupSource> lookupSourceFuture,
                 List<Integer> hashChannels,
-                Optional<Integer> hashChannel)
+                Optional<Integer> hashChannel,
+                Optional<JoinFilterFunction> filterFunction)
         {
             this.operatorContext = operatorContext;
             this.types = types;
@@ -380,6 +393,7 @@ public class ParallelHashBuilder
 
             this.hashChannels = hashChannels;
             this.hashChannel = hashChannel;
+            this.filterFunction = filterFunction;
         }
 
         @Override
@@ -412,7 +426,7 @@ public class ParallelHashBuilder
 
             PagesIndex pagesIndex = Futures.getUnchecked(pagesIndexFuture);
             // After this point the SharedLookupSource will take over our memory reservation, and ours will be zero
-            SharedLookupSource sharedLookupSource = new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel), operatorContext);
+            SharedLookupSource sharedLookupSource = new SharedLookupSource(pagesIndex.createLookupSource(hashChannels, hashChannel, filterFunction), operatorContext);
 
             if (!lookupSourceFuture.set(sharedLookupSource)) {
                 sharedLookupSource.freeMemory();
