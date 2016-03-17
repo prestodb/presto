@@ -63,6 +63,7 @@ public class TransformUncorrelatedScalarToJoin
                         rewrittenNode.getSubquery(),
                         ImmutableList.of(),
                         Optional.empty(),
+                        Optional.empty(),
                         Optional.empty());
             }
             return rewrittenNode;

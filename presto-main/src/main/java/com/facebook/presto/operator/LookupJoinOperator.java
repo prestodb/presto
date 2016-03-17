@@ -194,7 +194,7 @@ public class LookupJoinOperator
             lookupSource.appendTo(joinPosition, pageBuilder, probe.getChannelCount());
 
             // get next join position for this row
-            joinPosition = lookupSource.getNextJoinPosition(joinPosition);
+            joinPosition = lookupSource.getNextJoinPosition(joinPosition, probe.getPosition(), probe.getPage());
             if (pageBuilder.isFull()) {
                 return false;
             }
