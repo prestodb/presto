@@ -1936,29 +1936,96 @@ public abstract class AbstractTestQueries
                 "         LEFT OUTER JOIN " +
                 "      (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o " +
                 "         ON " +
-                "      o.custkey != 1000");
-        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000");
-        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000.0");
-        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > orders.shippriority");
+                "      o.custkey != 1000 WHERE o.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000 WHERE orders.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000.0 WHERE orders.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > orders.totalprice WHERE orders.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity WHERE orders.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 WHERE orders.orderkey IS NULL");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > d",
+                "VALUES (1, 2, 1, 1), (1, 1, NULL, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b < d",
+                "VALUES (1, 1, 1, 2), (1, 2, NULL, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 2",
+                "VALUES (1, 1, NULL,  NULL), (1, 2, NULL, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 2",
+                "VALUES (1, 1, NULL, NULL), (1, 2, NULL, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 0",
+                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 0",
+                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
     }
 
     @Test
     public void testUnsupportedNonEqualityLeftJoin()
             throws Exception
     {
-        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity", ".*Unsupported conjunct.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5", ".*Unsupported conjunct.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.quantity > 5", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.quantity > 5", ".*hashChannels is empty.*");
+    }
+
+    @Test
+    public void testSupportedNonEqualityFullJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 WHERE lineitem.orderkey IS NULL OR orders.orderkey IS NULL",
+                "SELECT COUNT(*) FROM " +
+                        "(SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 " +
+                        "    UNION ALL " +
+                        "SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 " +
+                        "    WHERE lineitem.orderkey IS NULL) " +
+                        " WHERE o1 IS NULL OR o2 IS NULL"
+                );
+        assertQuery(
+                "SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000 WHERE lineitem.orderkey IS NULL OR orders.orderkey IS NULL",
+                "SELECT COUNT(*) FROM " +
+                        "(SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000 " +
+                        "    UNION ALL " +
+                        "SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000 " +
+                        "    WHERE lineitem.orderkey IS NULL) " +
+                        " WHERE o1 IS NULL OR o2 IS NULL"
+        );
+        assertQuery(
+                "SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity WHERE lineitem.orderkey IS NULL OR orders.orderkey IS NULL",
+                "SELECT COUNT(*) FROM " +
+                        "(SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity " +
+                        "    UNION ALL " +
+                        "SELECT lineitem.orderkey AS o1, orders.orderkey AS o2 FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > lineitem.quantity " +
+                        "    WHERE lineitem.orderkey IS NULL) " +
+                        " WHERE o1 IS NULL OR o2 IS NULL"
+        );
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) FULL OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > d",
+                "VALUES (1, 2, 1, 1), (NULL, NULL, 1, 2), (1, 1, NULL, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) FULL OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b < d",
+                "VALUES (1, 1, 1, 2), (NULL, NULL, 1, 1), (1, 2, NULL, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) FULL OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 2",
+                "VALUES (NULL, NULL, 1, 1), (NULL, NULL, 1, 2), (1, 1, NULL, NULL), (1, 2, NULL, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) FULL OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 2",
+                "VALUES (NULL, NULL, 1, 1), (NULL, NULL, 1, 2), (1, 1, NULL, NULL), (1, 2, NULL, NULL)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) FULL OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 0",
+                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) FULL OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 0",
+                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
     }
 
     @Test
     public void testUnsupportedNonEqualityFullJoin()
             throws Exception
     {
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5", ".*Unsupported conjunct.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey > 1000", ".*Unsupported conjunct.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.quantity > 5", ".*Unsupported conjunct.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON orders.custkey > 1000", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON orders.custkey > 1000", ".*hashChannels is empty.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem FULL OUTER JOIN orders ON lineitem.quantity > 5", ".*hashChannels is empty.*");
     }
 
     @Test
@@ -1970,19 +2037,37 @@ public abstract class AbstractTestQueries
                 "         RIGHT OUTER JOIN " +
                 "      (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o " +
                 "         ON " +
-                "      l.quantity != 5");
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5");
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5.0");
-        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > lineitem.suppkey");
+                "      l.quantity != 5 WHERE l.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5 WHERE lineitem.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > 5.0 WHERE lineitem.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > lineitem.suppkey WHERE lineitem.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity*1000 > orders.totalprice WHERE lineitem.orderkey IS NULL");
+        assertQuery("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 1000 WHERE lineitem.orderkey IS NULL");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > d",
+                "VALUES (1, 2, 1, 1), (NULL, NULL, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b < d",
+                "VALUES (1, 1, 1, 2), (NULL, NULL, 1, 1)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 2",
+                "VALUES (NULL, NULL, 1, 1), (NULL, NULL, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 2",
+                "VALUES (NULL, NULL, 1, 1), (NULL, NULL, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND b > 0",
+                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) RIGHT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND d > 0",
+                "VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 2, 1, 1), (1, 2, 1, 2)");
     }
 
     @Test
     public void testUnsupportedNonEqualityRightJoin()
             throws Exception
     {
-        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity > orders.shippriority", ".*Unsupported conjunct.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.shippriority > 5", ".*Unsupported conjunct.*");
-        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON orders.shippriority > 5", ".*Unsupported conjunct.*");
+        assertQueryFails("SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON orders.shippriority > 5", ".*hashChannels is empty.*");
     }
 
     @Test
