@@ -49,6 +49,22 @@ public class TestTypeRegistry
 
         assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(varchar(42))"), parseTypeSignature("array(varchar(44))")));
         assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(varchar(44))"), parseTypeSignature("array(varchar(42))")));
+
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("decimal(22,1)"), parseTypeSignature("decimal(23,1)")));
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("decimal(2,1)"), parseTypeSignature("decimal(3,1)")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("decimal(23,1)"), parseTypeSignature("decimal(22,1)")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("decimal(3,1)"), parseTypeSignature("decimal(2,1)")));
+
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(decimal(22,1))"), parseTypeSignature("array(decimal(23,1))")));
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(decimal(2,1))"), parseTypeSignature("array(decimal(3,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(decimal(23,1))"), parseTypeSignature("array(decimal(22,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("array(decimal(3,1))"), parseTypeSignature("array(decimal(2,1))")));
+
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(2,1), decimal(2,1))"), parseTypeSignature("map(decimal(2,1), decimal(3,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(2,1), decimal(2,1))"), parseTypeSignature("map(decimal(2,1), decimal(23,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(2,1), decimal(2,1))"), parseTypeSignature("map(decimal(2,1), decimal(3,2))")));
+        assertTrue(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(22,1), decimal(2,1))"), parseTypeSignature("map(decimal(23,1), decimal(3,1))")));
+        assertFalse(TypeRegistry.isTypeOnlyCoercion(parseTypeSignature("map(decimal(23,1), decimal(3,1))"), parseTypeSignature("map(decimal(22,1), decimal(2,1))")));
     }
 
     @Test

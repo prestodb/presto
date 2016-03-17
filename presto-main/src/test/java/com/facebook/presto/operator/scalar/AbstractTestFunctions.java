@@ -97,6 +97,18 @@ public abstract class AbstractTestFunctions
         }
     }
 
+    protected void assertInvalidCast(String projection, String message)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
+    }
+
     protected void registerScalar(Class<?> clazz)
     {
         Metadata metadata = functionAssertions.getMetadata();

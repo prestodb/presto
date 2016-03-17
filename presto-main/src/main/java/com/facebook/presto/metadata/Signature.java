@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -471,7 +472,7 @@ public final class Signature
                         boundParameters,
                         typeParameters,
                         parameter,
-                        requireNonNull(typeManager.getType(parseTypeSignature(parameter.getBase()))),
+                        requireNonNull(typeManager.getType(TypeRegistry.getUnmatchedSignature(parameter))),
                         true,
                         typeManager);
             }
