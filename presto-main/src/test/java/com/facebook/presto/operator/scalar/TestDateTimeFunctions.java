@@ -39,7 +39,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
@@ -227,24 +226,6 @@ public class TestDateTimeFunctions
         assertFunction("hour(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getHourOfDay());
         assertFunction("minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, WEIRD_TIMESTAMP.getMinuteOfHour());
         assertFunction("current_timezone()", VARCHAR, TIME_ZONE_KEY.getId());
-    }
-
-    @Test
-    public void testAtTimeZone()
-    {
-        functionAssertions.assertFunction("current_timestamp at time zone interval '07:09' hour to minute",
-                TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
-
-        functionAssertions.assertFunction("current_timestamp at time zone 'Asia/Oral'",
-                TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
-        functionAssertions.assertFunction("now() at time zone 'Asia/Oral'",
-                TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(session.getStartTime(), TimeZone.getTimeZone("Asia/Oral")));
-        functionAssertions.assertFunction("current_timestamp at time zone '+07:09'",
-                TIMESTAMP_WITH_TIME_ZONE,
-                new SqlTimestampWithTimeZone(session.getStartTime(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test

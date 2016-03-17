@@ -46,7 +46,6 @@ import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.DesugaringRewriter;
 import com.facebook.presto.sql.planner.InterpretedFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
@@ -266,8 +265,6 @@ public final class FunctionAssertions
         requireNonNull(projection, "projection is null");
 
         Expression projectionExpression = createExpression(projection, metadata, SYMBOL_TYPES);
-
-        projectionExpression = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(), projectionExpression);
 
         List<Object> results = new ArrayList<>();
 
