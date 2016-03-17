@@ -142,10 +142,10 @@ public class PagesIndex
 
     /**
      * Add positions in page with the specified partitionId.
-     * NOTE: this method does not track memory used in the page, since
+     * NOTE: this method track shared memory used in the page, since
      * only part of the page will be used.
      */
-    public void addPage(Page page, int partitionId, Block partitionIds)
+    public void addPage(Page page, int partitionId, Block partitionIds, int partitionCount)
     {
         // ignore empty pages
         if (page.getPositionCount() == 0) {
@@ -156,6 +156,7 @@ public class PagesIndex
         for (int i = 0; i < channels.length; i++) {
             Block block = page.getBlock(i);
             channels[i].add(block);
+            pagesMemorySize += block.getRetainedSizeInBytes() / partitionCount;
         }
 
         for (int position = 0; position < page.getPositionCount(); position++) {
