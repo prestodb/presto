@@ -28,6 +28,7 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.InMemoryJoinHash;
+import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.spi.Page;
@@ -65,6 +66,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
@@ -162,6 +164,7 @@ public class JoinCompiler
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
+        generateGetFilterFunctionMethod(classDefinition);
 
         return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
@@ -577,6 +580,18 @@ public class JoinCompiler
                 .getBody()
                 .push(true)
                 .retInt();
+    }
+
+    private void generateGetFilterFunctionMethod(ClassDefinition classDefinition)
+    {
+        MethodDefinition getFilterFunctionMethod = classDefinition.declareMethod(
+                a(PUBLIC),
+                "getFilterFunction",
+                type(Optional.class, JoinFilterFunction.class));
+
+        getFilterFunctionMethod.getBody()
+                .append(invokeStatic(Optional.class, "empty", Optional.class))
+                .ret(Optional.class);
     }
 
     private static BytecodeNode typeEquals(

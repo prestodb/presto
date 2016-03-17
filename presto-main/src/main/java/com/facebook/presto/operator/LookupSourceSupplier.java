@@ -14,15 +14,19 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Map;
 
 public interface LookupSourceSupplier
 {
     List<Type> getTypes();
 
     ListenableFuture<LookupSource> getLookupSource();
+
+    Map<Symbol, Integer> getLayout();
 
     // this is only here for the index lookup source
     default void setTaskContext(TaskContext taskContext) {}

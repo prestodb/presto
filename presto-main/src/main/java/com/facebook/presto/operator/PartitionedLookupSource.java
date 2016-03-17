@@ -83,17 +83,17 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public long getJoinPosition(int position, Page page)
+    public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        return getJoinPosition(position, page, partitionGenerator.getRawHash(position, page));
+        return getJoinPosition(position, hashChannelsPage, allChannelsPage, partitionGenerator.getRawHash(position, hashChannelsPage));
     }
 
     @Override
-    public long getJoinPosition(int position, Page page, long rawHash)
+    public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
     {
         int partition = partitionGenerator.getPartition(rawHash);
         LookupSource lookupSource = lookupSources[partition];
-        long joinPosition = lookupSource.getJoinPosition(position, page, rawHash);
+        long joinPosition = lookupSource.getJoinPosition(position, hashChannelsPage, allChannelsPage, rawHash);
         if (joinPosition < 0) {
             return joinPosition;
         }
@@ -101,12 +101,12 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public long getNextJoinPosition(long partitionedJoinPosition)
+    public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        int partition = decodePartition(partitionedJoinPosition);
-        long joinPosition = decodeJoinPosition(partitionedJoinPosition);
+        int partition = decodePartition(currentJoinPosition);
+        long joinPosition = decodeJoinPosition(currentJoinPosition);
         LookupSource lookupSource = lookupSources[partition];
-        long nextJoinPosition = lookupSource.getNextJoinPosition(joinPosition);
+        long nextJoinPosition = lookupSource.getNextJoinPosition(joinPosition, probePosition, allProbeChannelsPage);
         if (nextJoinPosition < 0) {
             return nextJoinPosition;
         }

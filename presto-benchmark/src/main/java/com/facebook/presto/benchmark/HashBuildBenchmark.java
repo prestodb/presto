@@ -21,6 +21,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
 import java.util.List;
@@ -45,9 +46,11 @@ public class HashBuildBenchmark
                 1,
                 new PlanNodeId("test"),
                 ordersTableScan.getTypes(),
+                ImmutableMap.of(),
                 Ints.asList(0),
                 Optional.empty(),
                 false,
+                Optional.empty(),
                 1_500_000);
 
         DriverFactory driverFactory = new DriverFactory(true, true, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty());

@@ -14,13 +14,16 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
@@ -30,6 +33,7 @@ public final class PartitionedLookupSourceSupplier
         implements LookupSourceSupplier
 {
     private final List<Type> types;
+    private final Map<Symbol, Integer> layout;
     private final List<Type> hashChannelTypes;
     private final SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
     private final LookupSource[] partitions;
@@ -47,9 +51,10 @@ public final class PartitionedLookupSourceSupplier
     @GuardedBy("this")
     private boolean destroyed;
 
-    public PartitionedLookupSourceSupplier(List<Type> types, List<Integer> hashChannels, int partitionCount, boolean outer)
+    public PartitionedLookupSourceSupplier(List<Type> types, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.layout = ImmutableMap.copyOf(layout);
         this.partitions = new LookupSource[partitionCount];
         this.outer = outer;
 
@@ -62,6 +67,12 @@ public final class PartitionedLookupSourceSupplier
     public List<Type> getTypes()
     {
         return types;
+    }
+
+    @Override
+    public Map<Symbol, Integer> getLayout()
+    {
+        return layout;
     }
 
     @Override

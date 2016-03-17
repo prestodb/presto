@@ -1355,7 +1355,8 @@ class StatementAnalyzer
                     }
                 }
 
-                if (conjunct instanceof ComparisonExpression) {
+                if (conjunct instanceof ComparisonExpression
+                        && (((ComparisonExpression) conjunct).getType() == EQUAL || node.getType() == Join.Type.INNER)) {
                     Expression conjunctFirst = ((ComparisonExpression) conjunct).getLeft();
                     Expression conjunctSecond = ((ComparisonExpression) conjunct).getRight();
                     Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(conjunctFirst, analyzer.getColumnReferences());

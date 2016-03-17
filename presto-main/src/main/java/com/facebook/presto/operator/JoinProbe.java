@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 
 public interface JoinProbe
@@ -24,4 +25,8 @@ public interface JoinProbe
     long getCurrentJoinPosition();
 
     void appendTo(PageBuilder pageBuilder);
+
+    int getPosition();
+
+    Page getPage();
 }
