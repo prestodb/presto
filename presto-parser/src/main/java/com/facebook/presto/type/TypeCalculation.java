@@ -234,7 +234,7 @@ public final class TypeCalculation
             String identifier = ctx.getText();
             OptionalLong value = inputs.get(identifier.toUpperCase(Locale.US));
             if (value == null) {
-                throw new IllegalArgumentException("No value for " + identifier);
+                return OptionalLong.empty();
             }
             return value;
         }

@@ -11,30 +11,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.type;
+
+package com.facebook.presto.sql.tree;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class TypeLiteralCalculation
+public class DecimalLiteral
+        extends Literal
 {
-    private final String calculation;
+    private final String value;
 
-    public TypeLiteralCalculation(String calculation)
+    public DecimalLiteral(String value)
     {
-        this.calculation = requireNonNull(calculation, "calculation is null");
+        this(Optional.empty(), value);
     }
 
-    public String getCalculation()
+    public DecimalLiteral(NodeLocation location, String value)
     {
-        return calculation;
+        this(Optional.of(location), value);
+    }
+
+    public DecimalLiteral(Optional<NodeLocation> location, String value)
+    {
+        super(location);
+        this.value = requireNonNull(value, "value is null");
+    }
+
+    public String getValue()
+    {
+        return value;
     }
 
     @Override
-    public String toString()
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return calculation;
+        return visitor.visitDecimalLiteral(this, context);
     }
 
     @Override
@@ -46,13 +60,13 @@ public class TypeLiteralCalculation
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        TypeLiteralCalculation that = (TypeLiteralCalculation) o;
-        return Objects.equals(calculation, that.calculation);
+        DecimalLiteral that = (DecimalLiteral) o;
+        return Objects.equals(value, that.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(calculation);
+        return Objects.hash(value);
     }
 }

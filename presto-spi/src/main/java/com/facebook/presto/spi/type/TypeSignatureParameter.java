@@ -40,9 +40,9 @@ public class TypeSignatureParameter
         return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
     }
 
-    public static TypeSignatureParameter of(TypeLiteralCalculation literalCalculation)
+    public static TypeSignatureParameter of(String variable)
     {
-        return new TypeSignatureParameter(ParameterKind.LITERAL_CALCULATION, literalCalculation);
+        return new TypeSignatureParameter(ParameterKind.VARIABLE, variable);
     }
 
     private TypeSignatureParameter(ParameterKind kind, Object value)
@@ -77,9 +77,9 @@ public class TypeSignatureParameter
         return kind == ParameterKind.NAMED_TYPE;
     }
 
-    public boolean isLiteralCalculation()
+    public boolean isVariable()
     {
-        return kind == ParameterKind.LITERAL_CALCULATION;
+        return kind == ParameterKind.VARIABLE;
     }
 
     private <A> A getValue(ParameterKind expectedParameterKind, Class<A> target)
@@ -103,9 +103,9 @@ public class TypeSignatureParameter
         return getValue(ParameterKind.NAMED_TYPE, NamedTypeSignature.class);
     }
 
-    public TypeLiteralCalculation getLiteralCalculation()
+    public String getVariable()
     {
-        return getValue(ParameterKind.LITERAL_CALCULATION, TypeLiteralCalculation.class);
+        return getValue(ParameterKind.VARIABLE, String.class);
     }
 
     public Optional<TypeSignature> getTypeSignatureOrNamedTypeSignature()
@@ -125,10 +125,14 @@ public class TypeSignatureParameter
         switch (kind) {
             case TYPE:
                 return getTypeSignature().isCalculated();
-            case LITERAL_CALCULATION:
+            case NAMED_TYPE:
+                return getNamedTypeSignature().getTypeSignature().isCalculated();
+            case LONG:
+                return false;
+            case VARIABLE:
                 return true;
             default:
-                return false;
+                throw new IllegalArgumentException("Unexpected parameter kind: " + kind);
         }
     }
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.SqlAggregationFunction;
@@ -38,7 +39,6 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
@@ -72,15 +72,15 @@ public abstract class AbstractMinMaxAggregationFunction
 
     protected AbstractMinMaxAggregationFunction(String name, OperatorType operatorType)
     {
-        super(name, ImmutableList.of(orderableTypeParameter("E")), "E", ImmutableList.of("E"));
+        super(name, ImmutableList.of(orderableTypeParameter("E")), ImmutableList.of(), "E", ImmutableList.of("E"));
         requireNonNull(operatorType);
         this.operatorType = operatorType;
     }
 
     @Override
-    public InternalAggregationFunction specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type type = types.get("E");
+        Type type = boundVariables.getTypeVariable("E");
         MethodHandle compareMethodHandle = functionRegistry.getScalarFunctionImplementation(internalOperator(operatorType, BOOLEAN, ImmutableList.of(type, type))).getMethodHandle();
         return generateAggregation(type, compareMethodHandle);
     }

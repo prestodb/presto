@@ -23,6 +23,8 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.DenyAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.type.DecimalParseResult;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -41,6 +43,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -584,6 +587,14 @@ public class ExpressionAnalyzer
         {
             expressionTypes.put(node, DOUBLE);
             return DOUBLE;
+        }
+
+        @Override
+        protected Type visitDecimalLiteral(DecimalLiteral node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            DecimalParseResult parseResult = Decimals.parse(node.getValue());
+            expressionTypes.put(node, parseResult.getType());
+            return parseResult.getType();
         }
 
         @Override

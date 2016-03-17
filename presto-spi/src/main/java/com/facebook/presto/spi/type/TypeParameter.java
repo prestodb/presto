@@ -44,9 +44,9 @@ public class TypeParameter
         return new TypeParameter(ParameterKind.NAMED_TYPE, namedType);
     }
 
-    public static TypeParameter of(TypeLiteralCalculation literalCalculation)
+    public static TypeParameter of(String variable)
     {
-        return new TypeParameter(ParameterKind.LITERAL_CALCULATION, literalCalculation);
+        return new TypeParameter(ParameterKind.VARIABLE, variable);
     }
 
     public static TypeParameter of(TypeSignatureParameter parameter, TypeManager typeManager)
@@ -70,8 +70,8 @@ public class TypeParameter
                         parameter.getNamedTypeSignature().getName(),
                         type));
             }
-            case LITERAL_CALCULATION:
-                return of(parameter.getLiteralCalculation());
+            case VARIABLE:
+                return of(parameter.getVariable());
             default:
                 throw new UnsupportedOperationException(format("Unsupported parameter [%s]", parameter));
         }
@@ -110,9 +110,9 @@ public class TypeParameter
         return getValue(ParameterKind.NAMED_TYPE, NamedType.class);
     }
 
-    public TypeLiteralCalculation getLiteralCalculation()
+    public String getVariable()
     {
-        return getValue(ParameterKind.LITERAL_CALCULATION, TypeLiteralCalculation.class);
+        return getValue(ParameterKind.VARIABLE, String.class);
     }
 
     @Override

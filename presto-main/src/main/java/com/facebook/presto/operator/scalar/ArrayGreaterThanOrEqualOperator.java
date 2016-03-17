@@ -13,6 +13,7 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
@@ -24,7 +25,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.OperatorType.GREATER_THAN;
 import static com.facebook.presto.metadata.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -45,13 +45,13 @@ public class ArrayGreaterThanOrEqualOperator
 
     private ArrayGreaterThanOrEqualOperator()
     {
-        super(GREATER_THAN_OR_EQUAL, ImmutableList.of(orderableTypeParameter("T")), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
+        super(GREATER_THAN_OR_EQUAL, ImmutableList.of(orderableTypeParameter("T")), ImmutableList.of(), StandardTypes.BOOLEAN, ImmutableList.of("array(T)", "array(T)"));
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        Type elementType = types.get("T");
+        Type elementType = boundVariables.getTypeVariable("T");
         MethodHandle greaterThanFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(GREATER_THAN, BOOLEAN, ImmutableList.of(elementType, elementType))).getMethodHandle();
         MethodHandle method = METHOD_HANDLE.bindTo(greaterThanFunction).bindTo(elementType);
         return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), method, isDeterministic());

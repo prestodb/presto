@@ -19,12 +19,14 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -93,6 +95,7 @@ public class TestDomainTranslator
     private static final Symbol J = new Symbol("j");
     private static final Symbol K = new Symbol("k");
     private static final Symbol L = new Symbol("l");
+    private static final Symbol M = new Symbol("m");
 
     private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
             .put(A, BIGINT)
@@ -107,6 +110,7 @@ public class TestDomainTranslator
             .put(J, COLOR) // Equatable, but not orderable
             .put(K, HYPER_LOG_LOG) // Not Equatable or orderable
             .put(L, VARBINARY)
+            .put(M, DecimalType.createDecimalType(10, 5))
             .build();
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -452,6 +456,16 @@ public class TestDomainTranslator
         result = fromPredicate(predicate);
         assertEquals(result.getRemainingExpression(), predicate);
         assertTrue(result.getTupleDomain().isAll());
+    }
+
+    @Test
+    public void testFromDecimalComparison()
+            throws Exception
+    {
+        Expression predicate = greaterThan(M, decimalLiteral("12.345"));
+        ExtractionResult result = fromPredicate(predicate);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(M, Domain.create(ValueSet.ofRanges(Range.greaterThan(DecimalType.createDecimalType(10, 5), 1234500L)), false))));
     }
 
     @Test
@@ -1234,6 +1248,11 @@ public class TestDomainTranslator
     private static DoubleLiteral doubleLiteral(double value)
     {
         return new DoubleLiteral(Double.toString(value));
+    }
+
+    private static DecimalLiteral decimalLiteral(String value)
+    {
+        return new DecimalLiteral(value);
     }
 
     private static StringLiteral stringLiteral(String value)

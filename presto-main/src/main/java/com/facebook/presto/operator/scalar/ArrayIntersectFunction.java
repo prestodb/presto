@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
@@ -26,7 +27,6 @@ import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
 
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -42,7 +42,7 @@ public final class ArrayIntersectFunction
 
     public ArrayIntersectFunction()
     {
-        super(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), "array(E)", ImmutableList.of("array(E)", "array(E)"));
+        super(FUNCTION_NAME, ImmutableList.of(orderableTypeParameter("E")), ImmutableList.of(), "array(E)", ImmutableList.of("array(E)", "array(E)"));
     }
 
     @Override
@@ -64,10 +64,10 @@ public final class ArrayIntersectFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(Map<String, Type> types, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        checkArgument(types.size() == 1, format("%s expects only one argument", FUNCTION_NAME));
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(types.get("E"));
+        checkArgument(boundVariables.getTypeVariables().size() == 1, format("%s expects only one argument", FUNCTION_NAME));
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(boundVariables.getTypeVariable("E"));
         return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), methodHandle, isDeterministic());
     }
 
