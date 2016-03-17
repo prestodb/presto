@@ -14,13 +14,17 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Map;
 
 public interface LookupSourceSupplier
 {
     List<Type> getTypes();
+
+    Map<Symbol, Integer> getLayout();
 
     ListenableFuture<LookupSource> getLookupSource(OperatorContext operatorContext);
 

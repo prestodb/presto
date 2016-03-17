@@ -40,6 +40,7 @@ import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFacto
 import com.facebook.presto.operator.HashPartitionMaskOperator.HashPartitionMaskOperatorFactory;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.InMemoryExchange;
+import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.JoinOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.LocalPlannerAware;
@@ -1458,6 +1459,7 @@ public class LocalExecutionPlanner
                     indexOutputChannels,
                     indexHashChannel,
                     indexSource.getTypes(),
+                    indexSource.getLayout(),
                     indexBuildDriverFactoryProvider,
                     maxIndexMemorySize,
                     indexJoinLookupStats,
@@ -1477,10 +1479,10 @@ public class LocalExecutionPlanner
             OperatorFactory lookupJoinOperatorFactory;
             switch (node.getType()) {
                 case INNER:
-                    lookupJoinOperatorFactory = LookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel);
+                    lookupJoinOperatorFactory = LookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel, false);
                     break;
                 case SOURCE_OUTER:
-                    lookupJoinOperatorFactory = LookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel);
+                    lookupJoinOperatorFactory = LookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceSupplier, probeSource.getTypes(), probeChannels, probeHashChannel, false);
                     break;
                 default:
                     throw new AssertionError("Unknown type: " + node.getType());
@@ -1492,7 +1494,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitJoin(JoinNode node, LocalExecutionPlanContext context)
         {
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
-            if (clauses.isEmpty()) {
+            if (clauses.isEmpty() && !node.getFilter().isPresent()) {
                 return createNestedLoopJoin(node, context);
             }
 
@@ -1554,9 +1556,6 @@ public class LocalExecutionPlanner
                 Optional<Symbol> buildHashSymbol,
                 LocalExecutionPlanContext context)
         {
-            // Plan build
-            LookupSourceSupplier lookupSourceSupplier = createLookupJoinSource(node, buildNode, buildSymbols, buildHashSymbol, context);
-
             // Plan probe and introduce a projection to put all fields from the probe side into a single channel if necessary
             PhysicalOperation probeSource;
             LocalExecutionPlanContext parallelParentContext = null;
@@ -1578,6 +1577,10 @@ public class LocalExecutionPlanner
             else {
                 probeSource = probeNode.accept(this, context);
             }
+
+            // Plan build
+            LookupSourceSupplier lookupSourceSupplier = createLookupJoinSource(node, buildNode, buildSymbols, buildHashSymbol, probeSource.getLayout(), context);
+
             OperatorFactory operator = createLookupJoin(node, probeSource, probeSymbols, probeHashSymbol, lookupSourceSupplier, context);
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -1606,12 +1609,17 @@ public class LocalExecutionPlanner
                 PlanNode buildNode,
                 List<Symbol> buildSymbols,
                 Optional<Symbol> buildHashSymbol,
-                LocalExecutionPlanContext context)
+                Map<Symbol, Integer> probleLayout, LocalExecutionPlanContext context)
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
             Optional<Integer> buildHashChannel = buildHashSymbol.map(channelGetter(buildSource));
+
+            Optional<JoinFilterFunction> filterFunction = node.getFilter().map(filter -> {
+                Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildSource.getLayout(), probleLayout);
+                return new InterpretedFilterFunction(filter, context.getTypes(), joinSourcesLayout, metadata, sqlParser, context.getSession());
+            });
 
             LookupSourceSupplier lookupSourceSupplier;
             int hashBuildConcurrency = getTaskHashBuildConcurrency(session);
@@ -1620,8 +1628,10 @@ public class LocalExecutionPlanner
                         buildContext.getNextOperatorId(),
                         node.getId(),
                         buildSource.getTypes(),
+                        buildSource.getLayout(),
                         buildChannels,
                         buildHashChannel,
+                        filterFunction,
                         10_000);
 
                 context.addDriverFactory(new DriverFactory(
@@ -1640,9 +1650,10 @@ public class LocalExecutionPlanner
 
                 ParallelHashBuilder parallelHashBuilder = new ParallelHashBuilder(
                         buildSource.getTypes(),
+                        buildSource.getLayout(),
                         buildChannels,
                         buildHashChannel,
-                        10_000,
+                        filterFunction, 10_000,
                         parallelBuildCount);
 
                 context.addDriverFactory(new DriverFactory(
@@ -1683,16 +1694,26 @@ public class LocalExecutionPlanner
 
             switch (node.getType()) {
                 case INNER:
-                    return LookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel);
+                    return LookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel, node.getFilter().isPresent());
                 case LEFT:
-                    return LookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel);
+                    return LookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel, node.getFilter().isPresent());
                 case RIGHT:
-                    return LookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel);
+                    return LookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel, node.getFilter().isPresent());
                 case FULL:
-                    return LookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel);
+                    return LookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceSupplier, probeTypes, probeJoinChannels, probeHashChannel, node.getFilter().isPresent());
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
+        }
+
+        private Map<Symbol, Integer> createJoinSourcesLayout(Map<Symbol, Integer> lookupSourceLayout, Map<Symbol, Integer> probeSourceLayout)
+        {
+            Builder<Symbol, Integer> joinSourcesLayout = ImmutableMap.builder();
+            joinSourcesLayout.putAll(lookupSourceLayout);
+            for (Map.Entry<Symbol, Integer> probeLayoutEntry : probeSourceLayout.entrySet()) {
+                joinSourcesLayout.put(probeLayoutEntry.getKey(), probeLayoutEntry.getValue() + lookupSourceLayout.size());
+            }
+            return joinSourcesLayout.build();
         }
 
         @Override
