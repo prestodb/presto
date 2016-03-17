@@ -14,7 +14,9 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DesugaringRewriter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -29,22 +31,48 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
+import java.util.IdentityHashMap;
 import java.util.Map;
+
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static java.util.Objects.requireNonNull;
 
 public class DesugaringOptimizer
         extends PlanOptimizer
 {
+    private final Metadata metadata;
+    private final SqlParser sqlParser;
+
+    public DesugaringOptimizer(Metadata metadata, SqlParser sqlParser)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+    }
+
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan);
+        requireNonNull(plan, "plan is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(types, "types is null");
+
+        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, sqlParser, session, types), plan);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
-        public Rewriter()
+        private final Metadata metadata;
+        private final SqlParser sqlParser;
+        private final Session session;
+        private final Map<Symbol, Type> types;
+
+        public Rewriter(Metadata metadata, SqlParser sqlParser, Session session, Map<Symbol, Type> types)
         {
+            this.metadata = metadata;
+            this.sqlParser = sqlParser;
+            this.session = session;
+            this.types = types;
         }
 
         @Override
@@ -82,7 +110,8 @@ public class DesugaringOptimizer
 
         private Expression desugar(Expression expression)
         {
-            return ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(), expression);
+            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression);
+            return ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(expressionTypes), expression);
         }
     }
 }
