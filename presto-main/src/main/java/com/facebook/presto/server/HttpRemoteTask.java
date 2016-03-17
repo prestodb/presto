@@ -19,7 +19,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
-import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.RemoteTask;
@@ -229,9 +228,9 @@ public final class HttpRemoteTask
                     location,
                     DateTime.now(),
                     new SharedBufferInfo(BufferState.OPEN, true, true, 0, 0, 0, 0, bufferStates),
-                    ImmutableSet.<PlanNodeId>of(),
+                    ImmutableSet.of(),
                     taskStats,
-                    ImmutableList.<ExecutionFailureInfo>of(),
+                    ImmutableList.of(),
                     true));
 
             long timeout = minErrorDuration.toMillis() / 3;
@@ -342,7 +341,7 @@ public final class HttpRemoteTask
         if (taskInfo.getState().isDone()) {
             return 0;
         }
-        return pendingSourceSplitCount + taskInfo.getStats().getQueuedPartitionedDrivers() + taskInfo.getStats().getRunningPartitionedDrivers();
+        return getPendingSourceSplitCount() + taskInfo.getStats().getQueuedPartitionedDrivers() + taskInfo.getStats().getRunningPartitionedDrivers();
     }
 
     @Override
@@ -352,7 +351,13 @@ public final class HttpRemoteTask
         if (taskInfo.getState().isDone()) {
             return 0;
         }
-        return pendingSourceSplitCount + taskInfo.getStats().getQueuedPartitionedDrivers();
+        return getPendingSourceSplitCount() + taskInfo.getStats().getQueuedPartitionedDrivers();
+    }
+
+    @SuppressWarnings("FieldAccessNotGuarded")
+    private int getPendingSourceSplitCount()
+    {
+        return pendingSourceSplitCount;
     }
 
     @Override
@@ -395,11 +400,8 @@ public final class HttpRemoteTask
                 // never update if the task has reached a terminal state
                 return false;
             }
-            if (newValue.getVersion() < oldValue.getVersion()) {
-                // don't update to an older version (same version is ok)
-                return false;
-            }
-            return true;
+            // don't update to an older version (same version is ok)
+            return newValue.getVersion() >= oldValue.getVersion();
         });
 
         if (taskMismatch.get()) {
@@ -496,7 +498,7 @@ public final class HttpRemoteTask
                 .collect(toImmutableList());
     }
 
-    private TaskSource getSource(PlanNodeId planNodeId)
+    private synchronized TaskSource getSource(PlanNodeId planNodeId)
     {
         Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
         boolean noMoreSplits = this.noMoreSplits.contains(planNodeId);
@@ -558,7 +560,7 @@ public final class HttpRemoteTask
                     taskInfo.getOutputBuffers(),
                     taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
-                    ImmutableList.<ExecutionFailureInfo>of(),
+                    ImmutableList.of(),
                     taskInfo.isNeedsPlan()));
 
             // send abort to task and ignore response
@@ -789,7 +791,7 @@ public final class HttpRemoteTask
                 }
 
                 try {
-                    updateTaskInfo(value, ImmutableList.<TaskSource>of());
+                    updateTaskInfo(value, ImmutableList.of());
                     getErrorTracker.requestSucceeded();
                 }
                 finally {
