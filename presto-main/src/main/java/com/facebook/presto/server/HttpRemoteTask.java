@@ -279,7 +279,7 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public void addSplits(Multimap<PlanNodeId, Split> splitsBySource)
+    public synchronized void addSplits(Multimap<PlanNodeId, Split> splitsBySource)
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             requireNonNull(splitsBySource, "splitsBySource is null");
