@@ -199,6 +199,9 @@ public final class SqlStageExecution
         checkArgument(remoteSource != null, "Unknown remote source %s. Known sources are %s", exchangeLocation.getPlanFragmentId(), exchangeSources.keySet());
 
         exchangeLocations.put(remoteSource.getId(), exchangeLocation.getUri());
+        if (completeSources.contains(remoteSource.getId())) {
+            return;
+        }
         for (RemoteTask task : getAllTasks()) {
             task.addSplits(remoteSource.getId(), ImmutableList.of(createRemoteSplitFor(task.getTaskInfo().getTaskId(), exchangeLocation.getUri())));
         }
