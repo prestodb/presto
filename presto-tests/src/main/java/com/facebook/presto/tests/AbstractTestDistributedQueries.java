@@ -446,6 +446,14 @@ public abstract class AbstractTestDistributedQueries
                         "WHERE (orderkey IN (SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END FROM lineitem)) IS NOT NULL\n");
 
         assertUpdate("DROP TABLE test_delete");
+
+        // delete using a scalar subquery
+
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertUpdate("DELETE FROM test_delete WHERE orderkey = (SELECT orderkey FROM orders ORDER BY orderkey LIMIT 1)", 1);
+        assertUpdate("DELETE FROM test_delete WHERE orderkey = (SELECT orderkey FROM orders WHERE false)", 0);
+        assertUpdate("DELETE FROM test_delete WHERE (SELECT true)", "SELECT count(*) - 1 FROM orders");
+        assertUpdate("DROP TABLE test_delete");
     }
 
     @Test
