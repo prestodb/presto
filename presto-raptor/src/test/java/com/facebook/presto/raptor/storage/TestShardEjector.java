@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.RaptorConnectorId;
+import com.facebook.presto.raptor.RaptorNodeSupplier;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.MetadataDao;
@@ -93,7 +95,8 @@ public class TestShardEjector
         NodeManager nodeManager = createNodeManager("node1", "node2", "node3", "node4", "node5");
 
         ShardEjector ejector = new ShardEjector(
-                nodeManager,
+                nodeManager.getCurrentNode().getNodeIdentifier(),
+                new RaptorNodeSupplier(nodeManager, new RaptorConnectorId("test")),
                 shardManager,
                 storageService,
                 new Duration(1, HOURS),
