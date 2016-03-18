@@ -69,4 +69,40 @@ public final class ArrayLessThanOrEqualOperator
 
         return leftArray.getPositionCount() <= rightArray.getPositionCount();
     }
+
+    @TypeParameter("E")
+    @TypeParameterSpecialization(name = "E", nativeContainerType = long.class)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean lessThanOrEqualLong(
+            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block leftArray,
+            @SqlType("array(E)") Block rightArray)
+    {
+        int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
+        int index = 0;
+        while (index < len) {
+            checkElementNotNull(leftArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
+            long leftElement = type.getLong(leftArray, index);
+            long rightElement = type.getLong(rightArray, index);
+            try {
+                if ((boolean) lessThanFunction.invokeExact(leftElement, rightElement)) {
+                    return true;
+                }
+                if ((boolean) lessThanFunction.invokeExact(rightElement, leftElement)) {
+                    return false;
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+                throw new PrestoException(INTERNAL_ERROR, t);
+            }
+            index++;
+        }
+
+        return leftArray.getPositionCount() <= rightArray.getPositionCount();
+    }
 }
