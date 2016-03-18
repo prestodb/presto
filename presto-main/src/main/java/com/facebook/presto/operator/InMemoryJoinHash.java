@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.XxHash64;
+import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
@@ -28,12 +29,14 @@ import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfBooleanArray;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public final class InMemoryJoinHash
         implements LookupSource
 {
+    private static final DataSize CACHE_SIZE = new DataSize(128, KILOBYTE);
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
 
@@ -42,6 +45,10 @@ public final class InMemoryJoinHash
     private final int[] key;
     private final int[] positionLinks;
     private final long size;
+
+    // Native array of hashes for faster collisions resolution compared
+    // to accessing values in blocks. We use bytes to reduce memory foot print
+    // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
 
     public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
@@ -62,33 +69,51 @@ public final class InMemoryJoinHash
         this.positionLinks = new int[addresses.size()];
         Arrays.fill(positionLinks, -1);
 
-        // Native array of hashes for faster collisions resolution compared
-        // to accessing values in blocks. We use bytes to reduce memory foot print
-        // and there is no performance gain from storing full hashes
         positionToHashes = new byte[addresses.size()];
 
-        // index pages
-        for (int position = 0; position < addresses.size(); position++) {
-            int hash = readHashPosition(position);
-            positionToHashes[position] = (byte) hash;
-            int pos = getHashPosition(hash, mask);
+        // We will process addresses in batches, to save memory on array of hashes.
+        int positionsInStep = Math.min(addresses.size(), (int) CACHE_SIZE.toBytes() / Integer.SIZE);
+        int[] positionToFullHashes = new int[positionsInStep];
 
-            // look for an empty slot or a slot containing this key
-            while (key[pos] != -1) {
-                int currentKey = key[pos];
-                if (positionEqualsPosition(currentKey, position)) {
-                    // found a slot for this key
-                    // link the new key position to the current key position
-                    positionLinks[position] = currentKey;
+        for (int step = 0; step * positionsInStep <= addresses.size(); step++) {
+            int stepBeginPosition = step * positionsInStep;
+            int stepEndPosition = Math.min((step + 1) * positionsInStep, addresses.size());
+            int stepSize = stepEndPosition - stepBeginPosition;
 
-                    // key[pos] updated outside of this loop
-                    break;
-                }
-                // increment position and mask to handler wrap around
-                pos = (pos + 1) & mask;
+            // First extract all hashes from blocks to native array.
+            // Somehow having this as a separate loop is much faster compared
+            // to extracting hashes on the fly in the loop below...
+            for (int position = 0; position < stepSize; position++) {
+                int realPosition = position + stepBeginPosition;
+                int hash = readHashPosition(realPosition);
+                positionToFullHashes[position] = hash;
+                positionToHashes[realPosition] = (byte) hash;
             }
 
-            key[pos] = position;
+            // index pages
+            for (int position = 0; position < stepSize; position++) {
+                int realPosition = position + stepBeginPosition;
+                int hash = positionToFullHashes[position];
+                int pos = getHashPosition(hash, mask);
+
+                // look for an empty slot or a slot containing this key
+                while (key[pos] != -1) {
+                    int currentKey = key[pos];
+                    if (((byte) hash) == positionToHashes[currentKey] &&
+                            positionEqualsPosition(currentKey, realPosition)) {
+                        // found a slot for this key
+                        // link the new key position to the current key position
+                        positionLinks[realPosition] = currentKey;
+
+                        // key[pos] updated outside of this loop
+                        break;
+                    }
+                    // increment position and mask to handler wrap around
+                    pos = (pos + 1) & mask;
+                }
+
+                key[pos] = realPosition;
+            }
         }
     }
 
@@ -176,10 +201,6 @@ public final class InMemoryJoinHash
 
     private boolean positionEqualsPosition(int leftPosition, int rightPosition)
     {
-        if (positionToHashes[leftPosition] != positionToHashes[rightPosition]) {
-            return false;
-        }
-
         long leftPageAddress = addresses.getLong(leftPosition);
         int leftBlockIndex = decodeSliceIndex(leftPageAddress);
         int leftBlockPosition = decodePosition(leftPageAddress);
