@@ -44,6 +44,7 @@ import com.facebook.presto.operator.scalar.ArrayDistinctFunction;
 import com.facebook.presto.operator.scalar.ArrayElementAtFunction;
 import com.facebook.presto.operator.scalar.ArrayFunctions;
 import com.facebook.presto.operator.scalar.ArrayGreaterThanOperator;
+import com.facebook.presto.operator.scalar.ArrayLessThanOrEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayMaxFunction;
 import com.facebook.presto.operator.scalar.ArrayMinFunction;
 import com.facebook.presto.operator.scalar.ArrayNotEqualOperator;
@@ -161,7 +162,6 @@ import static com.facebook.presto.operator.scalar.ArrayIntersectFunction.ARRAY_I
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
 import static com.facebook.presto.operator.scalar.ArrayLessThanOperator.ARRAY_LESS_THAN;
-import static com.facebook.presto.operator.scalar.ArrayLessThanOrEqualOperator.ARRAY_LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.ArrayPositionFunction.ARRAY_POSITION;
 import static com.facebook.presto.operator.scalar.ArraySliceFunction.ARRAY_SLICE_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArraySortFunction.ARRAY_SORT_FUNCTION;
@@ -345,6 +345,7 @@ public class FunctionRegistry
                 .scalar(JsonOperators.class)
                 .scalar(FailureFunction.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
+                .scalar(ArrayLessThanOrEqualOperator.class)
                 .scalar(ArrayRemoveFunction.class)
                 .scalar(ArrayGreaterThanOperator.class)
                 .scalar(ArrayElementAtFunction.class)
@@ -354,7 +355,7 @@ public class FunctionRegistry
                 .scalar(ArrayConcatFunction.class)
                 .scalar(ArrayNotEqualOperator.class)
                 .functions(ARRAY_CONTAINS, ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
-                .functions(ARRAY_TO_ARRAY_CAST, ARRAY_HASH_CODE, ARRAY_EQUAL, ARRAY_LESS_THAN, ARRAY_LESS_THAN_OR_EQUAL, ARRAY_GREATER_THAN_OR_EQUAL)
+                .functions(ARRAY_TO_ARRAY_CAST, ARRAY_HASH_CODE, ARRAY_EQUAL, ARRAY_LESS_THAN, ARRAY_GREATER_THAN_OR_EQUAL)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .functions(MAP_EQUAL, MAP_NOT_EQUAL, MAP_HASH_CODE)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_CARDINALITY, ARRAY_POSITION, ARRAY_SORT_FUNCTION, ARRAY_INTERSECT_FUNCTION, ARRAY_TO_JSON, JSON_TO_ARRAY, ARRAY_SLICE_FUNCTION)
