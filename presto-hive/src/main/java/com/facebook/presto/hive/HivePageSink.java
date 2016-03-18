@@ -106,6 +106,7 @@ public class HivePageSink
     private final List<Type> partitionColumnTypes;
 
     private final HiveStorageFormat tableStorageFormat;
+    private final HiveStorageFormat partitionStorageFormat;
     private final LocationHandle locationHandle;
     private final LocationService locationService;
     private final String filePrefix;
@@ -133,6 +134,7 @@ public class HivePageSink
             boolean isCreateTable,
             List<HiveColumnHandle> inputColumns,
             HiveStorageFormat tableStorageFormat,
+            HiveStorageFormat partitionStorageFormat,
             LocationHandle locationHandle,
             LocationService locationService,
             String filePrefix,
@@ -151,6 +153,7 @@ public class HivePageSink
         requireNonNull(inputColumns, "inputColumns is null");
 
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
+        this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
@@ -339,8 +342,6 @@ public class HivePageSink
                                 target));
                     }
                 }
-                outputFormat = tableStorageFormat.getOutputFormat();
-                serDe = tableStorageFormat.getSerDe();
             }
             else {
                 // Write to: a new partition in an existing partitioned table,
@@ -363,6 +364,15 @@ public class HivePageSink
                         table.getPartitionKeys());
                 target = locationService.targetPath(locationHandle, partitionName);
                 write = locationService.writePath(locationHandle, partitionName).orElse(target);
+            }
+
+            if (partitionName.isPresent()) {
+                // Write to a new partition
+                outputFormat = partitionStorageFormat.getOutputFormat();
+                serDe = partitionStorageFormat.getSerDe();
+            }
+            else {
+                // Write to a new/existing unpartitioned table
                 outputFormat = tableStorageFormat.getOutputFormat();
                 serDe = tableStorageFormat.getSerDe();
             }
