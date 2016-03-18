@@ -315,7 +315,7 @@ public class ExpressionAnalyzer
 
             Type rowFieldType = null;
             for (RowField rowField : rowType.getFields()) {
-                if (rowField.getName().equals(Optional.of(node.getFieldName()))) {
+                if (node.getFieldName().equalsIgnoreCase(rowField.getName().orElse(null))) {
                     rowFieldType = rowField.getType();
                     break;
                 }

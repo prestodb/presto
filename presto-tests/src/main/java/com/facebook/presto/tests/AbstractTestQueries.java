@@ -3901,6 +3901,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCaseInsensitiveRowFieldReference()
+            throws Exception
+    {
+        assertQuery("SELECT a.Col0 FROM (VALUES ROW (test_non_lowercase_row(1))) AS t (a)", "SELECT 1");
+    }
+
+    @Test
     public void testSubqueryBody()
             throws Exception
     {
