@@ -40,6 +40,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -547,7 +548,7 @@ public class HiveMetadata
 
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
+        HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
@@ -565,7 +566,8 @@ public class HiveMetadata
                 columnHandles,
                 session.getQueryId(),
                 locationService.forNewTable(session.getQueryId(), schemaName, tableName),
-                hiveStorageFormat,
+                tableStorageFormat,
+                respectTableFormat ? tableStorageFormat : defaultStorageFormat,
                 partitionedBy,
                 tableMetadata.getOwner(),
                 additionalTableParameters);
@@ -609,12 +611,15 @@ public class HiveMetadata
                     handle.getTableName(),
                     handle.getTableOwner(),
                     handle.getInputColumns(),
-                    handle.getHiveStorageFormat(),
+                    handle.getTableStorageFormat(),
                     handle.getPartitionedBy(),
                     handle.getAdditionalTableParameters(),
                     targetPath);
 
             if (!handle.getPartitionedBy().isEmpty()) {
+                if (respectTableFormat) {
+                    Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
+                }
                 partitionUpdates.stream()
                         .map(partitionUpdate -> createPartition(table, partitionUpdate))
                         .forEach(partitionCommitter::addPartition);
@@ -653,11 +658,6 @@ public class HiveMetadata
 
         checkTableIsWritable(table.get());
 
-        HiveStorageFormat hiveStorageFormat = defaultStorageFormat;
-        if (respectTableFormat) {
-            hiveStorageFormat = extractHiveStorageFormat(table.get());
-        }
-
         List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get());
 
         for (HiveColumnHandle hiveColumnHandle : handles) {
@@ -666,6 +666,7 @@ public class HiveMetadata
             }
         }
 
+        HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table.get());
         HiveInsertTableHandle result = new HiveInsertTableHandle(
                 connectorId,
                 tableName.getSchemaName(),
@@ -673,7 +674,8 @@ public class HiveMetadata
                 handles,
                 session.getQueryId(),
                 locationService.forExistingTable(session.getQueryId(), table.get()),
-                hiveStorageFormat);
+                tableStorageFormat,
+                respectTableFormat ? tableStorageFormat : defaultStorageFormat);
 
         setRollback(() -> rollbackInsert(result));
         return result;
@@ -748,7 +750,7 @@ public class HiveMetadata
                 .map(partitionUpdateCodec::fromJson)
                 .collect(toList());
 
-        HiveStorageFormat storageFormat = handle.getHiveStorageFormat();
+        HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
         PartitionCommitter partitionCommitter = new PartitionCommitter(handle.getSchemaName(), handle.getTableName(), metastore, PARTITION_COMMIT_BATCH_SIZE);
         try {
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
@@ -757,7 +759,7 @@ public class HiveMetadata
             if (!table.isPresent()) {
                 throw new TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
             }
-            if (!table.get().getSd().getInputFormat().equals(storageFormat.getInputFormat()) && respectTableFormat) {
+            if (!table.get().getSd().getInputFormat().equals(tableStorageFormat.getInputFormat()) && respectTableFormat) {
                 throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
             }
 
@@ -774,7 +776,7 @@ public class HiveMetadata
                     }
                     // add new partition
                     Partition partition = createPartition(table.get(), partitionUpdate);
-                    if (!partition.getSd().getInputFormat().equals(storageFormat.getInputFormat()) && respectTableFormat) {
+                    if (!partition.getSd().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && respectTableFormat) {
                         throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                     }
                     partitionCommitter.addPartition(partition);
