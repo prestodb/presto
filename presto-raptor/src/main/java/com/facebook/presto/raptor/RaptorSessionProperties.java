@@ -24,6 +24,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
@@ -34,6 +35,7 @@ public class RaptorSessionProperties
     private static final String READER_MAX_MERGE_DISTANCE = "reader_max_merge_distance";
     private static final String READER_MAX_READ_SIZE = "reader_max_read_size";
     private static final String READER_STREAM_BUFFER_SIZE = "reader_stream_buffer_size";
+    private static final String ONE_SPLIT_PER_BUCKET_THRESHOLD = "one_split_per_bucket_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -60,6 +62,11 @@ public class RaptorSessionProperties
                         READER_STREAM_BUFFER_SIZE,
                         "Reader: Size of buffer for streaming reads",
                         config.getOrcStreamBufferSize(),
+                        false),
+                integerSessionProperty(
+                        ONE_SPLIT_PER_BUCKET_THRESHOLD,
+                        "Experimental: Threshold at which only one split is producted per bucket",
+                        0,
                         false));
     }
 
@@ -86,6 +93,11 @@ public class RaptorSessionProperties
     public static DataSize getReaderStreamBufferSize(ConnectorSession session)
     {
         return session.getProperty(READER_STREAM_BUFFER_SIZE, DataSize.class);
+    }
+
+    public static int getOneSplitPerBucketThreshold(ConnectorSession session)
+    {
+        return session.getProperty(ONE_SPLIT_PER_BUCKET_THRESHOLD, Integer.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

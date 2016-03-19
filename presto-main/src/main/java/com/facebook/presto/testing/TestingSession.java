@@ -32,7 +32,12 @@ public final class TestingSession
 
     public static SessionBuilder testSessionBuilder()
     {
-        return Session.builder(new SessionPropertyManager())
+        return testSessionBuilder(new SessionPropertyManager());
+    }
+
+    public static SessionBuilder testSessionBuilder(SessionPropertyManager sessionPropertyManager)
+    {
+        return Session.builder(sessionPropertyManager)
                 .setQueryId(queryIdGenerator.createNextQueryId())
                 .setIdentity(new Identity("user", Optional.empty()))
                 .setSource("test")
