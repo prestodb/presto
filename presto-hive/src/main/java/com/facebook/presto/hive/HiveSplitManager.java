@@ -30,7 +30,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import io.airlift.concurrent.BoundedExecutor;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -79,8 +78,6 @@ public class HiveSplitManager
     private final int maxOutstandingSplits;
     private final int minPartitionBatchSize;
     private final int maxPartitionBatchSize;
-    private final DataSize maxSplitSize;
-    private final DataSize maxInitialSplitSize;
     private final int maxInitialSplits;
     private final boolean recursiveDfsWalkerEnabled;
 
@@ -103,8 +100,6 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxSplitSize(),
-                hiveClientConfig.getMaxInitialSplitSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled()
         );
@@ -120,8 +115,6 @@ public class HiveSplitManager
             int maxOutstandingSplits,
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
-            DataSize maxSplitSize,
-            DataSize maxInitialSplitSize,
             int maxInitialSplits,
             boolean recursiveDfsWalkerEnabled)
     {
@@ -135,8 +128,6 @@ public class HiveSplitManager
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.minPartitionBatchSize = minPartitionBatchSize;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
-        this.maxSplitSize = requireNonNull(maxSplitSize, "maxSplitSize is null");
-        this.maxInitialSplitSize = requireNonNull(maxInitialSplitSize, "maxInitialSplitSize is null");
         this.maxInitialSplits = maxInitialSplits;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
     }
@@ -169,14 +160,12 @@ public class HiveSplitManager
                 table.get(),
                 hivePartitions,
                 bucket,
-                maxSplitSize,
                 session,
                 hdfsEnvironment,
                 namenodeStats,
                 directoryLister,
                 executor,
                 maxPartitionBatchSize,
-                maxInitialSplitSize,
                 maxInitialSplits,
                 recursiveDfsWalkerEnabled);
 
