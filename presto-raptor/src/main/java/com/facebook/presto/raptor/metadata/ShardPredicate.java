@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.Ranges;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -26,6 +27,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -34,6 +36,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
@@ -43,6 +46,7 @@ import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -86,6 +90,22 @@ class ShardPredicate
                 .toString();
     }
 
+    private static Optional<Slice> toShardPredicate(Object value, StringJoiner predicateJoiner, String operator)
+    {
+        Slice uuidText = checkType(value, Slice.class, "value");
+        Slice uuidBytes;
+        try {
+            uuidBytes = uuidStringToBytes(uuidText);
+        }
+        catch (IllegalArgumentException e) {
+            predicateJoiner.add("false");
+            return Optional.empty();
+        }
+
+        predicateJoiner.add(format("shard_uuid %s ?", operator));
+        return Optional.of(uuidBytes);
+    }
+
     public static ShardPredicate create(TupleDomain<RaptorColumnHandle> tupleDomain)
     {
         StringJoiner predicate = new StringJoiner(" AND ").setEmptyValue("true");
@@ -94,7 +114,7 @@ class ShardPredicate
 
         for (Entry<RaptorColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             Domain domain = entry.getValue();
-            if (domain.isNullAllowed() || domain.isAll()) {
+            if (domain.isAll()) {
                 continue;
             }
             RaptorColumnHandle handle = entry.getKey();
@@ -106,21 +126,42 @@ class ShardPredicate
             }
 
             if (handle.isShardUuid()) {
-                // TODO: support multiple shard UUIDs
-                if (domain.isSingleValue()) {
-                    Slice uuidText = checkType(entry.getValue().getSingleValue(), Slice.class, "value");
-                    Slice uuidBytes;
-                    try {
-                        uuidBytes = uuidStringToBytes(uuidText);
+                StringJoiner rangePredicate = new StringJoiner(" OR ").setEmptyValue("true");
+
+                for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+                    if (range.isSingleValue()) {
+                        toShardPredicate(range.getSingleValue(), rangePredicate, "=")
+                                .ifPresent(value -> {
+                                    types.add(jdbcType);
+                                    values.add(value);
+                                });
                     }
-                    catch (IllegalArgumentException e) {
-                        predicate.add("false");
-                        continue;
+                    else {
+                        Marker high = range.getHigh();
+                        if (!high.isUpperUnbounded()) {
+                            toShardPredicate(high.getValue(), rangePredicate, high.getBound() == EXACTLY ? "<=" : "<")
+                                    .ifPresent(value -> {
+                                        types.add(jdbcType);
+                                        values.add(value);
+                                    });
+                        }
+
+                        Marker low = range.getLow();
+                        if (!low.isLowerUnbounded()) {
+                            toShardPredicate(low.getValue(), rangePredicate, low.getBound() == EXACTLY ? ">=" : ">")
+                                    .ifPresent(value -> {
+                                        types.add(jdbcType);
+                                        values.add(value);
+                                    });
+                        }
                     }
-                    predicate.add("shard_uuid = ?");
-                    types.add(jdbcType);
-                    values.add(uuidBytes);
                 }
+
+                predicate.add(rangePredicate.toString());
+                continue;
+            }
+
+            if (domain.isNullAllowed()) {
                 continue;
             }
 
@@ -167,6 +208,18 @@ class ShardPredicate
         }
 
         return new ShardPredicate(predicate.toString(), types.build(), values.build());
+    }
+
+    @VisibleForTesting
+    protected List<JDBCType> getTypes()
+    {
+        return types;
+    }
+
+    @VisibleForTesting
+    protected List<Object> getValues()
+    {
+        return values;
     }
 
     public static void bindValue(PreparedStatement statement, JDBCType type, Object value, int index)
