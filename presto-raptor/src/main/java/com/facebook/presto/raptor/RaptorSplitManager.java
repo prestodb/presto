@@ -48,6 +48,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
+import static com.facebook.presto.raptor.RaptorSessionProperties.getOneSplitPerBucketThreshold;
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
@@ -99,7 +100,7 @@ public class RaptorSplitManager
         TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(handle.getConstraint());
         long tableId = table.getTableId();
         boolean bucketed = table.getBucketCount().isPresent();
-        boolean merged = bucketed && !table.isDelete();
+        boolean merged = bucketed && !table.isDelete() && (table.getBucketCount().getAsInt() > getOneSplitPerBucketThreshold(session));
         OptionalLong transactionId = table.getTransactionId();
         Optional<Map<Integer, String>> bucketToNode = handle.getPartitioning().map(RaptorPartitioningHandle::getBucketToNode);
         return new RaptorSplitSource(tableId, bucketed, merged, effectivePredicate, transactionId, bucketToNode);

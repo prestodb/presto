@@ -15,6 +15,8 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -128,7 +130,9 @@ public final class RaptorQueryRunner
 
     private static Session createSession(String schema)
     {
-        return testSessionBuilder()
+        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
+        sessionPropertyManager.addConnectorSessionProperties("raptor", new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
+        return testSessionBuilder(sessionPropertyManager)
                 .setCatalog("raptor")
                 .setSchema(schema)
                 .setSystemProperties(ImmutableMap.of("columnar_processing_dictionary", "true", "dictionary_aggregation", "true"))
