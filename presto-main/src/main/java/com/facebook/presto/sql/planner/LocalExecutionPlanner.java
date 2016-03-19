@@ -959,11 +959,6 @@ public class LocalExecutionPlanner
 
         private boolean needsLocalGather(AggregationNode node)
         {
-            // intermediate is used for node local aggregations
-            if (node.getStep() == Step.INTERMEDIATE) {
-                return true;
-            }
-
             // a final aggregation with a partial as a source needs is used to signal a plan that is
             // distributed on the grouped keys but not partitioned on the group keys.
             if (node.getStep() != Step.FINAL || node.getSources().size() != 1) {
