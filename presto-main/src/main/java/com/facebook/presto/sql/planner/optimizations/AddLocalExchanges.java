@@ -14,7 +14,10 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding.PartitionFunctionArgumentBinding;
@@ -44,13 +47,20 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -85,18 +95,20 @@ public class AddLocalExchanges
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, session), any());
+        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, session), any());
         return result.getNode();
     }
 
     private class Rewriter
             extends PlanVisitor<StreamPreferredProperties, PlanWithProperties>
     {
+        private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, Session session)
+        public Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Session session)
         {
+            this.symbolAllocator = symbolAllocator;
             this.idAllocator = idAllocator;
             this.session = session;
         }
@@ -223,7 +235,6 @@ public class AddLocalExchanges
 
             if (node.getStep() == Step.FINAL || node.getStep() == Step.SINGLE) {
                 // final aggregation requires that all data be partitioned
-                // todo split aggregation during enforcement
                 requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(node.getGroupBy());
                 preferredChildProperties = parentPreferences.withDefaultParallelism(session)
                         .withPartitioning(node.getGroupBy());
@@ -234,7 +245,82 @@ public class AddLocalExchanges
                         .constrainTo(node.getSource().getOutputSymbols());
             }
 
-            return planAndEnforceChildren(node, requiredProperties, preferredChildProperties);
+            // plan child with the preferred
+            PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
+            if (requiredProperties.isSatisfiedBy(child.getProperties())) {
+                return rebaseAndDeriveProperties(node, ImmutableList.of(child));
+            }
+
+            // if aggregation is decomposable and not already parallel, push down a partial which will be executed in parallel
+            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+            boolean decomposable = node.getFunctions()
+                    .values().stream()
+                    .map(functionRegistry::getAggregateFunctionImplementation)
+                    .allMatch(InternalAggregationFunction::isDecomposable);
+            if (decomposable && !requiredProperties.isParallelPreferred()) {
+                return splitAggregation(node, child, source -> gatheringExchange(idAllocator.getNextId(), LOCAL, source));
+            }
+
+            return rebaseAndDeriveProperties(node, ImmutableList.of(enforce(child, requiredProperties)));
+        }
+
+        private PlanWithProperties splitAggregation(AggregationNode node, PlanWithProperties newChild, Function<PlanNode, PlanNode> exchanger)
+        {
+            // otherwise, add a partial and final with an exchange in between
+            Map<Symbol, Symbol> masks = node.getMasks();
+
+            Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
+            Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
+            Map<Symbol, Signature> intermediateFunctions = new HashMap<>();
+            Map<Symbol, Symbol> intermediateMask = new HashMap<>();
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+                Signature signature = node.getFunctions().get(entry.getKey());
+                InternalAggregationFunction function = metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
+
+                Symbol intermediateSymbol = symbolAllocator.newSymbol(signature.getName(), function.getIntermediateType());
+                intermediateCalls.put(intermediateSymbol, entry.getValue());
+                intermediateFunctions.put(intermediateSymbol, signature);
+                if (masks.containsKey(entry.getKey())) {
+                    intermediateMask.put(intermediateSymbol, masks.get(entry.getKey()));
+                }
+
+                // rewrite final aggregation in terms of intermediate function
+                finalCalls.put(entry.getKey(), new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
+            }
+
+            PlanWithProperties source = deriveProperties(
+                    new AggregationNode(
+                            idAllocator.getNextId(),
+                            newChild.getNode(),
+                            node.getGroupBy(),
+                            intermediateCalls,
+                            intermediateFunctions,
+                            intermediateMask,
+                            node.getGroupingSets(),
+                            Step.PARTIAL,
+                            node.getSampleWeight(),
+                            node.getConfidence(),
+                            node.getHashSymbol()),
+                    newChild.getProperties());
+
+            if (exchanger != null) {
+                source = deriveProperties(exchanger.apply(source.getNode()), source.getProperties());
+            }
+
+            return deriveProperties(
+                    new AggregationNode(
+                            node.getId(),
+                            source.getNode(),
+                            node.getGroupBy(),
+                            finalCalls,
+                            node.getFunctions(),
+                            ImmutableMap.of(),
+                            node.getGroupingSets(),
+                            Step.FINAL,
+                            Optional.empty(),
+                            node.getConfidence(),
+                            node.getHashSymbol()),
+                    source.getProperties());
         }
 
         @Override
