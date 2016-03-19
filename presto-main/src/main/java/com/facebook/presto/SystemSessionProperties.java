@@ -42,7 +42,6 @@ public final class SystemSessionProperties
     public static final String TASK_JOIN_CONCURRENCY = "task_join_concurrency";
     public static final String TASK_HASH_BUILD_CONCURRENCY = "task_hash_build_concurrency";
     public static final String TASK_AGGREGATION_CONCURRENCY = "task_aggregation_concurrency";
-    public static final String TASK_INTERMEDIATE_AGGREGATION = "task_intermediate_aggregation";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
@@ -133,11 +132,6 @@ public final class SystemSessionProperties
                         TASK_AGGREGATION_CONCURRENCY,
                         "Experimental: Default number of local parallel aggregation jobs per worker",
                         taskManagerConfig.getTaskDefaultConcurrency(),
-                        false),
-                booleanSessionProperty(
-                        TASK_INTERMEDIATE_AGGREGATION,
-                        "Experimental: add intermediate aggregation jobs per worker",
-                        featuresConfig.isIntermediateAggregationsEnabled(),
                         false),
                 booleanSessionProperty(
                         TASK_SHARE_INDEX_LOADING,
@@ -276,11 +270,6 @@ public final class SystemSessionProperties
     public static int getTaskAggregationConcurrency(Session session)
     {
         return session.getProperty(TASK_AGGREGATION_CONCURRENCY, Integer.class);
-    }
-
-    public static boolean isIntermediateAggregation(Session session)
-    {
-        return session.getProperty(TASK_INTERMEDIATE_AGGREGATION, Boolean.class);
     }
 
     public static boolean isShareIndexLoading(Session session)
