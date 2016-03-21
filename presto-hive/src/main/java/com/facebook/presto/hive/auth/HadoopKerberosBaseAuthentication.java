@@ -17,14 +17,8 @@ import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import javax.security.auth.Subject;
-import javax.security.auth.kerberos.KerberosTicket;
-
 import java.io.File;
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.util.Map;
 import java.util.Optional;
@@ -37,25 +31,10 @@ import static org.apache.hadoop.security.SecurityUtil.getServerPrincipal;
 abstract class HadoopKerberosBaseAuthentication
         implements HadoopAuthentication
 {
-    private static final MethodHandle GET_SUBJECT;
-
-    static {
-        try {
-            Method getSubjectMethod = UserGroupInformation.class.getDeclaredMethod("getSubject");
-            getSubjectMethod.setAccessible(true);
-            GET_SUBJECT = MethodHandles.lookup().unreflect(getSubjectMethod);
-            getSubjectMethod.setAccessible(false);
-        }
-        catch (Throwable e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
     protected final String principal;
     protected final String keytab;
     protected final Configuration configuration;
     private Optional<UserGroupInformation> authenticatedUser = empty();
-    private long nextTgtRefreshTime = 0;
 
     public HadoopKerberosBaseAuthentication(String principal, String keytab, Configuration baseConfiguration)
     {
@@ -88,37 +67,10 @@ abstract class HadoopKerberosBaseAuthentication
         checkState(authenticatedUser.isPresent(), "user is not yet authenticated");
         UserGroupInformation ugi = authenticatedUser.get();
         try {
-            checkTGTAndRelogiFromKeytab(ugi);
+            ugi.checkTGTAndReloginFromKeytab();
             return ugi;
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private void checkTGTAndRelogiFromKeytab(UserGroupInformation ugi)
-            throws IOException
-    {
-        // check cached refresh time
-        if (nextTgtRefreshTime < System.currentTimeMillis()) {
-            return;
-        }
-
-        // do actual refresh
-        ugi.checkTGTAndReloginFromKeytab();
-
-        // cache next refresh time
-        Subject subject = getSubjectFrom(ugi);
-        KerberosTicket tgt = KerberosTicketUtils.getTgt(subject);
-        nextTgtRefreshTime = KerberosTicketUtils.getRefreshTime(tgt);
-    }
-
-    private Subject getSubjectFrom(UserGroupInformation ugi)
-    {
-        try {
-            return (Subject) GET_SUBJECT.invoke(ugi);
-        }
-        catch (Throwable e) {
             throw Throwables.propagate(e);
         }
     }
