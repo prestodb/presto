@@ -27,8 +27,6 @@ import java.util.Arrays;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.SizeOf.sizeOfBooleanArray;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.Objects.requireNonNull;
 
@@ -61,8 +59,6 @@ public final class InMemoryJoinHash
 
         // reserve memory for the arrays
         int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
-        size = sizeOfIntArray(hashSize) + sizeOfBooleanArray(hashSize) + sizeOfIntArray(addresses.size())
-                + sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes();
 
         mask = hashSize - 1;
         key = new int[hashSize];
@@ -117,6 +113,9 @@ public final class InMemoryJoinHash
                 key[pos] = realPosition;
             }
         }
+
+        size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
+                sizeOf(key) + sizeOf(positionLinks) + sizeOf(positionToHashes);
     }
 
     @Override
