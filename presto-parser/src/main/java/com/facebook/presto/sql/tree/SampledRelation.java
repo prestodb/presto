@@ -48,7 +48,7 @@ public class SampledRelation
         this(Optional.of(location), relation, type, samplePercentage, rescaled, columnsToStratifyOn);
     }
 
-    private SampledRelation(Optional<NodeLocation> location, Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
+    protected SampledRelation(Optional<NodeLocation> location, Relation relation, Type type, Expression samplePercentage, boolean rescaled, Optional<List<Expression>> columnsToStratifyOn)
     {
         super(location);
         this.relation = requireNonNull(relation, "relation is null");

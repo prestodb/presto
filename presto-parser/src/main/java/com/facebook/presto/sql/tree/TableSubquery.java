@@ -33,7 +33,7 @@ public class TableSubquery
         this(Optional.of(location), query);
     }
 
-    private TableSubquery(Optional<NodeLocation> location, Query query)
+    protected TableSubquery(Optional<NodeLocation> location, Query query)
     {
         super(location);
         this.query = query;

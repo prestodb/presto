@@ -19,6 +19,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.transaction.TransactionId;
@@ -55,6 +56,8 @@ import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -99,6 +102,9 @@ public class QueryStateMachine
 
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
+
+    private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
+    private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
 
     private final AtomicReference<TransactionId> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
@@ -342,6 +348,8 @@ public class QueryStateMachine
                 queryStats,
                 setSessionProperties,
                 resetSessionProperties,
+                addedPreparedStatements,
+                deallocatedPreparedStatements,
                 Optional.ofNullable(startedTransactionId.get()),
                 clearTransactionId.get(),
                 updateType.get(),
@@ -391,6 +399,40 @@ public class QueryStateMachine
     public void addResetSessionProperties(String name)
     {
         resetSessionProperties.add(requireNonNull(name, "name is null"));
+    }
+
+    public Map<String, String> getAddedPreparedStatements()
+    {
+        return addedPreparedStatements;
+    }
+
+    public Set<String> getDeallocatedPreparedStatements()
+    {
+        return deallocatedPreparedStatements;
+    }
+
+    public void addPreparedStatement(String key, String value)
+    {
+        requireNonNull(key, "key is null");
+        requireNonNull(value, "value is null");
+
+        if (session.getPreparedStatements().containsKey(key)) {
+            throw new PrestoException(ALREADY_EXISTS, "Prepared statement already exists: " + key);
+        }
+        String previousValue = addedPreparedStatements.putIfAbsent(key, value);
+        if (previousValue != null) {
+            throw new PrestoException(ALREADY_EXISTS, "Prepared statement already exists: " + key);
+        }
+    }
+
+    public void removePreparedStatement(String key)
+    {
+        requireNonNull(key, "key is null");
+
+        if (!session.getPreparedStatements().containsKey(key)) {
+            throw new PrestoException(NOT_FOUND, "Prepared statement not found: " + key);
+        }
+        deallocatedPreparedStatements.add(key);
     }
 
     public void setStartedTransactionId(TransactionId startedTransactionId)

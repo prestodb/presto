@@ -35,7 +35,7 @@ public class LikePredicate
         this(Optional.of(location), value, pattern, escape);
     }
 
-    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Expression escape)
+    protected LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Expression escape)
     {
         super(location);
         requireNonNull(value, "value is null");

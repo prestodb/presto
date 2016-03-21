@@ -31,7 +31,7 @@ public class SubqueryExpression
         this(Optional.of(location), query);
     }
 
-    private SubqueryExpression(Optional<NodeLocation> location, Query query)
+    protected SubqueryExpression(Optional<NodeLocation> location, Query query)
     {
         super(location);
         this.query = query;

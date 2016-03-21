@@ -33,3 +33,8 @@ This chapter describes the SQL syntax used in Presto.
     sql/start-transaction
     sql/use
     sql/values
+    sql/prepare
+    sql/execute
+    sql/deallocate-prepare
+    sql/describe-input
+    sql/describe-output

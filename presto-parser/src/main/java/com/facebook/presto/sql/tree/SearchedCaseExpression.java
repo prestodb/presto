@@ -37,7 +37,7 @@ public class SearchedCaseExpression
         this(Optional.of(location), whenClauses, defaultValue);
     }
 
-    private SearchedCaseExpression(Optional<NodeLocation> location, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    protected SearchedCaseExpression(Optional<NodeLocation> location, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
         super(location);
         requireNonNull(whenClauses, "whenClauses is null");

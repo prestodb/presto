@@ -38,7 +38,7 @@ public class Union
         this(Optional.of(location), relations, distinct);
     }
 
-    private Union(Optional<NodeLocation> location, List<Relation> relations, boolean distinct)
+    protected Union(Optional<NodeLocation> location, List<Relation> relations, boolean distinct)
     {
         super(location);
         requireNonNull(relations, "relations is null");

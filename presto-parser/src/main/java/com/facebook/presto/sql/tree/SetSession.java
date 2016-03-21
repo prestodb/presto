@@ -19,7 +19,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class SetSession
-        extends Statement
+        extends DataDefinitionStatement
 {
     private final QualifiedName name;
     private final Expression value;

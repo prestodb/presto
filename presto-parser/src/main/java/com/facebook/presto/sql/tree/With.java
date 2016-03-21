@@ -39,7 +39,7 @@ public class With
         this(Optional.of(location), recursive, queries);
     }
 
-    private With(Optional<NodeLocation> location, boolean recursive, List<WithQuery> queries)
+    protected With(Optional<NodeLocation> location, boolean recursive, List<WithQuery> queries)
     {
         super(location);
         requireNonNull(queries, "queries is null");

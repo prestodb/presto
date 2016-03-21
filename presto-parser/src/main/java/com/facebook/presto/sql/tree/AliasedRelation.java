@@ -37,7 +37,7 @@ public class AliasedRelation
         this(Optional.of(location), relation, alias, columnNames);
     }
 
-    private AliasedRelation(Optional<NodeLocation> location, Relation relation, String alias, List<String> columnNames)
+    protected AliasedRelation(Optional<NodeLocation> location, Relation relation, String alias, List<String> columnNames)
     {
         super(location);
         requireNonNull(relation, "relation is null");

@@ -37,7 +37,7 @@ public final class Values
         this(Optional.of(location), rows);
     }
 
-    private Values(Optional<NodeLocation> location, List<Expression> rows)
+    protected Values(Optional<NodeLocation> location, List<Expression> rows)
     {
         super(location);
         requireNonNull(rows, "rows is null");

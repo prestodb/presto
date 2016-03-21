@@ -53,7 +53,7 @@ public class ArithmeticBinaryExpression
         this(Optional.of(location), type, left, right);
     }
 
-    private ArithmeticBinaryExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
+    protected ArithmeticBinaryExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
     {
         super(location);
         this.type = type;

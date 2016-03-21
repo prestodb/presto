@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Rollup;
@@ -159,6 +160,12 @@ public final class ExpressionFormatter
         protected String visitBinaryLiteral(BinaryLiteral node, Boolean unmangleNames)
         {
             return "X'" + node.toHexString() + "'";
+        }
+
+        @Override
+        protected String visitParameter(Parameter node, Boolean unmangleNames)
+        {
+            return "?";
         }
 
         @Override

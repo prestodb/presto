@@ -100,7 +100,7 @@ public class ComparisonExpression
         this(Optional.of(location), type, left, right);
     }
 
-    private ComparisonExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
+    protected ComparisonExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
     {
         super(location);
         requireNonNull(type, "type is null");

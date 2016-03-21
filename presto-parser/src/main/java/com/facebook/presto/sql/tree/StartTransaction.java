@@ -24,7 +24,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public final class StartTransaction
-        extends Statement
+        extends DataDefinitionStatement
 {
     private final List<TransactionMode> transactionModes;
 

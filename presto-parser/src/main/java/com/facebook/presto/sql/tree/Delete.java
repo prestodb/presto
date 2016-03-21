@@ -20,7 +20,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class Delete
-        extends Statement
+        extends DataDefinitionStatement
 {
     private final Table table;
     private final Optional<Expression> where;

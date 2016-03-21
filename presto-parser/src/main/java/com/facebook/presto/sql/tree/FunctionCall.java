@@ -57,7 +57,7 @@ public class FunctionCall
         this(Optional.of(location), name, window, distinct, arguments);
     }
 
-    private FunctionCall(Optional<NodeLocation> location, QualifiedName name, Optional<Window> window, boolean distinct, List<Expression> arguments)
+    protected FunctionCall(Optional<NodeLocation> location, QualifiedName name, Optional<Window> window, boolean distinct, List<Expression> arguments)
     {
         super(location);
         requireNonNull(name, "name is null");

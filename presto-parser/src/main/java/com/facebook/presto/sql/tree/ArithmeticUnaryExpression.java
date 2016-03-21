@@ -40,7 +40,7 @@ public class ArithmeticUnaryExpression
         this(Optional.of(location), sign, value);
     }
 
-    private ArithmeticUnaryExpression(Optional<NodeLocation> location, Sign sign, Expression value)
+    protected ArithmeticUnaryExpression(Optional<NodeLocation> location, Sign sign, Expression value)
     {
         super(location);
         requireNonNull(value, "value is null");

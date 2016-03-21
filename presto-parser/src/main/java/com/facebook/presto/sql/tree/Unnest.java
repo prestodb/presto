@@ -38,7 +38,7 @@ public final class Unnest
         this(Optional.of(location), expressions, withOrdinality);
     }
 
-    private Unnest(Optional<NodeLocation> location, List<Expression> expressions, boolean withOrdinality)
+    protected Unnest(Optional<NodeLocation> location, List<Expression> expressions, boolean withOrdinality)
     {
         super(location);
         requireNonNull(expressions, "expressions is null");

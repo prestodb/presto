@@ -38,7 +38,7 @@ public class SimpleCaseExpression
         this(Optional.of(location), operand, whenClauses, defaultValue);
     }
 
-    private SimpleCaseExpression(Optional<NodeLocation> location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    protected SimpleCaseExpression(Optional<NodeLocation> location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
         super(location);
         requireNonNull(operand, "operand is null");

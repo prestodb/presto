@@ -63,6 +63,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Row;
@@ -112,6 +113,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -145,13 +147,15 @@ public class ExpressionAnalyzer
     private final IdentityHashMap<Expression, Type> expressionCoercions = new IdentityHashMap<>();
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
     private final Session session;
+    private final boolean isDescribe;
 
-    public ExpressionAnalyzer(FunctionRegistry functionRegistry, TypeManager typeManager, Function<Node, StatementAnalyzer> statementAnalyzerFactory, Session session)
+    public ExpressionAnalyzer(FunctionRegistry functionRegistry, TypeManager typeManager, Function<Node, StatementAnalyzer> statementAnalyzerFactory, Session session, boolean isDescribe)
     {
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
+        this.isDescribe = isDescribe;
     }
 
     public Map<Expression, Integer> getResolvedNames()
@@ -753,6 +757,16 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitParameter(Parameter node, StackableAstVisitorContext<AnalysisContext> context)
+        {
+            if (isDescribe) {
+                expressionTypes.put(node, UNKNOWN);
+                return UNKNOWN;
+            }
+            throw new SemanticException(INVALID_PARAMETER_USAGE, node, "Invalid use of Parameter. Parameters are only allowed in prepared statements.");
+        }
+
+        @Override
         protected Type visitExtract(Extract node, StackableAstVisitorContext<AnalysisContext> context)
         {
             Type type = process(node.getExpression(), context);
@@ -998,7 +1012,7 @@ public class ExpressionAnalyzer
             Map<Symbol, Type> types,
             Expression expression)
     {
-        return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression));
+        return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression), false /*is describe*/);
     }
 
     public static IdentityHashMap<Expression, Type> getExpressionTypes(
@@ -1006,9 +1020,21 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             Map<Symbol, Type> types,
-            Iterable<? extends Expression> expressions)
+            Expression expression,
+            boolean isDescribe)
     {
-        return analyzeExpressionsWithSymbols(session, metadata, sqlParser, types, expressions).getExpressionTypes();
+        return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression), isDescribe);
+    }
+
+    public static IdentityHashMap<Expression, Type> getExpressionTypes(
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            Map<Symbol, Type> types,
+            Iterable<? extends Expression> expressions,
+            boolean isDescribe)
+    {
+        return analyzeExpressionsWithSymbols(session, metadata, sqlParser, types, expressions, isDescribe).getExpressionTypes();
     }
 
     public static IdentityHashMap<Expression, Type> getExpressionTypesFromInput(
@@ -1036,7 +1062,8 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             Map<Symbol, Type> types,
-            Iterable<? extends Expression> expressions)
+            Iterable<? extends Expression> expressions,
+            boolean isDescribe)
     {
         List<Field> fields = DependencyExtractor.extractUnique(expressions).stream()
                 .map(symbol -> {
@@ -1046,7 +1073,7 @@ public class ExpressionAnalyzer
                 })
                 .collect(toImmutableList());
 
-        return analyzeExpressions(session, metadata, sqlParser, new RelationType(fields), expressions);
+        return analyzeExpressions(session, metadata, sqlParser, new RelationType(fields), expressions, isDescribe);
     }
 
     private static ExpressionAnalysis analyzeExpressionsWithInputs(
@@ -1072,9 +1099,20 @@ public class ExpressionAnalyzer
             RelationType tupleDescriptor,
             Iterable<? extends Expression> expressions)
     {
+        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, expressions, false);
+    }
+
+    private static ExpressionAnalysis analyzeExpressions(
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            RelationType tupleDescriptor,
+            Iterable<? extends Expression> expressions,
+            boolean isDescribe)
+    {
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
-        ExpressionAnalyzer analyzer = create(new Analysis(), session, metadata, sqlParser, new DenyAllAccessControl(), false);
+        ExpressionAnalyzer analyzer = create(new Analysis(), session, metadata, sqlParser, new DenyAllAccessControl(), isDescribe);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, tupleDescriptor, new AnalysisContext());
         }
@@ -1131,7 +1169,7 @@ public class ExpressionAnalyzer
                 metadata.getFunctionRegistry(),
                 metadata.getTypeManager(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled, Optional.empty()),
-                session);
+                session, analysis.isDescribe());
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session)
@@ -1141,13 +1179,25 @@ public class ExpressionAnalyzer
                 metadata.getTypeManager(),
                 session,
                 EXPRESSION_NOT_CONSTANT,
-                "Constant expression cannot contain a subquery");
+                "Constant expression cannot contain a subquery",
+                false /*is describe*/);
     }
 
-    public static ExpressionAnalyzer createWithoutSubqueries(FunctionRegistry functionRegistry, TypeManager typeManager, Session session, SemanticErrorCode errorCode, String message)
+    public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, boolean isDescribe)
+    {
+        return createWithoutSubqueries(
+                metadata.getFunctionRegistry(),
+                metadata.getTypeManager(),
+                session,
+                EXPRESSION_NOT_CONSTANT,
+                "Constant expression cannot contain a subquery",
+                isDescribe);
+    }
+
+    public static ExpressionAnalyzer createWithoutSubqueries(FunctionRegistry functionRegistry, TypeManager typeManager, Session session, SemanticErrorCode errorCode, String message, boolean isDescribe)
     {
         return new ExpressionAnalyzer(functionRegistry, typeManager, node -> {
             throw new SemanticException(errorCode, node, message);
-        }, session);
+        }, session, isDescribe);
     }
 }
