@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.ForHiveMetastore;
-import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.auth.HadoopAuthentication;
 import com.facebook.presto.hive.auth.HadoopKerberosAuthentication;
@@ -26,6 +25,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;
@@ -35,6 +35,7 @@ import org.apache.thrift.transport.TTransportException;
 import javax.security.sasl.Sasl;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -107,15 +108,24 @@ public class HiveMetastoreAuthenticationKerberos
         @Provides
         @Singleton
         @ForHiveMetastore
-        HadoopAuthentication createHadoopAuthentication(HiveClientConfig hiveClientConfig,
-                HdfsConfiguration hdfsConfiguration)
+        HadoopAuthentication getHadoopAuthentication(HiveClientConfig hiveClientConfig)
         {
             String principal = hiveClientConfig.getHiveMetastorePrestoPrincipal();
             String keytab = hiveClientConfig.getHiveMetastorePrestoKeytab();
-            Configuration configuration = hdfsConfiguration.getDefaultConfiguration();
+            Configuration configuration = createConfiguration(hiveClientConfig);
             HadoopAuthentication authentication = new HadoopKerberosAuthentication(principal, keytab, configuration);
             authentication.authenticate();
             return authentication;
+        }
+
+        private Configuration createConfiguration(HiveClientConfig hiveClientConfig)
+        {
+            Configuration configuration = new Configuration();
+            List<String> configurationFiles = hiveClientConfig.getResourceConfigFiles();
+            if (configurationFiles != null) {
+                configurationFiles.forEach(filePath -> configuration.addResource(new Path(filePath)));
+            }
+            return configuration;
         }
     }
 }

@@ -20,6 +20,4 @@ import java.net.URI;
 public interface HdfsConfiguration
 {
     Configuration getConfiguration(URI uri);
-
-    Configuration getDefaultConfiguration();
 }

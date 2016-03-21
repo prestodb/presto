@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.hive.auth;
 
 import com.facebook.presto.hive.ForHdfs;
@@ -25,12 +26,18 @@ import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.AbstractModule;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+
+import java.util.List;
+
+import static com.google.common.base.MoreObjects.firstNonNull;
 
 public class HdfsAuthenticatingConnectorModule extends AbstractModule
 {
@@ -59,7 +66,7 @@ public class HdfsAuthenticatingConnectorModule extends AbstractModule
     {
         String hdfsPrestoPrincipal = hiveClientConfig.getHdfsPrestoPrincipal();
         String hdfsPrestoKeytab = hiveClientConfig.getHdfsPrestoKeytab();
-        Configuration configuration = hdfsConfiguration.getDefaultConfiguration();
+        Configuration configuration = createConfiguration(hiveClientConfig);
         HdfsAuthenticationType authenticationType = hiveClientConfig.getHdfsAuthenticationType();
 
         HadoopAuthentication authentication = createAuthentication(
@@ -71,6 +78,14 @@ public class HdfsAuthenticatingConnectorModule extends AbstractModule
 
         authentication.authenticate();
         return authentication;
+    }
+
+    private Configuration createConfiguration(HiveClientConfig hiveClientConfig)
+    {
+        List<String> configurationFiles = firstNonNull(hiveClientConfig.getResourceConfigFiles(), ImmutableList.of());
+        Configuration configuration = new Configuration();
+        configurationFiles.forEach(filePath -> configuration.addResource(new Path(filePath)));
+        return configuration;
     }
 
     private HadoopAuthentication createAuthentication(String principal,
