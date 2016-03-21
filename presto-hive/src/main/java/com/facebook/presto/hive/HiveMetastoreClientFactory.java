@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
@@ -32,30 +31,21 @@ import java.net.Proxy;
 import java.net.Socket;
 import java.net.SocketAddress;
 
-import static java.util.Objects.requireNonNull;
-
 public class HiveMetastoreClientFactory
 {
     private final HostAndPort socksProxy;
     private final int timeoutMillis;
-    private final HiveMetastoreAuthentication metastoreAuthentication;
 
-    public HiveMetastoreClientFactory(
-            @Nullable HostAndPort socksProxy,
-            Duration timeout,
-            HiveMetastoreAuthentication metastoreAuthentication)
+    public HiveMetastoreClientFactory(@Nullable HostAndPort socksProxy, Duration timeout)
     {
         this.socksProxy = socksProxy;
         this.timeoutMillis = Ints.checkedCast(timeout.toMillis());
-        this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
     }
 
     @Inject
-    public HiveMetastoreClientFactory(
-            HiveClientConfig config,
-            HiveMetastoreAuthentication metastoreAuthentication)
+    public HiveMetastoreClientFactory(HiveClientConfig config)
     {
-        this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout(), metastoreAuthentication);
+        this(config.getMetastoreSocksProxy(), config.getMetastoreTimeout());
     }
 
     private static Socket createSocksSocket(HostAndPort proxy)
@@ -72,22 +62,23 @@ public class HiveMetastoreClientFactory
     public HiveMetastoreClient create(String host, int port)
             throws TTransportException
     {
-        TTransport transport = createTransport(host, port);
-        try {
-            transport.open();
-            return new ThriftHiveMetastoreClient(transport);
-        }
-        catch (Throwable t) {
-            transport.close();
-            throw t;
-        }
+        return new ThriftHiveMetastoreClient(createTransport(host, port));
     }
 
     protected TTransport createRawTransport(String host, int port)
             throws TTransportException
     {
         if (socksProxy == null) {
-            return new TSocket(host, port, timeoutMillis);
+            TTransport transport = new TSocket(host, port, timeoutMillis);
+
+            try {
+                transport.open();
+                return transport;
+            }
+            catch (Throwable t) {
+                transport.close();
+                throw t;
+            }
         }
 
         Socket socks = createSocksSocket(socksProxy);
@@ -111,9 +102,7 @@ public class HiveMetastoreClientFactory
             throws TTransportException
     {
         try {
-            TTransport rawTransport = createRawTransport(host, port);
-            TTransport authTransport = metastoreAuthentication.createAuthenticatedTransport(rawTransport, host);
-            return new TTransportWrapper(authTransport, host);
+            return new TTransportWrapper(createRawTransport(host, port), host);
         }
         catch (TTransportException e) {
             throw rewriteException(e, host);
