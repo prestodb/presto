@@ -25,7 +25,20 @@ import static java.util.Objects.requireNonNull;
 public class HiveHdfsConfiguration
         implements HdfsConfiguration
 {
-    private static final Configuration DEFAULT_CONFIGURATION = new Configuration();
+    private static final Configuration INITIAL_CONFIGURATION;
+
+    static {
+        Configuration.addDefaultResource("hdfs-default.xml");
+        Configuration.addDefaultResource("hdfs-site.xml");
+
+        // must not be transitively reloaded during the future loading of various Hadoop modules
+        // all the required default resources must be declared above
+        INITIAL_CONFIGURATION = new Configuration(false);
+        Configuration defaultConfiguration = new Configuration();
+        for (Map.Entry<String, String> entry : defaultConfiguration) {
+            INITIAL_CONFIGURATION.set(entry.getKey(), entry.getValue());
+        }
+    }
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
@@ -34,7 +47,7 @@ public class HiveHdfsConfiguration
         protected Configuration initialValue()
         {
             Configuration config = new Configuration(false);
-            for (Map.Entry<String, String> entry : DEFAULT_CONFIGURATION) {
+            for (Map.Entry<String, String> entry : INITIAL_CONFIGURATION) {
                 config.set(entry.getKey(), entry.getValue());
             }
             updater.updateConfiguration(config);
