@@ -14,7 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.auth.HadoopKerberosImpersonatingAuthentication;
+import com.facebook.presto.hive.auth.HadoopKerberosAuthentication;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
@@ -56,7 +56,7 @@ public class HiveMetastoreAuthenticationKerberos
     }
 
     private final String hiveMetastorePrincipal;
-    private final HadoopKerberosImpersonatingAuthentication metastoreUserAuthentication;
+    private final HadoopKerberosAuthentication metastoreUserAuthentication;
     private final HiveConf hiveConf;
 
     @Inject
@@ -79,7 +79,7 @@ public class HiveMetastoreAuthenticationKerberos
         Configuration configuration = createConfiguration(configurationFiles);
         this.hiveConf = new HiveConf(configuration, HiveMetastoreAuthenticationKerberos.class);
         this.hiveMetastorePrincipal = requireNonNull(hiveMetastorePrincipal, "hiveMetastorePrincipal is null");
-        this.metastoreUserAuthentication = new HadoopKerberosImpersonatingAuthentication(
+        this.metastoreUserAuthentication = new HadoopKerberosAuthentication(
                 hiveMetastorePrestoPrincipal, hiveMetastorePrestoKeytab, configuration
         );
         this.metastoreUserAuthentication.authenticate();

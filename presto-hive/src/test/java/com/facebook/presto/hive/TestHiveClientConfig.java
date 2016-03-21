@@ -97,7 +97,6 @@ public class TestHiveClientConfig
                 .setHiveMetastorePrincipal(null)
                 .setHiveMetastorePrestoPrincipal(null)
                 .setHiveMetastorePrestoKeytab(null)
-                .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.SIMPLE)
                 .setHdfsPrestoPrincipal(null)
                 .setHdfsPrestoKeytab(null));
     }
@@ -167,7 +166,6 @@ public class TestHiveClientConfig
                 .put("hive.metastore.principal", "hive/_HOST@EXAMPLE.COM")
                 .put("hive.metastore.presto.principal", "metastore@EXAMPLE.COM")
                 .put("hive.metastore.presto.keytab", "/tmp/metastore.keytab")
-                .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.presto.principal", "hdfs@EXAMPLE.COM")
                 .put("hive.hdfs.presto.keytab", "/tmp/hdfs.keytab")
                 .build();
@@ -234,7 +232,6 @@ public class TestHiveClientConfig
                 .setHiveMetastorePrincipal("hive/_HOST@EXAMPLE.COM")
                 .setHiveMetastorePrestoPrincipal("metastore@EXAMPLE.COM")
                 .setHiveMetastorePrestoKeytab("/tmp/metastore.keytab")
-                .setHdfsAuthenticationType(HiveClientConfig.HdfsAuthenticationType.KERBEROS)
                 .setHdfsPrestoPrincipal("hdfs@EXAMPLE.COM")
                 .setHdfsPrestoKeytab("/tmp/hdfs.keytab");
 

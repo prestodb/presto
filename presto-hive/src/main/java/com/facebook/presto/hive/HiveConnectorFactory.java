@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.auth.KerberosConnectorModule;
-import com.facebook.presto.hive.auth.KerberosImpersonificationConnectorModule;
 import com.facebook.presto.hive.auth.SimpleConnectorModule;
-import com.facebook.presto.hive.auth.SimpleImpersonificationConnectorModule;
 import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreAuthenticationKerberos;
 import com.facebook.presto.hive.metastore.HiveMetastoreAuthenticationSimple;
@@ -123,22 +120,7 @@ public class HiveConnectorFactory
                             HiveClientConfig.class,
                             hiveClientConfig -> hiveClientConfig.getHiveMetastoreAuthenticationType() == HiveClientConfig.HiveMetastoreAuthenticationType.SASL,
                             new HiveMetastoreAuthenticationKerberos.Module()),
-                    installModuleIf(
-                            HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() == HiveClientConfig.HdfsAuthenticationType.SIMPLE,
-                            new SimpleConnectorModule()),
-                    installModuleIf(
-                            HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() == HiveClientConfig.HdfsAuthenticationType.SIMPLE_IMPERSONATION,
-                            new SimpleImpersonificationConnectorModule()),
-                    installModuleIf(
-                            HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() == HiveClientConfig.HdfsAuthenticationType.KERBEROS,
-                            new KerberosConnectorModule()),
-                    installModuleIf(
-                            HiveClientConfig.class,
-                            c -> c.getHdfsAuthenticationType() == HiveClientConfig.HdfsAuthenticationType.KERBEROS_IMPERSONATION,
-                            new KerberosImpersonificationConnectorModule()),
+                    new SimpleConnectorModule(),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
