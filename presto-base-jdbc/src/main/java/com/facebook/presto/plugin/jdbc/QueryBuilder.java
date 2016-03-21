@@ -21,8 +21,10 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -115,6 +117,9 @@ public class QueryBuilder
             else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
                 statement.setBoolean(i + 1, (Boolean) typeAndValue.getValue());
             }
+            else if (typeAndValue.getType() instanceof VarcharType) {
+                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
+            }
             else {
                 throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
             }
@@ -126,7 +131,10 @@ public class QueryBuilder
     private static boolean isAcceptedType(Type type)
     {
         Type validType = requireNonNull(type, "type is null");
-        return validType.equals(BigintType.BIGINT) || validType.equals(DoubleType.DOUBLE) || validType.equals(BooleanType.BOOLEAN);
+        return validType.equals(BigintType.BIGINT) ||
+                validType.equals(DoubleType.DOUBLE) ||
+                validType.equals(BooleanType.BOOLEAN) ||
+                validType instanceof VarcharType;
     }
 
     private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
