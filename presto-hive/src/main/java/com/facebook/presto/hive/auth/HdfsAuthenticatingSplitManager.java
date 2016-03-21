@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.hive.auth;
 
-import com.facebook.presto.hive.ForHdfs;
 import com.facebook.presto.hive.HiveSplitManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -25,11 +25,11 @@ import javax.inject.Inject;
 public class HdfsAuthenticatingSplitManager
         implements ConnectorSplitManager
 {
-    private final HadoopAuthentication authentication;
+    private final HadoopKerberosImpersonatingAuthentication authentication;
     private final HiveSplitManager targetSplitManager;
 
     @Inject
-    public HdfsAuthenticatingSplitManager(@ForHdfs HadoopAuthentication authentication, HiveSplitManager targetSplitManager)
+    public HdfsAuthenticatingSplitManager(HadoopKerberosImpersonatingAuthentication authentication, HiveSplitManager targetSplitManager)
     {
         this.authentication = authentication;
         this.targetSplitManager = targetSplitManager;
