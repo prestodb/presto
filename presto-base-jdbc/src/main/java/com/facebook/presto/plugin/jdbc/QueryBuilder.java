@@ -43,8 +43,8 @@ public class QueryBuilder
 
     private static class TypeAndValue
     {
-        public final Type type;
-        public final Object value;
+        private final Type type;
+        private final Object value;
 
         public TypeAndValue(Type type, Object value)
         {
@@ -168,7 +168,7 @@ public class QueryBuilder
                             rangeConjuncts.add(toPredicate(columnName, ">=", range.getLow().getValue(), type, accumulator));
                             break;
                         case BELOW:
-                            throw new IllegalArgumentException("Low Marker should never use BELOW bound: " + range);
+                            throw new IllegalArgumentException("Low marker should never use BELOW bound");
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
                     }
@@ -176,7 +176,7 @@ public class QueryBuilder
                 if (!range.getHigh().isUpperUnbounded()) {
                     switch (range.getHigh().getBound()) {
                         case ABOVE:
-                            throw new IllegalArgumentException("High Marker should never use ABOVE bound: " + range);
+                            throw new IllegalArgumentException("High marker should never use ABOVE bound");
                         case EXACTLY:
                             rangeConjuncts.add(toPredicate(columnName, "<=", range.getHigh().getValue(), type, accumulator));
                             break;
