@@ -46,6 +46,8 @@ import java.util.Map;
 
 import static com.facebook.presto.hive.ConditionalModule.installModuleIf;
 import static com.facebook.presto.hive.SecurityConfig.ALLOW_ALL_ACCESS_CONTROL;
+import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHiveMetastoreAuthenticationModule;
+import static com.facebook.presto.hive.authentication.AuthenticationModules.noHiveMetastoreAuthenticationModule;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
@@ -115,6 +117,14 @@ public class HiveConnectorFactory
                             SecurityConfig.class,
                             security -> "sql-standard".equalsIgnoreCase(security.getSecuritySystem()),
                             new SqlStandardSecurityModule()),
+                    installModuleIf(
+                            HiveClientConfig.class,
+                            hiveClientConfig -> hiveClientConfig.getHiveMetastoreAuthenticationType() == HiveClientConfig.HiveMetastoreAuthenticationType.NONE,
+                            noHiveMetastoreAuthenticationModule()),
+                    installModuleIf(
+                            HiveClientConfig.class,
+                            hiveClientConfig -> hiveClientConfig.getHiveMetastoreAuthenticationType() == HiveClientConfig.HiveMetastoreAuthenticationType.KERBEROS,
+                            kerberosHiveMetastoreAuthenticationModule()),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
