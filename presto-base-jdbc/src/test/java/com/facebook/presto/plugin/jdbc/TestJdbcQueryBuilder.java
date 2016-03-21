@@ -34,6 +34,8 @@ import java.util.List;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -55,18 +57,21 @@ public class TestJdbcQueryBuilder
         columns = ImmutableList.of(
                 new JdbcColumnHandle("test_id", "col_0", BIGINT),
                 new JdbcColumnHandle("test_id", "col_1", DOUBLE),
-                new JdbcColumnHandle("test_id", "col_2", BOOLEAN));
+                new JdbcColumnHandle("test_id", "col_2", BOOLEAN),
+                new JdbcColumnHandle("test_id", "col_3", VARCHAR));
+
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
                 "\"col_0\" BIGINT, " +
                 "\"col_1\" DOUBLE, " +
                 "\"col_2\" BOOLEAN, " +
+                "\"col_3\" VARCHAR(128), " +
                 ")")) {
             preparedStatement.execute();
             StringBuilder stringBuilder = new StringBuilder("insert into \"test_table\" values ");
             int len = 1000;
             for (int i = 0; i < len; i++) {
-                stringBuilder.append(format("(%d, %f, %b)", i, (200000.0 + i / 2.0), i % 2 == 0));
+                stringBuilder.append(format("(%d, %f, %b, 'test_str_%d')", i, (200000.0 + i / 2.0), i % 2 == 0, i));
                 if (i != len - 1) {
                     stringBuilder.append(",");
                 }
@@ -113,13 +118,37 @@ public class TestJdbcQueryBuilder
         ));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain)) {
-            ResultSet resultSet = preparedStatement.executeQuery();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
             while (resultSet.next()) {
                 builder.add((Long) resultSet.getObject("col_0"));
             }
             assertEquals(builder.build(), ImmutableSet.of(22L, 66L, 68L, 70L, 72L, 96L, 128L, 180L, 194L, 196L, 198L));
+        }
+    }
+
+    @Test
+    public void testBuildSqlWithString()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columns.get(3), Domain.create(SortedRangeSet.copyOf(VARCHAR,
+                        ImmutableList.of(
+                                Range.range(VARCHAR, utf8Slice("test_str_700"), true, utf8Slice("test_str_702"), false),
+                                Range.equal(VARCHAR, utf8Slice("test_str_180")),
+                                Range.equal(VARCHAR, utf8Slice("test_str_196")))),
+                        false)
+        ));
+
+        Connection connection = database.getConnection();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
+            ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+            while (resultSet.next()) {
+                builder.add((String) resultSet.getObject("col_3"));
+            }
+            assertEquals(builder.build(), ImmutableSet.of("test_str_700", "test_str_701", "test_str_180", "test_str_196"));
         }
     }
 
@@ -133,8 +162,8 @@ public class TestJdbcQueryBuilder
         ));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain)) {
-            ResultSet resultSet = preparedStatement.executeQuery();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
             assertEquals(resultSet.next(), false);
         }
     }
