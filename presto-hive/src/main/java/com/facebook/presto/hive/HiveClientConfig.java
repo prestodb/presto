@@ -117,6 +117,11 @@ public class HiveClientConfig
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
 
+    private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
+    private String hiveMetastoreServicePrincipal;
+    private String hiveMetastoreClientPrincipal;
+    private String hiveMetastoreClientKeytab;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -872,6 +877,64 @@ public class HiveClientConfig
     public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public enum HiveMetastoreAuthenticationType
+    {
+        NONE,
+        KERBEROS
+    }
+
+    public HiveMetastoreAuthenticationType getHiveMetastoreAuthenticationType()
+    {
+        return hiveMetastoreAuthenticationType;
+    }
+
+    @Config("hive.metastore.authentication.type")
+    @ConfigDescription("Hive Metastore authentication type")
+    public HiveClientConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
+    {
+        this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
+        return this;
+    }
+
+    public String getHiveMetastoreServicePrincipal()
+    {
+        return hiveMetastoreServicePrincipal;
+    }
+
+    @Config("hive.metastore.service.principal")
+    @ConfigDescription("Hive Metastore service principal")
+    public HiveClientConfig setHiveMetastoreServicePrincipal(String hiveMetastoreServicePrincipal)
+    {
+        this.hiveMetastoreServicePrincipal = hiveMetastoreServicePrincipal;
+        return this;
+    }
+
+    public String getHiveMetastoreClientPrincipal()
+    {
+        return hiveMetastoreClientPrincipal;
+    }
+
+    @Config("hive.metastore.client.principal")
+    @ConfigDescription("Hive Metastore client principal")
+    public HiveClientConfig setHiveMetastoreClientPrincipal(String hiveMetastoreClientPrincipal)
+    {
+        this.hiveMetastoreClientPrincipal = hiveMetastoreClientPrincipal;
+        return this;
+    }
+
+    public String getHiveMetastoreClientKeytab()
+    {
+        return hiveMetastoreClientKeytab;
+    }
+
+    @Config("hive.metastore.client.keytab")
+    @ConfigDescription("Hive Metastore client keytab location")
+    public HiveClientConfig setHiveMetastoreClientKeytab(String hiveMetastoreClientKeytab)
+    {
+        this.hiveMetastoreClientKeytab = hiveMetastoreClientKeytab;
         return this;
     }
 }
