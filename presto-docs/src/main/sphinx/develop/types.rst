@@ -2,6 +2,9 @@
 Type System
 ===========
 
+First, if you have not already looked at :doc:`spi-overview`, check there for
+general plugin development information.
+
 The ``Type`` interface in Presto is used to implement a type in the SQL language.
 Presto ships with a number of built-in types, like ``VarcharType`` and ``BigintType``.
 A ``Plugin`` can provide new types by returning them from ``getServices()``.
